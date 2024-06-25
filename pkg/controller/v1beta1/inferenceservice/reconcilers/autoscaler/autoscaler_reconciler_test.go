@@ -33,17 +33,17 @@ func TestGetAutoscalerClass(t *testing.T) {
 		expectedAutoScalerType constants.AutoscalerClassType
 	}{
 		{
-			name: "Return default AutoScaler,if the autoscalerClass annotation is not set",
+			name: "Return default AutoScaler, if the autoscalerClass annotation is not set",
 			isvcMetaData: &metav1.ObjectMeta{
 				Name:        serviceName,
 				Namespace:   namespace,
 				Annotations: map[string]string{},
 			},
 
-			expectedAutoScalerType: constants.AutoscalerClassHPA,
+			expectedAutoScalerType: constants.DefaultAutoscalerClass,
 		},
 		{
-			name: "Return default AutoScaler,if the autoscalerClass annotation set hpa",
+			name: "Return HPA AutoScaler, if the autoscalerClass annotation set HPA",
 			isvcMetaData: &metav1.ObjectMeta{
 				Name:        serviceName,
 				Namespace:   namespace,
@@ -53,13 +53,22 @@ func TestGetAutoscalerClass(t *testing.T) {
 			expectedAutoScalerType: constants.AutoscalerClassHPA,
 		},
 		{
-			name: "Return external AutoScaler,if the autoscalerClass annotation set external",
+			name: "Return external AutoScaler, if the autoscalerClass annotation set external",
 			isvcMetaData: &metav1.ObjectMeta{
 				Name:        serviceName,
 				Namespace:   namespace,
 				Annotations: map[string]string{"serving.kserve.io/autoscalerClass": "external"},
 			},
 			expectedAutoScalerType: constants.AutoscalerClassExternal,
+		},
+		{
+			name: "Return none AutoScaler, if the autoscalerClass annotation set none",
+			isvcMetaData: &metav1.ObjectMeta{
+				Name:        serviceName,
+				Namespace:   namespace,
+				Annotations: map[string]string{"serving.kserve.io/autoscalerClass": "none"},
+			},
+			expectedAutoScalerType: constants.AutoscalerClassNone,
 		},
 	}
 

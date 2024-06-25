@@ -84,6 +84,11 @@ func (in *ComponentExtensionSpec) DeepCopyInto(out *ComponentExtensionSpec) {
 		*out = new(int)
 		**out = **in
 	}
+	if in.Replicas != nil {
+		in, out := &in.Replicas, &out.Replicas
+		*out = new(int32)
+		**out = **in
+	}
 	if in.ScaleTarget != nil {
 		in, out := &in.ScaleTarget, &out.ScaleTarget
 		*out = new(int)

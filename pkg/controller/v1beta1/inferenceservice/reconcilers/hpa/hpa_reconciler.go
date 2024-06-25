@@ -140,12 +140,12 @@ func (r *HPAReconciler) checkHPAExist(client client.Client) (constants.CheckResu
 		return constants.CheckResultUnknown, nil, err
 	}
 
+	if shouldDeleteHPA(r.HPA) {
+		return constants.CheckResultDelete, existingHPA, nil
+	}
 	// existed, check equivalent
 	if semanticHPAEquals(r.HPA, existingHPA) {
 		return constants.CheckResultExisted, existingHPA, nil
-	}
-	if shouldDeleteHPA(r.HPA) {
-		return constants.CheckResultDelete, existingHPA, nil
 	}
 	return constants.CheckResultUpdate, existingHPA, nil
 }
@@ -163,13 +163,12 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 }
 
 func shouldDeleteHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
-	desiredAutoscalerClass, hasDesiredAutoscalerClass := desired.Annotations[constants.AutoscalerClass]
-	return hasDesiredAutoscalerClass && constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassExternal
+	return !shouldCreateHPA(desired)
 }
 
 func shouldCreateHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
 	desiredAutoscalerClass, hasDesiredAutoscalerClass := desired.Annotations[constants.AutoscalerClass]
-	return !hasDesiredAutoscalerClass || (hasDesiredAutoscalerClass && constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassHPA)
+	return !hasDesiredAutoscalerClass || constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassHPA
 }
 
 // Reconcile ...

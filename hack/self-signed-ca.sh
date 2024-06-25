@@ -180,7 +180,7 @@ for webhookConfigName in "${validatingWebhookConfigNames[@]}"; do
     --type='json' -p="${validatingPatchString}"
 done
 
-# The conversion webhook has been removed: https://github.com/kserve/kserve/pull/3700/files. 
+# The conversion webhook has been removed: https://github.com/kserve/kserve/pull/3700/files.
 # However, this is kept as a reference for potential future use of the conversion webhook.
 
 # echo "patching ca bundler for conversion webhook configuration.."

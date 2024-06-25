@@ -35,6 +35,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -89,20 +90,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}`,
 		}
 
-		It("Should have ingress/service/deployment/hpa created", func() {
-			By("By creating a new InferenceService")
+		var configMap *v1.ConfigMap
+		var servingRuntime *v1alpha1.ServingRuntime
+		BeforeEach(func() {
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			Expect(k8sClient.Create(context.TODO(), configMap)).Should(Succeed())
 			// Create ServingRuntime
-			servingRuntime := &v1alpha1.ServingRuntime{
+			servingRuntime = &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "tf-serving-raw",
 					Namespace: "default",
@@ -134,8 +135,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: proto.Bool(false),
 				},
 			}
-			k8sClient.Create(context.TODO(), servingRuntime)
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).Should(Succeed())
+		})
+
+		AfterEach(func() {
+			Expect(k8sClient.Delete(context.TODO(), configMap)).Should(Succeed())
+			Expect(k8sClient.Delete(context.TODO(), servingRuntime)).Should(Succeed())
+		})
+
+		It("Should have ingress/service/deployment/hpa created", func() {
+			By("By creating a new InferenceService")
 			serviceName := "raw-foo"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -505,51 +514,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 		It("Should have ingress/service/deployment/hpa created with DeploymentStrategy", func() {
 			By("By creating a new InferenceService with DeploymentStrategy in PredictorSpec")
-			// Create configmap
-			var configMap = &v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KServeNamespace,
-				},
-				Data: configs,
-			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
-			// Create ServingRuntime
-			servingRuntime := &v1alpha1.ServingRuntime{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "tf-serving-raw",
-					Namespace: "default",
-				},
-				Spec: v1alpha1.ServingRuntimeSpec{
-					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
-						{
-							Name:       "tensorflow",
-							Version:    proto.String("1"),
-							AutoSelect: proto.Bool(true),
-						},
-					},
-					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []v1.Container{
-							{
-								Name:    "kserve-container",
-								Image:   "tensorflow/serving:1.14.0",
-								Command: []string{"/usr/bin/tensorflow_model_server"},
-								Args: []string{
-									"--port=9000",
-									"--rest_api_port=8080",
-									"--model_base_path=/mnt/models",
-									"--rest_api_timeout_in_ms=60000",
-								},
-								Resources: defaultResource,
-							},
-						},
-					},
-					Disabled: proto.Bool(false),
-				},
-			}
-			k8sClient.Create(context.TODO(), servingRuntime)
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-foo-customized"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -920,51 +884,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 		It("Should have ingress/service/deployment created", func() {
 			By("By creating a new InferenceService with AutoscalerClassExternal")
-			// Create configmap
-			var configMap = &v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KServeNamespace,
-				},
-				Data: configs,
-			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
-			// Create ServingRuntime
-			servingRuntime := &v1alpha1.ServingRuntime{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "tf-serving-raw",
-					Namespace: "default",
-				},
-				Spec: v1alpha1.ServingRuntimeSpec{
-					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
-						{
-							Name:       "tensorflow",
-							Version:    proto.String("1"),
-							AutoSelect: proto.Bool(true),
-						},
-					},
-					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []v1.Container{
-							{
-								Name:    "kserve-container",
-								Image:   "tensorflow/serving:1.14.0",
-								Command: []string{"/usr/bin/tensorflow_model_server"},
-								Args: []string{
-									"--port=9000",
-									"--rest_api_port=8080",
-									"--model_base_path=/mnt/models",
-									"--rest_api_timeout_in_ms=60000",
-								},
-								Resources: defaultResource,
-							},
-						},
-					},
-					Disabled: proto.Bool(false),
-				},
-			}
-			k8sClient.Create(context.TODO(), servingRuntime)
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-foo-2"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -1260,11 +1179,128 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).Should(gomega.BeEmpty())
 
 			//check HPA is not created
-			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 			predictorHPAKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
-				Should(HaveOccurred())
+			Consistently(func() error {
+				return k8sClient.Get(context.TODO(), predictorHPAKey, &autoscalingv2.HorizontalPodAutoscaler{})
+			}, timeout).Should(WithTransform(errors.IsNotFound, BeTrue()))
+		})
+		It("Should have ingress/service/deployment created with replicas", func() {
+			By("By creating a new InferenceService with AutoscalerClassNone")
+			serviceName := "raw-foo-replicas"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			ctx := context.Background()
+			three := int32(3)
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "none",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							Replicas: &three,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, serviceKey, &v1beta1.InferenceService{})
+			}, timeout, interval).Should(Succeed())
+
+			actualDeployment := &appsv1.Deployment{}
+			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment)
+			}, timeout).Should(Succeed())
+
+			// Assuming the other units have validated correctness of the Deployment, the Service,
+			// the InferenceService (and its status) and the ingress; only the diff of the
+			// Deployment is tested.
+			Expect(*actualDeployment.Spec.Replicas).Should(Equal(three))
+			Expect(actualDeployment.Spec.Template.Annotations["serving.kserve.io/autoscalerClass"]).To(Equal("none"))
+
+			//check HPA is not created
+			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Consistently(func() error {
+				return k8sClient.Get(context.TODO(), predictorHPAKey, &autoscalingv2.HorizontalPodAutoscaler{})
+			}, timeout).Should(WithTransform(errors.IsNotFound, BeTrue()))
+		})
+		It("Should create deployment without replicas if the InferenceService has replicas and an autoscaler (ignore replicas)", func() {
+			By("By creating a new InferenceService with default autoscaler and replicas")
+			serviceName := "raw-foo-replicas-with-autoscaler"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			ctx := context.Background()
+			three := int32(3)
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":              "RawDeployment",
+						"serving.kserve.io/autoscalerClass":             "hpa",
+						"serving.kserve.io/metrics":                     "cpu",
+						"serving.kserve.io/targetUtilizationPercentage": "75",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							Replicas: &three,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, serviceKey, &v1beta1.InferenceService{})
+			}, timeout, interval).Should(Succeed())
+
+			actualDeployment := &appsv1.Deployment{}
+			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment)
+			}, timeout).Should(Succeed())
+
+			// Assuming the other units have validated correctness of the Deployment, the Service,
+			// the InferenceService (and its status) and the ingress; only the diff of the
+			// Deployment is tested.
+			one := int32(1)
+			Expect(*actualDeployment.Spec.Replicas).Should(Equal(one)) // One is the default when no replicas are specified when creating the deployment.
 		})
 	})
 	Context("When creating inference service with raw kube predictor and empty ingressClassName", func() {

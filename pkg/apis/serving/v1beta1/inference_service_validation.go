@@ -108,8 +108,9 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
-	if err := validateInferenceServiceAutoscaler(isvc); err != nil {
-		return allWarnings, err
+	autoscaler, validateAutoscalerErr := validateInferenceServiceAutoscaler(isvc)
+	if validateAutoscalerErr != nil {
+		return allWarnings, validateAutoscalerErr
 	}
 
 	if err := validateAutoscalerTargetUtilizationPercentage(isvc); err != nil {
@@ -131,7 +132,7 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 			}
 			if err := utils.FirstNonNilError([]error{
 				component.GetImplementation().Validate(),
-				component.GetExtensions().Validate(),
+				component.GetExtensions().Validate(autoscaler),
 				validateAutoScalingCompExtension(annotations, component.GetExtensions()),
 			}); err != nil {
 				return allWarnings, err
@@ -145,7 +146,7 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec *ComponentExtensionSpec) error {
 	deploymentMode := annotations["serving.kserve.io/deploymentMode"]
 	annotationClass := annotations[autoscaling.ClassAnnotationKey]
-	if deploymentMode == string(constants.RawDeployment) || annotationClass == string(autoscaling.HPA) {
+	if deploymentMode == string(constants.RawDeployment) || annotationClass == autoscaling.HPA {
 		return validateScalingHPACompExtension(compExtSpec)
 	}
 
@@ -161,7 +162,7 @@ func validateInferenceServiceName(isvc *InferenceService) error {
 }
 
 // Validation of isvc autoscaler class
-func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
+func validateInferenceServiceAutoscaler(isvc *InferenceService) (constants.AutoscalerClassType, error) {
 	annotations := isvc.ObjectMeta.Annotations
 	value, ok := annotations[constants.AutoscalerClass]
 	class := constants.AutoscalerClassType(value)
@@ -171,21 +172,19 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 				switch class {
 				case constants.AutoscalerClassHPA:
 					if metric, ok := annotations[constants.AutoscalerMetrics]; ok {
-						return validateHPAMetrics(ScaleMetric(metric))
+						return class, validateHPAMetrics(ScaleMetric(metric))
 					} else {
-						return nil
+						return class, nil
 					}
-				case constants.AutoscalerClassExternal:
-					return nil
-				default:
-					return fmt.Errorf("unknown autoscaler class [%s]", class)
+				case constants.AutoscalerClassExternal, constants.AutoscalerClassNone:
+					return class, nil
 				}
 			}
 		}
-		return fmt.Errorf("[%s] is not a supported autoscaler class type", value)
+		return "", fmt.Errorf("[%s] is not a supported autoscaler class type", value)
 	}
 
-	return nil
+	return constants.DefaultAutoscalerClass, nil
 }
 
 // Validate of autoscaler HPA metrics

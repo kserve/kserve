@@ -81,6 +81,7 @@ class V1beta1ExplainerSpec(object):
         'priority': 'int',
         'priority_class_name': 'str',
         'readiness_gates': 'list[V1PodReadinessGate]',
+        'replicas': 'int',
         'resource_claims': 'list[V1PodResourceClaim]',
         'restart_policy': 'str',
         'runtime_class_name': 'str',
@@ -136,6 +137,7 @@ class V1beta1ExplainerSpec(object):
         'priority': 'priority',
         'priority_class_name': 'priorityClassName',
         'readiness_gates': 'readinessGates',
+        'replicas': 'replicas',
         'resource_claims': 'resourceClaims',
         'restart_policy': 'restartPolicy',
         'runtime_class_name': 'runtimeClassName',
@@ -156,7 +158,7 @@ class V1beta1ExplainerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, replicas=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -196,6 +198,7 @@ class V1beta1ExplainerSpec(object):
         self._priority = None
         self._priority_class_name = None
         self._readiness_gates = None
+        self._replicas = None
         self._resource_claims = None
         self._restart_policy = None
         self._runtime_class_name = None
@@ -284,6 +287,8 @@ class V1beta1ExplainerSpec(object):
             self.priority_class_name = priority_class_name
         if readiness_gates is not None:
             self.readiness_gates = readiness_gates
+        if replicas is not None:
+            self.replicas = replicas
         if resource_claims is not None:
             self.resource_claims = resource_claims
         if restart_policy is not None:
@@ -1088,6 +1093,29 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._readiness_gates = readiness_gates
+
+    @property
+    def replicas(self):
+        """Gets the replicas of this V1beta1ExplainerSpec.  # noqa: E501
+
+        Replicas specifies the number of replicas that should be deployed. This field is only relevant when using RawDeployment mode, and it sets a hard replica count. If you are using an autoscaler, must leave this field unset and use the MinReplicas and MaxReplicas fields to set the replicas range.  # noqa: E501
+
+        :return: The replicas of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._replicas
+
+    @replicas.setter
+    def replicas(self, replicas):
+        """Sets the replicas of this V1beta1ExplainerSpec.
+
+        Replicas specifies the number of replicas that should be deployed. This field is only relevant when using RawDeployment mode, and it sets a hard replica count. If you are using an autoscaler, must leave this field unset and use the MinReplicas and MaxReplicas fields to set the replicas range.  # noqa: E501
+
+        :param replicas: The replicas of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._replicas = replicas
 
     @property
     def resource_claims(self):

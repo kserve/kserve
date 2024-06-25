@@ -85,6 +85,26 @@ func TestValidAutoscalerClassTypeAndHPAMetrics(t *testing.T) {
 	g.Expect(err).Should(gomega.Succeed())
 }
 
+func TestValidAutoscalerClassExternal(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestRawInferenceService()
+	isvc.ObjectMeta.Annotations["serving.kserve.io/autoscalerClass"] = "external"
+	validator := InferenceServiceValidator{}
+	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+}
+
+func TestValidAutoscalerClassNone(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestRawInferenceService()
+	isvc.ObjectMeta.Annotations["serving.kserve.io/autoscalerClass"] = "none"
+	validator := InferenceServiceValidator{}
+	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+}
+
 func TestInvalidAutoscalerClassType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestRawInferenceService()
