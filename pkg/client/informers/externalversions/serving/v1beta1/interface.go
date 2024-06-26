@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// InferenceServices returns a InferenceServiceInformer.
 	InferenceServices() InferenceServiceInformer
+	// InferenceServiceLists returns a InferenceServiceListInformer.
+	InferenceServiceLists() InferenceServiceListInformer
 }
 
 type version struct {
@@ -42,4 +44,9 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // InferenceServices returns a InferenceServiceInformer.
 func (v *version) InferenceServices() InferenceServiceInformer {
 	return &inferenceServiceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// InferenceServiceLists returns a InferenceServiceListInformer.
+func (v *version) InferenceServiceLists() InferenceServiceListInformer {
+	return &inferenceServiceListInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

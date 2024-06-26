@@ -55,14 +55,24 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=serving.kserve.io, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("clusterservingruntimes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ClusterServingRuntimes().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("clusterservingruntimelists"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ClusterServingRuntimeLists().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("clusterstoragecontainers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ClusterStorageContainers().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("clusterstoragecontainerlists"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ClusterStorageContainerLists().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("inferencegraphs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().InferenceGraphs().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("inferencegraphlists"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().InferenceGraphLists().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("servingruntimes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ServingRuntimes().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("servingruntimelists"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ServingRuntimeLists().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("trainedmodels"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().TrainedModels().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("trainedmodellists"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().TrainedModelLists().Informer()}, nil
 
 	}
 

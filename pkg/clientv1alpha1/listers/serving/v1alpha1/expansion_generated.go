@@ -26,6 +26,14 @@ type ClusterServingRuntimeListerExpansion interface{}
 // ClusterServingRuntimeNamespaceLister.
 type ClusterServingRuntimeNamespaceListerExpansion interface{}
 
+// ClusterServingRuntimeListListerExpansion allows custom methods to be added to
+// ClusterServingRuntimeListLister.
+type ClusterServingRuntimeListListerExpansion interface{}
+
+// ClusterServingRuntimeListNamespaceListerExpansion allows custom methods to be added to
+// ClusterServingRuntimeListNamespaceLister.
+type ClusterServingRuntimeListNamespaceListerExpansion interface{}
+
 // ClusterStorageContainerListerExpansion allows custom methods to be added to
 // ClusterStorageContainerLister.
 type ClusterStorageContainerListerExpansion interface{}
@@ -33,6 +41,14 @@ type ClusterStorageContainerListerExpansion interface{}
 // ClusterStorageContainerNamespaceListerExpansion allows custom methods to be added to
 // ClusterStorageContainerNamespaceLister.
 type ClusterStorageContainerNamespaceListerExpansion interface{}
+
+// ClusterStorageContainerListListerExpansion allows custom methods to be added to
+// ClusterStorageContainerListLister.
+type ClusterStorageContainerListListerExpansion interface{}
+
+// ClusterStorageContainerListNamespaceListerExpansion allows custom methods to be added to
+// ClusterStorageContainerListNamespaceLister.
+type ClusterStorageContainerListNamespaceListerExpansion interface{}
 
 // InferenceGraphListerExpansion allows custom methods to be added to
 // InferenceGraphLister.
@@ -42,6 +58,14 @@ type InferenceGraphListerExpansion interface{}
 // InferenceGraphNamespaceLister.
 type InferenceGraphNamespaceListerExpansion interface{}
 
+// InferenceGraphListListerExpansion allows custom methods to be added to
+// InferenceGraphListLister.
+type InferenceGraphListListerExpansion interface{}
+
+// InferenceGraphListNamespaceListerExpansion allows custom methods to be added to
+// InferenceGraphListNamespaceLister.
+type InferenceGraphListNamespaceListerExpansion interface{}
+
 // ServingRuntimeListerExpansion allows custom methods to be added to
 // ServingRuntimeLister.
 type ServingRuntimeListerExpansion interface{}
@@ -50,6 +74,14 @@ type ServingRuntimeListerExpansion interface{}
 // ServingRuntimeNamespaceLister.
 type ServingRuntimeNamespaceListerExpansion interface{}
 
+// ServingRuntimeListListerExpansion allows custom methods to be added to
+// ServingRuntimeListLister.
+type ServingRuntimeListListerExpansion interface{}
+
+// ServingRuntimeListNamespaceListerExpansion allows custom methods to be added to
+// ServingRuntimeListNamespaceLister.
+type ServingRuntimeListNamespaceListerExpansion interface{}
+
 // TrainedModelListerExpansion allows custom methods to be added to
 // TrainedModelLister.
 type TrainedModelListerExpansion interface{}
@@ -57,3 +89,11 @@ type TrainedModelListerExpansion interface{}
 // TrainedModelNamespaceListerExpansion allows custom methods to be added to
 // TrainedModelNamespaceLister.
 type TrainedModelNamespaceListerExpansion interface{}
+
+// TrainedModelListListerExpansion allows custom methods to be added to
+// TrainedModelListLister.
+type TrainedModelListListerExpansion interface{}
+
+// TrainedModelListNamespaceListerExpansion allows custom methods to be added to
+// TrainedModelListNamespaceLister.
+type TrainedModelListNamespaceListerExpansion interface{}

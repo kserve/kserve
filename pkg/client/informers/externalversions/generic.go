@@ -55,6 +55,8 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 	// Group=serving.kserve.io, Version=v1beta1
 	case v1beta1.SchemeGroupVersion.WithResource("inferenceservices"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1beta1().InferenceServices().Informer()}, nil
+	case v1beta1.SchemeGroupVersion.WithResource("inferenceservicelists"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1beta1().InferenceServiceLists().Informer()}, nil
 
 	}
 

@@ -26,14 +26,24 @@ import (
 type Interface interface {
 	// ClusterServingRuntimes returns a ClusterServingRuntimeInformer.
 	ClusterServingRuntimes() ClusterServingRuntimeInformer
+	// ClusterServingRuntimeLists returns a ClusterServingRuntimeListInformer.
+	ClusterServingRuntimeLists() ClusterServingRuntimeListInformer
 	// ClusterStorageContainers returns a ClusterStorageContainerInformer.
 	ClusterStorageContainers() ClusterStorageContainerInformer
+	// ClusterStorageContainerLists returns a ClusterStorageContainerListInformer.
+	ClusterStorageContainerLists() ClusterStorageContainerListInformer
 	// InferenceGraphs returns a InferenceGraphInformer.
 	InferenceGraphs() InferenceGraphInformer
+	// InferenceGraphLists returns a InferenceGraphListInformer.
+	InferenceGraphLists() InferenceGraphListInformer
 	// ServingRuntimes returns a ServingRuntimeInformer.
 	ServingRuntimes() ServingRuntimeInformer
+	// ServingRuntimeLists returns a ServingRuntimeListInformer.
+	ServingRuntimeLists() ServingRuntimeListInformer
 	// TrainedModels returns a TrainedModelInformer.
 	TrainedModels() TrainedModelInformer
+	// TrainedModelLists returns a TrainedModelListInformer.
+	TrainedModelLists() TrainedModelListInformer
 }
 
 type version struct {
@@ -52,9 +62,19 @@ func (v *version) ClusterServingRuntimes() ClusterServingRuntimeInformer {
 	return &clusterServingRuntimeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
+// ClusterServingRuntimeLists returns a ClusterServingRuntimeListInformer.
+func (v *version) ClusterServingRuntimeLists() ClusterServingRuntimeListInformer {
+	return &clusterServingRuntimeListInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
 // ClusterStorageContainers returns a ClusterStorageContainerInformer.
 func (v *version) ClusterStorageContainers() ClusterStorageContainerInformer {
 	return &clusterStorageContainerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterStorageContainerLists returns a ClusterStorageContainerListInformer.
+func (v *version) ClusterStorageContainerLists() ClusterStorageContainerListInformer {
+	return &clusterStorageContainerListInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // InferenceGraphs returns a InferenceGraphInformer.
@@ -62,12 +82,27 @@ func (v *version) InferenceGraphs() InferenceGraphInformer {
 	return &inferenceGraphInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
+// InferenceGraphLists returns a InferenceGraphListInformer.
+func (v *version) InferenceGraphLists() InferenceGraphListInformer {
+	return &inferenceGraphListInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
 // ServingRuntimes returns a ServingRuntimeInformer.
 func (v *version) ServingRuntimes() ServingRuntimeInformer {
 	return &servingRuntimeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
+// ServingRuntimeLists returns a ServingRuntimeListInformer.
+func (v *version) ServingRuntimeLists() ServingRuntimeListInformer {
+	return &servingRuntimeListInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
 // TrainedModels returns a TrainedModelInformer.
 func (v *version) TrainedModels() TrainedModelInformer {
 	return &trainedModelInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// TrainedModelLists returns a TrainedModelListInformer.
+func (v *version) TrainedModelLists() TrainedModelListInformer {
+	return &trainedModelListInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

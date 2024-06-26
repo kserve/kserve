@@ -29,6 +29,7 @@ import (
 type ServingV1beta1Interface interface {
 	RESTClient() rest.Interface
 	InferenceServicesGetter
+	InferenceServiceListsGetter
 }
 
 // ServingV1beta1Client is used to interact with features provided by the serving.kserve.io group.
@@ -38,6 +39,10 @@ type ServingV1beta1Client struct {
 
 func (c *ServingV1beta1Client) InferenceServices(namespace string) InferenceServiceInterface {
 	return newInferenceServices(c, namespace)
+}
+
+func (c *ServingV1beta1Client) InferenceServiceLists(namespace string) InferenceServiceListInterface {
+	return newInferenceServiceLists(c, namespace)
 }
 
 // NewForConfig creates a new ServingV1beta1Client for the given config.

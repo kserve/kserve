@@ -32,6 +32,10 @@ func (c *FakeServingV1beta1) InferenceServices(namespace string) v1beta1.Inferen
 	return &FakeInferenceServices{c, namespace}
 }
 
+func (c *FakeServingV1beta1) InferenceServiceLists(namespace string) v1beta1.InferenceServiceListInterface {
+	return &FakeInferenceServiceLists{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeServingV1beta1) RESTClient() rest.Interface {

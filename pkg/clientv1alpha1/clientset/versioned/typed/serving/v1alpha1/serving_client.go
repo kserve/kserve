@@ -29,10 +29,15 @@ import (
 type ServingV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ClusterServingRuntimesGetter
+	ClusterServingRuntimeListsGetter
 	ClusterStorageContainersGetter
+	ClusterStorageContainerListsGetter
 	InferenceGraphsGetter
+	InferenceGraphListsGetter
 	ServingRuntimesGetter
+	ServingRuntimeListsGetter
 	TrainedModelsGetter
+	TrainedModelListsGetter
 }
 
 // ServingV1alpha1Client is used to interact with features provided by the serving.kserve.io group.
@@ -44,20 +49,40 @@ func (c *ServingV1alpha1Client) ClusterServingRuntimes(namespace string) Cluster
 	return newClusterServingRuntimes(c, namespace)
 }
 
+func (c *ServingV1alpha1Client) ClusterServingRuntimeLists(namespace string) ClusterServingRuntimeListInterface {
+	return newClusterServingRuntimeLists(c, namespace)
+}
+
 func (c *ServingV1alpha1Client) ClusterStorageContainers(namespace string) ClusterStorageContainerInterface {
 	return newClusterStorageContainers(c, namespace)
+}
+
+func (c *ServingV1alpha1Client) ClusterStorageContainerLists(namespace string) ClusterStorageContainerListInterface {
+	return newClusterStorageContainerLists(c, namespace)
 }
 
 func (c *ServingV1alpha1Client) InferenceGraphs(namespace string) InferenceGraphInterface {
 	return newInferenceGraphs(c, namespace)
 }
 
+func (c *ServingV1alpha1Client) InferenceGraphLists(namespace string) InferenceGraphListInterface {
+	return newInferenceGraphLists(c, namespace)
+}
+
 func (c *ServingV1alpha1Client) ServingRuntimes(namespace string) ServingRuntimeInterface {
 	return newServingRuntimes(c, namespace)
 }
 
+func (c *ServingV1alpha1Client) ServingRuntimeLists(namespace string) ServingRuntimeListInterface {
+	return newServingRuntimeLists(c, namespace)
+}
+
 func (c *ServingV1alpha1Client) TrainedModels(namespace string) TrainedModelInterface {
 	return newTrainedModels(c, namespace)
+}
+
+func (c *ServingV1alpha1Client) TrainedModelLists(namespace string) TrainedModelListInterface {
+	return newTrainedModelLists(c, namespace)
 }
 
 // NewForConfig creates a new ServingV1alpha1Client for the given config.

@@ -212,6 +212,7 @@ type ServingRuntime struct {
 
 // ServingRuntimeList contains a list of ServingRuntime
 // +k8s:openapi-gen=true
+// +genclient
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ServingRuntimeList struct {
@@ -240,6 +241,7 @@ type ClusterServingRuntime struct {
 
 // ClusterServingRuntimeList contains a list of ServingRuntime
 // +k8s:openapi-gen=true
+// +genclient
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ClusterServingRuntimeList struct {

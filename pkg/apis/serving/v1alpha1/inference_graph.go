@@ -309,6 +309,7 @@ type InferenceGraphStatus struct {
 
 // InferenceGraphList contains a list of InferenceGraph
 // +k8s:openapi-gen=true
+// +genclient
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type InferenceGraphList struct {

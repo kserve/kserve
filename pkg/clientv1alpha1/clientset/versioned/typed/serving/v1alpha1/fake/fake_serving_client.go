@@ -32,20 +32,40 @@ func (c *FakeServingV1alpha1) ClusterServingRuntimes(namespace string) v1alpha1.
 	return &FakeClusterServingRuntimes{c, namespace}
 }
 
+func (c *FakeServingV1alpha1) ClusterServingRuntimeLists(namespace string) v1alpha1.ClusterServingRuntimeListInterface {
+	return &FakeClusterServingRuntimeLists{c, namespace}
+}
+
 func (c *FakeServingV1alpha1) ClusterStorageContainers(namespace string) v1alpha1.ClusterStorageContainerInterface {
 	return &FakeClusterStorageContainers{c, namespace}
+}
+
+func (c *FakeServingV1alpha1) ClusterStorageContainerLists(namespace string) v1alpha1.ClusterStorageContainerListInterface {
+	return &FakeClusterStorageContainerLists{c, namespace}
 }
 
 func (c *FakeServingV1alpha1) InferenceGraphs(namespace string) v1alpha1.InferenceGraphInterface {
 	return &FakeInferenceGraphs{c, namespace}
 }
 
+func (c *FakeServingV1alpha1) InferenceGraphLists(namespace string) v1alpha1.InferenceGraphListInterface {
+	return &FakeInferenceGraphLists{c, namespace}
+}
+
 func (c *FakeServingV1alpha1) ServingRuntimes(namespace string) v1alpha1.ServingRuntimeInterface {
 	return &FakeServingRuntimes{c, namespace}
 }
 
+func (c *FakeServingV1alpha1) ServingRuntimeLists(namespace string) v1alpha1.ServingRuntimeListInterface {
+	return &FakeServingRuntimeLists{c, namespace}
+}
+
 func (c *FakeServingV1alpha1) TrainedModels(namespace string) v1alpha1.TrainedModelInterface {
 	return &FakeTrainedModels{c, namespace}
+}
+
+func (c *FakeServingV1alpha1) TrainedModelLists(namespace string) v1alpha1.TrainedModelListInterface {
+	return &FakeTrainedModelLists{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

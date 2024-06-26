@@ -20,10 +20,20 @@ package v1alpha1
 
 type ClusterServingRuntimeExpansion interface{}
 
+type ClusterServingRuntimeListExpansion interface{}
+
 type ClusterStorageContainerExpansion interface{}
+
+type ClusterStorageContainerListExpansion interface{}
 
 type InferenceGraphExpansion interface{}
 
+type InferenceGraphListExpansion interface{}
+
 type ServingRuntimeExpansion interface{}
 
+type ServingRuntimeListExpansion interface{}
+
 type TrainedModelExpansion interface{}
+
+type TrainedModelListExpansion interface{}

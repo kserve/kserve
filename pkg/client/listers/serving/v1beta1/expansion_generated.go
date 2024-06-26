@@ -25,3 +25,11 @@ type InferenceServiceListerExpansion interface{}
 // InferenceServiceNamespaceListerExpansion allows custom methods to be added to
 // InferenceServiceNamespaceLister.
 type InferenceServiceNamespaceListerExpansion interface{}
+
+// InferenceServiceListListerExpansion allows custom methods to be added to
+// InferenceServiceListLister.
+type InferenceServiceListListerExpansion interface{}
+
+// InferenceServiceListNamespaceListerExpansion allows custom methods to be added to
+// InferenceServiceListNamespaceLister.
+type InferenceServiceListNamespaceListerExpansion interface{}
