@@ -117,7 +117,12 @@ class PredictorConfig:
 
 
 class Model(BaseKServeModel):
-    def __init__(self, name: str, predictor_config: Optional[PredictorConfig] = None):
+    def __init__(
+        self,
+        name: str,
+        predictor_config: Optional[PredictorConfig] = None,
+        response_headers: bool = False,
+    ):
         """KServe Model Public Interface
 
         Model is intended to be subclassed to implement the model handlers.
@@ -150,6 +155,7 @@ class Model(BaseKServeModel):
         self._http_client_instance = None
         self._grpc_client_stub = None
         self.enable_latency_logging = False
+        self.required_response_headers = response_headers
 
     async def __call__(
         self,
@@ -175,6 +181,7 @@ class Model(BaseKServeModel):
         predict_ms = 0
         postprocess_ms = 0
         prom_labels = get_labels(self.name)
+        response_headers = {}
 
         with PRE_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
@@ -197,11 +204,18 @@ class Model(BaseKServeModel):
         elif verb == InferenceVerb.PREDICT:
             with PREDICT_HIST_TIME.labels(**prom_labels).time():
                 start = time.time()
-                response = (
-                    (await self.predict(payload, headers))
-                    if inspect.iscoroutinefunction(self.predict)
-                    else self.predict(payload, headers)
-                )
+                if self.required_response_headers:
+                    response = (
+                        (await self.predict(payload, headers, response_headers))
+                        if inspect.iscoroutinefunction(self.predict)
+                        else self.predict(payload, headers, response_headers)
+                    )
+                else:
+                    response = (
+                        (await self.predict(payload, headers))
+                        if inspect.iscoroutinefunction(self.predict)
+                        else self.predict(payload, headers)
+                    )
                 predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
@@ -222,7 +236,7 @@ class Model(BaseKServeModel):
                 f"postprocess_ms: {postprocess_ms}"
             )
 
-        return response
+        return response, response_headers
 
     @property
     def _http_client(self):
@@ -325,7 +339,10 @@ class Model(BaseKServeModel):
         return result
 
     async def _http_predict(
-        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
+        self,
+        payload: Union[Dict, InferRequest],
+        headers: Dict[str, str] = None,
+        response_header: Dict[str, str] = None,
     ) -> Dict:
         protocol = "https" if self.use_ssl else "http"
         predict_url = PREDICTOR_URL_FORMAT.format(
@@ -375,6 +392,10 @@ class Model(BaseKServeModel):
                     error_message = error_message["error"]
             message = message.format(response, error_message=error_message)
             raise HTTPStatusError(message, request=response.request, response=response)
+
+        if response_header is not None:
+            response_header.update(response.headers)
+
         return orjson.loads(response.content)
 
     async def _grpc_predict(
@@ -399,6 +420,7 @@ class Model(BaseKServeModel):
         self,
         payload: Union[Dict, InferRequest, ModelInferRequest],
         headers: Dict[str, str] = None,
+        response_header: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse, AsyncIterator[Any]]:
         """The `predict` handler can be overridden for performing the inference.
             By default, the predict handler makes call to predictor for the inference step.
@@ -419,7 +441,7 @@ class Model(BaseKServeModel):
             res = await self._grpc_predict(payload, headers)
             return InferResponse.from_grpc(res)
         else:
-            res = await self._http_predict(payload, headers)
+            res = await self._http_predict(payload, headers, response_header)
             # return an InferResponse if this is REST V2, otherwise just return the dictionary
             return (
                 InferResponse.from_rest(self.name, res)
