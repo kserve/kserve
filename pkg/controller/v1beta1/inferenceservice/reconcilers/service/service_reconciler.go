@@ -37,27 +37,29 @@ var log = logf.Log.WithName("ServiceReconciler")
 
 // ServiceReconciler is the struct of Raw K8S Object
 type ServiceReconciler struct {
-	client       client.Client
-	scheme       *runtime.Scheme
-	Service      *corev1.Service
-	componentExt *v1beta1.ComponentExtensionSpec
+	client        client.Client
+	scheme        *runtime.Scheme
+	Service       *corev1.Service
+	componentExt  *v1beta1.ComponentExtensionSpec
+	ServiceConfig *v1beta1.ServiceConfig
 }
 
 func NewServiceReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec) *ServiceReconciler {
+	podSpec *corev1.PodSpec,
+	serviceConfig *v1beta1.ServiceConfig) *ServiceReconciler {
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
-		Service:      createService(componentMeta, componentExt, podSpec),
+		Service:      createService(componentMeta, componentExt, podSpec, serviceConfig),
 		componentExt: componentExt,
 	}
 }
 
 func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec) *corev1.Service {
+	podSpec *corev1.PodSpec, serviceConfig *v1beta1.ServiceConfig) *corev1.Service {
 	var servicePorts []corev1.ServicePort
 	if len(podSpec.Containers) != 0 {
 		container := podSpec.Containers[0]
@@ -131,6 +133,11 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 			Ports: servicePorts,
 		},
 	}
+
+	if serviceConfig != nil && serviceConfig.ServiceClusterIPNone != nil && *serviceConfig.ServiceClusterIPNone {
+		service.Spec.ClusterIP = corev1.ClusterIPNone
+	}
+
 	return service
 }
 
