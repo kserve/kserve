@@ -27,16 +27,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-logr/zapr"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/kserve/kserve/pkg/agent"
-	"github.com/kserve/kserve/pkg/agent/storage"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/batcher"
-	kfslogger "github.com/kserve/kserve/pkg/logger"
 	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
-
 	"knative.dev/networking/pkg/http/header"
 	proxy "knative.dev/networking/pkg/http/proxy"
 	pkglogging "knative.dev/pkg/logging"
@@ -46,6 +41,13 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
+	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/kserve/kserve/pkg/agent"
+	"github.com/kserve/kserve/pkg/agent/storage"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/batcher"
+	kfslogger "github.com/kserve/kserve/pkg/logger"
 )
 
 var (
@@ -85,7 +87,7 @@ const (
 )
 
 type config struct {
-	// Making the below fields optional since raw deployment wont have them
+	// Making the below fields optional since raw deployment won't have them
 	ContainerConcurrency   int    `split_words:"true"`
 	QueueServingPort       int    `split_words:"true"`
 	UserPort               int    `split_words:"true"`
@@ -124,6 +126,7 @@ func main() {
 	}
 
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
+	ctrl.SetLogger(zapr.NewLogger(logger.Desugar()))
 	// Setup probe to run for checking user container healthiness.
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
@@ -313,7 +316,7 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
 
 func buildServer(ctx context.Context, port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs, // nolint unparam
 	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
-	logging.Infof("Building server user port %s port %s", userPort, port)
+	logging.Infof("Building server user port %d port %s", userPort, port)
 	target := &url.URL{
 		Scheme: "http",
 		Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(userPort)),

@@ -45,10 +45,14 @@ if __name__ == "__main__":
         kserve.ModelServer(workers=1).start([model])
     except ModelMissingError:
         logger.error(
-            f"fail to load model {args.model_name} from dir {args.model_dir},"
+            f"failed to load model {args.model_name} from dir {args.model_dir},"
             f"trying to load from model repository."
         )
+        # Case 1: Model will be loaded from model repository automatically, if present
+        # Case 2: In the event that the model repository is empty, it's possible that this is a scenario for
+        # multi-model serving. In such a case, models are loaded dynamically using the TrainedModel.
+        # Therefore, we start the server without any preloaded models
         model_repository = LightGBMModelRepository(args.model_dir, args.nthread)
         # LightGBM doesn't support multi-process, so the number of http server workers should be 1.
         server = kserve.ModelServer(workers=1, registered_models=model_repository)
-        server.start([model])
+        server.start([])

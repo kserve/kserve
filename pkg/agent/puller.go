@@ -25,9 +25,10 @@ import (
 	"sync"
 	"syscall"
 
+	"go.uber.org/zap"
+
 	"github.com/kserve/kserve/pkg/agent/storage"
 	v1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"go.uber.org/zap"
 )
 
 type OpType string
@@ -177,7 +178,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 				} else {
 					body, err := io.ReadAll(resp.Body)
 					if err == nil {
-						p.logger.Infof("Failed to load model %s with status [%d] and resp:%v", modelName, resp.StatusCode, body)
+						p.logger.Infof("Failed to load model %s with status [%d] and resp:%s", modelName, resp.StatusCode, string(body))
 					}
 				}
 			}
