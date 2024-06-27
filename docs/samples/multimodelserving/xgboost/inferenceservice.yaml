@@ -1,0 +1,17 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "xgboost-mms"
+spec:
+  predictor:
+    minReplicas: 1
+    xgboost:
+      protocolVersion: v1
+      #name: "xgboost-mms-predictor"
+      resources:
+        limits:
+          cpu: "1"
+          memory: 2Gi
+        requests:
+          cpu: "1"
+          memory: 2Gi
