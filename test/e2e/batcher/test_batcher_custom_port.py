@@ -90,6 +90,16 @@ def test_batcher_custom_port():
             executor.submit(lambda: predict_str(service_name, json.dumps(item)))
             for item in json_array
         ]
-    results = [f.result()["batchId"] for f in future_res]
-    assert all(x == results[0] for x in results)
+    results = []
+    response_codes = []
+
+    for f in future_res:
+        result = f.result()
+        results.append(result["batchId"])
+        response_codes.append(result["response_code"])
+
+    # Batch results must have the same batch ID.
+    assert len(set(results)) == 1
+    # Batch results must have 200 response codes.
+    assert set(response_codes) == {200}
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
