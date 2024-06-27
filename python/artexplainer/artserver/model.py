@@ -13,19 +13,15 @@
 # limitations under the License.
 
 import asyncio
+import functools
 from typing import Dict
 
 import numpy as np
 from art.attacks.evasion.square_attack import SquareAttack
 from art.estimators.classification import BlackBoxClassifierNeuralNetwork
 
-
-import nest_asyncio
-
 import kserve
 from kserve.logging import logger
-
-nest_asyncio.apply()
 
 
 class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
@@ -52,17 +48,7 @@ class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
         self.ready = True
         return self.ready
 
-    def _predict(self, x):
-        n_samples = len(x)
-        input_image = x.reshape((n_samples, -1))
-        scoring_data = {"instances": input_image.tolist()}
-
-        loop = asyncio.get_running_loop()
-        resp = loop.run_until_complete(self.predict(scoring_data))
-        prediction = np.array(resp["predictions"])
-        return [1 if x == prediction else 0 for x in range(0, self.nb_classes)]
-
-    def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+    async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         image = payload["instances"][0]
         label = payload["instances"][1]
         try:
@@ -75,15 +61,31 @@ class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
                 % (e, payload["instances"])
             )
         try:
+            loop = asyncio.get_running_loop()
+
+            def predict(x):
+                n_samples = len(x)
+                input_image = x.reshape((n_samples, -1))
+                scoring_data = {"instances": input_image.tolist()}
+                future = asyncio.run_coroutine_threadsafe(
+                    self.predict(scoring_data), loop
+                )
+                resp = future.result()
+                prediction = np.array(resp["predictions"])
+                return [1 if x == prediction else 0 for x in range(0, self.nb_classes)]
+
             if str.lower(self.adversary_type) == "squareattack":
                 classifier = BlackBoxClassifierNeuralNetwork(
-                    self._predict,
+                    predict,
                     inputs.shape,
                     self.nb_classes,
                     channels_first=False,
                     clip_values=(-np.inf, np.inf),
                 )
-                preds = np.argmax(classifier.predict(inputs, batch_size=1))
+                result = await loop.run_in_executor(
+                    None, functools.partial(classifier.predict, inputs, batch_size=1)
+                )
+                preds = np.argmax(result)
                 attack = SquareAttack(estimator=classifier, max_iter=self.max_iter)
                 x_adv = attack.generate(x=inputs, y=label)
 

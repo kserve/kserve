@@ -74,3 +74,9 @@ GENERATION = "generation"
 
 # LLM stats map key
 LLM_STATS_KEY = "llm-stats"
+
+V2_ROUTE_PREFIX = "/v2"
+V1_ROUTE_PREFIX = "/v1"
+
+DEFAULT_HTTP_PORT = 8080
+DEFAULT_GRPC_PORT = 8081

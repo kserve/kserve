@@ -120,6 +120,7 @@ def test_sklearn_runtime_kserve():
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
+            args=["--workers=2"],
         ),
     )
 

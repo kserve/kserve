@@ -88,13 +88,6 @@ class ModelNotReady(RuntimeError):
         return self.error_msg
 
 
-async def exception_handler(_, exc):
-    logger.error("Exception:", exc_info=exc)
-    return JSONResponse(
-        status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"error": str(exc)}
-    )
-
-
 async def invalid_input_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
     return JSONResponse(status_code=HTTPStatus.BAD_REQUEST, content={"error": str(exc)})
