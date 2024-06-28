@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
@@ -28,12 +29,15 @@ import (
 
 func TestComponentExtensionSpec_Validate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	four := int32(4)
+	minusFour := int32(-4)
 
 	scenarios := map[string]struct {
-		spec    ComponentExtensionSpec
-		matcher types.GomegaMatcher
+		autoscaler constants.AutoscalerClassType
+		spec       ComponentExtensionSpec
+		matcher    types.GomegaMatcher
 	}{
-		"InvalidReplica": {
+		"InvalidReplicaRange": {
 			spec: ComponentExtensionSpec{
 				MinReplicas: GetIntReference(3),
 				MaxReplicas: 2,
@@ -46,11 +50,43 @@ func TestComponentExtensionSpec_Validate(t *testing.T) {
 			},
 			matcher: gomega.Not(gomega.BeNil()),
 		},
+		"RejectHardReplicasWithHPA": {
+			autoscaler: constants.AutoscalerClassHPA,
+			spec: ComponentExtensionSpec{
+				Replicas: &four,
+			},
+			matcher: gomega.Not(gomega.BeNil()),
+		},
+		"RejectHardReplicasWithExternalAutoscaler": {
+			autoscaler: constants.AutoscalerClassExternal,
+			spec: ComponentExtensionSpec{
+				Replicas: &four,
+			},
+			matcher: gomega.Not(gomega.BeNil()),
+		},
+		"AllowHardReplicasWithoutAutoscaler": {
+			autoscaler: constants.AutoscalerClassNone,
+			spec: ComponentExtensionSpec{
+				Replicas: &four,
+			},
+			matcher: gomega.BeNil(),
+		},
+		"InvalidHardReplicasCount": {
+			autoscaler: constants.AutoscalerClassNone,
+			spec: ComponentExtensionSpec{
+				Replicas: &minusFour,
+			},
+			matcher: gomega.Not(gomega.BeNil()),
+		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res := scenario.spec.Validate()
+			scaler := constants.DefaultAutoscalerClass
+			if scenario.autoscaler != "" {
+				scaler = scenario.autoscaler
+			}
+			res := scenario.spec.Validate(scaler)
 			if !g.Expect(res).To(scenario.matcher) {
 				t.Errorf("got %q, want %q", res, scenario.matcher)
 			}
