@@ -43,9 +43,9 @@ kserve:
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local
+        knativeGatewayService: ""
       ingressGateway:
         gateway: knative-serving/knative-ingress-gateway
-        gatewayService: istio-ingressgateway.istio-system.svc.cluster.local
         className: istio
     nodeSelector: {}
     tolerations: []

@@ -401,7 +401,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			Match: createHTTPMatchRequest(constants.ExplainPrefix(), serviceHost,
 				network.GetServiceHostname(isvc.Name, isvc.Namespace), additionalHosts, isInternal, config),
 			Route: []*istiov1beta1.HTTPRouteDestination{
-				createHTTPRouteDestination(config.LocalGatewayServiceName),
+				createHTTPRouteDestination(config.KnativeLocalGatewayService),
 			},
 			Headers: &istiov1beta1.Headers{
 				Request: &istiov1beta1.Headers_HeaderOperations{
@@ -418,7 +418,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		Match: createHTTPMatchRequest("", serviceHost,
 			network.GetServiceHostname(isvc.Name, isvc.Namespace), additionalHosts, isInternal, config),
 		Route: []*istiov1beta1.HTTPRouteDestination{
-			createHTTPRouteDestination(config.LocalGatewayServiceName),
+			createHTTPRouteDestination(config.KnativeLocalGatewayService),
 		},
 		Headers: &istiov1beta1.Headers{
 			Request: &istiov1beta1.Headers_HeaderOperations{
@@ -481,7 +481,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 				Uri: "/",
 			},
 			Route: []*istiov1beta1.HTTPRouteDestination{
-				createHTTPRouteDestination(config.LocalGatewayServiceName),
+				createHTTPRouteDestination(config.KnativeLocalGatewayService),
 			},
 			Headers: &istiov1beta1.Headers{
 				Request: &istiov1beta1.Headers_HeaderOperations{

@@ -181,7 +181,6 @@ data:
      ingress: |-
        {
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
-           "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
            "localGateway" : "knative-serving/knative-local-gateway",
            "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
            "ingressDomain"  : "example.com",
@@ -199,9 +198,15 @@ data:
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
 
-           # ingressService specifies the hostname of the ingress service.
+           # knativeLocalGatewayService specifies the hostname of the Knative's local gateway service.
+           # The default KServe configurations are re-using the Istio local gateways for Knative. In this case, this
+           # knativeLocalGatewayService field can be left unset. When unset, the value of "localGatewayService" will be used.
+           # However, sometimes it may be better to have local gateways specifically for KServe (e.g. when enabling strict mTLS in Istio).
+           # Under such setups where KServe is needed to have its own local gateways, the values of the "localGateway" and
+           # "localGatewayService" should point to the KServe local gateways. Then, this knativeLocalGatewayService field
+           # should point to the Knative's local gateway service.
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
-           "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+           "knativeLocalGatewayService": "",
 
            # localGateway specifies the gateway which handles the network traffic within the cluster.
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
@@ -495,7 +500,7 @@ data:
   ingress: |-
     {
         "ingressGateway" : "{{ .Values.kserve.controller.gateway.ingressGateway.gateway }}",
-        "ingressService" : "{{ .Values.kserve.controller.gateway.ingressGateway.gatewayService }}",
+        "knativeLocalGatewayService" : "{{ .Values.kserve.controller.gateway.localGateway.knativeGatewayService }}",
         "localGateway" : "{{ .Values.kserve.controller.gateway.localGateway.gateway }}",
         "localGatewayService" : "{{ .Values.kserve.controller.gateway.localGateway.gatewayService }}",
         "ingressClassName" : "{{ .Values.kserve.controller.gateway.ingressGateway.className }}",

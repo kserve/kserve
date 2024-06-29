@@ -105,7 +105,6 @@ var _ = BeforeSuite(func() {
 	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Serverless"}
 	ingressConfig := &v1beta1.IngressConfig{
 		IngressGateway:          constants.KnativeIngressGateway,
-		IngressServiceName:      "someIngressServiceName",
 		LocalGateway:            constants.KnativeLocalGateway,
 		LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
 		DisableIstioVirtualHost: false,
