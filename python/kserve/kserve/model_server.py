@@ -164,7 +164,7 @@ class ModelServer:
         workers: int = args.workers,
         max_threads: int = args.max_threads,
         max_asyncio_workers: int = args.max_asyncio_workers,
-        registered_models: ModelRepository = None,
+        registered_models: Optional[ModelRepository] = None,
         enable_grpc: bool = args.enable_grpc,
         enable_docs_url: bool = args.enable_docs_url,
         enable_latency_logging: bool = args.enable_latency_logging,
@@ -178,7 +178,7 @@ class ModelServer:
             workers: Number of uvicorn workers. Default: ``1``.
             max_threads: Max number of gRPC processing threads. Default: ``4``
             max_asyncio_workers: Max number of AsyncIO threads. Default: ``None``
-            registered_models: Model repository with registered models.
+            registered_models: A optional Model repository with registered models.
             enable_grpc: Whether to turn on grpc server. Default: ``True``
             enable_docs_url: Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
             enable_latency_logging: Whether to log latency metric. Default: ``True``.

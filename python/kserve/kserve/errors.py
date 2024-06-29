@@ -88,6 +88,18 @@ class ModelNotReady(RuntimeError):
         return self.error_msg
 
 
+class UnsupportedProtocol(Exception):
+    """
+    Exception class indicating requested protocol is not supported.
+    """
+
+    def __init__(self, protocol_version=None):
+        self.reason = f"Unsupported protocol {protocol_version}."
+
+    def __str__(self):
+        return self.reason
+
+
 async def exception_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
     return JSONResponse(
@@ -128,6 +140,13 @@ async def model_not_ready_handler(_, exc):
 
 
 async def not_implemented_error_handler(_, exc):
+    logger.error("Exception:", exc_info=exc)
+    return JSONResponse(
+        status_code=HTTPStatus.NOT_IMPLEMENTED, content={"error": str(exc)}
+    )
+
+
+async def unsupported_protocol_error_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
     return JSONResponse(
         status_code=HTTPStatus.NOT_IMPLEMENTED, content={"error": str(exc)}
