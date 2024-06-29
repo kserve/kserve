@@ -28,13 +28,12 @@ import (
 )
 
 var (
-	TensorflowEntrypointCommand          = "/usr/bin/tensorflow_model_server"
-	TensorflowServingGRPCPort            = "9000"
-	TensorflowServingRestPort            = "8080"
-	TensorflowServingGPUSuffix           = "-gpu"
-	InvalidTensorflowRuntimeVersionError = "Tensorflow RuntimeVersion must be one of %s"
-	InvalidTensorflowRuntimeIncludesGPU  = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
-	InvalidTensorflowRuntimeExcludesGPU  = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
+	TensorflowEntrypointCommand         = "/usr/bin/tensorflow_model_server"
+	TensorflowServingGRPCPort           = "9000"
+	TensorflowServingRestPort           = "8080"
+	TensorflowServingGPUSuffix          = "-gpu"
+	InvalidTensorflowRuntimeIncludesGPU = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested"
+	InvalidTensorflowRuntimeExcludesGPU = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested"
 )
 
 // TFServingSpec defines arguments for configuring Tensorflow model serving.
