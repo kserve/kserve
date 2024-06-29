@@ -31,11 +31,12 @@ from kserve import (
 
 import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
 
 @pytest.mark.predictor
-def test_sklearn_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_kserve(rest_v1_client):
     service_name = "isvc-sklearn"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -62,16 +63,16 @@ def test_sklearn_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = predict(service_name, "./data/iris_input.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_sklearn_v2_mlserver():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_v2_mlserver(rest_v2_client):
     service_name = "sklearn-v2-mlserver"
     protocol_version = "v2"
-
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
@@ -99,15 +100,20 @@ def test_sklearn_v2_mlserver():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1, 1]
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
+    )
+    assert res.outputs[0].data == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
 @pytest.mark.kourier
-def test_sklearn_runtime_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_runtime_kserve(rest_v1_client):
     service_name = "isvc-sklearn-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -137,13 +143,14 @@ def test_sklearn_runtime_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = predict(service_name, "./data/iris_input.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_sklearn_v2_runtime_mlserver():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_v2_runtime_mlserver(rest_v2_client):
     service_name = "isvc-sklearn-v2-runtime"
     protocol_version = "v2"
 
@@ -178,14 +185,19 @@ def test_sklearn_v2_runtime_mlserver():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1, 1]
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
+    )
+    assert res.outputs[0].data == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_sklearn_v2():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_v2(rest_v2_client):
     service_name = "isvc-sklearn-v2"
 
     predictor = V1beta1PredictorSpec(
@@ -218,14 +230,19 @@ def test_sklearn_v2():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1, 1]
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
+    )
+    assert res.outputs[0].data == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_sklearn_v2_grpc():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_v2_grpc():
     service_name = "isvc-sklearn-v2-grpc"
     model_name = "sklearn"
     predictor = V1beta1PredictorSpec(
@@ -263,17 +280,18 @@ def test_sklearn_v2_grpc():
     json_file = open("./data/iris_input_v2_grpc.json")
     payload = json.load(json_file)["inputs"]
 
-    response = predict_grpc(
+    response = await predict_grpc(
         service_name=service_name, payload=payload, model_name=model_name
     )
-    prediction = list(response.outputs[0].contents.int_contents)
+    prediction = response.outputs[0].data
     assert prediction == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_sklearn_v2_mixed():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_v2_mixed(rest_v2_client):
     service_name = "isvc-sklearn-v2-mixed"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -305,16 +323,19 @@ def test_sklearn_v2_mixed():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    response = predict(
-        service_name, "./data/sklearn_mixed_v2.json", protocol_version="v2"
+    response = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/sklearn_mixed_v2.json",
     )
-    assert response["outputs"][0]["data"] == [12.202832815138274]
+    assert response.outputs[0].data == [12.202832815138274]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_sklearn_v2_mixed_grpc():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_v2_mixed_grpc():
     service_name = "isvc-sklearn-v2-mixed-grpc"
     model_name = "sklearn"
     predictor = V1beta1PredictorSpec(
@@ -372,13 +393,13 @@ def test_sklearn_v2_mixed_grpc():
                 }
             )
     parameters = {"content_type": inference_pb2.InferParameter(string_param="pd")}
-    response = predict_grpc(
+    response = await predict_grpc(
         service_name=service_name,
         payload=payload,
         model_name=model_name,
         parameters=parameters,
     )
-    prediction = list(response.outputs[0].contents.fp64_contents)
+    prediction = list(response.outputs[0].data)
     assert prediction == [12.202832815138274]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
