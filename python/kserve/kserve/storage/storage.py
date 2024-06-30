@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import binascii
 import glob
 import gzip
 import json
@@ -36,6 +37,7 @@ from azure.storage.fileshare import ShareServiceClient
 from botocore import UNSIGNED
 from botocore.client import Config
 from google.auth import exceptions
+from google.oauth2 import service_account
 from google.cloud import storage
 
 from ..logging import logger
@@ -152,6 +154,24 @@ class Storage(object):
                     f.write(value)
                     f.flush()
 
+        if storage_secret_json.get("type", "") == "gs":
+            if storage_secret_json.get("base64_service_account", "") != "":
+                try:
+                    base64_service_account = storage_secret_json.get(
+                        "base64_service_account", ""
+                    )
+                    service_account_str = base64.b64decode(
+                        base64_service_account
+                    ).decode("utf-8")
+                    service_account_dict = json.loads(service_account_str)
+                    os.environ["GOOGLE_SERVICE_ACCOUNT"] = json.dumps(
+                        service_account_dict
+                    )
+                except binascii.Error:
+                    raise RuntimeError("Error: Invalid base64 encoding.")
+                except UnicodeDecodeError:
+                    raise RuntimeError("Error: Cannot decode string.")
+
     @staticmethod
     def get_S3_config():
         # default s3 config
@@ -227,8 +247,10 @@ class Storage(object):
             # Skip where boto3 lists the directory as an object
             if obj.key.endswith("/"):
                 continue
-            # In the case where bucket_path points to a single object, set the target key to bucket_path
-            # Otherwise, remove the bucket_path prefix, strip any extra slashes, then prepend the target_dir
+            # In the case where bucket_path points to a single object,
+            # set the target key to bucket_path
+            # Otherwise, remove the bucket_path prefix, strip any extra slashes,
+            # then prepend the target_dir
             # Example:
             # s3://test-bucket
             # Objects: /a/b/c/model.bin /a/model.bin /model.bin
@@ -263,7 +285,8 @@ class Storage(object):
             logger.info("Downloaded object %s to %s" % (obj.key, target))
             file_count += 1
 
-            # If the exact object is found, then it is sufficient to download that and break the loop
+            # If the exact object is found, then it is sufficient to download that
+            # and break the loop
             if exact_obj_found:
                 break
         if file_count == 0:
@@ -281,9 +304,18 @@ class Storage(object):
     @staticmethod
     def _download_gcs(uri, temp_dir: str) -> str:
         try:
-            storage_client = storage.Client()
+            credentials = None
+            if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
+                google_service_account = json.loads(
+                    os.environ["GOOGLE_SERVICE_ACCOUNT"]
+                )
+                credentials = service_account.Credentials.from_service_account_info(
+                    google_service_account
+                )
+            storage_client = storage.Client(credentials=credentials)
         except exceptions.DefaultCredentialsError:
             storage_client = storage.Client.create_anonymous_client()
+
         bucket_args = uri.replace(_GCS_PREFIX, "", 1).split("/", 1)
         bucket_name = bucket_args[0]
         bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
@@ -366,9 +398,9 @@ class Storage(object):
         # Remove hdfs:// or webhdfs:// from the uri to get just the path
         # e.g. hdfs://user/me/model -> user/me/model
         if uri.startswith(_HDFS_PREFIX):
-            path = uri[len(_HDFS_PREFIX) :]
+            path = uri[len(_HDFS_PREFIX) :]  # noqa: E203
         else:
-            path = uri[len(_WEBHDFS_PREFIX) :]
+            path = uri[len(_WEBHDFS_PREFIX) :]  # noqa: E203
 
         if not config["HDFS_ROOTPATH"]:
             path = "/" + path
@@ -455,7 +487,8 @@ class Storage(object):
         )
         if token is None:
             logger.warning(
-                "Azure credentials or shared access signature token not found, retrying anonymous access"
+                "Azure credentials or shared access signature token not found, \
+                retrying anonymous access"
             )
 
         blob_service_client = BlobServiceClient(account_url, credential=token)

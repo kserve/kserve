@@ -157,7 +157,6 @@ def test_multikey(mock_storage):
 
 @mock.patch(STORAGE_MODULE + ".boto3")
 def test_files_with_no_extension(mock_storage):
-
     # given
     bucket_name = "foo"
     paths = ["churn-pickle", "churn-pickle-logs", "churn-pickle-report"]
