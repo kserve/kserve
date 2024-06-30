@@ -88,7 +88,6 @@ func NewCredentialBuilder(client client.Client, clientset kubernetes.Interface, 
 
 func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annotations map[string]string, storageKey string,
 	overrideParams map[string]string, container *v1.Container) error {
-
 	stype := overrideParams["type"]
 	bucket := overrideParams["bucket"]
 
@@ -239,7 +238,6 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotatio
 
 func (c *CredentialBuilder) mountSecretCredential(secretName string, namespace string,
 	container *v1.Container, volumes *[]v1.Volume) error {
-
 	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "Failed to find secret", "SecretName", secretName)

@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import logging
 import os
 
@@ -27,16 +28,16 @@ from kserve import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 import pytest
 
-from ..common.utils import predict
+from ..common.utils import predict_isvc
 from ..common.utils import explain_art
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
-logging.basicConfig(level=logging.INFO)
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
 @pytest.mark.explainer
-def test_tabular_explainer():
+@pytest.mark.asyncio(scope="session")
+async def test_tabular_explainer(rest_v1_client):
     service_name = "art-explainer"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -92,9 +93,13 @@ def test_tabular_explainer():
             logging.info(pod)
         raise e
 
-    res = predict(service_name, "./data/mnist_input_bw_flat.json")
+    res = await predict_isvc(
+        rest_v1_client, service_name, "./data/mnist_input_bw_flat.json"
+    )
     assert res["predictions"] == [3]
 
-    adv_prediction = explain_art(service_name, "./data/mnist_input_bw.json")
+    adv_prediction = await explain_art(
+        rest_v1_client, service_name, "./data/mnist_input_bw.json"
+    )
     assert adv_prediction != 3
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

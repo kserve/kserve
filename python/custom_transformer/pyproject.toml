@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "custom_transformer"
-version = "0.12.0"
+version = "0.13.0"
 description = "Custom Transformer Examples. Not intended for use outside KServe Frameworks Images."
 authors = ["Dan Sun <dsun20@bloomberg.net>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -13,7 +13,7 @@ python = ">=3.9,<3.12"
 kserve = {path = "../kserve", develop = true}
 torchvision = {version = "0.15.1+cpu", source = "pytorch"}
 torch = {version = "2.0.0+cpu", source = "pytorch"}
-pillow = "^10.2.0"
+pillow = "^10.3.0"
 
 
 [[tool.poetry.source]]

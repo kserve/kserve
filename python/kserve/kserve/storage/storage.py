@@ -17,13 +17,13 @@ import binascii
 import glob
 import gzip
 import json
-import logging
 import mimetypes
 import os
 import re
 import shutil
 import tarfile
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 from typing import Dict
@@ -39,6 +39,8 @@ from botocore.client import Config
 from google.auth import exceptions
 from google.oauth2 import service_account
 from google.cloud import storage
+
+from ..logging import logger
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 
@@ -58,55 +60,58 @@ _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 
 
-class Storage(object):  # pylint: disable=too-few-public-methods
+class Storage(object):
     @staticmethod
     def download(uri: str, out_dir: str = None) -> str:
+        start = time.monotonic()
         Storage._update_with_storage_spec()
-        logging.info("Copying contents of %s to local", uri)
+        logger.info("Copying contents of %s to local", uri)
 
         if uri.startswith(_PVC_PREFIX) and not os.path.exists(uri):
             raise Exception(f"Cannot locate source uri {uri} for PVC")
 
-        is_local = False
-        if uri.startswith(_LOCAL_PREFIX) or os.path.exists(uri):
-            is_local = True
-
-        if out_dir is None:
-            if is_local:
+        is_local = uri.startswith(_LOCAL_PREFIX) or os.path.exists(uri)
+        if is_local:
+            if out_dir is None:
                 # noop if out_dir is not set and the path is local
-                return Storage._download_local(uri)
-            out_dir = tempfile.mkdtemp()
-        elif not os.path.exists(out_dir):
-            os.mkdir(out_dir)
-
-        if uri.startswith(_GCS_PREFIX):
-            Storage._download_gcs(uri, out_dir)
-        elif uri.startswith(_S3_PREFIX):
-            Storage._download_s3(uri, out_dir)
-        elif uri.startswith(_HDFS_PREFIX) or uri.startswith(_WEBHDFS_PREFIX):
-            Storage._download_hdfs(uri, out_dir)
-        elif re.search(_AZURE_BLOB_RE, uri):
-            Storage._download_azure_blob(uri, out_dir)
-        elif re.search(_AZURE_FILE_RE, uri):
-            Storage._download_azure_file_share(uri, out_dir)
-        elif is_local:
-            return Storage._download_local(uri, out_dir)
-        elif re.search(_URI_RE, uri):
-            return Storage._download_from_uri(uri, out_dir)
-        elif uri.startswith(MODEL_MOUNT_DIRS):
-            # Don't need to download models if this InferenceService is running in the multi-model
-            # serving mode. The model agent will download models.
-            return out_dir
+                model_dir = Storage._download_local(uri)
+            else:
+                if not os.path.exists(out_dir):
+                    os.mkdir(out_dir)
+                model_dir = Storage._download_local(uri, out_dir)
         else:
-            raise Exception(
-                "Cannot recognize storage type for "
-                + uri
-                + "\n'%s', '%s', '%s', and '%s' are the current available storage type."
-                % (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTP_PREFIX)
-            )
+            if out_dir is None:
+                out_dir = tempfile.mkdtemp()
+            elif not os.path.exists(out_dir):
+                os.mkdir(out_dir)
 
-        logging.info("Successfully copied %s to %s", uri, out_dir)
-        return out_dir
+            if uri.startswith(MODEL_MOUNT_DIRS):
+                # Don't need to download models if this InferenceService is running in the multi-model
+                # serving mode. The model agent will download models.
+                model_dir = out_dir
+            elif uri.startswith(_GCS_PREFIX):
+                model_dir = Storage._download_gcs(uri, out_dir)
+            elif uri.startswith(_S3_PREFIX):
+                model_dir = Storage._download_s3(uri, out_dir)
+            elif uri.startswith(_HDFS_PREFIX) or uri.startswith(_WEBHDFS_PREFIX):
+                model_dir = Storage._download_hdfs(uri, out_dir)
+            elif re.search(_AZURE_BLOB_RE, uri):
+                model_dir = Storage._download_azure_blob(uri, out_dir)
+            elif re.search(_AZURE_FILE_RE, uri):
+                model_dir = Storage._download_azure_file_share(uri, out_dir)
+            elif re.search(_URI_RE, uri):
+                model_dir = Storage._download_from_uri(uri, out_dir)
+            else:
+                raise Exception(
+                    "Cannot recognize storage type for "
+                    + uri
+                    + "\n'%s', '%s', '%s', and '%s' are the current available storage type."
+                    % (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTP_PREFIX)
+                )
+
+        logger.info("Successfully copied %s to %s", uri, out_dir)
+        logger.info(f"Model downloaded in {time.monotonic() - start} seconds.")
+        return model_dir
 
     @staticmethod
     def _update_with_storage_spec():
@@ -191,7 +196,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         return c
 
     @staticmethod
-    def _download_s3(uri, temp_dir: str):
+    def _download_s3(uri, temp_dir: str) -> str:
         # Boto3 looks at various configuration locations until it finds configuration values.
         # lookup order:
         # 1. Config object passed in as the config parameter when creating S3 resource
@@ -224,7 +229,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                         global_ca_bundle_volume_mount_path + "/cabundle.crt"
                     )
                 if os.path.exists(ca_bundle_full_path):
-                    logging.info("ca bundle file(%s) exists." % (ca_bundle_full_path))
+                    logger.info("ca bundle file(%s) exists." % (ca_bundle_full_path))
                     kwargs.update({"verify": ca_bundle_full_path})
                 else:
                     raise RuntimeError(
@@ -277,7 +282,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             if not os.path.exists(os.path.dirname(target)):
                 os.makedirs(os.path.dirname(target), exist_ok=True)
             bucket.download_file(obj.key, target)
-            logging.info("Downloaded object %s to %s" % (obj.key, target))
+            logger.info("Downloaded object %s to %s" % (obj.key, target))
             file_count += 1
 
             # If the exact object is found, then it is sufficient to download that
@@ -293,10 +298,11 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         if file_count == 1:
             mimetype, _ = mimetypes.guess_type(target)
             if mimetype in ["application/x-tar", "application/zip"]:
-                Storage._unpack_archive_file(target, mimetype, temp_dir)
+                temp_dir = Storage._unpack_archive_file(target, mimetype, temp_dir)
+        return temp_dir
 
     @staticmethod
-    def _download_gcs(uri, temp_dir: str):
+    def _download_gcs(uri, temp_dir: str) -> str:
         try:
             credentials = None
             if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
@@ -332,9 +338,9 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                     os.makedirs(local_object_dir, exist_ok=True)
             if subdir_object_key.strip() != "" and not subdir_object_key.endswith("/"):
                 dest_path = os.path.join(temp_dir, subdir_object_key)
-                logging.info("Downloading: %s", dest_path)
+                logger.info("Downloading: %s", dest_path)
                 blob.download_to_filename(dest_path)
-            file_count += 1
+                file_count += 1
         if file_count == 0:
             raise RuntimeError("Failed to fetch model. No model found in %s." % uri)
 
@@ -342,7 +348,8 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         if file_count == 1:
             mimetype, _ = mimetypes.guess_type(blob.name)
             if mimetype in ["application/x-tar", "application/zip"]:
-                Storage._unpack_archive_file(dest_path, mimetype, temp_dir)
+                temp_dir = Storage._unpack_archive_file(dest_path, mimetype, temp_dir)
+        return temp_dir
 
     @staticmethod
     def _load_hdfs_configuration() -> Dict:
@@ -380,13 +387,13 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         return config
 
     @staticmethod
-    def _download_hdfs(uri, out_dir: str):
+    def _download_hdfs(uri, out_dir: str) -> str:
         from krbcontext.context import krbContext
         from hdfs.ext.kerberos import Client, KerberosClient
 
         config = Storage._load_hdfs_configuration()
 
-        logging.info(f"Using the following hdfs config\n{config}")
+        logger.info(f"Using the following hdfs config\n{config}")
 
         # Remove hdfs:// or webhdfs:// from the uri to get just the path
         # e.g. hdfs://user/me/model -> user/me/model
@@ -456,14 +463,19 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         if file_count == 1:
             mimetype, _ = mimetypes.guess_type(dest_file_path)
             if mimetype in ["application/x-tar", "application/zip"]:
-                Storage._unpack_archive_file(dest_file_path, mimetype, out_dir)
+                out_dir = Storage._unpack_archive_file(
+                    dest_file_path, mimetype, out_dir
+                )
+        return out_dir
 
     @staticmethod
-    def _download_azure_blob(uri, out_dir: str):  # pylint: disable=too-many-locals
+    def _download_azure_blob(
+        uri, out_dir: str
+    ) -> str:  # pylint: disable=too-many-locals
         account_name, account_url, container_name, prefix = Storage._parse_azure_uri(
             uri
         )
-        logging.info(
+        logger.info(
             "Connecting to BLOB account: [%s], container: [%s], prefix: [%s]",
             account_name,
             container_name,
@@ -474,7 +486,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             or Storage._get_azure_storage_access_key()
         )
         if token is None:
-            logging.warning(
+            logger.warning(
                 "Azure credentials or shared access signature token not found, \
                 retrying anonymous access"
             )
@@ -502,7 +514,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 file_name = os.path.basename(prefix)
             dest_path = os.path.join(out_dir, file_name)
             Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
-            logging.info("Downloading: %s to %s", blob.name, dest_path)
+            logger.info("Downloading: %s to %s", blob.name, dest_path)
             downloader = container_client.download_blob(blob.name)
             with open(dest_path, "wb+") as f:
                 f.write(downloader.readall())
@@ -514,14 +526,15 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         if file_count == 1:
             mimetype, _ = mimetypes.guess_type(dest_path)
             if mimetype in ["application/x-tar", "application/zip"]:
-                Storage._unpack_archive_file(dest_path, mimetype, out_dir)
+                out_dir = Storage._unpack_archive_file(dest_path, mimetype, out_dir)
+        return out_dir
 
     @staticmethod
     def _download_azure_file_share(
         uri, out_dir: str
-    ):  # pylint: disable=too-many-locals
+    ) -> str:  # pylint: disable=too-many-locals
         account_name, account_url, share_name, prefix = Storage._parse_azure_uri(uri)
-        logging.info(
+        logger.info(
             "Connecting to file share account: [%s], container: [%s], prefix: [%s]",
             account_name,
             share_name,
@@ -529,7 +542,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         )
         access_key = Storage._get_azure_storage_access_key()
         if access_key is None:
-            logging.warning(
+            logger.warning(
                 "Azure storage access key not found, retrying anonymous access"
             )
 
@@ -558,7 +571,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
             file_path = "/".join(parts).lstrip("/")
             dest_path = os.path.join(out_dir, file_path)
             Path(os.path.dirname(dest_path)).mkdir(parents=True, exist_ok=True)
-            logging.info("Downloading: %s to %s", file_item.name, dest_path)
+            logger.info("Downloading: %s to %s", file_item.name, dest_path)
             file_client = share_client.get_file_client(file_path)
             with open(dest_path, "wb+") as f:
                 data = file_client.download_file()
@@ -571,7 +584,8 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         if file_count == 1:
             mimetype, _ = mimetypes.guess_type(dest_path)
             if mimetype in ["application/x-tar", "application/zip"]:
-                Storage._unpack_archive_file(dest_path, mimetype, out_dir)
+                out_dir = Storage._unpack_archive_file(dest_path, mimetype, out_dir)
+        return out_dir
 
     @staticmethod
     def _parse_azure_uri(uri):  # pylint: disable=too-many-locals
@@ -608,7 +622,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 
         token_credential = DefaultAzureCredential()
 
-        logging.info("Retrieved SP token credential for client_id: %s", client_id)
+        logger.info("Retrieved SP token credential for client_id: %s", client_id)
         return token_credential
 
     @staticmethod
@@ -616,7 +630,7 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         return os.getenv("AZURE_STORAGE_ACCESS_KEY")
 
     @staticmethod
-    def _download_local(uri, out_dir=None):
+    def _download_local(uri, out_dir=None) -> str:
         local_path = uri.replace(_LOCAL_PREFIX, "", 1)
         if not os.path.exists(local_path):
             raise RuntimeError("Local path %s does not exist." % (uri))
@@ -633,11 +647,11 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         for src in glob.glob(local_path):
             _, tail = os.path.split(src)
             dest_path = os.path.join(out_dir, tail)
-            logging.info("Linking: %s to %s", src, dest_path)
+            logger.info("Linking: %s to %s", src, dest_path)
             if not os.path.exists(dest_path):
                 os.symlink(src, dest_path)
             else:
-                logging.info("File %s already exist", dest_path)
+                logger.info("File %s already exist", dest_path)
             file_count += 1
         if file_count == 0:
             raise RuntimeError("Failed to fetch model. No model found in %s." % (uri))
@@ -645,12 +659,11 @@ class Storage(object):  # pylint: disable=too-few-public-methods
         if file_count == 1:
             mimetype, _ = mimetypes.guess_type(dest_path)
             if mimetype in ["application/x-tar", "application/zip"]:
-                Storage._unpack_archive_file(dest_path, mimetype, out_dir)
-
+                out_dir = Storage._unpack_archive_file(dest_path, mimetype, out_dir)
         return out_dir
 
     @staticmethod
-    def _download_from_uri(uri, out_dir=None):
+    def _download_from_uri(uri, out_dir=None) -> str:
         url = urlparse(uri)
         filename = os.path.basename(url.path)
         # Determine if the symbol '?' exists in the path
@@ -721,17 +734,16 @@ class Storage(object):  # pylint: disable=too-few-public-methods
                 shutil.copyfileobj(stream, out)
 
         if mimetype in ["application/x-tar", "application/zip"]:
-            Storage._unpack_archive_file(local_path, mimetype, out_dir)
-
+            out_dir = Storage._unpack_archive_file(local_path, mimetype, out_dir)
         return out_dir
 
     @staticmethod
-    def _unpack_archive_file(file_path, mimetype, target_dir=None):
+    def _unpack_archive_file(file_path, mimetype, target_dir=None) -> str:
         if not target_dir:
             target_dir = os.path.dirname(file_path)
 
         try:
-            logging.info("Unpacking: %s", file_path)
+            logger.info("Unpacking: %s", file_path)
             if mimetype == "application/x-tar":
                 archive = tarfile.open(file_path, "r", encoding="utf-8")
             else:
@@ -744,3 +756,4 @@ class Storage(object):  # pylint: disable=too-few-public-methods
 The file format is not valid."
             )
         os.remove(file_path)
+        return target_dir

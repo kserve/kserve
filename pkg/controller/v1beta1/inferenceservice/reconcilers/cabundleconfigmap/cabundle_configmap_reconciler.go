@@ -124,7 +124,6 @@ func getDesiredCaBundleConfigMapForUserNS(configmapName string, namespace string
 
 // ReconcileCaBundleConfigMap will manage the creation, update and deletion of the ca bundle ConfigMap
 func (c *CaBundleConfigMapReconciler) ReconcileCaBundleConfigMap(desiredConfigMap *corev1.ConfigMap) error {
-
 	// Create ConfigMap if does not exist
 	existingConfigMap, err := c.clientset.CoreV1().ConfigMaps(desiredConfigMap.Namespace).Get(context.TODO(), desiredConfigMap.Name, metav1.GetOptions{})
 	if err != nil {

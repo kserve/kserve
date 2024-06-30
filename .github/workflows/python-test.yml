@@ -279,7 +279,7 @@ jobs:
         if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
         run: |
           cd python/huggingfaceserver
-          poetry run -- pytest --cov=huggingfaceserver
+          poetry run -- pytest --cov=huggingfaceserver -vv
 
       - name: Free space after tests
         run: |

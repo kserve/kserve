@@ -26,14 +26,16 @@ from ray import serve as rayserve
 from ray.serve.api import Deployment
 from ray.serve.handle import DeploymentHandle
 
-from .logging import KSERVE_LOG_CONFIG, logger
-from .model import Model
+from . import logging
+from .logging import logger
+from .model import BaseKServeModel
 from .model_repository import ModelRepository
 from .protocol.dataplane import DataPlane
 from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
 from .utils import utils
+from kserve.errors import NoModelReady
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
@@ -106,7 +108,8 @@ parser.add_argument(
     "--access_log_format",
     default=None,
     type=str,
-    help="The asgi access logging format.",
+    help="The asgi access logging format. It allows to override only the `uvicorn.access`'s format configuration "
+    "with a richer set of fields",
 )
 
 # Model arguments: The arguments are passed to the kserve.Model object
@@ -161,12 +164,10 @@ class ModelServer:
         workers: int = args.workers,
         max_threads: int = args.max_threads,
         max_asyncio_workers: int = args.max_asyncio_workers,
-        registered_models: ModelRepository = ModelRepository(),
+        registered_models: Optional[ModelRepository] = None,
         enable_grpc: bool = args.enable_grpc,
         enable_docs_url: bool = args.enable_docs_url,
         enable_latency_logging: bool = args.enable_latency_logging,
-        configure_logging: bool = args.configure_logging,
-        log_config: Optional[Union[Dict, str]] = args.log_config_file,
         access_log_format: str = args.access_log_format,
     ):
         """KServe ModelServer Constructor
@@ -177,15 +178,20 @@ class ModelServer:
             workers: Number of uvicorn workers. Default: ``1``.
             max_threads: Max number of gRPC processing threads. Default: ``4``
             max_asyncio_workers: Max number of AsyncIO threads. Default: ``None``
-            registered_models: Model repository with registered models.
+            registered_models: A optional Model repository with registered models.
             enable_grpc: Whether to turn on grpc server. Default: ``True``
             enable_docs_url: Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
             enable_latency_logging: Whether to log latency metric. Default: ``True``.
-            configure_logging: Whether to configure KServe and Uvicorn logging. Default: ``True``.
-            log_config: File path or dict containing log config. Default: ``None``.
-            access_log_format: Format to set for the access log (provided by asgi-logger). Default: ``None``
+            access_log_format: Format to set for the access log (provided by asgi-logger). Default: ``None``.
+                               it allows to override only the `uvicorn.access`'s format configuration with a richer
+                               set of fields (output hardcoded to `stdout`). This limitation is currently due to the
+                               ASGI specs that don't describe how access logging should be implemented in detail
+                               (please refer to this Uvicorn
+                               [github issue](https://github.com/encode/uvicorn/issues/527) for more info).
         """
-        self.registered_models = registered_models
+        self.registered_models = (
+            ModelRepository() if registered_models is None else registered_models
+        )
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.workers = workers
@@ -194,7 +200,7 @@ class ModelServer:
         self.enable_grpc = enable_grpc
         self.enable_docs_url = enable_docs_url
         self.enable_latency_logging = enable_latency_logging
-        self.dataplane = DataPlane(model_registry=registered_models)
+        self.dataplane = DataPlane(model_registry=self.registered_models)
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models
         )
@@ -204,34 +210,35 @@ class ModelServer:
             self._grpc_server = GRPCServer(
                 grpc_port, self.dataplane, self.model_repository_extension
             )
-
-        # Logs can be passed as a path to a file or a dictConfig.
-        # We rely on Uvicorn to configure the loggers for us.
-        if configure_logging:
-            self.log_config = (
-                log_config if log_config is not None else KSERVE_LOG_CONFIG
-            )
-        else:
-            # By setting log_config to None we tell Uvicorn not to configure logging
-            self.log_config = None
-
+        if args.configure_logging:
+            # If the logger does not have any handlers, then the logger is not configured.
+            # For backward compatibility, we configure the logger here.
+            if len(logger.handlers) == 0:
+                logging.configure_logging(args.log_config_file)
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
 
-    def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
+    def start(
+        self, models: Union[List[BaseKServeModel], Dict[str, Deployment]]
+    ) -> None:
         """Start the model server with a set of registered models.
 
         Args:
             models: a list of models to register to the model server.
         """
         if isinstance(models, list):
+            at_least_one_model_ready = False
             for model in models:
-                if isinstance(model, Model):
-                    self.register_model(model)
-                    # pass whether to log request latency into the model
-                    model.enable_latency_logging = self.enable_latency_logging
+                if isinstance(model, BaseKServeModel):
+                    if model.ready:
+                        at_least_one_model_ready = True
+                        self.register_model(model)
+                        # pass whether to log request latency into the model
+                        model.enable_latency_logging = self.enable_latency_logging
                 else:
-                    raise RuntimeError("Model type should be 'Model'")
+                    raise RuntimeError("Model type should be 'BaseKServeModel'")
+            if not at_least_one_model_ready and models:
+                raise NoModelReady(models)
         elif isinstance(models, dict):
             if all([isinstance(v, Deployment) for v in models.values()]):
                 # TODO: make this port number a variable
@@ -278,7 +285,9 @@ class ModelServer:
                     self.dataplane,
                     self.model_repository_extension,
                     self.enable_docs_url,
-                    log_config=self.log_config,
+                    # By setting log_config to None we tell Uvicorn not to configure logging as it is already
+                    # configured by kserve.
+                    log_config=None,
                     access_log_format=self.access_log_format,
                 )
                 await self._rest_server.run()
@@ -298,7 +307,9 @@ class ModelServer:
                     self.dataplane,
                     self.model_repository_extension,
                     self.enable_docs_url,
-                    log_config=self.log_config,
+                    # By setting log_config to None we tell Uvicorn not to configure logging as it is already
+                    # configured by kserve.
+                    log_config=None,
                     access_log_format=self.access_log_format,
                 )
                 for _ in range(self.workers):
@@ -326,8 +337,8 @@ class ModelServer:
         if self._grpc_server:
             logger.info("Stopping the grpc server")
             await self._grpc_server.stop(sig)
-        for _, model in self.registered_models.get_models().items():
-            model.unload()
+        for model_name in list(self.registered_models.get_models().keys()):
+            self.registered_models.unload(model_name)
 
     def register_exception_handler(
         self,
@@ -367,7 +378,7 @@ class ModelServer:
         self.registered_models.update_handle(name, model_handle)
         logger.info("Registering model handle: %s", name)
 
-    def register_model(self, model: Model):
+    def register_model(self, model: BaseKServeModel):
         """Register a model to the model server.
 
         Args:

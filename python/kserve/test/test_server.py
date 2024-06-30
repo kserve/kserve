@@ -30,7 +30,7 @@ from fastapi.testclient import TestClient
 from ray import serve
 
 from kserve import Model, ModelRepository, ModelServer
-from kserve.errors import InvalidInput
+from kserve.errors import InvalidInput, NoModelReady
 from kserve.model import PredictorProtocol
 from kserve.protocol.infer_type import (
     InferInput,
@@ -148,10 +148,16 @@ class DummyModel(Model):
                 infer_response.outputs[0].parameters = request.inputs[0].parameters
             return infer_response
         else:
-            return {"predictions": request["instances"]}
+            if "inputs" in request:
+                return {"predictions": request["inputs"]}
+            else:
+                return {"predictions": request["instances"]}
 
     async def explain(self, request, headers=None):
-        return {"predictions": request["instances"]}
+        if "inputs" in request:
+            return {"predictions": request["inputs"]}
+        else:
+            return {"predictions": request["instances"]}
 
 
 @serve.deployment
@@ -249,6 +255,13 @@ class DummyModelRepository(ModelRepository):
                 raise Exception(f"Could not load model {name}.")
             else:
                 return False
+
+
+class DummyNeverReadyModel(Model):
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+        self.ready = False
 
 
 @pytest.mark.asyncio
@@ -815,3 +828,12 @@ class TestTFHttpServerModelNotReady:
             "/v1/models/TestModel:explain", content=b'{"instances":[[1,2]]}'
         )
         assert resp.status_code == 503
+
+
+class TestWithUnhealthModel:
+    def test_with_not_ready_model(self):
+        model = DummyNeverReadyModel("Dummy")
+        server = ModelServer()
+        with pytest.raises(NoModelReady) as exc_info:
+            server.start([model])
+        assert exc_info.type == NoModelReady

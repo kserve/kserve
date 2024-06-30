@@ -27,6 +27,7 @@ from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
 from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
+from ..constants.constants import PredictorProtocol
 from ..errors import InvalidInput
 
 
@@ -147,7 +148,7 @@ def to_headers(context: ServicerContext) -> Dict[str, str]:
 
 def get_predict_input(
     payload: Union[Dict, InferRequest], columns: List = None
-) -> Union[np.ndarray, pd.DataFrame]:
+) -> Union[np.ndarray, pd.DataFrame, List[str]]:
     if isinstance(payload, Dict):
         instances = payload["inputs"] if "inputs" in payload else payload["instances"]
         if len(instances) == 0:
@@ -181,6 +182,12 @@ def get_predict_input(
             return payload.as_dataframe()
         else:
             input = payload.inputs[0]
+            if (
+                input.datatype == "BYTES"
+                and len(input.data) > 0
+                and isinstance(input.data[0], str)
+            ):
+                return input.data
             return input.as_numpy()
 
 
@@ -206,15 +213,34 @@ def get_predict_response(
                     name=col,
                     shape=list(result[col].shape),
                     datatype=from_np_dtype(result[col].dtype),
-                    data=result[col].tolist(),
+                )
+                infer_output.set_data_from_numpy(
+                    result[col].to_numpy(), binary_data=payload.use_binary_outputs
                 )
                 infer_outputs.append(infer_output)
+        elif (
+            isinstance(result, list) and len(result) > 0 and isinstance(result[0], str)
+        ):
+            infer_output = InferOutput(
+                name="output-0",
+                shape=[len(result)],
+                datatype="BYTES",
+            )
+            infer_output.set_data_from_numpy(
+                np.array(result, dtype=np.object_),
+                binary_data=payload.use_binary_outputs,
+            )
+            infer_outputs.append(infer_output)
         else:
+            if isinstance(result, list):
+                result = np.array(result)
             infer_output = InferOutput(
                 name="output-0",
                 shape=list(result.shape),
                 datatype=from_np_dtype(result.dtype),
-                data=result.flatten().tolist(),
+            )
+            infer_output.set_data_from_numpy(
+                result, binary_data=payload.use_binary_outputs
             )
             infer_outputs.append(infer_output)
         return InferResponse(
@@ -243,3 +269,17 @@ def strtobool(val: str) -> bool:
         return False
     else:
         raise ValueError("invalid truth value %r" % (val,))
+
+
+def is_v2(protocol: Union[str, PredictorProtocol]) -> bool:
+    return protocol == PredictorProtocol.REST_V2 or (
+        isinstance(protocol, str)
+        and protocol.lower() == PredictorProtocol.REST_V2.value.lower()
+    )
+
+
+def is_v1(protocol: Union[str, PredictorProtocol]) -> bool:
+    return protocol == PredictorProtocol.REST_V1 or (
+        isinstance(protocol, str)
+        and protocol.lower() == PredictorProtocol.REST_V1.value.lower()
+    )

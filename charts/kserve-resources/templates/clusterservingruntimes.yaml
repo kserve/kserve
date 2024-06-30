@@ -53,12 +53,24 @@ spec:
       version: "1"
       autoSelect: true
       priority: 2
+    - name: xgboost
+      version: "2"
+      autoSelect: true
+      priority: 2
     - name: lightgbm
       version: "3"
       autoSelect: true
       priority: 2
+    - name: lightgbm
+      version: "4"
+      autoSelect: true
+      priority: 2
     - name: mlflow
       version: "1"
+      autoSelect: true
+      priority: 1
+    - name: mlflow
+      version: "2"
       autoSelect: true
       priority: 1
   protocolVersions:
@@ -359,13 +371,13 @@ spec:
       autoSelect: true
       priority: 1
   protocolVersions:
+    - v1
     - v2
   containers:
     - name: kserve-container
       image: "{{ .Values.kserve.servingruntime.huggingfaceserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceserver.tag }}"
       args:
-        - --model_id={{.Name}}
-        - --model_dir=/mnt/models
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
       resources:
         requests:
           cpu: "1"

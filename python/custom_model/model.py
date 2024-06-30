@@ -29,6 +29,7 @@ from kserve import (
     InferRequest,
     InferOutput,
     InferResponse,
+    logging,
 )
 from kserve.errors import InvalidInput
 from kserve.utils.utils import generate_uuid
@@ -45,7 +46,7 @@ class AlexNetModel(Model):
         self.load()
 
     def load(self):
-        self.model = models.alexnet(pretrained=True)
+        self.model = models.alexnet(pretrained=True, progress=False)
         self.model.eval()
         # The ready flag is used by model ready endpoint for readiness probes,
         # set to True when model is loaded successfully without exceptions.
@@ -119,6 +120,8 @@ parser = argparse.ArgumentParser(parents=[model_server.parser])
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
+    if args.configure_logging:
+        logging.configure_logging(args.log_config_file)
     model = AlexNetModel(args.model_name)
     model.load()
     ModelServer().start([model])

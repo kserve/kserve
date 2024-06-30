@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -54,7 +53,7 @@ func TestTensorflowValidation(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeExcludesGPU)),
+			matcher: gomega.MatchError(InvalidTensorflowRuntimeExcludesGPU),
 		},
 		"RejectGpuGpuResourceWithoutGpuRuntime": {
 			spec: PredictorSpec{
@@ -69,7 +68,7 @@ func TestTensorflowValidation(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeIncludesGPU)),
+			matcher: gomega.MatchError(InvalidTensorflowRuntimeIncludesGPU),
 		},
 	}
 

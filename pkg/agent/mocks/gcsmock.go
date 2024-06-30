@@ -18,12 +18,13 @@ package mocks
 
 import (
 	"bytes"
-	gstorage "cloud.google.com/go/storage"
 	"context"
 	"fmt"
+	"strings"
+
+	gstorage "cloud.google.com/go/storage"
 	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
 	"google.golang.org/api/iterator"
-	"strings"
 )
 
 type mockGCSClient struct {

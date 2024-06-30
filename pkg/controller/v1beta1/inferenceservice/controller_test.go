@@ -28,6 +28,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
@@ -315,6 +316,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: istiov1beta1.VirtualService{
 					Gateways: []string{
 						constants.KnativeLocalGateway,
+						constants.IstioMeshGateway,
 						constants.KnativeIngressGateway,
 					},
 					Hosts: []string{
@@ -325,7 +327,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							Match: []*istiov1beta1.HTTPMatchRequest{
 								{
-									Gateways: []string{constants.KnativeLocalGateway},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 									Authority: &istiov1beta1.StringMatch{
 										MatchType: &istiov1beta1.StringMatch_Regex{
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceKey.Name, serviceKey.Namespace)),
@@ -391,6 +393,83 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(updatedVirtualService.Spec.DeepCopy()).To(gomega.Equal(expectedVirtualService.Spec.DeepCopy()))
 			Expect(updatedVirtualService.Annotations).To(gomega.Equal(annotations))
 			Expect(updatedVirtualService.Labels).To(gomega.Equal(labels))
+		})
+		It("Should fail if Knative Serving is not installed", func() {
+			// Simulate Knative Serving is absent by setting to false the relevant item in utils.gvResourcesCache variable
+			servingResources, getServingResourcesErr := utils.GetAvailableResourcesForApi(cfg, knservingv1.SchemeGroupVersion.String())
+			Expect(getServingResourcesErr).To(BeNil())
+			defer utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), servingResources)
+			utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), nil)
+
+			// Create configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			// Create InferenceService
+			serviceName := "serverless-isvc"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": "Serverless",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil)
+
+			ctx := context.Background()
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			Eventually(func() bool {
+				events := &v1.EventList{}
+				err := k8sClient.List(ctx, events, client.InNamespace(serviceKey.Namespace))
+				if err != nil {
+					return false
+				}
+				if events == nil {
+					return false
+				}
+
+				for _, event := range events.Items {
+					if event.InvolvedObject.Kind == "InferenceService" &&
+						event.InvolvedObject.Name == serviceKey.Name &&
+						event.Reason == "ServerlessModeRejected" {
+						return true
+					}
+				}
+
+				return false
+			}, timeout, interval).Should(BeTrue())
 		})
 	})
 

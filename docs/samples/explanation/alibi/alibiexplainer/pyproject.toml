@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "alibiexplainer"
-version = "0.12.0"
+version = "0.13.0rc0"
 description = "Model Explanation Server. Not intended for use outside KServe Frameworks Images."
 authors = ["cliveseldon <cc@seldon.io>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -11,7 +11,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.12"
-kserve = { path = "../kserve", extras = ["storage"], develop = true }
+kserve = { path = "../../../../../python/kserve", extras = ["storage"], develop = true }
 alibi = { version = "^0.9.4", extras = ["shap", "tensorflow"] } # From 0.9.5 alibi uses BSL license
 tensorflow = ">=2.12.0,<2.14"  # the range that supports python 3.8 -- 3.11
 dill = "^0.3.6"
@@ -26,7 +26,7 @@ optional = true
 pytest = "^7.2.0"
 pytest-cov = "^4.0.0"
 mypy = "^0.991"
-sklearnserver = { path = "../sklearnserver", develop = true }
+sklearnserver = { path = "../../../../../python/sklearnserver", develop = true }
 
 [tool.poetry.group.dev]
 optional = true
@@ -36,7 +36,7 @@ black = { version = "~24.3.0", extras = ["colorama"] }
 
 [tool.poetry-version-plugin]
 source = "file"
-file_path = "../VERSION"
+file_path = "../../../../../python/VERSION"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

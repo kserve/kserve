@@ -37,6 +37,8 @@ from kserve.errors import (
     model_not_found_handler,
     model_not_ready_handler,
     not_implemented_error_handler,
+    UnsupportedProtocol,
+    unsupported_protocol_error_handler,
 )
 from kserve.logging import trace_logger
 from kserve.protocol.dataplane import DataPlane
@@ -178,18 +180,6 @@ class RESTServer:
                     tags=["V2"],
                 ),
                 FastAPIRoute(
-                    r"/v2/models/{model_name}/generate",
-                    v2_endpoints.generate,
-                    methods=["POST"],
-                    tags=["V2"],
-                ),
-                FastAPIRoute(
-                    r"/v2/models/{model_name}/generate_stream",
-                    v2_endpoints.generate_stream,
-                    methods=["POST"],
-                    tags=["V2"],
-                ),
-                FastAPIRoute(
                     r"/v2/models/{model_name}/versions/{model_version}/infer",
                     v2_endpoints.infer,
                     methods=["POST"],
@@ -214,6 +204,7 @@ class RESTServer:
                 InferenceError: inference_error_handler,
                 ModelNotFound: model_not_found_handler,
                 ModelNotReady: model_not_ready_handler,
+                UnsupportedProtocol: unsupported_protocol_error_handler,
                 NotImplementedError: not_implemented_error_handler,
                 Exception: generic_exception_handler,
             },

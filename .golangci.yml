@@ -1,5 +1,5 @@
 run:
-  timeout: 5m
+  timeout: 6m
   go: "1.21"
   tests: false
   skip-dirs: # skip auto gen folders
@@ -8,21 +8,53 @@ run:
     - "tools/tf2openapi/generated/"
 
 issues:
-  max-same-issues: 20
+  max-same-issues: 0
+  max-issues-per-linter: 0
+
 
 output:
-  print-issued-lines: false
+  format: "github-actions,line-number"
+  print-issued-lines: true
   print-linter-name: true
-  uniq-by-line: false
+  uniq-by-line: true
   path-prefix: ""
   sort-results: true
 
 # REF: https://golangci-lint.run/usage/linters/
 linters:
+  disable-all: true
   enable:
     - errorlint
+    - bodyclose
+    - dogsled
+    - exportloopref
+    - gocritic
+    - goimports
     - gosec
-    - prealloc
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - nakedret
+    # - revive
+    - staticcheck
+    # - stylecheck
+    - typecheck
     - unconvert
-    - unparam
+    - unused
+    - whitespace
+
+    # - prealloc
     - gofmt
+
+linters-settings:
+  goimports:
+    local-prefixes: "bbgithub.dev.bloomberg.com/cncr-inference/inferno"
+  gosec:
+    # specify configuration of gosec rules: https://github.com/securego/gosec#available-rules
+    config:
+      # maximum allowed permissions for os.OpenFile and os.Chmod
+      # default: "0600"
+      G302: "0640"
+      # maximum allowed permissions for os.WriteFile and ioutil.WriteFile
+      G306: "0640"

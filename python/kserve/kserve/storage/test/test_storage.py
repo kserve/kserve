@@ -67,6 +67,18 @@ def test_no_prefix_local_path():
     assert Storage.download(relative_path) == relative_path
 
 
+def test_local_path_with_out_dir_exist():
+    abs_path = "file:///tmp"
+    out_dir = "/tmp"
+    assert Storage.download(abs_path, out_dir=out_dir) == out_dir
+
+
+def test_local_path_with_out_dir_not_exist():
+    abs_path = "file:///tmp"
+    out_dir = "/tmp/test-abc"
+    assert Storage.download(abs_path, out_dir=out_dir) == out_dir
+
+
 class MockHttpResponse(object):
     def __init__(self, status_code=404, raw=b"", content_type=""):
         self.status_code = status_code
@@ -229,8 +241,13 @@ def test_http_uri_paths(uri, response, expected_error):
 def test_mock_gcs(mock_storage):
     gcs_path = "gs://foo/bar"
     mock_obj = mock.MagicMock()
-    mock_obj.name = "mock.object"
-    mock_storage.Client().bucket().list_blobs().__iter__.return_value = [mock_obj]
+    mock_obj.name = "bar/"
+    mock_obj1 = mock.MagicMock()
+    mock_obj1.name = "bar/mock.object"
+    mock_storage.Client().bucket().list_blobs().__iter__.return_value = [
+        mock_obj,
+        mock_obj1,
+    ]
     assert Storage.download(gcs_path)
 
 
