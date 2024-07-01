@@ -57,7 +57,7 @@ func (a *AzureProvider) DownloadModel(modelDir string, modelName string, storage
 		}
 	}
 
-	a.Downloader.SetDownloaderValues(modelDir, modelName, uriParts.containerName, uriParts.prefix)
+	a.Downloader.SetDownloaderValues(modelDir, modelName, uriParts.containerName, uriParts.virtualDir)
 	blobs, err := a.Downloader.GetAllObjects()
 	if err != nil {
 		return fmt.Errorf("failed to get blobs: %v", err)
@@ -72,12 +72,11 @@ func (a *AzureProvider) DownloadModel(modelDir string, modelName string, storage
 }
 
 func newDefaultDownloader(serviceUrl string) (AzureDownloader, error) {
-	// Initialize AzureBlobClient
 	var err error
 	var client *azblob.Client
 	if _, ok := os.LookupEnv(azure.AzureClientSecret); ok {
-		// Load Azure Credentials
-		credential, err := azidentity.NewDefaultAzureCredential(nil)
+		// Load Azure Credentials from environment variables
+		credential, err := azidentity.NewEnvironmentCredential(nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load Azure credentials: %v", err)
 		}
@@ -98,57 +97,53 @@ func newDefaultDownloader(serviceUrl string) (AzureDownloader, error) {
 }
 
 // ParseAzureUri is a method that parses the Azure URI and sets the azureUriParts.
-// The Azure URI should follow this specific format: azure://<serviceUrl>/<containerName>/<blob>
+// The Azure URI should follow this specific format: azure://<serviceUrl>/<containerName>/<virtualDir>/.
 //
 // Here's a breakdown of the URI components:
 //   - <serviceUrl>: The base URL of your Azure storage account. For example, 'myStorageAccount.blob.core.windows.net'
-//   - <containerName>: The specific containerName in the Azure storage account. For example, 'myContainer'
-//   - <blob>: The specific blob within the containerName. This can include a path with directories. For example, 'this/is/virtualDir/fileName'
+//   - <containerName>: The specific container name in the Azure storage account. For example, 'myContainer'
+//   - <virtualDir>: Path with virtual directories. For example, 'this/is/virtualDir/'
 //
 // Putting it all together, an example Azure storageURI would look like this:
-// 'azure://myStorageAccount.blob.core.windows.net/myContainer/this/is/virtualDir/fileName'
-//
-// In this example,
-//   - serviceUrl would be 'myStorageAccount.blob.core.windows.net'
-//   - containerName would be 'myContainer'
-//   - prefix (the path to the blob within the containerName) would be 'this/is/virtualDir/fileName'.
+// 'azure://myStorageAccount.blob.core.windows.net/myContainer/this/is/virtualDir/'
 func parseAzureUri(uri string) (azureUriParts, error) {
 	if !strings.HasPrefix(uri, string(AZURE)) {
 		return azureUriParts{}, fmt.Errorf("invalid Azure URI: '%s'. The URI must start with '%s'", uri, string(AZURE))
 	}
 
 	uri = strings.TrimPrefix(uri, string(AZURE))
+	uri = strings.TrimSuffix(uri, "/")
 	tokens := strings.SplitN(uri, "/", 3)
 	if len(tokens) < 3 {
-		return azureUriParts{}, fmt.Errorf("invalid Azure URI: '%s'. The URI must be in the format 'azure://<serviceUrl>/<containerName>/<blob>'", uri)
+		return azureUriParts{}, fmt.Errorf("invalid Azure URI: '%s'. The URI must be in the format 'azure://<serviceUrl>/<containerName>/<virtualDir>'", uri)
 	}
 
 	serviceUrl := tokens[0]
 	containerName := tokens[1]
-	prefix := ""
+	virtualDir := ""
 	if len(tokens) == 3 {
-		prefix = tokens[2]
+		virtualDir = tokens[2]
 	}
 
 	return azureUriParts{
 		serviceUrl:    string(HTTPS) + serviceUrl,
 		containerName: containerName,
-		prefix:        prefix,
+		virtualDir:    virtualDir,
 	}, nil
 }
 
-// azureUriParts should follow this specific format: azure://<serviceUrl>/<containerName>/<blob>
+// azureUriParts should follow this specific format: azure://<serviceUrl>/<containerName>/<virtualDir>/
 type azureUriParts struct {
 	serviceUrl    string
 	containerName string
-	prefix        string
+	virtualDir    string
 }
 
 type defaultAzureDownloader struct {
 	modelDir      string
 	modelName     string
 	containerName string
-	prefix        string
+	virtualDir    string
 	client        *azblob.Client
 }
 
@@ -158,12 +153,12 @@ func (d *defaultAzureDownloader) SetDownloaderValues(modelDir string, modelName 
 	d.modelDir = modelDir
 	d.modelName = modelName
 	d.containerName = container
-	d.prefix = prefix
+	d.virtualDir = prefix
 }
 
 func (d *defaultAzureDownloader) GetAllObjects() ([]string, error) {
 	var results []string
-	pager := d.client.NewListBlobsFlatPager(d.containerName, &container.ListBlobsFlatOptions{Prefix: &d.prefix})
+	pager := d.client.NewListBlobsFlatPager(d.containerName, &container.ListBlobsFlatOptions{Prefix: &d.virtualDir})
 	for pager.More() {
 		page, err := pager.NextPage(context.TODO())
 		if err != nil {
@@ -189,7 +184,7 @@ func (d *defaultAzureDownloader) Download(blobsNames []string) error {
 }
 
 func (d *defaultAzureDownloader) DownloadSingle(blobName string) error {
-	relativeFilePath := strings.TrimPrefix(blobName, d.prefix)
+	relativeFilePath := strings.TrimPrefix(blobName, d.virtualDir)
 	filePath := filepath.Join(d.modelDir, d.modelName, relativeFilePath)
 
 	if FileExists(filePath) {
