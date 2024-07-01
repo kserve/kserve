@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, AsyncIterator, Iterable, Optional, Union
+from typing import AsyncIterator, Iterable, Optional, Union
 
 import torch
 from kserve import Model
@@ -25,26 +25,28 @@ from kserve.protocol.rest.openai import (
 )
 from kserve.protocol.rest.openai.types import Completion
 from vllm.engine.async_llm_engine import AsyncLLMEngine
+from vllm import AsyncEngineArgs
 
 from .vllm_completions import OpenAIServingCompletion
 
 
 class VLLMModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no-member
     vllm_engine: AsyncLLMEngine
-    vllm_engine_args: Any = None
+    vllm_engine_args: AsyncEngineArgs = None
     ready: bool = False
 
     def __init__(
         self,
         model_name: str,
-        engine_args=None,
+        engine_args: AsyncEngineArgs = None,
         predictor_config: Optional[PredictorConfig] = None,
     ):
         super().__init__(model_name, predictor_config)
         self.vllm_engine_args = engine_args
 
     def load(self) -> bool:
-        self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
+        if torch.cuda.is_available():
+            self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
         self.vllm_engine = AsyncLLMEngine.from_engine_args(self.vllm_engine_args)
         self.openai_serving_completion = OpenAIServingCompletion(self.vllm_engine)
         self.ready = True
