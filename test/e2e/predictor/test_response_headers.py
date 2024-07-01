@@ -24,7 +24,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, get_isvc_endpoint
 def test_predictor_headers_v1():
     service_name = "isvc-custom-model-transformer-v1"
     model_name = "custom-model"
-    protocol_version="v1"
+    protocol_version = "v1"
     input_json = "./data/custom_model_input_v1.json"
 
     predictor = V1beta1PredictorSpec(
@@ -97,7 +97,7 @@ def test_predictor_headers_v1():
             res_data["headers"] = response.headers
         else:
             response.raise_for_status()
-    
+
     response_headers = res_data["headers"]
     assert response_headers["my-header"] == "test_header"
     points = ["%.3f" % (point) for point in list(res_data["predictions"])]
@@ -109,7 +109,7 @@ def test_predictor_headers_v1():
 def test_predictor_headers_v2():
     service_name = "isvc-custom-model-transformer-v2"
     model_name = "custom-model"
-    protocol_version="v2"
+    protocol_version = "v2"
     input_json = "./data/custom_model_input_v2.json"
 
     predictor = V1beta1PredictorSpec(

@@ -316,7 +316,10 @@ class Model(BaseKServeModel):
         return result
 
     async def _http_predict(
-        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None, response_header: Dict[str, str] = None
+        self,
+        payload: Union[Dict, InferRequest],
+        headers: Dict[str, str] = None,
+        response_header: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
