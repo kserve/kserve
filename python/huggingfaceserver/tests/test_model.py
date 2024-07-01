@@ -284,7 +284,7 @@ async def test_bert_sequence_classification(bert_base_yelp_polarity):
 @pytest.mark.asyncio
 async def test_bert_sequence_classification_return_probabilities(bert_base_return_prob):
     request = "Hello, my dog is cute."
-    response = await bert_base_return_prob(
+    response, _ = await bert_base_return_prob(
         {"instances": [request, request]}, headers={}
     )
 
@@ -301,7 +301,8 @@ async def test_bert_token_classification_return_prob(
     bert_token_classification_return_prob,
 ):
     request = "Hello, my dog is cute."
-    response = await bert_token_classification_return_prob(
+
+    response, _ = await bert_token_classification_return_prob(
         {"instances": [request, request]}, headers={}
     )
     assert response == bert_token_classification_return_prob_expected_output
