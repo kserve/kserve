@@ -12,7 +12,7 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
-transformers = "~4.40.2"
+transformers = "^4.40.2"
 accelerate = "~0.30.0"
 torch = "~2.3.0"
 vllm = { version = "^0.4.3", optional = true }
