@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "error_404_isvc"
+version = "0.13.0"
+description = "Custom isvc that always returns 404 with a JSON message"
+authors = ["The KServe Authors"]
+license = "https://github.com/kserve/kserve/blob/master/LICENSE"
+packages = [
+    { include = "*.py" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.12"
+kserve = {path = "../../../kserve", develop = true}
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+black = { version = "~24.3.0", extras = ["colorama"] }
+
+
+[tool.poetry-version-plugin]
+source = "file"
+file_path = "../../../VERSION"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

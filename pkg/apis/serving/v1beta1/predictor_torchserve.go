@@ -48,7 +48,6 @@ var (
 // Validate returns an error if invalid
 func (t *TorchServeSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
-		validateStorageURI(t.GetStorageUri()),
 		t.validateGPU(),
 		validateStorageSpec(t.GetStorageSpec(), t.GetStorageUri()),
 	})
@@ -83,5 +82,8 @@ func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Co
 }
 
 func (t *TorchServeSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if t.ProtocolVersion != nil {
+		return *t.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

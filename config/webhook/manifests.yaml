@@ -34,6 +34,7 @@ webhooks:
     failurePolicy: Fail
     name: inferenceservice.kserve-webhook-server.pod-mutator
     sideEffects: None
+    reinvocationPolicy: IfNeeded
     admissionReviewVersions: ["v1beta1"]
     namespaceSelector:
       matchExpressions:
@@ -50,7 +51,6 @@ webhooks:
           - v1
         operations:
           - CREATE
-          - UPDATE
         resources:
           - pods
 
@@ -135,3 +135,57 @@ webhooks:
           - UPDATE
         resources:
           - inferencegraphs
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: clusterservingruntime.serving.kserve.io
+webhooks:
+  - clientConfig:
+      caBundle: Cg==
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kserveNamespace)
+        path: /validate-serving-kserve-io-v1alpha1-clusterservingruntime
+    failurePolicy: Fail
+    name: clusterservingruntime.kserve-webhook-server.validator
+    sideEffects: None
+    admissionReviewVersions: ["v1beta1"]
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - clusterservingruntimes
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: servingruntime.serving.kserve.io
+webhooks:
+  - clientConfig:
+      caBundle: Cg==
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kserveNamespace)
+        path: /validate-serving-kserve-io-v1alpha1-servingruntime
+    failurePolicy: Fail
+    name: servingruntime.kserve-webhook-server.validator
+    sideEffects: None
+    admissionReviewVersions: ["v1beta1"]
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - servingruntimes

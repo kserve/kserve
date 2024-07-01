@@ -17,14 +17,14 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -53,7 +53,7 @@ func TestTensorflowValidation(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeExcludesGPU)),
+			matcher: gomega.MatchError(InvalidTensorflowRuntimeExcludesGPU),
 		},
 		"RejectGpuGpuResourceWithoutGpuRuntime": {
 			spec: PredictorSpec{
@@ -68,27 +68,7 @@ func TestTensorflowValidation(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidTensorflowRuntimeIncludesGPU)),
-		},
-		"ValidStorageUri": {
-			spec: PredictorSpec{
-				Tensorflow: &TFServingSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("hdfs://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: PredictorSpec{
-				Tensorflow: &TFServingSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("invaliduri://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
+			matcher: gomega.MatchError(InvalidTensorflowRuntimeIncludesGPU),
 		},
 	}
 
@@ -209,6 +189,24 @@ func TestTFServingSpec_GetProtocol(t *testing.T) {
 				ComponentExtensionSpec: ComponentExtensionSpec{},
 			},
 			expected: constants.ProtocolV1,
+		},
+		"ProtocolSpecified": {
+			spec: PredictorSpec{
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+						StorageURI:      proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
+						},
+					},
+				},
+				ComponentExtensionSpec: ComponentExtensionSpec{},
+			},
+			expected: constants.ProtocolV2,
 		},
 	}
 

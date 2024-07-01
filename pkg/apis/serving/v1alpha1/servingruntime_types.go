@@ -36,6 +36,16 @@ type SupportedModelFormat struct {
 	// this model format is specified with no explicit runtime.
 	// +optional
 	AutoSelect *bool `json:"autoSelect,omitempty"`
+
+	// +kubebuilder:validation:Minimum=1
+
+	// Priority of this serving runtime for auto selection.
+	// This is used to select the serving runtime if more than one serving runtime supports the same model format.
+	// The value should be greater than zero.  The higher the value, the higher the priority.
+	// Priority is not considered if AutoSelect is either false or not specified.
+	// Priority can be overridden by specifying the runtime in the InferenceService.
+	// +optional
+	Priority *int32 `json:"priority,omitempty"`
 }
 
 // +k8s:openapi-gen=true
@@ -203,6 +213,7 @@ type ServingRuntime struct {
 // ServingRuntimeList contains a list of ServingRuntime
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ServingRuntimeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -227,9 +238,10 @@ type ClusterServingRuntime struct {
 	Status ServingRuntimeStatus `json:"status,omitempty"`
 }
 
-// ServingRuntimeList contains a list of ServingRuntime
+// ClusterServingRuntimeList contains a list of ServingRuntime
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ClusterServingRuntimeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -265,4 +277,18 @@ func (srSpec *ServingRuntimeSpec) IsProtocolVersionSupported(modelProtocolVersio
 		}
 	}
 	return false
+}
+
+// GetPriority returns the priority of the specified model. It returns nil if priority is not set or the model is not found.
+func (srSpec *ServingRuntimeSpec) GetPriority(modelName string) *int32 {
+	for _, model := range srSpec.SupportedModelFormats {
+		if model.Name == modelName {
+			return model.Priority
+		}
+	}
+	return nil
+}
+
+func (m *SupportedModelFormat) IsAutoSelectEnabled() bool {
+	return m.AutoSelect != nil && *m.AutoSelect
 }

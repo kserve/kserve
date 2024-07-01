@@ -36,8 +36,6 @@ var (
 // Validate returns an error if invalid
 func (p *PMMLSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
-		ValidateMaxArgumentWorkers(p.Container.Args, 1),
-		validateStorageURI(p.GetStorageUri()),
 		validateStorageSpec(p.GetStorageSpec(), p.GetStorageUri()),
 	})
 }
@@ -53,5 +51,8 @@ func (p *PMMLSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Componen
 }
 
 func (p *PMMLSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if p.ProtocolVersion != nil {
+		return *p.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

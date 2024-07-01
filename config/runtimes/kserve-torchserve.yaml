@@ -4,16 +4,17 @@ metadata:
   name: kserve-torchserve
 spec:
   annotations:
-    prometheus.kserve.io/port: '8082'
+    prometheus.kserve.io/port: "8082"
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: pytorch
       version: "1"
       autoSelect: true
+      priority: 2
   protocolVersions:
     - v1
     - v2
-    - grpc-v1
+    - grpc-v2
   containers:
     - name: kserve-container
       image: kserve-torchserve:replace

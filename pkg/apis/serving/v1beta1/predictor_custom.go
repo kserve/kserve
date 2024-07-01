@@ -43,7 +43,6 @@ func NewCustomPredictor(podSpec *PodSpec) *CustomPredictor {
 // Validate returns an error if invalid
 func (c *CustomPredictor) Validate() error {
 	return utils.FirstNonNilError([]error{
-		validateStorageURI(c.GetStorageUri()),
 		c.validateCustomProtocol(),
 	})
 }
@@ -72,9 +71,14 @@ func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
 
 func (c *CustomPredictor) GetStorageUri() *string {
 	// return the CustomSpecStorageUri env variable value if set on the spec
-	for _, envVar := range c.Containers[0].Env {
-		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
-			return &envVar.Value
+	for _, container := range c.Containers {
+		if container.Name == constants.InferenceServiceContainerName {
+			for _, envVar := range container.Env {
+				if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
+					return &envVar.Value
+				}
+			}
+			break
 		}
 	}
 	return nil
@@ -84,13 +88,29 @@ func (c *CustomPredictor) GetStorageSpec() *StorageSpec {
 	return nil
 }
 
-// GetContainers transforms the resource into a container spec
+// GetContainer transforms the resource into a container spec
 func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
 	predictorHost ...string) *v1.Container {
-	return &c.Containers[0]
+	for _, container := range c.Containers {
+		if container.Name == constants.InferenceServiceContainerName {
+			return &container
+		}
+	}
+	return nil
 }
 
 func (c *CustomPredictor) GetProtocol() constants.InferenceServiceProtocol {
+	// Handle collocation of transformer and predictor scenario
+	for _, container := range c.Containers {
+		if container.Name == constants.TransformerContainerName {
+			for _, envVar := range container.Env {
+				if envVar.Name == constants.CustomSpecProtocolEnvVarKey {
+					return constants.InferenceServiceProtocol(envVar.Value)
+				}
+			}
+			return constants.ProtocolV1
+		}
+	}
 	for _, envVar := range c.Containers[0].Env {
 		if envVar.Name == constants.CustomSpecProtocolEnvVarKey {
 			return constants.InferenceServiceProtocol(envVar.Value)

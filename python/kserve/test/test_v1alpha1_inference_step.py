@@ -33,6 +33,7 @@ import kserve
 from kserve.models.v1alpha1_inference_step import V1alpha1InferenceStep  # noqa: E501
 from kserve.rest import ApiException
 
+
 class TestV1alpha1InferenceStep(unittest.TestCase):
     """V1alpha1InferenceStep unit test stubs"""
 
@@ -44,23 +45,22 @@ class TestV1alpha1InferenceStep(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1InferenceStep
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_inference_step.V1alpha1InferenceStep()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1InferenceStep(
-                condition = '0', 
-                data = '0', 
-                name = '0', 
-                node_name = '0', 
-                service_name = '0', 
-                service_url = '0', 
-                weight = 56
+                condition="0",
+                data="0",
+                name="0",
+                node_name="0",
+                service_name="0",
+                service_url="0",
+                weight=56,
             )
-        else :
-            return V1alpha1InferenceStep(
-        )
+        else:
+            return V1alpha1InferenceStep()
 
     def testV1alpha1InferenceStep(self):
         """Test V1alpha1InferenceStep"""
@@ -68,5 +68,5 @@ class TestV1alpha1InferenceStep(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

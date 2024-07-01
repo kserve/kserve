@@ -20,7 +20,7 @@ Please delete options that are not relevant.
 
 **Feature/Issue validation/testing**:
 
-Please describe the tests that you ran to verify your changes and relevent result summary. Provide instructions so it can be reproduced.
+Please describe the tests that you ran to verify your changes and relevant result summary. Provide instructions so it can be reproduced.
 Please also list any relevant details for your test configuration.
 
 - [ ] Test A
@@ -46,3 +46,8 @@ Please also list any relevant details for your test configuration.
 ```release-note
 
 ```
+
+**Re-running failed tests**
+
+- `/rerun-all` - rerun all failed workflows.
+- `/rerun-workflow <workflow name>` - rerun a specific failed workflow. Only one workflow name can be specified. Multiple /rerun-workflow commands are allowed per comment.

@@ -63,9 +63,7 @@ rules:
   verbs:
   - create
   - get
-  - list
   - update
-  - watch
 - apiGroups:
   - ""
   resources:
@@ -102,18 +100,14 @@ rules:
   - create
   - delete
   - get
-  - list
   - patch
   - update
-  - watch
 - apiGroups:
   - ""
   resources:
   - serviceaccounts
   verbs:
   - get
-  - list
-  - watch
 - apiGroups:
   - ""
   resources:
@@ -218,6 +212,18 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - clusterstoragecontainers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - clusterservingruntimes/status
   verbs:
   - get
@@ -306,3 +312,22 @@ rules:
   - get
   - patch
   - update
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kserve-addressable-resolver
+  labels:
+    contrib.eventing.knative.dev/release: devel
+    duck.knative.dev/addressable: "true"
+rules:
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - inferenceservices
+  - inferenceservices/status
+  verbs:
+  - get
+  - list
+  - watch

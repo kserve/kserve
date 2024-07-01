@@ -61,6 +61,10 @@ spec:
           initialDelaySeconds: 15
           periodSeconds: 10
         name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook
+          protocol: TCP
         readinessProbe:
           httpGet:
             path: /readyz
@@ -82,11 +86,18 @@ spec:
         - mountPath: /etc/model-serving/config/default
           name: config-defaults
           readOnly: true
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: modelmesh-webhook-server-cert
+          readOnly: true
       serviceAccountName: modelmesh-controller
       terminationGracePeriodSeconds: 10
       volumes:
-      - configMap:
+      - name: config-defaults
+        configMap:
           defaultMode: 420
           name: model-serving-config-defaults
-        name: config-defaults
+      - name: modelmesh-webhook-server-cert
+        secret:
+          defaultMode: 420
+          secretName: modelmesh-webhook-server-cert
 {{- end }}

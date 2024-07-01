@@ -1,0 +1,18 @@
+repos:
+  - repo: https://github.com/norwoodj/helm-docs
+    rev: v1.12.0
+    hooks:
+      - id: helm-docs
+        args:
+          - --chart-search-root=charts
+          - --output-file=README.md
+  - repo: https://github.com/psf/black
+    rev: 24.3.0
+    hooks:
+      - id: black
+        args: [--config, python/pyproject.toml]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.2.3
+    hooks:
+      - id: flake8
+        args: [--config, .flake8, .]

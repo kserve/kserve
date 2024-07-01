@@ -49,8 +49,5 @@ func (t *TFSavedModel) Schema(metaGraphTags []string, sigDefKey string) (*openap
 func setEquals(a, b []string) bool {
 	sort.Strings(a)
 	sort.Strings(b)
-	if cmp.Equal(a, b) {
-		return true
-	}
-	return false
+	return cmp.Equal(a, b)
 }

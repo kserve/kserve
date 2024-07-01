@@ -44,12 +44,11 @@ var (
 func (o *ONNXRuntimeSpec) Validate() error {
 	if o.GetStorageUri() != nil {
 		if ext := path.Ext(*o.GetStorageUri()); ext != ONNXFileExt && ext != "" {
-			return fmt.Errorf("Expected storageUri file extension: '%s' but got '%s'", ONNXFileExt, ext)
+			return fmt.Errorf("expected storageUri file extension: '%s' but got '%s'", ONNXFileExt, ext)
 		}
 	}
 
 	return utils.FirstNonNilError([]error{
-		validateStorageURI(o.GetStorageUri()),
 		validateStorageSpec(o.GetStorageSpec(), o.GetStorageUri()),
 	})
 }
@@ -66,5 +65,8 @@ func (o *ONNXRuntimeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *C
 }
 
 func (o *ONNXRuntimeSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if o.ProtocolVersion != nil {
+		return *o.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

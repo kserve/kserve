@@ -19,37 +19,31 @@ package v1beta1
 import (
 	"fmt"
 	"reflect"
-	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Known error messages
 const (
-	MinReplicasShouldBeLessThanMaxError = "MinReplicas cannot be greater than MaxReplicas."
-	MinReplicasLowerBoundExceededError  = "MinReplicas cannot be less than 0."
-	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0."
-	ParallelismLowerBoundExceededError  = "Parallelism cannot be less than 0."
-	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
-	UnsupportedStorageSpecFormatError   = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported."
-	InvalidLoggerType                   = "Invalid logger type"
-	InvalidISVCNameFormatError          = "The InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
-	MaxWorkersShouldBeLessThanMaxError  = "Workers cannot be greater than %d"
-	InvalidWorkerArgument               = "Invalid workers argument"
-	InvalidProtocol                     = "Invalid protocol %s. Must be one of [%s]"
+	MinReplicasShouldBeLessThanMaxError = "'MinReplicas' cannot be greater than MaxReplicas"
+	MinReplicasLowerBoundExceededError  = "'MinReplicas' cannot be less than 0"
+	MaxReplicasLowerBoundExceededError  = "'MaxReplicas' cannot be less than 0"
+	ParallelismLowerBoundExceededError  = "parallelism cannot be less than 0"
+	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
+	UnsupportedStorageSpecFormatError   = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported"
+	InvalidLoggerType                   = "invalid logger type"
+	InvalidISVCNameFormatError          = "the InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+	InvalidProtocol                     = "invalid protocol %s. Must be one of [%s]"
 )
 
 // Constants
 var (
-	SupportedStorageURIPrefixList     = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://"}
 	SupportedStorageSpecURIPrefixList = []string{"s3://", "hdfs://", "webhdfs://"}
-	AzureBlobURL                      = "blob.core.windows.net"
-	AzureBlobURIRegEx                 = "https://(.+?).blob.core.windows.net/(.+)"
 )
 
 // ComponentImplementation interface is implemented by predictor, transformer, and explainer implementations
@@ -81,7 +75,7 @@ type ComponentExtensionSpec struct {
 	MaxReplicas int `json:"maxReplicas,omitempty"`
 	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
 	// concurrency and rps targets are supported by Knative Pod Autoscaler
-	//(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
+	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
 	// +optional
 	ScaleTarget *int `json:"scaleTarget,omitempty"`
 	// ScaleMetric defines the scaling metric type watched by autoscaler
@@ -105,6 +99,18 @@ type ComponentExtensionSpec struct {
 	// Activate request batching and batching configurations
 	// +optional
 	Batcher *Batcher `json:"batcher,omitempty"`
+	// Labels that will be add to the component pod.
+	// More info: http://kubernetes.io/docs/user-guide/labels
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations that will be add to the component pod.
+	// More info: http://kubernetes.io/docs/user-guide/annotations
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.
+	// +optional
+	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`
 }
 
 // ScaleMetric enum
@@ -134,7 +140,7 @@ func validateStorageSpec(storageSpec *StorageSpec, storageURI *string) error {
 	if storageSpec == nil {
 		return nil
 	}
-	if storageSpec != nil && storageURI != nil {
+	if storageURI != nil {
 		if utils.IsPrefixSupported(*storageURI, SupportedStorageSpecURIPrefixList) {
 			return nil
 		} else {
@@ -153,31 +159,6 @@ func validateStorageSpec(storageSpec *StorageSpec, storageURI *string) error {
 		}
 	}
 	return nil
-}
-
-func validateStorageURI(storageURI *string) error {
-	if storageURI == nil {
-		return nil
-	}
-
-	// local path (not some protocol?)
-	if !regexp.MustCompile("\\w+?://").MatchString(*storageURI) {
-		return nil
-	}
-
-	// need to verify Azure Blob first, because it uses http(s):// prefix
-	if strings.Contains(*storageURI, AzureBlobURL) {
-		azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
-		if parts := azureURIMatcher.FindStringSubmatch(*storageURI); parts != nil {
-			return nil
-		}
-	} else {
-		if utils.IsPrefixSupported(*storageURI, SupportedStorageURIPrefixList) {
-			return nil
-		}
-	}
-
-	return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
 }
 
 func validateReplicas(minReplicas *int, maxReplicas int) error {
@@ -248,31 +229,8 @@ func ExactlyOneErrorFor(component Component) error {
 		implementationTypes = append(implementationTypes, componentType.Field(i).Name)
 	}
 	return fmt.Errorf(
-		"Exactly one of [%s] must be specified in %s",
+		"exactly one of [%s] must be specified in %s",
 		strings.Join(implementationTypes, ", "),
 		componentType.Name(),
 	)
-}
-
-// ValidateMaxArgumentWorkers will to validate illegal workers count.
-func ValidateMaxArgumentWorkers(slice []string, maxWorkers int64) error {
-	for _, v := range slice {
-
-		if strings.HasPrefix(v, "--workers") {
-			ret := strings.SplitN(v, "=", 2)
-
-			if len(ret) == 2 {
-				workers, err := strconv.ParseInt(ret[1], 10, 64)
-				if err != nil {
-					return fmt.Errorf(InvalidWorkerArgument)
-				}
-				if workers > maxWorkers {
-					return fmt.Errorf(MaxWorkersShouldBeLessThanMaxError, maxWorkers)
-				}
-			} else {
-				return fmt.Errorf(InvalidWorkerArgument)
-			}
-		}
-	}
-	return nil
 }

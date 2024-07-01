@@ -17,23 +17,16 @@ limitations under the License.
 package components
 
 import (
+	"context"
 	"fmt"
 
-	"context"
-
 	"github.com/go-logr/logr"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
-	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
-	raw "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
-	"github.com/kserve/kserve/pkg/credentials"
-	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,6 +34,13 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
+	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ Component = &Predictor{}
@@ -48,17 +48,19 @@ var _ Component = &Predictor{}
 // Predictor reconciles resources for this component.
 type Predictor struct {
 	client                 client.Client
+	clientset              kubernetes.Interface
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
-	credentialBuilder      *credentials.CredentialBuilder
+	credentialBuilder      *credentials.CredentialBuilder //nolint: unused
 	deploymentMode         constants.DeploymentModeType
 	Log                    logr.Logger
 }
 
-func NewPredictor(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig,
-	deploymentMode constants.DeploymentModeType) Component {
+func NewPredictor(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
+	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType) Component {
 	return &Predictor{
 		client:                 client,
+		clientset:              clientset,
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
 		deploymentMode:         deploymentMode,
@@ -85,7 +87,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	addAgentAnnotations(isvc, annotations)
 
 	// Reconcile modelConfig
-	configMapReconciler := modelconfig.NewModelConfigReconciler(p.client, p.scheme)
+	configMapReconciler := modelconfig.NewModelConfigReconciler(p.client, p.clientset, p.scheme)
 	if err := configMapReconciler.Reconcile(isvc); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -226,7 +228,6 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		sRuntimeAnnotations = utils.Filter(sRuntime.ServingRuntimePodSpec.Annotations, func(key string) bool {
 			return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 		})
-
 	} else {
 		container = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 
@@ -247,6 +248,10 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			return ctrl.Result{}, errors.New("must provide only one of storageUri and storage.path")
 		}
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
+		err := isvcutils.ValidateStorageURI(sourceURI, p.client)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
+		}
 	}
 
 	predictorName := constants.PredictorServiceName(isvc.Name)
@@ -263,15 +268,33 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 		}
 	}
-	// Labels and annotations from isvc will overwrite labels and annotations from ServingRuntimePodSpec
+
+	// Labels and annotations from predictor component
+	// Label filter will be handled in ksvc_reconciler
+	predictorLabels := isvc.Spec.Predictor.Labels
+	predictorAnnotations := utils.Filter(isvc.Spec.Predictor.Annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
+
+	// Labels and annotations priority: predictor component > isvc > ServingRuntimePodSpec
+	// Labels and annotations from high priority will overwrite that from low priority
 	objectMeta := metav1.ObjectMeta{
 		Name:      predictorName,
 		Namespace: isvc.Namespace,
-		Labels: utils.Union(sRuntimeLabels, isvc.Labels, map[string]string{
-			constants.InferenceServicePodLabelKey: isvc.Name,
-			constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
-		}),
-		Annotations: utils.Union(sRuntimeAnnotations, annotations),
+		Labels: utils.Union(
+			sRuntimeLabels,
+			isvc.Labels,
+			predictorLabels,
+			map[string]string{
+				constants.InferenceServicePodLabelKey: isvc.Name,
+				constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+			},
+		),
+		Annotations: utils.Union(
+			sRuntimeAnnotations,
+			annotations,
+			predictorAnnotations,
+		),
 	}
 
 	p.Log.Info("Resolved container", "container", container, "podSpec", podSpec)
@@ -283,24 +306,22 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	if p.deploymentMode == constants.RawDeployment {
 		rawDeployment = true
 		podLabelKey = constants.RawDeploymentAppLabel
-		r, err := raw.NewRawKubeReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
+		r, err := raw.NewRawKubeReconciler(p.client, p.clientset, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 			&podSpec)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")
 		}
-		//set Deployment Controller
+		// set Deployment Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Deployment.Deployment, p.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for predictor")
 		}
-		//set Service Controller
+		// set Service Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Service.Service, p.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for predictor")
 		}
-		//set autoscaler Controller
-		if r.Scaler.Autoscaler.AutoscalerClass == constants.AutoscalerClassHPA {
-			if err := controllerutil.SetControllerReference(isvc, r.Scaler.Autoscaler.HPA.HPA, p.scheme); err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "fails to set HPA owner reference for predictor")
-			}
+		// set autoscaler Controller
+		if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to set autoscaler owner references for predictor")
 		}
 
 		deployment, err := r.Reconcile()
@@ -321,17 +342,16 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, status)
 	}
-	statusSpec, _ := isvc.Status.Components[v1beta1.PredictorComponent]
+	statusSpec := isvc.Status.Components[v1beta1.PredictorComponent]
 	if rawDeployment {
 		podLabelValue = constants.GetRawServiceLabel(predictorName)
 	} else {
 		podLabelValue = statusSpec.LatestCreatedRevision
 	}
-	podList, err := isvcutils.ListPodsByLabel(p.client, isvc.ObjectMeta.Namespace, podLabelKey, podLabelValue)
+	predictorPods, err := isvcutils.ListPodsByLabel(p.client, isvc.ObjectMeta.Namespace, podLabelKey, podLabelValue)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "fails to list inferenceservice pods by label")
 	}
-	isvc.Status.PropagateModelStatus(statusSpec, podList, rawDeployment)
-
+	isvc.Status.PropagateModelStatus(statusSpec, predictorPods, rawDeployment)
 	return ctrl.Result{}, nil
 }

@@ -17,17 +17,16 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
-
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestTorchServeValidation(t *testing.T) {
@@ -54,7 +53,7 @@ func TestTorchServeValidation(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeExcludesGPU)),
+			matcher: gomega.MatchError(InvalidPyTorchRuntimeExcludesGPU),
 		},
 		"RejectGpuGpuResourceWithoutGpuRuntime": {
 			spec: PredictorSpec{
@@ -69,27 +68,7 @@ func TestTorchServeValidation(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeIncludesGPU)),
-		},
-		"ValidStorageUri": {
-			spec: PredictorSpec{
-				PyTorch: &TorchServeSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("s3://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: PredictorSpec{
-				PyTorch: &TorchServeSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("invaliduri://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
+			matcher: gomega.MatchError(InvalidPyTorchRuntimeIncludesGPU),
 		},
 	}
 
@@ -190,6 +169,17 @@ func TestTorchServeSpec_GetProtocol(t *testing.T) {
 				ComponentExtensionSpec: ComponentExtensionSpec{},
 			},
 			expected: constants.ProtocolV1,
+		},
+		"ProtocolSpecified": {
+			spec: PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+					},
+				},
+				ComponentExtensionSpec: ComponentExtensionSpec{},
+			},
+			expected: constants.ProtocolV2,
 		},
 	}
 

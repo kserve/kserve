@@ -26,6 +26,7 @@ class PipeStep(object):
     """
     Wrapper for turning functions into pipeline transforms (no-fitting)
     """
+
     def __init__(self, step_func):
         self._step_func = step_func
 
@@ -45,11 +46,11 @@ Y = data.test_labels[1:1001]
 X = np.stack([gray2rgb(iimg) for iimg in X.reshape((-1, 28, 28))], 0)
 X = np.array(np.reshape(X, (1000, 2352)))
 
-simple_rf_pipeline = Pipeline([('RF', RandomForestClassifier())])
+simple_rf_pipeline = Pipeline([("RF", RandomForestClassifier())])
 
 simple_rf_pipeline.fit(X, Y)
 
-with open(path_to_save, 'wb') as f:
+with open(path_to_save, "wb") as f:
     pickle.dump(simple_rf_pipeline, f)
 
 print("File saved")

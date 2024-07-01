@@ -17,6 +17,7 @@ limitations under the License.
 package pod
 
 import (
+	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	"testing"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -1100,8 +1101,8 @@ func TestAgentInjector(t *testing.T) {
 			},
 		},
 	}
-
-	credentialBuilder := credentials.NewCredentialBulder(c, &v1.ConfigMap{
+	clientset := fakeclientset.NewSimpleClientset()
+	credentialBuilder := credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
 		Data: map[string]string{},
 	})
 

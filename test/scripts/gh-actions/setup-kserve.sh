@@ -16,13 +16,20 @@
 
 # The script will install KServe dependencies in the GH Actions environment.
 # (Istio, Knative, cert-manager, kustomize, yq)
+# Usage: setup-kserve.sh $DEPLOYMENT_MODE
 
 set -o errexit
 set -o nounset
 set -o pipefail
+DEPLOYMENT_MODE="${1:-'serverless'}"
 
 make deploy-ci
-
+shopt -s nocasematch
+if [[ $DEPLOYMENT_MODE == "raw" ]];then
+  echo "Patching default deployment mode to raw deployment"
+  kubectl patch cm -n kserve inferenceservice-config --patch='{"data": {"deploy": "{\"defaultDeploymentMode\": \"RawDeployment\"}"}}'
+fi
+shopt -u nocasematch
 echo "Waiting for KServe started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
 kubectl get events -A
@@ -36,17 +43,6 @@ kubectl create namespace kserve-ci-e2e-test
 
 echo "Add storageSpec testing secrets ..."
 kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
-
-echo "Installing Poetry"
-export POETRY_VERSION=1.4.0
-pip install poetry==$POETRY_VERSION
-poetry config virtualenvs.create true
-poetry config virtualenvs.in-project true
-poetry config installer.parallel true
-
-echo "Installing Poetry Version Plugin"
-pip install -e python/plugin/poetry-version-plugin
-poetry self show plugins  
 
 echo "Installing KServe Python SDK ..."
 pushd python/kserve >/dev/null

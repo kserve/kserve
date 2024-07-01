@@ -12,6 +12,11 @@ on:
 env:
   IMAGE_NAME: image-transformer
   GRPC_IMAGE_NAME: custom-image-transformer-grpc
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # Run tests.
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
@@ -19,17 +24,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Run tests
-        run: |
-          if [ -f docker-compose.test.yml ]; then
-            docker-compose --file docker-compose.test.yml build
-            docker-compose --file docker-compose.test.yml run sut
-          else
-            cd python
-            docker buildx build . --file custom_transformer.Dockerfile
-          fi
+        uses: docker/build-push-action@v5
+        with:
+          platforms: linux/amd64
+          context: python
+          file: python/custom_transformer.Dockerfile
+          push: false
+          # https://github.com/docker/buildx/issues/1533
+          provenance: false
 
   # Push image to GitHub Packages.
   # See also https://docs.docker.com/docker-hub/builds/
@@ -41,17 +50,19 @@ jobs:
     if: github.event_name == 'push'
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - name: Build image
-        run: |
-          cd python
-          docker buildx build . --file custom_transformer.Dockerfile --tag $IMAGE_NAME
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Log into registry
-        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Push image
+      - name: Export version variable
         run: |
           IMAGE_ID=kserve/$IMAGE_NAME
 
@@ -66,12 +77,20 @@ jobs:
 
           # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latest
+     
+          echo VERSION=$VERSION >> $GITHUB_ENV
+          echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
 
-          echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
-
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          platforms: linux/amd64
+          context: python
+          file: python/custom_transformer.Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
+          # https://github.com/docker/buildx/issues/1533
+          provenance: false
 
   # Run tests.
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
@@ -79,17 +98,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Run tests
-        run: |
-          if [ -f docker-compose.test.yml ]; then
-            docker-compose --file docker-compose.test.yml build
-            docker-compose --file docker-compose.test.yml run sut
-          else
-            cd python
-            docker buildx build . --file custom_transformer_grpc.Dockerfile
-          fi
+        uses: docker/build-push-action@v5
+        with:
+          platforms: linux/amd64
+          context: python
+          file: python/custom_transformer_grpc.Dockerfile
+          push: false
+          # https://github.com/docker/buildx/issues/1533
+          provenance: false
 
   # Push image to GitHub Packages.
   # See also https://docs.docker.com/docker-hub/builds/
@@ -101,17 +124,19 @@ jobs:
     if: github.event_name == 'push'
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - name: Build image
-        run: |
-          cd python
-          docker buildx build . --file custom_transformer_grpc.Dockerfile --tag $GRPC_IMAGE_NAME
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Log into registry
-        run: docker login -u ${{ secrets.DOCKER_USER }} -p ${{ secrets.DOCKER_PASSWORD }}
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: Push image
+      - name: Export version variable
         run: |
           IMAGE_ID=kserve/$GRPC_IMAGE_NAME
 
@@ -126,10 +151,17 @@ jobs:
 
           # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latest
+          
+          echo VERSION=$VERSION >> $GITHUB_ENV
+          echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
 
-          echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
-
-          docker tag $GRPC_IMAGE_NAME $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
-
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          platforms: linux/amd64
+          context: python
+          file: python/custom_transformer_grpc.Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
+          # https://github.com/docker/buildx/issues/1533
+          provenance: false

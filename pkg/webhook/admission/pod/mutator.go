@@ -21,22 +21,24 @@ import (
 	"net/http"
 
 	v1 "k8s.io/api/core/v1"
-	k8types "k8s.io/apimachinery/pkg/types"
-
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/credentials"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/credentials"
 )
 
-// +kubebuilder:webhook:path=/mutate-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create;update,versions=v1,name=inferenceservice.kserve-webhook-server.pod-mutator
+// +kubebuilder:webhook:path=/mutate-pods,mutating=true,failurePolicy=fail,groups="",resources=pods,verbs=create,versions=v1,name=inferenceservice.kserve-webhook-server.pod-mutator,reinvocationPolicy=IfNeeded
 var log = logf.Log.WithName(constants.PodMutatorWebhookName)
 
 // Mutator is a webhook that injects incoming pods
 type Mutator struct {
-	Client  client.Client
-	Decoder *admission.Decoder
+	Client    client.Client
+	Clientset kubernetes.Interface
+	Decoder   *admission.Decoder
 }
 
 // Handle decodes the incoming Pod and executes mutation logic.
@@ -52,8 +54,8 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 		return admission.ValidationResponse(true, "")
 	}
 
-	configMap := &v1.ConfigMap{}
-	err := mutator.Client.Get(context.TODO(), k8types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
+	configMap, err := mutator.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(),
+		constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return admission.Errored(http.StatusInternalServerError, err)
@@ -77,7 +79,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 }
 
 func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
-	credentialBuilder := credentials.NewCredentialBulder(mutator.Client, configMap)
+	credentialBuilder := credentials.NewCredentialBuilder(mutator.Client, mutator.Clientset, configMap)
 
 	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
 	if err != nil {
@@ -87,6 +89,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 	storageInitializer := &StorageInitializerInjector{
 		credentialBuilder: credentialBuilder,
 		config:            storageInitializerConfig,
+		client:            mutator.Client,
 	}
 
 	loggerConfig, err := getLoggerConfigs(configMap)
@@ -119,8 +122,13 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
+		storageInitializer.SetIstioCniSecurityContext,
 		agentInjector.InjectAgent,
 		metricsAggregator.InjectMetricsAggregator,
+	}
+
+	if storageInitializer.config.EnableOciImageSource {
+		mutators = append(mutators, storageInitializer.InjectModelcar)
 	}
 
 	for _, mutator := range mutators {
@@ -136,19 +144,4 @@ func needMutate(pod *v1.Pod) bool {
 	// Skip webhook if pod not managed by kserve
 	_, ok := pod.Labels[constants.InferenceServicePodLabelKey]
 	return ok
-}
-
-// InjectClient injects the client.
-func (mutator *Mutator) InjectClient(c client.Client) error {
-	mutator.Client = c
-	return nil
-}
-
-// podAnnotator implements admission.DecoderInjector.
-// A decoder will be automatically injected.
-
-// InjectDecoder injects the decoder.
-func (mutator *Mutator) InjectDecoder(d *admission.Decoder) error {
-	mutator.Decoder = d
-	return nil
 }

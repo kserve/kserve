@@ -6,11 +6,9 @@ import requests
 if len(sys.argv) < 3:
     raise Exception("No endpoint specified. ")
 endpoint = sys.argv[1]
-headers = {
-    'Host': sys.argv[2]
-}
+headers = {"Host": sys.argv[2]}
 
-with open('input.json') as file:
+with open("input.json") as file:
     sample_file = json.load(file)
 inputs = sample_file["instances"]
 
@@ -20,7 +18,7 @@ time_before = time.time()
 res = requests.post(endpoint, json={"instances": inputs}, headers=headers)
 
 for x in range(0, len(inputs), 15):
-    query_inputs = inputs[x: x+20]
+    query_inputs = inputs[x : x + 20]
     payload = {"instances": query_inputs}
 
     res = requests.post(endpoint, json=payload, headers=headers)

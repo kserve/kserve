@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lgbserver"
-version = "0.10.1"
+version = "0.13.0"
 description = "Model Server implementation for LightGBM. Not intended for use outside KServe Frameworks Images."
 authors = ["Lin Yiming <linyiming@ainnovation.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -10,7 +10,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8,<3.12"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
 lightgbm = "~3.3.2"
 pandas = "^1.3.5"
@@ -20,9 +20,15 @@ optional = true
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.2.0"
-pytest-asyncio = "^0.20.3"
+pytest-asyncio = ">=0.23.4, <1.0.0"
 pytest-cov = "^4.0.0"
 mypy = "^0.991"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+black = { version = "~24.3.0", extras = ["colorama"] }
 
 [tool.poetry-version-plugin]
 source = "file"

@@ -59,62 +59,71 @@ func makeTestTrainModel() TrainedModel {
 func TestValidateCreate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
-		tm      TrainedModel
-		update  map[string]string
-		matcher types.GomegaMatcher
+		tm              TrainedModel
+		update          map[string]string
+		errMatcher      types.GomegaMatcher
+		warningsMatcher types.GomegaMatcher
 	}{
 		"simple": {
-			tm:      makeTestTrainModel(),
-			matcher: gomega.MatchError(nil),
+			tm:              makeTestTrainModel(),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"alphanumeric model name": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "Abc-123",
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name starts with number": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "4abc-3",
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name starts with dash": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "-abc-3",
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name ends with dash": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "abc-3-",
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name includes dot": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "abc.123",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc.123", TmRegexp)),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc.123", TmRegexp)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name includes spaces": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "abc 123",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc 123", TmRegexp)),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc 123", TmRegexp)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"invalid storageURI prefix": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				storageURI: "foo://kfserving/sklearn/iris",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "foo://kfserving/sklearn/iris")),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "foo://kfserving/sklearn/iris")),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 	}
 
@@ -124,9 +133,12 @@ func TestValidateCreate(t *testing.T) {
 			for tmField, value := range scenario.update {
 				tm.update(tmField, value)
 			}
-			res := scenario.tm.ValidateCreate()
-			if !g.Expect(gomega.MatchError(res)).To(gomega.Equal(scenario.matcher)) {
-				t.Errorf("got %t, want %t", res, scenario.matcher)
+			warnings, err := scenario.tm.ValidateCreate()
+			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
+				t.Errorf("got %t, want %t", err, scenario.errMatcher)
+			}
+			if !g.Expect(warnings).To(scenario.warningsMatcher) {
+				t.Errorf("got %s, want %t", warnings, scenario.warningsMatcher)
 			}
 		})
 	}
@@ -139,90 +151,103 @@ func TestValidateUpdate(t *testing.T) {
 	newMemory := "300Mi"
 
 	scenarios := map[string]struct {
-		tm      TrainedModel
-		update  map[string]string
-		matcher types.GomegaMatcher
+		tm              TrainedModel
+		update          map[string]string
+		errMatcher      types.GomegaMatcher
+		warningsMatcher types.GomegaMatcher
 	}{
 		"no change": {
-			tm:      makeTestTrainModel(),
-			matcher: gomega.MatchError(nil),
+			tm:              makeTestTrainModel(),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"alphanumeric model name": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "Abc-123",
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name starts with number": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "4abc-3",
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name starts with dash": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "-abc-3",
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name ends with dash": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "abc-3-",
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name includes dot": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "abc.123",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc.123", TmRegexp)),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc.123", TmRegexp)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name includes spaces": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				name: "abc 123",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc 123", TmRegexp)),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidTmNameFormatError, "abc 123", TmRegexp)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"inference service": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				infereceservice: "parent2",
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"storageURI": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				storageURI: "gs://kfserving/sklearn2/iris",
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"invalid storageURI prefix": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				storageURI: "foo://kfserving/sklearn/iris",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "foo://kfserving/sklearn/iris")),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidStorageUriFormatError, "bar", StorageUriProtocols, "foo://kfserving/sklearn/iris")),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"framework": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				framework: "sklearn2",
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"change immutable memory": {
 			tm: makeTestTrainModel(),
 			update: map[string]string{
 				memory: newMemory,
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTmMemoryModification, temptTm.Name, temptTm.Spec.Model.Memory.String(), newMemory)),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidTmMemoryModification, temptTm.Name, temptTm.Spec.Model.Memory.String(), newMemory)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 	}
 
@@ -232,9 +257,12 @@ func TestValidateUpdate(t *testing.T) {
 			for tmField, value := range scenario.update {
 				tm.update(tmField, value)
 			}
-			res := scenario.tm.ValidateUpdate(old)
-			if !g.Expect(gomega.MatchError(res)).To(gomega.Equal(scenario.matcher)) {
-				t.Errorf("got %t, want %t", res, scenario.matcher)
+			warnings, err := scenario.tm.ValidateUpdate(old)
+			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
+				t.Errorf("got %t, want %t", err, scenario.errMatcher)
+			}
+			if !g.Expect(warnings).To(scenario.warningsMatcher) {
+				t.Errorf("got %s, want %t", warnings, scenario.warningsMatcher)
 			}
 		})
 	}
@@ -243,21 +271,26 @@ func TestValidateUpdate(t *testing.T) {
 func TestValidateDelete(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
-		tm      TrainedModel
-		update  map[string]string
-		matcher types.GomegaMatcher
+		tm              TrainedModel
+		update          map[string]string
+		errMatcher      types.GomegaMatcher
+		warningsMatcher types.GomegaMatcher
 	}{
 		"simple": {
-			tm:      makeTestTrainModel(),
-			matcher: gomega.MatchError(nil),
+			tm:              makeTestTrainModel(),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 	}
 
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
-			res := scenario.tm.ValidateDelete()
-			if !g.Expect(gomega.MatchError(res)).To(gomega.Equal(scenario.matcher)) {
-				t.Errorf("got %t, want %t", res, scenario.matcher)
+			warnings, err := scenario.tm.ValidateDelete()
+			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
+				t.Errorf("got %t, want %t", err, scenario.errMatcher)
+			}
+			if !g.Expect(warnings).To(scenario.warningsMatcher) {
+				t.Errorf("got %s, want %t", warnings, scenario.warningsMatcher)
 			}
 		})
 	}

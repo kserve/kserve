@@ -5,4 +5,4 @@ metadata:
 spec:
   predictor:
     paddle:
-      storageUri: "https://zhouti-mcp-edge.cdn.bcebos.com/resnet50.tar.gz"
+      storageUri: "gs://kfserving-examples/models/paddle/resnet"

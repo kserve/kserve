@@ -19,8 +19,9 @@
 set -o errexit
 set -o nounset
 
-SWAGGER_JAR_URL="https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/4.3.1/openapi-generator-cli-4.3.1.jar"
-SWAGGER_CODEGEN_JAR="hack/python-sdk/openapi-generator-cli.jar"
+OPENAPI_GENERATOR_VERSION="4.3.1"
+SWAGGER_JAR_URL="https://repo1.maven.org/maven2/org/openapitools/openapi-generator-cli/${OPENAPI_GENERATOR_VERSION}/openapi-generator-cli-${OPENAPI_GENERATOR_VERSION}.jar"
+SWAGGER_CODEGEN_JAR="hack/python-sdk/openapi-generator-cli-${OPENAPI_GENERATOR_VERSION}.jar"
 SWAGGER_CODEGEN_CONF="hack/python-sdk/swagger_config.json"
 SWAGGER_CODEGEN_FILE="pkg/apis/serving/v1beta1/swagger.json"
 SDK_OUTPUT_PATH="python/kserve"
@@ -34,11 +35,11 @@ fi
 echo "Generating Python SDK for KServe ..."
 java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF}
 
-# revert following files since they are diveraged from generated ones
+# revert following files since they are diverged from generated ones
 git checkout python/kserve/README.md
 git checkout python/kserve/kserve/__init__.py
-git checkout python/kserve/setup.py
-git checkout python/kserve/requirements.txt
+git clean -f python/kserve/setup.py
+git clean -f python/kserve/requirements.txt
 
 # Update kubernetes docs link.
 K8S_IMPORT_LIST=`cat hack/python-sdk/swagger_config.json|grep "V1" | awk -F"\"" '{print $2}'`

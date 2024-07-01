@@ -17,10 +17,11 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
@@ -45,26 +46,6 @@ func TestPMMLValidation(t *testing.T) {
 				},
 			},
 			matcher: gomega.BeNil(),
-		},
-		"ValidStorageUri": {
-			spec: PredictorSpec{
-				PMML: &PMMLSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("s3://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: PredictorSpec{
-				PMML: &PMMLSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("invaliduri://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
 		},
 	}
 
@@ -146,6 +127,24 @@ func TestPMMLSpec_GetProtocol(t *testing.T) {
 				ComponentExtensionSpec: ComponentExtensionSpec{},
 			},
 			expected: constants.ProtocolV1,
+		},
+		"ProtocolSpecified": {
+			spec: PredictorSpec{
+				PMML: &PMMLSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+						StorageURI:      proto.String("s3://modelzoo"),
+						Container: v1.Container{
+							Image:     "image:0.1",
+							Args:      nil,
+							Env:       nil,
+							Resources: v1.ResourceRequirements{},
+						},
+					},
+				},
+				ComponentExtensionSpec: ComponentExtensionSpec{},
+			},
+			expected: constants.ProtocolV2,
 		},
 	}
 

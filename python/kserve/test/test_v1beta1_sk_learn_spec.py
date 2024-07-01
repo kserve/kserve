@@ -33,6 +33,7 @@ import kserve
 from kserve.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec  # noqa: E501
 from kserve.rest import ApiException
 
+
 class TestV1beta1SKLearnSpec(unittest.TestCase):
     """V1beta1SKLearnSpec unit test stubs"""
 
@@ -44,55 +45,41 @@ class TestV1beta1SKLearnSpec(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1beta1SKLearnSpec
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1beta1_sk_learn_spec.V1beta1SKLearnSpec()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1beta1SKLearnSpec(
-                args = [
-                    '0'
-                    ], 
-                command = [
-                    '0'
-                    ], 
-                env = [
-                    None
-                    ], 
-                env_from = [
-                    None
-                    ], 
-                image = '0', 
-                image_pull_policy = '0', 
-                lifecycle = None, 
-                liveness_probe = None, 
-                name = '0', 
-                ports = [
-                    None
-                    ], 
-                readiness_probe = None, 
-                resources = None, 
-                runtime_version = '0', 
-                security_context = None, 
-                startup_probe = None, 
-                stdin = True, 
-                stdin_once = True, 
-                storage_uri = '0', 
-                termination_message_path = '0', 
-                termination_message_policy = '0', 
-                tty = True, 
-                volume_devices = [
-                    None
-                    ], 
-                volume_mounts = [
-                    None
-                    ], 
-                working_dir = '0'
+                args=["0"],
+                command=["0"],
+                env=[None],
+                env_from=[None],
+                image="0",
+                image_pull_policy="0",
+                lifecycle=None,
+                liveness_probe=None,
+                name="0",
+                ports=[None],
+                readiness_probe=None,
+                resources=None,
+                runtime_version="0",
+                security_context=None,
+                startup_probe=None,
+                stdin=True,
+                stdin_once=True,
+                storage_uri="0",
+                termination_message_path="0",
+                termination_message_policy="0",
+                tty=True,
+                volume_devices=[None],
+                volume_mounts=[None],
+                working_dir="0",
             )
-        else :
+        else:
             return V1beta1SKLearnSpec(
-                storage_uri = '0',
-        )
+                storage_uri="0",
+            )
 
     def testV1beta1SKLearnSpec(self):
         """Test V1beta1SKLearnSpec"""
@@ -100,5 +87,5 @@ class TestV1beta1SKLearnSpec(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

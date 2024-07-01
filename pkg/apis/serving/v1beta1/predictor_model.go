@@ -85,11 +85,7 @@ func (ss stringSet) contains(s string) bool {
 // support the given model. If the `isMMS` argument is true, this function will only return ServingRuntimes that are
 // ModelMesh compatible, otherwise only single-model serving compatible runtimes will be returned.
 func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool) ([]v1alpha1.SupportedRuntime, error) {
-
-	var modelProtcolVersion constants.InferenceServiceProtocol
-	if m.ProtocolVersion != nil {
-		modelProtcolVersion = *m.ProtocolVersion
-	}
+	modelProtocolVersion := m.GetProtocol()
 
 	// List all namespace-scoped runtimes.
 	runtimes := &v1alpha1.ServingRuntimeList{}
@@ -108,21 +104,24 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 	sortClusterServingRuntimeList(clusterRuntimes)
 
 	srSpecs := []v1alpha1.SupportedRuntime{}
+	var clusterSrSpecs []v1alpha1.SupportedRuntime
 	for i := range runtimes.Items {
 		rt := &runtimes.Items[i]
 		if !rt.Spec.IsDisabled() && rt.Spec.IsMultiModelRuntime() == isMMS &&
-			m.RuntimeSupportsModel(&rt.Spec) && rt.Spec.IsProtocolVersionSupported(modelProtcolVersion) {
+			m.RuntimeSupportsModel(&rt.Spec) && rt.Spec.IsProtocolVersionSupported(modelProtocolVersion) {
 			srSpecs = append(srSpecs, v1alpha1.SupportedRuntime{Name: rt.GetName(), Spec: rt.Spec})
 		}
 	}
-
+	sortSupportedRuntimeByPriority(srSpecs, m.ModelFormat)
 	for i := range clusterRuntimes.Items {
 		crt := &clusterRuntimes.Items[i]
 		if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS &&
-			m.RuntimeSupportsModel(&crt.Spec) && crt.Spec.IsProtocolVersionSupported(modelProtcolVersion) {
-			srSpecs = append(srSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
+			m.RuntimeSupportsModel(&crt.Spec) && crt.Spec.IsProtocolVersionSupported(modelProtocolVersion) {
+			clusterSrSpecs = append(clusterSrSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
 		}
 	}
+	sortSupportedRuntimeByPriority(clusterSrSpecs, m.ModelFormat)
+	srSpecs = append(srSpecs, clusterSrSpecs...)
 	return srSpecs, nil
 }
 
@@ -199,8 +198,25 @@ func sortClusterServingRuntimeList(runtimes *v1alpha1.ClusterServingRuntimeList)
 	})
 }
 
+func sortSupportedRuntimeByPriority(runtimes []v1alpha1.SupportedRuntime, modelFormat ModelFormat) {
+	sort.Slice(runtimes, func(i, j int) bool {
+		p1 := runtimes[i].Spec.GetPriority(modelFormat.Name)
+		p2 := runtimes[j].Spec.GetPriority(modelFormat.Name)
+
+		switch {
+		case p1 == nil && p2 == nil: // if both runtimes does not specify the priority, the order is kept.
+			return false
+		case p1 == nil && p2 != nil: // runtime with priority specified takes precedence
+			return false
+		case p1 != nil && p2 == nil:
+			return true
+		}
+		return *p1 > *p2
+	})
+}
+
 func GetProtocolVersionPriority(protocols []constants.InferenceServiceProtocol) int {
-	if protocols == nil || len(protocols) == 0 {
+	if len(protocols) == 0 {
 		return int(constants.Unknown)
 	}
 	protocolVersions := []int{}

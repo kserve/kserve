@@ -18,22 +18,26 @@ package components
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
-	"github.com/kserve/kserve/pkg/credentials"
-	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/utils"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
@@ -43,17 +47,19 @@ var _ Component = &Explainer{}
 // Explainer reconciles resources for this component.
 type Explainer struct {
 	client                 client.Client
+	clientset              kubernetes.Interface
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
-	credentialBuilder      *credentials.CredentialBuilder
+	credentialBuilder      *credentials.CredentialBuilder //nolint: unused
 	deploymentMode         constants.DeploymentModeType
 	Log                    logr.Logger
 }
 
-func NewExplainer(client client.Client, scheme *runtime.Scheme, inferenceServiceConfig *v1beta1.InferenceServicesConfig,
-	deploymentMode constants.DeploymentModeType) Component {
+func NewExplainer(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
+	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType) Component {
 	return &Explainer{
 		client:                 client,
+		clientset:              clientset,
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
 		deploymentMode:         deploymentMode,
@@ -72,6 +78,10 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := explainer.GetStorageUri(); sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
+		err := isvcutils.ValidateStorageURI(sourceURI, e.client)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
+		}
 	}
 	addLoggerAnnotations(isvc.Spec.Explainer.Logger, annotations)
 
@@ -93,14 +103,30 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 	}
 
+	// Labels and annotations from explainer component
+	// Label filter will be handled in ksvc_reconciler
+	explainerLabels := isvc.Spec.Explainer.Labels
+	explainerAnnotations := utils.Filter(isvc.Spec.Explainer.Annotations, func(key string) bool {
+		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+	})
+
+	// Labels and annotations priority: explainer component > isvc
+	// Labels and annotations from high priority will overwrite that from low priority
 	objectMeta := metav1.ObjectMeta{
 		Name:      explainerName,
 		Namespace: isvc.Namespace,
-		Labels: utils.Union(isvc.Labels, map[string]string{
-			constants.InferenceServicePodLabelKey: isvc.Name,
-			constants.KServiceComponentLabel:      string(v1beta1.ExplainerComponent),
-		}),
-		Annotations: annotations,
+		Labels: utils.Union(
+			isvc.Labels,
+			explainerLabels,
+			map[string]string{
+				constants.InferenceServicePodLabelKey: isvc.Name,
+				constants.KServiceComponentLabel:      string(v1beta1.ExplainerComponent),
+			},
+		),
+		Annotations: utils.Union(
+			annotations,
+			explainerAnnotations,
+		),
 	}
 	container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig, predictorName)
 	if len(isvc.Spec.Explainer.PodSpec.Containers) == 0 {
@@ -115,24 +141,22 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 
 	// Here we allow switch between knative and vanilla deployment
 	if e.deploymentMode == constants.RawDeployment {
-		r, err := raw.NewRawKubeReconciler(e.client, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
-			&podSpec)
+		r, err := raw.NewRawKubeReconciler(e.client, e.clientset, e.scheme, objectMeta,
+			&isvc.Spec.Explainer.ComponentExtensionSpec, &podSpec)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")
 		}
-		//set Deployment Controller
+		// set Deployment Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Deployment.Deployment, e.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for explainer")
 		}
-		//set Service Controller
+		// set Service Controller
 		if err := controllerutil.SetControllerReference(isvc, r.Service.Service, e.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for explainer")
 		}
-		//set autoscaler Controller
-		if r.Scaler.Autoscaler.AutoscalerClass == constants.AutoscalerClassHPA {
-			if err := controllerutil.SetControllerReference(isvc, r.Scaler.Autoscaler.HPA.HPA, e.scheme); err != nil {
-				return ctrl.Result{}, errors.Wrapf(err, "fails to set HPA owner reference for explainer")
-			}
+		// set autoscaler Controller
+		if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, e.scheme); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to set autoscaler owner references for explainer")
 		}
 
 		deployment, err := r.Reconcile()

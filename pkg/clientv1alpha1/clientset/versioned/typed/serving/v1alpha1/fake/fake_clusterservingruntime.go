@@ -24,7 +24,6 @@ import (
 	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,9 +35,9 @@ type FakeClusterServingRuntimes struct {
 	ns   string
 }
 
-var clusterservingruntimesResource = schema.GroupVersionResource{Group: "serving", Version: "v1alpha1", Resource: "clusterservingruntimes"}
+var clusterservingruntimesResource = v1alpha1.SchemeGroupVersion.WithResource("clusterservingruntimes")
 
-var clusterservingruntimesKind = schema.GroupVersionKind{Group: "serving", Version: "v1alpha1", Kind: "ClusterServingRuntime"}
+var clusterservingruntimesKind = v1alpha1.SchemeGroupVersion.WithKind("ClusterServingRuntime")
 
 // Get takes name of the clusterServingRuntime, and returns the corresponding clusterServingRuntime object, and an error if there is any.
 func (c *FakeClusterServingRuntimes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterServingRuntime, err error) {

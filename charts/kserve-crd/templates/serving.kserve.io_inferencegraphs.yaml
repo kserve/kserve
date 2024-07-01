@@ -1,11 +1,8 @@
-
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.12.0
   name: inferencegraphs.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -82,6 +79,7 @@ spec:
                                     type: object
                                   type: array
                               type: object
+                              x-kubernetes-map-type: atomic
                             weight:
                               format: int32
                               type: integer
@@ -128,10 +126,12 @@ spec:
                                     type: object
                                   type: array
                               type: object
+                              x-kubernetes-map-type: atomic
                             type: array
                         required:
                         - nodeSelectorTerms
                         type: object
+                        x-kubernetes-map-type: atomic
                     type: object
                   podAffinity:
                     properties:
@@ -163,6 +163,7 @@ spec:
                                         type: string
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaceSelector:
                                   properties:
                                     matchExpressions:
@@ -186,6 +187,7 @@ spec:
                                         type: string
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaces:
                                   items:
                                     type: string
@@ -229,6 +231,7 @@ spec:
                                     type: string
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaceSelector:
                               properties:
                                 matchExpressions:
@@ -252,6 +255,7 @@ spec:
                                     type: string
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaces:
                               items:
                                 type: string
@@ -293,6 +297,7 @@ spec:
                                         type: string
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaceSelector:
                                   properties:
                                     matchExpressions:
@@ -316,6 +321,7 @@ spec:
                                         type: string
                                       type: object
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 namespaces:
                                   items:
                                     type: string
@@ -359,6 +365,7 @@ spec:
                                     type: string
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaceSelector:
                               properties:
                                 matchExpressions:
@@ -382,6 +389,7 @@ spec:
                                     type: string
                                   type: object
                               type: object
+                              x-kubernetes-map-type: atomic
                             namespaces:
                               items:
                                 type: string
@@ -394,6 +402,10 @@ spec:
                         type: array
                     type: object
                 type: object
+              maxReplicas:
+                type: integer
+              minReplicas:
+                type: integer
               nodes:
                 additionalProperties:
                   properties:
@@ -410,6 +422,11 @@ spec:
                           condition:
                             type: string
                           data:
+                            type: string
+                          dependency:
+                            enum:
+                            - Soft
+                            - Hard
                             type: string
                           name:
                             type: string
@@ -430,6 +447,18 @@ spec:
                 type: object
               resources:
                 properties:
+                  claims:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   limits:
                     additionalProperties:
                       anyOf:
@@ -447,6 +476,18 @@ spec:
                       x-kubernetes-int-or-string: true
                     type: object
                 type: object
+              scaleMetric:
+                enum:
+                - cpu
+                - memory
+                - concurrency
+                - rps
+                type: string
+              scaleTarget:
+                type: integer
+              timeout:
+                format: int64
+                type: integer
             required:
             - nodes
             type: object
@@ -487,9 +528,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

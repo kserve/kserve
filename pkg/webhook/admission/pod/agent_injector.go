@@ -71,11 +71,11 @@ func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 	if agentConfigValue, ok := configMap.Data[constants.AgentConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(agentConfigValue), &agentConfig)
 		if err != nil {
-			panic(fmt.Errorf("unable to unmarshall agent json string due to %v", err))
+			panic(fmt.Errorf("unable to unmarshall agent json string due to %w", err))
 		}
 	}
 
-	//Ensure that we set proper values
+	// Ensure that we set proper values
 	resourceDefaults := []string{agentConfig.MemoryRequest,
 		agentConfig.MemoryLimit,
 		agentConfig.CpuRequest,
@@ -92,16 +92,15 @@ func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 }
 
 func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
-
 	loggerConfig := &LoggerConfig{}
 	if loggerConfigValue, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(loggerConfigValue), &loggerConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall logger json string due to %v ", err))
+			panic(fmt.Errorf("Unable to unmarshall logger json string due to %w ", err))
 		}
 	}
 
-	//Ensure that we set proper values for CPU/Memory Limit/Request
+	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{loggerConfig.MemoryRequest,
 		loggerConfig.MemoryLimit,
 		loggerConfig.CpuRequest,
@@ -175,7 +174,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			logMode = string(v1beta1.LogAll)
 		}
 
-		inferenceServiceName, _ := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
+		inferenceServiceName := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
 		namespace := pod.ObjectMeta.Namespace
 		endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
 		component := pod.ObjectMeta.Labels[constants.KServiceComponentLabel]
@@ -211,7 +210,6 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		}
 
 		if container.Name == "kserve-container" {
-
 			containerPort := constants.InferenceServiceDefaultHttpPort
 			if len(container.Ports) > 0 {
 				containerPort = fmt.Sprint(container.Ports[0].ContainerPort)
@@ -282,6 +280,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	// Inject credentials
 	if err := ag.credentialBuilder.CreateSecretVolumeAndEnv(
 		pod.Namespace,
+		pod.Annotations,
 		pod.Spec.ServiceAccountName,
 		agentContainer,
 		&pod.Spec.Volumes,
@@ -316,9 +315,9 @@ func mountModelDir(pod *v1.Pod) error {
 				EmptyDir: &v1.EmptyDirVolumeSource{},
 			},
 		}
-		//Mount the model dir into agent container
+		// Mount the model dir into agent container
 		mountVolumeToContainer(constants.AgentContainerName, pod, modelDirVolume, constants.ModelDir)
-		//Mount the model dir into model server container
+		// Mount the model dir into model server container
 		mountVolumeToContainer(constants.InferenceServiceContainerName, pod, modelDirVolume, constants.ModelDir)
 		return nil
 	}
@@ -345,7 +344,7 @@ func mountModelConfig(pod *v1.Pod) error {
 
 func mountVolumeToContainer(containerName string, pod *v1.Pod, additionalVolume v1.Volume, mountPath string) {
 	pod.Spec.Volumes = appendVolume(pod.Spec.Volumes, additionalVolume)
-	var mountedContainers []v1.Container
+	mountedContainers := make([]v1.Container, 0, len(pod.Spec.Containers))
 	for _, container := range pod.Spec.Containers {
 		if container.Name == containerName {
 			if container.VolumeMounts == nil {
@@ -371,6 +370,6 @@ func appendVolume(existingVolumes []v1.Volume, additionalVolume v1.Volume) []v1.
 			return existingVolumes
 		}
 	}
-	updatedVolumes := append(existingVolumes, additionalVolume)
-	return updatedVolumes
+	existingVolumes = append(existingVolumes, additionalVolume)
+	return existingVolumes
 }

@@ -20,7 +20,7 @@ see also: [KServe Issue #2645](https://github.com/kserve/kserve/issues/2465),
 Save this file as qpext_image_patch.yaml, update the tag if needed.
 ```yaml
 data:
-  queueSidecarImage: kserve/qpext:latest
+  queue-sidecar-image: kserve/qpext:latest
 ```
 
 Run the following command to patch the deployment config in the appropriate knative namespace.
@@ -59,11 +59,11 @@ spec:
   predictor:
     sklearn:
       protocolVersion: v2
-      storageUri: "gs://seldon-models/sklearn/iris"
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
 ```
 
 To view the runtime specific defaults for the `kserve-container` prometheus port and path, view the spec annotations in `kserve/config/runtimes`.
-These values can be overriden in the InferenceService YAML annotations.
+These values can be overridden in the InferenceService YAML annotations.
 
 ```yaml
 apiVersion: "serving.kserve.io/v1beta1"
@@ -79,7 +79,7 @@ spec:
   predictor:
     sklearn:
       protocolVersion: v2
-      storageUri: "gs://seldon-models/sklearn/iris"
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
 ```
 The default port for sklearn runtime is `8080`, and the default path is `/metrics`. 
 By setting the annotations in the InferenceService YAML, the default runtime configurations are overridden.
@@ -138,9 +138,13 @@ pushing the image to dockerhub/container registry, and patching the knative depl
 the test image. The pods will then pick up the new configuration.
 
 
-(1) To build the qpext image in the kserve/qpext directory (as an example, `some_docker_repo` in dockerhub), run 
+(1) To build the qpext image in the ${KO_DOCKER_REPO}/qpext directory (as an example, `some_docker_repo` in dockerhub), run 
 ```shell
 make docker-build-push-qpext
+```
+(2) To build, push and patch the image, run
+```shell
+make deploy-dev-qpext
 ```
 
 Alternatively, build and push the image step by step yourself.
@@ -158,7 +162,7 @@ docker push {some_docker_repo}/qpext:latest
 (2) Save this file as qpext_image_patch.yaml, update the tag if needed.
 ```yaml
 data:
-  queueSidecarImage: kserve/qpext:latest
+  queue-sidecar-image: kserve/qpext:latest
 ```
 
 (3) Run the following command to patch the deployment config in the appropriate knative namespace.
@@ -184,7 +188,7 @@ and annotations on the pod, check the Pod output.
 kubectl get pod {name_of_pod} -oyaml
 ```
 
-To check that the metrics are aggregated, use the KServe [Getting Started](https://kserve.github.io/website/0.9/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) 
+To check that the metrics are aggregated, use the KServe [Getting Started](https://kserve.github.io/website/latest/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) 
 documentation as a guide to send a request to the pod. Next, send a request to the metrics endpoint. 
 
 For example, port-forward the pod prometheus aggregate metrics port to localhost. 
@@ -193,5 +197,5 @@ kubectl port-forward pods/{pod_name} 9088:9088
 ```
 Next, cURL the port to see the metrics output.
 ```shell
-curl localhost:9088
+curl localhost:9088/metrics
 ```

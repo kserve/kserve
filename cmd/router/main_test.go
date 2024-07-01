@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package main
 
 import (
@@ -9,6 +25,7 @@ import (
 	"knative.dev/pkg/apis"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"testing"
@@ -82,7 +99,7 @@ func TestSimpleModelChainer(t *testing.T) {
 		"Authorization": {"Bearer Token"},
 	}
 
-	res, err := routeStep("root", graphSpec, jsonBytes, headers)
+	res, _, err := routeStep("root", graphSpec, jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
@@ -154,7 +171,7 @@ func TestSimpleModelEnsemble(t *testing.T) {
 	headers := http.Header{
 		"Authorization": {"Bearer Token"},
 	}
-	res, err := routeStep("root", graphSpec, jsonBytes, headers)
+	res, _, err := routeStep("root", graphSpec, jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
@@ -333,7 +350,7 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 	headers := http.Header{
 		"Authorization": {"Bearer Token"},
 	}
-	res, err := routeStep("root", graphSpec, jsonBytes, headers)
+	res, _, err := routeStep("root", graphSpec, jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedModel3Response := map[string]interface{}{
@@ -372,8 +389,14 @@ func TestCallServiceWhenNoneHeadersToPropagateIsEmpty(t *testing.T) {
 		// Putting headers as part of response so that we can assert the headers' presence later
 		response := make(map[string]interface{})
 		response["predictions"] = "1"
-		for _, h := range headersToPropagate {
-			response[h] = req.Header[h][0]
+		matchedHeaders := map[string]bool{}
+		for _, p := range compiledHeaderPatterns {
+			for h, values := range req.Header {
+				if _, ok := matchedHeaders[h]; !ok && p.MatchString(h) {
+					matchedHeaders[h] = true
+					response[h] = values[0]
+				}
+			}
 		}
 		responseBytes, err := json.Marshal(response)
 		_, err = rw.Write(responseBytes)
@@ -396,8 +419,8 @@ func TestCallServiceWhenNoneHeadersToPropagateIsEmpty(t *testing.T) {
 		"Test-Header-Key": {"Test-Header-Value"},
 	}
 	// Propagating no header
-	headersToPropagate = []string{}
-	res, err := callService(model1Url.String(), jsonBytes, headers)
+	compiledHeaderPatterns = []*regexp.Regexp{}
+	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
@@ -417,8 +440,14 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 		// Putting headers as part of response so that we can assert the headers' presence later
 		response := make(map[string]interface{})
 		response["predictions"] = "1"
-		for _, h := range headersToPropagate {
-			response[h] = req.Header[h][0]
+		matchedHeaders := map[string]bool{}
+		for _, p := range compiledHeaderPatterns {
+			for h, values := range req.Header {
+				if _, ok := matchedHeaders[h]; !ok && p.MatchString(h) {
+					matchedHeaders[h] = true
+					response[h] = values[0]
+				}
+			}
 		}
 		responseBytes, err := json.Marshal(response)
 		_, err = rw.Write(responseBytes)
@@ -441,8 +470,11 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 		"Test-Header-Key": {"Test-Header-Value"},
 	}
 	// Propagating only 1 header "Test-Header-Key"
-	headersToPropagate = []string{"Test-Header-Key"}
-	res, err := callService(model1Url.String(), jsonBytes, headers)
+	headersToPropagate := []string{"Test-Header-Key"}
+	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
+	assert.Nil(t, err)
+
+	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
@@ -463,8 +495,14 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 		// Putting headers as part of response so that we can assert the headers' presence later
 		response := make(map[string]interface{})
 		response["predictions"] = "1"
-		for _, h := range headersToPropagate {
-			response[h] = req.Header[h][0]
+		matchedHeaders := map[string]bool{}
+		for _, p := range compiledHeaderPatterns {
+			for h, values := range req.Header {
+				if _, ok := matchedHeaders[h]; !ok && p.MatchString(h) {
+					matchedHeaders[h] = true
+					response[h] = values[0]
+				}
+			}
 		}
 		responseBytes, err := json.Marshal(response)
 		_, err = rw.Write(responseBytes)
@@ -487,14 +525,143 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 		"Test-Header-Key": {"Test-Header-Value"},
 	}
 	// Propagating multiple headers "Test-Header-Key"
-	headersToPropagate = []string{"Test-Header-Key", "Authorization"}
-	res, err := callService(model1Url.String(), jsonBytes, headers)
+	headersToPropagate := []string{"Test-Header-Key", "Authorization"}
+	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
+	assert.Nil(t, err)
+
+	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
 	expectedResponse := map[string]interface{}{
 		"predictions":     "1",
 		"Test-Header-Key": "Test-Header-Value",
 		"Authorization":   "Bearer Token",
+	}
+	fmt.Printf("final response:%v\n", response)
+	assert.Equal(t, expectedResponse, response)
+}
+
+func TestMalformedURL(t *testing.T) {
+	malformedURL := "http://single-1.default.{$your-domain}/switch"
+	_, response, err := callService(malformedURL, []byte{}, http.Header{})
+	if err != nil {
+		assert.Equal(t, 500, response)
+	}
+}
+
+func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
+	// Start a local HTTP server
+	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := io.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		// Putting headers as part of response so that we can assert the headers' presence later
+		response := make(map[string]interface{})
+		response["predictions"] = "1"
+		matchedHeaders := map[string]bool{}
+		for _, p := range compiledHeaderPatterns {
+			for h, values := range req.Header {
+				if _, ok := matchedHeaders[h]; !ok && p.MatchString(h) {
+					matchedHeaders[h] = true
+					response[h] = values[0]
+				}
+			}
+		}
+		responseBytes, err := json.Marshal(response)
+		_, err = rw.Write(responseBytes)
+	}))
+	model1Url, err := apis.ParseURL(model1.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model1.Close()
+
+	input := map[string]interface{}{
+		"instances": []string{
+			"test",
+			"test2",
+		},
+	}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{
+		"Authorization": {"Bearer Token"},
+		"Test-Header-1": {"Test-Header-1"},
+		"Test-Header-2": {"Test-Header-2"},
+		"Test-Header-3": {"Test-Header-3"},
+	}
+	// Propagating multiple headers "Test-Header-Key"
+	headersToPropagate := []string{"Test-Header-*", "Auth*"}
+	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
+	assert.Nil(t, err)
+
+	res, _, err := callService(model1Url.String(), jsonBytes, headers)
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	expectedResponse := map[string]interface{}{
+		"predictions":   "1",
+		"Test-Header-1": "Test-Header-1",
+		"Test-Header-2": "Test-Header-2",
+		"Test-Header-3": "Test-Header-3",
+		"Authorization": "Bearer Token",
+	}
+	fmt.Printf("final response:%v\n", response)
+	assert.Equal(t, expectedResponse, response)
+}
+
+func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing.T) {
+	// Start a local HTTP server
+	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := io.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		// Putting headers as part of response so that we can assert the headers' presence later
+		response := make(map[string]interface{})
+		response["predictions"] = "1"
+		matchedHeaders := map[string]bool{}
+		for _, p := range compiledHeaderPatterns {
+			for h, values := range req.Header {
+				if _, ok := matchedHeaders[h]; !ok && p.MatchString(h) {
+					matchedHeaders[h] = true
+					response[h] = values[0]
+				}
+			}
+		}
+		responseBytes, err := json.Marshal(response)
+		_, err = rw.Write(responseBytes)
+	}))
+	model1Url, err := apis.ParseURL(model1.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model1.Close()
+
+	input := map[string]interface{}{
+		"instances": []string{
+			"test",
+			"test2",
+		},
+	}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{
+		"Authorization": {"Bearer Token"},
+		"Test-Header-1": {"Test-Header-1"},
+		"Test-Header-2": {"Test-Header-2"},
+		"Test-Header-3": {"Test-Header-3"},
+	}
+	// Using invalid regex pattern
+	headersToPropagate := []string{"Test-Header-[0-9", "Auth*"}
+	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
+	assert.NotNil(t, err)
+
+	res, _, err := callService(model1Url.String(), jsonBytes, headers)
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	// Invalid pattern should be ignored.
+	expectedResponse := map[string]interface{}{
+		"predictions":   "1",
+		"Authorization": "Bearer Token",
 	}
 	fmt.Printf("final response:%v\n", response)
 	assert.Equal(t, expectedResponse, response)

@@ -19,7 +19,7 @@ package v1beta1
 import (
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -45,26 +45,6 @@ func TestLightGBMValidation(t *testing.T) {
 				},
 			},
 			matcher: gomega.BeNil(),
-		},
-		"ValidStorageUri": {
-			spec: PredictorSpec{
-				LightGBM: &LightGBMSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("s3://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: PredictorSpec{
-				LightGBM: &LightGBMSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("invaliduri://modelzoo"),
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
 		},
 	}
 
@@ -277,6 +257,17 @@ func TestLightGBMGetProtocol(t *testing.T) {
 				},
 			},
 			matcher: gomega.Equal(constants.ProtocolV1),
+		},
+		"ProtocolSpecified": {
+			spec: PredictorSpec{
+				LightGBM: &LightGBMSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI:      proto.String("s3://modelzoo"),
+						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+					},
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV2),
 		},
 	}
 	for name, scenario := range scenarios {

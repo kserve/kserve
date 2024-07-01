@@ -13,12 +13,28 @@
 # limitations under the License.
 
 from prometheus_client import Histogram
+from pydantic import BaseModel
 
-PROM_LABELS = ['model_name']
-PRE_HIST_TIME = Histogram('request_preprocess_seconds', 'pre-process request latency', PROM_LABELS)
-POST_HIST_TIME = Histogram('request_postprocess_seconds', 'post-process request latency', PROM_LABELS)
-PREDICT_HIST_TIME = Histogram('request_predict_seconds', 'predict request latency', PROM_LABELS)
-EXPLAIN_HIST_TIME = Histogram('request_explain_seconds', 'explain request latency', PROM_LABELS)
+PROM_LABELS = ["model_name"]
+PRE_HIST_TIME = Histogram(
+    "request_preprocess_seconds", "pre-process request latency", PROM_LABELS
+)
+POST_HIST_TIME = Histogram(
+    "request_postprocess_seconds", "post-process request latency", PROM_LABELS
+)
+PREDICT_HIST_TIME = Histogram(
+    "request_predict_seconds", "predict request latency", PROM_LABELS
+)
+EXPLAIN_HIST_TIME = Histogram(
+    "request_explain_seconds", "explain request latency", PROM_LABELS
+)
+
+
+class LLMStats(BaseModel):
+    """LLM metrics data class."""
+
+    num_prompt_tokens: int = 0
+    num_generation_tokens: int = 0
 
 
 def get_labels(model_name):

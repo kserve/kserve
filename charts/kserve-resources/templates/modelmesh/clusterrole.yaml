@@ -25,6 +25,7 @@ rules:
       - ""
     resources:
       - endpoints
+      - persistentvolumeclaims
     verbs:
       - get
       - list
@@ -187,5 +188,17 @@ rules:
     verbs:
       - get
       - patch
+      - update
+  - apiGroups:
+      - autoscaling
+    resources:
+      - horizontalpodautoscalers
+      - horizontalpodautoscalers/status
+    verbs:
+      - get
+      - list
+      - watch
+      - create
+      - delete
       - update
 {{- end }}

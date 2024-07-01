@@ -1,0 +1,71 @@
+{
+  "id": "61ccd360-5fca-446d-ad04-8ea32699764b",
+  "object": "text_completion",
+  "created": 1709934260,
+  "model": "gpt-3.5",
+  "choices": [
+    {
+      "text": "\n\nAI stands for artificial intelligence.",
+      "index": 0,
+      "logprobs": {
+        "tokens": [
+          "\n\n",
+          "AI",
+          " stands",
+          " for",
+          " artificial",
+          " intelligence",
+          "."
+        ],
+        "token_logprobs": [
+          -0.27425793,
+          -0.016520381,
+          -0.96964926,
+          -0.000017835755,
+          -0.35825357,
+          -0.00023035755,
+          -0.4879583
+        ],
+        "top_logprobs": [
+          {
+            "\n\n": -0.27425793
+          },
+          {
+            "AI": -0.016520381
+          },
+          {
+            " stands": -0.96964926
+          },
+          {
+            " for": -0.000017835755
+          },
+          {
+            " artificial": -0.35825357
+          },
+          {
+            " intelligence": -0.00023035755
+          },
+          {
+            ".": -0.4879583
+          }
+        ],
+        "text_offset": [
+          11,
+          13,
+          15,
+          22,
+          26,
+          37,
+          50
+        ]
+      },
+      "finish_reason": "length"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 4,
+    "completion_tokens": 7,
+    "total_tokens": 11
+  },
+  "system_fingerprint": "fp_4f0b692a78"
+}

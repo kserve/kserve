@@ -28,13 +28,12 @@ import (
 )
 
 var (
-	TensorflowEntrypointCommand          = "/usr/bin/tensorflow_model_server"
-	TensorflowServingGRPCPort            = "9000"
-	TensorflowServingRestPort            = "8080"
-	TensorflowServingGPUSuffix           = "-gpu"
-	InvalidTensorflowRuntimeVersionError = "Tensorflow RuntimeVersion must be one of %s"
-	InvalidTensorflowRuntimeIncludesGPU  = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested. " + InvalidTensorflowRuntimeVersionError
-	InvalidTensorflowRuntimeExcludesGPU  = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested. " + InvalidTensorflowRuntimeVersionError
+	TensorflowEntrypointCommand         = "/usr/bin/tensorflow_model_server"
+	TensorflowServingGRPCPort           = "9000"
+	TensorflowServingRestPort           = "8080"
+	TensorflowServingGPUSuffix          = "-gpu"
+	InvalidTensorflowRuntimeIncludesGPU = "Tensorflow RuntimeVersion is not GPU enabled but GPU resources are requested"
+	InvalidTensorflowRuntimeExcludesGPU = "Tensorflow RuntimeVersion is GPU enabled but GPU resources are not requested"
 )
 
 // TFServingSpec defines arguments for configuring Tensorflow model serving.
@@ -50,7 +49,6 @@ var (
 // Validate returns an error if invalid
 func (t *TFServingSpec) Validate() error {
 	return utils.FirstNonNilError([]error{
-		validateStorageURI(t.GetStorageUri()),
 		t.validateGPU(),
 		validateStorageSpec(t.GetStorageSpec(), t.GetStorageUri()),
 	})
@@ -81,5 +79,8 @@ func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *Com
 }
 
 func (t *TFServingSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if t.ProtocolVersion != nil {
+		return *t.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

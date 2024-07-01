@@ -18,9 +18,9 @@ package v1alpha1
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 )
@@ -42,24 +42,27 @@ func makeTestInferenceGraph() InferenceGraph {
 func TestInferenceGraph_ValidateCreate(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
-		ig      InferenceGraph
-		update  map[string]string
-		nodes   map[string]InferenceRouter
-		matcher types.GomegaMatcher
+		ig              InferenceGraph
+		update          map[string]string
+		nodes           map[string]InferenceRouter
+		errMatcher      types.GomegaMatcher
+		warningsMatcher types.GomegaMatcher
 	}{
 		"simple": {
 			ig: makeTestInferenceGraph(),
 			nodes: map[string]InferenceRouter{
 				GraphRootNodeName: {},
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"alphanumeric model name": {
 			ig: makeTestInferenceGraph(),
 			update: map[string]string{
 				name: "Abc-123",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidGraphNameFormatError, "Abc-123", GraphNameFmt)),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidGraphNameFormatError, "Abc-123", GraphNameFmt)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name starts with number": {
 			ig: makeTestInferenceGraph(),
@@ -69,7 +72,8 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 			nodes: map[string]InferenceRouter{
 				GraphRootNodeName: {},
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidGraphNameFormatError, "4abc-3", GraphNameFmt)),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidGraphNameFormatError, "4abc-3", GraphNameFmt)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name starts with dash": {
 			ig: makeTestInferenceGraph(),
@@ -79,7 +83,8 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 			nodes: map[string]InferenceRouter{
 				GraphRootNodeName: {},
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidGraphNameFormatError, "-abc-3", GraphNameFmt)),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidGraphNameFormatError, "-abc-3", GraphNameFmt)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name ends with dash": {
 			ig: makeTestInferenceGraph(),
@@ -89,7 +94,8 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 			nodes: map[string]InferenceRouter{
 				GraphRootNodeName: {},
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidGraphNameFormatError, "abc-3-", GraphNameFmt)),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidGraphNameFormatError, "abc-3-", GraphNameFmt)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name includes dot": {
 			ig: makeTestInferenceGraph(),
@@ -99,7 +105,8 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 			nodes: map[string]InferenceRouter{
 				GraphRootNodeName: {},
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidGraphNameFormatError, "abc.123", GraphNameFmt)),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidGraphNameFormatError, "abc.123", GraphNameFmt)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"name includes spaces": {
 			ig: makeTestInferenceGraph(),
@@ -109,19 +116,22 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 			nodes: map[string]InferenceRouter{
 				GraphRootNodeName: {},
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidGraphNameFormatError, "abc 123", GraphNameFmt)),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidGraphNameFormatError, "abc 123", GraphNameFmt)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"without root node": {
-			ig:      makeTestInferenceGraph(),
-			nodes:   make(map[string]InferenceRouter),
-			matcher: gomega.MatchError(fmt.Errorf(RootNodeNotFoundError)),
+			ig:              makeTestInferenceGraph(),
+			nodes:           make(map[string]InferenceRouter),
+			errMatcher:      gomega.MatchError(fmt.Errorf(RootNodeNotFoundError)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"with root node": {
 			ig: makeTestInferenceGraph(),
 			nodes: map[string]InferenceRouter{
 				GraphRootNodeName: {},
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"invalid weight for splitter": {
 			ig: makeTestInferenceGraph(),
@@ -144,7 +154,8 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidWeightError, "foo-bar", GraphRootNodeName)),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidWeightError, "foo-bar", GraphRootNodeName)),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"weight missing in splitter": {
 			ig: makeTestInferenceGraph(),
@@ -160,7 +171,8 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Errorf(WeightNotProvidedError, "foo-bar", GraphRootNodeName, "test")),
+			errMatcher:      gomega.MatchError(fmt.Errorf(WeightNotProvidedError, "foo-bar", GraphRootNodeName, "test")),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"simple splitter": {
 			ig: makeTestInferenceGraph(),
@@ -183,7 +195,8 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"step inference target not provided": {
 			ig: makeTestInferenceGraph(),
@@ -197,7 +210,8 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Errorf(TargetNotProvidedError, 0, "", GraphRootNodeName, "foo-bar")),
+			errMatcher:      gomega.MatchError(fmt.Errorf(TargetNotProvidedError, 0, "", GraphRootNodeName, "foo-bar")),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"invalid inference graph target": {
 			ig: makeTestInferenceGraph(),
@@ -215,7 +229,8 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidTargetError, 0, "", GraphRootNodeName, "foo-bar")),
+			errMatcher:      gomega.MatchError(fmt.Errorf(InvalidTargetError, 0, "", GraphRootNodeName, "foo-bar")),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 		"duplicate step name": {
 			ig: makeTestInferenceGraph(),
@@ -240,7 +255,8 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Errorf(DuplicateStepNameError, GraphRootNodeName, "foo-bar", "step1")),
+			errMatcher:      gomega.MatchError(fmt.Errorf(DuplicateStepNameError, GraphRootNodeName, "foo-bar", "step1")),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 	}
 
@@ -251,10 +267,14 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 				ig.update(igField, value)
 			}
 			ig.Spec.Nodes = scenario.nodes
-			res := scenario.ig.ValidateCreate()
-			if !g.Expect(gomega.MatchError(res)).To(gomega.Equal(scenario.matcher)) {
-				t.Errorf("got %t, want %t", res, scenario.matcher)
+			warnings, err := scenario.ig.ValidateCreate()
+			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
+				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
+			if !g.Expect(warnings).To(scenario.warningsMatcher) {
+				t.Errorf("got %s, want %t", warnings, scenario.warningsMatcher)
+			}
+
 		})
 	}
 }
@@ -264,17 +284,19 @@ func TestInferenceGraph_ValidateUpdate(t *testing.T) {
 	temptIg := makeTestTrainModel()
 	old := temptIg.DeepCopyObject()
 	scenarios := map[string]struct {
-		ig      InferenceGraph
-		update  map[string]string
-		nodes   map[string]InferenceRouter
-		matcher types.GomegaMatcher
+		ig              InferenceGraph
+		update          map[string]string
+		nodes           map[string]InferenceRouter
+		errMatcher      types.GomegaMatcher
+		warningsMatcher types.GomegaMatcher
 	}{
 		"no change": {
 			ig: makeTestInferenceGraph(),
 			nodes: map[string]InferenceRouter{
 				GraphRootNodeName: {},
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 	}
 
@@ -285,9 +307,12 @@ func TestInferenceGraph_ValidateUpdate(t *testing.T) {
 				ig.update(igField, value)
 			}
 			ig.Spec.Nodes = scenario.nodes
-			res := scenario.ig.ValidateUpdate(old)
-			if !g.Expect(gomega.MatchError(res)).To(gomega.Equal(scenario.matcher)) {
-				t.Errorf("got %t, want %t", res, scenario.matcher)
+			warnings, err := scenario.ig.ValidateUpdate(old)
+			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
+				t.Errorf("got %t, want %t", err, scenario.errMatcher)
+			}
+			if !g.Expect(warnings).To(scenario.warningsMatcher) {
+				t.Errorf("got %s, want %t", warnings, scenario.warningsMatcher)
 			}
 		})
 	}
@@ -296,17 +321,19 @@ func TestInferenceGraph_ValidateUpdate(t *testing.T) {
 func TestInferenceGraph_ValidateDelete(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
-		ig      InferenceGraph
-		update  map[string]string
-		nodes   map[string]InferenceRouter
-		matcher types.GomegaMatcher
+		ig              InferenceGraph
+		update          map[string]string
+		nodes           map[string]InferenceRouter
+		errMatcher      types.GomegaMatcher
+		warningsMatcher types.GomegaMatcher
 	}{
 		"simple": {
 			ig: makeTestInferenceGraph(),
 			nodes: map[string]InferenceRouter{
 				GraphRootNodeName: {},
 			},
-			matcher: gomega.MatchError(nil),
+			errMatcher:      gomega.MatchError(nil),
+			warningsMatcher: gomega.BeEmpty(),
 		},
 	}
 
@@ -317,9 +344,12 @@ func TestInferenceGraph_ValidateDelete(t *testing.T) {
 				ig.update(igField, value)
 			}
 			ig.Spec.Nodes = scenario.nodes
-			res := scenario.ig.ValidateDelete()
-			if !g.Expect(gomega.MatchError(res)).To(gomega.Equal(scenario.matcher)) {
-				t.Errorf("got %t, want %t", res, scenario.matcher)
+			warnings, err := scenario.ig.ValidateDelete()
+			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
+				t.Errorf("got %t, want %t", err, scenario.errMatcher)
+			}
+			if !g.Expect(warnings).To(scenario.warningsMatcher) {
+				t.Errorf("got %s, want %t", warnings, scenario.warningsMatcher)
 			}
 		})
 	}

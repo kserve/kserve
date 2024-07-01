@@ -50,7 +50,30 @@ type InferenceGraphSpec struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// +optional
 	Affinity *corev1.Affinity `json:"affinity,omitempty" protobuf:"bytes,18,opt,name=affinity"`
+	// TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.
+	// +optional
+	TimeoutSeconds *int64 `json:"timeout,omitempty"`
+	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
+	// +optional
+	MinReplicas *int `json:"minReplicas,omitempty"`
+	// Maximum number of replicas for autoscaling.
+	// +optional
+	MaxReplicas int `json:"maxReplicas,omitempty"`
+	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
+	// concurrency and rps targets are supported by Knative Pod Autoscaler
+	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
+	// +optional
+	ScaleTarget *int `json:"scaleTarget,omitempty"`
+	// ScaleMetric defines the scaling metric type watched by autoscaler
+	// possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via
+	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
+	// +optional
+	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
 }
+
+// ScaleMetric enum
+// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps
+type ScaleMetric string
 
 // InferenceRouterType constant for inference routing types
 // +k8s:openapi-gen=true
@@ -230,6 +253,20 @@ type InferenceTarget struct {
 	ServiceURL string `json:"serviceUrl,omitempty"`
 }
 
+// InferenceStepDependencyType constant for inference step dependency
+// +k8s:openapi-gen=true
+// +kubebuilder:validation:Enum=Soft;Hard
+type InferenceStepDependencyType string
+
+// StepDependency Enum
+const (
+	// Soft
+	Soft InferenceStepDependencyType = "Soft"
+
+	// Hard
+	Hard InferenceStepDependencyType = "Hard"
+)
+
 // InferenceStep defines the inference target of the current step with condition, weights and data.
 // +k8s:openapi-gen=true
 type InferenceStep struct {
@@ -254,6 +291,10 @@ type InferenceStep struct {
 	// routing based on the condition
 	// +optional
 	Condition string `json:"condition,omitempty"`
+
+	// to decide whether a step is a hard or a soft dependency in the Inference Graph
+	// +optional
+	Dependency InferenceStepDependencyType `json:"dependency,omitempty"`
 }
 
 // InferenceGraphStatus defines the InferenceGraph conditions and status
@@ -269,6 +310,7 @@ type InferenceGraphStatus struct {
 // InferenceGraphList contains a list of InferenceGraph
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type InferenceGraphList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

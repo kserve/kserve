@@ -15,7 +15,7 @@ spec:
   explainer:
     alibi:
       type: AnchorImages
-      storageUri: "gs://seldon-models/tfserving/cifar10/explainer-py36-0.5.2"
+      storageUri: "gs://kfserving-examples/models/tensorflow/cifar/explainer-0.9.1"
       config:
         batch_size: "40"
         stop_on_first: "True"

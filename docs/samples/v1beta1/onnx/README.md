@@ -21,13 +21,13 @@ $ inferenceservice.serving.kserve.io/style-sample configured
 The first step is to [determine the ingress IP and ports](https://kserve.github.io/website/master/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) and set `INGRESS_HOST` and `INGRESS_PORT`
 
 ```
-export MODEL_NAME=style-sample
-export SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
+export MODEL_NAME=onnx-model
+export ISVC_NAME=style-sample
+export SERVICE_HOSTNAME=$(kubectl get inferenceservice ${ISVC_NAME} -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 ```
 2. Verify the service is healthy
 ```
-SERVICE_URL=http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/$MODEL_NAME
-curl ${SERVICE_URL}
+curl -v -H "Host:${SERVICE_HOSTNAME}" http://localhost:8080/v2/models/${MODEL_NAME}
 ```
 3. Install dependencies
 ```

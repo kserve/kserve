@@ -11,11 +11,12 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- serving.kserve.io_inferenceservices.yaml
-- serving.kserve.io_trainedmodels.yaml
-- serving.kserve.io_clusterservingruntimes.yaml
-- serving.kserve.io_servingruntimes.yaml
-- serving.kserve.io_inferencegraphs.yaml
+- full/serving.kserve.io_inferenceservices.yaml
+- full/serving.kserve.io_trainedmodels.yaml
+- full/serving.kserve.io_clusterservingruntimes.yaml
+- full/serving.kserve.io_servingruntimes.yaml
+- full/serving.kserve.io_inferencegraphs.yaml
+- full/serving.kserve.io_clusterstoragecontainers.yaml
 
 patches:
 # Fix for https://github.com/kubernetes/kubernetes/issues/91395

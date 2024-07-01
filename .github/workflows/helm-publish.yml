@@ -7,18 +7,46 @@ on:
 env:
   HELM_CHARTS_PATH: charts
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   upload-helm-charts:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - uses: azure/setup-helm@v1
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Package helm charts
         run: for dir in ./*/; do helm package $dir; done
         working-directory: ${{ env.HELM_CHARTS_PATH }}
+
+      - name: Push Charts to GHCR
+        working-directory: ${{ env.HELM_CHARTS_PATH }}
+        run: |
+          for pkg in *.tgz; do
+            if [ -z "${pkg:-}" ]; then
+              break
+            fi
+            helm push "${pkg}" oci://ghcr.io/${GITHUB_REPOSITORY_OWNER}/charts
+          done
 
       - name: Rename helm chart archives
         run: for filename in *.tgz; do mv "$filename" "helm-chart-$filename"; done

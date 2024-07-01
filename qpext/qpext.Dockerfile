@@ -1,15 +1,15 @@
 # Build the inference qpext binary
-FROM golang:1.20.3 as builder
+FROM golang:1.21 as builder
 
 # Copy in the go src
 WORKDIR /go/src/github.com/kserve/kserve/qpext
-COPY go.mod  go.mod
-COPY go.sum  go.sum
+COPY qpext/go.mod  go.mod
+COPY qpext/go.sum  go.sum
 
 RUN go mod download
 
-COPY cmd/qpext cmd/qpext
-COPY logger.go logger.go
+COPY qpext/cmd/qpext cmd/qpext
+COPY qpext/logger.go logger.go
 
 # Build
 RUN CGO_ENABLED=0 go build -a -o qpext ./cmd/qpext

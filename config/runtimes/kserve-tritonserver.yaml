@@ -10,20 +10,25 @@ spec:
     - name: tensorrt
       version: "8"
       autoSelect: true
+      priority: 1
     - name: tensorflow
       version: "1"
       autoSelect: true
+      priority: 1
     - name: tensorflow
       version: "2"
       autoSelect: true
+      priority: 1
     - name: onnx
       version: "1"
       autoSelect: true
+      priority: 1
     - name: pytorch
       version: "1"
     - name: triton
       version: "2"
       autoSelect: true
+      priority: 1
   protocolVersions:
     - v2
     - grpc-v2

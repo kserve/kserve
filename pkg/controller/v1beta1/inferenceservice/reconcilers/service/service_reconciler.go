@@ -60,10 +60,28 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 	podSpec *corev1.PodSpec) *corev1.Service {
 	var servicePorts []corev1.ServicePort
 	if len(podSpec.Containers) != 0 {
-		if len(podSpec.Containers[0].Ports) > 0 {
-			for _, port := range podSpec.Containers[0].Ports {
-				var servicePort corev1.ServicePort
+		container := podSpec.Containers[0]
+		for _, c := range podSpec.Containers {
+			if c.Name == constants.TransformerContainerName {
+				container = c
+				break
+			}
+		}
+		if len(container.Ports) > 0 {
+			var servicePort corev1.ServicePort
+			servicePort = corev1.ServicePort{
+				Name: container.Ports[0].Name,
+				Port: constants.CommonDefaultHttpPort,
+				TargetPort: intstr.IntOrString{
+					Type:   intstr.Int,
+					IntVal: container.Ports[0].ContainerPort,
+				},
+				Protocol: container.Ports[0].Protocol,
+			}
+			servicePorts = append(servicePorts, servicePort)
 
+			for i := 1; i < len(container.Ports); i++ {
+				port := container.Ports[i]
 				if port.Protocol == "" {
 					port.Protocol = corev1.ProtocolTCP
 				}
@@ -85,19 +103,19 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 				Port: constants.CommonDefaultHttpPort,
 				TargetPort: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: int32(port),
+					IntVal: int32(port), // #nosec G109
 				},
 				Protocol: corev1.ProtocolTCP,
 			})
 		}
 	}
-	if componentExt.Batcher != nil {
+	if componentExt != nil && componentExt.Batcher != nil {
 		servicePorts[0].TargetPort = intstr.IntOrString{
 			Type:   intstr.Int,
 			IntVal: constants.InferenceServiceDefaultAgentPort,
 		}
 	}
-	if componentExt.Logger != nil {
+	if componentExt != nil && componentExt.Logger != nil {
 		servicePorts[0].TargetPort = intstr.IntOrString{
 			Type:   intstr.Int,
 			IntVal: constants.InferenceServiceDefaultAgentPort,
@@ -118,7 +136,7 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 
 // checkServiceExist checks if the service exists?
 func (r *ServiceReconciler) checkServiceExist(client client.Client) (constants.CheckResultType, *corev1.Service, error) {
-	//get service
+	// get service
 	existingService := &corev1.Service{}
 	err := client.Get(context.TODO(), types.NamespacedName{
 		Namespace: r.Service.Namespace,
@@ -131,7 +149,7 @@ func (r *ServiceReconciler) checkServiceExist(client client.Client) (constants.C
 		return constants.CheckResultUnknown, nil, err
 	}
 
-	//existed, check equivalent
+	// existed, check equivalent
 	if semanticServiceEquals(r.Service, existingService) {
 		return constants.CheckResultExisted, existingService, nil
 	}
@@ -145,28 +163,26 @@ func semanticServiceEquals(desired, existing *corev1.Service) bool {
 
 // Reconcile ...
 func (r *ServiceReconciler) Reconcile() (*corev1.Service, error) {
-	//reconcile Service
+	// reconcile Service
 	checkResult, existingService, err := r.checkServiceExist(r.client)
 	log.Info("service reconcile", "checkResult", checkResult, "err", err)
 	if err != nil {
 		return nil, err
 	}
 
-	if checkResult == constants.CheckResultCreate {
-		err = r.client.Create(context.TODO(), r.Service)
-		if err != nil {
-			return nil, err
-		} else {
-			return r.Service, nil
-		}
-	} else if checkResult == constants.CheckResultUpdate { //CheckResultUpdate
-		err = r.client.Update(context.TODO(), r.Service)
-		if err != nil {
-			return nil, err
-		} else {
-			return r.Service, nil
-		}
-	} else {
+	var opErr error
+	switch checkResult {
+	case constants.CheckResultCreate:
+		opErr = r.client.Create(context.TODO(), r.Service)
+	case constants.CheckResultUpdate:
+		opErr = r.client.Update(context.TODO(), r.Service)
+	default:
 		return existingService, nil
 	}
+
+	if opErr != nil {
+		return nil, opErr
+	}
+
+	return r.Service, nil
 }

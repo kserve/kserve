@@ -77,7 +77,7 @@ curl http://model-chainer.default.10.166.15.29.sslip.io -d @./iris-input.json
 
 ### **2.3 Switch Node**
 **Switch Node** allows users to select a step to execute the request by matching the `condition`, it returns the response back as soon as it matches the condition for one of the steps
-in order, and if the is no `conditon` matched, `inference graph` will return the `input data` directly. 
+in order, and if the is no `condition` matched, `inference graph` will return the `input data` directly. 
 
 ![image](images/switchNode.png)
 ```yaml

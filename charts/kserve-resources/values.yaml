@@ -1,24 +1,45 @@
 kserve:
-  version: &defaultVersion v0.10.1
-  modelmeshVersion: &defaultModelMeshVersion v0.10.0
+  version: &defaultVersion v0.13.0
+  modelmeshVersion: &defaultModelMeshVersion v0.12.0-rc0
   agent:
     image: kserve/agent
+    tag: *defaultVersion
+  router:
+    image: kserve/router
     tag: *defaultVersion
   storage:
     image: kserve/storage-initializer
     tag: *defaultVersion
+    enableModelcar: false
+    cpuModelcar: 10m
+    memoryModelcar: 15Mi
+    caBundleConfigMapName: ""
+    caBundleVolumeMountPath: "/etc/ssl/custom-certs"
+    storageSpecSecretName: storage-config
+    storageSecretNameAnnotation: serving.kserve.io/secretName
     s3:
       accessKeyIdName: AWS_ACCESS_KEY_ID
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY
+      endpoint: ""
+      useHttps: ""
+      region: ""
+      verifySSL: ""
+      useVirtualBucket: ""
+      useAnonymousCredential: ""
+      CABundle: ""
   metricsaggregator:
     enableMetricAggregation: "false"
     enablePrometheusScraping: "false"
   controller:
     deploymentMode: "Serverless"
+    rbacProxyImage: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
     gateway:
       domain: example.com
+      additionalIngressDomains: []
       domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
       urlScheme: http
+      disableIstioVirtualHost: false
+      disableIngressCreation: false
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local
@@ -74,7 +95,7 @@ kserve:
       tag: 2.6.2
     mlserver:
       image: docker.io/seldonio/mlserver
-      tag: 1.0.0
+      tag: 1.5.0
       modelClassPlaceholder: "{{.Labels.modelClass}}"
     sklearnserver:
       image: kserve/sklearnserver
@@ -82,9 +103,12 @@ kserve:
     xgbserver:
       image: kserve/xgbserver
       tag: *defaultVersion
+    huggingfaceserver:
+      image: kserve/huggingfaceserver
+      tag: *defaultVersion
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
-      tag: 21.09-py3
+      tag: 23.05-py3
     pmmlserver:
       image: kserve/pmmlserver
       tag: *defaultVersion
@@ -96,11 +120,8 @@ kserve:
       tag: *defaultVersion
     torchserve:
       image: pytorch/torchserve-kfs
-      tag: 0.6.1
+      tag: 0.9.0
       serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
-    alibi:
-      image: kserve/alibi-explainer
-      defaultVersion: *defaultVersion
     art:
       image: kserve/art-explainer
       defaultVersion: *defaultVersion

@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"github.com/kserve/kserve/pkg/utils"
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -128,8 +129,11 @@ func TestTFSavedModelTypical(t *testing.T) {
 				},
 			},
 		},
-		Required:                    []string{"instances"},
-		AdditionalPropertiesAllowed: func(b bool) *bool { return &b }(false),
+		Required: []string{"instances"},
+		AdditionalProperties: openapi3.AdditionalProperties{
+			Has:    utils.Bool(false),
+			Schema: nil,
+		},
 	}
 	expectedResponseSchema := &openapi3.Schema{
 		Type: "object",
@@ -152,8 +156,11 @@ func TestTFSavedModelTypical(t *testing.T) {
 				},
 			},
 		},
-		Required:                    []string{"predictions"},
-		AdditionalPropertiesAllowed: func(b bool) *bool { return &b }(false),
+		Required: []string{"predictions"},
+		AdditionalProperties: openapi3.AdditionalProperties{
+			Has:    utils.Bool(false),
+			Schema: nil,
+		},
 	}
 	requestSchema, responseSchema, err := tfSavedModel.Schema([]string{"serve"}, "sigDefKey")
 	g.Expect(requestSchema).Should(gomega.Equal(expectedRequestSchema))

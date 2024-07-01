@@ -12,7 +12,6 @@
 # limitations under the License.
 
 import os
-import logging
 from kubernetes import client
 
 from kserve import KServeClient
@@ -26,56 +25,76 @@ from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 from kubernetes.client import V1EnvVar
 import pytest
-from ..common.utils import predict
+from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
-logging.basicConfig(level=logging.INFO)
 
 
-@pytest.mark.transformer
-def test_transformer():
-    service_name = 'raw-transformer'
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
+async def test_transformer(rest_v1_client):
+    service_name = "raw-transformer"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(
-            storage_uri='gs://kfserving-examples/models/torchserve/image_classifier/v1',
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
-                limits={'cpu': '1', 'memory': '1Gi'}
-            )
+                limits={"cpu": "1", "memory": "1Gi"},
+            ),
         ),
     )
     transformer = V1beta1TransformerSpec(
         min_replicas=1,
-        containers=[V1Container(
-            image='kserve/image-transformer:'
-                  + os.environ.get("GITHUB_SHA"),
-            name='kserve-container',
-            resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={'cpu': '100m', 'memory': '1Gi'}),
-            args=["--model_name", "mnist"],
-            env=[V1EnvVar(name="STORAGE_URI", value="gs://kfserving-examples/models/torchserve/image_classifier/v1")])]
+        containers=[
+            V1Container(
+                image=os.environ.get("IMAGE_TRANSFORMER_IMG_TAG"),
+                name="kserve-container",
+                resources=V1ResourceRequirements(
+                    requests={"cpu": "50m", "memory": "128Mi"},
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+                args=["--model_name", "mnist"],
+                env=[
+                    V1EnvVar(
+                        name="STORAGE_URI",
+                        value="gs://kfserving-examples/models/torchserve/image_classifier/v1",
+                    )
+                ],
+            )
+        ],
     )
 
     annotations = dict()
-    annotations['serving.kserve.io/deploymentMode'] = 'RawDeployment'
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations),
-                                   spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer))
+    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer),
+    )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     except RuntimeError as e:
-        print(kserve_client.api_instance.get_namespaced_custom_object("serving.knative.dev", "v1",
-                                                                      KSERVE_TEST_NAMESPACE,
-                                                                      "services", service_name + "-predictor-default"))
+        print(
+            kserve_client.api_instance.get_namespaced_custom_object(
+                "serving.knative.dev",
+                "v1",
+                KSERVE_TEST_NAMESPACE,
+                "services",
+                service_name + "-predictor",
+            )
+        )
         raise e
 
-    res = predict(service_name, "./data/transformer.json", model_name="mnist")
-    assert (res.get("predictions")[0] == 2)
+    res = await predict_isvc(
+        rest_v1_client, service_name, "./data/transformer.json", model_name="mnist"
+    )
+    assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

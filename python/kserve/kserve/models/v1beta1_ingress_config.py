@@ -47,6 +47,8 @@ class V1beta1IngressConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'additional_ingress_domains': 'list[str]',
+        'disable_ingress_creation': 'bool',
         'disable_istio_virtual_host': 'bool',
         'domain_template': 'str',
         'ingress_class_name': 'str',
@@ -60,6 +62,8 @@ class V1beta1IngressConfig(object):
     }
 
     attribute_map = {
+        'additional_ingress_domains': 'additionalIngressDomains',
+        'disable_ingress_creation': 'disableIngressCreation',
         'disable_istio_virtual_host': 'disableIstioVirtualHost',
         'domain_template': 'domainTemplate',
         'ingress_class_name': 'ingressClassName',
@@ -72,12 +76,14 @@ class V1beta1IngressConfig(object):
         'url_scheme': 'urlScheme'
     }
 
-    def __init__(self, disable_istio_virtual_host=None, domain_template=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, ingress_service=None, local_gateway=None, local_gateway_service=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, additional_ingress_domains=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, ingress_service=None, local_gateway=None, local_gateway_service=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._additional_ingress_domains = None
+        self._disable_ingress_creation = None
         self._disable_istio_virtual_host = None
         self._domain_template = None
         self._ingress_class_name = None
@@ -90,6 +96,10 @@ class V1beta1IngressConfig(object):
         self._url_scheme = None
         self.discriminator = None
 
+        if additional_ingress_domains is not None:
+            self.additional_ingress_domains = additional_ingress_domains
+        if disable_ingress_creation is not None:
+            self.disable_ingress_creation = disable_ingress_creation
         if disable_istio_virtual_host is not None:
             self.disable_istio_virtual_host = disable_istio_virtual_host
         if domain_template is not None:
@@ -110,6 +120,48 @@ class V1beta1IngressConfig(object):
             self.path_template = path_template
         if url_scheme is not None:
             self.url_scheme = url_scheme
+
+    @property
+    def additional_ingress_domains(self):
+        """Gets the additional_ingress_domains of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The additional_ingress_domains of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._additional_ingress_domains
+
+    @additional_ingress_domains.setter
+    def additional_ingress_domains(self, additional_ingress_domains):
+        """Sets the additional_ingress_domains of this V1beta1IngressConfig.
+
+
+        :param additional_ingress_domains: The additional_ingress_domains of this V1beta1IngressConfig.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._additional_ingress_domains = additional_ingress_domains
+
+    @property
+    def disable_ingress_creation(self):
+        """Gets the disable_ingress_creation of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The disable_ingress_creation of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._disable_ingress_creation
+
+    @disable_ingress_creation.setter
+    def disable_ingress_creation(self, disable_ingress_creation):
+        """Sets the disable_ingress_creation of this V1beta1IngressConfig.
+
+
+        :param disable_ingress_creation: The disable_ingress_creation of this V1beta1IngressConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._disable_ingress_creation = disable_ingress_creation
 
     @property
     def disable_istio_virtual_host(self):

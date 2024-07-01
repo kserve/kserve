@@ -21,8 +21,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/gogo/protobuf/proto"
-	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"google.golang.org/protobuf/proto"
+	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	netv1 "k8s.io/api/networking/v1"
 
 	"github.com/onsi/gomega"
@@ -56,7 +56,7 @@ func SetupEnvTest() *envtest.Environment {
 		log.Error(err, "Failed to add knative serving scheme")
 	}
 
-	if err := v1alpha3.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
+	if err := istioclientv1beta1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
 		log.Error(err, "Failed to add istio scheme")
 	}
 	return t

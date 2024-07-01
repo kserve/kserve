@@ -2,6 +2,8 @@
 # Usage: image_patch_dev.sh [OVERLAY]
 set -u
 set -e
+set -o pipefail
+
 OVERLAY=$1
 IMG=$(ko resolve -f config/manager/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
 if [ -z ${IMG} ]; then exit; fi

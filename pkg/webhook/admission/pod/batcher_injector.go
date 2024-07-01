@@ -32,7 +32,6 @@ const (
 	BatcherEnableFlag           = "--enable-batcher"
 	BatcherArgumentMaxBatchSize = "--max-batchsize"
 	BatcherArgumentMaxLatency   = "--max-latency"
-	BatcherArgumentTimeout      = "--timeout"
 )
 
 type BatcherConfig struct {
@@ -41,6 +40,8 @@ type BatcherConfig struct {
 	CpuLimit      string `json:"cpuLimit"`
 	MemoryRequest string `json:"memoryRequest"`
 	MemoryLimit   string `json:"memoryLimit"`
+	MaxBatchSize  string `json:"maxBatchSize"`
+	MaxLatency    string `json:"maxLatency"`
 }
 
 type BatcherInjector struct {
@@ -48,16 +49,15 @@ type BatcherInjector struct {
 }
 
 func getBatcherConfigs(configMap *v1.ConfigMap) (*BatcherConfig, error) {
-
 	batcherConfig := &BatcherConfig{}
 	if batcherConfigValue, ok := configMap.Data[BatcherConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(batcherConfigValue), &batcherConfig)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall batcher json string due to %v ", err))
+			panic(fmt.Errorf("Unable to unmarshall batcher json string due to %w ", err))
 		}
 	}
 
-	//Ensure that we set proper values for CPU/Memory Limit/Request
+	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{batcherConfig.MemoryRequest,
 		batcherConfig.MemoryLimit,
 		batcherConfig.CpuRequest,
@@ -83,22 +83,22 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 	var args []string
 
 	maxBatchSize, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxBatchSizeInternalAnnotationKey]
-	if ok {
-		args = append(args, BatcherArgumentMaxBatchSize)
-		args = append(args, maxBatchSize)
+	if !ok {
+		if il.config.MaxBatchSize != "" && il.config.MaxBatchSize != "0" {
+			maxBatchSize = il.config.MaxBatchSize
+		}
 	}
+	args = append(args, BatcherArgumentMaxBatchSize)
+	args = append(args, maxBatchSize)
 
 	maxLatency, ok := pod.ObjectMeta.Annotations[constants.BatcherMaxLatencyInternalAnnotationKey]
-	if ok {
-		args = append(args, BatcherArgumentMaxLatency)
-		args = append(args, maxLatency)
+	if !ok {
+		if il.config.MaxLatency != "" && il.config.MaxLatency != "0" {
+			maxLatency = il.config.MaxLatency
+		}
 	}
-
-	timeout, ok := pod.ObjectMeta.Annotations[constants.BatcherTimeoutInternalAnnotationKey]
-	if ok {
-		args = append(args, BatcherArgumentTimeout)
-		args = append(args, timeout)
-	}
+	args = append(args, BatcherArgumentMaxLatency)
+	args = append(args, maxLatency)
 
 	// Don't inject if Container already injected
 	for _, container := range pod.Spec.Containers {

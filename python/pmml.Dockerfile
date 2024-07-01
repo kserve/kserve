@@ -8,13 +8,13 @@ FROM ${BASE_IMAGE} as builder
 ARG PYTHON_VERSION
 # Install python
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends "python${PYTHON_VERSION}" "python${PYTHON_VERSION}-dev" "python${PYTHON_VERSION}-venv" && \
+    apt-get install -y --no-install-recommends "python${PYTHON_VERSION}" "python${PYTHON_VERSION}-dev" "python${PYTHON_VERSION}-venv" gcc && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.4.0
+ARG POETRY_VERSION=1.7.1
 
 RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
 ENV PATH="$PATH:${POETRY_HOME}/bin"

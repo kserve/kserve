@@ -26,6 +26,14 @@ type ClusterServingRuntimeListerExpansion interface{}
 // ClusterServingRuntimeNamespaceLister.
 type ClusterServingRuntimeNamespaceListerExpansion interface{}
 
+// ClusterStorageContainerListerExpansion allows custom methods to be added to
+// ClusterStorageContainerLister.
+type ClusterStorageContainerListerExpansion interface{}
+
+// ClusterStorageContainerNamespaceListerExpansion allows custom methods to be added to
+// ClusterStorageContainerNamespaceLister.
+type ClusterStorageContainerNamespaceListerExpansion interface{}
+
 // InferenceGraphListerExpansion allows custom methods to be added to
 // InferenceGraphLister.
 type InferenceGraphListerExpansion interface{}

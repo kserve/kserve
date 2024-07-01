@@ -2,8 +2,12 @@ name: Twice a week image scan
 # Temporarily adding on push for testing
 on:
   schedule:
-    - cron: '0 0 * * 0,3'
+    - cron: "0 0 * * 0,3"
   workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   base-image-scan:
@@ -11,14 +15,20 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [{ name: kserve-controller, file: Dockerfile},
-                { name: agent, file: agent.Dockerfile}, 
-                { name: storage-initializer, file: python/storage-initializer.Dockerfile},
-                { name: router, file: router.Dockerfile}]
-    
+        image:
+          [
+            { name: kserve-controller, file: Dockerfile },
+            { name: agent, file: agent.Dockerfile },
+            {
+              name: storage-initializer,
+              file: python/storage-initializer.Dockerfile,
+            },
+            { name: router, file: router.Dockerfile },
+          ]
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Security scan on docker image
         uses: snyk/actions/docker@master
@@ -29,29 +39,33 @@ jobs:
         with:
           image: kserve/${{ matrix.image.name }}
           args: --severity-threshold=low
-                --file=${{ matrix.image.file }}
-                --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
+            --file=${{ matrix.image.file }}
+            --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
           sarif: false
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v1
+        continue-on-error: true #avoid fail the pipeline if the SARIF upload fails.
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
-  
+
   predictor-image-scan:
     name: scan predictor images
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [{ name: sklearnserver, file: python/sklearn.Dockerfile},
-                { name: xgbserver, file: python/xgb.Dockerfile},
-                { name: pmmlserver, file: python/pmml.Dockerfile},
-                { name: paddleserver, file: python/paddle.Dockerfile}]
-    
+        image:
+          [
+            { name: sklearnserver, file: python/sklearn.Dockerfile },
+            { name: xgbserver, file: python/xgb.Dockerfile },
+            { name: pmmlserver, file: python/pmml.Dockerfile },
+            { name: paddleserver, file: python/paddle.Dockerfile },
+          ]
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Security scan on docker image
         uses: snyk/actions/docker@master
@@ -62,27 +76,29 @@ jobs:
         with:
           image: kserve/${{ matrix.image.name }}
           args: --severity-threshold=low
-                --file=${{ matrix.image.file }}
-                --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
+            --file=${{ matrix.image.file }}
+            --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
           sarif: false
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
-  
+
   explainer-image-scan:
     name: scan explainer images
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image: [{ name: alibi-explainer, file: python/alibiexplainer.Dockerfile},
-                { name: art-explainer, file: python/artexplainer.Dockerfile}]
-    
+        image:
+          [
+            { name: art-explainer, file: python/artexplainer.Dockerfile },
+          ]
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Security scan on docker image
         uses: snyk/actions/docker@master
@@ -93,12 +109,12 @@ jobs:
         with:
           image: kserve/${{ matrix.image.name }}
           args: --severity-threshold=low
-                --file=${{ matrix.image.file }}
-                --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
+            --file=${{ matrix.image.file }}
+            --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
           sarif: false
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v1
+        uses: github/codeql-action/upload-sarif@v2
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif

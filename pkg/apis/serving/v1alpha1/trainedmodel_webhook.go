@@ -21,6 +21,8 @@ import (
 	"regexp"
 	"strings"
 
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
 	"github.com/kserve/kserve/pkg/agent/storage"
 	"github.com/kserve/kserve/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,28 +53,28 @@ var (
 var _ webhook.Validator = &TrainedModel{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (tm *TrainedModel) ValidateCreate() error {
+func (tm *TrainedModel) ValidateCreate() (admission.Warnings, error) {
 	tmLogger.Info("validate create", "name", tm.Name)
-	return utils.FirstNonNilError([]error{
+	return nil, utils.FirstNonNilError([]error{
 		tm.validateTrainedModel(),
 	})
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (tm *TrainedModel) ValidateUpdate(old runtime.Object) error {
+func (tm *TrainedModel) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	tmLogger.Info("validate update", "name", tm.Name)
 	oldTm := convertToTrainedModel(old)
 
-	return utils.FirstNonNilError([]error{
+	return nil, utils.FirstNonNilError([]error{
 		tm.validateTrainedModel(),
 		tm.validateMemorySpecNotModified(oldTm),
 	})
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (tm *TrainedModel) ValidateDelete() error {
+func (tm *TrainedModel) ValidateDelete() (admission.Warnings, error) {
 	tmLogger.Info("validate delete", "name", tm.Name)
-	return nil
+	return nil, nil
 }
 
 // Validates ModelSpec memory is not modified from previous TrainedModel state

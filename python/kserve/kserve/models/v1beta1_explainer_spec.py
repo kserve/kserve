@@ -49,13 +49,14 @@ class V1beta1ExplainerSpec(object):
     openapi_types = {
         'active_deadline_seconds': 'int',
         'affinity': 'V1Affinity',
-        'alibi': 'V1beta1AlibiExplainerSpec',
+        'annotations': 'dict(str, str)',
         'art': 'V1beta1ARTExplainerSpec',
         'automount_service_account_token': 'bool',
         'batcher': 'V1beta1Batcher',
         'canary_traffic_percent': 'int',
         'container_concurrency': 'int',
         'containers': 'list[V1Container]',
+        'deployment_strategy': 'K8sIoApiAppsV1DeploymentStrategy',
         'dns_config': 'V1PodDNSConfig',
         'dns_policy': 'str',
         'enable_service_links': 'bool',
@@ -64,9 +65,11 @@ class V1beta1ExplainerSpec(object):
         'host_ipc': 'bool',
         'host_network': 'bool',
         'host_pid': 'bool',
+        'host_users': 'bool',
         'hostname': 'str',
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'init_containers': 'list[V1Container]',
+        'labels': 'dict(str, str)',
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
         'min_replicas': 'int',
@@ -78,11 +81,13 @@ class V1beta1ExplainerSpec(object):
         'priority': 'int',
         'priority_class_name': 'str',
         'readiness_gates': 'list[V1PodReadinessGate]',
+        'resource_claims': 'list[V1PodResourceClaim]',
         'restart_policy': 'str',
         'runtime_class_name': 'str',
         'scale_metric': 'str',
         'scale_target': 'int',
         'scheduler_name': 'str',
+        'scheduling_gates': 'list[V1PodSchedulingGate]',
         'security_context': 'V1PodSecurityContext',
         'service_account': 'str',
         'service_account_name': 'str',
@@ -99,13 +104,14 @@ class V1beta1ExplainerSpec(object):
     attribute_map = {
         'active_deadline_seconds': 'activeDeadlineSeconds',
         'affinity': 'affinity',
-        'alibi': 'alibi',
+        'annotations': 'annotations',
         'art': 'art',
         'automount_service_account_token': 'automountServiceAccountToken',
         'batcher': 'batcher',
         'canary_traffic_percent': 'canaryTrafficPercent',
         'container_concurrency': 'containerConcurrency',
         'containers': 'containers',
+        'deployment_strategy': 'deploymentStrategy',
         'dns_config': 'dnsConfig',
         'dns_policy': 'dnsPolicy',
         'enable_service_links': 'enableServiceLinks',
@@ -114,9 +120,11 @@ class V1beta1ExplainerSpec(object):
         'host_ipc': 'hostIPC',
         'host_network': 'hostNetwork',
         'host_pid': 'hostPID',
+        'host_users': 'hostUsers',
         'hostname': 'hostname',
         'image_pull_secrets': 'imagePullSecrets',
         'init_containers': 'initContainers',
+        'labels': 'labels',
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
@@ -128,11 +136,13 @@ class V1beta1ExplainerSpec(object):
         'priority': 'priority',
         'priority_class_name': 'priorityClassName',
         'readiness_gates': 'readinessGates',
+        'resource_claims': 'resourceClaims',
         'restart_policy': 'restartPolicy',
         'runtime_class_name': 'runtimeClassName',
         'scale_metric': 'scaleMetric',
         'scale_target': 'scaleTarget',
         'scheduler_name': 'schedulerName',
+        'scheduling_gates': 'schedulingGates',
         'security_context': 'securityContext',
         'service_account': 'serviceAccount',
         'service_account_name': 'serviceAccountName',
@@ -146,7 +156,7 @@ class V1beta1ExplainerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, alibi=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, hostname=None, image_pull_secrets=None, init_containers=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -154,13 +164,14 @@ class V1beta1ExplainerSpec(object):
 
         self._active_deadline_seconds = None
         self._affinity = None
-        self._alibi = None
+        self._annotations = None
         self._art = None
         self._automount_service_account_token = None
         self._batcher = None
         self._canary_traffic_percent = None
         self._container_concurrency = None
         self._containers = None
+        self._deployment_strategy = None
         self._dns_config = None
         self._dns_policy = None
         self._enable_service_links = None
@@ -169,9 +180,11 @@ class V1beta1ExplainerSpec(object):
         self._host_ipc = None
         self._host_network = None
         self._host_pid = None
+        self._host_users = None
         self._hostname = None
         self._image_pull_secrets = None
         self._init_containers = None
+        self._labels = None
         self._logger = None
         self._max_replicas = None
         self._min_replicas = None
@@ -183,11 +196,13 @@ class V1beta1ExplainerSpec(object):
         self._priority = None
         self._priority_class_name = None
         self._readiness_gates = None
+        self._resource_claims = None
         self._restart_policy = None
         self._runtime_class_name = None
         self._scale_metric = None
         self._scale_target = None
         self._scheduler_name = None
+        self._scheduling_gates = None
         self._security_context = None
         self._service_account = None
         self._service_account_name = None
@@ -205,8 +220,8 @@ class V1beta1ExplainerSpec(object):
             self.active_deadline_seconds = active_deadline_seconds
         if affinity is not None:
             self.affinity = affinity
-        if alibi is not None:
-            self.alibi = alibi
+        if annotations is not None:
+            self.annotations = annotations
         if art is not None:
             self.art = art
         if automount_service_account_token is not None:
@@ -219,6 +234,8 @@ class V1beta1ExplainerSpec(object):
             self.container_concurrency = container_concurrency
         if containers is not None:
             self.containers = containers
+        if deployment_strategy is not None:
+            self.deployment_strategy = deployment_strategy
         if dns_config is not None:
             self.dns_config = dns_config
         if dns_policy is not None:
@@ -235,12 +252,16 @@ class V1beta1ExplainerSpec(object):
             self.host_network = host_network
         if host_pid is not None:
             self.host_pid = host_pid
+        if host_users is not None:
+            self.host_users = host_users
         if hostname is not None:
             self.hostname = hostname
         if image_pull_secrets is not None:
             self.image_pull_secrets = image_pull_secrets
         if init_containers is not None:
             self.init_containers = init_containers
+        if labels is not None:
+            self.labels = labels
         if logger is not None:
             self.logger = logger
         if max_replicas is not None:
@@ -263,6 +284,8 @@ class V1beta1ExplainerSpec(object):
             self.priority_class_name = priority_class_name
         if readiness_gates is not None:
             self.readiness_gates = readiness_gates
+        if resource_claims is not None:
+            self.resource_claims = resource_claims
         if restart_policy is not None:
             self.restart_policy = restart_policy
         if runtime_class_name is not None:
@@ -273,6 +296,8 @@ class V1beta1ExplainerSpec(object):
             self.scale_target = scale_target
         if scheduler_name is not None:
             self.scheduler_name = scheduler_name
+        if scheduling_gates is not None:
+            self.scheduling_gates = scheduling_gates
         if security_context is not None:
             self.security_context = security_context
         if service_account is not None:
@@ -341,25 +366,27 @@ class V1beta1ExplainerSpec(object):
         self._affinity = affinity
 
     @property
-    def alibi(self):
-        """Gets the alibi of this V1beta1ExplainerSpec.  # noqa: E501
+    def annotations(self):
+        """Gets the annotations of this V1beta1ExplainerSpec.  # noqa: E501
 
+        Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations  # noqa: E501
 
-        :return: The alibi of this V1beta1ExplainerSpec.  # noqa: E501
-        :rtype: V1beta1AlibiExplainerSpec
+        :return: The annotations of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: dict(str, str)
         """
-        return self._alibi
+        return self._annotations
 
-    @alibi.setter
-    def alibi(self, alibi):
-        """Sets the alibi of this V1beta1ExplainerSpec.
+    @annotations.setter
+    def annotations(self, annotations):
+        """Sets the annotations of this V1beta1ExplainerSpec.
 
+        Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations  # noqa: E501
 
-        :param alibi: The alibi of this V1beta1ExplainerSpec.  # noqa: E501
-        :type: V1beta1AlibiExplainerSpec
+        :param annotations: The annotations of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: dict(str, str)
         """
 
-        self._alibi = alibi
+        self._annotations = annotations
 
     @property
     def art(self):
@@ -494,6 +521,27 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._containers = containers
+
+    @property
+    def deployment_strategy(self):
+        """Gets the deployment_strategy of this V1beta1ExplainerSpec.  # noqa: E501
+
+
+        :return: The deployment_strategy of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: K8sIoApiAppsV1DeploymentStrategy
+        """
+        return self._deployment_strategy
+
+    @deployment_strategy.setter
+    def deployment_strategy(self, deployment_strategy):
+        """Sets the deployment_strategy of this V1beta1ExplainerSpec.
+
+
+        :param deployment_strategy: The deployment_strategy of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: K8sIoApiAppsV1DeploymentStrategy
+        """
+
+        self._deployment_strategy = deployment_strategy
 
     @property
     def dns_config(self):
@@ -678,6 +726,29 @@ class V1beta1ExplainerSpec(object):
         self._host_pid = host_pid
 
     @property
+    def host_users(self):
+        """Gets the host_users of this V1beta1ExplainerSpec.  # noqa: E501
+
+        Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host. This field is alpha-level and is only honored by servers that enable the UserNamespacesSupport feature.  # noqa: E501
+
+        :return: The host_users of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._host_users
+
+    @host_users.setter
+    def host_users(self, host_users):
+        """Sets the host_users of this V1beta1ExplainerSpec.
+
+        Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host. This field is alpha-level and is only honored by servers that enable the UserNamespacesSupport feature.  # noqa: E501
+
+        :param host_users: The host_users of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._host_users = host_users
+
+    @property
     def hostname(self):
         """Gets the hostname of this V1beta1ExplainerSpec.  # noqa: E501
 
@@ -745,6 +816,29 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._init_containers = init_containers
+
+    @property
+    def labels(self):
+        """Gets the labels of this V1beta1ExplainerSpec.  # noqa: E501
+
+        Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels  # noqa: E501
+
+        :return: The labels of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._labels
+
+    @labels.setter
+    def labels(self, labels):
+        """Sets the labels of this V1beta1ExplainerSpec.
+
+        Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels  # noqa: E501
+
+        :param labels: The labels of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._labels = labels
 
     @property
     def logger(self):
@@ -996,6 +1090,29 @@ class V1beta1ExplainerSpec(object):
         self._readiness_gates = readiness_gates
 
     @property
+    def resource_claims(self):
+        """Gets the resource_claims of this V1beta1ExplainerSpec.  # noqa: E501
+
+        ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.  This is an alpha field and requires enabling the DynamicResourceAllocation feature gate.  This field is immutable.  # noqa: E501
+
+        :return: The resource_claims of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: list[V1PodResourceClaim]
+        """
+        return self._resource_claims
+
+    @resource_claims.setter
+    def resource_claims(self, resource_claims):
+        """Sets the resource_claims of this V1beta1ExplainerSpec.
+
+        ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.  This is an alpha field and requires enabling the DynamicResourceAllocation feature gate.  This field is immutable.  # noqa: E501
+
+        :param resource_claims: The resource_claims of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: list[V1PodResourceClaim]
+        """
+
+        self._resource_claims = resource_claims
+
+    @property
     def restart_policy(self):
         """Gets the restart_policy of this V1beta1ExplainerSpec.  # noqa: E501
 
@@ -1109,6 +1226,29 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._scheduler_name = scheduler_name
+
+    @property
+    def scheduling_gates(self):
+        """Gets the scheduling_gates of this V1beta1ExplainerSpec.  # noqa: E501
+
+        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  This is a beta feature enabled by the PodSchedulingReadiness feature gate.  # noqa: E501
+
+        :return: The scheduling_gates of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: list[V1PodSchedulingGate]
+        """
+        return self._scheduling_gates
+
+    @scheduling_gates.setter
+    def scheduling_gates(self, scheduling_gates):
+        """Sets the scheduling_gates of this V1beta1ExplainerSpec.
+
+        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  This is a beta feature enabled by the PodSchedulingReadiness feature gate.  # noqa: E501
+
+        :param scheduling_gates: The scheduling_gates of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: list[V1PodSchedulingGate]
+        """
+
+        self._scheduling_gates = scheduling_gates
 
     @property
     def security_context(self):

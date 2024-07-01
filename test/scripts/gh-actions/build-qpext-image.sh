@@ -22,8 +22,6 @@ set -o pipefail
 echo "Github SHA ${GITHUB_SHA}"
 export QPEXT_IMG=kserve/qpext:${GITHUB_SHA}
 
-pushd qpext >/dev/null
 echo "Building queue proxy extension image"
-docker buildx build -t ${QPEXT_IMG} -f qpext.Dockerfile .
-popd
+docker buildx build -t ${QPEXT_IMG} -f qpext/qpext.Dockerfile .
 echo "Done building image"

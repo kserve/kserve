@@ -40,7 +40,6 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 			Name:  AWSEndpointUrl,
 			Value: s3EndpointUrl,
 		})
-
 	} else if s3Config.S3Endpoint != "" {
 		s3EndpointUrl := "https://" + s3Config.S3Endpoint
 		if s3Config.S3UseHttps == "0" {
@@ -58,7 +57,6 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 			Name:  AWSEndpointUrl,
 			Value: s3EndpointUrl,
 		})
-
 	}
 
 	// For each variable, prefer the value from the annotation, otherwise default to the value from the inferenceservice configmap if set.
@@ -106,6 +104,17 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		})
 	}
 
+	useAccelerate, ok := annotations[InferenceServiceS3UseAccelerateAnnotation]
+	if !ok {
+		useAccelerate = s3Config.S3UseAccelerate
+	}
+	if useAccelerate != "" {
+		envs = append(envs, v1.EnvVar{
+			Name:  S3UseAccelerate,
+			Value: useAccelerate,
+		})
+	}
+
 	customCABundle, ok := annotations[InferenceServiceS3CABundleAnnotation]
 	if !ok {
 		customCABundle = s3Config.S3CABundle
@@ -114,6 +123,17 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		envs = append(envs, v1.EnvVar{
 			Name:  AWSCABundle,
 			Value: customCABundle,
+		})
+	}
+
+	customCABundleConfigMap, ok := annotations[InferenceServiceS3CABundleConfigMapAnnotation]
+	if !ok {
+		customCABundleConfigMap = s3Config.S3CABundleConfigMap
+	}
+	if customCABundleConfigMap != "" {
+		envs = append(envs, v1.EnvVar{
+			Name:  AWSCABundleConfigMap,
+			Value: customCABundleConfigMap,
 		})
 	}
 

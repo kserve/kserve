@@ -29,18 +29,23 @@ import (
 type ServingV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ClusterServingRuntimesGetter
+	ClusterStorageContainersGetter
 	InferenceGraphsGetter
 	ServingRuntimesGetter
 	TrainedModelsGetter
 }
 
-// ServingV1alpha1Client is used to interact with features provided by the serving group.
+// ServingV1alpha1Client is used to interact with features provided by the serving.kserve.io group.
 type ServingV1alpha1Client struct {
 	restClient rest.Interface
 }
 
 func (c *ServingV1alpha1Client) ClusterServingRuntimes(namespace string) ClusterServingRuntimeInterface {
 	return newClusterServingRuntimes(c, namespace)
+}
+
+func (c *ServingV1alpha1Client) ClusterStorageContainers(namespace string) ClusterStorageContainerInterface {
+	return newClusterStorageContainers(c, namespace)
 }
 
 func (c *ServingV1alpha1Client) InferenceGraphs(namespace string) InferenceGraphInterface {

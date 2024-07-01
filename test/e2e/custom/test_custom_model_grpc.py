@@ -22,16 +22,18 @@ from kserve import (
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
     V1beta1TransformerSpec,
-    constants
+    constants,
 )
 from kubernetes.client import V1ResourceRequirements
 from kubernetes import client
 from kubernetes.client import V1Container, V1ContainerPort
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
 
 @pytest.mark.grpc
-def test_custom_model_grpc():
+@pytest.mark.predictor
+@pytest.mark.asyncio(scope="session")
+async def test_custom_model_grpc():
     service_name = "custom-model-grpc"
     model_name = "custom-model"
 
@@ -39,17 +41,15 @@ def test_custom_model_grpc():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:"
-                      + os.environ.get("GITHUB_SHA"),
+                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"}),
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
                 ports=[
-                    V1ContainerPort(
-                        container_port=8081,
-                        name="h2c",
-                        protocol="TCP"
-                    )]
+                    V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")
+                ],
+                args=["--model_name", model_name],
             )
         ]
     )
@@ -64,10 +64,10 @@ def test_custom_model_grpc():
     )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     json_file = open("./data/custom_model_input.json")
     data = json.load(json_file)
@@ -77,21 +77,25 @@ def test_custom_model_grpc():
             "shape": [],
             "datatype": "BYTES",
             "contents": {
-                "bytes_contents": [base64.b64decode(data["instances"][0]["image"]["b64"])]
-            }
+                "bytes_contents": [
+                    base64.b64decode(data["instances"][0]["image"]["b64"])
+                ]
+            },
         }
     ]
-    response = predict_grpc(service_name=service_name,
-                            payload=payload, model_name=model_name)
-    fields = response.outputs[0].contents.ListFields()
-    _, field_value = fields[0]
-    points = ['%.3f' % (point) for point in list(field_value)]
+    response = await predict_grpc(
+        service_name=service_name, payload=payload, model_name=model_name
+    )
+    fields = response.outputs[0].data
+    points = ["%.3f" % (point) for point in fields]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.grpc
-def test_predictor_grpc_with_transformer_grpc():
+@pytest.mark.transformer
+@pytest.mark.asyncio(scope="session")
+async def test_predictor_grpc_with_transformer_grpc():
     service_name = "model-grpc-trans-grpc"
     model_name = "custom-model"
 
@@ -99,17 +103,15 @@ def test_predictor_grpc_with_transformer_grpc():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:"
-                      + os.environ.get("GITHUB_SHA"),
+                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"}),
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
                 ports=[
-                    V1ContainerPort(
-                        container_port=8081,
-                        name="h2c",
-                        protocol="TCP"
-                    )]
+                    V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")
+                ],
+                args=["--model_name", model_name],
             )
         ]
     )
@@ -119,17 +121,15 @@ def test_predictor_grpc_with_transformer_grpc():
             V1Container(
                 name="kserve-container",
                 image="kserve/custom-image-transformer-grpc:"
-                      + os.environ.get("GITHUB_SHA"),
+                + os.environ.get("GITHUB_SHA"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"}),
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
                 ports=[
-                    V1ContainerPort(
-                        container_port=8081,
-                        name="h2c",
-                        protocol="TCP"
-                    )],
-                args=["--model_name", model_name, "--protocol", "grpc-v2"]
+                    V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")
+                ],
+                args=["--model_name", model_name, "--predictor_protocol", "grpc-v2"],
             )
         ]
     )
@@ -140,15 +140,14 @@ def test_predictor_grpc_with_transformer_grpc():
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
-        spec=V1beta1InferenceServiceSpec(
-            predictor=predictor, transformer=transformer),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer),
     )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     json_file = open("./data/custom_model_input.json")
     data = json.load(json_file)
@@ -158,21 +157,25 @@ def test_predictor_grpc_with_transformer_grpc():
             "shape": [],
             "datatype": "BYTES",
             "contents": {
-                "bytes_contents": [base64.b64decode(data["instances"][0]["image"]["b64"])]
-            }
+                "bytes_contents": [
+                    base64.b64decode(data["instances"][0]["image"]["b64"])
+                ]
+            },
         }
     ]
-    response = predict_grpc(service_name=service_name,
-                            payload=payload, model_name=model_name)
-    fields = response.outputs[0].contents.ListFields()
-    _, field_value = fields[0]
-    points = ['%.3f' % (point) for point in list(field_value)]
+    response = await predict_grpc(
+        service_name=service_name, payload=payload, model_name=model_name
+    )
+    fields = response.outputs[0].data
+    points = ["%.3f" % (point) for point in list(fields)]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.grpc
-def test_predictor_grpc_with_transformer_http():
+@pytest.mark.transformer
+@pytest.mark.asyncio(scope="session")
+async def test_predictor_grpc_with_transformer_http(rest_v2_client):
     service_name = "model-grpc-trans-http"
     model_name = "custom-model"
 
@@ -180,17 +183,15 @@ def test_predictor_grpc_with_transformer_http():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:"
-                      + os.environ.get("GITHUB_SHA"),
+                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"}),
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
                 ports=[
-                    V1ContainerPort(
-                        container_port=8081,
-                        name="h2c",
-                        protocol="TCP"
-                    )]
+                    V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")
+                ],
+                args=["--model_name", model_name],
             )
         ]
     )
@@ -199,12 +200,12 @@ def test_predictor_grpc_with_transformer_http():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/image-transformer:"
-                      + os.environ.get("GITHUB_SHA"),
+                image=os.environ.get("IMAGE_TRANSFORMER_IMG_TAG"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"}),
-                args=["--model_name", model_name, "--protocol", "grpc-v2"]
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+                args=["--model_name", model_name, "--predictor_protocol", "grpc-v2"],
             )
         ]
     )
@@ -215,18 +216,21 @@ def test_predictor_grpc_with_transformer_http():
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
-        spec=V1beta1InferenceServiceSpec(
-            predictor=predictor, transformer=transformer),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer),
     )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/custom_model_input_v2.json",
-                  protocol_version="v2", model_name=model_name)
-    points = ['%.3f' % (point) for point in list(res["outputs"][0]["data"])]
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/custom_model_input_v2.json",
+        model_name=model_name,
+    )
+    points = ["%.3f" % point for point in list(res.outputs[0].data)]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

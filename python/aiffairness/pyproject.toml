@@ -1,17 +1,17 @@
 [tool.poetry]
 name = "aifserver"
-version = "0.10.1"
+version = "0.13.0"
 description = "'Model Server implementation for AI fairness. Not intended for use outside KServe Frameworks Images."
 authors = ["Andrew Butler <Andrew.Butler@ibm.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
 readme = "README.md"
-repository = "https://github.com/kserve/kserve/tree/master/python/aixexplainer"
+repository = "https://github.com/kserve/kserve/tree/master/python/aiffairness"
 packages = [
     { include = "aifserver" }
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8,<3.12"
 kserve = {path = "../kserve", develop = true}
 aif360 = "^0.2.3"
 nest-asyncio = "^1.4.0"
@@ -24,6 +24,12 @@ optional = true
 pytest = "^7.2.0"
 pytest-cov = "^4.0.0"
 mypy = "^0.991"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+black = { version = "~24.3.0", extras = ["colorama"] }
 
 [tool.poetry-version-plugin]
 source = "file"

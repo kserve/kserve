@@ -19,12 +19,12 @@ package pod
 import (
 	"context"
 	"encoding/json"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	gomegaTypes "github.com/onsi/gomega/types"
 	"gomodules.xyz/jsonpatch/v2"
+	"google.golang.org/protobuf/proto"
 	admissionv1 "k8s.io/api/admission/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,16 +52,7 @@ func TestMutator_Handle(t *testing.T) {
 	if err := c.Create(context.TODO(), &kserveNamespace); err != nil {
 		t.Errorf("failed to create namespace: %v", err)
 	}
-
-	mutator := Mutator{}
-	if err := mutator.InjectClient(c); err != nil {
-		t.Errorf("failed to inject client: %v", err)
-	}
-
-	decoder, _ := admission.NewDecoder(c.Scheme())
-	if err := mutator.InjectDecoder(decoder); err != nil {
-		t.Errorf("failed to inject decoder: %v", err)
-	}
+	mutator := Mutator{Client: c, Clientset: clientset, Decoder: admission.NewDecoder(c.Scheme())}
 
 	cases := map[string]struct {
 		configMap v1.ConfigMap

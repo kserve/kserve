@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"github.com/satori/go.uuid"
-	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
 	"time"
+
+	"github.com/gofrs/uuid/v5"
+	"go.uber.org/zap"
 )
 
 const (
@@ -82,7 +83,7 @@ func GetNowTime() time.Time {
 }
 
 func GenerateUUID() string {
-	return uuid.NewV4().String()
+	return uuid.Must(uuid.NewV4()).String()
 }
 
 func (batcherInfo *BatcherInfo) InitializeInfo() {
@@ -154,7 +155,8 @@ func (handler *BatchHandler) batchPredict() {
 }
 
 func (handler *BatchHandler) batch() {
-	handler.log.Infof("Starting batch loop maxLatency:%d, maxBatchSize:%d", handler.MaxLatency, handler.MaxBatchSize)
+	handler.log.Infof("Starting batch loop maxLatency:%d, maxBatchSize:%d",
+		handler.MaxLatency, handler.MaxBatchSize)
 	for {
 		select {
 		case req := <-handler.channelIn:

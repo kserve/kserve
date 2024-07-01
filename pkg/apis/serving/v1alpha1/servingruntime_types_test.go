@@ -18,8 +18,9 @@ package v1alpha1
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
@@ -445,6 +446,197 @@ func TestServingRuntimeSpec_IsProtocolVersionSupported(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			res := scenario.spec.IsProtocolVersionSupported(scenario.protocolVersion)
+			if res != scenario.res {
+				fmt.Println(fmt.Errorf("Expected %t, got %t", scenario.res, res))
+			}
+		})
+	}
+}
+
+func TestServingRuntimeSpec_GetPriority(t *testing.T) {
+	endpoint := "endpoint"
+	version := "1.0"
+
+	scenarios := map[string]struct {
+		spec            ServingRuntimeSpec
+		modelFormatName string
+		expected        gomega.OmegaMatcher
+	}{
+		"Priority is provided": {
+			spec: ServingRuntimeSpec{
+				GrpcDataEndpoint: &endpoint,
+				ServingRuntimePodSpec: ServingRuntimePodSpec{
+					Containers: []v1.Container{
+						{
+							Args:    []string{"arg1", "arg2"},
+							Command: []string{"command", "command2"},
+							Env: []v1.EnvVar{
+								{Name: "name", Value: "value"},
+								{
+									Name: "fromSecret",
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
+									},
+								},
+							},
+							Image:           "image",
+							Name:            "name",
+							ImagePullPolicy: "IfNotPresent",
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
+								},
+							},
+						},
+					},
+				},
+				SupportedModelFormats: []SupportedModelFormat{
+					{
+						Name:     "sklearn",
+						Version:  &version,
+						Priority: proto.Int32(1),
+					},
+					{
+						Name:     "pytorch",
+						Version:  &version,
+						Priority: proto.Int32(2),
+					},
+				},
+			},
+			modelFormatName: "pytorch",
+			expected:        gomega.Equal(proto.Int32(2)),
+		},
+		"Priority is not provided": {
+			spec: ServingRuntimeSpec{
+				GrpcDataEndpoint: &endpoint,
+				ServingRuntimePodSpec: ServingRuntimePodSpec{
+					Containers: []v1.Container{
+						{
+							Args:    []string{"arg1", "arg2"},
+							Command: []string{"command", "command2"},
+							Env: []v1.EnvVar{
+								{Name: "name", Value: "value"},
+								{
+									Name: "fromSecret",
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
+									},
+								},
+							},
+							Image:           "image",
+							Name:            "name",
+							ImagePullPolicy: "IfNotPresent",
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
+								},
+							},
+						},
+					},
+				},
+				SupportedModelFormats: []SupportedModelFormat{
+					{
+						Name:    "sklearn",
+						Version: &version,
+					},
+					{
+						Name:     "pytorch",
+						Version:  &version,
+						Priority: proto.Int32(2),
+					},
+				},
+			},
+			modelFormatName: "sklearn",
+			expected:        gomega.BeNil(),
+		},
+		"If provided model format does not exist": {
+			spec: ServingRuntimeSpec{
+				GrpcDataEndpoint: &endpoint,
+				ServingRuntimePodSpec: ServingRuntimePodSpec{
+					Containers: []v1.Container{
+						{
+							Args:    []string{"arg1", "arg2"},
+							Command: []string{"command", "command2"},
+							Env: []v1.EnvVar{
+								{Name: "name", Value: "value"},
+								{
+									Name: "fromSecret",
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
+									},
+								},
+							},
+							Image:           "image",
+							Name:            "name",
+							ImagePullPolicy: "IfNotPresent",
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
+								},
+							},
+						},
+					},
+				},
+				SupportedModelFormats: []SupportedModelFormat{
+					{
+						Name:     "sklearn",
+						Version:  &version,
+						Priority: proto.Int32(1),
+					},
+					{
+						Name:     "pytorch",
+						Version:  &version,
+						Priority: proto.Int32(2),
+					},
+				},
+			},
+			modelFormatName: "lightgbm",
+			expected:        gomega.BeNil(),
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			res := scenario.spec.GetPriority(scenario.modelFormatName)
+			g.Expect(res).To(scenario.expected)
+		})
+	}
+}
+
+func TestSupportedModelFormat_IsAutoSelectEnabled(t *testing.T) {
+	version := "1.0"
+
+	scenarios := map[string]struct {
+		modelFormat SupportedModelFormat
+		res         bool
+	}{
+		"default behaviour": {
+			modelFormat: SupportedModelFormat{
+				Name:    "name",
+				Version: &version,
+			},
+			res: false,
+		},
+		"autoselect is set to true": {
+			modelFormat: SupportedModelFormat{
+				Name:       "name",
+				Version:    &version,
+				AutoSelect: proto.Bool(true),
+			},
+			res: true,
+		},
+		"autoselect is set to false": {
+			modelFormat: SupportedModelFormat{
+				Name:       "name",
+				Version:    &version,
+				AutoSelect: proto.Bool(false),
+			},
+			res: false,
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.modelFormat.IsAutoSelectEnabled()
 			if res != scenario.res {
 				fmt.Println(fmt.Errorf("Expected %t, got %t", scenario.res, res))
 			}

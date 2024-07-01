@@ -2,7 +2,8 @@ package generator
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/proto"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/kserve/kserve/tools/tf2openapi/types"
@@ -23,7 +24,7 @@ func (g *Generator) tfServingOpenAPI(model types.TFSavedModel) (*openapi3.T, err
 	}
 	return &openapi3.T{
 		OpenAPI: "3.0.0",
-		Components: openapi3.Components{
+		Components: &openapi3.Components{
 			Responses: map[string]*openapi3.ResponseRef{
 				responseName: {
 					Value: &openapi3.Response{

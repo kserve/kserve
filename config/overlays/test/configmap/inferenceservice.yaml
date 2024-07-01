@@ -6,10 +6,6 @@ metadata:
 data:
   explainers: |-
     {
-        "alibi": {
-            "image" : "kserve/alibi-explainer",
-            "defaultImageVersion": "latest"
-        },
         "art": {
             "image" : "kserve/art-explainer",
             "defaultImageVersion": "latest"
@@ -71,4 +67,12 @@ data:
     {
       "enableMetricAggregation": "false",
       "enablePrometheusScraping" : "false"
+    }
+  router: |-
+    {
+        "image" : "kserve/router:latest",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "500Mi",
+        "cpuRequest": "100m",
+        "cpuLimit": "100m"
     }

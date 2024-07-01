@@ -19,10 +19,10 @@ package v1beta1
 import (
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -35,40 +35,6 @@ func TestCustomPredictorValidation(t *testing.T) {
 		spec    PredictorSpec
 		matcher types.GomegaMatcher
 	}{
-		"ValidStorageUri": {
-			spec: PredictorSpec{
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
-								{
-									Name:  "STORAGE_URI",
-									Value: "s3://modelzoo",
-								},
-							},
-						},
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: PredictorSpec{
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
-								{
-									Name:  "STORAGE_URI",
-									Value: "invaliduri://modelzoo",
-								},
-							},
-						},
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
 		"ValidProtocolV1": {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
@@ -329,6 +295,68 @@ func TestCustomPredictorGetProtocol(t *testing.T) {
 				},
 			},
 			matcher: gomega.Equal(constants.ProtocolV2),
+		},
+		"Collocation With Protocol Specified": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "kserve/testImage:1.0",
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://modelzoo",
+								},
+							},
+						},
+						{
+							Name:  constants.TransformerContainerName,
+							Image: "kserve/transformer:1.0",
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://modelzoo",
+								},
+								{
+									Name:  constants.CustomSpecProtocolEnvVarKey,
+									Value: string(constants.ProtocolV2),
+								},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV2),
+		},
+		"Collocation Default Protocol": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "kserve/testImage:1.0",
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://modelzoo",
+								},
+							},
+						},
+						{
+							Name:  constants.TransformerContainerName,
+							Image: "kserve/transformer:1.0",
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.Equal(constants.ProtocolV1),
 		},
 	}
 	for _, scenario := range scenarios {

@@ -48,32 +48,57 @@ class V1alpha1InferenceGraphSpec(object):
     """
     openapi_types = {
         'affinity': 'V1Affinity',
+        'max_replicas': 'int',
+        'min_replicas': 'int',
         'nodes': 'dict(str, V1alpha1InferenceRouter)',
-        'resources': 'V1ResourceRequirements'
+        'resources': 'V1ResourceRequirements',
+        'scale_metric': 'str',
+        'scale_target': 'int',
+        'timeout': 'int'
     }
 
     attribute_map = {
         'affinity': 'affinity',
+        'max_replicas': 'maxReplicas',
+        'min_replicas': 'minReplicas',
         'nodes': 'nodes',
-        'resources': 'resources'
+        'resources': 'resources',
+        'scale_metric': 'scaleMetric',
+        'scale_target': 'scaleTarget',
+        'timeout': 'timeout'
     }
 
-    def __init__(self, affinity=None, nodes=None, resources=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, max_replicas=None, min_replicas=None, nodes=None, resources=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceGraphSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._affinity = None
+        self._max_replicas = None
+        self._min_replicas = None
         self._nodes = None
         self._resources = None
+        self._scale_metric = None
+        self._scale_target = None
+        self._timeout = None
         self.discriminator = None
 
         if affinity is not None:
             self.affinity = affinity
+        if max_replicas is not None:
+            self.max_replicas = max_replicas
+        if min_replicas is not None:
+            self.min_replicas = min_replicas
         self.nodes = nodes
         if resources is not None:
             self.resources = resources
+        if scale_metric is not None:
+            self.scale_metric = scale_metric
+        if scale_target is not None:
+            self.scale_target = scale_target
+        if timeout is not None:
+            self.timeout = timeout
 
     @property
     def affinity(self):
@@ -95,6 +120,52 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._affinity = affinity
+
+    @property
+    def max_replicas(self):
+        """Gets the max_replicas of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        Maximum number of replicas for autoscaling.  # noqa: E501
+
+        :return: The max_replicas of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._max_replicas
+
+    @max_replicas.setter
+    def max_replicas(self, max_replicas):
+        """Sets the max_replicas of this V1alpha1InferenceGraphSpec.
+
+        Maximum number of replicas for autoscaling.  # noqa: E501
+
+        :param max_replicas: The max_replicas of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._max_replicas = max_replicas
+
+    @property
+    def min_replicas(self):
+        """Gets the min_replicas of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.  # noqa: E501
+
+        :return: The min_replicas of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._min_replicas
+
+    @min_replicas.setter
+    def min_replicas(self, min_replicas):
+        """Sets the min_replicas of this V1alpha1InferenceGraphSpec.
+
+        Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.  # noqa: E501
+
+        :param min_replicas: The min_replicas of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._min_replicas = min_replicas
 
     @property
     def nodes(self):
@@ -141,6 +212,75 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._resources = resources
+
+    @property
+    def scale_metric(self):
+        """Gets the scale_metric of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).  # noqa: E501
+
+        :return: The scale_metric of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._scale_metric
+
+    @scale_metric.setter
+    def scale_metric(self, scale_metric):
+        """Sets the scale_metric of this V1alpha1InferenceGraphSpec.
+
+        ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).  # noqa: E501
+
+        :param scale_metric: The scale_metric of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._scale_metric = scale_metric
+
+    @property
+    def scale_target(self):
+        """Gets the scale_target of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).  # noqa: E501
+
+        :return: The scale_target of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._scale_target
+
+    @scale_target.setter
+    def scale_target(self, scale_target):
+        """Sets the scale_target of this V1alpha1InferenceGraphSpec.
+
+        ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).  # noqa: E501
+
+        :param scale_target: The scale_target of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._scale_target = scale_target
+
+    @property
+    def timeout(self):
+        """Gets the timeout of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.  # noqa: E501
+
+        :return: The timeout of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._timeout
+
+    @timeout.setter
+    def timeout(self, timeout):
+        """Sets the timeout of this V1alpha1InferenceGraphSpec.
+
+        TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.  # noqa: E501
+
+        :param timeout: The timeout of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._timeout = timeout
 
     def to_dict(self):
         """Returns the model properties as a dict"""

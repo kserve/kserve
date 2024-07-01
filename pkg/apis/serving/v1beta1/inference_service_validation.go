@@ -21,6 +21,8 @@ import (
 	"reflect"
 	"strconv"
 
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
 	"regexp"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -33,7 +35,8 @@ import (
 
 // regular expressions for validation of isvc name
 const (
-	IsvcNameFmt string = "[a-z]([-a-z0-9]*[a-z0-9])?"
+	IsvcNameFmt                         string = "[a-z]([-a-z0-9]*[a-z0-9])?"
+	StorageUriPresentInTransformerError string = "storage uri should not be specified in transformer container"
 )
 
 var (
@@ -47,21 +50,25 @@ var (
 var _ webhook.Validator = &InferenceService{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (isvc *InferenceService) ValidateCreate() error {
+func (isvc *InferenceService) ValidateCreate() (admission.Warnings, error) {
 	validatorLogger.Info("validate create", "name", isvc.Name)
-
+	var allWarnings admission.Warnings
 	annotations := isvc.Annotations
 
 	if err := validateInferenceServiceName(isvc); err != nil {
-		return err
+		return allWarnings, err
 	}
 
 	if err := validateInferenceServiceAutoscaler(isvc); err != nil {
-		return err
+		return allWarnings, err
 	}
 
 	if err := validateAutoscalerTargetUtilizationPercentage(isvc); err != nil {
-		return err
+		return allWarnings, err
+	}
+
+	if err := validateCollocationStorageURI(isvc.Spec.Predictor); err != nil {
+		return allWarnings, err
 	}
 
 	for _, component := range []Component{
@@ -71,18 +78,18 @@ func (isvc *InferenceService) ValidateCreate() error {
 	} {
 		if !reflect.ValueOf(component).IsNil() {
 			if err := validateExactlyOneImplementation(component); err != nil {
-				return err
+				return allWarnings, err
 			}
 			if err := utils.FirstNonNilError([]error{
 				component.GetImplementation().Validate(),
 				component.GetExtensions().Validate(),
 				validateAutoScalingCompExtension(annotations, component.GetExtensions()),
 			}); err != nil {
-				return err
+				return allWarnings, err
 			}
 		}
 	}
-	return nil
+	return allWarnings, nil
 }
 
 // Validate scaling options component extensions
@@ -94,20 +101,19 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	}
 
 	return validateScalingKPACompExtension(compExtSpec)
-
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (isvc *InferenceService) ValidateUpdate(old runtime.Object) error {
+func (isvc *InferenceService) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	validatorLogger.Info("validate update", "name", isvc.Name)
 
 	return isvc.ValidateCreate()
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (isvc *InferenceService) ValidateDelete() error {
+func (isvc *InferenceService) ValidateDelete() (admission.Warnings, error) {
 	validatorLogger.Info("validate delete", "name", isvc.Name)
-	return nil
+	return nil, nil
 }
 
 // GetIntReference returns the pointer for the integer input
@@ -139,12 +145,14 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 					} else {
 						return nil
 					}
+				case constants.AutoscalerClassExternal:
+					return nil
 				default:
 					return fmt.Errorf("unknown autoscaler class [%s]", class)
 				}
 			}
 		}
-		return fmt.Errorf("[%s] is not a supported autoscaler class type.\n", value)
+		return fmt.Errorf("[%s] is not a supported autoscaler class type", value)
 	}
 
 	return nil
@@ -157,8 +165,7 @@ func validateHPAMetrics(metric ScaleMetric) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
-
+	return fmt.Errorf("[%s] is not a supported metric", metric)
 }
 
 // Validate of autoscaler targetUtilizationPercentage
@@ -167,11 +174,9 @@ func validateAutoscalerTargetUtilizationPercentage(isvc *InferenceService) error
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
 		t, err := strconv.Atoi(value)
 		if err != nil {
-			return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
-		} else {
-			if t < 1 || t > 100 {
-				return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
-			}
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
+		} else if t < 1 || t > 100 {
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
 		}
 	}
 
@@ -193,13 +198,12 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 	if compExtSpec.ScaleTarget != nil {
 		target := *compExtSpec.ScaleTarget
 		if metric == MetricCPU && target < 1 || target > 100 {
-			return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
 		}
 
 		if metric == MetricMemory && target < 1 {
-			return fmt.Errorf("The target memory should be greater than 1 MiB")
+			return fmt.Errorf("the target memory should be greater than 1 MiB")
 		}
-
 	}
 
 	return nil
@@ -211,11 +215,13 @@ func validateKPAMetrics(metric ScaleMetric) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
-
+	return fmt.Errorf("[%s] is not a supported metric", metric)
 }
 
 func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error {
+	if compExtSpec.DeploymentStrategy != nil {
+		return fmt.Errorf("customizing deploymentStrategy is only supported for raw deployment mode")
+	}
 	metric := MetricConcurrency
 	if compExtSpec.ScaleMetric != nil {
 		metric = *compExtSpec.ScaleMetric
@@ -231,10 +237,24 @@ func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 		target := *compExtSpec.ScaleTarget
 
 		if metric == MetricRPS && target < 1 {
-			return fmt.Errorf("The target for rps should be greater than 1")
+			return fmt.Errorf("the target for rps should be greater than 1")
 		}
-
 	}
 
+	return nil
+}
+
+// validates if transformer container has storage uri or not in collocation of predictor and transformer scenario
+func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
+	for _, container := range predictorSpec.Containers {
+		if container.Name == constants.TransformerContainerName {
+			for _, env := range container.Env {
+				if env.Name == constants.CustomSpecStorageUriEnvVarKey {
+					return fmt.Errorf(StorageUriPresentInTransformerError)
+				}
+			}
+			break
+		}
+	}
 	return nil
 }

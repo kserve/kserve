@@ -20,6 +20,100 @@ generatorOptions:
 configurations:
 - params.yaml
 
+replacements:
+  - source:
+      fieldPath: metadata.namespace
+      kind: Deployment
+      name: kserve-controller-manager
+      version: v1
+    targets:
+      - select:
+          kind: MutatingWebhookConfiguration
+          name: inferenceservice.serving.kserve.io
+        fieldPaths:
+          - webhooks.*.clientConfig.service.namespace
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: inferenceservice.serving.kserve.io
+        fieldPaths:
+          - webhooks.*.clientConfig.service.namespace
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: trainedmodel.serving.kserve.io
+        fieldPaths:
+          - webhooks.*.clientConfig.service.namespace
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: inferencegraph.serving.kserve.io
+        fieldPaths:
+          - webhooks.*.clientConfig.service.namespace
+      - select:
+          kind: Certificate
+          name: serving-cert
+          namespace: kserve
+        fieldPaths:
+          - spec.commonName
+          - spec.dnsNames.0
+        options:
+          delimiter: '.'
+          index: 1
+      - select:
+          kind: CustomResourceDefinition
+          name: inferenceservices.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: MutatingWebhookConfiguration
+          name: inferenceservice.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: inferenceservice.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: trainedmodel.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: inferencegraph.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: clusterservingruntime.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+      - select:
+          kind: ValidatingWebhookConfiguration
+          name: servingruntime.serving.kserve.io
+        fieldPaths:
+          - metadata.annotations.[cert-manager.io/inject-ca-from]
+        options:
+          delimiter: '/'
+          index: 0
+
 patches:
 - path: patches/statefulset.yaml
 - path: patches/namespace.yaml

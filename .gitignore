@@ -8,7 +8,8 @@
 *.pyc
 *.egg-info/
 bin
-
+.venv/
+venv/
 # Test binary, build with `go test -c`
 *.test
 
@@ -24,6 +25,7 @@ bin
  
 # editor and IDE paraphernalia
 .idea
+.editorconfig
 .vscode
 .project
 *.swp
@@ -50,7 +52,7 @@ config/overlays/dev-image-config/inferenceservice_patch.yaml
 
 # swagger-codegen tools and auto generated files but useless
 hack/current_violation_exceptions.list
-hack/python-sdk/openapi-generator-cli.jar
+hack/python-sdk/openapi-generator-cli*.jar
 python/kserve/.swagger-codegen-ignore
 python/kserve/.swagger-codegen/
 python/kserve/.travis.yml
@@ -63,3 +65,12 @@ python/kserve/tox.ini
 
 # Downloaded by hack install
 hack/istio-*
+
+# iTerm config
+.itermconfig
+
+# Docker config
+docker-compose.yml
+
+# Istio installer downloaded by quick install
+istio-*

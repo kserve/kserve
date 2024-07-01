@@ -20,19 +20,28 @@ import (
 	"os"
 	"testing"
 
-	pkgtest "github.com/kserve/kserve/pkg/testing"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
 var cfg *rest.Config
 var c client.Client
+var clientset kubernetes.Interface
 
 func TestMain(m *testing.M) {
 	t := pkgtest.SetupEnvTest()
-	var err error
+
+	err := v1alpha1.AddToScheme(scheme.Scheme)
+	if err != nil {
+		klog.Error(err, "Failed to add v1alpha1 to scheme")
+	}
+
 	if cfg, err = t.Start(); err != nil {
 		klog.Error(err, "Failed to start testing panel")
 	}
@@ -40,6 +49,11 @@ func TestMain(m *testing.M) {
 	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
 		klog.Error(err, "Failed to start client")
 	}
+
+	if clientset, err = kubernetes.NewForConfig(cfg); err != nil {
+		klog.Error(err, "Failed to create clientset")
+	}
+
 	code := m.Run()
 	t.Stop()
 	os.Exit(code)

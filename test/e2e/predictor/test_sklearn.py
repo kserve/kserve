@@ -18,18 +18,25 @@ import pytest
 from kubernetes import client
 from kubernetes.client import V1ContainerPort, V1ResourceRequirements
 
-from kserve import (KServeClient, V1beta1InferenceService,
-                    V1beta1InferenceServiceSpec, V1beta1ModelFormat,
-                    V1beta1ModelSpec, V1beta1PredictorSpec, V1beta1SKLearnSpec,
-                    constants)
+from kserve import (
+    KServeClient,
+    V1beta1InferenceService,
+    V1beta1InferenceServiceSpec,
+    V1beta1ModelFormat,
+    V1beta1ModelSpec,
+    V1beta1PredictorSpec,
+    V1beta1SKLearnSpec,
+    constants,
+)
 
 import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
 
-@pytest.mark.slow
-def test_sklearn_kserve():
+@pytest.mark.predictor
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_kserve(rest_v1_client):
     service_name = "isvc-sklearn"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -51,22 +58,26 @@ def test_sklearn_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = predict(service_name, "./data/iris_input.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
-def test_sklearn_v2_mlserver():
-    service_name = "isvc-sklearn-v2"
+@pytest.mark.predictor
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_v2_mlserver(rest_v2_client):
+    service_name = "sklearn-v2-mlserver"
+    protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         sklearn=V1beta1SKLearnSpec(
-            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
-            protocol_version="v2",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
@@ -83,18 +94,26 @@ def test_sklearn_v2_mlserver():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1, 1]
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
+    )
+    assert res.outputs[0].data == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
-def test_sklearn_runtime_kserve():
+@pytest.mark.predictor
+@pytest.mark.kourier
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_runtime_kserve(rest_v1_client):
     service_name = "isvc-sklearn-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -119,17 +138,21 @@ def test_sklearn_runtime_kserve():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = predict(service_name, "./data/iris_input.json")
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
-def test_sklearn_v2_runtime_mlserver():
+@pytest.mark.predictor
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_v2_runtime_mlserver(rest_v2_client):
     service_name = "isvc-sklearn-v2-runtime"
+    protocol_version = "v2"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -138,8 +161,8 @@ def test_sklearn_v2_runtime_mlserver():
                 name="sklearn",
             ),
             runtime="kserve-mlserver",
-            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
-            protocol_version="v2",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            protocol_version=protocol_version,
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
@@ -156,18 +179,25 @@ def test_sklearn_v2_runtime_mlserver():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1, 1]
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
+    )
+    assert res.outputs[0].data == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
-def test_sklearn_v2():
+@pytest.mark.predictor
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_v2(rest_v2_client):
     service_name = "isvc-sklearn-v2"
 
     predictor = V1beta1PredictorSpec(
@@ -177,7 +207,7 @@ def test_sklearn_v2():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
-            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
@@ -194,18 +224,25 @@ def test_sklearn_v2():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1, 1]
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
+    )
+    assert res.outputs[0].data == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
-def test_sklearn_v2_grpc():
+@pytest.mark.predictor
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_v2_grpc():
     service_name = "isvc-sklearn-v2-grpc"
     model_name = "sklearn"
     predictor = V1beta1PredictorSpec(
@@ -215,46 +252,46 @@ def test_sklearn_v2_grpc():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
-            storage_uri="gs://seldon-models/sklearn/mms/lr_model",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
             ),
-            ports=[
-                V1ContainerPort(
-                    container_port=8081,
-                    name="h2c",
-                    protocol="TCP"
-                )],
-            args=["--model_name", model_name]
-        )
+            ports=[V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")],
+            args=["--model_name", model_name],
+        ),
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
-                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     json_file = open("./data/iris_input_v2_grpc.json")
     payload = json.load(json_file)["inputs"]
 
-    response = predict_grpc(service_name=service_name,
-                            payload=payload, model_name=model_name)
-    prediction = list(response.outputs[0].contents.int64_contents)
+    response = await predict_grpc(
+        service_name=service_name, payload=payload, model_name=model_name
+    )
+    prediction = response.outputs[0].data
     assert prediction == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
-def test_sklearn_v2_mixed():
+@pytest.mark.predictor
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_v2_mixed(rest_v2_client):
     service_name = "isvc-sklearn-v2-mixed"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -263,7 +300,7 @@ def test_sklearn_v2_mixed():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
-            storage_uri="gs://kfserving-examples/models/sklearn/1.0/mixedtype",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.3/mixedtype",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
@@ -271,26 +308,34 @@ def test_sklearn_v2_mixed():
         ),
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
-                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    response = predict(service_name, "./data/sklearn_mixed_v2.json", protocol_version="v2")
-    assert response["outputs"][0]["data"] == [12.202832815138274]
+    response = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/sklearn_mixed_v2.json",
+    )
+    assert response.outputs[0].data == [12.202832815138274]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.slow
-def test_sklearn_v2_mixed_grpc():
+@pytest.mark.predictor
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_v2_mixed_grpc():
     service_name = "isvc-sklearn-v2-mixed-grpc"
     model_name = "sklearn"
     predictor = V1beta1PredictorSpec(
@@ -300,32 +345,30 @@ def test_sklearn_v2_mixed_grpc():
                 name="sklearn",
             ),
             runtime="kserve-sklearnserver",
-            storage_uri="gs://kfserving-examples/models/sklearn/1.0/mixedtype",
+            storage_uri="gs://kfserving-examples/models/sklearn/1.3/mixedtype/",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
             ),
-            ports=[
-                V1ContainerPort(
-                    container_port=8081,
-                    name="h2c",
-                    protocol="TCP"
-                )],
-            args=["--model_name", model_name]
-        )
+            ports=[V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")],
+            args=["--model_name", model_name],
+        ),
     )
 
-    isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                   kind=constants.KSERVE_KIND,
-                                   metadata=client.V1ObjectMeta(
-                                       name=service_name, namespace=KSERVE_TEST_NAMESPACE),
-                                   spec=V1beta1InferenceServiceSpec(predictor=predictor))
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     json_file = open("./data/sklearn_mixed.json")
     data = json.load(json_file)
@@ -337,9 +380,7 @@ def test_sklearn_v2_mixed_grpc():
                     "name": key,
                     "shape": [1],
                     "datatype": "INT32",
-                    "contents": {
-                        "int_contents": [val]
-                    }
+                    "contents": {"int_contents": [val]},
                 }
             )
         elif isinstance(val, str):
@@ -348,15 +389,17 @@ def test_sklearn_v2_mixed_grpc():
                     "name": key,
                     "shape": [1],
                     "datatype": "BYTES",
-                    "contents": {
-                        "bytes_contents": [bytes(val, 'utf-8')]
-                    }
+                    "contents": {"bytes_contents": [bytes(val, "utf-8")]},
                 }
             )
     parameters = {"content_type": inference_pb2.InferParameter(string_param="pd")}
-    response = predict_grpc(service_name=service_name,
-                            payload=payload, model_name=model_name, parameters=parameters)
-    prediction = list(response.outputs[0].contents.fp64_contents)
+    response = await predict_grpc(
+        service_name=service_name,
+        payload=payload,
+        model_name=model_name,
+        parameters=parameters,
+    )
+    prediction = list(response.outputs[0].data)
     assert prediction == [12.202832815138274]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

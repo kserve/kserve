@@ -50,8 +50,8 @@ ingress : |- {
 oc rollout restart deployment kserve-controller-manager -n kserve
 oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
 
-# Install KServe built-in servingruntimes
-oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml"
+# Install KServe built-in servingruntimes and storagecontainers
+oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resources.yaml"
 ```
 
 ## Installation with Service Mesh
@@ -96,12 +96,9 @@ oc apply -f openshift/cert-manager/operator.yaml
 export KSERVE_VERSION=v0.10.1
 oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve.yaml"
 
-# For OpenShift Service Mesh, we need to set an additional environment variable for the `kserve-controller-manager`
-oc set env deploy/kserve-controller-manager -n kserve ISTIO_CNI_DNS_PROXY_ENABLED=true
-
-# Install KServe built-in serving runtimes
+# Install KServe built-in serving runtimes and storagecontainers
 oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml"
+oc apply -f "https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resources.yaml"
 
 # Add NetworkPolicies to allow traffic to kserve webhook
 oc apply -f openshift/networkpolicies.yaml
@@ -115,7 +112,6 @@ oc apply -f openshift/networkpolicies.yaml
 oc create ns kserve-demo
 
 # Allow pods to run as user `knative/1000` for the KServe python images, see python/*.Dockerfile
-# Allow init-containers to run as user 1337 when istio is enabled, see https://istio.io/latest/docs/setup/additional-setup/cni/#compatibility-with-application-init-containers.
 oc adm policy add-scc-to-user anyuid -z default -n kserve-demo
 ```
 
@@ -162,6 +158,17 @@ You can now try more examples from https://kserve.github.io/website/.
 
 Service Mesh in OpenShift Container Platform requires some annotations to be present on a `KnativeService`. Those annotations can be propagated from the `InferenceService` and `InferenceGraph`. For this, you need to add the following annotations to your resources:
 
+> 📝 Note: OpenShift runs istio with istio-cni enabled. To allow init-containers to call out to DNS and other external services like S3 buckets, the KServes storage-initializer init-container must run as the same user id as the istio-proxy.
+> In OpenShift, the istio-proxy gets the user-id of the namespace incremented by 1 assigned. You have to specify the annotation `serving.kserve.io/storage-initializer-uid` with the same value.
+> You can get your annotation range from your namespace using:
+> 
+> ```bash
+> oc describe namespace <your-namespace>
+> ```
+> and check for `openshift.io/sa.scc.uid-range=1008050000/10000`
+> 
+> More details on the root cause can be found here: https://istio.io/latest/docs/setup/additional-setup/cni/#compatibility-with-application-init-containers.
+
 ```yaml
 apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
@@ -171,6 +178,7 @@ metadata:
     sidecar.istio.io/inject: "true"
     sidecar.istio.io/rewriteAppHTTPProbers: "true"
     serving.knative.openshift.io/enablePassthrough: "true"
+    serving.kserve.io/storage-initializer-uid: "1008050001" # has to be changed to your namespaces value, see note above
 spec:
 ...
 ```
@@ -183,6 +191,7 @@ metadata:
     sidecar.istio.io/inject: "true"
     sidecar.istio.io/rewriteAppHTTPProbers: "true"
     serving.knative.openshift.io/enablePassthrough: "true"
+    serving.kserve.io/storage-initializer-uid: "1008050001" # has to be changed to your namespaces value, see note above
 spec:
 ...
 ```

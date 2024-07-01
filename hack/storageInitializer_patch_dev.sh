@@ -1,6 +1,10 @@
 #!/bin/bash
-set -u
-IMG=$1
+
+set -o nounset
+set -o errexit
+set -o pipefail
+
+export IMG=$1
 if [ -z ${IMG} ]; then exit; fi
 cat > config/overlays/dev-image-config/inferenceservice_patch.yaml << EOF
 apiVersion: v1
@@ -18,3 +22,4 @@ data:
         "cpuLimit": "1"
       }
 EOF
+yq eval '.spec.container.image = env(IMG)' config/storagecontainers/default.yaml | kubectl apply -f -

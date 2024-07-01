@@ -4,18 +4,14 @@ description: 'A wrapper around download docker artifact to download a set of bas
 runs:
   using: "composite"
   steps:
+    - name: Download base artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./tmp
+        pattern: ${{ env.BASE_ARTIFACT_PREFIX }}-*
+        merge-multiple: true
 
-    - name: Download controller image
-      uses: ishworkh/docker-image-artifact-download@v1
+    - name: Load base images
+      uses: ./.github/actions/load-docker-images
       with:
-        image: "kserve/kserve-controller:${{ github.sha }}"
-    
-    - name: Download agent image
-      uses: ishworkh/docker-image-artifact-download@v1
-      with:
-        image: "kserve/agent:${{ github.sha }}"
-    
-    - name: Download storage initializer image
-      uses: ishworkh/docker-image-artifact-download@v1
-      with:
-        image: "kserve/storage-initializer:${{ github.sha }}"
+        directory: ./tmp

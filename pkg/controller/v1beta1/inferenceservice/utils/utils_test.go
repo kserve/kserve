@@ -20,12 +20,16 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/onsi/gomega/types"
+	"knative.dev/pkg/apis"
+	knativeV1 "knative.dev/pkg/apis/duck/v1"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,6 +94,20 @@ func TestIsMMSPredictor(t *testing.T) {
 								},
 							},
 						},
+					},
+				},
+			},
+			expected: false,
+		},
+		"HuggingFaceModel": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "hg-model",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						HuggingFace: &HuggingFaceRuntimeSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{RuntimeVersion: proto.String("latest")}},
 					},
 				},
 			},
@@ -1414,6 +1432,81 @@ func TestModelName(t *testing.T) {
 			},
 			expected: "custom-model",
 		},
+		"multiple modelname arguments": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+									Args:      []string{"--model_name=sklearn", "--model_dir", "/mnt/models", "--model_name", "iris"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "iris",
+		},
+		"modelname argument and value in single string": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+									Args:      []string{"--model_dir", "/mnt/models", "--model_name iris"}, // This format is not recognized by the modelserver. So we ignore this format.
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "sklearn",
+		},
+		"modelname value in separate string": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+									Args:      []string{"--model_dir", "/mnt/models", "--model_name", "iris"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "iris",
+		},
 	}
 
 	for name, scenario := range scenarios {
@@ -1423,5 +1516,378 @@ func TestModelName(t *testing.T) {
 				t.Errorf("got %s, want %s", res, scenario.expected)
 			}
 		})
+	}
+}
+
+func TestGetPredictorEndpoint(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			"cpu": resource.MustParse("100m"),
+		},
+		Requests: v1.ResourceList{
+			"cpu": resource.MustParse("90m"),
+		},
+	}
+
+	scenarios := map[string]struct {
+		isvc        InferenceService
+		expectedUrl string
+		expectedErr types.GomegaMatcher
+	}{
+		"MMSPredictor": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+				Status: InferenceServiceStatus{
+					Address: &knativeV1.Addressable{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "sklearn-predictor.default.svc.cluster.local",
+						},
+					},
+				},
+			},
+			expectedUrl: "http://sklearn-predictor.default.svc.cluster.local",
+			expectedErr: gomega.BeNil(),
+		},
+		"DefaultProtocol": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test"),
+							},
+						},
+					},
+				},
+				Status: InferenceServiceStatus{
+					Address: &knativeV1.Addressable{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "sklearn-predictor.default.svc.cluster.local",
+						},
+					},
+				},
+			},
+			expectedUrl: "http://sklearn-predictor.default.svc.cluster.local/v1/models/sklearn:predict",
+			expectedErr: gomega.BeNil(),
+		},
+		"DefaultProtocolVersionWithTransformer": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "kserve/transformer:1.0",
+								},
+							},
+						},
+					},
+				},
+				Status: InferenceServiceStatus{
+					Address: &knativeV1.Addressable{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "sklearn-transformer.default.svc.cluster.local",
+						},
+					},
+				},
+			},
+			expectedUrl: "http://sklearn-transformer.default.svc.cluster.local/v1/models/sklearn:predict",
+			expectedErr: gomega.BeNil(),
+		},
+		"ProtocolSpecified": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("s3://test"),
+								ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
+							},
+						},
+					},
+				},
+				Status: InferenceServiceStatus{
+					Address: &knativeV1.Addressable{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "sklearn-predictor.default.svc.cluster.local",
+						},
+					},
+				},
+			},
+			expectedUrl: "http://sklearn-predictor.default.svc.cluster.local/v2/models/sklearn/infer",
+			expectedErr: gomega.BeNil(),
+		},
+		"ProtocolSpecifiedWithTransformer": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "kserve/transformer:1.0",
+									Env: []v1.EnvVar{
+										{
+											Name:  constants.CustomSpecProtocolEnvVarKey,
+											Value: string(constants.ProtocolV2),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Status: InferenceServiceStatus{
+					Address: &knativeV1.Addressable{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "sklearn-transformer.default.svc.cluster.local",
+						},
+					},
+				},
+			},
+			expectedUrl: "http://sklearn-transformer.default.svc.cluster.local/v2/models/sklearn/infer",
+			expectedErr: gomega.BeNil(),
+		},
+		"CustomModel": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn-iris",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Name:      constants.InferenceServiceContainerName,
+									Image:     "kserve/custom-image:1.0",
+									Args:      []string{"--model_name=sklearn-custom"},
+									Resources: requestedResource,
+									Env: []v1.EnvVar{
+										{
+											Name:  constants.CustomSpecProtocolEnvVarKey,
+											Value: string(constants.ProtocolV2),
+										},
+										{
+											Name:  constants.CustomSpecStorageUriEnvVarKey,
+											Value: "s3://test",
+										},
+										{
+											Name:  constants.CustomSpecMultiModelServerEnvVarKey,
+											Value: strconv.FormatBool(false),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Status: InferenceServiceStatus{
+					Address: &knativeV1.Addressable{
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "sklearn-predictor.default.svc.cluster.local",
+						},
+					},
+				},
+			},
+			expectedUrl: "http://sklearn-predictor.default.svc.cluster.local/v2/models/sklearn-custom/infer",
+			expectedErr: gomega.BeNil(),
+		},
+		"IsvcIsNotReady": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("s3://test"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []v1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "kserve/transformer:1.0",
+									Env: []v1.EnvVar{
+										{
+											Name:  constants.CustomSpecProtocolEnvVarKey,
+											Value: string(constants.ProtocolV2),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Status: InferenceServiceStatus{
+					Address: &knativeV1.Addressable{
+						URL: nil,
+					},
+				},
+			},
+			expectedUrl: "",
+			expectedErr: gomega.MatchError("service sklearn is not ready"),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res, err := GetPredictorEndpoint(&scenario.isvc)
+			g.Expect(err).To(scenario.expectedErr)
+			if !g.Expect(res).To(gomega.Equal(scenario.expectedUrl)) {
+				t.Errorf("got %s, want %s", res, scenario.expectedUrl)
+			}
+		})
+	}
+}
+
+func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
+	validUris := []string{
+		"https://kfserving.blob.core.windows.net/triton/simple_string/",
+		"https://kfserving.blob.core.windows.net/triton/simple_string",
+		"https://kfserving.blob.core.windows.net/triton/",
+		"https://kfserving.blob.core.windows.net/triton",
+		"https://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz",
+		"http://raw.githubusercontent.com/someOrg/someRepo/model.tar.gz",
+		"hdfs://",
+		"webhdfs://",
+		"some/relative/path",
+		"/",
+		"foo",
+		"",
+	}
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("Failed to add v1alpha1 to scheme %s", err)
+	}
+	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
+	for _, uri := range validUris {
+		if err := ValidateStorageURI(&uri, mockClient); err != nil {
+			t.Errorf("%q validation failed: %s", uri, err)
+		}
+	}
+}
+
+func TestValidateStorageURIForCustomPrefix(t *testing.T) {
+	invalidUris := []string{
+		"custom://custom.com/model",
+	}
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("Failed to add v1alpha1 to scheme %s", err)
+	}
+	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
+	for _, uri := range invalidUris {
+		if err := ValidateStorageURI(&uri, mockClient); err == nil {
+			t.Errorf("%q validation failed: error expected", uri)
+		}
+	}
+}
+
+func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
+	customSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "custom",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: v1.Container{
+				Image: "kserve/storage-initializer:latest",
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						v1.ResourceMemory: resource.MustParse("200Mi"),
+					},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+		},
+	}
+
+	storageContainerSpecs := &v1alpha1.ClusterStorageContainerList{
+		Items: []v1alpha1.ClusterStorageContainer{customSpec},
+	}
+	validUris := []string{
+		"custom://custom.com/model/",
+	}
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("Failed to add v1alpha1 to scheme %s", err)
+	}
+	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
+	for _, uri := range validUris {
+		if err := ValidateStorageURI(&uri, mockClient); err != nil {
+			t.Errorf("%q validation failed: %s", uri, err)
+		}
 	}
 }

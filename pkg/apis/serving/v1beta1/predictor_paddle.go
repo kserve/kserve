@@ -37,5 +37,8 @@ func (p *PaddleServerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *
 }
 
 func (p *PaddleServerSpec) GetProtocol() constants.InferenceServiceProtocol {
+	if p.ProtocolVersion != nil {
+		return *p.ProtocolVersion
+	}
 	return constants.ProtocolV1
 }

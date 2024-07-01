@@ -20,71 +20,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
-	"github.com/onsi/gomega/types"
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-func TestCustomExplainerValidation(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	config := InferenceServicesConfig{
-		Explainers: ExplainersConfig{},
-	}
-	scenarios := map[string]struct {
-		spec    ExplainerSpec
-		matcher types.GomegaMatcher
-	}{
-		"ValidStorageUri": {
-			spec: ExplainerSpec{
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
-								{
-									Name:  "STORAGE_URI",
-									Value: "s3://modelzoo",
-								},
-							},
-						},
-					},
-				},
-			},
-			matcher: gomega.BeNil(),
-		},
-		"InvalidStorageUri": {
-			spec: ExplainerSpec{
-				PodSpec: PodSpec{
-					Containers: []v1.Container{
-						{
-							Env: []v1.EnvVar{
-								{
-									Name:  "STORAGE_URI",
-									Value: "invaliduri://modelzoo",
-								},
-							},
-						},
-					},
-				},
-			},
-			matcher: gomega.Not(gomega.BeNil()),
-		},
-	}
-
-	for name, scenario := range scenarios {
-		t.Run(name, func(t *testing.T) {
-			explainer := CustomExplainer{PodSpec: v1.PodSpec(scenario.spec.PodSpec)}
-			explainer.Default(&config)
-			res := explainer.Validate()
-			if !g.Expect(res).To(scenario.matcher) {
-				t.Errorf("got %q, want %q", res, scenario.matcher)
-			}
-		})
-	}
-}
 
 func TestCustomExplainerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)

@@ -83,7 +83,12 @@ func (w *Watcher) Start() {
 		w.logger.Error(err, "Failed to create model dir watcher")
 		panic(err)
 	}
-	defer watcher.Close()
+	defer func(watcher *fsnotify.Watcher) {
+		closeErr := watcher.Close()
+		if closeErr != nil {
+			w.logger.Error(closeErr, "Failed to close watcher")
+		}
+	}(watcher)
 	if err = watcher.Add(w.configDir); err != nil {
 		w.logger.Error(err, "Failed to add watcher config dir")
 	}
@@ -133,11 +138,12 @@ func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs, initializin
 	for _, modelConfig := range modelConfigs {
 		name, spec := modelConfig.Name, modelConfig.Spec
 		existing, exists := w.ModelTracker[name]
-		if !exists {
+		switch {
+		case !exists:
 			// New - add
 			w.ModelTracker[name] = modelWrapper{Spec: &spec}
 			w.modelAdded(name, &spec, initializing)
-		} else if !cmp.Equal(spec, *existing.Spec) {
+		case !cmp.Equal(spec, *existing.Spec):
 			w.ModelTracker[name] = modelWrapper{
 				Spec:  existing.Spec,
 				stale: false,
@@ -145,7 +151,7 @@ func (w *Watcher) parseConfig(modelConfigs modelconfig.ModelConfigs, initializin
 			// Changed - replace
 			w.modelRemoved(name)
 			w.modelAdded(name, &spec, initializing)
-		} else if cmp.Equal(spec, *existing.Spec) {
+		default:
 			// This model didn't change, mark the stale flag to false
 			w.ModelTracker[name] = modelWrapper{
 				Spec:  existing.Spec,
