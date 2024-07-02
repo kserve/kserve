@@ -109,6 +109,7 @@ type loggerArgs struct {
 	namespace        string
 	endpoint         string
 	component        string
+	headerAllowList  []string
 }
 
 type batcherArgs struct {
@@ -339,7 +340,7 @@ func buildServer(ctx context.Context, port string, userPort int, loggerArgs *log
 	}
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
-			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler)
+			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler, loggerArgs.headerAllowList)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
