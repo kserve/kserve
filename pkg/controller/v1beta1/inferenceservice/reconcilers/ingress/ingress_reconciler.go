@@ -130,17 +130,16 @@ func getAdditionalHosts(domainList *[]string, serviceHost string, config *v1beta
 		deduplicateMap := map[string]bool{}
 		for _, domain := range *config.AdditionalIngressDomains {
 			// If the domain is redundant, go to the next element.
-			if deduplicateMap[domain] {
-				continue
+			if !deduplicateMap[domain] {
+				host := fmt.Sprintf("%s%s", subdomain, domain)
+				if err := validation.IsDNS1123Subdomain(host); len(err) > 0 {
+					log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not valid", domain),
+						"Failed to get the valid host name")
+					continue
+				}
+				*additionalHosts = append(*additionalHosts, host)
+				deduplicateMap[domain] = true
 			}
-			host := fmt.Sprintf("%s%s", subdomain, domain)
-			if err := validation.IsDNS1123Subdomain(host); len(err) > 0 {
-				log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not valid", domain),
-					"Failed to get the valid host name")
-				continue
-			}
-			*additionalHosts = append(*additionalHosts, host)
-			deduplicateMap[domain] = true
 		}
 	}
 }
@@ -324,10 +323,9 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, additionalH
 					},
 					Gateways: []string{config.IngressGateway},
 				}
-				if containsHTTPMatchRequest(matchRequest, matchRequests) {
-					continue
+				if !containsHTTPMatchRequest(matchRequest, matchRequests) {
+					matchRequests = append(matchRequests, matchRequest)
 				}
-				matchRequests = append(matchRequests, matchRequest)
 			}
 		}
 	}
@@ -539,10 +537,9 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		}
 
 		for _, additionalHost := range *additionalHosts {
-			if hostMap[additionalHost] {
-				continue
+			if !hostMap[additionalHost] {
+				hosts = append(hosts, additionalHost)
 			}
-			hosts = append(hosts, additionalHost)
 		}
 	}
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
