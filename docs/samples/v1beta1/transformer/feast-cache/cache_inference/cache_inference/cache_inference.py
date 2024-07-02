@@ -24,7 +24,7 @@ from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
 from kserve.logging import logger
 
 
-class DriverTransformer(kserve.Model):
+class CacheTransformer(kserve.Model):
     """A class object for the data handling activities of driver ranking
     Task and returns a KServe compatible response.
 
@@ -41,6 +41,7 @@ class DriverTransformer(kserve.Model):
         feast_serving_url: str,
         entity_id_name: str,
         feature_refs: List[str],
+        force_recompute: bool = False,
     ):
         """Initialize the model name, predictor host, Feast serving URL,
            entity IDs, and feature references
@@ -55,6 +56,7 @@ class DriverTransformer(kserve.Model):
             features from the Feast feature store
             feature_refs (List[str]): The feature references for the
             features to be retrieved
+            force_recompute (bool, optional): A flag to force recompute the score, otherwise it will be retrieved from Feast
         """
         super().__init__(name)
         self.predictor_host = predictor_host
@@ -62,6 +64,7 @@ class DriverTransformer(kserve.Model):
         self.feast_serving_url = feast_serving_url
         self.entity_id_name = entity_id_name
         self.feature_refs = feature_refs
+        self.force_recompute = force_recompute
         self.feature_refs_key = [
             feature_refs[i].replace(":", "__") for i in range(len(feature_refs))
         ]

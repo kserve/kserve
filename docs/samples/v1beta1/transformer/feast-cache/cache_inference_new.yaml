@@ -1,7 +1,7 @@
 apiVersion: "serving.kserve.io/v1beta1"
 kind: "InferenceService"
 metadata:
-  name: "sklearn-driver-transformer"
+  name: "sklearn-cache-transformer"
 spec:
   transformer:
     containers:
@@ -10,7 +10,7 @@ spec:
         command:
           - "python"
           - "-m"
-          - "driver_transformer"
+          - "cache_transformer"
         args:
           - --feast_serving_url
           - "feature-server-service.default.svc.cluster.local:6566"
