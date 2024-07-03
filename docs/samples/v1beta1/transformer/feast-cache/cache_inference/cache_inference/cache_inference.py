@@ -68,12 +68,12 @@ class CacheTransformer(kserve.Model):
         self.feature_refs_key = [
             feature_refs[i].replace(":", "__") for i in range(len(feature_refs))
         ]
-        logger.info("Model name = %s", name)
-        logger.info("Protocol = %s", protocol)
-        logger.info("Predictor host = %s", predictor_host)
-        logger.info("Feast serving URL = %s", feast_serving_url)
-        logger.info("Entity id name = %s", entity_id_name)
-        logger.info("Feature refs = %s", feature_refs)
+        logger.info(f"Model name = {name}")
+        logger.info(f"Protocol = {protocol}")
+        logger.info(f"Predictor host = {predictor_host}")
+        logger.info(f"Feast serving URL = {feast_serving_url}")
+        logger.info(f"Entity id name = {entity_id_name}")
+        logger.info(f"Feature refs = {feature_refs}")
 
         self.timeout = 100
 
@@ -173,18 +173,18 @@ class CacheTransformer(kserve.Model):
             else "http://{0}/get-online-features".format(self.feast_serving_url)
         )
         json_params = json.dumps(params)
-        logger.info("feast request url %s", request_url)
-        logger.info("feast request headers %s", headers)
-        logger.info("feast request body %s", json_params)
+        logger.info(f"feast request url {request_url}")
+        logger.info(f"feast request headers {headers}")
+        logger.info(f"feast request body {json_params}")
 
         resp = requests.post(request_url, data=json_params, headers=headers)
-        logger.info("feast response status is %s", resp.status_code)
-        logger.info("feast response headers %s", resp.headers)
+        logger.info(f"feast response status is {resp.status_code}")
+        logger.info(f"feast response headers {resp.headers}")
         features = resp.json()
-        logger.info("feast response body %s", features)
+        logger.info(f"feast response body {features}")
 
         outputs = self.buildPredictRequest(inputs, features)
-        logger.info("The input for model predict is %s", outputs)
+        logger.info(f"The input for model predict is %s", outputs)
 
         return outputs
 
@@ -204,5 +204,5 @@ class CacheTransformer(kserve.Model):
             Dict: If a post process functionality is specified, it could convert
             raw rankings into a different list.
         """
-        logger.info("The output from model predict is %s", response)
+        logger.info(f"The output from model predict is {response}")
         return response
