@@ -41,6 +41,7 @@ class CacheTransformer(kserve.Model):
         feast_serving_url: str,
         entity_id_name: str,
         feature_refs: List[str],
+        prediction_ref: str,
         force_recompute: bool = False,
     ):
         """Initialize the model name, predictor host, Feast serving URL,
@@ -51,11 +52,12 @@ class CacheTransformer(kserve.Model):
             predictor_host (str): The host in which the predictor runs.
             protocol (str): The protocol in which the predictor runs.
             feast_serving_url (str): The Feast feature server URL, in the form
-            of <host_name:port>
+                of <host_name:port>
             entity_id_name (str): The entity ID name for which to retrieve
-            features from the Feast feature store
+                features from the Feast feature store
             feature_refs (List[str]): The feature references for the
-            features to be retrieved
+                features to be retrieved
+            prediction_ref (str): The feature reference for the name of the prediction field to be retrieved
             force_recompute (bool, optional): A flag to force recompute the score, otherwise it will be retrieved from Feast
         """
         super().__init__(name)
@@ -64,6 +66,7 @@ class CacheTransformer(kserve.Model):
         self.feast_serving_url = feast_serving_url
         self.entity_id_name = entity_id_name
         self.feature_refs = feature_refs
+        self.prediction_ref = prediction_ref
         self.force_recompute = force_recompute
         self.feature_refs_key = [
             feature_refs[i].replace(":", "__") for i in range(len(feature_refs))
@@ -74,6 +77,7 @@ class CacheTransformer(kserve.Model):
         logger.info(f"Feast serving URL = {feast_serving_url}")
         logger.info(f"Entity id name = {entity_id_name}")
         logger.info(f"Feature refs = {feature_refs}")
+        logger.info(f"Prediction ref= {prediction_ref}")
 
         self.timeout = 100
 
@@ -94,7 +98,7 @@ class CacheTransformer(kserve.Model):
         entity_rows[self.entity_id_name] = entity_ids
         return entity_rows
 
-    def buildPredictRequest(self, inputs, features) -> Dict:
+    def buildPredictionRequest(self, inputs, features) -> Dict:
         """Build the predict request for all entities and return it as a dict.
 
         Args:
@@ -116,6 +120,7 @@ class CacheTransformer(kserve.Model):
             "driver_hourly_stats__conv_rate"
         )
         entity_ids_index = features["metadata"]["feature_names"].index("driver_id")
+        prediction_index = features["metadata"]["feature_names"].index("prediction")
 
         # input format [acc_rate, avg_daily_trips, conv_rate, driver_id]
         for i in range(len(features["results"][entity_ids_index]["values"])):
@@ -124,6 +129,7 @@ class CacheTransformer(kserve.Model):
                 features["results"][avg_daily_trips_index]["values"][i],
                 features["results"][conv_rate_index]["values"][i],
                 features["results"][entity_ids_index]["values"][i],
+                features["results"][prediction_index]["values"][i]
             ]
             request_data.append(single_entity_data)
 
@@ -183,7 +189,7 @@ class CacheTransformer(kserve.Model):
         features = resp.json()
         logger.info(f"feast response body {features}")
 
-        outputs = self.buildPredictRequest(inputs, features)
+        outputs = self.buildPredictionRequest(inputs, features)
         logger.info(f"The input for model predict is %s", outputs)
 
         return outputs
