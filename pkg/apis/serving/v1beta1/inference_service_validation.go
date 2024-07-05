@@ -241,6 +241,9 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 					}
 				case constants.AutoscalerClassKeda:
 					metric := isvc.Spec.Predictor.ComponentExtensionSpec.ScaleMetric
+					if metric == nil {
+						metric = isvc.Spec.Predictor.ComponentExtensionSpec.ScalerSpec.ScaleMetric
+					}
 					return validateKEDAMetrics(*metric)
 				case constants.AutoscalerClassExternal:
 					return nil
