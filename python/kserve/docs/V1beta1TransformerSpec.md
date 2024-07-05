@@ -46,6 +46,7 @@ Name | Type | Description | Notes
 **scale_metric** | **str** | ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics). | [optional] 
 **scale_metric_type** | **str** | Type of metric to use. Options are Utilization, or AverageValue. | [optional] 
 **scale_target** | **int** | ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/). | [optional] 
+**scaler** | [**V1beta1ScalerSpec**](V1beta1ScalerSpec.md) |  | [optional] 
 **scheduler_name** | **str** | If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler. | [optional] 
 **scheduling_gates** | [**list[V1PodSchedulingGate]**](V1PodSchedulingGate.md) | SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards. | [optional] 
 **security_context** | [**V1PodSecurityContext**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1PodSecurityContext.md) |  | [optional] 

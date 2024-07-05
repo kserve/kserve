@@ -61,6 +61,7 @@ class V1beta1ComponentExtensionSpec(object):
         'scale_metric': 'str',
         'scale_metric_type': 'str',
         'scale_target': 'int',
+        'scaler': 'V1beta1ScalerSpec',
         'server_address': 'str',
         'timeout': 'int'
     }
@@ -80,11 +81,12 @@ class V1beta1ComponentExtensionSpec(object):
         'scale_metric': 'scaleMetric',
         'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
+        'scaler': 'scaler',
         'server_address': 'serverAddress',
         'timeout': 'timeout'
     }
 
-    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, query=None, query_parameters=None, scale_metric=None, scale_metric_type=None, scale_target=None, server_address=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, query=None, query_parameters=None, scale_metric=None, scale_metric_type=None, scale_target=None, scaler=None, server_address=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -104,6 +106,7 @@ class V1beta1ComponentExtensionSpec(object):
         self._scale_metric = None
         self._scale_metric_type = None
         self._scale_target = None
+        self._scaler = None
         self._server_address = None
         self._timeout = None
         self.discriminator = None
@@ -136,6 +139,8 @@ class V1beta1ComponentExtensionSpec(object):
             self.scale_metric_type = scale_metric_type
         if scale_target is not None:
             self.scale_target = scale_target
+        if scaler is not None:
+            self.scaler = scaler
         if server_address is not None:
             self.server_address = server_address
         if timeout is not None:
@@ -456,6 +461,27 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._scale_target = scale_target
+
+    @property
+    def scaler(self):
+        """Gets the scaler of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+
+        :return: The scaler of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: V1beta1ScalerSpec
+        """
+        return self._scaler
+
+    @scaler.setter
+    def scaler(self, scaler):
+        """Sets the scaler of this V1beta1ComponentExtensionSpec.
+
+
+        :param scaler: The scaler of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: V1beta1ScalerSpec
+        """
+
+        self._scaler = scaler
 
     @property
     def server_address(self):

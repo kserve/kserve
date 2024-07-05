@@ -90,6 +90,7 @@ class V1beta1ExplainerSpec(object):
         'scale_metric': 'str',
         'scale_metric_type': 'str',
         'scale_target': 'int',
+        'scaler': 'V1beta1ScalerSpec',
         'scheduler_name': 'str',
         'scheduling_gates': 'list[V1PodSchedulingGate]',
         'security_context': 'V1PodSecurityContext',
@@ -150,6 +151,7 @@ class V1beta1ExplainerSpec(object):
         'scale_metric': 'scaleMetric',
         'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
+        'scaler': 'scaler',
         'scheduler_name': 'schedulerName',
         'scheduling_gates': 'schedulingGates',
         'security_context': 'securityContext',
@@ -215,6 +217,7 @@ class V1beta1ExplainerSpec(object):
         self._scale_metric = None
         self._scale_metric_type = None
         self._scale_target = None
+        self._scaler = None
         self._scheduler_name = None
         self._scheduling_gates = None
         self._security_context = None
@@ -317,6 +320,8 @@ class V1beta1ExplainerSpec(object):
             self.scale_metric_type = scale_metric_type
         if scale_target is not None:
             self.scale_target = scale_target
+        if scaler is not None:
+            self.scaler = scaler
         if scheduler_name is not None:
             self.scheduler_name = scheduler_name
         if scheduling_gates is not None:
@@ -1318,6 +1323,27 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._scale_target = scale_target
+
+    @property
+    def scaler(self):
+        """Gets the scaler of this V1beta1ExplainerSpec.  # noqa: E501
+
+
+        :return: The scaler of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: V1beta1ScalerSpec
+        """
+        return self._scaler
+
+    @scaler.setter
+    def scaler(self, scaler):
+        """Sets the scaler of this V1beta1ExplainerSpec.
+
+
+        :param scaler: The scaler of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: V1beta1ScalerSpec
+        """
+
+        self._scaler = scaler
 
     @property
     def scheduler_name(self):

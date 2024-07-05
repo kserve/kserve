@@ -81,7 +81,6 @@ from kserve.models.v1beta1_inference_service_spec import V1beta1InferenceService
 from kserve.models.v1beta1_inference_service_status import V1beta1InferenceServiceStatus
 from kserve.models.v1beta1_inference_services_config import V1beta1InferenceServicesConfig
 from kserve.models.v1beta1_ingress_config import V1beta1IngressConfig
-from kserve.models.v1beta1_keda_scaler import V1beta1KedaScaler
 from kserve.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
 from kserve.models.v1beta1_local_model_config import V1beta1LocalModelConfig
 from kserve.models.v1beta1_logger_spec import V1beta1LoggerSpec

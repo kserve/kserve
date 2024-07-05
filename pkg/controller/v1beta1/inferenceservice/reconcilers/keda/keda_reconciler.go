@@ -59,6 +59,19 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec) *kedav1alpha1.ScaledObject {
 	annotations := componentMeta.GetAnnotations()
 
+	ScaleMetric := componentExtension.ScaleMetric
+	MinReplicas := componentExtension.MinReplicas
+	MaxReplicas := componentExtension.MaxReplicas
+	ScaleMetricType := componentExtension.ScaleMetricType
+	ScaleTarget := componentExtension.ScaleTarget
+	if componentExtension.ScalerSpec != nil {
+		ScaleMetric = componentExtension.ScalerSpec.ScaleMetric
+		MinReplicas = componentExtension.ScalerSpec.MinReplicas
+		MaxReplicas = componentExtension.ScalerSpec.MaxReplicas
+		ScaleMetricType = componentExtension.ScalerSpec.ScaleMetricType
+		ScaleTarget = componentExtension.ScalerSpec.ScaleTarget
+	}
+
 	scaledobject := &kedav1alpha1.ScaledObject{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        componentMeta.Name,
@@ -72,19 +85,19 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 			},
 			Triggers: []kedav1alpha1.ScaleTriggers{
 				{
-					Type:     string(*componentExtension.ScaleMetric),
+					Type:     string(*ScaleMetric),
 					Metadata: map[string]string{},
 				},
 			},
-			MinReplicaCount: proto.Int32(int32(*componentExtension.MinReplicas)),
-			MaxReplicaCount: proto.Int32(int32(componentExtension.MaxReplicas)),
+			MinReplicaCount: proto.Int32(int32(*MinReplicas)),
+			MaxReplicaCount: proto.Int32(int32(MaxReplicas)),
 		},
 	}
-	if componentExtension.ScaleMetricType != nil {
-		scaledobject.Spec.Triggers[0].MetricType = *componentExtension.ScaleMetricType
+	if ScaleMetricType != nil {
+		scaledobject.Spec.Triggers[0].MetricType = *ScaleMetricType
 	}
 
-	if componentExtension.ScaleMetric != nil && *componentExtension.ScaleMetric == "prometheus" {
+	if *ScaleMetric == "prometheus" {
 		if componentExtension.ServerAddress != "" {
 			scaledobject.Spec.Triggers[0].Metadata["serverAddress"] = componentExtension.ServerAddress
 		}
@@ -95,10 +108,10 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 			scaledobject.Spec.Triggers[0].Metadata["queryParameters"] = componentExtension.QueryParameters
 		}
 		if componentExtension.ServerAddress != "" {
-			scaledobject.Spec.Triggers[0].Metadata["threshold"] = strconv.Itoa((*componentExtension.ScaleTarget))
+			scaledobject.Spec.Triggers[0].Metadata["threshold"] = strconv.Itoa((*ScaleTarget))
 		}
 	} else {
-		scaledobject.Spec.Triggers[0].Metadata["value"] = strconv.Itoa((*componentExtension.ScaleTarget))
+		scaledobject.Spec.Triggers[0].Metadata["value"] = strconv.Itoa((*ScaleTarget))
 	}
 
 	return scaledobject

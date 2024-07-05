@@ -82,7 +82,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceStatus":       schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServicesConfig":      schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.IngressConfig":                schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KedaScaler":                   schema_pkg_apis_serving_v1beta1_KedaScaler(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                 schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":             schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                   schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
@@ -2390,6 +2389,12 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 							Format:      "int64",
 						},
 					},
+					"scaler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specs for Scaling",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec"),
+						},
+					},
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging and logger configurations",
@@ -2444,7 +2449,7 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec", "k8s.io/api/apps/v1.DeploymentStrategy"},
 	}
 }
 
@@ -4911,6 +4916,12 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Format:      "int64",
 						},
 					},
+					"scaler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specs for Scaling",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec"),
+						},
+					},
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging and logger configurations",
@@ -5758,54 +5769,6 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 				},
 			},
 		},
-	}
-}
-
-func schema_pkg_apis_serving_v1beta1_KedaScaler(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"triggers": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kedacore/keda/v2/apis/keda/v1alpha1.ScaleTriggers"),
-									},
-								},
-							},
-						},
-					},
-					"idleReplicaCount": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Number of idle replicas, Default: ignored, must be less than minReplicaCount",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"minReplicaCount": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Minimum number of replicas, default: 0",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"maxReplicaCount": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Maximum number of replicas for autoscaling.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			"github.com/kedacore/keda/v2/apis/keda/v1alpha1.ScaleTriggers"},
 	}
 }
 
@@ -9051,6 +9014,12 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Format:      "int64",
 						},
 					},
+					"scaler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specs for Scaling",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec"),
+						},
+					},
 					"logger": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Activate request/response logging and logger configurations",
@@ -10733,6 +10702,12 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							Description: "CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision",
 							Type:        []string{"integer"},
 							Format:      "int64",
+						},
+					},
+					"scaler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specs for Scaling",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec"),
 						},
 					},
 					"logger": {

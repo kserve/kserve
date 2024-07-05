@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"strings"
 
-	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
@@ -78,19 +77,6 @@ type Component interface {
 	GetExtensions() *ComponentExtensionSpec
 }
 
-type KedaScaler struct {
-	Triggers []kedav1alpha1.ScaleTriggers `json:"triggers,omitempty"`
-	// Number of idle replicas, Default: ignored, must be less than minReplicaCount
-	// +optional
-	IdleReplicaCount *int32 `json:"idleReplicaCount,omitempty"`
-	// Minimum number of replicas, default: 0
-	// +optional
-	MinReplicaCount *int32 `json:"minReplicaCount,omitempty"`
-	// Maximum number of replicas for autoscaling.
-	// +optional
-	MaxReplicaCount *int32 `json:"maxReplicaCount,omitempty"`
-}
-
 // ComponentExtensionSpec defines the deployment configuration for a given InferenceService component
 type ComponentExtensionSpec struct {
 	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
@@ -131,6 +117,9 @@ type ComponentExtensionSpec struct {
 	// CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision
 	// +optional
 	CanaryTrafficPercent *int64 `json:"canaryTrafficPercent,omitempty"`
+	// Specs for Scaling
+	// +optional
+	ScalerSpec *ScalerSpec `json:"scaler,omitempty"`
 	// Activate request/response logging and logger configurations
 	// +optional
 	Logger *LoggerSpec `json:"logger,omitempty"`
