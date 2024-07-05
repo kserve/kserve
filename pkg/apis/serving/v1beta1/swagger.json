@@ -1054,6 +1054,10 @@
           "type": "integer",
           "format": "int32"
         },
+        "scaler": {
+          "description": "Specs for Scaling",
+          "$ref": "#/definitions/v1beta1.ScalerSpec"
+        },
         "serverAddress": {
           "description": "Address of Prometheus server.",
           "type": "string"
@@ -2300,6 +2304,10 @@
           "type": "integer",
           "format": "int32"
         },
+        "scaler": {
+          "description": "Specs for Scaling",
+          "$ref": "#/definitions/v1beta1.ScalerSpec"
+        },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
           "type": "string"
@@ -2778,33 +2786,6 @@
         },
         "urlScheme": {
           "type": "string"
-        }
-      }
-    },
-    "v1beta1.KedaScaler": {
-      "type": "object",
-      "properties": {
-        "idleReplicaCount": {
-          "description": "Number of idle replicas, Default: ignored, must be less than minReplicaCount",
-          "type": "integer",
-          "format": "int32"
-        },
-        "maxReplicaCount": {
-          "description": "Maximum number of replicas for autoscaling.",
-          "type": "integer",
-          "format": "int32"
-        },
-        "minReplicaCount": {
-          "description": "Minimum number of replicas, default: 0",
-          "type": "integer",
-          "format": "int32"
-        },
-        "triggers": {
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/github.com.kedacore.keda.v2.apis.keda.v1alpha1.ScaleTriggers"
-          }
         }
       }
     },
@@ -4413,6 +4394,10 @@
           "type": "integer",
           "format": "int32"
         },
+        "scaler": {
+          "description": "Specs for Scaling",
+          "$ref": "#/definitions/v1beta1.ScalerSpec"
+        },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
           "type": "string"
@@ -4682,6 +4667,46 @@
         },
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.ScalerSpec": {
+      "type": "object",
+      "properties": {
+        "maxReplicas": {
+          "description": "Maximum number of replicas for autoscaling.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "query": {
+          "description": "Query to run to get metrics from Prometheus",
+          "type": "string"
+        },
+        "queryParameters": {
+          "description": "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+          "type": "string"
+        },
+        "scaleMetric": {
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "type": "string"
+        },
+        "scaleMetricType": {
+          "description": "Type of metric to use. Options are Utilization, or AverageValue.",
+          "type": "string"
+        },
+        "scaleTarget": {
+          "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serverAddress": {
+          "description": "Address of Prometheus server.",
           "type": "string"
         }
       }
@@ -5277,6 +5302,10 @@
           "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
+        },
+        "scaler": {
+          "description": "Specs for Scaling",
+          "$ref": "#/definitions/v1beta1.ScalerSpec"
         },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",

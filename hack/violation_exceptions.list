@@ -11,7 +11,6 @@ API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,TrainedModelList,Items
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentStatusSpec,Traffic
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,InferenceServiceList,Items
-API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,KedaScaler,Triggers
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,Containers
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,EphemeralContainers
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,HostAliases
@@ -25,6 +24,7 @@ API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alph
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,InferenceTarget,ServiceURL
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,ModelSpec,StorageURI
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,ServingRuntimeSpec,GrpcMultiModelManagementEndpoint
+API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentExtensionSpec,ScalerSpec
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentExtensionSpec,TimeoutSeconds
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentStatusSpec,GrpcURL
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentStatusSpec,RestURL

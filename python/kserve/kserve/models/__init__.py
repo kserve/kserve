@@ -72,7 +72,6 @@ from kserve.models.v1beta1_inference_service_spec import V1beta1InferenceService
 from kserve.models.v1beta1_inference_service_status import V1beta1InferenceServiceStatus
 from kserve.models.v1beta1_inference_services_config import V1beta1InferenceServicesConfig
 from kserve.models.v1beta1_ingress_config import V1beta1IngressConfig
-from kserve.models.v1beta1_keda_scaler import V1beta1KedaScaler
 from kserve.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
 from kserve.models.v1beta1_logger_spec import V1beta1LoggerSpec
 from kserve.models.v1beta1_model_copies import V1beta1ModelCopies
@@ -87,6 +86,7 @@ from kserve.models.v1beta1_pod_spec import V1beta1PodSpec
 from kserve.models.v1beta1_predictor_extension_spec import V1beta1PredictorExtensionSpec
 from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kserve.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec
+from kserve.models.v1beta1_scaler_spec import V1beta1ScalerSpec
 from kserve.models.v1beta1_storage_spec import V1beta1StorageSpec
 from kserve.models.v1beta1_tf_serving_spec import V1beta1TFServingSpec
 from kserve.models.v1beta1_torch_serve_spec import V1beta1TorchServeSpec
