@@ -88,6 +88,7 @@ class V1beta1TransformerSpec(object):
         'scale_metric': 'str',
         'scale_metric_type': 'str',
         'scale_target': 'int',
+        'scaler': 'V1beta1ScalerSpec',
         'scheduler_name': 'str',
         'scheduling_gates': 'list[V1PodSchedulingGate]',
         'security_context': 'V1PodSecurityContext',
@@ -146,6 +147,7 @@ class V1beta1TransformerSpec(object):
         'scale_metric': 'scaleMetric',
         'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
+        'scaler': 'scaler',
         'scheduler_name': 'schedulerName',
         'scheduling_gates': 'schedulingGates',
         'security_context': 'securityContext',
@@ -162,7 +164,7 @@ class V1beta1TransformerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, query=None, query_parameters=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, server_address=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, query=None, query_parameters=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scaler=None, scheduler_name=None, scheduling_gates=None, security_context=None, server_address=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1TransformerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -209,6 +211,7 @@ class V1beta1TransformerSpec(object):
         self._scale_metric = None
         self._scale_metric_type = None
         self._scale_target = None
+        self._scaler = None
         self._scheduler_name = None
         self._scheduling_gates = None
         self._security_context = None
@@ -307,6 +310,8 @@ class V1beta1TransformerSpec(object):
             self.scale_metric_type = scale_metric_type
         if scale_target is not None:
             self.scale_target = scale_target
+        if scaler is not None:
+            self.scaler = scaler
         if scheduler_name is not None:
             self.scheduler_name = scheduler_name
         if scheduling_gates is not None:
@@ -1266,6 +1271,27 @@ class V1beta1TransformerSpec(object):
         """
 
         self._scale_target = scale_target
+
+    @property
+    def scaler(self):
+        """Gets the scaler of this V1beta1TransformerSpec.  # noqa: E501
+
+
+        :return: The scaler of this V1beta1TransformerSpec.  # noqa: E501
+        :rtype: V1beta1ScalerSpec
+        """
+        return self._scaler
+
+    @scaler.setter
+    def scaler(self, scaler):
+        """Sets the scaler of this V1beta1TransformerSpec.
+
+
+        :param scaler: The scaler of this V1beta1TransformerSpec.  # noqa: E501
+        :type: V1beta1ScalerSpec
+        """
+
+        self._scaler = scaler
 
     @property
     def scheduler_name(self):
