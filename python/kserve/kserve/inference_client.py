@@ -20,7 +20,7 @@ import grpc
 import httpx
 from orjson import orjson
 
-from .constants.constants import PredictorProtocol
+from .constants.constants import PredictorProtocol, INFERENCE_CONTENT_LENGTH_HEADER
 from .errors import UnsupportedProtocol, InvalidInput
 from .logging import trace_logger as logger
 from .protocol.grpc.grpc_predict_v2_pb2 import (
@@ -483,8 +483,12 @@ class InferenceRESTClient:
             logger.info("url: %s", url)
             logger.info("request data: %s", data)
         if isinstance(data, InferRequest):
-            data = orjson.dumps(data.to_rest())
-        else:
+            data, json_length = data.to_rest()
+            if json_length:
+                headers = headers or {}
+                headers[INFERENCE_CONTENT_LENGTH_HEADER] = str(json_length)
+                headers["content-type"] = "application/octet-stream"
+        if isinstance(data, dict):
             data = orjson.dumps(data)
         response = await self._client.post(
             url, content=data, headers=headers, timeout=timeout
@@ -495,15 +499,18 @@ class InferenceRESTClient:
             )
         if not response.is_success:
             raise self._consturct_http_status_error(response)
-        output = orjson.loads(response.content)
         # If inference graph result, return it as dict
         if is_graph_endpoint:
-            return output
+            output = orjson.loads(response.content)
         elif is_v2(self._config.protocol):
-            return InferResponse.from_rest(output.get("model_name"), response=output)
+            json_length = response.headers.get(
+                INFERENCE_CONTENT_LENGTH_HEADER, len(response.content)
+            )
+            output = InferResponse.from_bytes(response.content, int(json_length))
         # Should be v1 protocol result, return it as dict
         else:
-            return output
+            output = orjson.loads(response.content)
+        return output
 
     async def explain(
         self,
