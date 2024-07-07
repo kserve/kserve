@@ -995,16 +995,17 @@ class TestInferResponse:
             _, _ = infer_response.to_rest()
 
     def test_infer_response_from_bytes_happy_path(self):
-        response_bytes = b'{"id": "1", "outputs": [{"name": "output1", "shape": [1], "datatype": "INT32", "data": [1]}]}'
-        json_length = len(response_bytes)
         model_name = "test_model"
+        response_bytes = b'{"id": "1", "model_name": "test_model", "outputs": [{"name": "output1", "shape": [1], "datatype": "INT32", "data": [1]}]}'
+        json_length = len(response_bytes)
 
         infer_response = InferResponse.from_bytes(
-            response_bytes, json_length, model_name
+            response_bytes,
+            json_length,
         )
 
         assert infer_response.id == "1"
-        assert infer_response.model_name == "test_model"
+        assert infer_response.model_name == model_name
         assert len(infer_response.outputs) == 1
         assert infer_response.outputs[0].name == "output1"
         assert infer_response.outputs[0].shape == [1]
@@ -1015,8 +1016,10 @@ class TestInferResponse:
         serialized_str_data = serialize_byte_tensor(
             np.array([b"cat", b"dog", b"bird", b"fish"], dtype=np.object_)
         ).item()
+        model_name = "test_model"
         response_bytes = json.dumps(
             {
+                "model_name": model_name,
                 "id": "1",
                 "outputs": [
                     {
@@ -1029,14 +1032,14 @@ class TestInferResponse:
             }
         ).encode()
         json_length = len(response_bytes)
-        model_name = "test_model"
 
         infer_response = InferResponse.from_bytes(
-            response_bytes + serialized_str_data, json_length, model_name
+            response_bytes + serialized_str_data,
+            json_length,
         )
 
         assert infer_response.id == "1"
-        assert infer_response.model_name == "test_model"
+        assert infer_response.model_name == model_name
         assert len(infer_response.outputs) == 1
         assert infer_response.outputs[0].name == "output1"
         assert infer_response.outputs[0].shape == [4]
@@ -1044,12 +1047,11 @@ class TestInferResponse:
         assert infer_response.outputs[0].data == ["cat", "dog", "bird", "fish"]
 
     def test_infer_response_from_bytes_with_missing_data(self):
-        response_bytes = b'{"id": "1", "outputs": [{"name": "output1", "shape": [1], "datatype": "INT32"}]}'
+        response_bytes = b'{"id": "1", "model_name": "test_model", "outputs": [{"name": "output1", "shape": [1], "datatype": "INT32"}]}'
         json_length = len(response_bytes)
-        model_name = "test_model"
 
         with pytest.raises(InvalidInput):
-            InferResponse.from_bytes(response_bytes, json_length, model_name)
+            InferResponse.from_bytes(response_bytes, json_length)
 
     def test_infer_response_get_output_by_name_returns_correct_output(self):
         infer_output1 = InferOutput(

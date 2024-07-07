@@ -1228,11 +1228,10 @@ class InferResponse:
         )
 
     @classmethod
-    def from_rest(cls, model_name: str, response: Dict) -> "InferResponse":
+    def from_rest(cls, response: Dict) -> "InferResponse":
         """The class method to construct the InferResponse object from REST message type.
 
         Args:
-            model_name: The name of the model
             response: The response as a dict.
         Returns:
             InferResponse object.
@@ -1248,7 +1247,7 @@ class InferResponse:
             for output in response["outputs"]
         ]
         return cls(
-            model_name=model_name,
+            model_name=response.get("model_name"),
             model_version=response.get("model_version", None),
             response_id=response.get("id", None),
             parameters=response.get("parameters", None),
@@ -1257,7 +1256,9 @@ class InferResponse:
 
     @classmethod
     def from_bytes(
-        cls, res_bytes: bytes, json_length: int, model_name: str
+        cls,
+        res_bytes: bytes,
+        json_length: int,
     ) -> "InferResponse":
         """
         Class method to construct an InferResponse object from raw response bytes.
@@ -1266,7 +1267,6 @@ class InferResponse:
         Args:
             res_bytes (bytes): The raw response bytes received from the REST API.
             json_length (int): The length of the JSON part of the response.
-            model_name (str): The name of the model for which the inference was made.
 
         Returns:
             InferResponse: The constructed InferResponse object.
@@ -1275,12 +1275,14 @@ class InferResponse:
             InvalidInput: If the response format is unrecognized or if necessary fields are missing in the response.
             InferenceError: if failed to set data for the output tensor.
         """
-
+        # If json_length is equal to the length of the response bytes, then the response does not have
+        # any appended binary data after the json.
         json_bytes = res_bytes[:json_length]
         try:
             infer_res_dict = orjson.loads(json_bytes)
         except orjson.JSONDecodeError as e:
             raise InvalidInput(f"Unrecognized request format: {e}")
+        model_name = infer_res_dict["model_name"]
         infer_outputs = []
         # Read the raw binary outputs appended after json
         start_index = json_length

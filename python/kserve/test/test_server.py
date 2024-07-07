@@ -538,9 +538,7 @@ class TestV2Endpoints:
         resp = http_server_client.post("/v2/models/TestModel/infer", content=input_data)
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/json"
-        result = InferResponse.from_rest(
-            model_name=model_name, response=json.loads(resp.content)
-        )
+        result = InferResponse.from_rest(response=json.loads(resp.content))
         assert result == expected_res
 
     def test_fp16_input_as_binary_data(self, http_server_client):
