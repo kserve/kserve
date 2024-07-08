@@ -12,12 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import re
 
 import httpx
 import pytest
+import pytest_asyncio
 
 from kserve import ModelServer, InferenceRESTClient, InferRequest, InferInput
+from kserve.model_server import app as kserve_app
 from kserve.errors import UnsupportedProtocol
 from kserve.inference_client import RESTConfig
 from kserve.protocol.rest.server import RESTServer
@@ -27,20 +30,32 @@ from test.test_server import DummyModel
 @pytest.mark.asyncio
 class TestInferenceRESTClient:
     @pytest.fixture(scope="class")
-    def rest_client(self, request):
+    def event_loop(self):
+        return asyncio.get_event_loop()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self):
+        server = ModelServer()
+        rest_server = RESTServer(
+            kserve_app, server.dataplane, server.model_repository_extension
+        )
+        rest_server.create_application()
         model = DummyModel("TestModel")
         model.load()
         not_ready_model = DummyModel("NotReadyModel")
         # model.load()  # Model not loaded, i.e. not ready
-        server = ModelServer()
         server.register_model(model)
         server.register_model(not_ready_model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        app = rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
+        await server.model_repository_extension.unload("NotReadyModel")
+
+    @pytest.fixture(scope="class")
+    def rest_client(self, request, app):
         config = RESTConfig(
             transport=httpx.ASGITransport(app=app), verbose=True, protocol=request.param
         )
-        return InferenceRESTClient(config=config)
+        yield InferenceRESTClient(config=config)
 
     @pytest.mark.parametrize(
         "rest_client, protocol", [("v1", "v1"), ("v2", "v2")], indirect=["rest_client"]
