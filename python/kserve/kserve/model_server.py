@@ -20,7 +20,6 @@ import sys
 from importlib import metadata
 from typing import Any, Callable, Dict, List, Optional, Union
 
-import uvloop
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 from ray import serve as rayserve
@@ -309,7 +308,6 @@ class ModelServer:
             # formula as suggest in https://bugs.python.org/issue35279
             self.max_asyncio_workers = min(32, utils.cpu_count() + 4)
         logger.info(f"Setting max asyncio worker threads as {self.max_asyncio_workers}")
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         asyncio.get_event_loop().set_default_executor(
             concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers)
         )

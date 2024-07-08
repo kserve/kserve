@@ -86,8 +86,11 @@ class RESTServer:
         self.app.add_exception_handler(
             NotImplementedError, not_implemented_error_handler
         )
-        self.app.add_exception_handler(UnsupportedProtocol, unsupported_protocol_error_handler)
+        self.app.add_exception_handler(
+            UnsupportedProtocol, unsupported_protocol_error_handler
+        )
         self.app.add_exception_handler(Exception, generic_exception_handler)
+
 
 class UvicornServer:
     def __init__(
