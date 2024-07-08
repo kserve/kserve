@@ -51,6 +51,7 @@ def grpc_client(host):
         channel_args=[
             ("grpc.ssl_target_name_override", host),
         ],
+        timeout=120,
     )
 
 
