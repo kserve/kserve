@@ -39,6 +39,100 @@
         }
       }
     },
+    "v1alpha1.ClusterCachedModel": {
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "disabled": {
+          "type": "boolean"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.ClusterCachedModelSpec"
+        }
+      }
+    },
+    "v1alpha1.ClusterCachedModelList": {
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.ClusterCachedModel"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.ClusterCachedModelSpec": {
+      "description": "StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.",
+      "type": "object",
+      "required": [
+        "storageUri",
+        "modelSize",
+        "nodeGroup",
+        "storageType",
+        "cleanupPolicy",
+        "persistentVolume",
+        "persistentVolumeClaim"
+      ],
+      "properties": {
+        "cleanupPolicy": {
+          "type": "string",
+          "default": ""
+        },
+        "modelSize": {
+          "$ref": "#/definitions/resource.Quantity"
+        },
+        "nodeGroup": {
+          "type": "string",
+          "default": ""
+        },
+        "persistentVolume": {
+          "default": {},
+          "$ref": "#/definitions/v1.PersistentVolumeClaim"
+        },
+        "persistentVolumeClaim": {
+          "default": {},
+          "$ref": "#/definitions/v1.PersistentVolumeClaim"
+        },
+        "storageType": {
+          "description": "only local is supported for now",
+          "type": "string",
+          "default": ""
+        },
+        "storageUri": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
     "v1alpha1.ClusterServingRuntime": {
       "description": "ClusterServingRuntime is the Schema for the servingruntimes API",
       "type": "object",
@@ -356,6 +450,77 @@
         "serviceUrl": {
           "description": "InferenceService URL, mutually exclusive with ServiceName",
           "type": "string"
+        }
+      }
+    },
+    "v1alpha1.ModelCacheNodeGroup": {
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "disabled": {
+          "type": "boolean"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.ModelCacheNodeGroupSpec"
+        }
+      }
+    },
+    "v1alpha1.ModelCacheNodeGroupList": {
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.ModelCacheNodeGroup"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.ModelCacheNodeGroupSpec": {
+      "description": "ModelCacheNodeGroupSpec defines the container spec for the storage initializer init container, and the protocols it supports.",
+      "type": "object",
+      "required": [
+        "storageLimit",
+        "nodeSelector"
+      ],
+      "properties": {
+        "nodeSelector": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "storageLimit": {
+          "$ref": "#/definitions/resource.Quantity"
         }
       }
     },

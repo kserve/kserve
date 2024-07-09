@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -33,8 +34,10 @@ type ClusterCachedModelSpec struct {
 	// only local is supported for now
 	StorageType   StorageType   `json:"storageType" validate:"required"`
 	CleanupPolicy CleanupPolicy `json:"cleanupPolicy" validate:"required"`
-	PvSpecName    string        `json:"pvSpecName" validate:"required"`
-	PvcSpecName   string        `json:"pvcSpecName" validate:"required"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="pvSpecName is immutable"
+	PersistentVolume corev1.PersistentVolumeClaim `json:"persistentVolume" validate:"required"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="pvcSpecName is immutable"
+	PersistentVolumeClaim corev1.PersistentVolumeClaim `json:"persistentVolumeClaim" validate:"required"`
 }
 
 // StorageType enum

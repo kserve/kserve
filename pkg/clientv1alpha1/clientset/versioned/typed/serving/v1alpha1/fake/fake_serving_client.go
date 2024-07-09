@@ -28,6 +28,10 @@ type FakeServingV1alpha1 struct {
 	*testing.Fake
 }
 
+func (c *FakeServingV1alpha1) ClusterCachedModels(namespace string) v1alpha1.ClusterCachedModelInterface {
+	return &FakeClusterCachedModels{c, namespace}
+}
+
 func (c *FakeServingV1alpha1) ClusterServingRuntimes(namespace string) v1alpha1.ClusterServingRuntimeInterface {
 	return &FakeClusterServingRuntimes{c, namespace}
 }
@@ -38,6 +42,10 @@ func (c *FakeServingV1alpha1) ClusterStorageContainers(namespace string) v1alpha
 
 func (c *FakeServingV1alpha1) InferenceGraphs(namespace string) v1alpha1.InferenceGraphInterface {
 	return &FakeInferenceGraphs{c, namespace}
+}
+
+func (c *FakeServingV1alpha1) ModelCacheNodeGroups(namespace string) v1alpha1.ModelCacheNodeGroupInterface {
+	return &FakeModelCacheNodeGroups{c, namespace}
 }
 
 func (c *FakeServingV1alpha1) ServingRuntimes(namespace string) v1alpha1.ServingRuntimeInterface {
