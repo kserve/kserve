@@ -42,6 +42,7 @@ from kserve.protocol.dataplane import DataPlane
 from .openai.config import maybe_register_openai_endpoints
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
+from ..model_repository_extension import ModelRepositoryExtension
 
 
 async def metrics_handler(request: Request) -> Response:
@@ -60,7 +61,12 @@ class _NoSignalUvicornServer(uvicorn.Server):
 
 
 class RESTServer:
-    def __init__(self, app: FastAPI, data_plane: DataPlane, model_repository_extension):
+    def __init__(
+        self,
+        app: FastAPI,
+        data_plane: DataPlane,
+        model_repository_extension: ModelRepositoryExtension,
+    ):
         self.app = app
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension

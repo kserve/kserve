@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import re
 
 import httpx
@@ -29,9 +28,6 @@ from test.test_server import DummyModel
 
 @pytest.mark.asyncio
 class TestInferenceRESTClient:
-    @pytest.fixture(scope="class")
-    def event_loop(self):
-        return asyncio.get_event_loop()
 
     @pytest_asyncio.fixture(scope="class")
     async def app(self):
@@ -49,13 +45,16 @@ class TestInferenceRESTClient:
         yield kserve_app
         await server.model_repository_extension.unload("TestModel")
         await server.model_repository_extension.unload("NotReadyModel")
+        kserve_app.routes.clear()
 
-    @pytest.fixture(scope="class")
-    def rest_client(self, request, app):
+    @pytest_asyncio.fixture(scope="class")
+    async def rest_client(self, request, app):
         config = RESTConfig(
             transport=httpx.ASGITransport(app=app), verbose=True, protocol=request.param
         )
-        yield InferenceRESTClient(config=config)
+        client = InferenceRESTClient(config=config)
+        yield client
+        await client.close()
 
     @pytest.mark.parametrize(
         "rest_client, protocol", [("v1", "v1"), ("v2", "v2")], indirect=["rest_client"]
@@ -456,7 +455,18 @@ class TestInferenceRESTClient:
         else:
             # Unsupported protocol
             with pytest.raises(UnsupportedProtocol, match="Unsupported protocol v2"):
-                input_data = {"instances": [1, 2]}
+                input_data = input_data = {
+                    "parameters": {"test-param": "abc"},
+                    "inputs": [
+                        {
+                            "name": "input-0",
+                            "datatype": "INT32",
+                            "shape": [2, 2],
+                            "data": [[1, 2], [3, 4]],
+                            "parameters": {"test-param": "abc"},
+                        }
+                    ],
+                }
                 await rest_client.explain(
                     "http://test-server",
                     "TestModel",
