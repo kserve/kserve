@@ -13,6 +13,7 @@ packages = [
 python = ">=3.9,<3.12"
 kserve = {path = "../kserve", develop = true}
 adversarial-robustness-toolbox = {version = "^1.10.3", extras = ["keras"]}
+nest-asyncio = "^1.4.0"
 pillow = "^10.3.0"
 # pin to avoid https://github.com/kserve/kserve/actions/runs/8990775750/job/24696874468?pr=3598
 h5py = "3.10.0"
