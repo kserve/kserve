@@ -18,6 +18,7 @@ package logger
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -44,7 +45,6 @@ func TestLogger(t *testing.T) {
 	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
-		println(string(b))
 		responseChan <- string(b)
 		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
 		_, err = rw.Write([]byte(`ok`))
@@ -102,13 +102,19 @@ func TestLoggerWithMetadata(t *testing.T) {
 	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
 		g.Expect(err).To(gomega.BeNil())
-		println(string(b))
 		responseChan <- string(b)
 		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
 		_, err = rw.Write([]byte(`ok`))
 		g.Expect(err).To(gomega.BeNil())
-		println(req.Header)
-		g.Expect(req.Header["foo"]).To(gomega.Equal([]string{"bar"}))
+
+		// If this is request, check the metadata
+		if req.Header["Ce-Type"][0] == "org.kubeflow.serving.inference.request" {
+			metadata := map[string][]string{}
+
+			json.Unmarshal([]byte(req.Header["Ce-Metadata"][0]), &metadata)
+
+			g.Expect(metadata["Foo"]).To(gomega.Equal([]string{"bar"}))
+		}
 
 	}))
 	// Close the server when test finishes
@@ -127,7 +133,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 
 	reader := bytes.NewReader(predictorRequest)
 	r := httptest.NewRequest("POST", "http://a", reader)
-	r.Header.Add("my-meta/foo", "bar")
+	r.Header.Add("Foo", "bar")
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
 	logf.SetLogger(zap.New())
@@ -140,7 +146,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 
 	StartDispatcher(5, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
-	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default", "default", httpProxy, []string{"my-meta/foo"})
+	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default", "default", httpProxy, []string{"Foo"})
 
 	oh.ServeHTTP(w, r)
 

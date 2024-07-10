@@ -18,6 +18,7 @@ package logger
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -96,7 +97,13 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	event.SetExtension(NamespaceAttr, logReq.Namespace)
 	event.SetExtension(ComponentAttr, logReq.Component)
 	event.SetExtension(EndpointAttr, logReq.Endpoint)
-	event.SetExtension(MetadataAttr, logReq.Metadata)
+
+	encodedMetadata, err := json.Marshal(logReq.Metadata)
+	fmt.Println(logReq.Metadata, encodedMetadata)
+	if err != nil {
+		return fmt.Errorf("could not encode metadata as json: %w", err)
+	}
+	event.SetExtension(MetadataAttr, string(encodedMetadata))
 
 	event.SetSource(logReq.SourceUri.String())
 	if err := event.SetData(logReq.ContentType, *logReq.Bytes); err != nil {
