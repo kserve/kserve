@@ -1,0 +1,21 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "deeploy-sample"
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: sklearn
+        version:
+      runtime: kserve-sklearnserver
+      protocolVersion: "v2"
+      storageUri: "gs://deeploy-examples/sklearn/census/20231128130326/model"
+  explainer:
+    model:
+      modelFormat:
+        name: shap-kernel
+        version:
+      runtime: kserve-deeploy-shapkernelserver
+      protocolVersion: "v2"
+      storageUri: "gs://deeploy-examples/sklearn/census/20231128130326/explainer"
