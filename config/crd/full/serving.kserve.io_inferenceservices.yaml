@@ -2385,6 +2385,10 @@ spec:
                       type: object
                     logger:
                       properties:
+                        headerMetadata:
+                          items:
+                            type: string
+                          type: array
                         mode:
                           enum:
                             - all
@@ -6302,6 +6306,10 @@ spec:
                       type: object
                     logger:
                       properties:
+                        headerMetadata:
+                          items:
+                            type: string
+                          type: array
                         mode:
                           enum:
                             - all
@@ -14619,6 +14627,10 @@ spec:
                       type: object
                     logger:
                       properties:
+                        headerMetadata:
+                          items:
+                            type: string
+                          type: array
                         mode:
                           enum:
                             - all
