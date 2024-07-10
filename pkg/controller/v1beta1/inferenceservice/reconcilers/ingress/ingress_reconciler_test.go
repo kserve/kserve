@@ -22,8 +22,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	gomegaTypes "github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -34,6 +32,9 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestCreateVirtualService(t *testing.T) {
@@ -978,7 +979,7 @@ func TestCreateVirtualService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
 				Spec: istiov1beta1.VirtualService{
 					Hosts:    []string{serviceInternalHostName, serviceHostName, "my-domain.com"},
-					Gateways: []string{constants.KnativeLocalGateway, constants.KnativeIngressGateway},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
 					Http: []*istiov1beta1.HTTPRoute{
 						{
 							Match: []*istiov1beta1.HTTPMatchRequest{
@@ -993,7 +994,7 @@ func TestCreateVirtualService(t *testing.T) {
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 										},
 									},
-									Gateways: []string{constants.KnativeLocalGateway},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 								},
 								{
 									Uri: &istiov1beta1.StringMatch{
@@ -1029,7 +1030,7 @@ func TestCreateVirtualService(t *testing.T) {
 											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
 										},
 									},
-									Gateways: []string{constants.KnativeLocalGateway},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
 								},
 								{
 									Authority: &istiov1beta1.StringMatch{
