@@ -17,8 +17,9 @@ limitations under the License.
 package pod
 
 import (
-	fakeclientset "k8s.io/client-go/kubernetes/fake"
 	"testing"
+
+	fakeclientset "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/credentials"
@@ -320,6 +321,132 @@ func TestAgentInjector(t *testing.T) {
 								"default",
 								LoggerArgumentComponent,
 								"predictor",
+							},
+							Ports: []v1.ContainerPort{
+								{
+									Name:          "agent-port",
+									ContainerPort: constants.InferenceServiceDefaultAgentPort,
+									Protocol:      "TCP",
+								},
+							},
+							Env:       []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Resources: agentResourceRequirement,
+							ReadinessProbe: &v1.Probe{
+								ProbeHandler: v1.ProbeHandler{
+									HTTPGet: &v1.HTTPGetAction{
+										HTTPHeaders: []v1.HTTPHeader{
+											{
+												Name:  "K-Network-Probe",
+												Value: "queue",
+											},
+										},
+										Port:   intstr.FromInt(9081),
+										Path:   "/",
+										Scheme: "HTTP",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"AddLoggerWithMetadata": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.LoggerInternalAnnotationKey:               "true",
+						constants.LoggerSinkUrlInternalAnnotationKey:        "http://httpbin.org/",
+						constants.LoggerModeInternalAnnotationKey:           string(v1beta1.LogAll),
+						constants.LoggerHeaderMetadataInternalAnnotationKey: "Foo,Bar",
+					},
+					Labels: map[string]string{
+						"serving.kserve.io/inferenceservice": "sklearn",
+						constants.KServiceModelLabel:         "sklearn",
+						constants.KServiceEndpointLabel:      "default",
+						constants.KServiceComponentLabel:     "predictor",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &v1.Probe{
+								ProbeHandler: v1.ProbeHandler{
+									TCPSocket: &v1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
+									},
+								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+						{
+							Name: "queue-proxy",
+							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+					Annotations: map[string]string{
+						constants.LoggerInternalAnnotationKey:        "true",
+						constants.LoggerSinkUrlInternalAnnotationKey: "http://httpbin.org/",
+						constants.LoggerModeInternalAnnotationKey:    string(v1beta1.LogAll),
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &v1.Probe{
+								ProbeHandler: v1.ProbeHandler{
+									TCPSocket: &v1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
+									},
+								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+						{
+							Name: "queue-proxy",
+							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+						{
+							Name:  constants.AgentContainerName,
+							Image: loggerConfig.Image,
+							Args: []string{
+								LoggerArgumentLogUrl,
+								"http://httpbin.org/",
+								LoggerArgumentSourceUri,
+								"deployment",
+								LoggerArgumentMode,
+								"all",
+								LoggerArgumentInferenceService,
+								"sklearn",
+								LoggerArgumentNamespace,
+								"default",
+								LoggerArgumentEndpoint,
+								"default",
+								LoggerArgumentComponent,
+								"predictor",
+								LoggerArgumentHeaderAllowList,
+								"Foo,Bar",
 							},
 							Ports: []v1.ContainerPort{
 								{

@@ -60,7 +60,8 @@ type LoggerSpec struct {
 	// - "request": log only request; <br />
 	// - "response": log only response <br />
 	// +optional
-	Mode LoggerType `json:"mode,omitempty"`
+	Mode           LoggerType `json:"mode,omitempty"`
+	HeaderMetadata []string   `json:"headerMetadata,omitempty"`
 }
 
 // Batcher specifies optional payload batching available for all components

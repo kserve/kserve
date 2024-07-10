@@ -66,6 +66,7 @@ var (
 	namespace        = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint         = flag.String("endpoint", "", "The endpoint name to add as header to log events")
 	component        = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
+	headerAllowList  = flag.StringArray("header-allow-list", nil, "Allow list of headers that will be passed down as metadata")
 	// batcher flags
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
@@ -287,6 +288,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		endpoint:         *endpoint,
 		namespace:        *namespace,
 		component:        *component,
+		headerAllowList:  *headerAllowList,
 	}
 }
 
