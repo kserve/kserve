@@ -60,12 +60,19 @@ func NewDeploymentReconciler(client kclient.Client,
 func createRawDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec, //nolint:unparam
 	podSpec *corev1.PodSpec) *appsv1.Deployment {
+	var minReplicas int32
+	if componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas {
+		minReplicas = int32(constants.DefaultMinReplicas)
+	} else {
+		minReplicas = int32(*componentExt.MinReplicas)
+	}
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
 	setDefaultPodSpec(podSpec)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: componentMeta,
 		Spec: appsv1.DeploymentSpec{
+			Replicas: &minReplicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app": constants.GetRawServiceLabel(componentMeta.Name),
