@@ -73,7 +73,6 @@ OBSERVED_GENERATION = "observedGeneration"
 # K8S metadata key constants
 GENERATION = "generation"
 
-PREDICTOR_BASE_URL_FORMAT = "{0}://{1}"
 EXPLAINER_BASE_URL_FORMAT = "{0}://{1}"
 
 
