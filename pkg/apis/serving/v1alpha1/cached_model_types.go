@@ -27,16 +27,16 @@ import (
 type ClusterCachedModelSpec struct {
 	// Container spec for the storage initializer init container
 
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="StorageUri is immutable"
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="storageUri is immutable"
 	StorageUri string            `json:"storageUri" validate:"required"`
 	ModelSize  resource.Quantity `json:"modelSize" validate:"required"`
 	NodeGroup  string            `json:"nodeGroup" validate:"required"`
 	// only local is supported for now
 	StorageType   StorageType   `json:"storageType" validate:"required"`
 	CleanupPolicy CleanupPolicy `json:"cleanupPolicy" validate:"required"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="pvSpecName is immutable"
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolume is immutable"
 	PersistentVolume corev1.PersistentVolumeClaim `json:"persistentVolume" validate:"required"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="pvcSpecName is immutable"
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolumeClaim is immutable"
 	PersistentVolumeClaim corev1.PersistentVolumeClaim `json:"persistentVolumeClaim" validate:"required"`
 }
 

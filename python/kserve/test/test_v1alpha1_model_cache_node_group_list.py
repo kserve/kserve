@@ -26,12 +26,16 @@
 
 from __future__ import absolute_import
 
-import unittest
 import datetime
+import unittest
+
+from kserve.models.v1alpha1_model_cache_node_group_list import (  # noqa: E501
+    V1alpha1ModelCacheNodeGroupList,
+)
+from kserve.rest import ApiException
 
 import kserve
-from kserve.models.v1alpha1_model_cache_node_group_list import V1alpha1ModelCacheNodeGroupList  # noqa: E501
-from kserve.rest import ApiException
+
 
 class TestV1alpha1ModelCacheNodeGroupList(unittest.TestCase):
     """V1alpha1ModelCacheNodeGroupList unit test stubs"""
@@ -52,12 +56,12 @@ class TestV1alpha1ModelCacheNodeGroupList(unittest.TestCase):
             return V1alpha1ModelCacheNodeGroupList(
                 api_version = '0', 
                 items = [
-                    kserve.models.v1alpha1/model_cache_node_group.v1alpha1.ModelCacheNodeGroup(
+                    kserve.models.v1alpha1_model_cache_node_group.V1alpha1ModelCacheNodeGroup(
                         api_version = '0', 
                         disabled = True, 
                         kind = '0', 
                         metadata = None, 
-                        spec = kserve.models.v1alpha1/model_cache_node_group_spec.v1alpha1.ModelCacheNodeGroupSpec(
+                        spec = kserve.models.v1alpha1_model_cache_node_group_spec.V1alpha1ModelCacheNodeGroupSpec(
                             node_selector = {
                                 'key' : '0'
                                 }, 
@@ -69,12 +73,12 @@ class TestV1alpha1ModelCacheNodeGroupList(unittest.TestCase):
         else :
             return V1alpha1ModelCacheNodeGroupList(
                 items = [
-                    kserve.models.v1alpha1/model_cache_node_group.v1alpha1.ModelCacheNodeGroup(
+                    kserve.models.v1alpha1_model_cache_node_group.V1alpha1ModelCacheNodeGroup(
                         api_version = '0', 
                         disabled = True, 
                         kind = '0', 
                         metadata = None, 
-                        spec = kserve.models.v1alpha1/model_cache_node_group_spec.v1alpha1.ModelCacheNodeGroupSpec(
+                        spec = kserve.models.v1alpha1_model_cache_node_group_spec.V1alpha1ModelCacheNodeGroupSpec(
                             node_selector = {
                                 'key' : '0'
                                 }, 

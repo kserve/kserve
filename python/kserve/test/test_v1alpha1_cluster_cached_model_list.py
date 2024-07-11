@@ -26,12 +26,16 @@
 
 from __future__ import absolute_import
 
-import unittest
 import datetime
+import unittest
+
+from kserve.models.v1alpha1_cluster_cached_model_list import (  # noqa: E501
+    V1alpha1ClusterCachedModelList,
+)
+from kserve.rest import ApiException
 
 import kserve
-from kserve.models.v1alpha1_cluster_cached_model_list import V1alpha1ClusterCachedModelList  # noqa: E501
-from kserve.rest import ApiException
+
 
 class TestV1alpha1ClusterCachedModelList(unittest.TestCase):
     """V1alpha1ClusterCachedModelList unit test stubs"""
@@ -52,12 +56,12 @@ class TestV1alpha1ClusterCachedModelList(unittest.TestCase):
             return V1alpha1ClusterCachedModelList(
                 api_version = '0', 
                 items = [
-                    kserve.models.v1alpha1/cluster_cached_model.v1alpha1.ClusterCachedModel(
+                    kserve.models.v1alpha1_cluster_cached_model.V1alpha1ClusterCachedModel(
                         api_version = '0', 
                         disabled = True, 
                         kind = '0', 
                         metadata = None, 
-                        spec = kserve.models.v1alpha1/cluster_cached_model_spec.v1alpha1.ClusterCachedModelSpec(
+                        spec = kserve.models.v1alpha1_cluster_cached_model_spec.V1alpha1ClusterCachedModelSpec(
                             cleanup_policy = '0', 
                             model_size = None, 
                             node_group = '0', 
@@ -72,12 +76,12 @@ class TestV1alpha1ClusterCachedModelList(unittest.TestCase):
         else :
             return V1alpha1ClusterCachedModelList(
                 items = [
-                    kserve.models.v1alpha1/cluster_cached_model.v1alpha1.ClusterCachedModel(
+                    kserve.models.v1alpha1_cluster_cached_model.V1alpha1ClusterCachedModel(
                         api_version = '0', 
                         disabled = True, 
                         kind = '0', 
                         metadata = None, 
-                        spec = kserve.models.v1alpha1/cluster_cached_model_spec.v1alpha1.ClusterCachedModelSpec(
+                        spec = kserve.models.v1alpha1_cluster_cached_model_spec.V1alpha1ClusterCachedModelSpec(
                             cleanup_policy = '0', 
                             model_size = None, 
                             node_group = '0', 

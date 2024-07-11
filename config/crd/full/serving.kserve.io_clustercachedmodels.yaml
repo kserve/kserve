@@ -199,7 +199,7 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-validations:
-                - message: pvSpecName is immutable
+                - message: persistentVolume is immutable
                   rule: self == oldSelf
               persistentVolumeClaim:
                 properties:
@@ -358,7 +358,7 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-validations:
-                - message: pvcSpecName is immutable
+                - message: persistentVolumeClaim is immutable
                   rule: self == oldSelf
               storageType:
                 enum:
@@ -368,7 +368,7 @@ spec:
               storageUri:
                 type: string
                 x-kubernetes-validations:
-                - message: StorageUri is immutable
+                - message: storageUri is immutable
                   rule: self == oldSelf
             required:
             - cleanupPolicy
