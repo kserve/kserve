@@ -38,9 +38,20 @@ class Tokenizer(kserve.Model):
         predictor_host: str,
         predictor_protocol: str,
         predictor_use_ssl: bool,
+        predictor_request_timeout_seconds: int,
+        predictor_request_retries: int,
+        predictor_health_check: bool,
     ):
         super().__init__(
-            name, PredictorConfig(predictor_host, predictor_protocol, predictor_use_ssl)
+            name,
+            PredictorConfig(
+                predictor_host,
+                predictor_protocol,
+                predictor_use_ssl,
+                predictor_request_timeout_seconds,
+                predictor_request_retries,
+                predictor_health_check,
+            ),
         )
         self.short_paragraph_text = (
             "The Apollo program was the third United States human spaceflight program. "

@@ -94,6 +94,7 @@ class InferenceGRPCClient:
                          the channel.
     :param timeout (optional) The maximum end-to-end time, in seconds, the request is allowed to take. By default,
                    client timeout is 60 seconds. To disable timeout explicitly set it to 'None'.
+    :param retries (optional) The number of retries if the request fails. This will be ignored if retry policy is provided in the 'channel_args'.
     """
 
     def __init__(
@@ -107,6 +108,7 @@ class InferenceGRPCClient:
         creds: grpc.ChannelCredentials = None,
         channel_args: List[Tuple[str, Any]] = None,
         timeout: Optional[float] = 60,
+        retries: Optional[int] = 3,
     ):
 
         # requires appending the port to the predictor host for gRPC to work
@@ -121,7 +123,7 @@ class InferenceGRPCClient:
                         # Apply retry to all methods
                         "name": [{}],
                         "retryPolicy": {
-                            "maxAttempts": 3,
+                            "maxAttempts": retries,
                             "initialBackoff": "0.1s",
                             "maxBackoff": "1s",
                             "backoffMultiplier": 2,
@@ -413,6 +415,10 @@ class InferenceRESTClient:
         """
         if isinstance(base_url, str):
             base_url = httpx.URL(base_url)
+        if base_url.scheme not in ("http", "https"):
+            raise httpx.InvalidURL(
+                "Base url should have 'http://' or 'https://' protocol"
+            )
         if base_url.is_relative_url:
             raise httpx.InvalidURL("Base url should not be a relative url")
         if not base_url.raw_path.endswith(b"/") and not relative_url.startswith("/"):

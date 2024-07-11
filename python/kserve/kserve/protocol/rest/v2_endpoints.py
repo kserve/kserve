@@ -60,6 +60,7 @@ class V2Endpoints:
             ServerLiveResponse: Server live message.
         """
         response = await self.dataplane.live()
+        # TODO: if server is not live send 5xx error response.
         is_live = response["status"] == "alive"
         return ServerLiveResponse(live=is_live)
 
