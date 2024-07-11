@@ -341,7 +341,9 @@ class OpenAIServingCompletion:
         self,
         messages: Iterable[ChatCompletionRequestMessage,],
     ):
-        return self.tokenizer.apply_chat_template(conversation=messages, tokenize=False)
+        return self.tokenizer.apply_chat_template(
+            conversation=messages, tokenize=False, add_generation_prompt=True
+        )
 
     async def _post_init(self):
         engine_model_config = await self.engine.get_model_config()
