@@ -64,7 +64,8 @@ class TestV1alpha1ClusterCachedModel(unittest.TestCase):
                     persistent_volume = None, 
                     persistent_volume_claim = None, 
                     storage_type = '0', 
-                    storage_uri = '0', )
+                    storage_uri = '0', 
+                    model_size = '1Gi',)
             )
         else :
             return V1alpha1ClusterCachedModel(

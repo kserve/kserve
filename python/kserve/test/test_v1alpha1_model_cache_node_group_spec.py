@@ -56,13 +56,15 @@ class TestV1alpha1ModelCacheNodeGroupSpec(unittest.TestCase):
             return V1alpha1ModelCacheNodeGroupSpec(
                 node_selector = {
                     'key' : '0'
-                }
+                },
+                storage_limit = "1Gi",
             )
         else :
             return V1alpha1ModelCacheNodeGroupSpec(
                 node_selector = {
                     'key' : '0'
-                }
+                },
+                storage_limit = "1Gi",
         )
 
     def testV1alpha1ModelCacheNodeGroupSpec(self):

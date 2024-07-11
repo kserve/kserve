@@ -15,7 +15,7 @@
 # coding: utf-8
 
 """
-    KServe
+KServe
 
     Python SDK for KServe  # noqa: E501
 
@@ -59,7 +59,8 @@ class TestV1alpha1ClusterCachedModelSpec(unittest.TestCase):
                 persistent_volume = None, 
                 persistent_volume_claim = None, 
                 storage_type = '0', 
-                storage_uri = '0'
+                storage_uri = '0',
+                model_size = '1Gi',
             )
         else :
             return V1alpha1ClusterCachedModelSpec(
@@ -69,6 +70,7 @@ class TestV1alpha1ClusterCachedModelSpec(unittest.TestCase):
                 persistent_volume_claim = None,
                 storage_type = '0',
                 storage_uri = '0',
+                model_size = '1Gi',
         )
 
     def testV1alpha1ClusterCachedModelSpec(self):

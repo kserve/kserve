@@ -67,7 +67,8 @@ class TestV1alpha1ClusterCachedModelList(unittest.TestCase):
                             persistent_volume = None, 
                             persistent_volume_claim = None, 
                             storage_type = '0', 
-                            storage_uri = '0', ), )
+                            storage_uri = '0',
+                            model_size = '1Gi',), )
                     ], 
                 kind = '0', 
                 metadata = None
@@ -86,7 +87,8 @@ class TestV1alpha1ClusterCachedModelList(unittest.TestCase):
                             persistent_volume = None, 
                             persistent_volume_claim = None, 
                             storage_type = '0', 
-                            storage_uri = '0', ), )
+                            storage_uri = '0',
+                            model_size = '1Gi',), )
                     ],
         )
 

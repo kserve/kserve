@@ -62,6 +62,7 @@ class TestV1alpha1ModelCacheNodeGroup(unittest.TestCase):
                     node_selector = {
                         'key' : '0'
                         },
+                    storage_limit = "1Gi",
                 )
             )
         else :
