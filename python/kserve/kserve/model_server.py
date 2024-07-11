@@ -30,7 +30,7 @@ from .constants.constants import (
     MAX_GRPC_MESSAGE_LENGTH,
 )
 from .logging import logger
-from .model import BaseKServeModel
+from .model import BaseKServeModel, PredictorConfig
 from .model_repository import ModelRepository
 from .protocol.dataplane import DataPlane
 from .protocol.grpc.server import GRPCServer
@@ -164,9 +164,19 @@ parser.add_argument(
     type=int,
     help="The max message length for gRPC receive message.",
 )
-parser.add_argument("--enable_predictor_health_check", default=False, type=lambda x: utils.strtobool(x),
-                    help="The Transformer will perform liveness and readiness check for the predictor in addition to "
-                         "its health check. By default it is enabled if transformer and predictor is collocated.")
+parser.add_argument(
+    "--predictor_request_retries",
+    default=3,
+    type=int,
+    help="The number of retries if predictor request fails.",
+)
+parser.add_argument(
+    "--enable_predictor_health_check",
+    default=False,
+    type=lambda x: utils.strtobool(x),
+    help="The Transformer will perform liveness and readiness check for the predictor in addition to "
+    "its health check. By default it is enabled if transformer and predictor is collocated.",
+)
 args, _ = parser.parse_known_args()
 
 app = FastAPI(
@@ -242,22 +252,27 @@ class ModelServer:
                 logging.configure_logging(args.log_config_file)
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
-        DataPlane.predictor_host = args.predictor_host
-        DataPlane.predictor_protocol = args.predictor_protocol
-        DataPlane.predictor_use_ssl = args.predictor_use_ssl
-        predictor_config = PredictorConfig(predictor_host=args.predictor_host,
-                                           predictor_protocol=args.predictor_protocol,
-                                           predictor_use_ssl=args.predictor_use_ssl,
-                                           predictor_health_check=args.enable_predictor_health_check)
+        predictor_config = PredictorConfig(
+            predictor_host=args.predictor_host,
+            predictor_protocol=args.predictor_protocol,
+            predictor_use_ssl=args.predictor_use_ssl,
+            predictor_request_timeout_seconds=args.predictor_request_timeout_seconds,
+            predictor_request_retries=args.predictor_request_retries,
+            predictor_health_check=args.enable_predictor_health_check,
+        )
 
         # Enable predictor health check if transformer and predictor is collocated
-        if (args.predictor_host is not None and
-                any(val in args.predictor_host.lower() for val in ["localhost", "127.0.0.1"])):
+        if args.predictor_host is not None and any(
+            val in args.predictor_host.lower() for val in ["localhost", "127.0.0.1"]
+        ):
             predictor_config.predictor_health_check = True
-        self.dataplane = DataPlane(model_registry=registered_models, predictor_config=predictor_config)
+        self.dataplane = DataPlane(
+            model_registry=self.registered_models, predictor_config=predictor_config
+        )
         if self.enable_grpc:
-            self._grpc_server = GRPCServer(grpc_port, self.dataplane,
-                                           self.model_repository_extension)
+            self._grpc_server = GRPCServer(
+                grpc_port, self.dataplane, self.model_repository_extension
+            )
 
     async def _serve_rest(self):
         logger.info(f"Starting uvicorn with {self.workers} workers")

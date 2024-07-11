@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import time
-import logging
 from importlib import metadata
 from typing import Dict, Optional, Tuple, Union, cast
 from inspect import iscoroutinefunction
@@ -24,17 +23,16 @@ import orjson
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 
+from ..inference_client import InferenceRESTClient, RESTConfig, InferenceGRPCClient
 from .rest.v2_datamodels import InferenceRequest
 from ..constants import constants
 from ..constants.constants import INFERENCE_CONTENT_LENGTH_HEADER, PredictorProtocol
-from .grpc import grpc_predict_v2_pb2 as pb
-from ..model import Model, PredictorProtocol, PredictorConfig
 from ..errors import InvalidInput, ModelNotFound
 from ..logging import logger
+from ..model import PredictorProtocol, PredictorConfig
 from ..model import InferenceVerb, BaseKServeModel, InferenceModel
 from ..model_repository import ModelRepository
-from ..utils.utils import create_response_cloudevent, is_structured_cloudevent, get_grpc_client, get_http_client, \
-     get_readiness_endpoint, get_model_ready_endpoint
+from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
 from .rest.openai import OpenAIModel
 
@@ -49,7 +47,11 @@ JSON_HEADERS = [
 class DataPlane:
     """KServe DataPlane"""
 
-    def __init__(self, model_registry: ModelRepository, predictor_config: Optional[PredictorConfig] = None):
+    def __init__(
+        self,
+        model_registry: ModelRepository,
+        predictor_config: Optional[PredictorConfig] = None,
+    ):
         self._model_registry = model_registry
         self._server_name = constants.KSERVE_MODEL_SERVER_NAME
 
@@ -57,6 +59,22 @@ class DataPlane:
         # that 'kserve' will already be installed by the time this class is instantiated.
         self._server_version = metadata.version("kserve")
         self.predictor_config = predictor_config
+        if predictor_config and predictor_config.predictor_health_check:
+            if predictor_config.predictor_protocol == PredictorProtocol.GRPC_V2.value:
+                self._inference_grpc_client = InferenceGRPCClient(
+                    url=predictor_config.predictor_host,
+                    timeout=predictor_config.predictor_request_timeout_seconds,
+                    retries=self.predictor_config.predictor_request_retries,
+                    use_ssl=predictor_config.predictor_use_ssl,
+                )
+            else:
+                self._inference_rest_client = InferenceRESTClient(
+                    RESTConfig(
+                        protocol=predictor_config.predictor_protocol,
+                        retries=self.predictor_config.predictor_request_retries,
+                        timeout=predictor_config.predictor_request_timeout_seconds,
+                    )
+                )
 
     @property
     def model_registry(self):
@@ -215,23 +233,24 @@ class DataPlane:
         """
         # If predictor host is present, then it means this is a transformer,
         # We should also need to check the predictor server's health if predictor health check is enabled.
-        if (self.predictor_config and self.predictor_config.predictor_health_check and
-                self.predictor_config.predictor_host):
-            if self.predictor_config.predictor_protocol == PredictorProtocol.GRPC_V2.value:
-                grpc_client = get_grpc_client(self.predictor_config.predictor_host,
-                                              self.predictor_config.predictor_use_ssl)
-                res = await grpc_client.ServerReady(pb.ServerReadyRequest())
-                if not res.ready:
-                    return False
-            elif (self.predictor_config.predictor_protocol == PredictorProtocol.REST_V1.value or
-                  self.predictor_config.predictor_protocol == PredictorProtocol.REST_V2.value):
-                res = await get_http_client().get(get_readiness_endpoint())
-                if self.predictor_config.predictor_protocol == PredictorProtocol.REST_V1.value:
-                    if not res.is_success or res.json().get("status", "error").lower() != "alive":
-                        return False
-                elif self.predictor_config.predictor_protocol == PredictorProtocol.REST_V2.value:
-                    if not res.is_success or not res.json().get("ready", False):
-                        return False
+        if self.predictor_config and self.predictor_config.predictor_health_check:
+            if (
+                self.predictor_config.predictor_protocol
+                == PredictorProtocol.GRPC_V2.value
+            ):
+                return await self._inference_grpc_client.is_server_ready()
+            elif (
+                self.predictor_config.predictor_protocol
+                == PredictorProtocol.REST_V1.value
+            ):
+                # V1 Protocol does not have readiness endpoint. We will use server liveness endpoint instead.
+                return await self._inference_rest_client.is_server_live(
+                    self.predictor_config.predictor_base_url
+                )
+            else:
+                return await self._inference_rest_client.is_server_ready(
+                    self.predictor_config.predictor_base_url
+                )
         return True
 
     async def model_ready(self, model_name: str) -> bool:
@@ -246,29 +265,26 @@ class DataPlane:
         Raises:
             ModelNotFound: exception if model is not found
         """
+        if self._model_registry.get_model(model_name) is None:
+            raise ModelNotFound(model_name)
 
         # If predictor host is present, then it means this is a transformer,
         # We should also check the predictor model's health if predictor health check is enabled.
-        if (self.predictor_config and self.predictor_config.predictor_health_check and
-                self.predictor_config.predictor_host):
-            if self.predictor_config.predictor_protocol == PredictorProtocol.GRPC_V2.value:
-                grpc_client = get_grpc_client(self.predictor_config.predictor_host,
-                                              self.predictor_config.predictor_use_ssl)
-                res = await grpc_client.ModelReady(pb.ModelReadyRequest(name=model_name))
-                if not res.ready:
-                    return False
-            elif (self.predictor_config.predictor_protocol == PredictorProtocol.REST_V1.value or
-                  self.predictor_config.predictor_protocol == PredictorProtocol.REST_V2.value):
-                res = await get_http_client().get(get_model_ready_endpoint(self.predictor_config.predictor_host,
-                                                                           self.predictor_config.predictor_protocol,
-                                                                           self.predictor_config.predictor_use_ssl,
-                                                                           model_name))
-                # Need to convert the response to str, because v2 endpoint returns a bool value while v1 endpoint
-                # returns a string value.
-                if not res.is_success or str(res.json().get("ready", "False")).lower() == "false":
-                    return False
-        if self._model_registry.get_model(model_name) is None:
-            raise ModelNotFound(model_name)
+        if self.predictor_config and self.predictor_config.predictor_health_check:
+            if (
+                self.predictor_config.predictor_protocol
+                == PredictorProtocol.GRPC_V2.value
+            ):
+                is_ready = await self._inference_grpc_client.is_model_ready(
+                    model_name=model_name
+                )
+                return is_ready
+            else:
+                is_ready = await self._inference_rest_client.is_model_ready(
+                    base_url=self.predictor_config.predictor_base_url,
+                    model_name=model_name,
+                )
+                return is_ready
 
         return await self._model_registry.is_model_ready(model_name)
 
