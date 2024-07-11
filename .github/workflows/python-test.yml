@@ -103,6 +103,7 @@ jobs:
           cp -r python/kserve/* python/kserve-pydantic-v1
           cd python/kserve-pydantic-v1
           # update the lock file without installing dependencies
+          poetry update "pydantic<2.0" --lock
       - name: Load cached kserve pydantic v1 venv
         id: cached-kserve-pydantic-v1-dependencies
         uses: actions/cache@v3
@@ -115,7 +116,6 @@ jobs:
         run: |
           cd python/kserve-pydantic-v1
           make install_dependencies
-          poetry run pip install pydantic==1.10
       - name: Install kserve pydantic v1
         run: |
           cd python/kserve-pydantic-v1
