@@ -56,8 +56,8 @@ class TestV1alpha1ClusterCachedModelSpec(unittest.TestCase):
             return V1alpha1ClusterCachedModelSpec(
                 cleanup_policy = '0', 
                 node_group = '0', 
-                persistent_volume = None, 
-                persistent_volume_claim = None, 
+                persistent_volume = "", 
+                persistent_volume_claim = "", 
                 storage_type = '0', 
                 storage_uri = '0',
                 model_size = '1Gi',
@@ -66,8 +66,8 @@ class TestV1alpha1ClusterCachedModelSpec(unittest.TestCase):
             return V1alpha1ClusterCachedModelSpec(
                 cleanup_policy = '0',
                 node_group = '0',
-                persistent_volume = None,
-                persistent_volume_claim = None,
+                persistent_volume = "",
+                persistent_volume_claim = "",
                 storage_type = '0',
                 storage_uri = '0',
                 model_size = '1Gi',
