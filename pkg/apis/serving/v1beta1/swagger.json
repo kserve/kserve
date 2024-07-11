@@ -91,7 +91,6 @@
       }
     },
     "v1alpha1.ClusterCachedModelSpec": {
-      "description": "StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.",
       "type": "object",
       "required": [
         "storageUri",

@@ -63,7 +63,6 @@ class TestV1alpha1ClusterCachedModelList(unittest.TestCase):
                         metadata = None, 
                         spec = kserve.models.v1alpha1_cluster_cached_model_spec.V1alpha1ClusterCachedModelSpec(
                             cleanup_policy = '0', 
-                            model_size = None, 
                             node_group = '0', 
                             persistent_volume = None, 
                             persistent_volume_claim = None, 
@@ -83,7 +82,6 @@ class TestV1alpha1ClusterCachedModelList(unittest.TestCase):
                         metadata = None, 
                         spec = kserve.models.v1alpha1_cluster_cached_model_spec.V1alpha1ClusterCachedModelSpec(
                             cleanup_policy = '0', 
-                            model_size = None, 
                             node_group = '0', 
                             persistent_volume = None, 
                             persistent_volume_claim = None, 

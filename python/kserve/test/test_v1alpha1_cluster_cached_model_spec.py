@@ -26,12 +26,16 @@
 
 from __future__ import absolute_import
 
-import unittest
 import datetime
+import unittest
+
+from kserve.models.v1alpha1_cluster_cached_model_spec import (  # noqa: E501
+    V1alpha1ClusterCachedModelSpec,
+)
+from kserve.rest import ApiException
 
 import kserve
-from kserve.models.v1alpha1_cluster_cached_model_spec import V1alpha1ClusterCachedModelSpec  # noqa: E501
-from kserve.rest import ApiException
+
 
 class TestV1alpha1ClusterCachedModelSpec(unittest.TestCase):
     """V1alpha1ClusterCachedModelSpec unit test stubs"""
@@ -51,7 +55,6 @@ class TestV1alpha1ClusterCachedModelSpec(unittest.TestCase):
         if include_optional :
             return V1alpha1ClusterCachedModelSpec(
                 cleanup_policy = '0', 
-                model_size = None, 
                 node_group = '0', 
                 persistent_volume = None, 
                 persistent_volume_claim = None, 
@@ -61,7 +64,6 @@ class TestV1alpha1ClusterCachedModelSpec(unittest.TestCase):
         else :
             return V1alpha1ClusterCachedModelSpec(
                 cleanup_policy = '0',
-                model_size = None,
                 node_group = '0',
                 persistent_volume = None,
                 persistent_volume_claim = None,

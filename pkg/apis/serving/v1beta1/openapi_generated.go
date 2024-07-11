@@ -258,8 +258,7 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModelSpec(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.",
-				Type:        []string{"object"},
+				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"storageUri": {
 						SchemaProps: spec.SchemaProps{

@@ -22,22 +22,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.
 // +k8s:openapi-gen=true
 type ClusterCachedModelSpec struct {
-	// Container spec for the storage initializer init container
 
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="storageUri is immutable"
-	StorageUri string            `json:"storageUri" validate:"required"`
-	ModelSize  resource.Quantity `json:"modelSize" validate:"required"`
-	NodeGroup  string            `json:"nodeGroup" validate:"required"`
+	StorageUri string            `json:"storageUri"`
+	ModelSize  resource.Quantity `json:"modelSize"`
+	NodeGroup  string            `json:"nodeGroup"`
 	// only local is supported for now
-	StorageType   StorageType   `json:"storageType" validate:"required"`
-	CleanupPolicy CleanupPolicy `json:"cleanupPolicy" validate:"required"`
+	StorageType   StorageType   `json:"storageType"`
+	CleanupPolicy CleanupPolicy `json:"cleanupPolicy"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolume is immutable"
-	PersistentVolume corev1.PersistentVolumeClaim `json:"persistentVolume" validate:"required"`
+	PersistentVolume corev1.PersistentVolumeClaim `json:"persistentVolume"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolumeClaim is immutable"
-	PersistentVolumeClaim corev1.PersistentVolumeClaim `json:"persistentVolumeClaim" validate:"required"`
+	PersistentVolumeClaim corev1.PersistentVolumeClaim `json:"persistentVolumeClaim"`
 }
 
 // StorageType enum
@@ -80,7 +78,7 @@ type ClusterCachedModel struct {
 type ClusterCachedModelList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterCachedModel `json:"items" validate:"required"`
+	Items           []ClusterCachedModel `json:"items"`
 }
 
 func init() {

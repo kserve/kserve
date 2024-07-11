@@ -1,6 +1,5 @@
 # V1alpha1ClusterCachedModelSpec
 
-StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------

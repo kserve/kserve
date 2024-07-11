@@ -24,8 +24,8 @@ import (
 // ModelCacheNodeGroupSpec defines the container spec for the storage initializer init container, and the protocols it supports.
 // +k8s:openapi-gen=true
 type ModelCacheNodeGroupSpec struct {
-	StorageLimit resource.Quantity `json:"storageLimit" validate:"required"`
-	NodeSelector map[string]string `json:"nodeSelector" validate:"required"`
+	StorageLimit resource.Quantity `json:"storageLimit"`
+	NodeSelector map[string]string `json:"nodeSelector"`
 }
 
 // +k8s:openapi-gen=true
@@ -49,7 +49,7 @@ type ModelCacheNodeGroup struct {
 type ModelCacheNodeGroupList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ModelCacheNodeGroup `json:"items" validate:"required"`
+	Items           []ModelCacheNodeGroup `json:"items"`
 }
 
 func init() {
