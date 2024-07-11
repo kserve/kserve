@@ -208,7 +208,13 @@ async def test_predictor_grpc_with_transformer_http(rest_v2_client):
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
                 ),
-                args=["--model_name", model_name, "--predictor_protocol", "grpc-v2"],
+                args=[
+                    "--model_name",
+                    model_name,
+                    "--predictor_protocol",
+                    "grpc-v2",
+                    "--enable_predictor_health_check",
+                ],
             )
         ]
     )

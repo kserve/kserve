@@ -78,6 +78,11 @@ async def test_transformer_collocation(rest_v1_client):
                     requests={"cpu": "10m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
                 ),
+                readiness_probe=client.V1Probe(
+                    http_get=client.V1HTTPGetAction(
+                        path=f"/v1/models/{model_name}", port=8080
+                    )
+                ),
             ),
         ],
     )
