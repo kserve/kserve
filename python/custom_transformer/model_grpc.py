@@ -82,9 +82,7 @@ class ImageTransformer(Model):
                 data=input_tensors,
             )
         ]
-        infer_request = InferRequest(
-            model_name=self.model_name, infer_inputs=infer_inputs
-        )
+        infer_request = InferRequest(model_name=self.name, infer_inputs=infer_inputs)
         return infer_request
 
 
@@ -98,6 +96,7 @@ if __name__ == "__main__":
         args.model_name,
         predictor_host=args.predictor_host,
         predictor_protocol=args.predictor_protocol,
+        predictor_use_ssl=args.predictor_use_ssl,
         predictor_request_timeout_seconds=args.predictor_request_timeout_seconds,
         predictor_request_retries=args.predictor_request_retries,
         predictor_health_check=args.enable_predictor_health_check,
