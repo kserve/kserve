@@ -64,9 +64,8 @@ class TestV1alpha1ModelCacheNodeGroupList(unittest.TestCase):
                         spec = kserve.models.v1alpha1_model_cache_node_group_spec.V1alpha1ModelCacheNodeGroupSpec(
                             node_selector = {
                                 'key' : '0'
-                                }, 
-                            storage_limit = None, ), )
-                    ], 
+                                }, ), )
+                    ],
                 kind = '0', 
                 metadata = None
             )
@@ -81,8 +80,7 @@ class TestV1alpha1ModelCacheNodeGroupList(unittest.TestCase):
                         spec = kserve.models.v1alpha1_model_cache_node_group_spec.V1alpha1ModelCacheNodeGroupSpec(
                             node_selector = {
                                 'key' : '0'
-                                }, 
-                            storage_limit = None, ), )
+                                }, ), )
                     ],
         )
 

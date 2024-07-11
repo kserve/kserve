@@ -26,12 +26,16 @@
 
 from __future__ import absolute_import
 
-import unittest
 import datetime
+import unittest
+
+from kserve.models.v1alpha1_model_cache_node_group_spec import (  # noqa: E501
+    V1alpha1ModelCacheNodeGroupSpec,
+)
+from kserve.rest import ApiException
 
 import kserve
-from kserve.models.v1alpha1_model_cache_node_group_spec import V1alpha1ModelCacheNodeGroupSpec  # noqa: E501
-from kserve.rest import ApiException
+
 
 class TestV1alpha1ModelCacheNodeGroupSpec(unittest.TestCase):
     """V1alpha1ModelCacheNodeGroupSpec unit test stubs"""
@@ -52,15 +56,13 @@ class TestV1alpha1ModelCacheNodeGroupSpec(unittest.TestCase):
             return V1alpha1ModelCacheNodeGroupSpec(
                 node_selector = {
                     'key' : '0'
-                    }, 
-                storage_limit = None
+                }
             )
         else :
             return V1alpha1ModelCacheNodeGroupSpec(
                 node_selector = {
                     'key' : '0'
-                    },
-                storage_limit = None,
+                }
         )
 
     def testV1alpha1ModelCacheNodeGroupSpec(self):
