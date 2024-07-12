@@ -215,7 +215,9 @@ class OpenAIServingCompletion:
                         # echo the prompt and first token
                         delta_text = res.prompt + output.text
                         delta_token_ids = res.prompt_token_ids + output.token_ids
-                        top_logprobs = res.prompt_logprobs + (output.logprobs or [])
+                        top_logprobs = (res.prompt_logprobs or []) + (
+                            output.logprobs or []
+                        )
                         has_echoed[i] = True
                     else:
                         # return just the delta
