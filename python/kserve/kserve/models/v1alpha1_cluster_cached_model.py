@@ -48,7 +48,6 @@ class V1alpha1ClusterCachedModel(object):
     """
     openapi_types = {
         'api_version': 'str',
-        'disabled': 'bool',
         'kind': 'str',
         'metadata': 'V1ObjectMeta',
         'spec': 'V1alpha1ClusterCachedModelSpec'
@@ -56,20 +55,18 @@ class V1alpha1ClusterCachedModel(object):
 
     attribute_map = {
         'api_version': 'apiVersion',
-        'disabled': 'disabled',
         'kind': 'kind',
         'metadata': 'metadata',
         'spec': 'spec'
     }
 
-    def __init__(self, api_version=None, disabled=None, kind=None, metadata=None, spec=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, api_version=None, kind=None, metadata=None, spec=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ClusterCachedModel - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._api_version = None
-        self._disabled = None
         self._kind = None
         self._metadata = None
         self._spec = None
@@ -77,8 +74,6 @@ class V1alpha1ClusterCachedModel(object):
 
         if api_version is not None:
             self.api_version = api_version
-        if disabled is not None:
-            self.disabled = disabled
         if kind is not None:
             self.kind = kind
         if metadata is not None:
@@ -108,27 +103,6 @@ class V1alpha1ClusterCachedModel(object):
         """
 
         self._api_version = api_version
-
-    @property
-    def disabled(self):
-        """Gets the disabled of this V1alpha1ClusterCachedModel.  # noqa: E501
-
-
-        :return: The disabled of this V1alpha1ClusterCachedModel.  # noqa: E501
-        :rtype: bool
-        """
-        return self._disabled
-
-    @disabled.setter
-    def disabled(self, disabled):
-        """Sets the disabled of this V1alpha1ClusterCachedModel.
-
-
-        :param disabled: The disabled of this V1alpha1ClusterCachedModel.  # noqa: E501
-        :type: bool
-        """
-
-        self._disabled = disabled
 
     @property
     def kind(self):

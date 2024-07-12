@@ -20,8 +20,6 @@ spec:
         properties:
           apiVersion:
             type: string
-          disabled:
-            type: boolean
           kind:
             type: string
           metadata:

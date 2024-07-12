@@ -26,15 +26,21 @@ import (
 type ClusterCachedModelSpec struct {
 
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="storageUri is immutable"
-	StorageUri string            `json:"storageUri"`
-	ModelSize  resource.Quantity `json:"modelSize"`
-	NodeGroup  string            `json:"nodeGroup"`
+	// Original StorageUri
+	StorageUri string `json:"storageUri"`
+	// Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.
+	ModelSize resource.Quantity `json:"modelSize"`
+	// A group of nodes to cache the model on.
+	NodeGroup string `json:"nodeGroup"`
 	// only local is supported for now
-	StorageType   StorageType   `json:"storageType"`
+	StorageType StorageType `json:"storageType"`
+	// Whether model cache controller creates a job to delete models on local disks.
 	CleanupPolicy CleanupPolicy `json:"cleanupPolicy"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolume is immutable"
+	// PV spec template
 	PersistentVolume corev1.PersistentVolumeClaim `json:"persistentVolume"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolumeClaim is immutable"
+	// PVC spec template
 	PersistentVolumeClaim corev1.PersistentVolumeClaim `json:"persistentVolumeClaim"`
 }
 
@@ -67,9 +73,6 @@ type ClusterCachedModel struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec ClusterCachedModelSpec `json:"spec,omitempty"`
-
-	// +optional
-	Disabled *bool `json:"disabled,omitempty"`
 }
 
 // +k8s:openapi-gen=true

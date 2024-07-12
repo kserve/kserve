@@ -192,12 +192,6 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModel(ref common.ReferenceCal
 							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterCachedModelSpec"),
 						},
 					},
-					"disabled": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
 				},
 			},
 		},
@@ -262,21 +256,24 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModelSpec(ref common.Referenc
 				Properties: map[string]spec.Schema{
 					"storageUri": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "Original StorageUri",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"modelSize": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+							Description: "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 					"nodeGroup": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "A group of nodes to cache the model on.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"storageType": {
@@ -289,21 +286,24 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModelSpec(ref common.Referenc
 					},
 					"cleanupPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "Whether model cache controller creates a job to delete models on local disks.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"persistentVolume": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/api/core/v1.PersistentVolumeClaim"),
+							Description: "PV spec template",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaim"),
 						},
 					},
 					"persistentVolumeClaim": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/api/core/v1.PersistentVolumeClaim"),
+							Description: "PVC spec template",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaim"),
 						},
 					},
 				},

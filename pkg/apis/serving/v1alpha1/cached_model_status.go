@@ -16,20 +16,11 @@ limitations under the License.
 
 package v1alpha1
 
-import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
 type CachedModelStatus struct {
-	// Addressable endpoint for the deployed trained model
-	// http://<inferenceservice.metadata.name>/v1/models/<trainedmodel>.metadata.name
 	OverallStatus OverallStatus         `json:"address,omitempty"`
 	NodeStatus    map[string]NodeStatus `json:"nodeStatus,omitempty"`
-	// Details of last failure, when load of target model is failed or blocked.
-	// +optional
-	LastFailureInfo *ModelCacheFailureInfo `json:"lastFailureInfo,omitempty"`
 
-	// Model copy information of the predictor's model.
+	// How many nodes have the model available
 	// +optional
 	ModelCopies *ModelCopies `json:"copies,omitempty"`
 }
@@ -58,21 +49,6 @@ const (
 	ModelDeleting       OverallStatus = "Deleting"
 	ModelDeleted        OverallStatus = "Deleted"
 )
-
-type ModelCacheFailureInfo struct {
-	// Name of component to which the failure relates (usually Pod name)
-	//+optional
-	Node string `json:"node,omitempty"`
-	// Detailed error message
-	//+optional
-	Message string `json:"message,omitempty"`
-	// Time failure occurred or was discovered
-	//+optional
-	Time *metav1.Time `json:"time,omitempty"`
-	// Exit status from the last termination of the container
-	//+optional
-	ExitCode int32 `json:"exitCode,omitempty"`
-}
 
 type ModelCopies struct {
 	// How many copies of this predictor's models failed to load recently

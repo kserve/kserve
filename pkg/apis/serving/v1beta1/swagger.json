@@ -46,9 +46,6 @@
           "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
           "type": "string"
         },
-        "disabled": {
-          "type": "boolean"
-        },
         "kind": {
           "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
           "type": "string"
@@ -103,21 +100,26 @@
       ],
       "properties": {
         "cleanupPolicy": {
+          "description": "Whether model cache controller creates a job to delete models on local disks.",
           "type": "string",
           "default": ""
         },
         "modelSize": {
+          "description": "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
           "$ref": "#/definitions/resource.Quantity"
         },
         "nodeGroup": {
+          "description": "A group of nodes to cache the model on.",
           "type": "string",
           "default": ""
         },
         "persistentVolume": {
+          "description": "PV spec template",
           "default": {},
           "$ref": "#/definitions/v1.PersistentVolumeClaim"
         },
         "persistentVolumeClaim": {
+          "description": "PVC spec template",
           "default": {},
           "$ref": "#/definitions/v1.PersistentVolumeClaim"
         },
@@ -127,6 +129,7 @@
           "default": ""
         },
         "storageUri": {
+          "description": "Original StorageUri",
           "type": "string",
           "default": ""
         }
