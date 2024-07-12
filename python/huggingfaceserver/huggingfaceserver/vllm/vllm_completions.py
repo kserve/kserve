@@ -358,6 +358,7 @@ class OpenAIServingCompletion:
             engine_model_config.tokenizer,
             tokenizer_mode=engine_model_config.tokenizer_mode,
             trust_remote_code=engine_model_config.trust_remote_code,
+            revision=engine_model_config.tokenizer_revision,
         )
 
     def _validate_prompt_and_tokenize(
