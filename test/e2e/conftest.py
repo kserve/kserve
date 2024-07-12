@@ -16,7 +16,6 @@ import asyncio
 
 import pytest
 import pytest_asyncio
-from httpx import Timeout
 
 import kserve
 from kserve import InferenceRESTClient, RESTConfig
@@ -41,7 +40,7 @@ def event_loop():
 async def rest_v1_client():
     v1_client = InferenceRESTClient(
         config=RESTConfig(
-            timeout=Timeout(60, read=120),
+            timeout=60,
             verbose=True,
             protocol=PredictorProtocol.REST_V1,
         )
@@ -54,7 +53,7 @@ async def rest_v1_client():
 async def rest_v2_client():
     v2_client = InferenceRESTClient(
         config=RESTConfig(
-            timeout=Timeout(60, read=120),
+            timeout=60,
             verbose=True,
             protocol=PredictorProtocol.REST_V2,
         )

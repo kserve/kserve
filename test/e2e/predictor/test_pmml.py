@@ -14,6 +14,7 @@
 
 import json
 import os
+import time
 
 from kserve import KServeClient, InferOutput
 from kserve import V1beta1InferenceService
@@ -26,6 +27,7 @@ from kubernetes import client
 from kubernetes.client import V1ResourceRequirements, V1ContainerPort
 import pytest
 
+from kserve.logging import trace_logger as logger
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_grpc
 from ..common.utils import predict_isvc
 
@@ -39,8 +41,8 @@ async def test_pmml_kserve(rest_v1_client):
         pmml=V1beta1PMMLSpec(
             storage_uri="gs://kfserving-examples/models/pmml",
             resources=V1ResourceRequirements(
-                requests={"cpu": "10m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "10m", "memory": "256Mi"},
+                limits={"cpu": "100m", "memory": "512Mi"},
             ),
         ),
     )
@@ -59,7 +61,11 @@ async def test_pmml_kserve(rest_v1_client):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    start = time.perf_counter()
     res = await predict_isvc(rest_v1_client, service_name, "./data/pmml_input.json")
+    end = time.perf_counter()
+    print(f"Time taken: {end - start}")
+    logger.info(f"Time taken: {end - start}")
     assert res["predictions"] == [
         {
             "Species": "setosa",
@@ -84,8 +90,8 @@ async def test_pmml_runtime_kserve(rest_v1_client):
             ),
             storage_uri="gs://kfserving-examples/models/pmml",
             resources=V1ResourceRequirements(
-                requests={"cpu": "10m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "10m", "memory": "256Mi"},
+                limits={"cpu": "100m", "memory": "512Mi"},
             ),
         ),
     )
@@ -130,8 +136,8 @@ async def test_pmml_v2_kserve(rest_v2_client):
             runtime="kserve-pmmlserver",
             storage_uri="gs://kfserving-examples/models/pmml",
             resources=V1ResourceRequirements(
-                requests={"cpu": "10m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "10m", "memory": "256Mi"},
+                limits={"cpu": "100m", "memory": "512Mi"},
             ),
         ),
     )
@@ -206,8 +212,8 @@ async def test_pmml_v2_grpc():
             runtime="kserve-pmmlserver",
             storage_uri="gs://kfserving-examples/models/pmml",
             resources=V1ResourceRequirements(
-                requests={"cpu": "10m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "10m", "memory": "256Mi"},
+                limits={"cpu": "100m", "memory": "512Mi"},
             ),
             ports=[V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")],
             args=["--model_name", model_name],

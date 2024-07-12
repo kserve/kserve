@@ -61,17 +61,6 @@ async def test_mms_sklearn_kserve(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "1024Mi"},
             ),
-            readiness_probe=client.V1Probe(
-                http_get=client.V1HTTPGetAction(
-                    path=(
-                        f"/v2/models/{service_name}/ready"
-                        if protocol_version == "v2"
-                        else f"/v1/models/{service_name}"
-                    ),
-                    port=8080,
-                ),
-                initial_delay_seconds=30,
-            ),
         ),
     )
 
@@ -187,17 +176,6 @@ async def test_mms_xgboost_kserve(
             resources=client.V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "1024Mi"},
-            ),
-            readiness_probe=client.V1Probe(
-                http_get=client.V1HTTPGetAction(
-                    path=(
-                        f"/v2/models/{service_name}/ready"
-                        if protocol_version == "v2"
-                        else f"/v1/models/{service_name}"
-                    ),
-                    port=8080,
-                ),
-                initial_delay_seconds=30,
             ),
         ),
     )
