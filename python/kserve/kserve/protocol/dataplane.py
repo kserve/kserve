@@ -23,15 +23,16 @@ import orjson
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 
-from ..inference_client import InferenceRESTClient, RESTConfig, InferenceGRPCClient
+from ..inference_client import RESTConfig
 from .rest.v2_datamodels import InferenceRequest
 from ..constants import constants
 from ..constants.constants import INFERENCE_CONTENT_LENGTH_HEADER, PredictorProtocol
 from ..errors import InvalidInput, ModelNotFound
 from ..logging import logger
-from ..model import PredictorProtocol, PredictorConfig
+from ..model import PredictorConfig
 from ..model import InferenceVerb, BaseKServeModel, InferenceModel
 from ..model_repository import ModelRepository
+from ..utils.inference_client_factory import InferenceClientFactory
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
 from .rest.openai import OpenAIModel
@@ -59,26 +60,35 @@ class DataPlane:
         # that 'kserve' will already be installed by the time this class is instantiated.
         self._server_version = metadata.version("kserve")
         self.predictor_config = predictor_config
-        if predictor_config and predictor_config.predictor_health_check:
-            if predictor_config.predictor_protocol == PredictorProtocol.GRPC_V2.value:
-                self._inference_grpc_client = InferenceGRPCClient(
-                    url=predictor_config.predictor_host,
-                    timeout=predictor_config.predictor_request_timeout_seconds,
-                    retries=self.predictor_config.predictor_request_retries,
-                    use_ssl=predictor_config.predictor_use_ssl,
-                )
-            else:
-                self._inference_rest_client = InferenceRESTClient(
-                    RESTConfig(
-                        protocol=predictor_config.predictor_protocol,
-                        retries=self.predictor_config.predictor_request_retries,
-                        timeout=predictor_config.predictor_request_timeout_seconds,
-                    )
-                )
+        self._inference_grpc_client = None
+        self._inference_rest_client = None
 
     @property
     def model_registry(self):
         return self._model_registry
+
+    @property
+    def rest_client(self):
+        if self._inference_rest_client is None:
+            self._inference_rest_client = InferenceClientFactory().get_rest_client(
+                RESTConfig(
+                    protocol=self.predictor_config.predictor_protocol,
+                    retries=self.predictor_config.predictor_request_retries,
+                    timeout=self.predictor_config.predictor_request_timeout_seconds,
+                )
+            )
+        return self._inference_rest_client
+
+    @property
+    def grpc_client(self):
+        if self._inference_grpc_client is None:
+            self._inference_grpc_client = InferenceClientFactory().get_grpc_client(
+                url=self.predictor_config.predictor_host,
+                timeout=self.predictor_config.predictor_request_timeout_seconds,
+                retries=self.predictor_config.predictor_request_retries,
+                use_ssl=self.predictor_config.predictor_use_ssl,
+            )
+        return self._inference_grpc_client
 
     def get_model_from_registry(self, name: str) -> BaseKServeModel:
         model = self._model_registry.get_model(name)
@@ -238,13 +248,13 @@ class DataPlane:
                 self.predictor_config.predictor_protocol
                 == PredictorProtocol.GRPC_V2.value
             ):
-                return await self._inference_grpc_client.is_server_ready()
+                return await self.grpc_client.is_server_ready()
             elif (
                 self.predictor_config.predictor_protocol
                 == PredictorProtocol.REST_V1.value
             ):
                 # V1 Protocol does not have readiness endpoint. We will use server liveness endpoint instead.
-                return await self._inference_rest_client.is_server_live(
+                return await self.rest_client.is_server_live(
                     self.predictor_config.predictor_base_url
                 )
             else:
@@ -275,12 +285,10 @@ class DataPlane:
                 self.predictor_config.predictor_protocol
                 == PredictorProtocol.GRPC_V2.value
             ):
-                is_ready = await self._inference_grpc_client.is_model_ready(
-                    model_name=model_name
-                )
+                is_ready = await self.grpc_client.is_model_ready(model_name=model_name)
                 return is_ready
             else:
-                is_ready = await self._inference_rest_client.is_model_ready(
+                is_ready = await self.rest_client.is_model_ready(
                     base_url=self.predictor_config.predictor_base_url,
                     model_name=model_name,
                 )
