@@ -55,7 +55,6 @@ class TestV1alpha1ClusterCachedModel(unittest.TestCase):
         if include_optional:
             return V1alpha1ClusterCachedModel(
                 api_version="0",
-                disabled=True,
                 kind="0",
                 metadata=None,
                 spec=kserve.models.v1alpha1_cluster_cached_model_spec.V1alpha1ClusterCachedModelSpec(
