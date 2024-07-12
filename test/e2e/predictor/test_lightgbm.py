@@ -135,6 +135,12 @@ async def test_lightgbm_v2_runtime_mlserver(rest_v2_client):
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "1", "memory": "1Gi"},
             ),
+            readiness_probe=client.V1Probe(
+                http_get=client.V1HTTPGetAction(
+                    path=f"/v2/models/{service_name}/ready", port=8080
+                ),
+                initial_delay_seconds=30,
+            ),
         ),
     )
 

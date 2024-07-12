@@ -51,6 +51,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 async def test_mms_sklearn_kserve(
     protocol_version: str, storage_uri: str, rest_v1_client, rest_v2_client
 ):
+    service_name = f"isvc-sklearn-mms-{protocol_version}"
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -60,10 +61,20 @@ async def test_mms_sklearn_kserve(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "1024Mi"},
             ),
+            readiness_probe=client.V1Probe(
+                http_get=client.V1HTTPGetAction(
+                    path=(
+                        f"/v2/models/{service_name}/ready"
+                        if protocol_version == "v2"
+                        else f"/v1/models/{service_name}"
+                    ),
+                    port=8080,
+                ),
+                initial_delay_seconds=30,
+            ),
         ),
     )
 
-    service_name = f"isvc-sklearn-mms-{protocol_version}"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
@@ -166,6 +177,7 @@ async def test_mms_sklearn_kserve(
 async def test_mms_xgboost_kserve(
     protocol_version: str, storage_uri: str, rest_v1_client, rest_v2_client
 ):
+    service_name = f"isvc-xgboost-mms-{protocol_version}"
     # Define an inference service
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -176,10 +188,20 @@ async def test_mms_xgboost_kserve(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "1024Mi"},
             ),
+            readiness_probe=client.V1Probe(
+                http_get=client.V1HTTPGetAction(
+                    path=(
+                        f"/v2/models/{service_name}/ready"
+                        if protocol_version == "v2"
+                        else f"/v1/models/{service_name}"
+                    ),
+                    port=8080,
+                ),
+                initial_delay_seconds=30,
+            ),
         ),
     )
 
-    service_name = f"isvc-xgboost-mms-{protocol_version}"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
