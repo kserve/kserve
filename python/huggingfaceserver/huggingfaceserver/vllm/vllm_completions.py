@@ -134,17 +134,17 @@ class OpenAIServingCompletion:
 
             for i, prompt in enumerate(prompts):
                 if prompt_is_tokens:
-                    input_ids = self._validate_prompt_and_tokenize(
+                    input_ids, prompt_text = self._validate_prompt_and_tokenize(
                         request, prompt_ids=prompt
                     )
                 else:
-                    input_ids = self._validate_prompt_and_tokenize(
+                    input_ids, prompt_text = self._validate_prompt_and_tokenize(
                         request, prompt=prompt
                     )
 
                 generators.append(
                     self.engine.generate(
-                        {"prompt": prompt, "prompt_token_ids": input_ids},
+                        {"prompt": prompt_text, "prompt_token_ids": input_ids},
                         sampling_params,
                         f"{request_id}-{i}",
                     )
@@ -365,7 +365,7 @@ class OpenAIServingCompletion:
         request: Union[CreateCompletionRequest],
         prompt: Optional[str] = None,
         prompt_ids: Optional[List[int]] = None,
-    ) -> List[int]:
+    ) -> Tuple[List[int], str]:
         if not (prompt or prompt_ids):
             raise InvalidInput("Either prompt or prompt_ids should be provided.")
         if prompt and prompt_ids:
@@ -375,6 +375,7 @@ class OpenAIServingCompletion:
             prompt_ids if prompt_ids is not None else self.tokenizer(prompt).input_ids
         )
         token_num = len(input_ids)
+        input_text = prompt if prompt is not None else self.tokenizer.decode(prompt_ids)
 
         if request.max_tokens is None:
             request.max_tokens = self.max_model_len - token_num
@@ -389,7 +390,7 @@ class OpenAIServingCompletion:
                 f"Please reduce the length of the messages or completion.",
             )
         else:
-            return input_ids
+            return input_ids, input_text
 
     def _get_decoded_token(self, logprob: Logprob, token_id: int) -> str:
         if logprob.decoded_token is not None:
