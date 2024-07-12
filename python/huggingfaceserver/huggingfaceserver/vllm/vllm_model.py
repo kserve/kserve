@@ -44,7 +44,8 @@ class VLLMModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no
         self.vllm_engine_args = engine_args
 
     def load(self) -> bool:
-        self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
+        if torch.cuda.is_available():
+            self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
         self.vllm_engine = AsyncLLMEngine.from_engine_args(self.vllm_engine_args)
         self.openai_serving_completion = OpenAIServingCompletion(self.vllm_engine)
         self.ready = True
