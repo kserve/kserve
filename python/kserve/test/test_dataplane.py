@@ -477,7 +477,7 @@ class TestDataplaneTransformer:
         )
         assert (await dataplane.ready()) is True
 
-    @patch("kserve.protocol.dataplane.InferenceGRPCClient")
+    @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
     async def test_dataplane_grpc_with_ssl_enabled(self, mock_grpc_client):
         # scenario: getting a 2xx response from predictor with ssl enabled
         predictor_host = "ready.host"
@@ -594,7 +594,7 @@ class TestDataplaneTransformer:
         with pytest.raises(httpx.HTTPStatusError):
             await dataplane.ready()
 
-    @patch("kserve.protocol.dataplane.InferenceGRPCClient")
+    @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
     async def test_server_readiness_grpc_v2(self, mock_grpc_client):
         # scenario: getting a 2xx response from predictor
         predictor_host = "ready.host"
@@ -762,7 +762,7 @@ class TestDataplaneTransformer:
         dataplane._model_registry.update(not_ready_model)
         assert await dataplane.model_ready(not_ready_model.name) is False
 
-    @patch("kserve.protocol.dataplane.InferenceGRPCClient")
+    @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
     async def test_model_readiness_grpc_v2(self, mock_grpc_client):
         # scenario: getting a 2xx response from predictor
         predictor_host = "ready.host"
@@ -808,8 +808,8 @@ class TestDataplaneTransformer:
             url=predictor_host, timeout=5, retries=2, use_ssl=False
         )
 
-    @patch("kserve.protocol.dataplane.InferenceGRPCClient")
-    @patch("kserve.protocol.dataplane.InferenceRESTClient")
+    @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
+    @patch("kserve.protocol.dataplane.InferenceClientFactory.get_rest_client")
     async def test_dataplane_with_predictor_health_check_false(
         self, mock_rest_client, mock_grpc_client
     ):

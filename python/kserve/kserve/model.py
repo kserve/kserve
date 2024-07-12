@@ -36,6 +36,7 @@ from .metrics import (
 )
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest
 from .protocol.infer_type import InferRequest, InferResponse
+from .utils.inference_client_factory import InferenceClientFactory
 
 
 class BaseKServeModel(ABC):
@@ -311,13 +312,15 @@ class Model(InferenceModel):
             config = RESTConfig(
                 protocol=self.protocol, timeout=self.timeout, retries=self.retries
             )
-            self._http_client_instance = InferenceRESTClient(config=config)
+            self._http_client_instance = InferenceClientFactory().get_rest_client(
+                config=config
+            )
         return self._http_client_instance
 
     @property
     def _grpc_client(self) -> InferenceGRPCClient:
         if self._grpc_client_stub is None and self.predictor_host:
-            self._grpc_client_stub = InferenceGRPCClient(
+            self._grpc_client_stub = InferenceClientFactory().get_grpc_client(
                 url=self.predictor_host,
                 use_ssl=self.use_ssl,
                 timeout=self.timeout,

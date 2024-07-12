@@ -38,6 +38,7 @@ from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
 from .utils import utils
 from kserve.errors import NoModelReady
+from .utils.inference_client_factory import InferenceClientFactory
 
 parser = argparse.ArgumentParser(
     add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -270,7 +271,10 @@ class ModelServer:
         )
         if self.enable_grpc:
             self._grpc_server = GRPCServer(
-                grpc_port, self.dataplane, self.model_repository_extension
+                grpc_port,
+                self.dataplane,
+                self.model_repository_extension,
+                kwargs=vars(args),
             )
 
     async def _serve_rest(self):
@@ -347,6 +351,7 @@ class ModelServer:
         Args:
             sig: The signal to stop the server. Default: ``None``.
         """
+        await InferenceClientFactory().close()
         logger.info("Stopping the model server")
         if self._rest_server:
             logger.info("Stopping the rest server")
