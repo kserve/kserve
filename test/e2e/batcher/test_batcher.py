@@ -143,7 +143,7 @@ async def test_batcher_v2(rest_v2_client):
         for pod in pods.items:
             print(pod)
         raise e
-    
+
     results = await predict_isvc(
         rest_v2_client, service_name, "./data/iris_batch_input_v2.json", is_batch=True
     )
@@ -214,7 +214,10 @@ async def test_torchserve_v2_kserve(rest_v2_client):
         raise e
 
     results = await predict_isvc(
-        rest_v2_client, service_name, "./data/torchserve_v2_batch_input.json", is_batch=True
+        rest_v2_client,
+        service_name,
+        "./data/torchserve_v2_batch_input.json",
+        is_batch=True,
     )
     assert all(x == results[0] for x in results)
 
