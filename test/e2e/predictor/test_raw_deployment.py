@@ -138,6 +138,7 @@ async def test_annotations_kserve(rest_v1_client):
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
+
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_raw_deployment_runtime_kserve(rest_v1_client):
