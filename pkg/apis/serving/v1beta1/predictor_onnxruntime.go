@@ -44,7 +44,7 @@ var (
 func (o *ONNXRuntimeSpec) Validate() error {
 	if o.GetStorageUri() != nil {
 		if ext := path.Ext(*o.GetStorageUri()); ext != ONNXFileExt && ext != "" {
-			return fmt.Errorf("Expected storageUri file extension: '%s' but got '%s'", ONNXFileExt, ext)
+			return fmt.Errorf("expected storageUri file extension: '%s' but got '%s'", ONNXFileExt, ext)
 		}
 	}
 

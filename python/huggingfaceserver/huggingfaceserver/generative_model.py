@@ -387,7 +387,9 @@ class HuggingfaceGenerativeModel(
             prompt=cast(
                 str,
                 self._tokenizer.apply_chat_template(
-                    [m.model_dump() for m in messages], tokenize=False
+                    [m.model_dump() for m in messages],
+                    tokenize=False,
+                    add_generation_prompt=True,
                 ),
             )
         )
