@@ -223,7 +223,16 @@ class Storage(object):
         file_count = 0
         exact_obj_found = False
         bucket = s3.Bucket(bucket_name)
-        for obj in bucket.objects.filter(Prefix=bucket_path):
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=bucket_path, Delimiter='/')
+
+        # Extract folders
+        folders = []
+        if 'CommonPrefixes' in response:
+            for prefix in response['CommonPrefixes']:
+                if prefix['Prefix'] == bucket_path:
+                    folders.append(prefix['Prefix'])
+
+        for obj in response['Contents']:
             # Skip where boto3 lists the directory as an object
             if obj.key.endswith("/"):
                 continue
