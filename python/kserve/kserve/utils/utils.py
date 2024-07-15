@@ -26,7 +26,12 @@ import psutil
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from grpc import ServicerContext
-from kserve.protocol.infer_type import InferOutput, InferInput, InferRequest, InferResponse
+from kserve.protocol.infer_type import (
+    InferOutput,
+    InferInput,
+    InferRequest,
+    InferResponse,
+)
 from ..constants.constants import PredictorProtocol
 from ..errors import InvalidInput
 
@@ -279,6 +284,8 @@ def is_v1(protocol: Union[str, PredictorProtocol]) -> bool:
         isinstance(protocol, str)
         and protocol.lower() == PredictorProtocol.REST_V1.value.lower()
     )
+
+
 def merge_request_inputs(inputs: List[InferInput]) -> np.ndarray:
     batch_shape = inputs[0].shape.copy()
     batch_data = inputs[0].data.copy()
