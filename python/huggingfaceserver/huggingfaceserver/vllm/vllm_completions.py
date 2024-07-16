@@ -97,19 +97,6 @@ class OpenAIServingCompletion:
         if (
             event_loop is not None and event_loop.is_running()
         ):  # If the current is instanced by Ray Serve, there is already a running event loop
-            # TODO: Possible race condition where request is received before the tokenizer is loaded,
-            #       though it is unlikely to happen in the real world scenario where the task will have enough time
-            #       to be executed before the model server starts
-            # Example:
-            #    model = VLLMModel(
-            #         "opt-125m",
-            #         engine_args=AsyncEngineArgs(
-            #             model=model_id, dtype=dtype, max_model_len=max_model_len
-            #         ),
-            #     )
-            #     model.load()
-            #     request = CompletionRequest(request_id=request_id, params=params, context={})
-            #     response = await model.create_completion(request) # tokenizer is not loaded yet, will raise NoneType error
             event_loop.create_task(self._post_init())
         else:  # When using single vLLM without engine_use_ray
             loop = asyncio.new_event_loop()
@@ -367,7 +354,6 @@ class OpenAIServingCompletion:
         engine_model_config = await self.engine.get_model_config()
         self.max_model_len = engine_model_config.max_model_len
 
-        # TODO: tokenizer revision is not passed ?
         # A separate tokenizer to map token IDs to strings.
         self.tokenizer = get_tokenizer(
             engine_model_config.tokenizer,

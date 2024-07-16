@@ -42,7 +42,7 @@ from kserve.protocol.rest.openai.types.openapi import (
     CreateCompletionResponse,
     Choice,
 )
-from tests.vllm_mock_outputs import (
+from vllm_mock_outputs import (
     opt_chat_cmpl_chunks,
     opt_chat_cmpl_chunks_with_logprobs,
     opt_cmpl_chunks,
@@ -96,6 +96,26 @@ def vllm_opt_model():
     yield model, mock_vllm_engine
     model.stop()
     mp.undo()
+
+
+def compare_response_to_expected(actual, expected, fields_to_compare=None) -> bool:
+    if fields_to_compare is None:
+        fields_to_compare = [
+            "id",
+            "choices",
+            "system_fingerprint",
+            "object",
+            "usage",
+            "model",
+            "created",
+        ]
+    for field in fields_to_compare:
+        if field == "created":
+            if not isinstance(getattr(actual, field), int):
+                return False
+        elif not getattr(actual, field) == getattr(expected, field):
+            return False
+    return True
 
 
 @pytest.mark.asyncio()
@@ -158,13 +178,7 @@ class TestChatCompletions:
                 completion_tokens=10, prompt_tokens=29, total_tokens=39
             ),
         )
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_chat_completion_facebook_opt_model_with_max_token(
         self, vllm_opt_model
@@ -222,14 +236,7 @@ class TestChatCompletions:
                 completion_tokens=10, prompt_tokens=29, total_tokens=39
             ),
         )
-
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_chat_completion_facebook_opt_model_with_max_token_stream(
         self, vllm_opt_model
@@ -587,14 +594,7 @@ class TestChatCompletions:
                 completion_tokens=10, prompt_tokens=29, total_tokens=39
             ),
         )
-
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_chat_completion_facebook_opt_model_with_logprobs_stream(
         self, vllm_opt_model
@@ -946,14 +946,7 @@ class TestChatCompletions:
                 completion_tokens=10, prompt_tokens=29, total_tokens=39
             ),
         )
-
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
 
 @pytest.mark.asyncio()
@@ -1002,14 +995,7 @@ class TestCompletions:
                 completion_tokens=10, prompt_tokens=7, total_tokens=17
             ),
         )
-
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_completion_facebook_opt_model_with_max_token(
         self, vllm_opt_model
@@ -1051,14 +1037,7 @@ class TestCompletions:
                 completion_tokens=10, prompt_tokens=7, total_tokens=17
             ),
         )
-
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_completion_facebook_opt_model_with_max_token_stream(
         self, vllm_opt_model
@@ -1086,8 +1065,8 @@ class TestCompletions:
         completion = ""
         async for resp in response_iterator:
             assert resp.id == request_id
-            completion += resp.choices[0].text
             assert len(resp.choices) == 1
+            completion += resp.choices[0].text
             assert resp.choices[0].logprobs is None
             assert resp.model == model_name
             assert resp.object == "text_completion"
@@ -1248,8 +1227,8 @@ class TestCompletions:
         )
         async for resp in response_iterator:
             assert resp.id == request_id
-            completion += resp.choices[0].text
             assert len(resp.choices) == 1
+            completion += resp.choices[0].text
             assert resp.choices[0].logprobs is not None
             log_probs.text_offset += resp.choices[0].logprobs.text_offset
             log_probs.token_logprobs += resp.choices[0].logprobs.token_logprobs
@@ -1367,14 +1346,7 @@ class TestCompletions:
                 completion_tokens=10, prompt_tokens=7, total_tokens=17
             ),
         )
-
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
     # FixMe: completion with echo true and stream fails
     # async def test_vllm_completion_facebook_opt_model_with_echo_stream(self, vllm_opt_model):
@@ -1573,13 +1545,7 @@ class TestCompletions:
             },
             {" white": -2.2152767181396484, " fur": -1.9012728929519653},
         ]
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
     # FixMe: text_offset resets for generated tokens if echo is True and stream is True
     # async def test_vllm_completion_facebook_opt_model_with_echo_and_logprobs_stream(self, vllm_opt_model):
@@ -1712,14 +1678,7 @@ class TestCompletions:
                 completion_tokens=20, prompt_tokens=12, total_tokens=32
             ),
         )
-
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_completion_facebook_opt_model_with_two_prompts_stream(
         self, vllm_opt_model
@@ -1820,14 +1779,7 @@ class TestCompletions:
                 completion_tokens=20, prompt_tokens=12, total_tokens=32
             ),
         )
-
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
     # FixMe: completion with echo true and stream fails
     # async def test_vllm_completion_facebook_opt_model_with_two_prompts_echo_stream(
@@ -2346,13 +2298,7 @@ class TestCompletions:
         response = await opt_model.create_completion(request)
 
         assert not isinstance(response, AsyncIterator)
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_completion_facebook_opt_model_with_best_of_and_n_equal(
         self, vllm_opt_model
@@ -2582,13 +2528,7 @@ class TestCompletions:
             ),
         )
 
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
     # FixMe: Prompt ids with echo True fails
     # async def test_vllm_completion_facebook_opt_model_with_token_ids_and_echo(
@@ -2692,14 +2632,7 @@ class TestCompletions:
                 completion_tokens=20, prompt_tokens=12, total_tokens=32
             ),
         )
-
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
     # FixMe: Batch Prompt ids with echo True fails
     # async def test_vllm_completion_facebook_opt_model_with_batch_token_ids_with_echo(
@@ -2804,14 +2737,7 @@ class TestCompletions:
                 completion_tokens=10, prompt_tokens=7, total_tokens=17
             ),
         )
-
-        assert response.id == expected.id
-        assert response.choices == expected.choices
-        assert response.system_fingerprint == expected.system_fingerprint
-        assert response.object == expected.object
-        assert response.usage == expected.usage
-        assert response.model == expected.model
-        assert isinstance(response.created, int)
+        assert compare_response_to_expected(response, expected) is True
 
 
 class TestOpenAIServingCompletion:
