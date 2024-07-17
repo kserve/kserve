@@ -406,10 +406,12 @@ class OpenAIServingCompletion:
         initial_text_offset: int = 0,
     ) -> Logprobs:
         """Create OpenAI-style logprobs."""
-        out_text_offset: List[int] = []
-        out_token_logprobs: List[Optional[float]] = []
-        out_tokens: List[str] = []
-        out_top_logprobs: List[Optional[Dict[str, float]]] = []
+        logprobs = Logprobs(
+            text_offset=[],
+            token_logprobs=[],
+            tokens=[],
+            top_logprobs=[],
+        )
 
         last_token_len = 0
 
@@ -417,19 +419,19 @@ class OpenAIServingCompletion:
             step_top_logprobs = top_logprobs[i]
             if step_top_logprobs is None:
                 token = self.tokenizer.decode(token_id)
-                out_tokens.append(token)
-                out_token_logprobs.append(None)
-                out_top_logprobs.append(None)
+                logprobs.tokens.append(token)
+                logprobs.token_logprobs.append(None)
+                logprobs.top_logprobs.append(None)
             else:
                 token = self._get_decoded_token(step_top_logprobs[token_id], token_id)
                 token_logprob = max(step_top_logprobs[token_id].logprob, -9999.0)
-                out_tokens.append(token)
-                out_token_logprobs.append(token_logprob)
+                logprobs.tokens.append(token)
+                logprobs.token_logprobs.append(token_logprob)
 
                 # makes sure to add the top num_output_top_logprobs + 1
                 # logprobs, as defined in the openai API
                 # (cf. https://github.com/openai/openai-openapi/blob/893ba52242dbd5387a97b96444ee1c742cfce9bd/openapi.yaml#L7153)
-                out_top_logprobs.append(
+                logprobs.top_logprobs.append(
                     {
                         # Convert float("-inf") to the
                         # JSON-serializable float that OpenAI uses
@@ -441,15 +443,10 @@ class OpenAIServingCompletion:
                     }
                 )
 
-            if len(out_text_offset) == 0:
-                out_text_offset.append(initial_text_offset)
+            if len(logprobs.text_offset) == 0:
+                logprobs.text_offset.append(initial_text_offset)
             else:
-                out_text_offset.append(out_text_offset[-1] + last_token_len)
+                logprobs.text_offset.append(logprobs.text_offset[-1] + last_token_len)
             last_token_len = len(token)
 
-        return Logprobs(
-            text_offset=out_text_offset,
-            token_logprobs=out_token_logprobs,
-            tokens=out_tokens,
-            top_logprobs=out_top_logprobs,
-        )
+        return logprobs
