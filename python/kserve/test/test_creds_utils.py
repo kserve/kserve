@@ -212,21 +212,14 @@ def test_set_azure_credentials(mock_create_secret, mock_set_service_account):
     mock_set_service_account.assert_called()
 
 
-def test_parse_grpc_server_credentials():
-    server_credential = 'server'
-
-
 def test_parse_grpc_server_credentials_valid_file_path():
-    # Create a temporary file with some content
     temp_file = tempfile.NamedTemporaryFile(delete=False)
     temp_file.write(b"dummy_cert_content")
     temp_file.close()
 
-    # Test the function with the file path
     result = parse_grpc_server_credentials(temp_file.name)
     assert result == b"dummy_cert_content"
 
-    # Clean up the temporary file
     os.remove(temp_file.name)
 
 
