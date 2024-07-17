@@ -18,15 +18,16 @@ package storage
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
-	"os"
-	"path/filepath"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"strings"
 )
 
 type S3Provider struct {
@@ -65,7 +66,7 @@ func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri
 	}
 	objects, err := s3ObjectDownloader.GetAllObjects(m.Client)
 	if err != nil {
-		return fmt.Errorf("unable to get batch objects %v", err)
+		return fmt.Errorf("unable to get batch objects %w", err)
 	}
 	if err := s3ObjectDownloader.Download(objects); err != nil {
 		return err
@@ -100,12 +101,12 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 			// File got corrupted or is mid-download :(
 			// TODO: Figure out if we can maybe continue?
 			if err := os.Remove(fileName); err != nil {
-				return nil, fmt.Errorf("file is unable to be deleted: %v", err)
+				return nil, fmt.Errorf("file is unable to be deleted: %w", err)
 			}
 		}
 		file, err := Create(fileName)
 		if err != nil {
-			return nil, fmt.Errorf("file is already created: %v", err)
+			return nil, fmt.Errorf("file is already created: %w", err)
 		}
 		object := s3manager.BatchDownloadObject{
 			Object: &s3.GetObjectInput{

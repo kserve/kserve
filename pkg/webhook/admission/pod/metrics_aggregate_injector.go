@@ -19,10 +19,11 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
-	"strconv"
 )
 
 const (
@@ -35,13 +36,13 @@ type MetricsAggregator struct {
 	EnablePrometheusScraping string `json:"enablePrometheusScraping"`
 }
 
-func newMetricsAggregator(configMap *v1.ConfigMap) (*MetricsAggregator, error) {
+func newMetricsAggregator(configMap *v1.ConfigMap) (*MetricsAggregator, error) { //nolint:unparam
 	ma := &MetricsAggregator{}
 
 	if maConfigVal, ok := configMap.Data[MetricsAggregatorConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(maConfigVal), &ma)
 		if err != nil {
-			panic(fmt.Errorf("Unable to unmarshall %v json string due to %v ", MetricsAggregatorConfigMapKeyName, err))
+			panic(fmt.Errorf("Unable to unmarshall %v json string due to %w ", MetricsAggregatorConfigMapKeyName, err))
 		}
 	}
 
@@ -76,7 +77,6 @@ func setMetricAggregationEnvVarsAndPorts(pod *v1.Pod) {
 				ContainerPort: int32(constants.QueueProxyAggregatePrometheusMetricsPort),
 				Protocol:      "TCP",
 			})
-
 		}
 	}
 }
@@ -84,7 +84,7 @@ func setMetricAggregationEnvVarsAndPorts(pod *v1.Pod) {
 // InjectMetricsAggregator looks for the annotations to enable aggregate kserve-container and queue-proxy metrics and
 // if specified, sets port-related EnvVars in queue-proxy and the aggregate prometheus annotation.
 func (ma *MetricsAggregator) InjectMetricsAggregator(pod *v1.Pod) error {
-	//Only set metric configs if the required annotations are set
+	// Only set metric configs if the required annotations are set
 	enableMetricAggregation, ok := pod.ObjectMeta.Annotations[constants.EnableMetricAggregation]
 	if !ok {
 		if pod.ObjectMeta.Annotations == nil {

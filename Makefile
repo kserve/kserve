@@ -1,4 +1,3 @@
-HAS_LINT := $(shell command -v golint;)
 
 # Base Image URL
 BASE_IMG ?= python:3.9-slim-bullseye
@@ -17,7 +16,7 @@ CUSTOM_MODEL_IMG ?= custom-model
 CUSTOM_MODEL_GRPC_IMG ?= custom-model-grpc
 CUSTOM_TRANSFORMER_IMG ?= image-transformer
 CUSTOM_TRANSFORMER_GRPC_IMG ?= custom-image-transformer-grpc
-ALIBI_IMG ?= alibi-explainer
+HUGGINGFACE_SERVER_IMG ?= huggingfaceserver
 AIF_IMG ?= aiffairness
 ART_IMG ?= art-explainer
 STORAGE_INIT_IMG ?= storage-initializer
@@ -54,7 +53,7 @@ test: fmt vet manifests envtest
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
 # Build manager binary
-manager: generate fmt vet lint
+manager: generate fmt vet go-lint
 	go build -o bin/manager ./cmd/manager
 
 # Build agent binary
@@ -66,7 +65,7 @@ router: fmt vet
 	go build -o bin/router ./cmd/router
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
-run: generate fmt vet lint
+run: generate fmt vet go-lint
 	go run ./cmd/manager/main.go
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
@@ -110,9 +109,8 @@ deploy-dev-pmml : docker-push-pmml
 deploy-dev-paddle: docker-push-paddle
 	./hack/serving_runtime_image_patch.sh "kserve-paddleserver.yaml" "${KO_DOCKER_REPO}/${PADDLE_IMG}"
 
-deploy-dev-alibi: docker-push-alibi
-	./hack/alibi_patch_dev.sh ${KO_DOCKER_REPO}/${ALIBI_IMG}
-	kubectl apply -k config/overlays/dev-image-config
+deploy-dev-huggingface: docker-push-huggingface
+	./hack/serving_runtime_image_patch.sh "kserve-huggingfaceserver.yaml" "${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}"
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
@@ -136,51 +134,53 @@ undeploy-dev:
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full
 	$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
 
 	#TODO Remove this until new controller-tools is released
-	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kserve.io_inferenceservices.yaml
-	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kserve.io_inferenceservices.yaml
-	perl -pi -e 's/Any/string/g' config/crd/serving.kserve.io_inferenceservices.yaml
-	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kserve.io_trainedmodels.yaml
-	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kserve.io_trainedmodels.yaml
-	perl -pi -e 's/Any/string/g' config/crd/serving.kserve.io_trainedmodels.yaml
-	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/serving.kserve.io_inferencegraphs.yaml
-	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/serving.kserve.io_inferencegraphs.yaml
-	perl -pi -e 's/Any/string/g' config/crd/serving.kserve.io_inferencegraphs.yaml
+	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/full/serving.kserve.io_inferenceservices.yaml
+	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/full/serving.kserve.io_inferenceservices.yaml
+	perl -pi -e 's/Any/string/g' config/crd/full/serving.kserve.io_inferenceservices.yaml
+	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/full/serving.kserve.io_trainedmodels.yaml
+	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/full/serving.kserve.io_trainedmodels.yaml
+	perl -pi -e 's/Any/string/g' config/crd/full/serving.kserve.io_trainedmodels.yaml
+	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/full/serving.kserve.io_inferencegraphs.yaml
+	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/full/serving.kserve.io_inferencegraphs.yaml
+	perl -pi -e 's/Any/string/g' config/crd/full/serving.kserve.io_inferencegraphs.yaml
 	#remove the required property on framework as name field needs to be optional
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers)' -i config/crd/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	#knative does not allow setting port on liveness or readiness probe
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
-	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required)' -i config/crd/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	#With v1 and newer kubernetes protocol requires default
-	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_inferenceservices.yaml
-	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_clusterservingruntimes.yaml
-	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/serving.kserve.io_servingruntimes.yaml
-	kubectl kustomize config/crd > test/crds/serving.kserve.io_inferenceservices.yaml
+	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
+	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
+	./hack/minimal-crdgen.sh
+	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_inferenceservices.yaml
+	cp config/crd/minimal/* charts/kserve-crd-minimal/templates/
+	rm charts/kserve-crd-minimal/templates/kustomization.yaml
 
 # Run go fmt against code
 fmt:
 	go fmt ./pkg/... ./cmd/...
 
+py-fmt:
+	black --config python/pyproject.toml .
+
 # Run go vet against code
 vet:
 	go vet ./pkg/... ./cmd/...
 
-lint:
-ifndef HAS_LINT
-	go get -u golang.org/x/lint/golint
-	echo "installing golint"
-endif
+go-lint:
 	hack/verify-golint.sh
 
 # Generate code
@@ -189,6 +189,7 @@ generate: controller-gen
 	hack/update-codegen.sh
 	hack/update-openapigen.sh
 	hack/python-sdk/client-gen.sh
+	hack/update-helm-docs.sh
 
 bump-version:
 	# TBA
@@ -273,12 +274,6 @@ docker-build-custom-transformer-grpc:
 docker-push-custom-transformer-grpc: docker-build-custom-transformer-grpc
 	docker push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}
 
-docker-build-alibi:
-	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${ALIBI_IMG} -f alibiexplainer.Dockerfile .
-
-docker-push-alibi: docker-build-alibi
-	docker push ${KO_DOCKER_REPO}/${ALIBI_IMG}
-
 docker-build-aif:
 	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${AIF_IMG} -f aiffairness.Dockerfile .
 
@@ -317,6 +312,12 @@ docker-build-error-node-404:
 
 docker-push-error-node-404: docker-build-error-node-404
 	docker push ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}
+
+docker-build-huggingface:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG} -f huggingface_server.Dockerfile .
+
+docker-push-huggingface: docker-build-huggingface
+	docker push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}
 
 test-qpext:
 	cd qpext && go test -v ./... -cover

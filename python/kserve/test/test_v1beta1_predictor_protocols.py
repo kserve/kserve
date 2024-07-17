@@ -57,13 +57,13 @@ class TestV1beta1PredictorProtocols(unittest.TestCase):
                     default_gpu_image_version="0",
                     default_image_version="0",
                     image="0",
-                    supported_frameworks=['0']
+                    supported_frameworks=["0"],
                 ),
                 v2=kserve.models.v1beta1_predictor_config.V1beta1PredictorConfig(
                     default_gpu_image_version="0",
                     default_image_version="0",
                     image="0",
-                    supported_frameworks=['0']
+                    supported_frameworks=["0"],
                 ),
             )
         else:

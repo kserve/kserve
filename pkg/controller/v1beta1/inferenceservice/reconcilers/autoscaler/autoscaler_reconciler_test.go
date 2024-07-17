@@ -27,7 +27,6 @@ import (
 func TestGetAutoscalerClass(t *testing.T) {
 	serviceName := "my-model"
 	namespace := "test"
-
 	testCases := []struct {
 		name                   string
 		isvcMetaData           *metav1.ObjectMeta

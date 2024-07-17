@@ -11,10 +11,9 @@ class MNISTDigitClassifier(ImageClassifier):
     Here method postprocess() has been overridden while others are reused from parent class.
     """
 
-    image_processing = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ])
+    image_processing = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+    )
 
     def postprocess(self, data):
         return data.argmax(1).tolist()

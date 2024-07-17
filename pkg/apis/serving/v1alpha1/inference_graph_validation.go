@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"fmt"
+
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -53,7 +54,7 @@ const (
 var (
 	// logger for the validation webhook.
 	validatorLogger = logf.Log.WithName("inferencegraph-v1alpha1-validation-webhook")
-	//GraphRegexp regular expressions for validation of graph name
+	// GraphRegexp regular expressions for validation of graph name
 	GraphRegexp = regexp.MustCompile("^" + GraphNameFmt + "$")
 )
 

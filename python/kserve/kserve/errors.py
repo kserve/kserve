@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from http import HTTPStatus
-from kserve.logging import logger
+from .logging import logger
 from fastapi.responses import JSONResponse
 
 
@@ -34,7 +34,7 @@ class InferenceError(RuntimeError):
     def __str__(self):
         msg = super().__str__() if self.reason is None else self.reason
         if self.status is not None:
-            msg = '[' + self.status + '] ' + msg
+            msg = "[" + self.status + "] " + msg
         return msg
 
 
@@ -88,9 +88,23 @@ class ModelNotReady(RuntimeError):
         return self.error_msg
 
 
+class UnsupportedProtocol(Exception):
+    """
+    Exception class indicating requested protocol is not supported.
+    """
+
+    def __init__(self, protocol_version=None):
+        self.reason = f"Unsupported protocol {protocol_version}."
+
+    def __str__(self):
+        return self.reason
+
+
 async def exception_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
-    return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"error": str(exc)})
+    return JSONResponse(
+        status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"error": str(exc)}
+    )
 
 
 async def invalid_input_handler(_, exc):
@@ -100,13 +114,17 @@ async def invalid_input_handler(_, exc):
 
 async def inference_error_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
-    return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"error": str(exc)})
+    return JSONResponse(
+        status_code=HTTPStatus.INTERNAL_SERVER_ERROR, content={"error": str(exc)}
+    )
 
 
 async def generic_exception_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
-    return JSONResponse(status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
-                        content={"error": f"{type(exc).__name__} : {str(exc)}"})
+    return JSONResponse(
+        status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+        content={"error": f"{type(exc).__name__} : {str(exc)}"},
+    )
 
 
 async def model_not_found_handler(_, exc):
@@ -116,9 +134,38 @@ async def model_not_found_handler(_, exc):
 
 async def model_not_ready_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
-    return JSONResponse(status_code=HTTPStatus.SERVICE_UNAVAILABLE, content={"error": str(exc)})
+    return JSONResponse(
+        status_code=HTTPStatus.SERVICE_UNAVAILABLE, content={"error": str(exc)}
+    )
 
 
 async def not_implemented_error_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
-    return JSONResponse(status_code=HTTPStatus.NOT_IMPLEMENTED, content={"error": str(exc)})
+    return JSONResponse(
+        status_code=HTTPStatus.NOT_IMPLEMENTED, content={"error": str(exc)}
+    )
+
+
+async def unsupported_protocol_error_handler(_, exc):
+    logger.error("Exception:", exc_info=exc)
+    return JSONResponse(
+        status_code=HTTPStatus.NOT_IMPLEMENTED, content={"error": str(exc)}
+    )
+
+
+class NoModelReady(RuntimeError):
+    def __init__(self, models: [], detail: str = None):
+        self.models = models
+        self.detail = detail
+
+    def __str__(self):
+        model_name_list = [model.name for model in self.models]
+        if len(model_name_list) == 1:
+            self.error_msg = f"Model with name {model_name_list[0]} is not ready."
+        else:
+            self.error_msg = (
+                f"Models with names {','.join(model_name_list)} are not ready."
+            )
+        if self.detail:
+            self.error_msg = self.error_msg + " " + self.detail
+        return self.error_msg

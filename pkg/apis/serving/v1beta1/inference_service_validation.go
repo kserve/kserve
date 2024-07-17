@@ -19,8 +19,9 @@ package v1beta1
 import (
 	"fmt"
 	"reflect"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strconv"
+
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"regexp"
 
@@ -35,7 +36,7 @@ import (
 // regular expressions for validation of isvc name
 const (
 	IsvcNameFmt                         string = "[a-z]([-a-z0-9]*[a-z0-9])?"
-	StorageUriPresentInTransformerError        = "storage uri should not be specified in transformer container"
+	StorageUriPresentInTransformerError string = "storage uri should not be specified in transformer container"
 )
 
 var (
@@ -100,7 +101,6 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	}
 
 	return validateScalingKPACompExtension(compExtSpec)
-
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -152,7 +152,7 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 				}
 			}
 		}
-		return fmt.Errorf("[%s] is not a supported autoscaler class type.\n", value)
+		return fmt.Errorf("[%s] is not a supported autoscaler class type", value)
 	}
 
 	return nil
@@ -165,8 +165,7 @@ func validateHPAMetrics(metric ScaleMetric) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
-
+	return fmt.Errorf("[%s] is not a supported metric", metric)
 }
 
 // Validate of autoscaler targetUtilizationPercentage
@@ -175,11 +174,9 @@ func validateAutoscalerTargetUtilizationPercentage(isvc *InferenceService) error
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
 		t, err := strconv.Atoi(value)
 		if err != nil {
-			return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
-		} else {
-			if t < 1 || t > 100 {
-				return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
-			}
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
+		} else if t < 1 || t > 100 {
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
 		}
 	}
 
@@ -201,13 +198,12 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 	if compExtSpec.ScaleTarget != nil {
 		target := *compExtSpec.ScaleTarget
 		if metric == MetricCPU && target < 1 || target > 100 {
-			return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
 		}
 
 		if metric == MetricMemory && target < 1 {
-			return fmt.Errorf("The target memory should be greater than 1 MiB")
+			return fmt.Errorf("the target memory should be greater than 1 MiB")
 		}
-
 	}
 
 	return nil
@@ -219,11 +215,13 @@ func validateKPAMetrics(metric ScaleMetric) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
-
+	return fmt.Errorf("[%s] is not a supported metric", metric)
 }
 
 func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error {
+	if compExtSpec.DeploymentStrategy != nil {
+		return fmt.Errorf("customizing deploymentStrategy is only supported for raw deployment mode")
+	}
 	metric := MetricConcurrency
 	if compExtSpec.ScaleMetric != nil {
 		metric = *compExtSpec.ScaleMetric
@@ -241,7 +239,6 @@ func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 		if metric == MetricRPS && target < 1 {
 			return fmt.Errorf("the target for rps should be greater than 1")
 		}
-
 	}
 
 	return nil

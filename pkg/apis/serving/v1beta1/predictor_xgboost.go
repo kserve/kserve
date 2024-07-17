@@ -44,9 +44,9 @@ func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
 	}
 
 	setResourceRequirementDefaults(&x.Resources)
-
 }
 
+// nolint: unused
 func (x *XGBoostSpec) getEnvVarsV2() []v1.EnvVar {
 	vars := []v1.EnvVar{
 		{
@@ -76,6 +76,7 @@ func (x *XGBoostSpec) getEnvVarsV2() []v1.EnvVar {
 	return vars
 }
 
+// nolint: unused
 func (x *XGBoostSpec) getDefaultsV2(metadata metav1.ObjectMeta) []v1.EnvVar {
 	// These env vars set default parameters that can always be overridden
 	// individually through `model-settings.json` config files.

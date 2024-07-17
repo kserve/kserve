@@ -21,41 +21,41 @@ import (
 	"encoding/json"
 	"fmt"
 
-	kservev1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/webhook/admission/pod"
-
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/kmp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	kservev1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
 var log = logf.Log.WithName("CaBundleConfigMapReconciler")
 
 type CaBundleConfigMapReconciler struct {
-	client client.Client
-	scheme *runtime.Scheme
+	client    client.Client
+	clientset kubernetes.Interface
+	scheme    *runtime.Scheme
 }
 
-func NewCaBundleConfigMapReconciler(client client.Client, scheme *runtime.Scheme) *CaBundleConfigMapReconciler {
+func NewCaBundleConfigMapReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme) *CaBundleConfigMapReconciler {
 	return &CaBundleConfigMapReconciler{
-		client: client,
-		scheme: scheme,
+		client:    client,
+		clientset: clientset,
+		scheme:    scheme,
 	}
 }
 
 func (c *CaBundleConfigMapReconciler) Reconcile(isvc *kservev1beta1.InferenceService) error {
 	log.Info("Reconciling CaBundleConfigMap", "namespace", isvc.Namespace)
-
-	isvcConfigMap := &corev1.ConfigMap{}
-	err := c.client.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, isvcConfigMap)
+	isvcConfigMap, err := c.clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return err
@@ -91,10 +91,9 @@ func (c *CaBundleConfigMapReconciler) getCabundleConfigMapForUserNS(caBundleName
 
 	// Check if cabundle configmap exist & the cabundle.crt exist in the data in controller namespace
 	// If it does not exist, return error
-	caBundleConfigMap := &corev1.ConfigMap{}
-	if err := c.client.Get(context.TODO(),
-		types.NamespacedName{Name: caBundleNameInConfig, Namespace: kserveNamespace}, caBundleConfigMap); err == nil {
+	caBundleConfigMap, err := c.clientset.CoreV1().ConfigMaps(kserveNamespace).Get(context.TODO(), caBundleNameInConfig, metav1.GetOptions{})
 
+	if err == nil {
 		if caBundleConfigMapData := caBundleConfigMap.Data[constants.DefaultCaBundleFileName]; caBundleConfigMapData == "" {
 			return nil, fmt.Errorf("specified cabundle file %s not found in cabundle configmap %s",
 				constants.DefaultCaBundleFileName, caBundleNameInConfig)
@@ -105,7 +104,7 @@ func (c *CaBundleConfigMapReconciler) getCabundleConfigMapForUserNS(caBundleName
 			newCaBundleConfigMap = getDesiredCaBundleConfigMapForUserNS(constants.DefaultGlobalCaBundleConfigMapName, isvcNamespace, configData)
 		}
 	} else {
-		return nil, fmt.Errorf("can't read cabundle configmap %s: %w", constants.DefaultCaBundleFileName, err)
+		return nil, errors.Wrapf(err, "failed to get configmap %s from the cluster", caBundleNameInConfig)
 	}
 
 	return newCaBundleConfigMap, nil
@@ -125,10 +124,8 @@ func getDesiredCaBundleConfigMapForUserNS(configmapName string, namespace string
 
 // ReconcileCaBundleConfigMap will manage the creation, update and deletion of the ca bundle ConfigMap
 func (c *CaBundleConfigMapReconciler) ReconcileCaBundleConfigMap(desiredConfigMap *corev1.ConfigMap) error {
-
 	// Create ConfigMap if does not exist
-	existingConfigMap := &corev1.ConfigMap{}
-	err := c.client.Get(context.TODO(), types.NamespacedName{Name: desiredConfigMap.Name, Namespace: desiredConfigMap.Namespace}, existingConfigMap)
+	existingConfigMap, err := c.clientset.CoreV1().ConfigMaps(desiredConfigMap.Namespace).Get(context.TODO(), desiredConfigMap.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierr.IsNotFound(err) {
 			log.Info("Creating cabundle configmap", "namespace", desiredConfigMap.Namespace, "name", desiredConfigMap.Name)

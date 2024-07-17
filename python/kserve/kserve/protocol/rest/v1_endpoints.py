@@ -11,9 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Optional, Union, Dict, List
+from typing import Optional, Union, Dict, List, AsyncIterator
 
 from fastapi import Request, Response
+from starlette.responses import StreamingResponse
 
 from kserve.errors import ModelNotReady
 from ..dataplane import DataPlane
@@ -21,10 +22,13 @@ from ..model_repository_extension import ModelRepositoryExtension
 
 
 class V1Endpoints:
-    """KServe V1 Endpoints
-    """
+    """KServe V1 Endpoints"""
 
-    def __init__(self, dataplane: DataPlane, model_repository_extension: Optional[ModelRepositoryExtension] = None):
+    def __init__(
+        self,
+        dataplane: DataPlane,
+        model_repository_extension: Optional[ModelRepositoryExtension] = None,
+    ):
         self.model_repository_extension = model_repository_extension
         self.dataplane = dataplane
 
@@ -71,17 +75,23 @@ class V1Endpoints:
 
         body = await request.body()
         headers = dict(request.headers.items())
-        infer_request, req_attributes = self.dataplane.decode(body=body,
-                                                              headers=headers)
-        response, response_headers = await self.dataplane.infer(model_name=model_name,
-                                                                request=infer_request,
-                                                                headers=headers)
-        response, response_headers = self.dataplane.encode(model_name=model_name,
-                                                           response=response,
-                                                           headers=headers, req_attributes=req_attributes)
+        infer_request, req_attributes = self.dataplane.decode(
+            body=body, headers=headers
+        )
+        response, response_headers = await self.dataplane.infer(
+            model_name=model_name, request=infer_request, headers=headers
+        )
+        response, response_headers = self.dataplane.encode(
+            model_name=model_name,
+            response=response,
+            headers=headers,
+            req_attributes=req_attributes,
+        )
 
-        if not isinstance(response, dict):
+        if isinstance(response, bytes) or isinstance(response, str):
             return Response(content=response, headers=response_headers)
+        if isinstance(response, AsyncIterator):
+            return StreamingResponse(content=response)
         return response
 
     async def explain(self, model_name: str, request: Request) -> Union[Response, Dict]:
@@ -101,14 +111,18 @@ class V1Endpoints:
 
         body = await request.body()
         headers = dict(request.headers.items())
-        infer_request, req_attributes = self.dataplane.decode(body=body,
-                                                              headers=headers)
-        response, response_headers = await self.dataplane.explain(model_name=model_name,
-                                                                  request=infer_request,
-                                                                  headers=headers)
-        response, response_headers = self.dataplane.encode(model_name=model_name,
-                                                           response=response,
-                                                           headers=headers, req_attributes=req_attributes)
+        infer_request, req_attributes = self.dataplane.decode(
+            body=body, headers=headers
+        )
+        response, response_headers = await self.dataplane.explain(
+            model_name=model_name, request=infer_request, headers=headers
+        )
+        response, response_headers = self.dataplane.encode(
+            model_name=model_name,
+            response=response,
+            headers=headers,
+            req_attributes=req_attributes,
+        )
 
         if not isinstance(response, dict):
             return Response(content=response, headers=response_headers)

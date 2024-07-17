@@ -103,7 +103,7 @@ def get_istio_auth_session(url: str, username: str, password: str) -> dict:
 
 
 if __name__ == "__main__":
-    KUBEFLOW_ENDPOINT = "http://localhost:8080"     # Cluster IP and port
+    KUBEFLOW_ENDPOINT = "http://localhost:8080"  # Cluster IP and port
     KUBEFLOW_USERNAME = "user@example.com"
     KUBEFLOW_PASSWORD = "12341234"
     MODEL_NAME = "sklearn-iris"
@@ -115,7 +115,7 @@ if __name__ == "__main__":
         url=KUBEFLOW_ENDPOINT, username=KUBEFLOW_USERNAME, password=KUBEFLOW_PASSWORD
     )
 
-    cookies = {"authservice_session": _auth_session['authservice_session']}
+    cookies = {"authservice_session": _auth_session["authservice_session"]}
     jar = requests.cookies.cookiejar_from_dict(cookies)
 
     res = requests.post(

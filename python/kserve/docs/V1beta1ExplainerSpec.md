@@ -6,7 +6,6 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **active_deadline_seconds** | **int** | Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers. Value must be a positive integer. | [optional] 
 **affinity** | [**V1Affinity**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Affinity.md) |  | [optional] 
-**alibi** | [**V1beta1AlibiExplainerSpec**](V1beta1AlibiExplainerSpec.md) |  | [optional] 
 **annotations** | **dict(str, str)** | Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations | [optional] 
 **art** | [**V1beta1ARTExplainerSpec**](V1beta1ARTExplainerSpec.md) |  | [optional] 
 **automount_service_account_token** | **bool** | AutomountServiceAccountToken indicates whether a service account token should be automatically mounted. | [optional] 
@@ -14,6 +13,7 @@ Name | Type | Description | Notes
 **canary_traffic_percent** | **int** | CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision | [optional] 
 **container_concurrency** | **int** | ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency). | [optional] 
 **containers** | [**list[V1Container]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Container.md) | List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated. | [optional] 
+**deployment_strategy** | [**K8sIoApiAppsV1DeploymentStrategy**](K8sIoApiAppsV1DeploymentStrategy.md) |  | [optional] 
 **dns_config** | [**V1PodDNSConfig**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1PodDNSConfig.md) |  | [optional] 
 **dns_policy** | **str** | Set DNS policy for the pod. Defaults to \&quot;ClusterFirst\&quot;. Valid values are &#39;ClusterFirstWithHostNet&#39;, &#39;ClusterFirst&#39;, &#39;Default&#39; or &#39;None&#39;. DNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy. To have DNS options set along with hostNetwork, you have to specify DNS policy explicitly to &#39;ClusterFirstWithHostNet&#39;. | [optional] 
 **enable_service_links** | **bool** | EnableServiceLinks indicates whether information about services should be injected into pod&#39;s environment variables, matching the syntax of Docker links. Optional: Defaults to true. | [optional] 

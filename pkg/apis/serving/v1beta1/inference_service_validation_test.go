@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -141,6 +142,18 @@ func TestRejectMultipleModelSpecs(t *testing.T) {
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
 
+func TestCustomizeDeploymentStrategyUnsupportedForServerless(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeTestInferenceService()
+	isvc.Spec.Predictor.PodSpec = PodSpec{ServiceAccountName: "test"}
+	isvc.Spec.Predictor.DeploymentStrategy = &appsv1.DeploymentStrategy{
+		Type: appsv1.RecreateDeploymentStrategyType,
+	}
+	warnings, err := isvc.ValidateCreate()
+	g.Expect(err).Should(gomega.MatchError("customizing deploymentStrategy is only supported for raw deployment mode"))
+	g.Expect(warnings).Should(gomega.BeEmpty())
+}
+
 func TestModelSpecAndCustomOverridesIsValid(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
@@ -221,7 +234,7 @@ func TestBadReplicaValues(t *testing.T) {
 	isvc.Spec.Transformer = nil
 
 	isvc.Spec.Explainer = &ExplainerSpec{
-		Alibi: &AlibiExplainerSpec{
+		ART: &ARTExplainerSpec{
 			ExplainerExtensionSpec: ExplainerExtensionSpec{
 				StorageURI: "gs://testbucket/testmodel",
 			},
@@ -283,7 +296,7 @@ func TestGoodExplainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
 	isvc.Spec.Explainer = &ExplainerSpec{
-		Alibi: &AlibiExplainerSpec{
+		ART: &ARTExplainerSpec{
 			ExplainerExtensionSpec: ExplainerExtensionSpec{
 				StorageURI: "gs://testbucket/testmodel",
 			},

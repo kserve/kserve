@@ -23,21 +23,22 @@ import (
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Known error messages
 const (
-	MinReplicasShouldBeLessThanMaxError = "MinReplicas cannot be greater than MaxReplicas."
-	MinReplicasLowerBoundExceededError  = "MinReplicas cannot be less than 0."
-	MaxReplicasLowerBoundExceededError  = "MaxReplicas cannot be less than 0."
-	ParallelismLowerBoundExceededError  = "Parallelism cannot be less than 0."
-	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported."
-	UnsupportedStorageSpecFormatError   = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported."
-	InvalidLoggerType                   = "Invalid logger type"
-	InvalidISVCNameFormatError          = "The InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
-	InvalidProtocol                     = "Invalid protocol %s. Must be one of [%s]"
+	MinReplicasShouldBeLessThanMaxError = "'MinReplicas' cannot be greater than MaxReplicas"
+	MinReplicasLowerBoundExceededError  = "'MinReplicas' cannot be less than 0"
+	MaxReplicasLowerBoundExceededError  = "'MaxReplicas' cannot be less than 0"
+	ParallelismLowerBoundExceededError  = "parallelism cannot be less than 0"
+	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
+	UnsupportedStorageSpecFormatError   = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported"
+	InvalidLoggerType                   = "invalid logger type"
+	InvalidISVCNameFormatError          = "the InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+	InvalidProtocol                     = "invalid protocol %s. Must be one of [%s]"
 )
 
 // Constants
@@ -74,7 +75,7 @@ type ComponentExtensionSpec struct {
 	MaxReplicas int `json:"maxReplicas,omitempty"`
 	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
 	// concurrency and rps targets are supported by Knative Pod Autoscaler
-	//(https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
+	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
 	// +optional
 	ScaleTarget *int `json:"scaleTarget,omitempty"`
 	// ScaleMetric defines the scaling metric type watched by autoscaler
@@ -106,6 +107,10 @@ type ComponentExtensionSpec struct {
 	// More info: http://kubernetes.io/docs/user-guide/annotations
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.
+	// +optional
+	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`
 }
 
 // ScaleMetric enum
@@ -135,7 +140,7 @@ func validateStorageSpec(storageSpec *StorageSpec, storageURI *string) error {
 	if storageSpec == nil {
 		return nil
 	}
-	if storageSpec != nil && storageURI != nil {
+	if storageURI != nil {
 		if utils.IsPrefixSupported(*storageURI, SupportedStorageSpecURIPrefixList) {
 			return nil
 		} else {
@@ -224,7 +229,7 @@ func ExactlyOneErrorFor(component Component) error {
 		implementationTypes = append(implementationTypes, componentType.Field(i).Name)
 	}
 	return fmt.Errorf(
-		"Exactly one of [%s] must be specified in %s",
+		"exactly one of [%s] must be specified in %s",
 		strings.Join(implementationTypes, ", "),
 		componentType.Name(),
 	)
