@@ -611,7 +611,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		isvc.Status.Address = &duckv1.Addressable{
 			URL: &apis.URL{
 				Host:   network.GetServiceHostname(hostPrefix, isvc.Namespace),
-				Scheme: "http",
+				Scheme: "https",
 			},
 		}
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{

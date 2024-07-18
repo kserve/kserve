@@ -1871,7 +1871,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Host:   constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			}))
 			Expect(actualIsvc.Status.Address.URL).To(gomega.Equal(&apis.URL{
-				Scheme: "http",
+				Scheme: "https",
 				Host:   network.GetServiceHostname(fmt.Sprintf("%s-%s", serviceKey.Name, string(constants.Predictor)), serviceKey.Namespace),
 			}))
 		})
