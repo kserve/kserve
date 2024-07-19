@@ -10,4 +10,4 @@ spec:
       # storageUri: pvc://model-pv-claim
       args:
         - --disable-token-auth
-        - --enable-model-api
+        - --enable-model-api 
