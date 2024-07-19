@@ -22,6 +22,7 @@ import sys
 from multiprocessing import Process
 from typing import Any, Callable, Dict, List, Optional, Union
 
+
 from ray import serve as rayserve
 from ray.serve.api import Deployment
 from ray.serve.handle import DeploymentHandle
@@ -35,6 +36,7 @@ from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
 from .utils import utils
+from .api import creds_utils
 from kserve.errors import NoModelReady
 
 DEFAULT_HTTP_PORT = 8080
@@ -111,6 +113,30 @@ parser.add_argument(
     help="The asgi access logging format. It allows to override only the `uvicorn.access`'s format configuration "
     "with a richer set of fields",
 )
+parser.add_argument(
+    "--secure_grpc_server",
+    default=None,
+    type=str,
+    help="Enable gRPC server authentication using SSL for the model server.",
+)
+parser.add_argument(
+    "--ssl_server_key",
+    default=None,
+    type=str,
+    help="File path for SSL server key used for gRPC server authentication.",
+)
+parser.add_argument(
+    "--ssl_server_cert",
+    default=None,
+    type=str,
+    help="File path for SSL server cert used for gRPC server authentication.",
+)
+parser.add_argument(
+    "--ssl_ca_cert",
+    default=None,
+    type=str,
+    help="File path for SSL CA cert used for gRPC server authentication.",
+)
 
 # Model arguments: The arguments are passed to the kserve.Model object
 parser.add_argument(
@@ -169,6 +195,10 @@ class ModelServer:
         enable_docs_url: bool = args.enable_docs_url,
         enable_latency_logging: bool = args.enable_latency_logging,
         access_log_format: str = args.access_log_format,
+        secure_grpc_server: bool = args.secure_grpc_server,
+        server_key: Union[str, bytes] = args.ssl_server_key,
+        server_cert: Union[str, bytes] = args.ssl_server_cert,
+        ca_cert: Union[str, bytes] = args.ssl_ca_cert
     ):
         """KServe ModelServer Constructor
 
@@ -182,6 +212,13 @@ class ModelServer:
             enable_grpc: Whether to turn on grpc server. Default: ``True``
             enable_docs_url: Whether to turn on ``/docs`` Swagger UI. Default: ``False``.
             enable_latency_logging: Whether to log latency metric. Default: ``True``.
+            configure_logging: Whether to configure KServe and Uvicorn logging. Default: ``True``.
+            log_config: File path or dict containing log config. Default: ``None``.
+            access_log_format: Format to set for the access log (provided by asgi-logger). Default: ``None``
+            secure_grpc_server: Whether to enable secure grpc server. Default: ``False``.
+            ssl_server_key: File path or contents to server key for secure grpc SSL server credentials. Default: ``None``.
+            ssl_server_cert: File path or contents to server cert for secure grpc SSL server credentials. Default: ``None``.
+            ssl_ca_cert: File path or contents to CA cert for secure grpc SSL server credentials. Default: ``None``.
             access_log_format: Format to set for the access log (provided by asgi-logger). Default: ``None``.
                                it allows to override only the `uvicorn.access`'s format configuration with a richer
                                set of fields (output hardcoded to `stdout`). This limitation is currently due to the
@@ -206,10 +243,42 @@ class ModelServer:
         )
         self._grpc_server = None
         self._rest_server = None
+        self.secure_grpc_server = secure_grpc_server
+        self.grpc_ssl_key = server_key
+        self.grpc_ssl_cert = server_cert
+        self.grpc_ssl_ca_cert = ca_cert
         if self.enable_grpc:
-            self._grpc_server = GRPCServer(
-                grpc_port, self.dataplane, self.model_repository_extension
-            )
+            if self.secure_grpc_server:
+                server_credentials = []
+                ssl_key = creds_utils.parse_grpc_server_credentials(self.grpc_ssl_key)
+                server_credentials.append(ssl_key)
+                ssl_cert = creds_utils.parse_grpc_server_credentials(self.grpc_ssl_cert)
+                server_credentials.append(ssl_cert)
+                ssl_ca_cert = creds_utils.parse_grpc_server_credentials(self.grpc_ssl_ca_cert)
+                server_credentials.append(ssl_ca_cert)
+                self._grpc_server = GRPCServer(grpc_port, self.dataplane,
+                                               self.model_repository_extension,
+                                               secure_server=self.secure_grpc_server,
+                                               grpc_secure_server_credentials=server_credentials
+                                               )
+            else:
+                self._grpc_server = GRPCServer(grpc_port, self.dataplane,
+                                                self.model_repository_extension)
+
+        if args.configure_logging:
+            # If the logger does not have any handlers, then the logger is not configured.
+            # For backward compatibility, we configure the logger here.
+            if len(logger.handlers) == 0:
+                logging.configure_logging(args.log_config_file)
+        self.access_log_format = access_log_format
+        self._custom_exception_handler = None
+
+    async def start(self, models: Union[List[Model], Dict[str, Deployment]]) -> None:
+        """Start the model server with a set of registered models.
+
+        Args:
+            models: a list of models to register to the model server.
+        """
         if args.configure_logging:
             # If the logger does not have any handlers, then the logger is not configured.
             # For backward compatibility, we configure the logger here.
@@ -322,7 +391,7 @@ class ModelServer:
                 servers.append(self._grpc_server.start(self.max_threads))
             await asyncio.gather(*servers)
 
-        asyncio.run(servers_task())
+        await servers_task()
 
     async def stop(self, sig: Optional[int] = None):
         """Stop the instances of REST and gRPC model servers.
