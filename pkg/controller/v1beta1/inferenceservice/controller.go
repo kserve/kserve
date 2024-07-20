@@ -168,7 +168,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Abort early if the resolved deployment mode is Serverless, but Knative Services are not available
 	if deploymentMode == constants.Serverless {
 		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
-		if err != nil {
+		if checkKsvcErr != nil {
 			return reconcile.Result{}, checkKsvcErr
 		}
 

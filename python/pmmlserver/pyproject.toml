@@ -21,7 +21,7 @@ optional = true
 pytest = "^7.2.0"
 pytest-cov = "^4.0.0"
 mypy = "^0.991"
-pytest-asyncio = "^0.20.3"
+pytest-asyncio = ">=0.23.4, <1.0.0"
 
 [tool.poetry.group.dev]
 optional = true

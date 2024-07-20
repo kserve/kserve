@@ -305,7 +305,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		scenario.isvc.Spec.DeepCopy()
 		scenario.isvc.DefaultInferenceService(scenario.config, scenario.deployConfig)
 
-		g.Expect(*&scenario.isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
+		g.Expect(scenario.isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Predictor.ONNX).To(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Predictor.PMML).To(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Predictor.Paddle).To(gomega.BeNil())

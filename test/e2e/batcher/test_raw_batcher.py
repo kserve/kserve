@@ -11,7 +11,6 @@
 # limitations under the License.
 
 import os
-import json
 from kubernetes import client
 
 from kserve import KServeClient
@@ -24,19 +23,15 @@ from kserve import V1beta1InferenceService
 
 from kubernetes.client import V1ResourceRequirements
 import pytest
-from ..common.utils import predict_str
+from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
-from concurrent import futures
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
-input_file = open("./data/iris_batch_input.json")
-json_array = json.load(input_file)
-
-
 @pytest.mark.raw
-def test_batcher_raw():
+@pytest.mark.asyncio(scope="session")
+async def test_batcher_raw(rest_v1_client):
     service_name = "isvc-raw-sklearn-batcher"
 
     annotations = dict()
@@ -87,11 +82,8 @@ def test_batcher_raw():
         for pod in pods.items:
             print(pod)
         raise e
-    with futures.ThreadPoolExecutor(max_workers=4) as executor:
-        future_res = [
-            executor.submit(lambda: predict_str(service_name, json.dumps(item)))
-            for item in json_array
-        ]
-    results = [f.result()["batchId"] for f in future_res]
+    results = await predict_isvc(
+        rest_v1_client, service_name, "./data/iris_batch_input.json", is_batch=True
+    )
     assert all(x == results[0] for x in results)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

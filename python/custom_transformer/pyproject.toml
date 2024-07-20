@@ -13,7 +13,7 @@ python = ">=3.9,<3.12"
 kserve = {path = "../kserve", develop = true}
 torchvision = {version = "0.15.1+cpu", source = "pytorch"}
 torch = {version = "2.0.0+cpu", source = "pytorch"}
-pillow = "^10.2.0"
+pillow = "^10.3.0"
 
 
 [[tool.poetry.source]]

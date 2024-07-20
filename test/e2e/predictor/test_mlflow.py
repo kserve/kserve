@@ -26,12 +26,13 @@ from kserve import (
 from kubernetes.client import V1ResourceRequirements
 import pytest
 
-from ..common.utils import predict
+from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 @pytest.mark.predictor
-def test_mlflow_v2_runtime_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_mlflow_v2_runtime_kserve(rest_v2_client):
     service_name = "isvc-mlflow-v2-runtime"
     protocol_version = "v2"
 
@@ -64,9 +65,11 @@ def test_mlflow_v2_runtime_kserve():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = predict(
-        service_name, "./data/mlflow_input_v2.json", protocol_version=protocol_version
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/mlflow_input_v2.json",
     )
-    assert res["outputs"][0]["data"] == [5.576883936610762]
+    assert res.outputs[0].data == [5.576883936610762]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

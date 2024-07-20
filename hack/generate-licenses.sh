@@ -12,7 +12,7 @@ mv license.txt third_party/library/license_go.txt
 
 ## Generate a Python License
 # See https://github.com/kubeflow/testing/blob/master/py/kubeflow/testing/python-license-tools/README.md
-pipenv install -e python/alibiexplainer python/kfserving python/sklearnserver python/xgbserver
+pipenv install -e python/kfserving python/sklearnserver python/xgbserver
 python ../testing/py/kubeflow/testing/python-license-tools/pipfile_to_github_repo.py
 # See https://github.com/kubeflow/testing/blob/master/py/kubeflow/testing/go-license-tools/README.md
 python ../testing/py/kubeflow/testing/go-license-tools/get_github_license_info.py --github-api-token-file ~/.github_api_token

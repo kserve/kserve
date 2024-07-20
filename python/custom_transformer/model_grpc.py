@@ -48,6 +48,7 @@ class ImageTransformer(Model):
         self.predictor_host = predictor_host
         self.protocol = protocol
         self.model_name = name
+        self.ready = True
 
     def preprocess(
         self, request: InferRequest, headers: Dict[str, str] = None

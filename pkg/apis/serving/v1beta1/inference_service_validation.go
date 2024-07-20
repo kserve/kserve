@@ -152,7 +152,7 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 				}
 			}
 		}
-		return fmt.Errorf("[%s] is not a supported autoscaler class type.\n", value)
+		return fmt.Errorf("[%s] is not a supported autoscaler class type", value)
 	}
 
 	return nil
@@ -165,7 +165,7 @@ func validateHPAMetrics(metric ScaleMetric) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
+	return fmt.Errorf("[%s] is not a supported metric", metric)
 }
 
 // Validate of autoscaler targetUtilizationPercentage
@@ -174,9 +174,9 @@ func validateAutoscalerTargetUtilizationPercentage(isvc *InferenceService) error
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
 		t, err := strconv.Atoi(value)
 		if err != nil {
-			return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
 		} else if t < 1 || t > 100 {
-			return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
 		}
 	}
 
@@ -198,11 +198,11 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 	if compExtSpec.ScaleTarget != nil {
 		target := *compExtSpec.ScaleTarget
 		if metric == MetricCPU && target < 1 || target > 100 {
-			return fmt.Errorf("The target utilization percentage should be a [1-100] integer.")
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
 		}
 
 		if metric == MetricMemory && target < 1 {
-			return fmt.Errorf("The target memory should be greater than 1 MiB")
+			return fmt.Errorf("the target memory should be greater than 1 MiB")
 		}
 	}
 
@@ -215,7 +215,7 @@ func validateKPAMetrics(metric ScaleMetric) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("[%s] is not a supported metric.\n", metric)
+	return fmt.Errorf("[%s] is not a supported metric", metric)
 }
 
 func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error {

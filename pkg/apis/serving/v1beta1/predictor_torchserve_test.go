@@ -17,18 +17,16 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
 	"testing"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"google.golang.org/protobuf/proto"
-
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestTorchServeValidation(t *testing.T) {
@@ -55,7 +53,7 @@ func TestTorchServeValidation(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeExcludesGPU)),
+			matcher: gomega.MatchError(InvalidPyTorchRuntimeExcludesGPU),
 		},
 		"RejectGpuGpuResourceWithoutGpuRuntime": {
 			spec: PredictorSpec{
@@ -70,7 +68,7 @@ func TestTorchServeValidation(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.MatchError(fmt.Sprintf(InvalidPyTorchRuntimeIncludesGPU)),
+			matcher: gomega.MatchError(InvalidPyTorchRuntimeIncludesGPU),
 		},
 	}
 

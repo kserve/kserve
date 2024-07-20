@@ -579,13 +579,13 @@ const portMatch = `(?::\d{1,5})?`
 // HostRegExp returns an ECMAScript regular expression to match either host or host:<any port>
 // for clusterLocalHost, we will also match the prefixes.
 func HostRegExp(host string) string {
-	localDomainSuffix := ".svc." + network.GetClusterDomainName()
+	localDomainSuffix := "(?i).svc." + network.GetClusterDomainName()
 	if !strings.HasSuffix(host, localDomainSuffix) {
 		return exact(regexp.QuoteMeta(host) + portMatch)
 	}
 	prefix := regexp.QuoteMeta(strings.TrimSuffix(host, localDomainSuffix))
-	clusterSuffix := regexp.QuoteMeta("." + network.GetClusterDomainName())
-	svcSuffix := regexp.QuoteMeta(".svc")
+	clusterSuffix := regexp.QuoteMeta("(?i)." + network.GetClusterDomainName())
+	svcSuffix := regexp.QuoteMeta("(?i).svc")
 	return exact(prefix + optional(svcSuffix+optional(clusterSuffix)) + portMatch)
 }
 

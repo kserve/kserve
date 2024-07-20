@@ -125,14 +125,21 @@ func getAdditionalHosts(domainList *[]string, serviceHost string, config *v1beta
 		// len(subdomain) != 0 means we have found the subdomain.
 		// If the list of the additionalIngressDomains is not empty, we will append the valid host created by the
 		// additional ingress domain.
+		// Deduplicate the domains in the additionalIngressDomains, making sure that the returned additionalHosts
+		// do not have duplicate domains.
+		deduplicateMap := map[string]bool{}
 		for _, domain := range *config.AdditionalIngressDomains {
-			host := fmt.Sprintf("%s%s", subdomain, domain)
-			if err := validation.IsDNS1123Subdomain(host); len(err) > 0 {
-				log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not valid", domain),
-					"Failed to get the valid host name")
-				continue
+			// If the domain is redundant, go to the next element.
+			if !deduplicateMap[domain] {
+				host := fmt.Sprintf("%s%s", subdomain, domain)
+				if err := validation.IsDNS1123Subdomain(host); len(err) > 0 {
+					log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not valid", domain),
+						"Failed to get the valid host name")
+					continue
+				}
+				*additionalHosts = append(*additionalHosts, host)
+				deduplicateMap[domain] = true
 			}
-			*additionalHosts = append(*additionalHosts, host)
 		}
 	}
 }
@@ -307,20 +314,47 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, additionalH
 
 		if additionalHosts != nil && len(*additionalHosts) != 0 {
 			for _, host := range *additionalHosts {
-				matchRequests = append(matchRequests,
-					&istiov1beta1.HTTPMatchRequest{
-						Uri: uri,
-						Authority: &istiov1beta1.StringMatch{
-							MatchType: &istiov1beta1.StringMatch_Regex{
-								Regex: constants.HostRegExp(host),
-							},
+				matchRequest := &istiov1beta1.HTTPMatchRequest{
+					Uri: uri,
+					Authority: &istiov1beta1.StringMatch{
+						MatchType: &istiov1beta1.StringMatch_Regex{
+							Regex: constants.HostRegExp(host),
 						},
-						Gateways: []string{config.IngressGateway},
-					})
+					},
+					Gateways: []string{config.IngressGateway},
+				}
+				if !containsHTTPMatchRequest(matchRequest, matchRequests) {
+					matchRequests = append(matchRequests, matchRequest)
+				}
 			}
 		}
 	}
 	return matchRequests
+}
+
+func containsHTTPMatchRequest(matchRequest *istiov1beta1.HTTPMatchRequest, matchRequests []*istiov1beta1.HTTPMatchRequest) bool {
+	for _, matchRequestEle := range matchRequests {
+		// If authority, gateways and uri are all equal, two HTTPMatchRequests will be equal.
+		if stringMatchEqual(matchRequest.Authority, matchRequestEle.Authority) && gatewaysEqual(matchRequest, matchRequestEle) &&
+			stringMatchEqual(matchRequest.Uri, matchRequestEle.Uri) {
+			return true
+		}
+	}
+	return false
+}
+
+func stringMatchEqual(stringMatch, stringMatchDest *istiov1beta1.StringMatch) bool {
+	if stringMatch != nil && stringMatchDest != nil {
+		return equality.Semantic.DeepEqual(stringMatch.MatchType, stringMatchDest.MatchType)
+	}
+	if stringMatch == nil && stringMatchDest == nil {
+		return true
+	}
+	return false
+}
+
+func gatewaysEqual(matchRequest, matchRequestDest *istiov1beta1.HTTPMatchRequest) bool {
+	return equality.Semantic.DeepEqual(matchRequest.Gateways, matchRequestDest.Gateways)
 }
 
 func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig, domainList *[]string) *istioclientv1beta1.VirtualService {
@@ -497,7 +531,16 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 
 	if !isInternal {
 		// We only append the additional hosts, when the ingress is not internal.
-		hosts = append(hosts, *additionalHosts...)
+		hostMap := map[string]bool{}
+		for _, host := range hosts {
+			hostMap[host] = true
+		}
+
+		for _, additionalHost := range *additionalHosts {
+			if !hostMap[additionalHost] {
+				hosts = append(hosts, additionalHost)
+			}
+		}
 	}
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)

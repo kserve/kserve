@@ -53,12 +53,24 @@ spec:
       version: "1"
       autoSelect: true
       priority: 2
+    - name: xgboost
+      version: "2"
+      autoSelect: true
+      priority: 2
     - name: lightgbm
       version: "3"
       autoSelect: true
       priority: 2
+    - name: lightgbm
+      version: "4"
+      autoSelect: true
+      priority: 2
     - name: mlflow
       version: "1"
+      autoSelect: true
+      priority: 1
+    - name: mlflow
+      version: "2"
       autoSelect: true
       priority: 1
   protocolVersions:

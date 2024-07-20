@@ -65,6 +65,18 @@ def test_no_prefix_local_path():
     assert Storage.download(relative_path) == relative_path
 
 
+def test_local_path_with_out_dir_exist():
+    abs_path = "file:///tmp"
+    out_dir = "/tmp"
+    assert Storage.download(abs_path, out_dir=out_dir) == out_dir
+
+
+def test_local_path_with_out_dir_not_exist():
+    abs_path = "file:///tmp"
+    out_dir = "/tmp/test-abc"
+    assert Storage.download(abs_path, out_dir=out_dir) == out_dir
+
+
 class MockHttpResponse(object):
     def __init__(self, status_code=404, raw=b"", content_type=""):
         self.status_code = status_code
