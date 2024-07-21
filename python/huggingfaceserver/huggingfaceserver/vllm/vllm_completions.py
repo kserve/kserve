@@ -134,17 +134,17 @@ class OpenAIServingCompletion:
 
             for i, prompt in enumerate(prompts):
                 if prompt_is_tokens:
-                    input_ids = self._validate_prompt_and_tokenize(
+                    input_ids, prompt_text = self._validate_prompt_and_tokenize(
                         request, prompt_ids=prompt
                     )
                 else:
-                    input_ids = self._validate_prompt_and_tokenize(
+                    input_ids, prompt_text = self._validate_prompt_and_tokenize(
                         request, prompt=prompt
                     )
 
                 generators.append(
                     self.engine.generate(
-                        {"prompt": prompt, "prompt_token_ids": input_ids},
+                        {"prompt": prompt_text, "prompt_token_ids": input_ids},
                         sampling_params,
                         f"{request_id}-{i}",
                     )
@@ -215,7 +215,9 @@ class OpenAIServingCompletion:
                         # echo the prompt and first token
                         delta_text = res.prompt + output.text
                         delta_token_ids = res.prompt_token_ids + output.token_ids
-                        top_logprobs = res.prompt_logprobs + (output.logprobs or [])
+                        top_logprobs = (res.prompt_logprobs or []) + (
+                            output.logprobs or []
+                        )
                         has_echoed[i] = True
                     else:
                         # return just the delta
@@ -356,6 +358,7 @@ class OpenAIServingCompletion:
             engine_model_config.tokenizer,
             tokenizer_mode=engine_model_config.tokenizer_mode,
             trust_remote_code=engine_model_config.trust_remote_code,
+            revision=engine_model_config.tokenizer_revision,
         )
 
     def _validate_prompt_and_tokenize(
@@ -363,7 +366,7 @@ class OpenAIServingCompletion:
         request: Union[CreateCompletionRequest],
         prompt: Optional[str] = None,
         prompt_ids: Optional[List[int]] = None,
-    ) -> List[int]:
+    ) -> Tuple[List[int], str]:
         if not (prompt or prompt_ids):
             raise InvalidInput("Either prompt or prompt_ids should be provided.")
         if prompt and prompt_ids:
@@ -373,6 +376,7 @@ class OpenAIServingCompletion:
             prompt_ids if prompt_ids is not None else self.tokenizer(prompt).input_ids
         )
         token_num = len(input_ids)
+        input_text = prompt if prompt is not None else self.tokenizer.decode(prompt_ids)
 
         if request.max_tokens is None:
             request.max_tokens = self.max_model_len - token_num
@@ -387,39 +391,62 @@ class OpenAIServingCompletion:
                 f"Please reduce the length of the messages or completion.",
             )
         else:
-            return input_ids
+            return input_ids, input_text
+
+    def _get_decoded_token(self, logprob: Logprob, token_id: int) -> str:
+        if logprob.decoded_token is not None:
+            return logprob.decoded_token
+        return self.tokenizer.decode(token_id)
 
     def _create_logprobs(
         self,
         token_ids: List[int],
-        top_logprobs: Optional[List[Optional[Dict[int, Logprob]]]] = None,
-        num_output_top_logprobs: Optional[int] = None,
+        top_logprobs: List[Optional[Dict[int, Logprob]]],
+        num_output_top_logprobs: int,
         initial_text_offset: int = 0,
     ) -> Logprobs:
         """Create OpenAI-style logprobs."""
-        logprobs = Logprobs(text_offset=[], tokens=[], token_logprobs=[])
+        logprobs = Logprobs(
+            text_offset=[],
+            token_logprobs=[],
+            tokens=[],
+            top_logprobs=[],
+        )
+
         last_token_len = 0
-        if num_output_top_logprobs:
-            logprobs.top_logprobs = []
+
         for i, token_id in enumerate(token_ids):
             step_top_logprobs = top_logprobs[i]
-            if step_top_logprobs is not None:
-                token_logprob = step_top_logprobs[token_id].logprob
-                token = step_top_logprobs[token_id].decoded_token
+            if step_top_logprobs is None:
+                token = self.tokenizer.decode(token_id)
                 logprobs.tokens.append(token)
-                last_token_len = len(token)
+                logprobs.token_logprobs.append(None)
+                logprobs.top_logprobs.append(None)
             else:
-                token_logprob = None
-            logprobs.token_logprobs.append(token_logprob)
+                token = self._get_decoded_token(step_top_logprobs[token_id], token_id)
+                token_logprob = max(step_top_logprobs[token_id].logprob, -9999.0)
+                logprobs.tokens.append(token)
+                logprobs.token_logprobs.append(token_logprob)
+
+                # makes sure to add the top num_output_top_logprobs + 1
+                # logprobs, as defined in the openai API
+                # (cf. https://github.com/openai/openai-openapi/blob/893ba52242dbd5387a97b96444ee1c742cfce9bd/openapi.yaml#L7153)
+                logprobs.top_logprobs.append(
+                    {
+                        # Convert float("-inf") to the
+                        # JSON-serializable float that OpenAI uses
+                        self._get_decoded_token(top_lp[1], top_lp[0]): max(
+                            top_lp[1].logprob, -9999.0
+                        )
+                        for i, top_lp in enumerate(step_top_logprobs.items())
+                        if num_output_top_logprobs >= i
+                    }
+                )
+
             if len(logprobs.text_offset) == 0:
                 logprobs.text_offset.append(initial_text_offset)
             else:
                 logprobs.text_offset.append(logprobs.text_offset[-1] + last_token_len)
+            last_token_len = len(token)
 
-            if num_output_top_logprobs:
-                logprobs.top_logprobs.append(
-                    {p.decoded_token: p.logprob for i, p in step_top_logprobs.items()}
-                    if step_top_logprobs
-                    else None
-                )
         return logprobs
