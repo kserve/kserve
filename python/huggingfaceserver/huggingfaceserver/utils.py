@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import torch
+
 from transformers import PretrainedConfig
 from typing import Optional
 from kserve.logging import logger
@@ -121,3 +123,26 @@ def _get_and_verify_max_len(
                 "value is correct and within the model context size."
             )
     return int(max_model_len)
+
+
+def to_hf_dtype(dtype: str) -> Optional[torch.dtype]:
+    """
+    Convert a string representation of a data type to a huggingface data type.
+
+    Args:
+        dtype (str): The string representation of the data type to convert. Supported
+        values include 'float32', 'float16', 'bfloat16', 'half', and 'float'.
+
+    Returns:
+        Optional[torch.dtype]: The corresponding PyTorch data type if the input string
+        is recognized; otherwise, `None`.
+
+    """
+    hf_dtype_map = {
+        "float32": torch.float32,
+        "float16": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "half": torch.float16,
+        "float": torch.float32,
+    }
+    return hf_dtype_map.get(dtype, None)
