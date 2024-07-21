@@ -139,3 +139,26 @@ def _mean_pooling(token_embeddings, attention_mask):
     return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(
         input_mask_expanded.sum(1), min=1e-9
     )
+
+
+def to_hf_dtype(dtype: str) -> Optional[torch.dtype]:
+    """
+    Convert a string representation of a data type to a huggingface data type.
+
+    Args:
+        dtype (str): The string representation of the data type to convert. Supported
+        values include 'float32', 'float16', 'bfloat16', 'half', and 'float'.
+
+    Returns:
+        Optional[torch.dtype]: The corresponding PyTorch data type if the input string
+        is recognized; otherwise, `None`.
+
+    """
+    hf_dtype_map = {
+        "float32": torch.float32,
+        "float16": torch.float16,
+        "bfloat16": torch.bfloat16,
+        "half": torch.float16,
+        "float": torch.float32,
+    }
+    return hf_dtype_map.get(dtype, None)

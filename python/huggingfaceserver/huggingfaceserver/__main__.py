@@ -19,6 +19,7 @@ from typing import cast
 import torch
 import kserve
 from huggingfaceserver.request_logger import RequestLogger
+from huggingfaceserver.utils import to_hf_dtype
 from kserve import logging
 from kserve.logging import logger
 from kserve.model import PredictorConfig
@@ -30,8 +31,10 @@ from huggingfaceserver.task import (
     MLTask,
     infer_task_from_model_architecture,
     is_generative_task,
-    SUPPORTED_TASKS,
+    verify_task,
 )
+from kserve.triton.triton_configuration import TritonOptions
+from kserve.triton.utils import maybe_add_triton_cli_parser
 
 from . import (
     HuggingfaceGenerativeModel,
@@ -44,13 +47,16 @@ from .vllm.utils import (
     maybe_add_vllm_cli_parser,
     vllm_available,
 )
+from .triton.utils import is_triton_available
 
 
 def list_of_strings(arg):
     return arg.split(",")
 
 
-parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
+parser = argparse.ArgumentParser(
+    "huggingfaceserver", parents=[kserve.model_server.parser]
+)
 
 parser.add_argument(
     "--model_dir",
@@ -134,6 +140,7 @@ parser.add_argument(
     "\n\nDefault: Unlimited",
 )
 parser = maybe_add_vllm_cli_parser(parser)
+parser = maybe_add_triton_cli_parser(parser)
 
 default_dtype = "float16" if torch.cuda.is_available() else "float32"
 if not vllm_available():
@@ -176,6 +183,10 @@ def load_model():
 
     if args.backend == Backend.vllm and not vllm_available():
         raise RuntimeError("Backend is set to 'vllm' but vLLM is not available")
+    elif args.backend == Backend.triton and not is_triton_available():
+        raise RuntimeError(
+            "Backend is set to 'triton' but tritonserver is not available"
+        )
 
     if (
         (args.backend == Backend.vllm or args.backend == Backend.auto)
@@ -191,42 +202,68 @@ def load_model():
         args.revision = args.model_revision
         engine_args = build_vllm_engine_args(args)
         model = VLLMModel(args.model_name, engine_args, request_logger=request_logger)
+    elif args.backend == Backend.triton and is_triton_available():
+        from .triton.triton_encoder_model import TritonEncoderModel
 
-    else:
         kwargs = vars(args)
-        hf_dtype_map = {
-            "float32": torch.float32,
-            "float16": torch.float16,
-            "bfloat16": torch.bfloat16,
-            "half": torch.float16,
-            "float": torch.float32,
-        }
-
         model_config = AutoConfig.from_pretrained(
             str(model_id_or_path),
             revision=kwargs.get("model_revision", None),
             trust_remote_code=kwargs.get("trust_remote_code", False),
         )
         if kwargs.get("task", None):
-            try:
-                task = MLTask[kwargs["task"]]
-                if task not in SUPPORTED_TASKS:
-                    raise ValueError(f"Task not supported: {task.name}")
-            except (KeyError, ValueError):
-                tasks_str = ", ".join(t.name for t in SUPPORTED_TASKS)
-                raise ValueError(
-                    f"Unsupported task: {kwargs['task']}. "
-                    f"Currently supported tasks are: {tasks_str}"
-                )
+            verify_task(kwargs["task"])
+            task = MLTask[kwargs["task"]]
+        else:
+            task = infer_task_from_model_architecture(model_config)
+        # Convert dtype from string to torch dtype. Default to float32
+        dtype = kwargs.get("dtype", default_dtype)
+        dtype = to_hf_dtype(dtype)
+
+        if not is_generative_task(task):
+            logger.info(f"Loading encoder model for task '{task.name}' in {dtype}")
+            encoder_model = HuggingfaceEncoderModel(
+                model_name=args.model_name,
+                model_id_or_path=model_id_or_path,
+                task=task,
+                model_config=model_config,
+                model_revision=kwargs.get("model_revision", None),
+                tokenizer_revision=kwargs.get("tokenizer_revision", None),
+                do_lower_case=not kwargs.get("disable_lower_case", False),
+                add_special_tokens=not kwargs.get("disable_special_tokens", False),
+                max_length=kwargs["max_length"],
+                dtype=dtype,
+                trust_remote_code=kwargs["trust_remote_code"],
+                tensor_input_names=kwargs.get("tensor_input_names", None),
+                return_token_type_ids=kwargs.get("return_token_type_ids", None),
+            )
+            model = TritonEncoderModel(
+                encoder_model=encoder_model,
+                triton_options=TritonOptions.from_cli_args(args),
+            )
+
+        else:
+            # TODO: Implement TritonGenerativeModel using Tensorrt-llm
+            raise RuntimeError("Triton backend does not support generative models")
+
+    else:
+        kwargs = vars(args)
+        model_config = AutoConfig.from_pretrained(
+            str(model_id_or_path),
+            revision=kwargs.get("model_revision", None),
+            trust_remote_code=kwargs.get("trust_remote_code", False),
+        )
+        if kwargs.get("task", None):
+            verify_task(kwargs["task"])
+            task = MLTask[kwargs["task"]]
         else:
             task = infer_task_from_model_architecture(model_config)
 
         if is_generative_task(task):
             # Convert dtype from string to torch dtype. Default to float16
             dtype = kwargs.get("dtype", default_dtype)
-            dtype = hf_dtype_map[dtype]
+            dtype = to_hf_dtype(dtype)
             logger.debug(f"Loading model in {dtype}")
-
             logger.info(f"Loading generative model for task '{task.name}' in {dtype}")
 
             model = HuggingfaceGenerativeModel(
@@ -245,7 +282,7 @@ def load_model():
         else:
             # Convert dtype from string to torch dtype. Default to float32
             dtype = kwargs.get("dtype", default_dtype)
-            dtype = hf_dtype_map[dtype]
+            dtype = to_hf_dtype(dtype)
 
             predictor_config = PredictorConfig(
                 args.predictor_host,

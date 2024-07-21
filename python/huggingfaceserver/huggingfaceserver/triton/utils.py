@@ -1,4 +1,4 @@
-# Copyright 2023 The KServe Authors.
+# Copyright 2024 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,23 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum, auto as auto_value
-from .encoder_model import HuggingfaceEncoderModel
-from .generative_model import HuggingfaceGenerativeModel
+try:
+    import tritonserver  # noqa: F401
+
+    _triton_available = True
+except ImportError:
+    _triton_available = False
 
 
-class Backend(str, Enum):
-    """
-    Backend defines the framework used to load a model
-    """
-
-    auto = auto_value()
-    huggingface = auto_value()
-    vllm = auto_value()
-    triton = auto_value()
-
-
-__all__ = [
-    "HuggingfaceGenerativeModel",
-    "HuggingfaceEncoderModel",
-]
+def is_triton_available() -> bool:
+    return _triton_available

@@ -16,15 +16,10 @@ transformers = "~4.43.3"
 accelerate = "~0.32.0"
 torch = "~2.4.0"
 vllm = { version = "^0.6.0", optional = true }
-tritonserver = { url = "https://github.com/triton-inference-server/tutorials/raw/r24.04/Triton_Inference_Server_Python_API/deps/tritonserver-2.41.0.dev0-py3-none-any.whl", optional = true, extras = ["gpu"] }
 
 [tool.poetry.extras]
 vllm = [
     "vllm",
-]
-
-triton = [
-    "tritonserver",
 ]
 
 [tool.poetry.group.test]

@@ -271,7 +271,10 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         request = context["payload"]
         if isinstance(outputs, InferResponse):
             shape = torch.Size(outputs.outputs[0].shape)
-            data = torch.Tensor(outputs.outputs[0].data)
+            if outputs.outputs[0]._raw_data is not None:
+                data = torch.tensor(outputs.outputs[0].as_numpy())
+            else:
+                data = torch.Tensor(outputs.outputs[0].data)
             outputs = data.view(shape)
             input_ids = torch.Tensor(input_ids)
         inferences = []

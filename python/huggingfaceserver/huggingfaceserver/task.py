@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from enum import Enum, auto
-from typing import Type
+from typing import Type, Union
 
 from transformers import (
     AutoModel,
@@ -102,12 +102,35 @@ def infer_task_from_model_architecture(
         raise ValueError(
             f"Task couldn't be inferred from {architecture}. Please manually set `task` option. "
         )
-    elif task not in SUPPORTED_TASKS:
+    else:
+        verify_task(task)
+    return task
+
+
+def verify_task(task: Union[str, MLTask]):
+    """
+    Verifies if the given task is supported.
+
+    This function checks if the provided task, which can be a string or an MLTask enum,
+    is among the supported tasks.
+
+    Args:
+        task (Union[str, MLTask]): The task to verify, either as a string or as an MLTask enum.
+
+    Raises:
+        ValueError: If the task is not supported, with a message listing all supported tasks.
+    """
+    try:
+        if not isinstance(task, MLTask):
+            task = MLTask[task]
+        if task not in SUPPORTED_TASKS:
+            raise ValueError(f"Task not supported: {task.name}")
+    except (KeyError, ValueError):
         tasks_str = ", ".join(t.name for t in SUPPORTED_TASKS)
         raise ValueError(
-            f"Task {task.name} is not supported. Currently supported tasks are: {tasks_str}."
+            f"Unsupported task: {task.name}. "
+            f"Currently supported tasks are: {tasks_str}"
         )
-    return task
 
 
 def is_generative_task(task: MLTask) -> bool:
