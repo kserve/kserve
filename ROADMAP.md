@@ -18,6 +18,11 @@
    * Community maintained Open Inference Protocol repo for OpenAI schema.
    * Support verical GenAI Task APIs such as embedding, Text-to-Image, Text-To-Code, Doc-To-Text.
 
+- LLM Gateway
+   * Support multiple LLM providers.
+   * Support token based rating limiting.
+   * Support LLM router with traffic shaping, fallback, load balancing.
+
 ## Objective: "Graduate core inference capability to stable/GA"
 - Promote `InferenceService` and `ClusterServingRuntime`/`ServingRuntime` CRD to v1
   * Improve `InferenceService` CRD for REST/gRPC protocol interface
