@@ -441,7 +441,7 @@ spec:
     - name: huggingface
       version: "1"
       autoSelect: true
-      priority: 1
+      priority: 2
   protocolVersions:
     - v1
     - v2
@@ -450,6 +450,37 @@ spec:
       image: "{{ .Values.kserve.servingruntime.huggingfaceserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceserver.tag }}"
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-huggingface-triton-server
+spec:
+  annotations:
+    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: huggingface
+      version: "1"
+      autoSelect: true
+      priority: 1
+  protocolVersions:
+    - v1
+    - v2
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.huggingface-triton-server.image }}:{{ .Values.kserve.servingruntime.huggingface-triton-server.tag }}"
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --model_dir=/mnt/models
+        - --log_error
       securityContext:
           {{- with .Values.kserve.servingruntime.huggingfaceserver.securityContext}}
           {{- toYaml . | nindent 10 }}

@@ -1,7 +1,7 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
-  name: kserve-huggingfaceserver
+  name: kserve-huggingface-triton-server
 spec:
   annotations:
     prometheus.kserve.io/port: '8080'
@@ -10,22 +10,17 @@ spec:
     - name: huggingface
       version: "1"
       autoSelect: true
-      priority: 2
+      priority: 1
   protocolVersions:
     - v2
     - v1
   containers:
     - name: kserve-container
-      image: huggingfaceserver:replace
+      image: huggingface-triton-server:replace
       args:
         - --model_name={{.Name}}
-      securityContext:
-        allowPrivilegeEscalation: false
-        privileged: false
-        runAsNonRoot: true
-        capabilities:
-          drop:
-            - ALL
+        - --model_dir=/mnt/models
+        - --log_error
       resources:
         requests:
           cpu: "1"
@@ -33,10 +28,3 @@ spec:
         limits:
           cpu: "1"
           memory: 2Gi
-      volumeMounts:
-        - name: devshm
-          mountPath: /dev/shm
-  volumes:
-    - name: devshm
-      emptyDir:
-        medium: Memory

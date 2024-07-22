@@ -318,6 +318,20 @@ kserve:
       devShm:
         enabled: false
         sizeLimit: ""
+    huggingface-triton-server:
+        image: kserve/huggingface-triton-server
+        tag: *defaultVersion
+        imagePullSecrets: [ ]
+        securityContext:
+          allowPrivilegeEscalation: false
+          privileged: false
+          runAsNonRoot: true
+          capabilities:
+            drop:
+              - ALL
+        devShm:
+          enabled: false
+          sizeLimit: ""
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3
