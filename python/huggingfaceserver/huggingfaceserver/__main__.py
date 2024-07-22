@@ -32,12 +32,12 @@ from huggingfaceserver.task import (
     SUPPORTED_TASKS,
 )
 
-from . import (
+from huggingfaceserver import (
     HuggingfaceGenerativeModel,
     HuggingfaceEncoderModel,
     Backend,
 )
-from .vllm.utils import (
+from huggingfaceserver.vllm.utils import (
     build_vllm_engine_args,
     infer_vllm_supported_from_model_architecture,
     maybe_add_vllm_cli_parser,

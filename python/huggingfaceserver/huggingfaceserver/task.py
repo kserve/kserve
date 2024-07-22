@@ -25,6 +25,7 @@ from transformers import (
     AutoModelForSequenceClassification,
     AutoModelForTableQuestionAnswering,
     AutoModelForTokenClassification,
+    AutoModelForDocumentQuestionAnswering,
     PretrainedConfig,
 )
 
@@ -35,6 +36,7 @@ class MLTask(str, Enum):
     """
 
     table_question_answering = auto()
+    document_question_answering = auto()
     question_answering = auto()
     token_classification = auto()
     sequence_classification = auto()
@@ -74,6 +76,7 @@ TASK_2_CLS = {
     MLTask.text_generation: AutoModelForCausalLM,
     MLTask.text2text_generation: AutoModelForSeq2SeqLM,
     MLTask.multiple_choice: AutoModelForMultipleChoice,
+    MLTask.document_question_answering: AutoModelForDocumentQuestionAnswering,
 }
 
 SUPPORTED_TASKS = {
@@ -82,13 +85,19 @@ SUPPORTED_TASKS = {
     MLTask.fill_mask,
     MLTask.text_generation,
     MLTask.text2text_generation,
+    MLTask.document_question_answering,
 }
 
 
 def infer_task_from_model_architecture(
     model_config: PretrainedConfig,
 ) -> MLTask:
-    architecture = model_config.architectures[0]
+    if model_config.architectures is not None and len(model_config.architectures) > 0:
+        architecture = model_config.architectures[0]
+    else:
+        raise ValueError(
+            f"Task couldn't be inferred from PretrainedConfig. Please manually set `task` option. "
+        )
     task = None
     for arch_options in ARCHITECTURES_2_TASK:
         if architecture.endswith(arch_options):
