@@ -1,9 +1,9 @@
 ARG PYTHON_VERSION=3.11
-ARG JAVA_VERSION=11
-ARG BASE_IMAGE=openjdk:${JAVA_VERSION}-slim
+ARG JAVA_VERSION=21
+ARG BASE_IMAGE=openjdk:${JAVA_VERSION}-slim-bookworm
 ARG VENV_PATH=/prod_venv
 
-FROM ${BASE_IMAGE} as builder
+FROM ${BASE_IMAGE} AS builder
 
 ARG PYTHON_VERSION
 # Install python
@@ -36,7 +36,7 @@ COPY pmmlserver pmmlserver
 RUN cd pmmlserver && poetry install --no-interaction --no-cache
 
 
-FROM ${BASE_IMAGE} as prod
+FROM ${BASE_IMAGE} AS prod
 
 COPY third_party third_party
 
