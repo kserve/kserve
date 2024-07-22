@@ -6,7 +6,7 @@ FROM ${BASE_IMAGE} as builder
 
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.7.1
+ARG POETRY_VERSION=1.8.3
 
 # Install vllm
 ARG VLLM_VERSION=0.4.3

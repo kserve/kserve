@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y gcc python3-dev && apt-get clean && \
 
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.7.1
+ARG POETRY_VERSION=1.8.3
 
 RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
 ENV PATH="$PATH:${POETRY_HOME}/bin"

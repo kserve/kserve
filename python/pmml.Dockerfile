@@ -1,6 +1,6 @@
 ARG PYTHON_VERSION=3.11
 ARG JAVA_VERSION=11
-ARG BASE_IMAGE=openjdk:${JAVA_VERSION}-bookworm
+ARG BASE_IMAGE=openjdk:${JAVA_VERSION}-slim
 ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} as builder
@@ -14,7 +14,7 @@ RUN apt-get update && \
 
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.7.1
+ARG POETRY_VERSION=1.8.3
 
 RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
 ENV PATH="$PATH:${POETRY_HOME}/bin"
