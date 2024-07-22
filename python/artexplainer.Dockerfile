@@ -2,7 +2,7 @@ ARG PYTHON_VERSION=3.11
 ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim-bookworm
 ARG VENV_PATH=/prod_venv
 
-FROM ${BASE_IMAGE} as builder
+FROM ${BASE_IMAGE} AS builder
 
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
@@ -32,7 +32,7 @@ COPY artexplainer artexplainer
 RUN cd artexplainer && poetry install --no-interaction --no-cache
 
 
-FROM ${BASE_IMAGE} as prod
+FROM ${BASE_IMAGE} AS prod
 
 COPY third_party third_party
 
