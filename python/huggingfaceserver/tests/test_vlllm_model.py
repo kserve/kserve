@@ -23,6 +23,7 @@ from vllm.config import ModelConfig
 from huggingfaceserver.vllm.vllm_completions import OpenAIServingCompletion
 from huggingfaceserver.vllm.vllm_model import VLLMModel
 from kserve.errors import InvalidInput
+from kserve.logging import logger
 from kserve.protocol.rest.openai import ChatCompletionRequest, CompletionRequest
 from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai.types import (
@@ -112,8 +113,16 @@ def compare_response_to_expected(actual, expected, fields_to_compare=None) -> bo
     for field in fields_to_compare:
         if field == "created":
             if not isinstance(getattr(actual, field), int):
+                logger.error(
+                    "expected: %s\n  got: %s", "int", type(getattr(actual, field))
+                )
                 return False
         elif not getattr(actual, field) == getattr(expected, field):
+            logger.error(
+                "expected: %s\n  got: %s",
+                getattr(expected, field),
+                getattr(actual, field),
+            )
             return False
     return True
 
@@ -1074,128 +1083,121 @@ class TestCompletions:
             assert isinstance(resp.created, int)
         assert completion == "- Labrador! He has tiny ears with fluffy white"
 
-    # FixMe: text_offset calculation is wrong for non steam completions
-    # async def test_vllm_completion_facebook_opt_model_with_logprobs(
-    #     self, vllm_opt_model
-    # ):
-    #     opt_model, mock_vllm_engine = vllm_opt_model
-    #     request_id = "cmpl-d771287a234c44498e345f0a429d6691"
-    #
-    #     async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-    #         for cmpl_chunk in opt_cmpl_chunks_with_logprobs:
-    #             cmpl_chunk.request_id = args[2]
-    #             yield cmpl_chunk
-    #
-    #     mock_vllm_engine.generate = mock_generate
-    #
-    #     prompt = "Hi, I love my cat"
-    #     params = CreateCompletionRequest(
-    #         model="opt-125m",
-    #         prompt=prompt,
-    #         stream=False,
-    #         max_tokens=10,
-    #         logprobs=2,
-    #     )
-    #     request = CompletionRequest(request_id=request_id, params=params, context={})
-    #     response = await opt_model.create_completion(request)
-    #     expected = CreateCompletionResponse(
-    #         id=request_id,
-    #         choices=[
-    #             CompletionChoice(
-    #                 finish_reason="length",
-    #                 index=0,
-    #                 logprobs=Logprobs(
-    #                     text_offset=[0, 1, 10, 11, 14, 18, 23, 28, 33, 40],
-    #                     token_logprobs=[
-    #                         -5.968788146972656,
-    #                         -11.009231567382812,
-    #                         -3.1531941890716553,
-    #                         -1.4167277812957764,
-    #                         -2.766524314880371,
-    #                         -6.9396467208862305,
-    #                         -1.3619931936264038,
-    #                         -4.619960308074951,
-    #                         -5.6248779296875,
-    #                         -2.2152767181396484,
-    #                     ],
-    #                     tokens=[
-    #                         "-",
-    #                         " Labrador",
-    #                         "!",
-    #                         " He",
-    #                         " has",
-    #                         " tiny",
-    #                         " ears",
-    #                         " with",
-    #                         " fluffy",
-    #                         " white",
-    #                     ],
-    #                     top_logprobs=[
-    #                         {
-    #                             "-": -5.968788146972656,
-    #                             ".": -1.4537553787231445,
-    #                             ",": -1.8416948318481445,
-    #                         },
-    #                         {
-    #                             " Labrador": -11.009231567382812,
-    #                             " I": -1.754422903060913,
-    #                             " she": -3.075488328933716,
-    #                         },
-    #                         {
-    #                             "!": -3.1531941890716553,
-    #                             " mix": -1.0394361019134521,
-    #                             ".": -2.1872146129608154,
-    #                         },
-    #                         {" He": -1.4167277812957764, "\n": -2.0672662258148193},
-    #                         {
-    #                             " has": -2.766524314880371,
-    #                             "'s": -1.0847474336624146,
-    #                             " is": -1.547521710395813,
-    #                         },
-    #                         {
-    #                             " tiny": -6.9396467208862305,
-    #                             " a": -1.3877270221710205,
-    #                             " been": -2.3109371662139893,
-    #                         },
-    #                         {
-    #                             " ears": -1.3619931936264038,
-    #                             " paws": -2.2743258476257324,
-    #                         },
-    #                         {
-    #                             " with": -4.619960308074951,
-    #                             " and": -0.805719792842865,
-    #                             ",": -1.6155686378479004,
-    #                         },
-    #                         {
-    #                             " fluffy": -5.6248779296875,
-    #                             " a": -1.4977400302886963,
-    #                             " tiny": -3.006150484085083,
-    #                         },
-    #                         {
-    #                             " white": -2.2152767181396484,
-    #                             " fur": -1.9012728929519653,
-    #                         },
-    #                     ],
-    #                 ),
-    #                 text="- Labrador! He has tiny ears with fluffy white",
-    #             )
-    #         ],
-    #         created=1719569921,
-    #         model="opt-125m",
-    #         system_fingerprint=None,
-    #         object="text_completion",
-    #         usage=CompletionUsage(
-    #             completion_tokens=10, prompt_tokens=7, total_tokens=17
-    #         ),
-    #     )
-    #
-    #     assert response.id == expected.id
-    #     assert response.choices == expected.choices
-    #     assert response.system_fingerprint == expected.system_fingerprint
-    #     assert response.object == expected.object
-    #     assert response.usage == expected.usage
-    #     assert response.model == expected.model
-    #     assert isinstance(response.created, int)
+    async def test_vllm_completion_facebook_opt_model_with_logprobs(
+        self, vllm_opt_model
+    ):
+        opt_model, mock_vllm_engine = vllm_opt_model
+        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
+
+        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
+            for cmpl_chunk in opt_cmpl_chunks_with_logprobs:
+                cmpl_chunk.request_id = args[2]
+                yield cmpl_chunk
+
+        mock_vllm_engine.generate = mock_generate
+
+        prompt = "Hi, I love my cat"
+        params = CreateCompletionRequest(
+            model="opt-125m",
+            prompt=prompt,
+            stream=False,
+            max_tokens=10,
+            logprobs=2,
+        )
+        request = CompletionRequest(request_id=request_id, params=params, context={})
+        response = await opt_model.create_completion(request)
+        expected = CreateCompletionResponse(
+            id=request_id,
+            choices=[
+                CompletionChoice(
+                    finish_reason="length",
+                    index=0,
+                    logprobs=Logprobs(
+                        text_offset=[0, 1, 10, 11, 14, 18, 23, 28, 33, 40],
+                        token_logprobs=[
+                            -5.968788146972656,
+                            -11.009231567382812,
+                            -3.1531941890716553,
+                            -1.4167277812957764,
+                            -2.766524314880371,
+                            -6.9396467208862305,
+                            -1.3619931936264038,
+                            -4.619960308074951,
+                            -5.6248779296875,
+                            -2.2152767181396484,
+                        ],
+                        tokens=[
+                            "-",
+                            " Labrador",
+                            "!",
+                            " He",
+                            " has",
+                            " tiny",
+                            " ears",
+                            " with",
+                            " fluffy",
+                            " white",
+                        ],
+                        top_logprobs=[
+                            {
+                                "-": -5.968788146972656,
+                                ".": -1.4537553787231445,
+                                ",": -1.8416948318481445,
+                            },
+                            {
+                                " Labrador": -11.009231567382812,
+                                " I": -1.754422903060913,
+                                " she": -3.075488328933716,
+                            },
+                            {
+                                "!": -3.1531941890716553,
+                                " mix": -1.0394361019134521,
+                                ".": -2.1872146129608154,
+                            },
+                            {" He": -1.4167277812957764, "\n": -2.0672662258148193},
+                            {
+                                " has": -2.766524314880371,
+                                "'s": -1.0847474336624146,
+                                " is": -1.547521710395813,
+                            },
+                            {
+                                " tiny": -6.9396467208862305,
+                                " a": -1.3877270221710205,
+                                " been": -2.3109371662139893,
+                            },
+                            {
+                                " ears": -1.3619931936264038,
+                                " paws": -2.2743258476257324,
+                            },
+                            {
+                                " with": -4.619960308074951,
+                                " and": -0.805719792842865,
+                                ",": -1.6155686378479004,
+                            },
+                            {
+                                " fluffy": -5.6248779296875,
+                                " a": -1.4977400302886963,
+                                " tiny": -3.006150484085083,
+                            },
+                            {
+                                " white": -2.2152767181396484,
+                                " fur": -1.9012728929519653,
+                            },
+                        ],
+                    ),
+                    text="- Labrador! He has tiny ears with fluffy white",
+                )
+            ],
+            created=1719569921,
+            model="opt-125m",
+            system_fingerprint=None,
+            object="text_completion",
+            usage=CompletionUsage(
+                completion_tokens=10, prompt_tokens=7, total_tokens=17
+            ),
+        )
+
+        assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_completion_facebook_opt_model_with_logprobs_stream(
         self, vllm_opt_model
@@ -1348,40 +1350,44 @@ class TestCompletions:
         )
         assert compare_response_to_expected(response, expected) is True
 
-    # FixMe: completion with echo true and stream fails
-    # async def test_vllm_completion_facebook_opt_model_with_echo_stream(self, vllm_opt_model):
-    #     opt_model, mock_vllm_engine = vllm_opt_model
-    #     request_id = "cmpl-d771287a234c44498e345f0a429d6691"
-    #     model_name = "opt-125m"
-    #
-    #     async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-    #         for cmpl_chunk in opt_cmpl_chunks:
-    #             cmpl_chunk.request_id = args[2]
-    #             yield cmpl_chunk
-    #
-    #     mock_vllm_engine.generate = mock_generate
-    #
-    #     prompt = "Hi, I love my cat"
-    #     params = CreateCompletionRequest(
-    #         model=model_name,
-    #         prompt=prompt,
-    #         stream=True,
-    #         max_tokens=10,
-    #         echo=True,
-    #     )
-    #     request = CompletionRequest(request_id=request_id, params=params, context={})
-    #     response_iterator = await opt_model.create_completion(request)
-    #     completion = ""
-    #     async for resp in response_iterator:
-    #         assert resp.id == request_id
-    #         completion += resp.choices[0].text
-    #         assert len(resp.choices) == 1
-    #         assert resp.choices[0].logprobs is None
-    #         assert resp.model == model_name
-    #         assert resp.object == "text_completion"
-    #         assert resp.system_fingerprint is None
-    #         assert isinstance(resp.created, int)
-    #     assert completion == "Hi, I love my cat- Labrador! He has tiny ears with fluffy white"
+    async def test_vllm_completion_facebook_opt_model_with_echo_stream(
+        self, vllm_opt_model
+    ):
+        opt_model, mock_vllm_engine = vllm_opt_model
+        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
+        model_name = "opt-125m"
+
+        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
+            for cmpl_chunk in opt_cmpl_chunks:
+                cmpl_chunk.request_id = args[2]
+                yield cmpl_chunk
+
+        mock_vllm_engine.generate = mock_generate
+
+        prompt = "Hi, I love my cat"
+        params = CreateCompletionRequest(
+            model=model_name,
+            prompt=prompt,
+            stream=True,
+            max_tokens=10,
+            echo=True,
+        )
+        request = CompletionRequest(request_id=request_id, params=params, context={})
+        response_iterator = await opt_model.create_completion(request)
+        completion = ""
+        async for resp in response_iterator:
+            assert resp.id == request_id
+            completion += resp.choices[0].text
+            assert len(resp.choices) == 1
+            assert resp.choices[0].logprobs is None
+            assert resp.model == model_name
+            assert resp.object == "text_completion"
+            assert resp.system_fingerprint is None
+            assert isinstance(resp.created, int)
+        assert (
+            completion
+            == "Hi, I love my cat- Labrador! He has tiny ears with fluffy white"
+        )
 
     async def test_vllm_completion_facebook_opt_model_with_echo_and_logprobs(
         self, vllm_opt_model
@@ -1416,25 +1422,26 @@ class TestCompletions:
                     logprobs=Logprobs(
                         text_offset=[
                             0,
-                            2,
-                            3,
-                            5,
-                            10,
-                            13,
+                            4,
+                            6,
+                            7,
+                            9,
+                            14,
                             17,
-                            18,
-                            27,
-                            28,
+                            21,
+                            22,
                             31,
+                            32,
                             35,
-                            40,
-                            45,
-                            50,
-                            57,
-                            63,
+                            39,
+                            44,
+                            49,
+                            54,
+                            61,
                         ],
                         token_logprobs=None,
                         tokens=[
+                            "</s>",
                             "Hi",
                             ",",
                             " I",
@@ -1547,85 +1554,159 @@ class TestCompletions:
         ]
         assert compare_response_to_expected(response, expected) is True
 
-    # FixMe: text_offset resets for generated tokens if echo is True and stream is True
-    # async def test_vllm_completion_facebook_opt_model_with_echo_and_logprobs_stream(self, vllm_opt_model):
-    #     opt_model, mock_vllm_engine = vllm_opt_model
-    #     request_id = "cmpl-d771287a234c44498e345f0a429d6691"
-    #     model_name = "opt-125m"
-    #
-    #     async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-    #         for cmpl_chunk in opt_cmpl_chunks_with_echo_logprobs:
-    #             cmpl_chunk.request_id = args[2]
-    #             yield cmpl_chunk
-    #
-    #     mock_vllm_engine.generate = mock_generate
-    #
-    #     prompt = "Hi, I love my cat"
-    #     params = CreateCompletionRequest(
-    #         model=model_name,
-    #         prompt=prompt,
-    #         stream=True,
-    #         max_tokens=10,
-    #         echo=True,
-    #         logprobs=2,
-    #     )
-    #     request = CompletionRequest(request_id=request_id, params=params, context={})
-    #     response_iterator = await opt_model.create_completion(request)
-    #     completion = ""
-    #     log_probs = Logprobs(
-    #         text_offset=[], token_logprobs=[], tokens=[], top_logprobs=[]
-    #     )
-    #     expected_logprobs = Logprobs(text_offset=[0, 2, 3, 5, 10, 13, 17, 18, 27, 28, 31, 35, 40, 45, 50, 57, 63], token_logprobs=None, tokens=['Hi', ',', ' I', ' love', ' my', ' cat', '-', ' Labrador', '!', ' He', ' has', ' tiny', ' ears', ' with', ' fluffy', ' white'], top_logprobs=None)
-    #     # FixMe: pydantic does not allows adding None to the token_logrobs list. We should fix the type definition.
-    #     expected_logprobs.token_logprobs = [None, -9.352765083312988, -1.4278249740600586,
-    #                                                    -0.976689338684082, -5.6148481369018555, -4.214991569519043,
-    #                                                    -4.99854040145874, -5.968787670135498, -11.009231567382812,
-    #                                                    -3.1531941890716553, -1.4167277812957764, -2.766524314880371,
-    #                                                    -6.9396467208862305, -1.3619931936264038, -4.619960308074951,
-    #                                                    -5.6248779296875, -2.2152767181396484]
-    #     # FixMe: pydantic does not allows adding None to the top_logrobs list. We should fix the type definition.
-    #     expected_logprobs.top_logprobs = [None, {'Hi': -9.352765083312988, 'I': -1.4278708696365356,
-    #                                                         'The': -2.4365129470825195},
-    #                                                  {',': -1.4278249740600586, '!': -1.934173583984375},
-    #                                                  {' I': -0.976689338684082, ' ': -2.723400115966797},
-    #                                                  {' love': -5.6148481369018555, "'m": -1.015452265739441,
-    #                                                   ' have': -1.9374703168869019},
-    #                                                  {' my': -4.214991569519043, ' your': -1.7619359493255615,
-    #                                                   ' the': -1.999145269393921},
-    #                                                  {' cat': -4.99854040145874, ' new': -3.4642574787139893,
-    #                                                   ' old': -4.73804235458374},
-    #                                                  {'-': -5.968787670135498, '.': -1.453755497932434,
-    #                                                   ',': -1.841694951057434},
-    #                                                  {' Labrador': -11.009231567382812, ' I': -1.754422903060913,
-    #                                                   ' she': -3.075488328933716},
-    #                                                  {'!': -3.1531941890716553, ' mix': -1.0394361019134521,
-    #                                                   '.': -2.1872146129608154},
-    #                                                  {' He': -1.4167277812957764, '\n': -2.0672662258148193},
-    #                                                  {' has': -2.766524314880371, "'s": -1.0847474336624146,
-    #                                                   ' is': -1.547521710395813},
-    #                                                  {' tiny': -6.9396467208862305, ' a': -1.3877270221710205,
-    #                                                   ' been': -2.3109371662139893},
-    #                                                  {' ears': -1.3619931936264038, ' paws': -2.2743258476257324},
-    #                                                  {' with': -4.619960308074951, ' and': -0.805719792842865,
-    #                                                   ',': -1.6155686378479004},
-    #                                                  {' fluffy': -5.6248779296875, ' a': -1.4977400302886963,
-    #                                                   ' tiny': -3.006150484085083},
-    #                                                  {' white': -2.2152767181396484, ' fur': -1.9012728929519653}]
-    #     async for resp in response_iterator:
-    #         assert resp.id == request_id
-    #         assert len(resp.choices) == 1
-    #         completion += resp.choices[0].text
-    #         assert resp.choices[0].logprobs is not None
-    #         log_probs.text_offset += resp.choices[0].logprobs.text_offset
-    #         log_probs.token_logprobs += resp.choices[0].logprobs.token_logprobs
-    #         log_probs.tokens += resp.choices[0].logprobs.tokens
-    #         log_probs.top_logprobs += resp.choices[0].logprobs.top_logprobs
-    #         assert resp.model == model_name
-    #         assert resp.object == "text_completion"
-    #         assert resp.system_fingerprint is None
-    #         assert isinstance(resp.created, int)
-    #     assert completion == "Hi, I love my cat- Labrador! He has tiny ears with fluffy white"
-    #     assert log_probs == expected_logprobs
+    async def test_vllm_completion_facebook_opt_model_with_echo_and_logprobs_stream(
+        self, vllm_opt_model
+    ):
+        opt_model, mock_vllm_engine = vllm_opt_model
+        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
+        model_name = "opt-125m"
+
+        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
+            for cmpl_chunk in opt_cmpl_chunks_with_echo_logprobs:
+                cmpl_chunk.request_id = args[2]
+                yield cmpl_chunk
+
+        mock_vllm_engine.generate = mock_generate
+
+        prompt = "Hi, I love my cat"
+        params = CreateCompletionRequest(
+            model=model_name,
+            prompt=prompt,
+            stream=True,
+            max_tokens=10,
+            echo=True,
+            logprobs=2,
+        )
+        request = CompletionRequest(request_id=request_id, params=params, context={})
+        response_iterator = await opt_model.create_completion(request)
+        completion = ""
+        log_probs = Logprobs(
+            text_offset=[], token_logprobs=[], tokens=[], top_logprobs=[]
+        )
+        expected_logprobs = Logprobs(
+            # FixMe: text_offset resets for generated tokens if echo is True and stream is True. vLLM also behaves
+            #  this way. Is this the expected behavior?
+            text_offset=[0, 4, 6, 7, 9, 14, 17, 21, 1, 10, 11, 14, 18, 23, 28, 33, 40],
+            token_logprobs=None,
+            tokens=[
+                "</s>",
+                "Hi",
+                ",",
+                " I",
+                " love",
+                " my",
+                " cat",
+                "-",
+                " Labrador",
+                "!",
+                " He",
+                " has",
+                " tiny",
+                " ears",
+                " with",
+                " fluffy",
+                " white",
+            ],
+            top_logprobs=None,
+        )
+        # FixMe: pydantic does not allows adding None to the token_logrobs list. We should fix the type definition.
+        expected_logprobs.token_logprobs = [
+            None,
+            -9.352765083312988,
+            -1.4278249740600586,
+            -0.976689338684082,
+            -5.6148481369018555,
+            -4.214991569519043,
+            -4.99854040145874,
+            -5.968787670135498,
+            -11.009231567382812,
+            -3.1531941890716553,
+            -1.4167277812957764,
+            -2.766524314880371,
+            -6.9396467208862305,
+            -1.3619931936264038,
+            -4.619960308074951,
+            -5.6248779296875,
+            -2.2152767181396484,
+        ]
+        # FixMe: pydantic does not allows adding None to the top_logrobs list. We should fix the type definition.
+        expected_logprobs.top_logprobs = [
+            None,
+            {
+                "Hi": -9.352765083312988,
+                "I": -1.4278708696365356,
+                "The": -2.4365129470825195,
+            },
+            {",": -1.4278249740600586, "!": -1.934173583984375},
+            {" I": -0.976689338684082, " ": -2.723400115966797},
+            {
+                " love": -5.6148481369018555,
+                "'m": -1.015452265739441,
+                " have": -1.9374703168869019,
+            },
+            {
+                " my": -4.214991569519043,
+                " your": -1.7619359493255615,
+                " the": -1.999145269393921,
+            },
+            {
+                " cat": -4.99854040145874,
+                " new": -3.4642574787139893,
+                " old": -4.73804235458374,
+            },
+            {"-": -5.968787670135498, ".": -1.453755497932434, ",": -1.841694951057434},
+            {
+                " Labrador": -11.009231567382812,
+                " I": -1.754422903060913,
+                " she": -3.075488328933716,
+            },
+            {
+                "!": -3.1531941890716553,
+                " mix": -1.0394361019134521,
+                ".": -2.1872146129608154,
+            },
+            {" He": -1.4167277812957764, "\n": -2.0672662258148193},
+            {
+                " has": -2.766524314880371,
+                "'s": -1.0847474336624146,
+                " is": -1.547521710395813,
+            },
+            {
+                " tiny": -6.9396467208862305,
+                " a": -1.3877270221710205,
+                " been": -2.3109371662139893,
+            },
+            {" ears": -1.3619931936264038, " paws": -2.2743258476257324},
+            {
+                " with": -4.619960308074951,
+                " and": -0.805719792842865,
+                ",": -1.6155686378479004,
+            },
+            {
+                " fluffy": -5.6248779296875,
+                " a": -1.4977400302886963,
+                " tiny": -3.006150484085083,
+            },
+            {" white": -2.2152767181396484, " fur": -1.9012728929519653},
+        ]
+        async for resp in response_iterator:
+            assert resp.id == request_id
+            assert len(resp.choices) == 1
+            completion += resp.choices[0].text
+            assert resp.choices[0].logprobs is not None
+            log_probs.text_offset += resp.choices[0].logprobs.text_offset
+            log_probs.token_logprobs += resp.choices[0].logprobs.token_logprobs
+            log_probs.tokens += resp.choices[0].logprobs.tokens
+            log_probs.top_logprobs += resp.choices[0].logprobs.top_logprobs
+            assert resp.model == model_name
+            assert resp.object == "text_completion"
+            assert resp.system_fingerprint is None
+            assert isinstance(resp.created, int)
+        assert (
+            completion
+            == "Hi, I love my cat- Labrador! He has tiny ears with fluffy white"
+        )
+        assert log_probs == expected_logprobs
 
     async def test_vllm_completion_facebook_opt_model_with_two_prompts(
         self, vllm_opt_model
@@ -1782,253 +1863,246 @@ class TestCompletions:
         assert compare_response_to_expected(response, expected) is True
 
     # FixMe: completion with echo true and stream fails
-    # async def test_vllm_completion_facebook_opt_model_with_two_prompts_echo_stream(
-    #     self, vllm_opt_model
-    # ):
-    #     opt_model, mock_vllm_engine = vllm_opt_model
-    #     request_id = "cmpl-d771287a234c44498e345f0a429d6691"
-    #     model_name = "opt-125m"
-    #     prompts = ["Hi, I love my cat", "The sky is blue"]
-    #
-    #     async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-    #         if args[0]["prompt"] == prompts[0]:
-    #             for cmpl_chunk in opt_cmpl_chunks_with_two_prompts[0]:
-    #                 cmpl_chunk.request_id = args[2]
-    #                 yield cmpl_chunk
-    #         else:
-    #             for cmpl_chunk in opt_cmpl_chunks_with_two_prompts[1]:
-    #                 cmpl_chunk.request_id = args[2]
-    #                 yield cmpl_chunk
-    #
-    #     mock_vllm_engine.generate = mock_generate
-    #
-    #     params = CreateCompletionRequest(
-    #         model=model_name,
-    #         prompt=prompts,
-    #         stream=True,
-    #         max_tokens=10,
-    #         echo=True,
-    #     )
-    #     request = CompletionRequest(request_id=request_id, params=params, context={})
-    #     response_iterator = await opt_model.create_completion(request)
-    #     completions = [""] * 2
-    #     async for resp in response_iterator:
-    #         assert resp.id == request_id
-    #         assert len(resp.choices) == 1
-    #         assert resp.choices[0].logprobs is None
-    #         if resp.choices[0].index == 0:
-    #             completions[0] += resp.choices[0].text
-    #
-    #         elif resp.choices[0].index == 1:
-    #             completions[1] += resp.choices[0].text
-    #         assert resp.model == model_name
-    #         assert resp.object == "text_completion"
-    #         assert resp.system_fingerprint is None
-    #         assert isinstance(resp.created, int)
-    #     assert completions == [
-    #         "Hi, I love my cat- Labrador! He has tiny ears with fluffy white",
-    #         "The sky is blue and no one is going to notice. You don",
-    #     ]
+    async def test_vllm_completion_facebook_opt_model_with_two_prompts_echo_stream(
+        self, vllm_opt_model
+    ):
+        opt_model, mock_vllm_engine = vllm_opt_model
+        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
+        model_name = "opt-125m"
+        prompts = ["Hi, I love my cat", "The sky is blue"]
 
-    # FixMe: text_offset calculation is wrong for non steam completions
-    # async def test_vllm_completion_facebook_opt_model_with_two_prompts_logprobs(
-    #     self, vllm_opt_model
-    # ):
-    #     opt_model, mock_vllm_engine = vllm_opt_model
-    #     request_id = "cmpl-d771287a234c44498e345f0a429d6691"
-    #     model_name = "opt-125m"
-    #     prompts = ["Hi, I love my cat", "The sky is blue"]
-    #
-    #     async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-    #         if args[0]["prompt"] == prompts[0]:
-    #             for cmpl_chunk in opt_cmpl_chunks_with_two_prompts_log_probs[0]:
-    #                 cmpl_chunk.request_id = args[2]
-    #                 yield cmpl_chunk
-    #         else:
-    #             for cmpl_chunk in opt_cmpl_chunks_with_two_prompts_log_probs[1]:
-    #                 cmpl_chunk.request_id = args[2]
-    #                 yield cmpl_chunk
-    #
-    #     mock_vllm_engine.generate = mock_generate
-    #
-    #     params = CreateCompletionRequest(
-    #         model=model_name,
-    #         prompt=prompts,
-    #         stream=False,
-    #         max_tokens=10,
-    #         logprobs=2,
-    #     )
-    #     request = CompletionRequest(request_id=request_id, params=params, context={})
-    #     expected = CreateCompletionResponse(
-    #         id=request_id,
-    #         choices=[
-    #             Choice(
-    #                 finish_reason="length",
-    #                 index=0,
-    #                 logprobs=Logprobs(
-    #                     text_offset=[0, 1, 10, 11, 14, 18, 23, 28, 33, 40],
-    #                     token_logprobs=[
-    #                         -5.968789577484131,
-    #                         -11.009230613708496,
-    #                         -3.1531925201416016,
-    #                         -1.4167288541793823,
-    #                         -2.7665247917175293,
-    #                         -6.939647674560547,
-    #                         -1.3619911670684814,
-    #                         -4.619960784912109,
-    #                         -5.624878883361816,
-    #                         -2.215275764465332,
-    #                     ],
-    #                     tokens=[
-    #                         "-",
-    #                         " Labrador",
-    #                         "!",
-    #                         " He",
-    #                         " has",
-    #                         " tiny",
-    #                         " ears",
-    #                         " with",
-    #                         " fluffy",
-    #                         " white",
-    #                     ],
-    #                     top_logprobs=[
-    #                         {
-    #                             "-": -5.968789577484131,
-    #                             ".": -1.4537543058395386,
-    #                             ",": -1.8416975736618042,
-    #                         },
-    #                         {
-    #                             " Labrador": -11.009230613708496,
-    #                             " I": -1.7544232606887817,
-    #                             " she": -3.0754880905151367,
-    #                         },
-    #                         {
-    #                             "!": -3.1531925201416016,
-    #                             " mix": -1.0394372940063477,
-    #                             ".": -2.187213897705078,
-    #                         },
-    #                         {" He": -1.4167288541793823, "\n": -2.067265510559082},
-    #                         {
-    #                             " has": -2.7665247917175293,
-    #                             "'s": -1.0847479104995728,
-    #                             " is": -1.5475212335586548,
-    #                         },
-    #                         {
-    #                             " tiny": -6.939647674560547,
-    #                             " a": -1.3877274990081787,
-    #                             " been": -2.3109357357025146,
-    #                         },
-    #                         {
-    #                             " ears": -1.3619911670684814,
-    #                             " paws": -2.2743265628814697,
-    #                         },
-    #                         {
-    #                             " with": -4.619960784912109,
-    #                             " and": -0.8057191371917725,
-    #                             ",": -1.615569829940796,
-    #                         },
-    #                         {
-    #                             " fluffy": -5.624878883361816,
-    #                             " a": -1.4977388381958008,
-    #                             " tiny": -3.0061492919921875,
-    #                         },
-    #                         {" white": -2.215275764465332, " fur": -1.901274561882019},
-    #                     ],
-    #                 ),
-    #                 text="- Labrador! He has tiny ears with fluffy white",
-    #             ),
-    #             Choice(
-    #                 finish_reason="length",
-    #                 index=1,
-    #                 logprobs=Logprobs(
-    #                     text_offset=[0, 4, 7, 11, 14, 20, 23, 30, 31, 35],
-    #                     token_logprobs=[
-    #                         -2.4368906021118164,
-    #                         -5.254100799560547,
-    #                         -0.42237523198127747,
-    #                         -1.1646629571914673,
-    #                         -2.8208425045013428,
-    #                         -0.08860369771718979,
-    #                         -2.0382237434387207,
-    #                         -1.2939914464950562,
-    #                         -4.5231032371521,
-    #                         -3.299767017364502,
-    #                     ],
-    #                     tokens=[
-    #                         " and",
-    #                         " no",
-    #                         " one",
-    #                         " is",
-    #                         " going",
-    #                         " to",
-    #                         " notice",
-    #                         ".",
-    #                         " You",
-    #                         " don",
-    #                     ],
-    #                     top_logprobs=[
-    #                         {
-    #                             " and": -2.4368906021118164,
-    #                             ",": -1.4933549165725708,
-    #                             ".": -1.4948359727859497,
-    #                         },
-    #                         {
-    #                             " no": -5.254100799560547,
-    #                             " the": -1.2720444202423096,
-    #                             " I": -2.4218027591705322,
-    #                         },
-    #                         {
-    #                             " one": -0.42237523198127747,
-    #                             " clouds": -4.17390775680542,
-    #                         },
-    #                         {" is": -1.1646629571914673, " can": -2.5355124473571777},
-    #                         {
-    #                             " going": -2.8208425045013428,
-    #                             " watching": -2.0994670391082764,
-    #                             " looking": -2.5881574153900146,
-    #                         },
-    #                         {
-    #                             " to": -0.08860369771718979,
-    #                             " anywhere": -3.895568609237671,
-    #                         },
-    #                         {
-    #                             " notice": -2.0382237434387207,
-    #                             " see": -2.475170612335205,
-    #                         },
-    #                         {".": -1.2939914464950562, " it": -1.670294165611267},
-    #                         {
-    #                             " You": -4.5231032371521,
-    #                             "\n": -0.5480296015739441,
-    #                             " ": -2.24289870262146,
-    #                         },
-    #                         {
-    #                             " don": -3.299767017364502,
-    #                             " can": -2.143829822540283,
-    #                             "'re": -2.1697640419006348,
-    #                         },
-    #                     ],
-    #                 ),
-    #                 text=" and no one is going to notice. You don",
-    #             ),
-    #         ],
-    #         created=1719589967,
-    #         model="opt-125m",
-    #         system_fingerprint=None,
-    #         object="text_completion",
-    #         usage=CompletionUsage(
-    #             completion_tokens=20, prompt_tokens=12, total_tokens=32
-    #         ),
-    #     )
-    #
-    #     response = await opt_model.create_completion(request)
-    #
-    #     assert response.id == expected.id
-    #     assert response.choices == expected.choices
-    #     assert response.system_fingerprint == expected.system_fingerprint
-    #     assert response.object == expected.object
-    #     assert response.usage == expected.usage
-    #     assert response.model == expected.model
-    #     assert isinstance(response.created, int)
+        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
+            if args[0]["prompt"] == prompts[0]:
+                for cmpl_chunk in opt_cmpl_chunks_with_two_prompts[0]:
+                    cmpl_chunk.request_id = args[2]
+                    yield cmpl_chunk
+            else:
+                for cmpl_chunk in opt_cmpl_chunks_with_two_prompts[1]:
+                    cmpl_chunk.request_id = args[2]
+                    yield cmpl_chunk
+
+        mock_vllm_engine.generate = mock_generate
+
+        params = CreateCompletionRequest(
+            model=model_name,
+            prompt=prompts,
+            stream=True,
+            max_tokens=10,
+            echo=True,
+        )
+        request = CompletionRequest(request_id=request_id, params=params, context={})
+        response_iterator = await opt_model.create_completion(request)
+        completions = [""] * 2
+        async for resp in response_iterator:
+            assert resp.id == request_id
+            assert len(resp.choices) == 1
+            assert resp.choices[0].logprobs is None
+            if resp.choices[0].index == 0:
+                completions[0] += resp.choices[0].text
+
+            elif resp.choices[0].index == 1:
+                completions[1] += resp.choices[0].text
+            assert resp.model == model_name
+            assert resp.object == "text_completion"
+            assert resp.system_fingerprint is None
+            assert isinstance(resp.created, int)
+        assert completions == [
+            "Hi, I love my cat- Labrador! He has tiny ears with fluffy white",
+            "The sky is blue and no one is going to notice. You don",
+        ]
+
+    async def test_vllm_completion_facebook_opt_model_with_two_prompts_logprobs(
+        self, vllm_opt_model
+    ):
+        opt_model, mock_vllm_engine = vllm_opt_model
+        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
+        model_name = "opt-125m"
+        prompts = ["Hi, I love my cat", "The sky is blue"]
+
+        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
+            if args[0]["prompt"] == prompts[0]:
+                for cmpl_chunk in opt_cmpl_chunks_with_two_prompts_log_probs[0]:
+                    cmpl_chunk.request_id = args[2]
+                    yield cmpl_chunk
+            else:
+                for cmpl_chunk in opt_cmpl_chunks_with_two_prompts_log_probs[1]:
+                    cmpl_chunk.request_id = args[2]
+                    yield cmpl_chunk
+
+        mock_vllm_engine.generate = mock_generate
+
+        params = CreateCompletionRequest(
+            model=model_name,
+            prompt=prompts,
+            stream=False,
+            max_tokens=10,
+            logprobs=2,
+        )
+        request = CompletionRequest(request_id=request_id, params=params, context={})
+        expected = CreateCompletionResponse(
+            id=request_id,
+            choices=[
+                Choice(
+                    finish_reason="length",
+                    index=0,
+                    logprobs=Logprobs(
+                        text_offset=[0, 1, 10, 11, 14, 18, 23, 28, 33, 40],
+                        token_logprobs=[
+                            -5.968789577484131,
+                            -11.009230613708496,
+                            -3.1531925201416016,
+                            -1.4167288541793823,
+                            -2.7665247917175293,
+                            -6.939647674560547,
+                            -1.3619911670684814,
+                            -4.619960784912109,
+                            -5.624878883361816,
+                            -2.215275764465332,
+                        ],
+                        tokens=[
+                            "-",
+                            " Labrador",
+                            "!",
+                            " He",
+                            " has",
+                            " tiny",
+                            " ears",
+                            " with",
+                            " fluffy",
+                            " white",
+                        ],
+                        top_logprobs=[
+                            {
+                                "-": -5.968789577484131,
+                                ".": -1.4537543058395386,
+                                ",": -1.8416975736618042,
+                            },
+                            {
+                                " Labrador": -11.009230613708496,
+                                " I": -1.7544232606887817,
+                                " she": -3.0754880905151367,
+                            },
+                            {
+                                "!": -3.1531925201416016,
+                                " mix": -1.0394372940063477,
+                                ".": -2.187213897705078,
+                            },
+                            {" He": -1.4167288541793823, "\n": -2.067265510559082},
+                            {
+                                " has": -2.7665247917175293,
+                                "'s": -1.0847479104995728,
+                                " is": -1.5475212335586548,
+                            },
+                            {
+                                " tiny": -6.939647674560547,
+                                " a": -1.3877274990081787,
+                                " been": -2.3109357357025146,
+                            },
+                            {
+                                " ears": -1.3619911670684814,
+                                " paws": -2.2743265628814697,
+                            },
+                            {
+                                " with": -4.619960784912109,
+                                " and": -0.8057191371917725,
+                                ",": -1.615569829940796,
+                            },
+                            {
+                                " fluffy": -5.624878883361816,
+                                " a": -1.4977388381958008,
+                                " tiny": -3.0061492919921875,
+                            },
+                            {" white": -2.215275764465332, " fur": -1.901274561882019},
+                        ],
+                    ),
+                    text="- Labrador! He has tiny ears with fluffy white",
+                ),
+                Choice(
+                    finish_reason="length",
+                    index=1,
+                    logprobs=Logprobs(
+                        text_offset=[0, 4, 7, 11, 14, 20, 23, 30, 31, 35],
+                        token_logprobs=[
+                            -2.4368906021118164,
+                            -5.254100799560547,
+                            -0.42237523198127747,
+                            -1.1646629571914673,
+                            -2.8208425045013428,
+                            -0.08860369771718979,
+                            -2.0382237434387207,
+                            -1.2939914464950562,
+                            -4.5231032371521,
+                            -3.299767017364502,
+                        ],
+                        tokens=[
+                            " and",
+                            " no",
+                            " one",
+                            " is",
+                            " going",
+                            " to",
+                            " notice",
+                            ".",
+                            " You",
+                            " don",
+                        ],
+                        top_logprobs=[
+                            {
+                                " and": -2.4368906021118164,
+                                ",": -1.4933549165725708,
+                                ".": -1.4948359727859497,
+                            },
+                            {
+                                " no": -5.254100799560547,
+                                " the": -1.2720444202423096,
+                                " I": -2.4218027591705322,
+                            },
+                            {
+                                " one": -0.42237523198127747,
+                                " clouds": -4.17390775680542,
+                            },
+                            {" is": -1.1646629571914673, " can": -2.5355124473571777},
+                            {
+                                " going": -2.8208425045013428,
+                                " watching": -2.0994670391082764,
+                                " looking": -2.5881574153900146,
+                            },
+                            {
+                                " to": -0.08860369771718979,
+                                " anywhere": -3.895568609237671,
+                            },
+                            {
+                                " notice": -2.0382237434387207,
+                                " see": -2.475170612335205,
+                            },
+                            {".": -1.2939914464950562, " it": -1.670294165611267},
+                            {
+                                " You": -4.5231032371521,
+                                "\n": -0.5480296015739441,
+                                " ": -2.24289870262146,
+                            },
+                            {
+                                " don": -3.299767017364502,
+                                " can": -2.143829822540283,
+                                "'re": -2.1697640419006348,
+                            },
+                        ],
+                    ),
+                    text=" and no one is going to notice. You don",
+                ),
+            ],
+            created=1719589967,
+            model="opt-125m",
+            system_fingerprint=None,
+            object="text_completion",
+            usage=CompletionUsage(
+                completion_tokens=20, prompt_tokens=12, total_tokens=32
+            ),
+        )
+
+        response = await opt_model.create_completion(request)
+
+        assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_completion_facebook_opt_model_with_two_prompts_logprobs_stream(
         self, vllm_opt_model
@@ -2351,117 +2425,110 @@ class TestCompletions:
             " and myself.  Sometimes I try to pick my",
         ]
 
-    # FixMe: Prompt is not included in the completion when best_of and n are set and echo is true
-    # async def test_vllm_completion_facebook_opt_model_with_best_of_and_n_and_echo(
-    #     self, vllm_opt_model
-    # ):
-    #     opt_model, mock_vllm_engine = vllm_opt_model
-    #     request_id = "cmpl-d771287a234c44498e345f0a429d6691"
-    #
-    #     async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-    #         for cmpl_chunk in opt_cmpl_chunks_with_n_2:
-    #             cmpl_chunk.request_id = args[2]
-    #             yield cmpl_chunk
-    #
-    #     mock_vllm_engine.generate = mock_generate
-    #
-    #     prompt = "Hi, I love my cat"
-    #     params = CreateCompletionRequest(
-    #         model="opt-125m",
-    #         prompt=prompt,
-    #         stream=False,
-    #         max_tokens=10,
-    #         best_of=3,
-    #         n=2,
-    #     )
-    #     request = CompletionRequest(request_id=request_id, params=params, context={})
-    #     expected = CreateCompletionResponse(
-    #         id=request_id,
-    #         choices=[
-    #             Choice(
-    #                 finish_reason="length",
-    #                 index=0,
-    #                 logprobs=None,
-    #                 text="Hi, I love my cat, so I know how much you guys are needing",
-    #             ),
-    #             Choice(
-    #                 finish_reason="length",
-    #                 index=1,
-    #                 logprobs=None,
-    #                 text="Hi, I love my cat and myself.  Sometimes I try to pick my",
-    #             ),
-    #         ],
-    #         created=1719640772,
-    #         model="opt-125m",
-    #         system_fingerprint=None,
-    #         object="text_completion",
-    #         usage=CompletionUsage(
-    #             completion_tokens=20, prompt_tokens=7, total_tokens=27
-    #         ),
-    #     )
-    #     response = await opt_model.create_completion(request)
+    async def test_vllm_completion_facebook_opt_model_with_best_of_and_n_and_echo(
+        self, vllm_opt_model
+    ):
+        opt_model, mock_vllm_engine = vllm_opt_model
+        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
 
-    # assert not isinstance(response, AsyncIterator)
-    # assert response.id == expected.id
-    # assert response.choices == expected.choices
-    # assert response.system_fingerprint == expected.system_fingerprint
-    # assert response.object == expected.object
-    # assert response.usage == expected.usage
-    # assert response.model == expected.model
-    # assert isinstance(response.created, int)
+        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
+            for cmpl_chunk in opt_cmpl_chunks_with_n_2:
+                cmpl_chunk.request_id = args[2]
+                yield cmpl_chunk
 
-    # FixMe: completion with echo true and stream fails
-    # async def test_vllm_completion_facebook_opt_model_with_best_of_and_n_and_echo_stream(
-    #     self, vllm_opt_model
-    # ):
-    #     """
-    #     When best_of == n, the result can be streamed when stream=True is set
-    #     """
-    #     opt_model, mock_vllm_engine = vllm_opt_model
-    #     request_id = "cmpl-d771287a234c44498e345f0a429d6691"
-    #     model_name = "ot-125m"
-    #
-    #     async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-    #         for cmpl_chunk in opt_cmpl_chunks_with_n_3:
-    #             cmpl_chunk.request_id = args[2]
-    #             yield cmpl_chunk
-    #
-    #     mock_vllm_engine.generate = mock_generate
-    #
-    #     prompt = "Hi, I love my cat"
-    #     params = CreateCompletionRequest(
-    #         model=model_name,
-    #         prompt=prompt,
-    #         stream=True,
-    #         max_tokens=10,
-    #         best_of=3,
-    #         n=3,
-    #         echo=True,
-    #     )
-    #     request = CompletionRequest(request_id=request_id, params=params, context={})
-    #     response_iterator = await opt_model.create_completion(request)
-    #     assert isinstance(response_iterator, AsyncIterator)
-    #     completions = [""] * 3
-    #     async for resp in response_iterator:
-    #         assert resp.id == request_id
-    #         assert len(resp.choices) == 1
-    #         if resp.choices[0].index == 0:
-    #             completions[0] += resp.choices[0].text
-    #         elif resp.choices[0].index == 1:
-    #             completions[1] += resp.choices[0].text
-    #         elif resp.choices[0].index == 2:
-    #             completions[2] += resp.choices[0].text
-    #         assert len(resp.choices) == 1
-    #         assert resp.choices[0].logprobs is None
-    #         assert resp.model == model_name
-    #         assert resp.object == "text_completion"
-    #         assert resp.system_fingerprint is None
-    #         assert isinstance(resp.created, int)
-    #     assert completions == [
-    #         "Hi, I love my cat, so I know how much you guys are needing",
-    #         "Hi, I love my cat-newbie and don't generally seek it out",
-    #         "Hi, I love my cat and myself.  Sometimes I try to pick my",
-    #     ]
+        mock_vllm_engine.generate = mock_generate
+
+        prompt = "Hi, I love my cat"
+        params = CreateCompletionRequest(
+            model="opt-125m",
+            prompt=prompt,
+            stream=False,
+            echo=True,
+            max_tokens=10,
+            best_of=3,
+            n=2,
+        )
+        request = CompletionRequest(request_id=request_id, params=params, context={})
+        expected = CreateCompletionResponse(
+            id=request_id,
+            choices=[
+                Choice(
+                    finish_reason="length",
+                    index=0,
+                    logprobs=None,
+                    text="Hi, I love my cat, so I know how much you guys are needing",
+                ),
+                Choice(
+                    finish_reason="length",
+                    index=1,
+                    logprobs=None,
+                    text="Hi, I love my cat and myself.  Sometimes I try to pick my",
+                ),
+            ],
+            created=1719640772,
+            model="opt-125m",
+            system_fingerprint=None,
+            object="text_completion",
+            usage=CompletionUsage(
+                completion_tokens=20, prompt_tokens=7, total_tokens=27
+            ),
+        )
+        response = await opt_model.create_completion(request)
+
+        assert not isinstance(response, AsyncIterator)
+        assert compare_response_to_expected(response, expected) is True
+
+    async def test_vllm_completion_facebook_opt_model_with_best_of_and_n_and_echo_stream(
+        self, vllm_opt_model
+    ):
+        """
+        When best_of == n, the result can be streamed when stream=True is set
+        """
+        opt_model, mock_vllm_engine = vllm_opt_model
+        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
+        model_name = "ot-125m"
+
+        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
+            for cmpl_chunk in opt_cmpl_chunks_with_n_3:
+                cmpl_chunk.request_id = args[2]
+                yield cmpl_chunk
+
+        mock_vllm_engine.generate = mock_generate
+
+        prompt = "Hi, I love my cat"
+        params = CreateCompletionRequest(
+            model=model_name,
+            prompt=prompt,
+            stream=True,
+            max_tokens=10,
+            best_of=3,
+            n=3,
+            echo=True,
+        )
+        request = CompletionRequest(request_id=request_id, params=params, context={})
+        response_iterator = await opt_model.create_completion(request)
+        assert isinstance(response_iterator, AsyncIterator)
+        completions = [""] * 3
+        async for resp in response_iterator:
+            assert resp.id == request_id
+            assert len(resp.choices) == 1
+            if resp.choices[0].index == 0:
+                completions[0] += resp.choices[0].text
+            elif resp.choices[0].index == 1:
+                completions[1] += resp.choices[0].text
+            elif resp.choices[0].index == 2:
+                completions[2] += resp.choices[0].text
+            assert len(resp.choices) == 1
+            assert resp.choices[0].logprobs is None
+            assert resp.model == model_name
+            assert resp.object == "text_completion"
+            assert resp.system_fingerprint is None
+            assert isinstance(resp.created, int)
+        assert completions == [
+            "Hi, I love my cat, so I know how much you guys are needing",
+            "Hi, I love my cat-newbie and don't generally seek it out",
+            "Hi, I love my cat and myself.  Sometimes I try to pick my",
+        ]
 
     async def test_vllm_completion_facebook_opt_model_with_max_tokens_exceed_model_len(
         self, vllm_opt_model
@@ -2530,56 +2597,55 @@ class TestCompletions:
 
         assert compare_response_to_expected(response, expected) is True
 
-    # FixMe: Prompt ids with echo True fails
-    # async def test_vllm_completion_facebook_opt_model_with_token_ids_and_echo(
-    #     self, vllm_opt_model
-    # ):
-    #     opt_model, mock_vllm_engine = vllm_opt_model
-    #     request_id = "cmpl-d771287a234c44498e345f0a429d6691"
-    #
-    #     async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-    #         for cmpl_chunk in opt_cmpl_chunks:
-    #             cmpl_chunk.request_id = args[2]
-    #             yield cmpl_chunk
-    #
-    #     mock_vllm_engine.generate = mock_generate
-    #
-    #     token_ids = [2, 30086, 6, 38, 657, 127, 4758]
-    #     params = CreateCompletionRequest(
-    #         model="opt-125m",
-    #         prompt=token_ids,
-    #         stream=False,
-    #         max_tokens=10,
-    #         echo=True,
-    #     )
-    #     request = CompletionRequest(request_id=request_id, params=params, context={})
-    #     response = await opt_model.create_completion(request)
-    #     expected = CreateCompletionResponse(
-    #         id=request_id,
-    #         choices=[
-    #             Choice(
-    #                 finish_reason="length",
-    #                 index=0,
-    #                 logprobs=None,
-    #                 text="- Labrador! He has tiny ears with fluffy white",
-    #             )
-    #         ],
-    #         created=1719646396,
-    #         model="opt-125m",
-    #         system_fingerprint=None,
-    #         object="text_completion",
-    #         usage=CompletionUsage(
-    #             completion_tokens=10, prompt_tokens=7, total_tokens=17
-    #         ),
-    #     )
-    #
-    #     assert response.id == expected.id
-    #     assert response.choices == expected.choices
-    #     assert response.system_fingerprint == expected.system_fingerprint
-    #     assert response.object == expected.object
-    #     assert response.usage == expected.usage
-    #     assert response.model == expected.model
-    #     assert isinstance(response.created, int)
+    async def test_vllm_completion_facebook_opt_model_with_token_ids_and_echo(
+        self, vllm_opt_model
+    ):
+        opt_model, mock_vllm_engine = vllm_opt_model
+        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
+
+        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
+            for cmpl_chunk in opt_cmpl_chunks:
+                cmpl_chunk.request_id = args[2]
+                yield cmpl_chunk
+
+        mock_vllm_engine.generate = mock_generate
+
+        token_ids = [2, 30086, 6, 38, 657, 127, 4758]
+        params = CreateCompletionRequest(
+            model="opt-125m",
+            prompt=token_ids,
+            stream=False,
+            max_tokens=10,
+            echo=True,
+        )
+        request = CompletionRequest(request_id=request_id, params=params, context={})
+        response = await opt_model.create_completion(request)
+        expected = CreateCompletionResponse(
+            id=request_id,
+            choices=[
+                Choice(
+                    finish_reason="length",
+                    index=0,
+                    logprobs=None,
+                    text="Hi, I love my cat- Labrador! He has tiny ears with fluffy white",
+                )
+            ],
+            created=1719646396,
+            model="opt-125m",
+            system_fingerprint=None,
+            object="text_completion",
+            usage=CompletionUsage(
+                completion_tokens=10, prompt_tokens=7, total_tokens=17
+            ),
+        )
+
+        assert response.id == expected.id
+        assert response.choices == expected.choices
+        assert response.system_fingerprint == expected.system_fingerprint
+        assert response.object == expected.object
+        assert response.usage == expected.usage
+        assert response.model == expected.model
+        assert isinstance(response.created, int)
 
     async def test_vllm_completion_facebook_opt_model_with_batch_token_ids(
         self, vllm_opt_model
@@ -2589,7 +2655,7 @@ class TestCompletions:
         token_ids = [[2, 30086, 6, 38, 657, 127, 4758], [2, 133, 6360, 16, 2440]]
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-            if args[0]["prompt"] == token_ids[0]:
+            if args[0]["prompt_token_ids"] == token_ids[0]:
                 for cmpl_chunk in opt_cmpl_chunks_with_two_prompts_log_probs[0]:
                     cmpl_chunk.request_id = args[2]
                     yield cmpl_chunk
@@ -2634,67 +2700,60 @@ class TestCompletions:
         )
         assert compare_response_to_expected(response, expected) is True
 
-    # FixMe: Batch Prompt ids with echo True fails
-    # async def test_vllm_completion_facebook_opt_model_with_batch_token_ids_with_echo(
-    #     self, vllm_opt_model
-    # ):
-    #     opt_model, mock_vllm_engine = vllm_opt_model
-    #     request_id = "cmpl-d771287a234c44498e345f0a429d6691"
-    #     token_ids = [[2, 30086, 6, 38, 657, 127, 4758], [2, 133, 6360, 16, 2440]]
-    #
-    #     async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-    #         if args[0]["prompt"] == token_ids[0]:
-    #             for cmpl_chunk in opt_cmpl_chunks_with_two_prompts_log_probs[0]:
-    #                 cmpl_chunk.request_id = args[2]
-    #                 yield cmpl_chunk
-    #         else:
-    #             for cmpl_chunk in opt_cmpl_chunks_with_two_prompts_log_probs[1]:
-    #                 cmpl_chunk.request_id = args[2]
-    #                 yield cmpl_chunk
-    #
-    #     mock_vllm_engine.generate = mock_generate
-    #
-    #     params = CreateCompletionRequest(
-    #         model="opt-125m",
-    #         prompt=token_ids,
-    #         stream=False,
-    #         max_tokens=10,
-    #         echo=True,
-    #     )
-    #     request = CompletionRequest(request_id=request_id, params=params, context={})
-    #     response = await opt_model.create_completion(request)
-    #     expected = CreateCompletionResponse(
-    #         id=request_id,
-    #         choices=[
-    #             Choice(
-    #                 finish_reason="length",
-    #                 index=0,
-    #                 logprobs=None,
-    #                 text="- Labrador! He has tiny ears with fluffy white",
-    #             ),
-    #             Choice(
-    #                 finish_reason="length",
-    #                 index=1,
-    #                 logprobs=None,
-    #                 text=" and no one is going to notice. You don",
-    #             ),
-    #         ],
-    #         created=1719646549,
-    #         model="opt-125m",
-    #         system_fingerprint=None,
-    #         object="text_completion",
-    #         usage=CompletionUsage(
-    #             completion_tokens=20, prompt_tokens=12, total_tokens=32
-    #         ),
-    #     )
-    #
-    #     assert response.id == expected.id
-    #     assert response.choices == expected.choices
-    #     assert response.system_fingerprint == expected.system_fingerprint
-    #     assert response.object == expected.object
-    #     assert response.usage == expected.usage
-    #     assert response.model == expected.model
-    #     assert isinstance(response.created, int)
+    async def test_vllm_completion_facebook_opt_model_with_batch_token_ids_with_echo(
+        self, vllm_opt_model
+    ):
+        opt_model, mock_vllm_engine = vllm_opt_model
+        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
+        token_ids = [[2, 30086, 6, 38, 657, 127, 4758], [2, 133, 6360, 16, 2440]]
+
+        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
+            if args[0]["prompt_token_ids"] == token_ids[0]:
+                for cmpl_chunk in opt_cmpl_chunks_with_two_prompts_log_probs[0]:
+                    cmpl_chunk.request_id = args[2]
+                    yield cmpl_chunk
+            else:
+                for cmpl_chunk in opt_cmpl_chunks_with_two_prompts_log_probs[1]:
+                    cmpl_chunk.request_id = args[2]
+                    yield cmpl_chunk
+
+        mock_vllm_engine.generate = mock_generate
+
+        params = CreateCompletionRequest(
+            model="opt-125m",
+            prompt=token_ids,
+            stream=False,
+            max_tokens=10,
+            echo=True,
+        )
+        request = CompletionRequest(request_id=request_id, params=params, context={})
+        response = await opt_model.create_completion(request)
+        expected = CreateCompletionResponse(
+            id=request_id,
+            choices=[
+                Choice(
+                    finish_reason="length",
+                    index=0,
+                    logprobs=None,
+                    text="Hi, I love my cat- Labrador! He has tiny ears with fluffy white",
+                ),
+                Choice(
+                    finish_reason="length",
+                    index=1,
+                    logprobs=None,
+                    text="The sky is blue and no one is going to notice. You don",
+                ),
+            ],
+            created=1719646549,
+            model="opt-125m",
+            system_fingerprint=None,
+            object="text_completion",
+            usage=CompletionUsage(
+                completion_tokens=20, prompt_tokens=12, total_tokens=32
+            ),
+        )
+
+        assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_completion_facebook_opt_model_with_logit_bias(
         self, vllm_opt_model
@@ -2750,10 +2809,13 @@ class TestOpenAIServingCompletion:
 
         mock_vllm_engine.generate = mock_generate
         request = CreateCompletionRequest(model="opt-125m", prompt=prompt, max_tokens=5)
-        result = opt_model.openai_serving_completion._validate_prompt_and_tokenize(
-            request, prompt=prompt
+        prompt_ids, prompt_text = (
+            opt_model.openai_serving_completion._validate_prompt_and_tokenize(
+                request, prompt=prompt
+            )
         )
-        assert len(result) == 7
+        assert len(prompt_ids) == 7
+        assert prompt_text == "Hi, I love my cat"
 
     def test_validate_prompt_and_tokenize_with_prompt_ids_only(self, vllm_opt_model):
         opt_model, mock_vllm_engine = vllm_opt_model
@@ -2766,10 +2828,13 @@ class TestOpenAIServingCompletion:
         request = CreateCompletionRequest(
             model="opt-125m", prompt=prompt_ids, max_tokens=5
         )
-        result = opt_model.openai_serving_completion._validate_prompt_and_tokenize(
-            request, prompt_ids=prompt_ids
+        prompt_ids, prompt_text = (
+            opt_model.openai_serving_completion._validate_prompt_and_tokenize(
+                request, prompt_ids=prompt_ids
+            )
         )
-        assert len(result) == 7
+        assert len(prompt_ids) == 7
+        assert prompt_text == "</s>Hi, I love my cat"
 
     def test_validate_prompt_and_tokenize_with_no_prompt_or_prompt_ids(
         self, vllm_opt_model
