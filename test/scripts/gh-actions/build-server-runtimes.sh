@@ -33,6 +33,7 @@ PADDLE_IMG_TAG=${DOCKER_REPO}/${PADDLE_IMG}:${GITHUB_SHA}
 CUSTOM_MODEL_GRPC_IMG_TAG=${DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${GITHUB_SHA}
 CUSTOM_TRANSFORMER_GRPC_IMG_TAG=${DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${GITHUB_SHA}
 HUGGINGFACE_IMG_TAG=${DOCKER_REPO}/${HUGGINGFACE_IMG}:${GITHUB_SHA}
+HUGGINGFACE_TRITON_IMG_TAG=${DOCKER_REPO}/${HUGGINGFACE_TRITON_IMG}:${GITHUB_SHA}
 # Explainer images
 ART_IMG_TAG=${DOCKER_REPO}/${ART_IMG}:${GITHUB_SHA}
 # Transformer images
@@ -65,6 +66,9 @@ pushd python >/dev/null
     echo "Building Huggingface image"
     docker buildx build -t "${HUGGINGFACE_IMG_TAG}" -f huggingface_server.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Building Huggingface Triton image"
+    docker buildx build -t "${HUGGINGFACE_TRITON_IMG_TAG}" -f huggingface_triton_server.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_TRITON_IMG}-${GITHUB_SHA}",compression-level=0 .
   fi
 
   if [[ " ${types[*]} " =~ "explainer" ]]; then

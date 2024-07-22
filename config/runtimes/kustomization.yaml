@@ -54,3 +54,7 @@ images:
 - name: huggingfaceserver
   newName: kserve/huggingfaceserver
   newTag: latest
+
+- name: huggingface-triton-server
+  newName: kserve/huggingface-triton-server
+  newTag: latest

@@ -1,0 +1,20 @@
+{
+  "inputs": [
+    {
+      "name": "input-0",
+      "shape": [1],
+      "datatype": "BYTES",
+      "data": [
+        "The capital of France is [MASK]."
+      ]
+    },
+    {
+      "name": "input-1",
+      "shape": [1],
+      "datatype": "BYTES",
+      "data": [
+        "The capital of [MASK] is paris."
+      ]
+    }
+  ]
+}
