@@ -66,8 +66,8 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.13.0
 | kserve.router.tag | string | `"v0.13.0"` |  |
 | kserve.servingruntime.art.defaultVersion | string | `"v0.13.0"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
-| kserve.servingruntime.huggingface-triton-server.image | string | `"kserve/huggingface-triton-server"` |  |
-| kserve.servingruntime.huggingface-triton-server.tag | string | `"v0.13.0"` |  |
+| kserve.servingruntime.huggingfaceTritonserver.image | string | `"kserve/huggingface-tritonserver"` |  |
+| kserve.servingruntime.huggingfaceTritonserver.tag | string | `"v0.13.0"` |  |
 | kserve.servingruntime.huggingfaceserver.image | string | `"kserve/huggingfaceserver"` |  |
 | kserve.servingruntime.huggingfaceserver.tag | string | `"v0.13.0"` |  |
 | kserve.servingruntime.lgbserver.image | string | `"kserve/lgbserver"` |  |

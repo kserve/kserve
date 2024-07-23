@@ -106,8 +106,8 @@ kserve:
     huggingfaceserver:
       image: kserve/huggingfaceserver
       tag: *defaultVersion
-    huggingface-triton-server:
-        image: kserve/huggingface-triton-server
+    huggingfaceTritonserver:
+        image: kserve/huggingface-tritonserver
         tag: *defaultVersion
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
