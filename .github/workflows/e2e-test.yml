@@ -217,6 +217,11 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+      - name: Check disk space
+        if: always()
+        run: |
+          df -hT
+
   explainer-runtime-build:
     runs-on: ubuntu-latest
     needs: [poetry-check]
