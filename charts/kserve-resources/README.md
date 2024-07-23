@@ -82,8 +82,8 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0-rc0
 | kserve.servingruntime.art.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.huggingfaceserver.devShm.enabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.devShm.sizeLimit | string | `""` |  |
-| kserve.servingruntime.huggingface-triton-server.image | string | `"kserve/huggingface-triton-server"` |  |
-| kserve.servingruntime.huggingface-triton-server.tag | string | `"v0.13.0"` |  |
+| kserve.servingruntime.huggingfaceTritonserver.image | string | `"kserve/huggingface-tritonserver"` |  |
+| kserve.servingruntime.huggingfaceTritonserver.tag | string | `"v0.13.0"` |  |
 | kserve.servingruntime.huggingfaceserver.image | string | `"kserve/huggingfaceserver"` |  |
 | kserve.servingruntime.huggingfaceserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.huggingfaceserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |

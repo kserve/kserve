@@ -34,7 +34,7 @@ env:
   PADDLE_IMG: "paddleserver"
   CUSTOM_MODEL_GRPC_IMG: "custom-model-grpc"
   HUGGINGFACE_IMG: "huggingfaceserver"
-  HUGGINGFACE_TRITON_IMG: "huggingface-triton-server"
+  HUGGINGFACE_TRITON_IMG: "huggingface-tritonserver"
   # Explainer images
   ART_IMG: "art-explainer"
   # Transformer images

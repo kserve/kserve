@@ -476,7 +476,7 @@ spec:
     - v2
   containers:
     - name: kserve-container
-      image: "{{ .Values.kserve.servingruntime.huggingface-triton-server.image }}:{{ .Values.kserve.servingruntime.huggingface-triton-server.tag }}"
+      image: "{{ .Values.kserve.servingruntime.huggingfaceTritonserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceTritonserver.tag }}"
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models

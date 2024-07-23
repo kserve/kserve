@@ -22,7 +22,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 IFS=,
-
+# Note: Some of the ENV variables are set in the Github Actions e2e-test workflow file.
 echo "Github SHA ${GITHUB_SHA}"
 # Predictor runtime server images
 SKLEARN_IMG_TAG=${DOCKER_REPO}/${SKLEARN_IMG}:${GITHUB_SHA}

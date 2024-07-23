@@ -320,6 +320,8 @@ kserve:
         sizeLimit: ""
     huggingface-triton-server:
         image: kserve/huggingface-triton-server
+    huggingfaceTritonserver:
+        image: kserve/huggingface-tritonserver
         tag: *defaultVersion
         imagePullSecrets: [ ]
         securityContext:

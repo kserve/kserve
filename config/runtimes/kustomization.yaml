@@ -12,6 +12,7 @@ resources:
 - kserve-lgbserver.yaml
 - kserve-torchserve.yaml
 - kserve-huggingfaceserver.yaml
+- kserve-huggingface-tritonserver.yaml
 
 images:
   # SMS Only Runtimes
@@ -55,6 +56,6 @@ images:
   newName: kserve/huggingfaceserver
   newTag: latest
 
-- name: huggingface-triton-server
-  newName: kserve/huggingface-triton-server
+- name: huggingface-tritonserver
+  newName: kserve/huggingface-tritonserver
   newTag: latest
