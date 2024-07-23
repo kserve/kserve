@@ -282,7 +282,6 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 		// Instead, if the model keep running on False state
 		// Raise an event for info of failed conditions.
 		if !wasReady {
-			fmt.Printf("was not Ready\n")
 			msg := r.GetFailConditions(desiredService)
 			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceServiceNotReadyState),
 				fmt.Sprintf("InferenceService [%v] is not Ready because of: %v", desiredService.GetName(), msg))
