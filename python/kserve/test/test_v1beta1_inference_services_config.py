@@ -30,8 +30,11 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1beta1_inference_services_config import V1beta1InferenceServicesConfig  # noqa: E501
+from kserve.models.v1beta1_inference_services_config import (
+    V1beta1InferenceServicesConfig,
+)  # noqa: E501
 from kserve.rest import ApiException
+
 
 class TestV1beta1InferenceServicesConfig(unittest.TestCase):
     """V1beta1InferenceServicesConfig unit test stubs"""
@@ -44,24 +47,28 @@ class TestV1beta1InferenceServicesConfig(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1beta1InferenceServicesConfig
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1beta1_inference_services_config.V1beta1InferenceServicesConfig()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1beta1InferenceServicesConfig(
-                explainers = kserve.models.v1beta1_explainers_config.V1beta1ExplainersConfig(
-                    alibi = kserve.models.v1beta1_explainer_config.V1beta1ExplainerConfig(
-                        default_image_version = '0', 
-                        image = '0', ), ), 
+                explainers=kserve.models.v1beta1_explainers_config.V1beta1ExplainersConfig(
+                    art=kserve.models.v1beta1_explainer_config.V1beta1ExplainerConfig(
+                        default_image_version="0",
+                        image="0",
+                    ),
+                ),
             )
-        else :
+        else:
             return V1beta1InferenceServicesConfig(
-                explainers = kserve.models.v1beta1_explainers_config.V1beta1ExplainersConfig(
-                    alibi = kserve.models.v1beta1_explainer_config.V1beta1ExplainerConfig(
-                        default_image_version = '0', 
-                        image = '0', ), ), 
-        )
+                explainers=kserve.models.v1beta1_explainers_config.V1beta1ExplainersConfig(
+                    art=kserve.models.v1beta1_explainer_config.V1beta1ExplainerConfig(
+                        default_image_version="0",
+                        image="0",
+                    ),
+                ),
+            )
 
     def testV1beta1InferenceServicesConfig(self):
         """Test V1beta1InferenceServicesConfig"""
@@ -69,5 +76,5 @@ class TestV1beta1InferenceServicesConfig(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

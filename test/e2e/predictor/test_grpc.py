@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
+import asyncio
 import base64
 import json
 import os
@@ -24,7 +24,7 @@ from kserve import (
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
     V1beta1LoggerSpec,
-    constants
+    constants,
 )
 from kubernetes.client import V1ResourceRequirements
 from kubernetes import client
@@ -34,52 +34,58 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, predict_grpc
 
 @pytest.mark.grpc
 @pytest.mark.predictor
-def test_custom_model_grpc_logger():
+@pytest.mark.asyncio(scope="session")
+async def test_custom_model_grpc():
     service_name = "custom-grpc-logger"
     model_name = "custom-model"
 
-    msg_dumper = 'message-dumper-grpc'
+    msg_dumper = "message-dumper-grpc"
     logger_predictor = V1beta1PredictorSpec(
         min_replicas=1,
-        containers=[V1Container(name="kserve-container",
-                                image='gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display',
-                                resources=V1ResourceRequirements(requests={'cpu': '10m', 'memory': '128Mi'},
-                                                                 limits={'cpu': '100m', 'memory': '256Mi'}))]
+        containers=[
+            V1Container(
+                name="kserve-container",
+                image="gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display",
+                resources=V1ResourceRequirements(
+                    requests={"cpu": "10m", "memory": "128Mi"},
+                    limits={"cpu": "100m", "memory": "256Mi"},
+                ),
+            )
+        ],
     )
 
-    logger_isvc = V1beta1InferenceService(api_version=constants.KSERVE_V1BETA1,
-                                          kind=constants.KSERVE_KIND,
-                                          metadata=client.V1ObjectMeta(
-                                            name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
-                                          spec=V1beta1InferenceServiceSpec(predictor=logger_predictor))
+    logger_isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
+        spec=V1beta1InferenceServiceSpec(predictor=logger_predictor),
+    )
 
     kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
     kserve_client.create(logger_isvc)
     kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
 
     predictor = V1beta1PredictorSpec(
         logger=V1beta1LoggerSpec(
             mode="all",
-            url=f"http://{msg_dumper}." + KSERVE_TEST_NAMESPACE + ".svc.cluster.local"
+            url=f"http://{msg_dumper}." + KSERVE_TEST_NAMESPACE + ".svc.cluster.local",
         ),
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:"
-                      + os.environ.get("GITHUB_SHA"),
+                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"}),
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
                 ports=[
-                    V1ContainerPort(
-                        container_port=8081,
-                        name="h2c",
-                        protocol="TCP"
-                    )],
-                args=["--model_name", model_name]
+                    V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")
+                ],
+                args=["--model_name", model_name],
             )
-        ]
+        ],
     )
 
     isvc = V1beta1InferenceService(
@@ -92,8 +98,7 @@ def test_custom_model_grpc_logger():
     )
 
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(
-        service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     json_file = open("./data/custom_model_input.json")
     data = json.load(json_file)
@@ -103,28 +108,33 @@ def test_custom_model_grpc_logger():
             "shape": [],
             "datatype": "BYTES",
             "contents": {
-                "bytes_contents": [base64.b64decode(data["instances"][0]["image"]["b64"])]
-            }
+                "bytes_contents": [
+                    base64.b64decode(data["instances"][0]["image"]["b64"])
+                ]
+            },
         }
     ]
-    response = predict_grpc(service_name=service_name,
-                            payload=payload, model_name=model_name)
-    fields = response.outputs[0].contents.ListFields()
-    _, field_value = fields[0]
-    points = ['%.3f' % (point) for point in list(field_value)]
+    response = await predict_grpc(
+        service_name=service_name, payload=payload, model_name=model_name
+    )
+    fields = response.outputs[0].data
+    points = ["%.3f" % (point) for point in fields]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
 
-    pods = kserve_client.core_api.list_namespaced_pod(KSERVE_TEST_NAMESPACE,
-                                                      label_selector='serving.kserve.io/inferenceservice={}'.
-                                                      format(msg_dumper))
-    time.sleep(5)
-    log = ''
+    pods = kserve_client.core_api.list_namespaced_pod(
+        KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/inferenceservice={}".format(msg_dumper),
+    )
+    await asyncio.sleep(5)
+    log = ""
     for pod in pods.items:
-        log += kserve_client.core_api.read_namespaced_pod_log(name=pod.metadata.name,
-                                                              namespace=pod.metadata.namespace,
-                                                              container="kserve-container")
+        log += kserve_client.core_api.read_namespaced_pod_log(
+            name=pod.metadata.name,
+            namespace=pod.metadata.namespace,
+            container="kserve-container",
+        )
         print(log)
-    assert ("org.kubeflow.serving.inference.request" in log)
-    assert ("org.kubeflow.serving.inference.response" in log)
+    assert "org.kubeflow.serving.inference.request" in log
+    assert "org.kubeflow.serving.inference.response" in log
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
     kserve_client.delete(msg_dumper, KSERVE_TEST_NAMESPACE)

@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  flake8-lint:
+  lint:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,11 +25,17 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: flake8 Lint
+      - name: Lint with flake8
         uses: py-actions/flake8@v2
         with:
-          max-line-length: "120"
-          exclude: "docs/samples/v1beta1/onnx/assets/*.py,python/kserve/kserve/*.py,python/kserve/test/test_v1*.py,python/kserve/kserve/__init__.py,python/kserve/test/__init__.py,python/kserve/test/test_knative*.py,python/kserve/kserve/protocol/grpc/grpc_predict_v2*.py"
+          args: "--config .flake8"
+          path: "."
+      - name: Check formatting with black
+        uses: psf/black@stable
+        with:
+          options: "--check --diff --config python/pyproject.toml"
+          src: "."
+          version: "~= 24.3"
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -241,29 +247,6 @@ jobs:
           source paddleserver/.venv/bin/activate
           pytest --cov=paddleserver ./paddleserver
 
-      # ----------------------------------------Alibi Explainer Unit Tests------------------------------------------------
-      # load cached alibi venv if cache exists
-      - name: Load cached alibi venv
-        id: cached-alibi-dependencies
-        uses: actions/cache@v4
-        with:
-          path: python/alibiexplainer/.venv
-          key: alibi-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/alibiexplainer/poetry.lock') }}
-        # install alibi explainer dependencies if cache does not exist
-      - name: Install alibi dependencies
-        run: |
-          cd python/alibiexplainer
-          make install_dependencies
-      - name: Install alibiexplainer
-        run: |
-          cd python/alibiexplainer
-          make dev_install
-      - name: Test alibiexplainer
-        run: |
-          cd python
-          source alibiexplainer/.venv/bin/activate
-          pytest --cov=alibiexplainer ./alibiexplainer
-
       # ----------------------------------------Huggingface Server Unit Tests------------------------------------------------
       # load cached huggingface venv if cache exists
       - name: Load cached huggingface venv
@@ -296,7 +279,7 @@ jobs:
         if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.8') }}
         run: |
           cd python/huggingfaceserver
-          poetry run -- pytest --cov=huggingfaceserver
+          poetry run -- pytest --cov=huggingfaceserver -vv
 
       - name: Free space after tests
         run: |

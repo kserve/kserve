@@ -19,14 +19,14 @@ package pod
 import (
 	"testing"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-	"knative.dev/pkg/kmp"
-
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/kmp"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 const (

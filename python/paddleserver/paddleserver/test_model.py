@@ -25,17 +25,21 @@ model_dir = os.path.join(os.path.dirname(__file__), "example_models", "pyramidbo
 def face_detect_preprocess(img, shrink=0.3):
     # BGR
     img_shape = img.shape
-    img = cv2.resize(img, (int(img_shape[1] * shrink), int(img_shape[0] * shrink)), interpolation=cv2.INTER_CUBIC)
+    img = cv2.resize(
+        img,
+        (int(img_shape[1] * shrink), int(img_shape[0] * shrink)),
+        interpolation=cv2.INTER_CUBIC,
+    )
 
     # HWC -> CHW
     img = np.swapaxes(img, 1, 2)
     img = np.swapaxes(img, 1, 0)
 
     # RBG to BGR
-    mean = [104., 117., 123.]
+    mean = [104.0, 117.0, 123.0]
     scale = 0.007843
-    img = img.astype('float32')
-    img -= np.array(mean)[:, np.newaxis, np.newaxis].astype('float32')
+    img = img.astype("float32")
+    img -= np.array(mean)[:, np.newaxis, np.newaxis].astype("float32")
     img = img * scale
     img = img[np.newaxis, :]
     return img
@@ -60,8 +64,7 @@ def test_model():
             datatype=from_np_dtype(input_data.dtype),
             data=input_data,
         )
-        infer_request = InferRequest(
-            model_name="model", infer_inputs=[infer_input])
+        infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
         response = server.predict(infer_request)
         assert response.to_rest()["outputs"][0]["data"][0] == 1.0
 

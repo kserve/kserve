@@ -13,40 +13,41 @@
 # limitations under the License.
 
 import os
+from enum import Enum
 
 # KServe K8S constants
-KSERVE_GROUP = 'serving.kserve.io'
-KSERVE_KIND = 'InferenceService'
-KSERVE_PLURAL = 'inferenceservices'
-KSERVE_KIND_TRAINEDMODEL = 'TrainedModel'
-KSERVE_PLURAL_TRAINEDMODEL = 'trainedmodels'
-KSERVE_KIND_INFERENCEGRAPH = 'InferenceGraph'
-KSERVE_PLURAL_INFERENCEGRAPH = 'inferencegraphs'
-KSERVE_V1BETA1_VERSION = 'v1beta1'
+KSERVE_GROUP = "serving.kserve.io"
+KSERVE_KIND = "InferenceService"
+KSERVE_PLURAL = "inferenceservices"
+KSERVE_KIND_TRAINEDMODEL = "TrainedModel"
+KSERVE_PLURAL_TRAINEDMODEL = "trainedmodels"
+KSERVE_KIND_INFERENCEGRAPH = "InferenceGraph"
+KSERVE_PLURAL_INFERENCEGRAPH = "inferencegraphs"
+KSERVE_V1BETA1_VERSION = "v1beta1"
 KSERVE_V1ALPHA1_VERSION = "v1alpha1"
 
-KSERVE_V1BETA1 = KSERVE_GROUP + '/' + KSERVE_V1BETA1_VERSION
-KSERVE_V1ALPHA1 = KSERVE_GROUP + '/' + KSERVE_V1ALPHA1_VERSION
+KSERVE_V1BETA1 = KSERVE_GROUP + "/" + KSERVE_V1BETA1_VERSION
+KSERVE_V1ALPHA1 = KSERVE_GROUP + "/" + KSERVE_V1ALPHA1_VERSION
 
-KSERVE_LOGLEVEL = os.environ.get('KSERVE_LOGLEVEL', 'INFO').upper()
+KSERVE_LOGLEVEL = os.environ.get("KSERVE_LOGLEVEL", "INFO").upper()
 
 # INFERENCESERVICE credentials common constants
-INFERENCESERVICE_CONFIG_MAP_NAME = 'inferenceservice-config'
-INFERENCESERVICE_SYSTEM_NAMESPACE = 'kserve'
+INFERENCESERVICE_CONFIG_MAP_NAME = "inferenceservice-config"
+INFERENCESERVICE_SYSTEM_NAMESPACE = "kserve"
 DEFAULT_SECRET_NAME = "kserve-secret-"
 DEFAULT_SA_NAME = "kserve-service-credentials"
 
 # S3 credentials constants
 S3_ACCESS_KEY_ID_DEFAULT_NAME = "AWS_ACCESS_KEY_ID"
 S3_SECRET_ACCESS_KEY_DEFAULT_NAME = "AWS_SECRET_ACCESS_KEY"
-S3_DEFAULT_CREDS_FILE = '~/.aws/credentials'
+S3_DEFAULT_CREDS_FILE = "~/.aws/credentials"
 
 # GCS credentials constants
-GCS_CREDS_FILE_DEFAULT_NAME = 'gcloud-application-credentials.json'
-GCS_DEFAULT_CREDS_FILE = '~/.config/gcloud/application_default_credentials.json'
+GCS_CREDS_FILE_DEFAULT_NAME = "gcloud-application-credentials.json"
+GCS_DEFAULT_CREDS_FILE = "~/.config/gcloud/application_default_credentials.json"
 
 # Azure credentials constants
-AZ_DEFAULT_CREDS_FILE = '~/.azure/azure_credentials.json'
+AZ_DEFAULT_CREDS_FILE = "~/.azure/azure_credentials.json"
 
 # Model Serve Constants
 KSERVE_MODEL_SERVER_NAME = "kserve"
@@ -64,10 +65,26 @@ GRPC_CONTENT_DATATYPE_MAPPINGS = {
     "UINT64": "uint64_contents",
     "FP32": "fp32_contents",
     "FP64": "fp64_contents",
-    "BYTES": "bytes_contents"
+    "BYTES": "bytes_contents",
 }
 # K8S status key constants
-OBSERVED_GENERATION = 'observedGeneration'
+OBSERVED_GENERATION = "observedGeneration"
 
 # K8S metadata key constants
-GENERATION = 'generation'
+GENERATION = "generation"
+
+PREDICTOR_BASE_URL_FORMAT = "{0}://{1}"
+EXPLAINER_BASE_URL_FORMAT = "{0}://{1}"
+
+
+class PredictorProtocol(Enum):
+    REST_V1 = "v1"
+    REST_V2 = "v2"
+    GRPC_V2 = "grpc-v2"
+
+
+# LLM stats map key
+LLM_STATS_KEY = "llm-stats"
+
+# Default GRPC max message length
+MAX_GRPC_MESSAGE_LENGTH = 8388608

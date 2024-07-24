@@ -12,5 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .model import HuggingfaceModel  # noqa # pylint: disable=unused-import
-from .huggingface_model_repository import HuggingfaceModelRepository  # noqa # pylint: disable=unused-import
+from enum import Enum, auto as auto_value
+from .encoder_model import HuggingfaceEncoderModel
+from .generative_model import HuggingfaceGenerativeModel
+
+
+class Backend(str, Enum):
+    """
+    Backend defines the framework used to load a model
+    """
+
+    auto = auto_value()
+    huggingface = auto_value()
+    vllm = auto_value()
+
+
+__all__ = [
+    "HuggingfaceGenerativeModel",
+    "HuggingfaceEncoderModel",
+]

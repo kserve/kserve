@@ -1,0 +1,16 @@
+name: Re-Run PR tests
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  rerun_pr_tests:
+    name: rerun_pr_tests
+    if: ${{ github.event.issue.pull_request }}
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: estroz/rerun-actions@main
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        comment_id: ${{ github.event.comment.id }}

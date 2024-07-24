@@ -231,6 +231,7 @@ const (
 
 var (
 	LocalGatewayHost = "knative-local-gateway.istio-system.svc." + network.GetClusterDomainName()
+	IstioMeshGateway = "mesh"
 )
 
 // InferenceService Component enums
@@ -350,6 +351,8 @@ const (
 	CheckResultUpdate  CheckResultType = 1
 	CheckResultExisted CheckResultType = 2
 	CheckResultUnknown CheckResultType = 3
+	CheckResultDelete  CheckResultType = 4
+	CheckResultSkipped CheckResultType = 5
 )
 
 type DeploymentModeType string
@@ -358,6 +361,10 @@ const (
 	Serverless          DeploymentModeType = "Serverless"
 	RawDeployment       DeploymentModeType = "RawDeployment"
 	ModelMeshDeployment DeploymentModeType = "ModelMesh"
+)
+
+const (
+	DefaultNSKnativeServing = "knative-serving"
 )
 
 // built-in runtime servers
@@ -430,6 +437,12 @@ const (
 	StateReasonCompleted        = "Completed"
 	StateReasonError            = "Error"
 	StateReasonCrashLoopBackOff = "CrashLoopBackOff"
+)
+
+// CRD Kinds
+const (
+	IstioVirtualServiceKind = "VirtualService"
+	KnativeServiceKind      = "Service"
 )
 
 // GetRawServiceLabel generate native service label
@@ -566,13 +579,13 @@ const portMatch = `(?::\d{1,5})?`
 // HostRegExp returns an ECMAScript regular expression to match either host or host:<any port>
 // for clusterLocalHost, we will also match the prefixes.
 func HostRegExp(host string) string {
-	localDomainSuffix := ".svc." + network.GetClusterDomainName()
+	localDomainSuffix := "(?i).svc." + network.GetClusterDomainName()
 	if !strings.HasSuffix(host, localDomainSuffix) {
 		return exact(regexp.QuoteMeta(host) + portMatch)
 	}
 	prefix := regexp.QuoteMeta(strings.TrimSuffix(host, localDomainSuffix))
-	clusterSuffix := regexp.QuoteMeta("." + network.GetClusterDomainName())
-	svcSuffix := regexp.QuoteMeta(".svc")
+	clusterSuffix := regexp.QuoteMeta("(?i)." + network.GetClusterDomainName())
+	svcSuffix := regexp.QuoteMeta("(?i).svc")
 	return exact(prefix + optional(svcSuffix+optional(clusterSuffix)) + portMatch)
 }
 

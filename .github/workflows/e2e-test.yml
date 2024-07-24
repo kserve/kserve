@@ -33,8 +33,8 @@ env:
   PMML_IMG: "pmmlserver"
   PADDLE_IMG: "paddleserver"
   CUSTOM_MODEL_GRPC_IMG: "custom-model-grpc"
+  HUGGINGFACE_IMG: "huggingfaceserver"
   # Explainer images
-  ALIBI_IMG: "alibi-explainer"
   ART_IMG: "art-explainer"
   # Transformer images
   IMAGE_TRANSFORMER_IMG: "image-transformer"
@@ -200,6 +200,14 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+      - name: Upload huggingface image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
+
   explainer-runtime-build:
     runs-on: ubuntu-latest
     needs: [poetry-check]
@@ -217,14 +225,6 @@ jobs:
           ./test/scripts/gh-actions/build-server-runtimes.sh explainer
           docker image ls
           sudo ls -lh ${DOCKER_IMAGES_PATH}
-
-      - name: Upload alibi image
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.EXPLAINER_ARTIFACT_PREFIX }}-${{ env.ALIBI_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ALIBI_IMG }}-${{ github.sha }}
-          compression-level: 0
-          if-no-files-found: error
 
       - name: Upload art explainer image
         uses: actions/upload-artifact@v4
@@ -337,83 +337,83 @@ jobs:
           ./test/scripts/gh-actions/status-check.sh
 
   test-transformer-explainer-mms:
-      runs-on: ubuntu-latest
-      needs:
-        [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
-      steps:
-        - name: Checkout source
-          uses: actions/checkout@v4
+    runs-on: ubuntu-latest
+    needs:
+      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-        - name: Free-up disk space
-          uses: ./.github/actions/free-up-disk-space
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
 
-        - name: Setup Go
-          uses: actions/setup-go@v5
-          with:
-            go-version: "1.21"
-        - name: Setup Python
-          uses: actions/setup-python@v5
-          with:
-            python-version: "3.9"
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
 
-        - name: Setup Minikube
-          uses: ./.github/actions/minikube-setup
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
 
-        - name: KServe dependency setup
-          uses: ./.github/actions/kserve-dep-setup
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
 
-        - name: Download base images
-          uses: ./.github/actions/base-download
+      - name: Download base images
+        uses: ./.github/actions/base-download
 
-        - name: Download transformer and explainer artifacts
-          uses: actions/download-artifact@v4
-          with:
-            path: ./tmp
-            pattern: +(${{ env.TRANSFORMER_ARTIFACT_PREFIX }}|${{ env.EXPLAINER_ARTIFACT_PREFIX }})-*
-            merge-multiple: true
+      - name: Download transformer and explainer artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./tmp
+          pattern: +(${{ env.TRANSFORMER_ARTIFACT_PREFIX }}|${{ env.EXPLAINER_ARTIFACT_PREFIX }})-*
+          merge-multiple: true
 
-        - name: Download sklearn server image
-          uses: actions/download-artifact@v4
-          with:
-            name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
-            path: ./tmp
+      - name: Download sklearn server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
+          path: ./tmp
 
-        - name: Download custom model grpc image
-          uses: actions/download-artifact@v4
-          with:
-            name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ github.sha }}
-            path: ./tmp
+      - name: Download custom model grpc image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ github.sha }}
+          path: ./tmp
 
-        - name: Download xgb server image
-          uses: actions/download-artifact@v4
-          with:
-            name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
-            path: ./tmp
+      - name: Download xgb server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
+          path: ./tmp
 
-        - name: Load docker images
-          uses: ./.github/actions/load-docker-images
-          with:
-            directory: ./tmp
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
 
-        - name: Install Poetry and version plugin
-          run: ./test/scripts/gh-actions/setup-poetry.sh
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
 
-        - name: Install KServe
-          run: |
-            ./test/scripts/gh-actions/setup-kserve.sh
-        
-            kubectl get pods -n kserve
-            kubectl describe pods -n kserve
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh
+          
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
 
-        - name: Run E2E tests
-          timeout-minutes: 30
-          run: |
-            ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms or collocation or explainer" "6"
+      - name: Run E2E tests
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms or collocation or explainer" "6"
 
-        - name: Check system status
-          if: always()
-          run: |
-            ./test/scripts/gh-actions/status-check.sh
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
 
   test-graph:
     runs-on: ubuntu-latest
@@ -730,6 +730,12 @@ jobs:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ github.sha }}
           path: ./tmp
 
+      - name: Download xgb server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
+          path: ./tmp
+
       - name: Download custom model grpc image
         uses: actions/download-artifact@v4
         with:
@@ -850,3 +856,63 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh "kourier"
+
+  test-llm:
+    runs-on: ubuntu-latest
+    needs:
+      [ kserve-image-build, predictor-runtime-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Download huggingface server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Run E2E tests
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llm" "2"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh

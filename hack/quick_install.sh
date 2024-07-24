@@ -30,11 +30,11 @@ while getopts ":hsr" option; do
    esac
 done
 
-export ISTIO_VERSION=1.19.4
+export ISTIO_VERSION=1.20.4
 export ISTIO_DIR=istio-${ISTIO_VERSION}
-export KNATIVE_SERVING_VERSION=knative-v1.10.1
-export KNATIVE_ISTIO_VERSION=knative-v1.10.0
-export KSERVE_VERSION=v0.12.0
+export KNATIVE_SERVING_VERSION=knative-v1.13.1
+export KNATIVE_ISTIO_VERSION=knative-v1.13.1
+export KSERVE_VERSION=v0.13.0
 export CERT_MANAGER_VERSION=v1.9.0
 export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
 
@@ -58,7 +58,7 @@ if [ -d ${ISTIO_DIR} ]; then
 else
   curl -L https://istio.io/downloadIstio | sh -
 fi
-cd ${ISTIO_DIR}
+pushd ${ISTIO_DIR} >> /dev/null
 
 # Create istio-system namespace
 cat <<EOF | kubectl apply -f -
@@ -103,6 +103,7 @@ EOF
 bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
 
 echo "😀 Successfully installed Istio"
+popd >> /dev/null
 rm -rf ${ISTIO_DIR}
 
 # Install Knative

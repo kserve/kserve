@@ -7,9 +7,7 @@ import time
 if len(sys.argv) < 3:
     raise Exception("No endpoint specified. ")
 endpoint = sys.argv[1]
-headers = {
-    'Host': sys.argv[2]
-}
+headers = {"Host": sys.argv[2]}
 
 payload_file = "input.json"
 if len(sys.argv) > 3:

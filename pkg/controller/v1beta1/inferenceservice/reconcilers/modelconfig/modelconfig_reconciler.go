@@ -19,31 +19,34 @@ package multimodelconfig
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/modelconfig"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var log = logf.Log.WithName("Reconciler")
 
 type ModelConfigReconciler struct {
-	client client.Client
-	scheme *runtime.Scheme
+	client    client.Client
+	clientset kubernetes.Interface
+	scheme    *runtime.Scheme
 }
 
-func NewModelConfigReconciler(client client.Client, scheme *runtime.Scheme) *ModelConfigReconciler {
+func NewModelConfigReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme) *ModelConfigReconciler {
 	return &ModelConfigReconciler{
-		client: client,
-		scheme: scheme,
+		client:    client,
+		clientset: clientset,
+		scheme:    scheme,
 	}
 }
 
@@ -54,9 +57,9 @@ func (c *ModelConfigReconciler) Reconcile(isvc *v1beta1api.InferenceService) err
 		// An InferenceService with storageUri is considered as multi-model InferenceService with only one model, a modelConfig configmap should be created as well
 		shardStrategy := memory.MemoryStrategy{}
 		for _, id := range shardStrategy.GetShard(isvc) {
-			modelConfig := corev1.ConfigMap{}
-			modelConfigName := types.NamespacedName{Name: constants.ModelConfigName(isvc.Name, id), Namespace: isvc.Namespace}
-			if err := c.client.Get(context.TODO(), modelConfigName, &modelConfig); err != nil {
+			modelConfigName := constants.ModelConfigName(isvc.Name, id)
+			_, err := c.clientset.CoreV1().ConfigMaps(isvc.Namespace).Get(context.TODO(), modelConfigName, metav1.GetOptions{})
+			if err != nil {
 				if errors.IsNotFound(err) {
 					// If the modelConfig does not exist for an InferenceService without storageUri, create an empty modelConfig
 					log.Info("Creating modelConfig", "configmap", modelConfigName, "inferenceservice", isvc.Name, "namespace", isvc.Namespace)

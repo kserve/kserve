@@ -22,10 +22,11 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // ConfigMap Keys
@@ -53,8 +54,7 @@ type ExplainerConfig struct {
 
 // +kubebuilder:object:generate=false
 type ExplainersConfig struct {
-	AlibiExplainer ExplainerConfig `json:"alibi,omitempty"`
-	ARTExplainer   ExplainerConfig `json:"art,omitempty"`
+	ARTExplainer ExplainerConfig `json:"art,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -65,17 +65,18 @@ type InferenceServicesConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
-	IngressGateway          string  `json:"ingressGateway,omitempty"`
-	IngressServiceName      string  `json:"ingressService,omitempty"`
-	LocalGateway            string  `json:"localGateway,omitempty"`
-	LocalGatewayServiceName string  `json:"localGatewayService,omitempty"`
-	IngressDomain           string  `json:"ingressDomain,omitempty"`
-	IngressClassName        *string `json:"ingressClassName,omitempty"`
-	DomainTemplate          string  `json:"domainTemplate,omitempty"`
-	UrlScheme               string  `json:"urlScheme,omitempty"`
-	DisableIstioVirtualHost bool    `json:"disableIstioVirtualHost,omitempty"`
-	PathTemplate            string  `json:"pathTemplate,omitempty"`
-	DisableIngressCreation  bool    `json:"disableIngressCreation,omitempty"`
+	IngressGateway           string    `json:"ingressGateway,omitempty"`
+	IngressServiceName       string    `json:"ingressService,omitempty"`
+	LocalGateway             string    `json:"localGateway,omitempty"`
+	LocalGatewayServiceName  string    `json:"localGatewayService,omitempty"`
+	IngressDomain            string    `json:"ingressDomain,omitempty"`
+	IngressClassName         *string   `json:"ingressClassName,omitempty"`
+	AdditionalIngressDomains *[]string `json:"additionalIngressDomains,omitempty"`
+	DomainTemplate           string    `json:"domainTemplate,omitempty"`
+	UrlScheme                string    `json:"urlScheme,omitempty"`
+	DisableIstioVirtualHost  bool      `json:"disableIstioVirtualHost,omitempty"`
+	PathTemplate             string    `json:"pathTemplate,omitempty"`
+	DisableIngressCreation   bool      `json:"disableIngressCreation,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -83,9 +84,8 @@ type DeployConfig struct {
 	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty"`
 }
 
-func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, error) {
-	configMap := &v1.ConfigMap{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
+func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServicesConfig, error) {
+	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -100,9 +100,8 @@ func NewInferenceServicesConfig(cli client.Client) (*InferenceServicesConfig, er
 	return icfg, nil
 }
 
-func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
-	configMap := &v1.ConfigMap{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
+func NewIngressConfig(clientset kubernetes.Interface) (*IngressConfig, error) {
+	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -123,10 +122,10 @@ func NewIngressConfig(cli client.Client) (*IngressConfig, error) {
 			// For now simply check that this is a valid template.
 			_, err := template.New("path-template").Parse(ingressConfig.PathTemplate)
 			if err != nil {
-				return nil, fmt.Errorf("Invalid ingress config, unable to parse pathTemplate: %w", err)
+				return nil, fmt.Errorf("invalid ingress config, unable to parse pathTemplate: %w", err)
 			}
 			if ingressConfig.IngressDomain == "" {
-				return nil, fmt.Errorf("Invalid ingress config - igressDomain is required if pathTemplate is given")
+				return nil, fmt.Errorf("invalid ingress config - ingressDomain is required if pathTemplate is given")
 			}
 		}
 	}
@@ -150,15 +149,14 @@ func getComponentConfig(key string, configMap *v1.ConfigMap, componentConfig int
 	if data, ok := configMap.Data[key]; ok {
 		err := json.Unmarshal([]byte(data), componentConfig)
 		if err != nil {
-			return fmt.Errorf("Unable to unmarshall %v json string due to %w ", key, err)
+			return fmt.Errorf("unable to unmarshall %v json string due to %w ", key, err)
 		}
 	}
 	return nil
 }
 
-func NewDeployConfig(cli client.Client) (*DeployConfig, error) {
-	configMap := &v1.ConfigMap{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
+func NewDeployConfig(clientset kubernetes.Interface) (*DeployConfig, error) {
+	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -166,17 +164,17 @@ func NewDeployConfig(cli client.Client) (*DeployConfig, error) {
 	if deploy, ok := configMap.Data[DeployConfigName]; ok {
 		err := json.Unmarshal([]byte(deploy), &deployConfig)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse deploy config json: %w", err)
+			return nil, fmt.Errorf("unable to parse deploy config json: %w", err)
 		}
 
 		if deployConfig.DefaultDeploymentMode == "" {
-			return nil, fmt.Errorf("Invalid deploy config, defaultDeploymentMode is required.")
+			return nil, fmt.Errorf("invalid deploy config, defaultDeploymentMode is required")
 		}
 
 		if deployConfig.DefaultDeploymentMode != string(constants.Serverless) &&
 			deployConfig.DefaultDeploymentMode != string(constants.RawDeployment) &&
 			deployConfig.DefaultDeploymentMode != string(constants.ModelMeshDeployment) {
-			return nil, fmt.Errorf("Invalid deployment mode. Supported modes are Serverless," +
+			return nil, fmt.Errorf("invalid deployment mode. Supported modes are Serverless," +
 				" RawDeployment and ModelMesh")
 		}
 	}

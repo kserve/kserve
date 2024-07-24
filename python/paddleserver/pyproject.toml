@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "paddleserver"
-version = "0.12.0"
+version = "0.13.0"
 description = "Model Server implementation for Paddle. Not intended for use outside KServe Frameworks Images"
 authors = ["Zhengyuan Zhang <zhangzhengyuan0604@gmail.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -22,6 +22,12 @@ pytest = "^7.2.0"
 pytest-cov = "^4.0.0"
 mypy = "^0.991"
 opencv-python = "^4.2.0"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+black = { version = "~24.3.0", extras = ["colorama"] }
 
 [tool.poetry-version-plugin]
 source = "file"

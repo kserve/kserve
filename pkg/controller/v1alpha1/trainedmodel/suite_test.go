@@ -20,28 +20,27 @@ import (
 	"context"
 	"testing"
 
-	pkgtest "github.com/kserve/kserve/pkg/testing"
-	"k8s.io/client-go/tools/record"
-
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
-
-	kfservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kfservingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+
+	kfservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	kfservingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -54,6 +53,7 @@ var (
 	testEnv   *envtest.Environment
 	cancel    context.CancelFunc
 	ctx       context.Context
+	clientset kubernetes.Interface
 )
 
 func TestAPIs(t *testing.T) {
@@ -84,6 +84,10 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
 
+	clientset, err = kubernetes.NewForConfig(cfg)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(clientset).ToNot(BeNil())
+
 	//Create namespace
 	kfservingNamespaceObj := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -101,10 +105,11 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	err = (&TrainedModelReconciler{
 		Client:                k8sManager.GetClient(),
+		Clientset:             clientset,
 		Scheme:                scheme.Scheme,
 		Log:                   ctrl.Log.WithName("v1beta1TrainedModelController"),
 		Recorder:              record.NewBroadcaster().NewRecorder(scheme.Scheme, v1.EventSource{Component: "v1betaController"}),
-		ModelConfigReconciler: modelconfig.NewModelConfigReconciler(k8sManager.GetClient(), scheme.Scheme),
+		ModelConfigReconciler: modelconfig.NewModelConfigReconciler(k8sManager.GetClient(), clientset, scheme.Scheme),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 	defer GinkgoRecover()

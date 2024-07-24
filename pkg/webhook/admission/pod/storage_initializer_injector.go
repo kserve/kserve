@@ -82,7 +82,7 @@ func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerC
 			panic(fmt.Errorf("Unable to unmarshall %v json string due to %w ", StorageInitializerConfigMapKeyName, err))
 		}
 	}
-	//Ensure that we set proper values for CPU/Memory Limit/Request
+	// Ensure that we set proper values for CPU/Memory Limit/Request
 	resourceDefaults := []string{storageInitializerConfig.MemoryRequest,
 		storageInitializerConfig.MemoryLimit,
 		storageInitializerConfig.CpuRequest,
@@ -121,7 +121,9 @@ func GetContainerSpecForStorageUri(storageUri string, client client.Client) (*v1
 
 // InjectModelcar injects a sidecar with the full model included to the Pod.
 // This so called "modelcar" is then directly accessed from the user container
-// via the proc filesystem (possible when `shareProcessNamespace` is enabled in the Pod spec)
+// via the proc filesystem (possible when `shareProcessNamespace` is enabled in the Pod spec).
+// This method is idempotent so can be called multiple times like it happens when the
+// webhook is configured with `reinvocationPolicy: IfNeeded`
 func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 	srcURI, ok := pod.ObjectMeta.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 	if !ok {
@@ -134,12 +136,7 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 	}
 
 	// Add an emptyDir Volume to Pod
-	pod.Spec.Volumes = append(pod.Spec.Volumes, v1.Volume{
-		Name: StorageInitializerVolumeName,
-		VolumeSource: v1.VolumeSource{
-			EmptyDir: &v1.EmptyDirVolumeSource{},
-		},
-	})
+	addEmptyDirVolumeIfNotPresent(pod, StorageInitializerVolumeName)
 
 	// Extract image reference for modelcar from URI
 	image := strings.TrimPrefix(srcURI, OciURIPrefix)
@@ -155,14 +152,10 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 	addOrReplaceEnv(userContainer, ModelInitModeEnv, "async")
 
 	// Mount volume initialized by the modelcar container to the user container and transformer (if exists)
-	modelMount := v1.VolumeMount{
-		Name:      StorageInitializerVolumeName,
-		MountPath: getParentDirectory(constants.DefaultModelLocalMountPath),
-		ReadOnly:  false,
-	}
-	userContainer.VolumeMounts = append(userContainer.VolumeMounts, modelMount)
+	modelParentDir := getParentDirectory(constants.DefaultModelLocalMountPath)
+	addVolumeMountIfNotPresent(userContainer, StorageInitializerVolumeName, modelParentDir)
 	if transformerContainer != nil {
-		transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, modelMount)
+		addVolumeMountIfNotPresent(transformerContainer, StorageInitializerVolumeName, modelParentDir)
 	}
 
 	// If configured, run as the given user. There might be certain installations
@@ -175,9 +168,11 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 	}
 
 	// Create the modelcar that is used as a sidecar in Pod and add it to the end
-	// of the containers
-	modelContainer := mi.createModelContainer(image, constants.DefaultModelLocalMountPath)
-	pod.Spec.Containers = append(pod.Spec.Containers, *modelContainer)
+	// of the containers (but only if not already have been added)
+	if getContainerWithName(pod, ModelcarContainerName) == nil {
+		modelContainer := mi.createModelContainer(image, constants.DefaultModelLocalMountPath)
+		pod.Spec.Containers = append(pod.Spec.Containers, *modelContainer)
+	}
 
 	// Enable process namespace sharing so that the modelcar's root filesystem
 	// can be reached by the user container
@@ -248,7 +243,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		// check if using direct volume mount to mount the pvc
 		// if yes, mount the pvc to model local mount path and return
 		if mi.config.EnableDirectPvcVolumeMount {
-
 			// add a corresponding pvc volume mount to the userContainer
 			// pvc will be mount to /mnt/models rather than /mnt/pvc
 			// pvcPath will be injected via SubPath, pvcPath must be a root or Dir
@@ -689,7 +683,39 @@ func (mi *StorageInitializerInjector) createModelContainer(image string, modelPa
 	return modelContainer
 }
 
-// GetParentDirectory returns the parent directory of the given path,
+// addEmptyDirVolumeIfNotPresent adds an emptyDir volume only if not present in the
+// list. pod and pod.Spec must not be nil
+func addEmptyDirVolumeIfNotPresent(pod *v1.Pod, name string) {
+	for _, v := range pod.Spec.Volumes {
+		if v.Name == name {
+			return
+		}
+	}
+	pod.Spec.Volumes = append(pod.Spec.Volumes, v1.Volume{
+		Name: name,
+		VolumeSource: v1.VolumeSource{
+			EmptyDir: &v1.EmptyDirVolumeSource{},
+		},
+	})
+}
+
+// addVolumeMountIfNotPresent adds a volume mount to a given container but only if no volumemoun
+// with this name has been already added. container must not be nil
+func addVolumeMountIfNotPresent(container *v1.Container, mountName string, mountPath string) {
+	for _, v := range container.VolumeMounts {
+		if v.Name == mountName {
+			return
+		}
+	}
+	modelMount := v1.VolumeMount{
+		Name:      mountName,
+		MountPath: mountPath,
+		ReadOnly:  false,
+	}
+	container.VolumeMounts = append(container.VolumeMounts, modelMount)
+}
+
+// getParentDirectory returns the parent directory of the given path,
 // or "/" if the path is a top-level directory.
 func getParentDirectory(path string) string {
 	// Get the parent directory
@@ -741,14 +767,15 @@ func mergeContainerSpecs(defaultContainer *v1.Container, crdContainer *v1.Contai
 
 func parsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
 	parts := strings.Split(strings.TrimPrefix(srcURI, PvcURIPrefix), "/")
-	if len(parts) > 1 {
-		pvcName = parts[0]
-		pvcPath = strings.Join(parts[1:], "/")
-	} else if len(parts) == 1 {
+	switch len(parts) {
+	case 0:
+		return "", "", fmt.Errorf("Invalid URI must be pvc://<pvcname>/[path]: %s", srcURI)
+	case 1:
 		pvcName = parts[0]
 		pvcPath = ""
-	} else {
-		return "", "", fmt.Errorf("Invalid URI must be pvc://<pvcname>/[path]: %s", srcURI)
+	default:
+		pvcName = parts[0]
+		pvcPath = strings.Join(parts[1:], "/")
 	}
 
 	return pvcName, pvcPath, nil

@@ -45,7 +45,8 @@ jobs:
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
-        uses: github/codeql-action/upload-sarif@v2
+        continue-on-error: true #avoid fail the pipeline if the SARIF upload fails.
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: application/${{ matrix.image.name }}/docker.snyk.sarif
 
@@ -92,7 +93,6 @@ jobs:
       matrix:
         image:
           [
-            { name: alibi-explainer, file: python/alibiexplainer.Dockerfile },
             { name: art-explainer, file: python/artexplainer.Dockerfile },
           ]
 

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "success_200_isvc"
-version = "0.12.0"
+version = "0.13.0"
 description = "Custom isvc that always returns 200 with a JSON SUCCESS message"
 authors = ["The KServe Authors"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -11,6 +11,12 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.9,<3.12"
 kserve = {path = "../../../kserve", develop = true}
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+black = { version = "~24.3.0", extras = ["colorama"] }
 
 
 [tool.poetry-version-plugin]

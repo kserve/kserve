@@ -7,9 +7,15 @@ from huggingface_hub import snapshot_download
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', default="bigscience/bloom-560m", help='model name from huggingface')
-    parser.add_argument('--model_dir', default="models", help='dir to download the model')
-    parser.add_argument('--revision', default="main", help='revision of the model')
+    parser.add_argument(
+        "--model_name",
+        default="bigscience/bloom-560m",
+        help="model name from huggingface",
+    )
+    parser.add_argument(
+        "--model_dir", default="models", help="dir to download the model"
+    )
+    parser.add_argument("--revision", default="main", help="revision of the model")
     args = vars(parser.parse_args())
 
     model_name = args["model_name"]

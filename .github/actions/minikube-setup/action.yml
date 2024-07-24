@@ -12,7 +12,7 @@ runs:
     - name: Setup Minikube
       uses: medyagh/setup-minikube@latest
       with:
-        minikube-version: '1.31.1'
+        minikube-version: '1.32.0'
         kubernetes-version: 'v1.27.4'
         driver: 'none'
         network-plugin: 'cni'
