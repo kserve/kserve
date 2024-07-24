@@ -89,8 +89,7 @@ class V1Endpoints:
             req_attributes=req_attributes,
         )
         response_headers.update(res_headers)
-        if "content-length" in response_headers:
-            del response_headers["content-length"]
+        response_headers.pop("content-length", None)
 
         if isinstance(response, bytes) or isinstance(response, str):
             return Response(content=response, headers=response_headers)
@@ -129,8 +128,7 @@ class V1Endpoints:
         )
 
         response_headers.update(res_headers)
-        if "content-length" in response_headers:
-            del response_headers["content-length"]
+        response_headers.pop("content-length", None)
 
         if not isinstance(response, dict):
             return Response(content=response, headers=response_headers)
