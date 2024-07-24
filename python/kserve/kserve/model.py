@@ -355,7 +355,7 @@ class Model(InferenceModel):
         self,
         payload: Union[Dict, InferRequest],
         headers: Dict[str, str] = None,
-        response_header: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
@@ -377,8 +377,8 @@ class Model(InferenceModel):
             headers=predict_headers,
         )
 
-        if response_header is not None:
-            response_header.update(response.headers)
+        if response_headers is not None:
+            response_headers.update(response.headers)
 
         return response
 
@@ -403,7 +403,7 @@ class Model(InferenceModel):
         self,
         payload: Union[Dict, InferRequest, ModelInferRequest],
         headers: Dict[str, str] = None,
-        response_header: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse, AsyncIterator[Any]]:
         """The `predict` handler can be overridden for performing the inference.
             By default, the predict handler makes call to predictor for the inference step.
@@ -423,7 +423,7 @@ class Model(InferenceModel):
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             return await self._grpc_predict(payload, headers)
         else:
-            return await self._http_predict(payload, headers, response_header)
+            return await self._http_predict(payload, headers, response_headers)
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.

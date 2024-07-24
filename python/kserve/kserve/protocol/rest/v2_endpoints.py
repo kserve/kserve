@@ -172,10 +172,8 @@ class V2Endpoints:
         )
 
         response_headers.update(res_headers)
-        if "content-length" in response_headers:
-            del response_headers["content-length"]
-        if "content-type" in response_headers:
-            del response_headers["content-type"]
+        response_headers.pop("content-length", None)
+        response_headers.pop("content-type", None)
 
         if response_headers:
             raw_response.headers.update(response_headers)
