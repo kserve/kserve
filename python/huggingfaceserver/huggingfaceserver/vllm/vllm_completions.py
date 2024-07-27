@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
-import torch
 import asyncio
+import time
+
+import torch
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 from typing import (
