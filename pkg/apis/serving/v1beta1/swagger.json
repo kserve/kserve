@@ -2196,6 +2196,10 @@
           "type": "integer",
           "format": "int32"
         },
+        "model": {
+          "description": "Explainer spec for any arbitrary framework.",
+          "$ref": "#/definitions/v1beta1.ModelSpec"
+        },
         "nodeName": {
           "description": "NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements.",
           "type": "string"

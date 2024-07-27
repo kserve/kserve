@@ -47,6 +47,7 @@ type ModelSpec struct {
 	// +optional
 	Runtime *string `json:"runtime,omitempty"`
 
+	// Currently this takes the PredictorExtensionSpec for both predictor and explainer
 	PredictorExtensionSpec `json:",inline"`
 }
 

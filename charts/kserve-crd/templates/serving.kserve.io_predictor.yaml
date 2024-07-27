@@ -213,6 +213,7 @@ spec:
                         - NoSupportingRuntime
                         - RuntimeNotRecognized
                         - InvalidPredictorSpec
+                        - InvalidExplainerSpec
                       type: string
                     time:
                       description: Time failure occurred or was discovered
