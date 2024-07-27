@@ -20,7 +20,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export POETRY_VERSION=1.7.1
+export POETRY_VERSION=1.8.3
 echo "Installing Poetry $POETRY_VERSION ..."
 pip install poetry==$POETRY_VERSION
 poetry config virtualenvs.create true

@@ -1,20 +1,21 @@
-ARG PYTHON_VERSION=3.9
-ARG JAVA_VERSION=11
-ARG BASE_IMAGE=openjdk:${JAVA_VERSION}-slim
+ARG PYTHON_VERSION=3.11
+ARG JAVA_VERSION=21
+ARG BASE_IMAGE=openjdk:${JAVA_VERSION}-slim-bookworm
 ARG VENV_PATH=/prod_venv
 
-FROM ${BASE_IMAGE} as builder
+FROM ${BASE_IMAGE} AS builder
 
 ARG PYTHON_VERSION
 # Install python
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends "python${PYTHON_VERSION}" "python${PYTHON_VERSION}-dev" "python${PYTHON_VERSION}-venv" gcc && \
+    apt-get install -y --no-install-recommends "python${PYTHON_VERSION}" "python${PYTHON_VERSION}-dev" "python${PYTHON_VERSION}-venv" \
+    gcc build-essential && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.7.1
+ARG POETRY_VERSION=1.8.3
 
 RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
 ENV PATH="$PATH:${POETRY_HOME}/bin"
@@ -36,7 +37,7 @@ COPY pmmlserver pmmlserver
 RUN cd pmmlserver && poetry install --no-interaction --no-cache
 
 
-FROM ${BASE_IMAGE} as prod
+FROM ${BASE_IMAGE} AS prod
 
 COPY third_party third_party
 

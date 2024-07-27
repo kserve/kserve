@@ -1,12 +1,12 @@
-ARG PYTHON_VERSION=3.9
-ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim-bullseye
+ARG PYTHON_VERSION=3.11
+ARG BASE_IMAGE=python:${PYTHON_VERSION}-slim-bookworm
 ARG VENV_PATH=/prod_venv
 
-FROM ${BASE_IMAGE} as builder
+FROM ${BASE_IMAGE} AS builder
 
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.7.1
+ARG POETRY_VERSION=1.8.3
 
 # Required for building packages for arm64 arch
 RUN apt-get update && apt-get install -y --no-install-recommends python3-dev build-essential && apt-get clean && \
@@ -32,7 +32,7 @@ COPY aiffairness aiffairness
 RUN cd aiffairness && poetry install --no-interaction --no-cache
 
 
-FROM ${BASE_IMAGE} as prod
+FROM ${BASE_IMAGE} AS prod
 
 COPY third_party third_party
 
