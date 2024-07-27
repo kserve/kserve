@@ -21,7 +21,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-CERT_MANAGER_VERSION="v1.5.0"
+CERT_MANAGER_VERSION="v1.15.1"
 YQ_VERSION="v4.28.1"
 
 echo "Installing yq ..."
@@ -31,11 +31,9 @@ source  ./test/scripts/gh-actions/install-knative-operator.sh
 
 echo "Installing Knative serving and Kourier..."
 kubectl apply -f ./test/overlays/knative/knative-serving-kourier.yaml
-# sleep to avoid running kubectl wait before pods are created
-sleep 15
 
 echo "Waiting for Knative and Kourier to be ready ..."
-kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-kourier-controller,3scale-kourier-gateway)'
+kubectl wait --for=condition=Ready -n knative-serving KnativeServing knative-serving --timeout=300s
 
 echo "Installing cert-manager ..."
 kubectl create namespace cert-manager

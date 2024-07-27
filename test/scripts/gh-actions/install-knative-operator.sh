@@ -20,16 +20,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-KNATIVE_OPERATOR_PLUGIN_VERSION="knative-v1.13.0"
-KNATIVE_OPERATOR_VERSION="1.13.1"
-KNATIVE_CLI_VERSION="knative-v1.13.0"
-
-echo "Installing Knative cli ..."
-wget https://github.com/knative/client/releases/download/"${KNATIVE_CLI_VERSION}"/kn-linux-amd64 -O /usr/local/bin/kn && chmod +x /usr/local/bin/kn
+KNATIVE_OPERATOR_VERSION="v1.14.5"
 
 echo "Installing Knative Operator ..."
-wget https://github.com/knative-sandbox/kn-plugin-operator/releases/download/"${KNATIVE_OPERATOR_PLUGIN_VERSION}"/kn-operator-linux-amd64 -O kn-operator && chmod +x kn-operator
-mkdir -p ~/.config/kn/plugins
-mv kn-operator ~/.config/kn/plugins
-kn operator install -n knative-operator -v "${KNATIVE_OPERATOR_VERSION}"
-kubectl wait --for=condition=Ready pods --all --timeout=300s -n knative-operator
+helm install knative-operator --namespace knative-operator --create-namespace --wait \
+      https://github.com/knative/operator/releases/download/knative-${KNATIVE_OPERATOR_VERSION}/knative-operator-${KNATIVE_OPERATOR_VERSION}.tgz
