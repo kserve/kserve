@@ -380,16 +380,14 @@ func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.In
 }
 
 func (r *InferenceServiceReconciler) GetFailConditions(isvc *v1beta1api.InferenceService) string {
-	/*
-		logf.SetLogger(zap.New())
-		log := logf.Log.WithName("my_controller")
-		log.Info("GetFailConditions")
-		fmt.Println("my_GetFailConditions")
-	*/
 	msg := ""
 	for _, cond := range isvc.Status.Conditions {
 		if string(cond.Status) == "False" {
-			msg = fmt.Sprintf("%s, %s", msg, string(cond.Type))
+			if msg == "" {
+				msg = string(cond.Type)
+			} else {
+				msg = fmt.Sprintf("%s, %s", msg, string(cond.Type))
+			}
 		}
 	}
 	return msg
