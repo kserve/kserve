@@ -94,7 +94,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		}
 	)
 	Context("When creating inference service with predictor", func() {
-		return
 		It("Should have knative service created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
@@ -475,7 +474,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 
 	Context("Inference Service with transformer", func() {
-		return
 		It("Should create successfully", func() {
 			serviceName := "svc-with-transformer"
 			namespace := "default"
@@ -804,7 +802,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 
 	Context("When doing canary out with inference service", func() {
-		return
 		It("Should have traffic split between two revisions", func() {
 			By("By moving canary traffic percent to the latest revision")
 			// Create configmap
@@ -1048,7 +1045,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 
 	Context("When creating and deleting inference service without storageUri (multi-model inferenceservice)", func() {
-		return
 		// Create configmap
 		var configMap = &v1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1118,7 +1114,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 
 	Context("When creating an inference service using a ServingRuntime", func() {
-		return
 		It("Should create successfully", func() {
 			serviceName := "svc-with-servingruntime"
 			namespace := "default"
@@ -1300,7 +1295,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 
 	Context("When creating an inference service with a ServingRuntime which does not exists", func() {
-		return
 		It("Should fail with reason RuntimeNotRecognized", func() {
 			serviceName := "svc-with-unknown-servingruntime"
 			servingRuntimeName := "tf-serving-unknown"
@@ -1369,8 +1363,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 
-	Context("When creating an inference service with a ServingRuntime which is disabled", func() {
-		return
+	Context("When creating an inference service with a ServingRuntime which is disabled", func(){
 		It("Should fail with reason RuntimeDisabled", func() {
 			serviceName := "svc-with-disabled-servingruntime"
 			servingRuntimeName := "tf-serving-disabled"
@@ -1476,7 +1469,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 
 	Context("When creating an inference service with a ServingRuntime which does not support specified model format", func() {
-		return
 		It("Should fail with reason NoSupportingRuntime", func() {
 			serviceName := "svc-with-unsupported-servingruntime"
 			servingRuntimeName := "tf-serving-unsupported"
@@ -1582,7 +1574,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 
 	Context("When creating an inference service with invalid Storage URI", func() {
-		return
 		It("Should fail with reason ModelLoadFailed", func() {
 			serviceName := "servingruntime-test"
 			servingRuntimeName := "tf-serving"
@@ -1778,7 +1769,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 
 	Context("When creating inference service with predictor and without top level istio virtual service", func() {
-		return
 		It("Should have knative service created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
@@ -1887,7 +1877,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 	Context("Set CaBundle ConfigMap in inferenceservice-config confimap", func() {
-		return
 		It("Should not create a global cabundle configMap in a user namespace when CaBundleConfigMapName set ''", func() {
 			// Create configmap
 			var configMap = &v1.ConfigMap{
