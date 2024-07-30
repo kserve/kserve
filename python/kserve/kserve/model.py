@@ -375,10 +375,8 @@ class Model(InferenceModel):
             model_name=self.name,
             data=payload,
             headers=predict_headers,
+            response_headers=response_headers,
         )
-
-        if response_headers is not None:
-            response_headers.update(response.headers)
 
         return response
 
