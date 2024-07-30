@@ -24,8 +24,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, get_isvc_endpoint
 def test_predictor_headers_v1():
     service_name = "isvc-custom-model-transformer-v1"
     model_name = "custom-model"
-    protocol_version = "v1"
-    input_json = "./data/custom_model_input_v1.json"
+    input_json = "./data/custom_model_input.json"
 
     predictor = V1beta1PredictorSpec(
         containers=[
@@ -75,7 +74,7 @@ def test_predictor_headers_v1():
     isvc = kserve_client.get(
         service_name,
         namespace=KSERVE_TEST_NAMESPACE,
-        version=protocol_version,
+        version=constants.KSERVE_V1BETA1_VERSION,
     )
     cluster_ip, host, path = get_isvc_endpoint(isvc)
     headers = {"Host": host, "Content-Type": "application/json"}
@@ -88,7 +87,7 @@ def test_predictor_headers_v1():
     time.sleep(10)
     with open(input_json) as json_file:
         data = json.load(json_file)
-        response = requests.post(url, data, headers=headers)
+        response = requests.post(url, json.dumps(data), headers=headers)
         logging.info(
             "Got response code %s, content %s", response.status_code, response.content
         )
@@ -109,7 +108,6 @@ def test_predictor_headers_v1():
 def test_predictor_headers_v2():
     service_name = "isvc-custom-model-transformer-v2"
     model_name = "custom-model"
-    protocol_version = "v2"
     input_json = "./data/custom_model_input_v2.json"
 
     predictor = V1beta1PredictorSpec(
@@ -156,11 +154,10 @@ def test_predictor_headers_v2():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-
     isvc = kserve_client.get(
         service_name,
         namespace=KSERVE_TEST_NAMESPACE,
-        version=protocol_version,
+        version=constants.KSERVE_V1BETA1_VERSION,
     )
     cluster_ip, host, path = get_isvc_endpoint(isvc)
     headers = {"Host": host, "Content-Type": "application/json"}
@@ -173,18 +170,16 @@ def test_predictor_headers_v2():
     time.sleep(10)
     with open(input_json) as json_file:
         data = json.load(json_file)
-        response = requests.post(url, data, headers=headers)
+        response = requests.post(url, json.dumps(data), headers=headers)
         logging.info(
             "Got response code %s, content %s", response.status_code, response.content
         )
         if response.status_code == 200:
             res_data = json.loads(response.content.decode("utf-8"))
-            res_data["headers"] = response.headers
         else:
             response.raise_for_status()
 
-    response_headers = res_data["headers"]
-    assert response_headers["my-header"] == "test_header"
+    assert response.headers["my-header"] == "test_header"
     points = ["%.3f" % (point) for point in list(res_data["outputs"][0]["data"])]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
