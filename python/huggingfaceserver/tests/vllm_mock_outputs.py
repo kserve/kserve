@@ -20,7 +20,7 @@ from vllm.sequence import RequestMetrics, Logprob
 opt_chat_cmpl_chunks = [
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -57,7 +57,7 @@ opt_chat_cmpl_chunks = [
             CompletionOutput(
                 index=0,
                 text="Most",
-                token_ids=[2895],
+                token_ids=(2895,),
                 cumulative_logprob=-6.909554481506348,
                 logprobs=None,
                 finish_reason=None,
@@ -77,7 +77,7 @@ opt_chat_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -114,7 +114,7 @@ opt_chat_cmpl_chunks = [
             CompletionOutput(
                 index=0,
                 text="Most redd",
-                token_ids=[2895, 39275],
+                token_ids=(2895, 39275),
                 cumulative_logprob=-14.5400390625,
                 logprobs=None,
                 finish_reason=None,
@@ -134,7 +134,7 @@ opt_chat_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -171,7 +171,7 @@ opt_chat_cmpl_chunks = [
             CompletionOutput(
                 index=0,
                 text="Most redditors",
-                token_ids=[2895, 39275, 9314],
+                token_ids=(2895, 39275, 9314),
                 cumulative_logprob=-14.579785268753767,
                 logprobs=None,
                 finish_reason=None,
@@ -191,7 +191,7 @@ opt_chat_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -228,7 +228,7 @@ opt_chat_cmpl_chunks = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know",
-                token_ids=[2895, 39275, 9314, 216],
+                token_ids=(2895, 39275, 9314, 216),
                 cumulative_logprob=-18.995443742722273,
                 logprobs=None,
                 finish_reason=None,
@@ -248,7 +248,7 @@ opt_chat_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -285,7 +285,7 @@ opt_chat_cmpl_chunks = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know the",
-                token_ids=[2895, 39275, 9314, 216, 5],
+                token_ids=(2895, 39275, 9314, 216, 5),
                 cumulative_logprob=-21.728284996002913,
                 logprobs=None,
                 finish_reason=None,
@@ -305,7 +305,7 @@ opt_chat_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -342,7 +342,7 @@ opt_chat_cmpl_chunks = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know the tiny",
-                token_ids=[2895, 39275, 9314, 216, 5, 5262],
+                token_ids=(2895, 39275, 9314, 216, 5, 5262),
                 cumulative_logprob=-31.282636802643538,
                 logprobs=None,
                 finish_reason=None,
@@ -362,7 +362,7 @@ opt_chat_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -399,7 +399,7 @@ opt_chat_cmpl_chunks = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know the tiny difference",
-                token_ids=[2895, 39275, 9314, 216, 5, 5262, 2249],
+                token_ids=(2895, 39275, 9314, 216, 5, 5262, 2249),
                 cumulative_logprob=-36.23266426846385,
                 logprobs=None,
                 finish_reason=None,
@@ -419,7 +419,7 @@ opt_chat_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -456,7 +456,7 @@ opt_chat_cmpl_chunks = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know the tiny difference between",
-                token_ids=[2895, 39275, 9314, 216, 5, 5262, 2249, 227],
+                token_ids=(2895, 39275, 9314, 216, 5, 5262, 2249, 227),
                 cumulative_logprob=-36.31763890013099,
                 logprobs=None,
                 finish_reason=None,
@@ -476,7 +476,7 @@ opt_chat_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -513,7 +513,7 @@ opt_chat_cmpl_chunks = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know the tiny difference between Frog",
-                token_ids=[2895, 39275, 9314, 216, 5, 5262, 2249, 227, 27449],
+                token_ids=(2895, 39275, 9314, 216, 5, 5262, 2249, 227, 27449),
                 cumulative_logprob=-48.38922264799476,
                 logprobs=None,
                 finish_reason=None,
@@ -533,7 +533,7 @@ opt_chat_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -570,7 +570,7 @@ opt_chat_cmpl_chunks = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know the tiny difference between Frogling",
-                token_ids=[2895, 39275, 9314, 216, 5, 5262, 2249, 227, 27449, 1527],
+                token_ids=(2895, 39275, 9314, 216, 5, 5262, 2249, 227, 27449, 1527),
                 cumulative_logprob=-55.17701914533973,
                 logprobs=None,
                 finish_reason="length",
@@ -594,7 +594,7 @@ opt_chat_cmpl_chunks = [
 opt_chat_cmpl_chunks_with_logprobs = [
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -631,7 +631,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
             CompletionOutput(
                 index=0,
                 text="Most",
-                token_ids=[2895],
+                token_ids=(2895,),
                 cumulative_logprob=-6.909554481506348,
                 logprobs=[
                     {
@@ -663,7 +663,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -700,7 +700,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
             CompletionOutput(
                 index=0,
                 text="Most redd",
-                token_ids=[2895, 39275],
+                token_ids=(2895, 39275),
                 cumulative_logprob=-14.5400390625,
                 logprobs=[
                     {
@@ -743,7 +743,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -780,7 +780,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
             CompletionOutput(
                 index=0,
                 text="Most redditors",
-                token_ids=[2895, 39275, 9314],
+                token_ids=(2895, 39275, 9314),
                 cumulative_logprob=-14.579785268753767,
                 logprobs=[
                     {
@@ -831,7 +831,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -868,7 +868,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know",
-                token_ids=[2895, 39275, 9314, 216],
+                token_ids=(2895, 39275, 9314, 216),
                 cumulative_logprob=-18.995443742722273,
                 logprobs=[
                     {
@@ -930,7 +930,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -967,7 +967,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know the",
-                token_ids=[2895, 39275, 9314, 216, 5],
+                token_ids=(2895, 39275, 9314, 216, 5),
                 cumulative_logprob=-21.728284996002913,
                 logprobs=[
                     {
@@ -1040,7 +1040,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -1077,7 +1077,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know the tiny",
-                token_ids=[2895, 39275, 9314, 216, 5, 5262],
+                token_ids=(2895, 39275, 9314, 216, 5, 5262),
                 cumulative_logprob=-31.282636802643538,
                 logprobs=[
                     {
@@ -1163,7 +1163,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -1200,7 +1200,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know the tiny difference",
-                token_ids=[2895, 39275, 9314, 216, 5, 5262, 2249],
+                token_ids=(2895, 39275, 9314, 216, 5, 5262, 2249),
                 cumulative_logprob=-36.23266426846385,
                 logprobs=[
                     {
@@ -1299,7 +1299,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -1336,7 +1336,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know the tiny difference between",
-                token_ids=[2895, 39275, 9314, 216, 5, 5262, 2249, 227],
+                token_ids=(2895, 39275, 9314, 216, 5, 5262, 2249, 227),
                 cumulative_logprob=-36.31763890013099,
                 logprobs=[
                     {
@@ -1445,7 +1445,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -1482,7 +1482,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know the tiny difference between Frog",
-                token_ids=[2895, 39275, 9314, 216, 5, 5262, 2249, 227, 27449],
+                token_ids=(2895, 39275, 9314, 216, 5, 5262, 2249, 227, 27449),
                 cumulative_logprob=-48.38922264799476,
                 logprobs=[
                     {
@@ -1604,7 +1604,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -1641,7 +1641,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
             CompletionOutput(
                 index=0,
                 text="Most redditors know the tiny difference between Frogling",
-                token_ids=[2895, 39275, 9314, 216, 5, 5262, 2249, 227, 27449, 1527],
+                token_ids=(2895, 39275, 9314, 216, 5, 5262, 2249, 227, 27449, 1527),
                 cumulative_logprob=-55.17701914533973,
                 logprobs=[
                     {
@@ -1777,7 +1777,7 @@ opt_chat_cmpl_chunks_with_logprobs = [
 opt_chat_cmpl_chunks_with_logit_bias = [
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -1814,7 +1814,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
             CompletionOutput(
                 index=0,
                 text=" Frog",
-                token_ids=[27449],
+                token_ids=(27449,),
                 cumulative_logprob=0.0,
                 logprobs=None,
                 finish_reason=None,
@@ -1834,7 +1834,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -1871,7 +1871,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
             CompletionOutput(
                 index=0,
                 text=" Frog Frog",
-                token_ids=[27449, 27449],
+                token_ids=(27449, 27449),
                 cumulative_logprob=0.0,
                 logprobs=None,
                 finish_reason=None,
@@ -1891,7 +1891,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -1928,7 +1928,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
             CompletionOutput(
                 index=0,
                 text=" Frog Frog Frog",
-                token_ids=[27449, 27449, 27449],
+                token_ids=(27449, 27449, 27449),
                 cumulative_logprob=0.0,
                 logprobs=None,
                 finish_reason=None,
@@ -1948,7 +1948,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -1985,7 +1985,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
             CompletionOutput(
                 index=0,
                 text=" Frog Frog Frog Frog",
-                token_ids=[27449, 27449, 27449, 27449],
+                token_ids=(27449, 27449, 27449, 27449),
                 cumulative_logprob=0.0,
                 logprobs=None,
                 finish_reason=None,
@@ -2005,7 +2005,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -2042,7 +2042,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
             CompletionOutput(
                 index=0,
                 text=" Frog Frog Frog Frog Frog",
-                token_ids=[27449, 27449, 27449, 27449, 27449],
+                token_ids=(27449, 27449, 27449, 27449, 27449),
                 cumulative_logprob=0.0,
                 logprobs=None,
                 finish_reason=None,
@@ -2062,7 +2062,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -2099,7 +2099,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
             CompletionOutput(
                 index=0,
                 text=" Frog Frog Frog Frog Frog Frog",
-                token_ids=[27449, 27449, 27449, 27449, 27449, 27449],
+                token_ids=(27449, 27449, 27449, 27449, 27449, 27449),
                 cumulative_logprob=0.0,
                 logprobs=None,
                 finish_reason=None,
@@ -2119,7 +2119,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -2156,7 +2156,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
             CompletionOutput(
                 index=0,
                 text=" Frog Frog Frog Frog Frog Frog Frog",
-                token_ids=[27449, 27449, 27449, 27449, 27449, 27449, 27449],
+                token_ids=(27449, 27449, 27449, 27449, 27449, 27449, 27449),
                 cumulative_logprob=0.0,
                 logprobs=None,
                 finish_reason=None,
@@ -2176,7 +2176,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -2213,7 +2213,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
             CompletionOutput(
                 index=0,
                 text=" Frog Frog Frog Frog Frog Frog Frog Frog",
-                token_ids=[27449, 27449, 27449, 27449, 27449, 27449, 27449, 27449],
+                token_ids=(27449, 27449, 27449, 27449, 27449, 27449, 27449, 27449),
                 cumulative_logprob=0.0,
                 logprobs=None,
                 finish_reason=None,
@@ -2233,7 +2233,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -2270,7 +2270,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
             CompletionOutput(
                 index=0,
                 text=" Frog Frog Frog Frog Frog Frog Frog Frog Frog",
-                token_ids=[
+                token_ids=(
                     27449,
                     27449,
                     27449,
@@ -2280,7 +2280,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
                     27449,
                     27449,
                     27449,
-                ],
+                ),
                 cumulative_logprob=0.0,
                 logprobs=None,
                 finish_reason=None,
@@ -2300,7 +2300,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        prompt=None,
         prompt_token_ids=[
             2,
             1185,
@@ -2337,7 +2337,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
             CompletionOutput(
                 index=0,
                 text=" Frog Frog Frog Frog Frog Frog Frog Frog Frog Frog",
-                token_ids=[
+                token_ids=(
                     27449,
                     27449,
                     27449,
@@ -2348,7 +2348,7 @@ opt_chat_cmpl_chunks_with_logit_bias = [
                     27449,
                     27449,
                     27449,
-                ],
+                ),
                 cumulative_logprob=0.0,
                 logprobs=None,
                 finish_reason="length",
@@ -2373,14 +2373,14 @@ opt_chat_cmpl_chunks_with_logit_bias = [
 opt_cmpl_chunks = [
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="-",
-                token_ids=[12],
+                token_ids=(12,),
                 cumulative_logprob=-5.968788146972656,
                 logprobs=None,
                 finish_reason=None,
@@ -2400,14 +2400,14 @@ opt_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador",
-                token_ids=[12, 26882],
+                token_ids=(12, 26882),
                 cumulative_logprob=-16.97801971435547,
                 logprobs=None,
                 finish_reason=None,
@@ -2427,14 +2427,14 @@ opt_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador!",
-                token_ids=[12, 26882, 328],
+                token_ids=(12, 26882, 328),
                 cumulative_logprob=-20.131213903427124,
                 logprobs=None,
                 finish_reason=None,
@@ -2454,14 +2454,14 @@ opt_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He",
-                token_ids=[12, 26882, 328, 91],
+                token_ids=(12, 26882, 328, 91),
                 cumulative_logprob=-21.5479416847229,
                 logprobs=None,
                 finish_reason=None,
@@ -2481,14 +2481,14 @@ opt_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has",
-                token_ids=[12, 26882, 328, 91, 34],
+                token_ids=(12, 26882, 328, 91, 34),
                 cumulative_logprob=-24.31446599960327,
                 logprobs=None,
                 finish_reason=None,
@@ -2508,14 +2508,14 @@ opt_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny",
-                token_ids=[12, 26882, 328, 91, 34, 5262],
+                token_ids=(12, 26882, 328, 91, 34, 5262),
                 cumulative_logprob=-31.254112720489502,
                 logprobs=None,
                 finish_reason=None,
@@ -2535,14 +2535,14 @@ opt_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137),
                 cumulative_logprob=-32.616105914115906,
                 logprobs=None,
                 finish_reason=None,
@@ -2562,14 +2562,14 @@ opt_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears with",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19),
                 cumulative_logprob=-37.23606622219086,
                 logprobs=None,
                 finish_reason=None,
@@ -2589,14 +2589,14 @@ opt_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears with fluffy",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19, 33564],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19, 33564),
                 cumulative_logprob=-42.86094415187836,
                 logprobs=None,
                 finish_reason=None,
@@ -2616,14 +2616,14 @@ opt_cmpl_chunks = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears with fluffy white",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19, 33564, 1104],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19, 33564, 1104),
                 cumulative_logprob=-45.076220870018005,
                 logprobs=None,
                 finish_reason="length",
@@ -2646,14 +2646,14 @@ opt_cmpl_chunks = [
 opt_cmpl_chunks_with_logprobs = [
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="-",
-                token_ids=[12],
+                token_ids=(12,),
                 cumulative_logprob=-5.968788146972656,
                 logprobs=[
                     {
@@ -2685,14 +2685,14 @@ opt_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador",
-                token_ids=[12, 26882],
+                token_ids=(12, 26882),
                 cumulative_logprob=-16.97801971435547,
                 logprobs=[
                     {
@@ -2737,14 +2737,14 @@ opt_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador!",
-                token_ids=[12, 26882, 328],
+                token_ids=(12, 26882, 328),
                 cumulative_logprob=-20.131213903427124,
                 logprobs=[
                     {
@@ -2800,14 +2800,14 @@ opt_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He",
-                token_ids=[12, 26882, 328, 91],
+                token_ids=(12, 26882, 328, 91),
                 cumulative_logprob=-21.5479416847229,
                 logprobs=[
                     {
@@ -2871,14 +2871,14 @@ opt_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has",
-                token_ids=[12, 26882, 328, 91, 34],
+                token_ids=(12, 26882, 328, 91, 34),
                 cumulative_logprob=-24.31446599960327,
                 logprobs=[
                     {
@@ -2953,14 +2953,14 @@ opt_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny",
-                token_ids=[12, 26882, 328, 91, 34, 5262],
+                token_ids=(12, 26882, 328, 91, 34, 5262),
                 cumulative_logprob=-31.254112720489502,
                 logprobs=[
                     {
@@ -3046,14 +3046,14 @@ opt_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137),
                 cumulative_logprob=-32.616105914115906,
                 logprobs=[
                     {
@@ -3147,14 +3147,14 @@ opt_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears with",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19),
                 cumulative_logprob=-37.23606622219086,
                 logprobs=[
                     {
@@ -3259,14 +3259,14 @@ opt_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears with fluffy",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19, 33564],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19, 33564),
                 cumulative_logprob=-42.86094415187836,
                 logprobs=[
                     {
@@ -3382,14 +3382,14 @@ opt_cmpl_chunks_with_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears with fluffy white",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19, 33564, 1104],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19, 33564, 1104),
                 cumulative_logprob=-45.076220870018005,
                 logprobs=[
                     {
@@ -3517,14 +3517,14 @@ opt_cmpl_chunks_with_two_prompts = [
     [
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="-",
-                    token_ids=[12],
+                    token_ids=(12,),
                     cumulative_logprob=-5.968789577484131,
                     logprobs=None,
                     finish_reason=None,
@@ -3544,14 +3544,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador",
-                    token_ids=[12, 26882],
+                    token_ids=(12, 26882),
                     cumulative_logprob=-16.978020191192627,
                     logprobs=None,
                     finish_reason=None,
@@ -3571,14 +3571,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador!",
-                    token_ids=[12, 26882, 328],
+                    token_ids=(12, 26882, 328),
                     cumulative_logprob=-20.13121271133423,
                     logprobs=None,
                     finish_reason=None,
@@ -3598,14 +3598,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He",
-                    token_ids=[12, 26882, 328, 91],
+                    token_ids=(12, 26882, 328, 91),
                     cumulative_logprob=-21.54794156551361,
                     logprobs=None,
                     finish_reason=None,
@@ -3625,14 +3625,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He has",
-                    token_ids=[12, 26882, 328, 91, 34],
+                    token_ids=(12, 26882, 328, 91, 34),
                     cumulative_logprob=-24.31446635723114,
                     logprobs=None,
                     finish_reason=None,
@@ -3652,14 +3652,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He has tiny",
-                    token_ids=[12, 26882, 328, 91, 34, 5262],
+                    token_ids=(12, 26882, 328, 91, 34, 5262),
                     cumulative_logprob=-31.254114031791687,
                     logprobs=None,
                     finish_reason=None,
@@ -3679,14 +3679,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He has tiny ears",
-                    token_ids=[12, 26882, 328, 91, 34, 5262, 12137],
+                    token_ids=(12, 26882, 328, 91, 34, 5262, 12137),
                     cumulative_logprob=-32.61610519886017,
                     logprobs=None,
                     finish_reason=None,
@@ -3706,14 +3706,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He has tiny ears with",
-                    token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19],
+                    token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19),
                     cumulative_logprob=-37.23606598377228,
                     logprobs=None,
                     finish_reason=None,
@@ -3733,14 +3733,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He has tiny ears with fluffy",
-                    token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19, 33564],
+                    token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19, 33564),
                     cumulative_logprob=-42.860944867134094,
                     logprobs=None,
                     finish_reason=None,
@@ -3760,14 +3760,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He has tiny ears with fluffy white",
-                    token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19, 33564, 1104],
+                    token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19, 33564, 1104),
                     cumulative_logprob=-45.076220631599426,
                     logprobs=None,
                     finish_reason="length",
@@ -3789,14 +3789,14 @@ opt_cmpl_chunks_with_two_prompts = [
     [
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and",
-                    token_ids=[8],
+                    token_ids=(8,),
                     cumulative_logprob=-2.4368906021118164,
                     logprobs=None,
                     finish_reason=None,
@@ -3816,14 +3816,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no",
-                    token_ids=[8, 117],
+                    token_ids=(8, 117),
                     cumulative_logprob=-7.690991401672363,
                     logprobs=None,
                     finish_reason=None,
@@ -3843,14 +3843,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one",
-                    token_ids=[8, 117, 65],
+                    token_ids=(8, 117, 65),
                     cumulative_logprob=-8.11336663365364,
                     logprobs=None,
                     finish_reason=None,
@@ -3870,14 +3870,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is",
-                    token_ids=[8, 117, 65, 16],
+                    token_ids=(8, 117, 65, 16),
                     cumulative_logprob=-9.278029590845108,
                     logprobs=None,
                     finish_reason=None,
@@ -3897,14 +3897,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is going",
-                    token_ids=[8, 117, 65, 16, 164],
+                    token_ids=(8, 117, 65, 16, 164),
                     cumulative_logprob=-12.09887209534645,
                     logprobs=None,
                     finish_reason=None,
@@ -3924,14 +3924,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is going to",
-                    token_ids=[8, 117, 65, 16, 164, 7],
+                    token_ids=(8, 117, 65, 16, 164, 7),
                     cumulative_logprob=-12.18747579306364,
                     logprobs=None,
                     finish_reason=None,
@@ -3951,14 +3951,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is going to notice",
-                    token_ids=[8, 117, 65, 16, 164, 7, 3120],
+                    token_ids=(8, 117, 65, 16, 164, 7, 3120),
                     cumulative_logprob=-14.225699536502361,
                     logprobs=None,
                     finish_reason=None,
@@ -3978,14 +3978,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is going to notice.",
-                    token_ids=[8, 117, 65, 16, 164, 7, 3120, 4],
+                    token_ids=(8, 117, 65, 16, 164, 7, 3120, 4),
                     cumulative_logprob=-15.519690982997417,
                     logprobs=None,
                     finish_reason=None,
@@ -4005,14 +4005,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is going to notice. You",
-                    token_ids=[8, 117, 65, 16, 164, 7, 3120, 4, 370],
+                    token_ids=(8, 117, 65, 16, 164, 7, 3120, 4, 370),
                     cumulative_logprob=-20.042794220149517,
                     logprobs=None,
                     finish_reason=None,
@@ -4032,14 +4032,14 @@ opt_cmpl_chunks_with_two_prompts = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is going to notice. You don",
-                    token_ids=[8, 117, 65, 16, 164, 7, 3120, 4, 370, 218],
+                    token_ids=(8, 117, 65, 16, 164, 7, 3120, 4, 370, 218),
                     cumulative_logprob=-23.34256123751402,
                     logprobs=None,
                     finish_reason="length",
@@ -4064,14 +4064,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
     [
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="-",
-                    token_ids=[12],
+                    token_ids=(12,),
                     cumulative_logprob=-5.968789577484131,
                     logprobs=[
                         {
@@ -4103,14 +4103,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador",
-                    token_ids=[12, 26882],
+                    token_ids=(12, 26882),
                     cumulative_logprob=-16.978020191192627,
                     logprobs=[
                         {
@@ -4157,14 +4157,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador!",
-                    token_ids=[12, 26882, 328],
+                    token_ids=(12, 26882, 328),
                     cumulative_logprob=-20.13121271133423,
                     logprobs=[
                         {
@@ -4224,14 +4224,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He",
-                    token_ids=[12, 26882, 328, 91],
+                    token_ids=(12, 26882, 328, 91),
                     cumulative_logprob=-21.54794156551361,
                     logprobs=[
                         {
@@ -4299,14 +4299,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He has",
-                    token_ids=[12, 26882, 328, 91, 34],
+                    token_ids=(12, 26882, 328, 91, 34),
                     cumulative_logprob=-24.31446635723114,
                     logprobs=[
                         {
@@ -4387,14 +4387,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He has tiny",
-                    token_ids=[12, 26882, 328, 91, 34, 5262],
+                    token_ids=(12, 26882, 328, 91, 34, 5262),
                     cumulative_logprob=-31.254114031791687,
                     logprobs=[
                         {
@@ -4490,14 +4490,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He has tiny ears",
-                    token_ids=[12, 26882, 328, 91, 34, 5262, 12137],
+                    token_ids=(12, 26882, 328, 91, 34, 5262, 12137),
                     cumulative_logprob=-32.61610519886017,
                     logprobs=[
                         {
@@ -4605,14 +4605,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He has tiny ears with",
-                    token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19],
+                    token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19),
                     cumulative_logprob=-37.23606598377228,
                     logprobs=[
                         {
@@ -4735,14 +4735,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He has tiny ears with fluffy",
-                    token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19, 33564],
+                    token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19, 33564),
                     cumulative_logprob=-42.860944867134094,
                     logprobs=[
                         {
@@ -4880,14 +4880,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-            prompt="Hi, I love my cat",
+            prompt=None,
             prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text="- Labrador! He has tiny ears with fluffy white",
-                    token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19, 33564, 1104],
+                    token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19, 33564, 1104),
                     cumulative_logprob=-45.076220631599426,
                     logprobs=[
                         {
@@ -5037,14 +5037,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
     [
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and",
-                    token_ids=[8],
+                    token_ids=(8,),
                     cumulative_logprob=-2.4368906021118164,
                     logprobs=[
                         {
@@ -5078,14 +5078,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no",
-                    token_ids=[8, 117],
+                    token_ids=(8, 117),
                     cumulative_logprob=-7.690991401672363,
                     logprobs=[
                         {
@@ -5132,14 +5132,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one",
-                    token_ids=[8, 117, 65],
+                    token_ids=(8, 117, 65),
                     cumulative_logprob=-8.11336663365364,
                     logprobs=[
                         {
@@ -5198,14 +5198,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is",
-                    token_ids=[8, 117, 65, 16],
+                    token_ids=(8, 117, 65, 16),
                     cumulative_logprob=-9.278029590845108,
                     logprobs=[
                         {
@@ -5274,14 +5274,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is going",
-                    token_ids=[8, 117, 65, 16, 164],
+                    token_ids=(8, 117, 65, 16, 164),
                     cumulative_logprob=-12.09887209534645,
                     logprobs=[
                         {
@@ -5367,14 +5367,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is going to",
-                    token_ids=[8, 117, 65, 16, 164, 7],
+                    token_ids=(8, 117, 65, 16, 164, 7),
                     cumulative_logprob=-12.18747579306364,
                     logprobs=[
                         {
@@ -5472,14 +5472,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is going to notice",
-                    token_ids=[8, 117, 65, 16, 164, 7, 3120],
+                    token_ids=(8, 117, 65, 16, 164, 7, 3120),
                     cumulative_logprob=-14.225699536502361,
                     logprobs=[
                         {
@@ -5587,14 +5587,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is going to notice.",
-                    token_ids=[8, 117, 65, 16, 164, 7, 3120, 4],
+                    token_ids=(8, 117, 65, 16, 164, 7, 3120, 4),
                     cumulative_logprob=-15.519690982997417,
                     logprobs=[
                         {
@@ -5710,14 +5710,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is going to notice. You",
-                    token_ids=[8, 117, 65, 16, 164, 7, 3120, 4, 370],
+                    token_ids=(8, 117, 65, 16, 164, 7, 3120, 4, 370),
                     cumulative_logprob=-20.042794220149517,
                     logprobs=[
                         {
@@ -5844,14 +5844,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
         ),
         RequestOutput(
             request_id="cmpl-d771287a234c44498e345f0a429d6691-1",
-            prompt="The sky is blue",
+            prompt=None,
             prompt_token_ids=[2, 133, 6360, 16, 2440],
             prompt_logprobs=None,
             outputs=[
                 CompletionOutput(
                     index=0,
                     text=" and no one is going to notice. You don",
-                    token_ids=[8, 117, 65, 16, 164, 7, 3120, 4, 370, 218],
+                    token_ids=(8, 117, 65, 16, 164, 7, 3120, 4, 370, 218),
                     cumulative_logprob=-23.34256123751402,
                     logprobs=[
                         {
@@ -5993,14 +5993,14 @@ opt_cmpl_chunks_with_two_prompts_log_probs = [
 opt_cmpl_chunks_with_n_2 = [
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=",",
-                token_ids=[6],
+                token_ids=(6,),
                 cumulative_logprob=-1.8416948318481445,
                 logprobs=None,
                 finish_reason=None,
@@ -6009,7 +6009,7 @@ opt_cmpl_chunks_with_n_2 = [
             CompletionOutput(
                 index=2,
                 text=" and",
-                token_ids=[8],
+                token_ids=(8,),
                 cumulative_logprob=-2.2421159744262695,
                 logprobs=None,
                 finish_reason=None,
@@ -6029,14 +6029,14 @@ opt_cmpl_chunks_with_n_2 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so",
-                token_ids=[6, 98],
+                token_ids=(6, 98),
                 cumulative_logprob=-5.305910110473633,
                 logprobs=None,
                 finish_reason=None,
@@ -6045,7 +6045,7 @@ opt_cmpl_chunks_with_n_2 = [
             CompletionOutput(
                 index=2,
                 text=" and myself",
-                token_ids=[8, 2185],
+                token_ids=(8, 2185),
                 cumulative_logprob=-9.334444522857666,
                 logprobs=None,
                 finish_reason=None,
@@ -6065,14 +6065,14 @@ opt_cmpl_chunks_with_n_2 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I",
-                token_ids=[6, 98, 38],
+                token_ids=(6, 98, 38),
                 cumulative_logprob=-6.166063189506531,
                 logprobs=None,
                 finish_reason=None,
@@ -6081,7 +6081,7 @@ opt_cmpl_chunks_with_n_2 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.",
-                token_ids=[8, 2185, 4],
+                token_ids=(8, 2185, 4),
                 cumulative_logprob=-11.079005599021912,
                 logprobs=None,
                 finish_reason=None,
@@ -6101,14 +6101,14 @@ opt_cmpl_chunks_with_n_2 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know",
-                token_ids=[6, 98, 38, 216],
+                token_ids=(6, 98, 38, 216),
                 cumulative_logprob=-10.287340998649597,
                 logprobs=None,
                 finish_reason=None,
@@ -6117,7 +6117,7 @@ opt_cmpl_chunks_with_n_2 = [
             CompletionOutput(
                 index=2,
                 text=" and myself. ",
-                token_ids=[8, 2185, 4, 1437],
+                token_ids=(8, 2185, 4, 1437),
                 cumulative_logprob=-13.231551051139832,
                 logprobs=None,
                 finish_reason=None,
@@ -6137,14 +6137,14 @@ opt_cmpl_chunks_with_n_2 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know how",
-                token_ids=[6, 98, 38, 216, 141],
+                token_ids=(6, 98, 38, 216, 141),
                 cumulative_logprob=-12.755180716514587,
                 logprobs=None,
                 finish_reason=None,
@@ -6153,7 +6153,7 @@ opt_cmpl_chunks_with_n_2 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.  Sometimes",
-                token_ids=[8, 2185, 4, 1437, 7411],
+                token_ids=(8, 2185, 4, 1437, 7411),
                 cumulative_logprob=-19.232725024223328,
                 logprobs=None,
                 finish_reason=None,
@@ -6173,14 +6173,14 @@ opt_cmpl_chunks_with_n_2 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know how much",
-                token_ids=[6, 98, 38, 216, 141, 203],
+                token_ids=(6, 98, 38, 216, 141, 203),
                 cumulative_logprob=-14.936209082603455,
                 logprobs=None,
                 finish_reason=None,
@@ -6189,7 +6189,7 @@ opt_cmpl_chunks_with_n_2 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.  Sometimes I",
-                token_ids=[8, 2185, 4, 1437, 7411, 38],
+                token_ids=(8, 2185, 4, 1437, 7411, 38),
                 cumulative_logprob=-19.991046369075775,
                 logprobs=None,
                 finish_reason=None,
@@ -6209,14 +6209,14 @@ opt_cmpl_chunks_with_n_2 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know how much you",
-                token_ids=[6, 98, 38, 216, 141, 203, 47],
+                token_ids=(6, 98, 38, 216, 141, 203, 47),
                 cumulative_logprob=-16.388848900794983,
                 logprobs=None,
                 finish_reason=None,
@@ -6225,7 +6225,7 @@ opt_cmpl_chunks_with_n_2 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.  Sometimes I try",
-                token_ids=[8, 2185, 4, 1437, 7411, 38, 860],
+                token_ids=(8, 2185, 4, 1437, 7411, 38, 860),
                 cumulative_logprob=-23.83206480741501,
                 logprobs=None,
                 finish_reason=None,
@@ -6245,14 +6245,14 @@ opt_cmpl_chunks_with_n_2 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know how much you guys",
-                token_ids=[6, 98, 38, 216, 141, 203, 47, 1669],
+                token_ids=(6, 98, 38, 216, 141, 203, 47, 1669),
                 cumulative_logprob=-19.739151120185852,
                 logprobs=None,
                 finish_reason=None,
@@ -6261,7 +6261,7 @@ opt_cmpl_chunks_with_n_2 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.  Sometimes I try to",
-                token_ids=[8, 2185, 4, 1437, 7411, 38, 860, 7],
+                token_ids=(8, 2185, 4, 1437, 7411, 38, 860, 7),
                 cumulative_logprob=-23.989818647503853,
                 logprobs=None,
                 finish_reason=None,
@@ -6281,14 +6281,14 @@ opt_cmpl_chunks_with_n_2 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know how much you guys are",
-                token_ids=[6, 98, 38, 216, 141, 203, 47, 1669, 32],
+                token_ids=(6, 98, 38, 216, 141, 203, 47, 1669, 32),
                 cumulative_logprob=-22.317527890205383,
                 logprobs=None,
                 finish_reason=None,
@@ -6297,7 +6297,7 @@ opt_cmpl_chunks_with_n_2 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.  Sometimes I try to pick",
-                token_ids=[8, 2185, 4, 1437, 7411, 38, 860, 7, 1339],
+                token_ids=(8, 2185, 4, 1437, 7411, 38, 860, 7, 1339),
                 cumulative_logprob=-28.86552245914936,
                 logprobs=None,
                 finish_reason=None,
@@ -6317,14 +6317,14 @@ opt_cmpl_chunks_with_n_2 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know how much you guys are needing",
-                token_ids=[6, 98, 38, 216, 141, 203, 47, 1669, 32, 12075],
+                token_ids=(6, 98, 38, 216, 141, 203, 47, 1669, 32, 12075),
                 cumulative_logprob=-28.802258610725403,
                 logprobs=None,
                 finish_reason="length",
@@ -6333,7 +6333,7 @@ opt_cmpl_chunks_with_n_2 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.  Sometimes I try to pick my",
-                token_ids=[8, 2185, 4, 1437, 7411, 38, 860, 7, 1339, 127],
+                token_ids=(8, 2185, 4, 1437, 7411, 38, 860, 7, 1339, 127),
                 cumulative_logprob=-32.67578609287739,
                 logprobs=None,
                 finish_reason="length",
@@ -6356,14 +6356,14 @@ opt_cmpl_chunks_with_n_2 = [
 opt_cmpl_chunks_with_n_3 = [
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=",",
-                token_ids=[6],
+                token_ids=(6,),
                 cumulative_logprob=-1.8416948318481445,
                 logprobs=None,
                 finish_reason=None,
@@ -6372,7 +6372,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=2,
                 text=" and",
-                token_ids=[8],
+                token_ids=(8,),
                 cumulative_logprob=-2.2421159744262695,
                 logprobs=None,
                 finish_reason=None,
@@ -6381,7 +6381,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=1,
                 text="-",
-                token_ids=[12],
+                token_ids=(12,),
                 cumulative_logprob=-5.968788146972656,
                 logprobs=None,
                 finish_reason=None,
@@ -6401,14 +6401,14 @@ opt_cmpl_chunks_with_n_3 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so",
-                token_ids=[6, 98],
+                token_ids=(6, 98),
                 cumulative_logprob=-5.305910110473633,
                 logprobs=None,
                 finish_reason=None,
@@ -6417,7 +6417,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=2,
                 text=" and myself",
-                token_ids=[8, 2185],
+                token_ids=(8, 2185),
                 cumulative_logprob=-9.334444522857666,
                 logprobs=None,
                 finish_reason=None,
@@ -6426,7 +6426,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=1,
                 text="-new",
-                token_ids=[12, 4651],
+                token_ids=(12, 4651),
                 cumulative_logprob=-15.287845611572266,
                 logprobs=None,
                 finish_reason=None,
@@ -6446,14 +6446,14 @@ opt_cmpl_chunks_with_n_3 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I",
-                token_ids=[6, 98, 38],
+                token_ids=(6, 98, 38),
                 cumulative_logprob=-6.166063189506531,
                 logprobs=None,
                 finish_reason=None,
@@ -6462,7 +6462,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.",
-                token_ids=[8, 2185, 4],
+                token_ids=(8, 2185, 4),
                 cumulative_logprob=-11.079005599021912,
                 logprobs=None,
                 finish_reason=None,
@@ -6471,7 +6471,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=1,
                 text="-newbie",
-                token_ids=[12, 4651, 12750],
+                token_ids=(12, 4651, 12750),
                 cumulative_logprob=-17.796749114990234,
                 logprobs=None,
                 finish_reason=None,
@@ -6491,14 +6491,14 @@ opt_cmpl_chunks_with_n_3 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know",
-                token_ids=[6, 98, 38, 216],
+                token_ids=(6, 98, 38, 216),
                 cumulative_logprob=-10.287340998649597,
                 logprobs=None,
                 finish_reason=None,
@@ -6507,7 +6507,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=2,
                 text=" and myself. ",
-                token_ids=[8, 2185, 4, 1437],
+                token_ids=(8, 2185, 4, 1437),
                 cumulative_logprob=-13.231551051139832,
                 logprobs=None,
                 finish_reason=None,
@@ -6516,7 +6516,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=1,
                 text="-newbie and",
-                token_ids=[12, 4651, 12750, 8],
+                token_ids=(12, 4651, 12750, 8),
                 cumulative_logprob=-20.89390254020691,
                 logprobs=None,
                 finish_reason=None,
@@ -6536,14 +6536,14 @@ opt_cmpl_chunks_with_n_3 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know how",
-                token_ids=[6, 98, 38, 216, 141],
+                token_ids=(6, 98, 38, 216, 141),
                 cumulative_logprob=-12.755180716514587,
                 logprobs=None,
                 finish_reason=None,
@@ -6552,7 +6552,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.  Sometimes",
-                token_ids=[8, 2185, 4, 1437, 7411],
+                token_ids=(8, 2185, 4, 1437, 7411),
                 cumulative_logprob=-19.232725024223328,
                 logprobs=None,
                 finish_reason=None,
@@ -6561,7 +6561,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=1,
                 text="-newbie and don",
-                token_ids=[12, 4651, 12750, 8, 218],
+                token_ids=(12, 4651, 12750, 8, 218),
                 cumulative_logprob=-25.38681435585022,
                 logprobs=None,
                 finish_reason=None,
@@ -6581,14 +6581,14 @@ opt_cmpl_chunks_with_n_3 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know how much",
-                token_ids=[6, 98, 38, 216, 141, 203],
+                token_ids=(6, 98, 38, 216, 141, 203),
                 cumulative_logprob=-14.936209082603455,
                 logprobs=None,
                 finish_reason=None,
@@ -6597,7 +6597,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.  Sometimes I",
-                token_ids=[8, 2185, 4, 1437, 7411, 38],
+                token_ids=(8, 2185, 4, 1437, 7411, 38),
                 cumulative_logprob=-19.991046369075775,
                 logprobs=None,
                 finish_reason=None,
@@ -6606,7 +6606,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=1,
                 text="-newbie and don't",
-                token_ids=[12, 4651, 12750, 8, 218, 75],
+                token_ids=(12, 4651, 12750, 8, 218, 75),
                 cumulative_logprob=-25.490039318799973,
                 logprobs=None,
                 finish_reason=None,
@@ -6626,14 +6626,14 @@ opt_cmpl_chunks_with_n_3 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know how much you",
-                token_ids=[6, 98, 38, 216, 141, 203, 47],
+                token_ids=(6, 98, 38, 216, 141, 203, 47),
                 cumulative_logprob=-16.388848900794983,
                 logprobs=None,
                 finish_reason=None,
@@ -6642,7 +6642,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.  Sometimes I try",
-                token_ids=[8, 2185, 4, 1437, 7411, 38, 860],
+                token_ids=(8, 2185, 4, 1437, 7411, 38, 860),
                 cumulative_logprob=-23.83206480741501,
                 logprobs=None,
                 finish_reason=None,
@@ -6651,7 +6651,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=1,
                 text="-newbie and don't generally",
-                token_ids=[12, 4651, 12750, 8, 218, 75, 3489],
+                token_ids=(12, 4651, 12750, 8, 218, 75, 3489),
                 cumulative_logprob=-33.25731226801872,
                 logprobs=None,
                 finish_reason=None,
@@ -6671,14 +6671,14 @@ opt_cmpl_chunks_with_n_3 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know how much you guys",
-                token_ids=[6, 98, 38, 216, 141, 203, 47, 1669],
+                token_ids=(6, 98, 38, 216, 141, 203, 47, 1669),
                 cumulative_logprob=-19.739151120185852,
                 logprobs=None,
                 finish_reason=None,
@@ -6687,7 +6687,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.  Sometimes I try to",
-                token_ids=[8, 2185, 4, 1437, 7411, 38, 860, 7],
+                token_ids=(8, 2185, 4, 1437, 7411, 38, 860, 7),
                 cumulative_logprob=-23.989818647503853,
                 logprobs=None,
                 finish_reason=None,
@@ -6696,7 +6696,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=1,
                 text="-newbie and don't generally seek",
-                token_ids=[12, 4651, 12750, 8, 218, 75, 3489, 2639],
+                token_ids=(12, 4651, 12750, 8, 218, 75, 3489, 2639),
                 cumulative_logprob=-39.63435980677605,
                 logprobs=None,
                 finish_reason=None,
@@ -6716,14 +6716,14 @@ opt_cmpl_chunks_with_n_3 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know how much you guys are",
-                token_ids=[6, 98, 38, 216, 141, 203, 47, 1669, 32],
+                token_ids=(6, 98, 38, 216, 141, 203, 47, 1669, 32),
                 cumulative_logprob=-22.317527890205383,
                 logprobs=None,
                 finish_reason=None,
@@ -6732,7 +6732,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.  Sometimes I try to pick",
-                token_ids=[8, 2185, 4, 1437, 7411, 38, 860, 7, 1339],
+                token_ids=(8, 2185, 4, 1437, 7411, 38, 860, 7, 1339),
                 cumulative_logprob=-28.86552245914936,
                 logprobs=None,
                 finish_reason=None,
@@ -6741,7 +6741,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=1,
                 text="-newbie and don't generally seek it",
-                token_ids=[12, 4651, 12750, 8, 218, 75, 3489, 2639, 24],
+                token_ids=(12, 4651, 12750, 8, 218, 75, 3489, 2639, 24),
                 cumulative_logprob=-45.03968760371208,
                 logprobs=None,
                 finish_reason=None,
@@ -6761,14 +6761,14 @@ opt_cmpl_chunks_with_n_3 = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text=", so I know how much you guys are needing",
-                token_ids=[6, 98, 38, 216, 141, 203, 47, 1669, 32, 12075],
+                token_ids=(6, 98, 38, 216, 141, 203, 47, 1669, 32, 12075),
                 cumulative_logprob=-28.802258610725403,
                 logprobs=None,
                 finish_reason="length",
@@ -6777,7 +6777,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=2,
                 text=" and myself.  Sometimes I try to pick my",
-                token_ids=[8, 2185, 4, 1437, 7411, 38, 860, 7, 1339, 127],
+                token_ids=(8, 2185, 4, 1437, 7411, 38, 860, 7, 1339, 127),
                 cumulative_logprob=-32.67578609287739,
                 logprobs=None,
                 finish_reason="length",
@@ -6786,7 +6786,7 @@ opt_cmpl_chunks_with_n_3 = [
             CompletionOutput(
                 index=1,
                 text="-newbie and don't generally seek it out",
-                token_ids=[12, 4651, 12750, 8, 218, 75, 3489, 2639, 24, 66],
+                token_ids=(12, 4651, 12750, 8, 218, 75, 3489, 2639, 24, 66),
                 cumulative_logprob=-45.20532666146755,
                 logprobs=None,
                 finish_reason="length",
@@ -6809,14 +6809,14 @@ opt_cmpl_chunks_with_n_3 = [
 opt_cmpl_chunks_with_logit_bias = [
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="-",
-                token_ids=[12],
+                token_ids=(12,),
                 cumulative_logprob=-5.96877384185791,
                 logprobs=None,
                 finish_reason=None,
@@ -6836,14 +6836,14 @@ opt_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador",
-                token_ids=[12, 26882],
+                token_ids=(12, 26882),
                 cumulative_logprob=-16.977975845336914,
                 logprobs=None,
                 finish_reason=None,
@@ -6863,14 +6863,14 @@ opt_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador!",
-                token_ids=[12, 26882, 328],
+                token_ids=(12, 26882, 328),
                 cumulative_logprob=-20.131160736083984,
                 logprobs=None,
                 finish_reason=None,
@@ -6890,14 +6890,14 @@ opt_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He",
-                token_ids=[12, 26882, 328, 91],
+                token_ids=(12, 26882, 328, 91),
                 cumulative_logprob=-21.547887325286865,
                 logprobs=None,
                 finish_reason=None,
@@ -6917,14 +6917,14 @@ opt_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has",
-                token_ids=[12, 26882, 328, 91, 34],
+                token_ids=(12, 26882, 328, 91, 34),
                 cumulative_logprob=-24.31441068649292,
                 logprobs=None,
                 finish_reason=None,
@@ -6944,14 +6944,14 @@ opt_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny",
-                token_ids=[12, 26882, 328, 91, 34, 5262],
+                token_ids=(12, 26882, 328, 91, 34, 5262),
                 cumulative_logprob=-31.253928184509277,
                 logprobs=None,
                 finish_reason=None,
@@ -6971,14 +6971,14 @@ opt_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137),
                 cumulative_logprob=-32.61497759819031,
                 logprobs=None,
                 finish_reason=None,
@@ -6998,14 +6998,14 @@ opt_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears with",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19),
                 cumulative_logprob=-37.2349374294281,
                 logprobs=None,
                 finish_reason=None,
@@ -7025,14 +7025,14 @@ opt_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears with red",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19, 1275],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19, 1275),
                 cumulative_logprob=-41.17036414146423,
                 logprobs=None,
                 finish_reason=None,
@@ -7052,14 +7052,14 @@ opt_cmpl_chunks_with_logit_bias = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=None,
         outputs=[
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears with red hair",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19, 1275, 2549],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19, 1275, 2549),
                 cumulative_logprob=-43.83025312423706,
                 logprobs=None,
                 finish_reason="length",
@@ -7082,7 +7082,7 @@ opt_cmpl_chunks_with_logit_bias = [
 opt_cmpl_chunks_with_echo_logprobs = [
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=[
             None,
@@ -7125,7 +7125,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
             CompletionOutput(
                 index=0,
                 text="-",
-                token_ids=[12],
+                token_ids=(12,),
                 cumulative_logprob=-5.968787670135498,
                 logprobs=[
                     {
@@ -7157,7 +7157,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=[
             None,
@@ -7200,7 +7200,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
             CompletionOutput(
                 index=0,
                 text="- Labrador",
-                token_ids=[12, 26882],
+                token_ids=(12, 26882),
                 cumulative_logprob=-16.97801923751831,
                 logprobs=[
                     {
@@ -7245,7 +7245,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=[
             None,
@@ -7288,7 +7288,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
             CompletionOutput(
                 index=0,
                 text="- Labrador!",
-                token_ids=[12, 26882, 328],
+                token_ids=(12, 26882, 328),
                 cumulative_logprob=-20.131213426589966,
                 logprobs=[
                     {
@@ -7344,7 +7344,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=[
             None,
@@ -7387,7 +7387,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
             CompletionOutput(
                 index=0,
                 text="- Labrador! He",
-                token_ids=[12, 26882, 328, 91],
+                token_ids=(12, 26882, 328, 91),
                 cumulative_logprob=-21.547941207885742,
                 logprobs=[
                     {
@@ -7451,7 +7451,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=[
             None,
@@ -7494,7 +7494,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has",
-                token_ids=[12, 26882, 328, 91, 34],
+                token_ids=(12, 26882, 328, 91, 34),
                 cumulative_logprob=-24.314465522766113,
                 logprobs=[
                     {
@@ -7569,7 +7569,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=[
             None,
@@ -7612,7 +7612,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny",
-                token_ids=[12, 26882, 328, 91, 34, 5262],
+                token_ids=(12, 26882, 328, 91, 34, 5262),
                 cumulative_logprob=-31.254112243652344,
                 logprobs=[
                     {
@@ -7698,7 +7698,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=[
             None,
@@ -7741,7 +7741,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137),
                 cumulative_logprob=-32.61610543727875,
                 logprobs=[
                     {
@@ -7835,7 +7835,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=[
             None,
@@ -7878,7 +7878,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears with",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19),
                 cumulative_logprob=-37.2360657453537,
                 logprobs=[
                     {
@@ -7983,7 +7983,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=[
             None,
@@ -8026,7 +8026,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears with fluffy",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19, 33564],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19, 33564),
                 cumulative_logprob=-42.8609436750412,
                 logprobs=[
                     {
@@ -8142,7 +8142,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
     ),
     RequestOutput(
         request_id="cmpl-d771287a234c44498e345f0a429d6691-0",
-        prompt="Hi, I love my cat",
+        prompt=None,
         prompt_token_ids=[2, 30086, 6, 38, 657, 127, 4758],
         prompt_logprobs=[
             None,
@@ -8185,7 +8185,7 @@ opt_cmpl_chunks_with_echo_logprobs = [
             CompletionOutput(
                 index=0,
                 text="- Labrador! He has tiny ears with fluffy white",
-                token_ids=[12, 26882, 328, 91, 34, 5262, 12137, 19, 33564, 1104],
+                token_ids=(12, 26882, 328, 91, 34, 5262, 12137, 19, 33564, 1104),
                 cumulative_logprob=-45.07622039318085,
                 logprobs=[
                     {

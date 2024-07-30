@@ -14,10 +14,6 @@
 
 import asyncio
 import time
-
-import torch
-from vllm.sampling_params import SamplingParams
-from vllm.utils import random_uuid
 from typing import (
     AsyncGenerator,
     AsyncIterator,
@@ -27,10 +23,16 @@ from typing import (
     Optional,
     Tuple,
     Union,
+    Iterator,
 )
+
+import torch
+from vllm.inputs import parse_and_batch_prompt
+from vllm.sampling_params import SamplingParams
+from vllm.utils import random_uuid
+
 from vllm.outputs import RequestOutput
 from vllm.entrypoints.openai.serving_completion import (
-    parse_prompt_format,
     merge_async_iterators,
 )
 from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -131,21 +133,20 @@ class OpenAIServingCompletion:
         generators = []
         try:
             sampling_params = to_sampling_params(request)
-            prompt_is_tokens, prompts = parse_prompt_format(request.prompt)
+            prompts = list(
+                self._tokenize_prompt_input_or_inputs(
+                    request,
+                    request.prompt,
+                    # TODO: Introduce vLLM specific sampling params
+                    # truncate_prompt_tokens=sampling_params.truncate_prompt_tokens,
+                    # add_special_tokens=request.add_special_tokens,
+                )
+            )
 
-            for i, prompt in enumerate(prompts):
-                if prompt_is_tokens:
-                    input_ids, prompt_text = self._validate_prompt_and_tokenize(
-                        request, prompt_ids=prompt
-                    )
-                else:
-                    input_ids, prompt_text = self._validate_prompt_and_tokenize(
-                        request, prompt=prompt
-                    )
-
+            for i, prompt_inputs in enumerate(prompts):
                 generators.append(
                     self.engine.generate(
-                        {"prompt": prompt_text, "prompt_token_ids": input_ids},
+                        {"prompt_token_ids": prompt_inputs[0]},
                         sampling_params,
                         f"{request_id}-{i}",
                     )
@@ -167,6 +168,7 @@ class OpenAIServingCompletion:
         if stream:
             return self.completion_stream_generator(
                 request,
+                prompts,
                 result_generator,
                 request_id,
                 created_time,
@@ -178,6 +180,8 @@ class OpenAIServingCompletion:
         final_res_batch: List[RequestOutput] = [None] * len(prompts)
         try:
             async for i, res in result_generator:
+                if res.prompt is None:
+                    res.prompt = prompts[i][1]
                 final_res_batch[i] = res
             response = self.request_output_to_completion_response(
                 final_res_batch, request, request_id, created_time, model_name
@@ -190,6 +194,7 @@ class OpenAIServingCompletion:
     async def completion_stream_generator(
         self,
         request: CreateCompletionRequest,
+        prompts: List[Tuple[List[int], str]],
         result_generator: AsyncIterator[Tuple[int, RequestOutput]],
         request_id: str,
         created_time: int,
@@ -202,6 +207,8 @@ class OpenAIServingCompletion:
 
         try:
             async for prompt_idx, res in result_generator:
+                if res.prompt is None:
+                    res.prompt = prompts[prompt_idx][1]
 
                 for output in res.outputs:
                     i = output.index + prompt_idx * request.n
@@ -215,7 +222,7 @@ class OpenAIServingCompletion:
                     elif request.echo and request.max_tokens > 0 and not has_echoed[i]:
                         # echo the prompt and first token
                         delta_text = res.prompt + output.text
-                        delta_token_ids = res.prompt_token_ids + output.token_ids
+                        delta_token_ids = res.prompt_token_ids + list(output.token_ids)
                         top_logprobs = (res.prompt_logprobs or []) + (
                             output.logprobs or []
                         )
@@ -295,7 +302,7 @@ class OpenAIServingCompletion:
                     top_logprobs = prompt_logprobs
                     output_text = prompt_text
                 elif request.echo and request.max_tokens > 0:
-                    token_ids = prompt_token_ids + output.token_ids
+                    token_ids = prompt_token_ids + list(output.token_ids)
                     top_logprobs = output.logprobs or prompt_logprobs
                     if output.logprobs and prompt_logprobs:
                         top_logprobs = prompt_logprobs + output.logprobs
@@ -362,22 +369,13 @@ class OpenAIServingCompletion:
             revision=engine_model_config.tokenizer_revision,
         )
 
-    def _validate_prompt_and_tokenize(
+    def _validate_input(
         self,
-        request: Union[CreateCompletionRequest],
-        prompt: Optional[str] = None,
-        prompt_ids: Optional[List[int]] = None,
+        request: CreateCompletionRequest,
+        input_ids: List[int],
+        input_text: str,
     ) -> Tuple[List[int], str]:
-        if not (prompt or prompt_ids):
-            raise InvalidInput("Either prompt or prompt_ids should be provided.")
-        if prompt and prompt_ids:
-            raise InvalidInput("Only one of prompt or prompt_ids should be provided.")
-
-        input_ids = (
-            prompt_ids if prompt_ids is not None else self.tokenizer(prompt).input_ids
-        )
         token_num = len(input_ids)
-        input_text = prompt if prompt is not None else self.tokenizer.decode(prompt_ids)
 
         if request.max_tokens is None:
             request.max_tokens = self.max_model_len - token_num
@@ -393,6 +391,73 @@ class OpenAIServingCompletion:
             )
         else:
             return input_ids, input_text
+
+    def _tokenize_prompt_input_or_inputs(
+        self,
+        request: CreateCompletionRequest,
+        input_or_inputs: Union[str, List[str], List[int], List[List[int]]],
+        #  TODO: Introduce vLLM specific sampling params
+        # truncate_prompt_tokens: Optional[Annotated[int, Field(ge=1)]] = None,
+        add_special_tokens: bool = True,
+    ) -> Iterator[tuple[list[int], str]]:
+        """
+        Tokenize/detokenize depending on the input format.
+
+        According to `OpenAI API <https://platform.openai.com/docs/api-reference/embeddings/create>`_
+        , each input can be a string or array of tokens. Note that each request
+        can pass one or more inputs.
+        """
+        for prompt_input in parse_and_batch_prompt(input_or_inputs):
+            # Although our type checking is based on mypy,
+            # VSCode Pyright extension should still work properly
+            # "is True" is required for Pyright to perform type narrowing
+            # See: https://github.com/microsoft/pyright/issues/7672
+            if prompt_input["is_tokens"] is False:
+                yield self._normalize_prompt_text_to_input(
+                    request,
+                    prompt=prompt_input["content"],
+                    # truncate_prompt_tokens=truncate_prompt_tokens,
+                    add_special_tokens=add_special_tokens,
+                )
+            else:
+                yield self._normalize_prompt_tokens_to_input(
+                    request,
+                    prompt_ids=prompt_input["content"],
+                    # truncate_prompt_tokens=truncate_prompt_tokens,
+                )
+
+    def _normalize_prompt_text_to_input(
+        self,
+        request: CreateCompletionRequest,
+        prompt: str,
+        #  TODO: Introduce vLLM specific sampling params
+        # truncate_prompt_tokens: Optional[Annotated[int, Field(ge=1)]],
+        add_special_tokens: bool,
+    ) -> tuple[list[int], str]:
+        encoded = self.tokenizer(prompt, add_special_tokens=add_special_tokens)
+        # if truncate_prompt_tokens is not None:
+        #     encoded = self.tokenizer(prompt,
+        #                         add_special_tokens=add_special_tokens,
+        #                         truncation=True,
+        #                         max_length=truncate_prompt_tokens)
+
+        input_ids = encoded.input_ids
+        input_text = prompt
+        return self._validate_input(request, input_ids, input_text)
+
+    def _normalize_prompt_tokens_to_input(
+        self,
+        request: CreateCompletionRequest,
+        prompt_ids: List[int],
+        #  TODO: Introduce vLLM specific sampling params
+        # truncate_prompt_tokens: Optional[Annotated[int, Field(ge=1)]],
+    ) -> tuple[list[int], str]:
+        input_ids = prompt_ids
+        # if truncate_prompt_tokens is not None:
+        #     input_ids = prompt_ids[-truncate_prompt_tokens:]
+
+        input_text = self.tokenizer.decode(input_ids)
+        return self._validate_input(request, input_ids, input_text)
 
     def _get_decoded_token(self, logprob: Logprob, token_id: int) -> str:
         if logprob.decoded_token is not None:

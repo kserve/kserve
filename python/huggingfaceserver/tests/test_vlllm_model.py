@@ -1716,7 +1716,7 @@ class TestCompletions:
         prompts = ["Hi, I love my cat", "The sky is blue"]
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-            if args[0]["prompt"] == prompts[0]:
+            if args[0]["prompt_token_ids"] == [2, 30086, 6, 38, 657, 127, 4758]:
                 for cmpl_chunk in opt_cmpl_chunks_with_two_prompts[0]:
                     cmpl_chunk.request_id = args[2]
                     yield cmpl_chunk
@@ -1770,7 +1770,7 @@ class TestCompletions:
         prompts = ["Hi, I love my cat", "The sky is blue"]
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-            if args[0]["prompt"] == prompts[0]:
+            if args[0]["prompt_token_ids"] == [2, 30086, 6, 38, 657, 127, 4758]:
                 for cmpl_chunk in opt_cmpl_chunks_with_two_prompts[0]:
                     cmpl_chunk.request_id = args[2]
                     yield cmpl_chunk
@@ -1816,7 +1816,7 @@ class TestCompletions:
         prompts = ["Hi, I love my cat", "The sky is blue"]
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-            if args[0]["prompt"] == prompts[0]:
+            if args[0]["prompt_token_ids"] == [2, 30086, 6, 38, 657, 127, 4758]:
                 for cmpl_chunk in opt_cmpl_chunks_with_two_prompts[0]:
                     cmpl_chunk.request_id = args[2]
                     yield cmpl_chunk
@@ -1872,7 +1872,7 @@ class TestCompletions:
         prompts = ["Hi, I love my cat", "The sky is blue"]
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-            if args[0]["prompt"] == prompts[0]:
+            if args[0]["prompt_token_ids"] == [2, 30086, 6, 38, 657, 127, 4758]:
                 for cmpl_chunk in opt_cmpl_chunks_with_two_prompts[0]:
                     cmpl_chunk.request_id = args[2]
                     yield cmpl_chunk
@@ -1920,7 +1920,7 @@ class TestCompletions:
         prompts = ["Hi, I love my cat", "The sky is blue"]
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-            if args[0]["prompt"] == prompts[0]:
+            if args[0]["prompt_token_ids"] == [2, 30086, 6, 38, 657, 127, 4758]:
                 for cmpl_chunk in opt_cmpl_chunks_with_two_prompts_log_probs[0]:
                     cmpl_chunk.request_id = args[2]
                     yield cmpl_chunk
@@ -2113,7 +2113,7 @@ class TestCompletions:
         prompts = ["Hi, I love my cat", "The sky is blue"]
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-            if args[0]["prompt"] == prompts[0]:
+            if args[0]["prompt_token_ids"] == [2, 30086, 6, 38, 657, 127, 4758]:
                 for cmpl_chunk in opt_cmpl_chunks_with_two_prompts_log_probs[0]:
                     cmpl_chunk.request_id = args[2]
                     yield cmpl_chunk
@@ -2800,77 +2800,8 @@ class TestCompletions:
 
 
 class TestOpenAIServingCompletion:
-    def test_validate_prompt_and_tokenize_with_prompt_only(self, vllm_opt_model):
-        opt_model, mock_vllm_engine = vllm_opt_model
-        prompt = "Hi, I love my cat"
 
-        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-            pass
-
-        mock_vllm_engine.generate = mock_generate
-        request = CreateCompletionRequest(model="opt-125m", prompt=prompt, max_tokens=5)
-        prompt_ids, prompt_text = (
-            opt_model.openai_serving_completion._validate_prompt_and_tokenize(
-                request, prompt=prompt
-            )
-        )
-        assert len(prompt_ids) == 7
-        assert prompt_text == "Hi, I love my cat"
-
-    def test_validate_prompt_and_tokenize_with_prompt_ids_only(self, vllm_opt_model):
-        opt_model, mock_vllm_engine = vllm_opt_model
-        prompt_ids = [2, 30086, 6, 38, 657, 127, 4758]
-
-        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-            pass
-
-        mock_vllm_engine.generate = mock_generate
-        request = CreateCompletionRequest(
-            model="opt-125m", prompt=prompt_ids, max_tokens=5
-        )
-        prompt_ids, prompt_text = (
-            opt_model.openai_serving_completion._validate_prompt_and_tokenize(
-                request, prompt_ids=prompt_ids
-            )
-        )
-        assert len(prompt_ids) == 7
-        assert prompt_text == "</s>Hi, I love my cat"
-
-    def test_validate_prompt_and_tokenize_with_no_prompt_or_prompt_ids(
-        self, vllm_opt_model
-    ):
-        opt_model, mock_vllm_engine = vllm_opt_model
-
-        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-            pass
-
-        mock_vllm_engine.generate = mock_generate
-        request = CreateCompletionRequest(model="opt-125m", prompt=[], max_tokens=5)
-        with pytest.raises(InvalidInput):
-            opt_model.openai_serving_completion._validate_prompt_and_tokenize(request)
-
-    def test_validate_prompt_and_tokenize_with_both_prompt_and_prompt_ids(
-        self, vllm_opt_model
-    ):
-        opt_model, mock_vllm_engine = vllm_opt_model
-        prompt_ids = [2, 30086, 6, 38, 657, 127, 4758]
-        prompt = "Hi, I love my cat"
-
-        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
-            pass
-
-        mock_vllm_engine.generate = mock_generate
-        request = CreateCompletionRequest(
-            model="opt-125m", prompt=[[prompt], [prompt_ids]], max_tokens=5
-        )
-        with pytest.raises(InvalidInput):
-            opt_model.openai_serving_completion._validate_prompt_and_tokenize(
-                request, prompt=prompt, prompt_ids=prompt_ids
-            )
-
-    def test_validate_prompt_and_tokenize_with_max_tokens_exceeding_model_limit(
-        self, vllm_opt_model
-    ):
+    def test_validate_input_with_max_tokens_exceeding_model_limit(self, vllm_opt_model):
         opt_model, mock_vllm_engine = vllm_opt_model
         prompt = "Hi, I love my cat"
 
@@ -2884,6 +2815,8 @@ class TestOpenAIServingCompletion:
             max_tokens=opt_model.openai_serving_completion.max_model_len + 1,
         )
         with pytest.raises(InvalidInput):
-            opt_model.openai_serving_completion._validate_prompt_and_tokenize(
-                request, prompt=prompt
+            opt_model.openai_serving_completion._validate_input(
+                request,
+                input_text=prompt,
+                input_ids=[2, 30086, 6, 38, 657, 127, 4758],
             )
