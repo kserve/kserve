@@ -52,6 +52,18 @@ def test_gcs_with_empty_dir(mock_client):
 
 
 @mock.patch("google.cloud.storage.Client")
+def test_mock_gcs(mock_client):
+    gcs_path = "gs://foo/bar"
+    mock_root_dir = create_mock_dir("bar/")
+    mock_file = create_mock_dir_with_file("bar", "mock.object")
+    
+    mock_bucket = mock.MagicMock()
+    mock_bucket.list_blobs().__iter__.return_value = [mock_root_dir, mock_file]
+    mock_client.return_value.bucket.return_value = mock_bucket
+    assert Storage.download(gcs_path)
+
+
+@mock.patch("google.cloud.storage.Client")
 def test_gcs_with_nested_sub_dir(mock_client):
     gcs_path = "gs://foo/bar/test"
 

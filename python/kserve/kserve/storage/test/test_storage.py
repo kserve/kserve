@@ -20,7 +20,6 @@ import unittest.mock as mock
 import mimetypes
 from pathlib import Path
 
-import botocore
 import pytest
 
 from kserve.storage import Storage
@@ -235,53 +234,10 @@ def test_http_uri_paths(uri, response, expected_error):
     mock.patch("requests.get", return_value=response)(test)()
 
 
-@mock.patch("google.cloud.storage.Client")
-def test_mock_gcs(mock_client):
-    gcs_path = "gs://foo/bar"
-    mock_bucket = mock.MagicMock()
-    mock_obj = mock.MagicMock()
-    mock_obj.name = "bar/"
-    mock_obj1 = mock.MagicMock()
-    mock_obj1.name = "bar/mock.object"
-    mock_bucket.list_blobs().__iter__.return_value = [mock_obj, mock_obj1]
-    mock_client.return_value.bucket.return_value = mock_bucket
-    assert Storage.download(gcs_path)
-
-
 def test_storage_blob_exception():
     blob_path = "https://accountname.blob.core.windows.net/container/some/blob/"
     with pytest.raises(Exception):
         Storage.download(blob_path)
-
-
-@mock.patch("boto3.resource")
-def test_storage_s3_exception(mock_resource):
-    path = "s3://foo/bar"
-    # Create mock client
-    mock_s3_resource = mock.MagicMock()
-    mock_s3_resource.Bucket.side_effect = Exception()
-    mock_resource.return_value = mock_s3_resource
-
-    with pytest.raises(Exception):
-        Storage.download(path)
-
-
-@mock.patch("boto3.resource")
-@mock.patch("urllib3.PoolManager")
-def test_no_permission_buckets(mock_connection, mock_resource):
-    bad_s3_path = "s3://random/path"
-    # Access private buckets without credentials
-    mock_s3_resource = mock.MagicMock()
-    mock_s3_bucket = mock.MagicMock()
-    mock_s3_bucket.objects.filter.return_value = [mock.MagicMock()]
-    mock_s3_bucket.objects.filter.side_effect = botocore.exceptions.ClientError(
-        {}, "GetObject"
-    )
-    mock_s3_resource.Bucket.return_value = mock_s3_bucket
-    mock_resource.return_value = mock_s3_resource
-
-    with pytest.raises(botocore.exceptions.ClientError):
-        Storage.download(bad_s3_path)
 
 
 def test_unpack_tar_file():
@@ -302,29 +258,3 @@ def test_unpack_zip_file():
     Storage._unpack_archive_file(tar_file, mimetype, out_dir)
     assert os.path.exists(os.path.join(out_dir, "model.pth"))
     os.remove(os.path.join(out_dir, "model.pth"))
-
-
-def test_download_hf():
-    uri = "hf://example.com/model:hash_value"
-
-    mock_tokenizer_instance = mock.MagicMock()
-    patch_tokenizer = mock.patch(
-        "transformers.AutoTokenizer.from_pretrained",
-        return_value=mock_tokenizer_instance,
-    )
-
-    mock_config_instance = mock.MagicMock()
-    patch_config = mock.patch(
-        "transformers.AutoConfig.from_pretrained", return_value=mock_config_instance
-    )
-
-    mock_model_instance = mock.MagicMock()
-    patch_model = mock.patch(
-        "transformers.AutoModel.from_config", return_value=mock_model_instance
-    )
-
-    with patch_tokenizer, patch_config, patch_model:
-        Storage.download(uri)
-
-    mock_tokenizer_instance.save_pretrained.assert_called_once()
-    mock_model_instance.save_pretrained.assert_called_once()

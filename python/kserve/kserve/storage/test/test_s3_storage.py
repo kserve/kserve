@@ -14,6 +14,8 @@
 
 import os
 import json
+import pytest
+import botocore
 import unittest.mock as mock
 
 from botocore.client import Config
@@ -91,6 +93,36 @@ def test_no_key(mock_storage):
     assert arg_list == expected_call_args_list("", "dest_path", object_paths)
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="")
+
+
+@mock.patch("boto3.resource")
+def test_storage_s3_exception(mock_resource):
+    path = "s3://foo/bar"
+    # Create mock client
+    mock_s3_resource = mock.MagicMock()
+    mock_s3_resource.Bucket.side_effect = Exception()
+    mock_resource.return_value = mock_s3_resource
+
+    with pytest.raises(Exception):
+        Storage.download(path)
+
+
+@mock.patch("boto3.resource")
+@mock.patch("urllib3.PoolManager")
+def test_no_permission_buckets(mock_connection, mock_resource):
+    bad_s3_path = "s3://random/path"
+    # Access private buckets without credentials
+    mock_s3_resource = mock.MagicMock()
+    mock_s3_bucket = mock.MagicMock()
+    mock_s3_bucket.objects.filter.return_value = [mock.MagicMock()]
+    mock_s3_bucket.objects.filter.side_effect = botocore.exceptions.ClientError(
+        {}, "GetObject"
+    )
+    mock_s3_resource.Bucket.return_value = mock_s3_bucket
+    mock_resource.return_value = mock_s3_resource
+
+    with pytest.raises(botocore.exceptions.ClientError):
+        Storage.download(bad_s3_path)
 
 
 @mock.patch("boto3.resource")
