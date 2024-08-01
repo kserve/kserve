@@ -289,8 +289,6 @@ class ModelServer:
                     raise RuntimeError("Model type should be 'BaseKServeModel'")
             if not at_least_one_model_ready and models:
                 raise NoModelReady(models)
-            else:
-                raise RuntimeError("Model type should be RayServe Deployment")
         else:
             raise RuntimeError("Unknown model collection type")
 

@@ -89,6 +89,10 @@ class InferenceVerb(Enum):
     PREDICT = 2
 
 
+InferReturnValueTypes = Union[Dict, InferResponse, List[str]]
+InferReturnType = Union[InferReturnValueTypes, Awaitable[InferReturnValueTypes]]
+
+
 class InferenceModel(BaseKServeModel):
     """
     Abstract class representing a model that supports standard inference and prediction.

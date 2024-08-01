@@ -14,7 +14,7 @@
 
 import time
 from importlib import metadata
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union, cast
 from inspect import iscoroutinefunction
 
 import cloudevents.exceptions as ce
@@ -23,6 +23,7 @@ import orjson
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 
+from .rest.openai import OpenAIModel
 from ..constants import constants
 from ..errors import InvalidInput, ModelNotFound
 from ..logging import logger
@@ -340,6 +341,7 @@ class DataPlane:
             raise ValueError(
                 f"Model of type {type(model).__name__} does not support inference"
             )
+        model = cast(InferenceModel, model)
         response = await model(request, headers=headers)
         return response, headers
 

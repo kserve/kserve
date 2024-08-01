@@ -33,6 +33,7 @@ from kserve import (
 
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
+
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_paddle(rest_v1_client):

@@ -21,7 +21,7 @@ except ImportError:
         "Ray dependency is missing. Install Ray Serve with: pip install kserve[ray]"
     )
     raise
-from typing import cast, Dict, Union
+from typing import cast, Dict, Union, Optional
 from cloudevents.http import CloudEvent
 
 from .model import InferenceModel, InferenceVerb, InferReturnType
@@ -40,7 +40,7 @@ class RayModel(InferenceModel):
     def __call__(
         self,
         body: Union[Dict, CloudEvent, InferRequest],
-        headers: Dict[str, str],
+        headers: Optional[Dict[str, str]] = None,
         verb: InferenceVerb = InferenceVerb.PREDICT,
     ) -> InferReturnType:
         return cast(DeploymentResponse, self._handle.remote(body, headers=headers))
