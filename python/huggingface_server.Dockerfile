@@ -60,6 +60,9 @@ ENV SAFETENSORS_FAST_GPU="1"
 ENV HF_HUB_DISABLE_TELEMETRY="1"
 # NCCL Lib path for vLLM. https://github.com/vllm-project/vllm/blob/ec784b2526219cd96159a52074ab8cd4e684410a/vllm/utils.py#L598-L602
 ENV VLLM_NCCL_SO_PATH="/lib/x86_64-linux-gnu/libnccl.so.2"
+# https://github.com/vllm-project/vllm/issues/6152
+# Set the multiprocess method to spawn to avoid issues with cuda initialization for `mp` executor backend.
+ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 USER 1000
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]
