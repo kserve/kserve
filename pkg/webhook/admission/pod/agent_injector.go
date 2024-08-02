@@ -39,6 +39,7 @@ const (
 	LoggerArgumentNamespace        = "--namespace"
 	LoggerArgumentEndpoint         = "--endpoint"
 	LoggerArgumentComponent        = "--component"
+	LoggerArgumentHeaderAllowList  = "--header-allow-list"
 )
 
 type AgentConfig struct {
@@ -174,6 +175,11 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			logMode = string(v1beta1.LogAll)
 		}
 
+		logHeaderMetadata, ok := pod.ObjectMeta.Annotations[constants.LoggerHeaderMetadataInternalAnnotationKey]
+		if !ok {
+			logHeaderMetadata = ""
+		}
+
 		inferenceServiceName := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
 		namespace := pod.ObjectMeta.Namespace
 		endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
@@ -194,6 +200,8 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			endpoint,
 			LoggerArgumentComponent,
 			component,
+			LoggerArgumentHeaderAllowList,
+			logHeaderMetadata,
 		}
 		args = append(args, loggerArgs...)
 	}

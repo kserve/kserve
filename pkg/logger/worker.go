@@ -18,6 +18,7 @@ package logger
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -33,6 +34,7 @@ const (
 	InferenceServiceAttr = "inferenceservicename"
 	NamespaceAttr        = "namespace"
 	ComponentAttr        = "component"
+	MetadataAttr         = "metadata"
 	// endpoint would be either default or canary
 	EndpointAttr = "endpoint"
 
@@ -95,6 +97,13 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	event.SetExtension(NamespaceAttr, logReq.Namespace)
 	event.SetExtension(ComponentAttr, logReq.Component)
 	event.SetExtension(EndpointAttr, logReq.Endpoint)
+
+	encodedMetadata, err := json.Marshal(logReq.Metadata)
+	fmt.Println(logReq.Metadata, encodedMetadata)
+	if err != nil {
+		return fmt.Errorf("could not encode metadata as json: %w", err)
+	}
+	event.SetExtension(MetadataAttr, string(encodedMetadata))
 
 	event.SetSource(logReq.SourceUri.String())
 	if err := event.SetData(logReq.ContentType, *logReq.Bytes); err != nil {
