@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=mod go build -a -o agent ./cmd/agent
 # Copy the inference-agent into a thin image
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
-RUN microdnf install -y shadow-utils && \ 
+RUN microdnf install -y --disablerepo=* --enablerepo=ubi-8-baseos-rpms shadow-utils && \
     microdnf clean all && \ 
     useradd kserve -m -u 1000
 RUN microdnf remove -y shadow-utils
