@@ -365,12 +365,6 @@ class ModelServer:
         if "exception" in context:
             logger.error(f"Caught exception: {context.get('exception')}")
         logger.error(f"message: { context.get('message')}")
-        if "future" in context:
-            future = context["future"]
-            if future.done():
-                future_exception = future.exception()
-                if future_exception:
-                    logger.error(f"Future exception: {future_exception}")
         loop.default_exception_handler(context)
 
     def register_model_handle(self, name: str, model_handle: DeploymentHandle):
