@@ -808,25 +808,16 @@ class TestTFHttpServerAvroCloudEvent:
 
 class TestTFHttpServerLoadAndUnLoad:
     @pytest.fixture(scope="class")
-    def server(self):
-        server = ModelServer()
+    def app(self):
+        server = ModelServer(
+            registered_models=DummyModelRepository(test_load_success=True)
+        )
         rest_server = RESTServer(
             kserve_app, server.dataplane, server.model_repository_extension
         )
         rest_server.create_application()
-        yield server
+        yield kserve_app
         kserve_app.routes.clear()
-
-    @pytest.fixture(scope="class")
-    def app(self, server):  # pylint: disable=no-self-use
-        mp = pytest.MonkeyPatch()
-        registered_models = DummyModelRepository(test_load_success=True)
-        mp.setattr(server, "registered_models", registered_models)
-        mp.setattr(
-            server.model_repository_extension, "_model_registry", registered_models
-        )
-        mp.setattr(server.dataplane, "_model_registry", registered_models)
-        return kserve_app
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -847,25 +838,16 @@ class TestTFHttpServerLoadAndUnLoad:
 
 class TestTFHttpServerLoadAndUnLoadFailure:
     @pytest.fixture(scope="class")
-    def server(self):
-        server = ModelServer()
+    def app(self):
+        server = ModelServer(
+            registered_models=DummyModelRepository(test_load_success=False)
+        )
         rest_server = RESTServer(
             kserve_app, server.dataplane, server.model_repository_extension
         )
         rest_server.create_application()
-        yield server
+        yield kserve_app
         kserve_app.routes.clear()
-
-    @pytest.fixture(scope="class")
-    def app(self, server):  # pylint: disable=no-self-use
-        mp = pytest.MonkeyPatch()
-        registered_models = DummyModelRepository(test_load_success=False)
-        mp.setattr(server, "registered_models", registered_models)
-        mp.setattr(
-            server.model_repository_extension, "_model_registry", registered_models
-        )
-        mp.setattr(server.dataplane, "_model_registry", registered_models)
-        return kserve_app
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):

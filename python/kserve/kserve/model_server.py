@@ -27,7 +27,11 @@ from ray.serve.api import Deployment
 from ray.serve.handle import DeploymentHandle
 
 from . import logging
-from .constants.constants import DEFAULT_HTTP_PORT, DEFAULT_GRPC_PORT, MAX_GRPC_MESSAGE_LENGTH
+from .constants.constants import (
+    DEFAULT_HTTP_PORT,
+    DEFAULT_GRPC_PORT,
+    MAX_GRPC_MESSAGE_LENGTH,
+)
 from .logging import logger
 from .model import BaseKServeModel
 from .model_repository import ModelRepository
