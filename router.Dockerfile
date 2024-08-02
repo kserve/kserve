@@ -17,7 +17,7 @@ RUN CGO_ENABLED=0  go build -a -o router ./cmd/router
 
 # Copy the inference-router into a thin image
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
-RUN microdnf install -y shadow-utils && \ 
+RUN microdnf install -y --disablerepo=* --enablerepo=ubi-8-baseos-rpms shadow-utils && \
     microdnf clean all && \ 
     useradd kserve -m -u 1000
 RUN microdnf remove -y shadow-utils
