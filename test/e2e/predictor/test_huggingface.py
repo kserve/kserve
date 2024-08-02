@@ -284,7 +284,8 @@ def test_huggingface_openai_text_2_text():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.skip("Upload model to gcs")
+@pytest.mark.local
+# @pytest.mark.skip("Upload model to gcs")
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
 async def test_huggingface_triton_fill_mask(rest_v2_client):
@@ -297,7 +298,7 @@ async def test_huggingface_triton_fill_mask(rest_v2_client):
             model_format=V1beta1ModelFormat(
                 name="huggingface",
             ),
-            runtime="kserve-huggingface-triton-server",
+            runtime="kserve-huggingface-tritonserver",
             protocol_version=protocol_version,
             args=[
                 "--model_id",
