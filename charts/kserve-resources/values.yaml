@@ -53,6 +53,7 @@ kserve:
     affinity: {}
     image: kserve/kserve-controller
     tag: *defaultVersion
+    imagePullSecrets: []
     resources:
       limits:
         cpu: 100m
@@ -93,35 +94,46 @@ kserve:
     tensorflow:
       image: tensorflow/serving
       tag: 2.6.2
+      imagePullSecrets: []
     mlserver:
       image: docker.io/seldonio/mlserver
       tag: 1.5.0
       modelClassPlaceholder: "{{.Labels.modelClass}}"
+      imagePullSecrets: []
     sklearnserver:
       image: kserve/sklearnserver
       tag: *defaultVersion
+      imagePullSecrets: []
     xgbserver:
       image: kserve/xgbserver
       tag: *defaultVersion
+      imagePullSecrets: []
     huggingfaceserver:
       image: kserve/huggingfaceserver
       tag: *defaultVersion
+      imagePullSecrets: []
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3
+      imagePullSecrets: []
     pmmlserver:
       image: kserve/pmmlserver
       tag: *defaultVersion
+      imagePullSecrets: []
     paddleserver:
       image: kserve/paddleserver
       tag: *defaultVersion
+      imagePullSecrets: []
     lgbserver:
       image: kserve/lgbserver
       tag: *defaultVersion
+      imagePullSecrets: []
     torchserve:
       image: pytorch/torchserve-kfs
       tag: 0.9.0
       serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
+      imagePullSecrets: []
     art:
       image: kserve/art-explainer
       defaultVersion: *defaultVersion
+      imagePullSecrets: []
