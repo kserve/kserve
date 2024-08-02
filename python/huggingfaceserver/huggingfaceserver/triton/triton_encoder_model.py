@@ -79,7 +79,9 @@ class TritonEncoderModel(TritonModel):
                     data=input_tensor,
                 )
                 infer_inputs.append(infer_input)
-        infer_request = InferRequest(infer_inputs=infer_inputs, model_name=self.name)
+        infer_request = InferRequest(
+            infer_inputs=infer_inputs, model_name=self.name, request_id=payload.id
+        )
         return infer_request
 
     def postprocess(

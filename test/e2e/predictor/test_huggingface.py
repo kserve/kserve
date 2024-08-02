@@ -306,6 +306,8 @@ async def test_huggingface_triton_fill_mask(rest_v2_client):
                 "--model_name",
                 model_name,
                 "--log_info",
+                "--tensor_input_names=attention_mask,input_ids,token_type_ids",
+                "--return_token_type_ids",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
@@ -335,7 +337,6 @@ async def test_huggingface_triton_fill_mask(rest_v2_client):
         "./data/bert_fill_mask_v2.json",
         model_name=model_name,
     )
-    assert res.outputs[0].data == ["paris"]
-    assert res.outputs[1].data == ["france"]
+    assert res.outputs[0].data == ["paris", "france"]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
