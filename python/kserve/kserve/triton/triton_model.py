@@ -75,8 +75,13 @@ class TritonModel(Model):
         else:
             raise ValueError("Invalid payload type")
         async_iterator = self._model.async_infer(inference_request=req)
+        responses = []
         async for res in async_iterator:
-            return to_infer_response(res)
+            responses.append(res)
+        # We receive only one response for normal inference. Only decoupled models/backends will return multiple
+        # responses for a single request.
+        # https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/user_guide/decoupled_models.html
+        return to_infer_response(responses[0])
 
     def stop(self):
         self._server.stop()
