@@ -1,7 +1,7 @@
 
 # Base Image URL
-BASE_IMG ?= python:3.9-slim-bullseye
-PMML_BASE_IMG ?= openjdk:11-slim
+BASE_IMG ?= python:3.11-slim-bookworm
+PMML_BASE_IMG ?= openjdk:21-slim-bookworm
 
 # Image URL to use all building/pushing image targets
 IMG ?= kserve-controller:latest

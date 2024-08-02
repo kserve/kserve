@@ -28,7 +28,7 @@ from huggingfaceserver.task import infer_task_from_model_architecture
 from huggingfaceserver.encoder_model import HuggingfaceEncoderModel
 from huggingfaceserver.generative_model import HuggingfaceGenerativeModel
 from huggingfaceserver.task import MLTask
-from test_output import bert_token_classification_retrun_prob_expected_output
+from test_output import bert_token_classification_return_prob_expected_output
 
 
 @pytest.fixture(scope="module")
@@ -289,7 +289,7 @@ async def test_bert_token_classification_return_prob(
     response = await bert_token_classification_return_prob(
         {"instances": [request, request]}, headers={}
     )
-    assert response == bert_token_classification_retrun_prob_expected_output
+    assert response == bert_token_classification_return_prob_expected_output
 
 
 @pytest.mark.asyncio

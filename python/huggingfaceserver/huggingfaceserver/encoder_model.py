@@ -30,7 +30,6 @@ from kserve.utils.utils import (
 from torch import Tensor
 from transformers import (
     AutoConfig,
-    AutoModel,
     AutoTokenizer,
     BatchEncoding,
     PreTrainedModel,
@@ -125,12 +124,13 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         model_id_or_path = self.model_id_or_path
 
         self.max_length = _get_and_verify_max_len(self.model_config, self.max_length)
+        model_cls = get_model_class_for_task(self.task)
 
         # device_map = "auto" enables model parallelism but all model architcture dont support it.
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
         # device_map = "auto" for models that support this else set to either cuda/cpu
         with init_empty_weights():
-            self._model = AutoModel.from_config(self.model_config)
+            self._model = model_cls.from_config(self.model_config)
 
         device_map = self._device
 
@@ -157,7 +157,6 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
 
         # load huggingface model using from_pretrained for inference mode
         if not self.predictor_host:
-            model_cls = get_model_class_for_task(self.task)
             self._model = model_cls.from_pretrained(
                 model_id_or_path,
                 revision=self.model_revision,
