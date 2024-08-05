@@ -15,7 +15,9 @@
 from typing import Union, Dict, AsyncIterator, Any
 
 import tritonserver
+from prometheus_client import REGISTRY
 
+from .metrics import TritonMetricsCollector
 from .utils import create_triton_infer_request, to_infer_response
 from ..logging import logger
 from ..model import (
@@ -56,6 +58,8 @@ class TritonModel(Model):
         )
         logger.info("Starting Triton model server")
         self._server.start()
+        logger.debug("Registering Triton Metrics Collector")
+        REGISTRY.register(TritonMetricsCollector(self._server))
         logger.info("Loading model %s", self.name)
         self._model = self._server.model(self.name)
         self.ready = True
