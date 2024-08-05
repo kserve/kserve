@@ -65,6 +65,9 @@ class TritonModel(Model):
         self.ready = True
         return self.ready
 
+    def healthy(self) -> bool:
+        return self._server.model(self.name).ready()
+
     async def predict(
         self,
         payload: Union[InferRequest, ModelInferRequest],
