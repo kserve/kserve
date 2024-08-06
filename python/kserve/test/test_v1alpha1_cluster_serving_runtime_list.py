@@ -26,14 +26,15 @@
 
 from __future__ import absolute_import
 
-import unittest
 import datetime
+import unittest
+
+from kserve.models.v1alpha1_cluster_serving_runtime_list import (  # noqa: E501
+    V1alpha1ClusterServingRuntimeList,
+)
+from kserve.rest import ApiException
 
 import kserve
-from kserve.models.v1alpha1_cluster_serving_runtime_list import (
-    V1alpha1ClusterServingRuntimeList,
-)  # noqa: E501
-from kserve.rest import ApiException
 
 
 class TestV1alpha1ClusterServingRuntimeList(unittest.TestCase):
@@ -81,7 +82,6 @@ class TestV1alpha1ClusterServingRuntimeList(unittest.TestCase):
                                     working_dir="0",
                                 )
                             ],
-                            disabled=True,
                             grpc_data_endpoint="0",
                             grpc_endpoint="0",
                             http_data_endpoint="0",
@@ -134,7 +134,6 @@ class TestV1alpha1ClusterServingRuntimeList(unittest.TestCase):
                                     working_dir="0",
                                 )
                             ],
-                            disabled=True,
                             grpc_data_endpoint="0",
                             grpc_endpoint="0",
                             http_data_endpoint="0",
