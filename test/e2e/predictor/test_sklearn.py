@@ -250,6 +250,20 @@ async def test_sklearn_v2(rest_v2_client):
     )
     assert res.outputs[0].data == [1, 1]
 
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2_binary.json",
+    )
+    assert res.outputs[0].data == [1, 1]
+
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2_all_binary.json",
+    )
+    assert res.outputs[0].data == [1, 1]
+
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 

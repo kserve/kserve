@@ -55,7 +55,8 @@ def test_bst_model():
     )
     infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
     infer_response = model.predict(infer_request)
-    assert infer_response.to_rest()["outputs"][0]["data"] == [0]
+    infer_dict, _ = infer_response.to_rest()
+    assert infer_dict["outputs"][0]["data"] == [0]
 
 
 def test_json_model():
@@ -86,7 +87,8 @@ def test_json_model():
     )
     infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
     infer_response = model.predict(infer_request)
-    assert infer_response.to_rest()["outputs"][0]["data"] == [0]
+    infer_dict, _ = infer_response.to_rest()
+    assert infer_dict["outputs"][0]["data"] == [0]
 
 
 def test_ubj_model():
@@ -117,4 +119,5 @@ def test_ubj_model():
     )
     infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
     infer_response = model.predict(infer_request)
-    assert infer_response.to_rest()["outputs"][0]["data"] == [0]
+    infer_dict, _ = infer_response.to_rest()
+    assert infer_dict["outputs"][0]["data"] == [0]

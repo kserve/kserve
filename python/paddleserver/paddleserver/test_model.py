@@ -66,6 +66,7 @@ def test_model():
         )
         infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
         response = server.predict(infer_request)
-        assert response.to_rest()["outputs"][0]["data"][0] == 1.0
+        infer_dict, _ = response.to_rest()
+        assert infer_dict["outputs"][0]["data"][0] == 1.0
 
     test_img("test_mask_detection.jpg", 3)

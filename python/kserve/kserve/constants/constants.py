@@ -94,3 +94,6 @@ V1_ROUTE_PREFIX = "/v1"
 
 DEFAULT_HTTP_PORT = 8080
 DEFAULT_GRPC_PORT = 8081
+
+# Header containing the json length in case of REST raw response.
+INFERENCE_CONTENT_LENGTH_HEADER = "inference-header-content-length"
