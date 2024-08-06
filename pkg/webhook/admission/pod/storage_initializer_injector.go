@@ -66,6 +66,7 @@ type StorageInitializerConfig struct {
 	EnableDirectPvcVolumeMount bool   `json:"enableDirectPvcVolumeMount"`
 	EnableOciImageSource       bool   `json:"enableModelcar"`
 	UidModelcar                *int64 `json:"uidModelcar"`
+	ModelCachePvcName          string `json:"modelCachePvcName"`
 }
 
 type StorageInitializerInjector struct {
@@ -114,6 +115,31 @@ func GetContainerSpecForStorageUri(storageUri string, client client.Client) (*v1
 		if supported {
 			return &sc.Spec.Container, nil
 		}
+	}
+
+	return nil, nil
+}
+
+func (mi *StorageInitializerInjector) getPvcForStorageUri(storageUri string, client client.Client) (*string, error) {
+	cachedModels := &v1alpha1.ClusterCachedModelList{}
+	if err := client.List(context.TODO(), cachedModels); err != nil {
+		return nil, err
+	}
+
+	for _, model := range cachedModels.Items {
+		// if model.IsDisabled() {
+		// 	continue
+		// }
+		if model.Spec.StorageUri == storageUri {
+			ret := "pvc://" + mi.config.ModelCachePvcName + "/models/" + model.Name
+			return &ret, nil
+		}
+		// if err != nil {
+		// 	return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
+		// }
+		// if supported {
+		// 	return &sc.Spec.Container, nil
+		// }
 	}
 
 	return nil, nil
@@ -220,6 +246,16 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 	podVolumes := []v1.Volume{}
 	storageInitializerMounts := []v1.VolumeMount{}
+
+	if _, ok := pod.ObjectMeta.Annotations[constants.EnableModelCache]; ok {
+		newUri, err := mi.getPvcForStorageUri(srcURI, mi.client)
+		if err != nil {
+			return err
+		}
+		if newUri != nil {
+			srcURI = *newUri
+		}
+	}
 
 	// For PVC source URIs we need to mount the source to be able to access it
 	// See design and discussion here: https://github.com/kserve/kserve/issues/148
