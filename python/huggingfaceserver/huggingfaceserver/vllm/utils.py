@@ -54,7 +54,6 @@ def infer_vllm_supported_from_model_architecture(
 def maybe_add_vllm_cli_parser(parser: ArgumentParser) -> ArgumentParser:
     if not _vllm:
         return parser
-    parser = parser.add_argument_group("vLLM engine options")
     return AsyncEngineArgs.add_cli_args(parser)
 
 

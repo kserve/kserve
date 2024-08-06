@@ -12,8 +12,7 @@ RUN apt-get update -y && apt-get install gcc python3-venv python3-dev -y --no-in
 ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.7.1
 
-RUN --mount=type=cache,target=/root/.cache python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip3 install poetry==${POETRY_VERSION}
-ENV POETRY_CACHE_DIR=/root/.cache/pypoetry
+RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip3 install poetry==${POETRY_VERSION} --no-cache-dir
 ENV PATH="$PATH:${POETRY_HOME}/bin"
 
 ARG WORKSPACE
@@ -26,18 +25,18 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN --mount=type=cache,target=/root/.cache cd kserve && poetry install --no-root --no-interaction
+RUN cd kserve && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
-RUN --mount=type=cache,target=/root/.cache cd kserve && poetry install --no-interaction
+RUN cd kserve && poetry install --no-interaction --no-cache
 
 COPY huggingfaceserver/pyproject.toml huggingfaceserver/
-RUN --mount=type=cache,target=/root/.cache cd huggingfaceserver && poetry install --no-root --no-interaction
+RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
 COPY huggingfaceserver huggingfaceserver
-RUN --mount=type=cache,target=/root/.cache cd huggingfaceserver && poetry install --no-interaction
+RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
 # Install tritonserver In-Process API
-RUN --mount=type=cache,target=/root/.cache find /opt/tritonserver/python -maxdepth 1 -type f -name \
-    "tritonserver-*.whl" | xargs -I {} pip3 install --force-reinstall --upgrade {}[gpu]
+RUN find /opt/tritonserver/python -maxdepth 1 -type f -name \
+    "tritonserver-*.whl" | xargs -I {} pip3 install --force-reinstall --upgrade {}[gpu] --no-cache-dir
 
 
 FROM ${BASE_IMAGE}:${BASE_IMAGE_TAG} AS prod

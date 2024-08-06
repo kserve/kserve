@@ -29,16 +29,16 @@ from tritonserver._api._server import ModelLoadDeviceLimit
 class TritonOptions:
     @staticmethod
     def add_cli_args(parser: ArgumentParser) -> ArgumentParser:
-        triton_arg_parser = parser.add_argument_group(
+        triton_arg_group = parser.add_argument_group(
             "triton server options", "Arguments for Triton server"
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--server_id",
             type=str,
             default="triton",
             help="Identifier for this server. Default value is 'triton'",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--model_control_mode",
             choices=["none", "poll", "explicit"],
             default="none",
@@ -50,7 +50,7 @@ class TritonOptions:
             "is controlled by 'repository_poll_secs'. For 'explicit', model load and unload is initiated by "
             "using the model control APIs, and only models specified with --load_model will be loaded at startup.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--load_model",
             type=str,
             nargs="*",
@@ -61,13 +61,13 @@ class TritonOptions:
             "--load-model=* in conjunction with another --load-model argument will result in error. Note that "
             "this option will only take effect if --model_control_mode=explicit is true.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--disable_auto_complete_config",
             action="store_true",
             help="If set, disables the triton and backends from auto completing model configuration files. Model "
             "configuration files must be provided and all required configuration settings must be specified.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--rate_limiter_mode",
             type=TritonOptions.parse_rate_limiter_mode,
             choices=["off", "execution_count"],
@@ -78,7 +78,7 @@ class TritonOptions:
             "once the required resources are available. For 'off', the server will ignore any rate limiter "
             "config and run inference as soon as an instance is ready.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--rate_limiter_resource",
             nargs="*",
             type=TritonOptions.parse_rate_limiter_resource,
@@ -91,7 +91,7 @@ class TritonOptions:
             "resources and their availability. By default, the max across all instances that list the resource "
             "is selected as its availability. The values for this flag is case-insensitive.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--pinned_memory_pool_size",
             type=int,
             default=268435456,
@@ -101,7 +101,7 @@ class TritonOptions:
             "the pinned system memory of the pool size will be allocated on each numa node. This option will not "
             "affect the allocation conducted by the backend frameworks. Default is 256 MB.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--cuda_memory_pool_size",
             nargs="*",
             type=TritonOptions.parse_cuda_memory_pool_size,
@@ -113,7 +113,7 @@ class TritonOptions:
             "device ID>:<pool byte size>. This option can be used multiple times, but only once per GPU device. "
             "Subsequent uses will overwrite previous uses for the same GPU device. Default is 64 MB.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--cache_config",
             type=TritonOptions.parse_cache_config,
             default={},  # Default is empty dict to avoid NoneType
@@ -122,7 +122,7 @@ class TritonOptions:
             "such as 'local' or 'redis'. Example: --cache-config=local,size=1048576 will configure a 'local' "
             "cache implementation with a fixed buffer pool of size 1048576 bytes.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--cache_directory",
             type=str,
             default="/opt/tritonserver/caches",
@@ -130,27 +130,27 @@ class TritonOptions:
             "This directory is expected to contain a cache implementation as a shared library with the name "
             "'libtritoncache.so'.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--min_supported_compute_capability",
             type=float,
             default=6.0,
             help="The minimum supported CUDA compute capability. GPUs that don't support this compute capability will "
             "not be used by the server. Default is 6.0",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--disable_exit_on_error",
             action="store_true",
             help="Prevents the inference server from shutting down automatically if an error occurs during "
             "initialization.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--disable_strict_readiness",
             action="store_true",
             help="If disabled /v2/health/ready endpoint indicates ready if server is responsive even if some/all "
             "models are unavailable. If enabled /v2/health/ready endpoint indicates ready if the server is "
             "responsive and all models are available.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--exit_timeout",
             type=int,
             default=30,
@@ -158,26 +158,26 @@ class TritonOptions:
             "expires the server exits even if inferences are still in flight. Default is 30 seconds.",
         )
 
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--buffer_manager_thread_count",
             type=int,
             default=0,
             help="The number of threads used to accelerate copies and other operations required to manage input and "
             "output tensor contents. Default is 0.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--model_load_thread_count",
             type=int,
             default=4,
             help="The number of threads used to concurrently load models in model repositories. Default is 4.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--model_load_retry_count",
             type=int,
             default=0,
             help="The number of retry to load a model in model repositories. Default is 0.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--model_load_gpu_limit",
             nargs="*",
             type=TritonOptions.parse_model_load_gpu_limit,
@@ -188,41 +188,41 @@ class TritonOptions:
             "the format <GPU device ID>:<fraction>. This option can be used multiple times, but only once per "
             "GPU device.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--model_namespacing",
             action="store_true",
             help="Enable model namespacing. If enabled, models with the same name can be served if "
             "they are in different namespace.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--disable_peer_access",
             action="store_true",
             help="Disable the peer access. Peer access could still be not enabled because the underlying system "
             "doesn't support it. The server will log a warning in this case.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--log_file",
             type=str,
             help="Set the name of the log output file. If specified, log outputs will be saved to this file. If not "
             "specified, log outputs will stream to the console.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--log_info", action="store_true", help="Enable info-level logging."
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--log_warn", action="store_true", help="Enable warning-level logging."
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--log_error", action="store_true", help="Enable error-level logging."
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--log_verbose",
             type=int,
             default=0,
             help="Set verbose logging level. Zero (0) disables verbose logging and values >= 1 enable verbose "
             "logging. Default is 0.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--log_format",
             choices=["default", "ISO8601"],
             type=TritonOptions.parse_log_format,
@@ -231,25 +231,25 @@ class TritonOptions:
             "'default', the log severity (L) and timestamp will be logged as 'LMMDD hh:mm:ss.ssssss'. For "
             "'ISO8601', the log format will be 'YYYY-MM-DDThh:mm:ssZ L'.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--disable_metrics",
             action="store_true",
             help="Disable the server to provided prometheus metrics.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--disable_gpu_metrics", action="store_true", help="Disable GPU metrics."
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--disable_cpu_metrics", action="store_true", help="Disable CPU metrics."
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--metrics_interval",
             type=int,
             default=2000,
             help="Metrics will be collected once every <metrics-interval-ms> milliseconds. Default is 2000 "
             "milliseconds.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--metrics_config",
             nargs="*",
             type=TritonOptions.parse_metrics_config,
@@ -257,20 +257,20 @@ class TritonOptions:
             help="Specify a metrics-specific configuration setting. The format of this flag is "
             "--metrics-config=<setting>=<value>. It can be specified multiple times.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--backend_directory",
             type=str,
             default="/opt/tritonserver/backends",
             help="The global directory searched for backend shared libraries. Default is '/opt/tritonserver/backends'.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--repo_agent_directory",
             type=str,
             default="/opt/tritonserver/repoagents",
             help="The global directory searched for repository agent shared libraries. Default is "
             "'/opt/tritonserver/repoagents'.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--backend_config",
             nargs="*",
             default={},  # Default is empty dict to avoid NoneType
@@ -279,7 +279,7 @@ class TritonOptions:
             "--backend-config=<backend_name>,<setting>=<value> Where <backend_name> is the name of the backend, "
             "such as 'tensorrt'. It can be specified multiple times.",
         )
-        triton_arg_parser.add_argument(
+        triton_arg_group.add_argument(
             "--host_policy",
             nargs="*",
             type=TritonOptions.parse_host_policy,

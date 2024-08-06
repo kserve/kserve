@@ -33,7 +33,6 @@ from huggingfaceserver.task import (
     is_generative_task,
     verify_task,
 )
-from kserve.triton.triton_configuration import TritonOptions
 from kserve.triton.utils import maybe_add_triton_cli_parser
 
 from . import (
@@ -204,6 +203,7 @@ def load_model():
         model = VLLMModel(args.model_name, engine_args, request_logger=request_logger)
     elif args.backend == Backend.triton and is_triton_available():
         from .triton.triton_encoder_model import TritonEncoderModel
+        from kserve.triton.triton_configuration import TritonOptions
 
         kwargs = vars(args)
         model_config = AutoConfig.from_pretrained(
