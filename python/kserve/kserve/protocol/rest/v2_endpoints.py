@@ -274,13 +274,13 @@ def register_v2_endpoints(
     v2_router.add_api_route(
         r"/models/{model_name}/infer",
         v2_endpoints.infer,
-        response_model=InferenceResponse,
+        response_model=None,
         methods=["POST"],
     )
     v2_router.add_api_route(
         r"/models/{model_name}/versions/{model_version}/infer",
         v2_endpoints.infer,
-        response_model=InferenceResponse,
+        response_model=None,
         methods=["POST"],
         include_in_schema=False,
     )
