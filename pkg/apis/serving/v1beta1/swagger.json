@@ -91,9 +91,39 @@
       "description": "StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.",
       "type": "object",
       "required": [
-        "storageUri"
+        "storageUri",
+        "modelSize",
+        "nodeGroup",
+        "storageType",
+        "cleanupPolicy",
+        "pvSpecName",
+        "pvcSpecName"
       ],
       "properties": {
+        "cleanupPolicy": {
+          "type": "string",
+          "default": ""
+        },
+        "modelSize": {
+          "$ref": "#/definitions/resource.Quantity"
+        },
+        "nodeGroup": {
+          "type": "string",
+          "default": ""
+        },
+        "pvSpecName": {
+          "type": "string",
+          "default": ""
+        },
+        "pvcSpecName": {
+          "type": "string",
+          "default": ""
+        },
+        "storageType": {
+          "description": "only local is supported for now",
+          "type": "string",
+          "default": ""
+        },
         "storageUri": {
           "type": "string",
           "default": ""

@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,8 +26,35 @@ import (
 type ClusterCachedModelSpec struct {
 	// Container spec for the storage initializer init container
 
-	StorageUri string `json:"storageUri" validate:"required"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="StorageUri is immutable"
+	StorageUri string            `json:"storageUri" validate:"required"`
+	ModelSize  resource.Quantity `json:"modelSize" validate:"required"`
+	NodeGroup  string            `json:"nodeGroup" validate:"required"`
+	// only local is supported for now
+	StorageType   StorageType   `json:"storageType" validate:"required"`
+	CleanupPolicy CleanupPolicy `json:"cleanupPolicy" validate:"required"`
+	PvSpecName    string        `json:"pvSpecName" validate:"required"`
+	PvcSpecName   string        `json:"pvcSpecName" validate:"required"`
 }
+
+// StorageType enum
+// +kubebuilder:validation:Enum="";LocalPV
+type StorageType string
+
+// StorageType Enum values
+const (
+	LocalPV StorageType = "LocalPV"
+)
+
+// CleanupPolicy enum
+// +kubebuilder:validation:Enum="";DeleteModel;Ignore
+type CleanupPolicy string
+
+// CleanupPolicy Enum values
+const (
+	DeleteModel CleanupPolicy = "DeleteModel"
+	Ignore      CleanupPolicy = "Ignore"
+)
 
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

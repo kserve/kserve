@@ -47,23 +47,187 @@ class V1alpha1ClusterCachedModelSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'cleanup_policy': 'str',
+        'model_size': 'ResourceQuantity',
+        'node_group': 'str',
+        'pv_spec_name': 'str',
+        'pvc_spec_name': 'str',
+        'storage_type': 'str',
         'storage_uri': 'str'
     }
 
     attribute_map = {
+        'cleanup_policy': 'cleanupPolicy',
+        'model_size': 'modelSize',
+        'node_group': 'nodeGroup',
+        'pv_spec_name': 'pvSpecName',
+        'pvc_spec_name': 'pvcSpecName',
+        'storage_type': 'storageType',
         'storage_uri': 'storageUri'
     }
 
-    def __init__(self, storage_uri='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cleanup_policy='', model_size=None, node_group='', pv_spec_name='', pvc_spec_name='', storage_type='', storage_uri='', local_vars_configuration=None):  # noqa: E501
         """V1alpha1ClusterCachedModelSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._cleanup_policy = None
+        self._model_size = None
+        self._node_group = None
+        self._pv_spec_name = None
+        self._pvc_spec_name = None
+        self._storage_type = None
         self._storage_uri = None
         self.discriminator = None
 
+        self.cleanup_policy = cleanup_policy
+        self.model_size = model_size
+        self.node_group = node_group
+        self.pv_spec_name = pv_spec_name
+        self.pvc_spec_name = pvc_spec_name
+        self.storage_type = storage_type
         self.storage_uri = storage_uri
+
+    @property
+    def cleanup_policy(self):
+        """Gets the cleanup_policy of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+
+
+        :return: The cleanup_policy of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._cleanup_policy
+
+    @cleanup_policy.setter
+    def cleanup_policy(self, cleanup_policy):
+        """Sets the cleanup_policy of this V1alpha1ClusterCachedModelSpec.
+
+
+        :param cleanup_policy: The cleanup_policy of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and cleanup_policy is None:  # noqa: E501
+            raise ValueError("Invalid value for `cleanup_policy`, must not be `None`")  # noqa: E501
+
+        self._cleanup_policy = cleanup_policy
+
+    @property
+    def model_size(self):
+        """Gets the model_size of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+
+
+        :return: The model_size of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :rtype: ResourceQuantity
+        """
+        return self._model_size
+
+    @model_size.setter
+    def model_size(self, model_size):
+        """Sets the model_size of this V1alpha1ClusterCachedModelSpec.
+
+
+        :param model_size: The model_size of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :type: ResourceQuantity
+        """
+        if self.local_vars_configuration.client_side_validation and model_size is None:  # noqa: E501
+            raise ValueError("Invalid value for `model_size`, must not be `None`")  # noqa: E501
+
+        self._model_size = model_size
+
+    @property
+    def node_group(self):
+        """Gets the node_group of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+
+
+        :return: The node_group of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._node_group
+
+    @node_group.setter
+    def node_group(self, node_group):
+        """Sets the node_group of this V1alpha1ClusterCachedModelSpec.
+
+
+        :param node_group: The node_group of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and node_group is None:  # noqa: E501
+            raise ValueError("Invalid value for `node_group`, must not be `None`")  # noqa: E501
+
+        self._node_group = node_group
+
+    @property
+    def pv_spec_name(self):
+        """Gets the pv_spec_name of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+
+
+        :return: The pv_spec_name of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._pv_spec_name
+
+    @pv_spec_name.setter
+    def pv_spec_name(self, pv_spec_name):
+        """Sets the pv_spec_name of this V1alpha1ClusterCachedModelSpec.
+
+
+        :param pv_spec_name: The pv_spec_name of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and pv_spec_name is None:  # noqa: E501
+            raise ValueError("Invalid value for `pv_spec_name`, must not be `None`")  # noqa: E501
+
+        self._pv_spec_name = pv_spec_name
+
+    @property
+    def pvc_spec_name(self):
+        """Gets the pvc_spec_name of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+
+
+        :return: The pvc_spec_name of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._pvc_spec_name
+
+    @pvc_spec_name.setter
+    def pvc_spec_name(self, pvc_spec_name):
+        """Sets the pvc_spec_name of this V1alpha1ClusterCachedModelSpec.
+
+
+        :param pvc_spec_name: The pvc_spec_name of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and pvc_spec_name is None:  # noqa: E501
+            raise ValueError("Invalid value for `pvc_spec_name`, must not be `None`")  # noqa: E501
+
+        self._pvc_spec_name = pvc_spec_name
+
+    @property
+    def storage_type(self):
+        """Gets the storage_type of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+
+        only local is supported for now  # noqa: E501
+
+        :return: The storage_type of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._storage_type
+
+    @storage_type.setter
+    def storage_type(self, storage_type):
+        """Sets the storage_type of this V1alpha1ClusterCachedModelSpec.
+
+        only local is supported for now  # noqa: E501
+
+        :param storage_type: The storage_type of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and storage_type is None:  # noqa: E501
+            raise ValueError("Invalid value for `storage_type`, must not be `None`")  # noqa: E501
+
+        self._storage_type = storage_type
 
     @property
     def storage_uri(self):
