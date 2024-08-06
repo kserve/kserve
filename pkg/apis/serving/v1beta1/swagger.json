@@ -95,9 +95,7 @@
         "modelSize",
         "nodeGroup",
         "storageType",
-        "cleanupPolicy",
-        "pvSpecName",
-        "pvcSpecName"
+        "cleanupPolicy"
       ],
       "properties": {
         "cleanupPolicy": {
@@ -108,14 +106,6 @@
           "$ref": "#/definitions/resource.Quantity"
         },
         "nodeGroup": {
-          "type": "string",
-          "default": ""
-        },
-        "pvSpecName": {
-          "type": "string",
-          "default": ""
-        },
-        "pvcSpecName": {
           "type": "string",
           "default": ""
         },

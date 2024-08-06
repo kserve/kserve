@@ -7,8 +7,6 @@ Name | Type | Description | Notes
 **cleanup_policy** | **str** |  | [default to '']
 **model_size** | [**ResourceQuantity**](ResourceQuantity.md) |  | 
 **node_group** | **str** |  | [default to '']
-**pv_spec_name** | **str** |  | [default to '']
-**pvc_spec_name** | **str** |  | [default to '']
 **storage_type** | **str** | only local is supported for now | [default to '']
 **storage_uri** | **str** |  | [default to '']
 

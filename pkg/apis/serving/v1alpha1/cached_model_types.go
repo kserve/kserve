@@ -33,8 +33,6 @@ type ClusterCachedModelSpec struct {
 	// only local is supported for now
 	StorageType   StorageType   `json:"storageType" validate:"required"`
 	CleanupPolicy CleanupPolicy `json:"cleanupPolicy" validate:"required"`
-	PvSpecName    string        `json:"pvSpecName" validate:"required"`
-	PvcSpecName   string        `json:"pvcSpecName" validate:"required"`
 }
 
 // StorageType enum

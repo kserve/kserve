@@ -50,8 +50,6 @@ class V1alpha1ClusterCachedModelSpec(object):
         'cleanup_policy': 'str',
         'model_size': 'ResourceQuantity',
         'node_group': 'str',
-        'pv_spec_name': 'str',
-        'pvc_spec_name': 'str',
         'storage_type': 'str',
         'storage_uri': 'str'
     }
@@ -60,13 +58,11 @@ class V1alpha1ClusterCachedModelSpec(object):
         'cleanup_policy': 'cleanupPolicy',
         'model_size': 'modelSize',
         'node_group': 'nodeGroup',
-        'pv_spec_name': 'pvSpecName',
-        'pvc_spec_name': 'pvcSpecName',
         'storage_type': 'storageType',
         'storage_uri': 'storageUri'
     }
 
-    def __init__(self, cleanup_policy='', model_size=None, node_group='', pv_spec_name='', pvc_spec_name='', storage_type='', storage_uri='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cleanup_policy='', model_size=None, node_group='', storage_type='', storage_uri='', local_vars_configuration=None):  # noqa: E501
         """V1alpha1ClusterCachedModelSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -75,8 +71,6 @@ class V1alpha1ClusterCachedModelSpec(object):
         self._cleanup_policy = None
         self._model_size = None
         self._node_group = None
-        self._pv_spec_name = None
-        self._pvc_spec_name = None
         self._storage_type = None
         self._storage_uri = None
         self.discriminator = None
@@ -84,8 +78,6 @@ class V1alpha1ClusterCachedModelSpec(object):
         self.cleanup_policy = cleanup_policy
         self.model_size = model_size
         self.node_group = node_group
-        self.pv_spec_name = pv_spec_name
-        self.pvc_spec_name = pvc_spec_name
         self.storage_type = storage_type
         self.storage_uri = storage_uri
 
@@ -157,52 +149,6 @@ class V1alpha1ClusterCachedModelSpec(object):
             raise ValueError("Invalid value for `node_group`, must not be `None`")  # noqa: E501
 
         self._node_group = node_group
-
-    @property
-    def pv_spec_name(self):
-        """Gets the pv_spec_name of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-
-
-        :return: The pv_spec_name of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._pv_spec_name
-
-    @pv_spec_name.setter
-    def pv_spec_name(self, pv_spec_name):
-        """Sets the pv_spec_name of this V1alpha1ClusterCachedModelSpec.
-
-
-        :param pv_spec_name: The pv_spec_name of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and pv_spec_name is None:  # noqa: E501
-            raise ValueError("Invalid value for `pv_spec_name`, must not be `None`")  # noqa: E501
-
-        self._pv_spec_name = pv_spec_name
-
-    @property
-    def pvc_spec_name(self):
-        """Gets the pvc_spec_name of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-
-
-        :return: The pvc_spec_name of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._pvc_spec_name
-
-    @pvc_spec_name.setter
-    def pvc_spec_name(self, pvc_spec_name):
-        """Sets the pvc_spec_name of this V1alpha1ClusterCachedModelSpec.
-
-
-        :param pvc_spec_name: The pvc_spec_name of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-        :type: str
-        """
-        if self.local_vars_configuration.client_side_validation and pvc_spec_name is None:  # noqa: E501
-            raise ValueError("Invalid value for `pvc_spec_name`, must not be `None`")  # noqa: E501
-
-        self._pvc_spec_name = pvc_spec_name
 
     @property
     def storage_type(self):

@@ -289,22 +289,8 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModelSpec(ref common.Referenc
 							Format:  "",
 						},
 					},
-					"pvSpecName": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
-					"pvcSpecName": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 				},
-				Required: []string{"storageUri", "modelSize", "nodeGroup", "storageType", "cleanupPolicy", "pvSpecName", "pvcSpecName"},
+				Required: []string{"storageUri", "modelSize", "nodeGroup", "storageType", "cleanupPolicy"},
 			},
 		},
 		Dependencies: []string{

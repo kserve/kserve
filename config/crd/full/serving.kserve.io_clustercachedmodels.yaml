@@ -40,10 +40,6 @@ spec:
                 x-kubernetes-int-or-string: true
               nodeGroup:
                 type: string
-              pvSpecName:
-                type: string
-              pvcSpecName:
-                type: string
               storageType:
                 enum:
                 - ""
@@ -58,8 +54,6 @@ spec:
             - cleanupPolicy
             - modelSize
             - nodeGroup
-            - pvSpecName
-            - pvcSpecName
             - storageType
             - storageUri
             type: object
