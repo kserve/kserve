@@ -30,8 +30,11 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1alpha1_cluster_cached_model_list import V1alpha1ClusterCachedModelList  # noqa: E501
+from kserve.models.v1alpha1_cluster_cached_model_list import (
+    V1alpha1ClusterCachedModelList,
+)  # noqa: E501
 from kserve.rest import ApiException
+
 
 class TestV1alpha1ClusterCachedModelList(unittest.TestCase):
     """V1alpha1ClusterCachedModelList unit test stubs"""
@@ -44,37 +47,45 @@ class TestV1alpha1ClusterCachedModelList(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1ClusterCachedModelList
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_cluster_cached_model_list.V1alpha1ClusterCachedModelList()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1ClusterCachedModelList(
-                api_version = '0', 
-                items = [
-                    kserve.models.v1alpha1/cluster_cached_model.v1alpha1.ClusterCachedModel(
-                        api_version = '0', 
-                        disabled = True, 
-                        kind = '0', 
-                        metadata = None, 
-                        spec = kserve.models.v1alpha1/cluster_cached_model_spec.v1alpha1.ClusterCachedModelSpec(
-                            storage_uri = '0', ), )
-                    ], 
-                kind = '0', 
-                metadata = None
+                api_version="0",
+                items=[
+                    kserve.models.v1alpha1
+                    / cluster_cached_model.v1alpha1.ClusterCachedModel(
+                        api_version="0",
+                        disabled=True,
+                        kind="0",
+                        metadata=None,
+                        spec=kserve.models.v1alpha1
+                        / cluster_cached_model_spec.v1alpha1.ClusterCachedModelSpec(
+                            storage_uri="0",
+                        ),
+                    )
+                ],
+                kind="0",
+                metadata=None,
             )
-        else :
+        else:
             return V1alpha1ClusterCachedModelList(
-                items = [
-                    kserve.models.v1alpha1/cluster_cached_model.v1alpha1.ClusterCachedModel(
-                        api_version = '0', 
-                        disabled = True, 
-                        kind = '0', 
-                        metadata = None, 
-                        spec = kserve.models.v1alpha1/cluster_cached_model_spec.v1alpha1.ClusterCachedModelSpec(
-                            storage_uri = '0', ), )
-                    ],
-        )
+                items=[
+                    kserve.models.v1alpha1
+                    / cluster_cached_model.v1alpha1.ClusterCachedModel(
+                        api_version="0",
+                        disabled=True,
+                        kind="0",
+                        metadata=None,
+                        spec=kserve.models.v1alpha1
+                        / cluster_cached_model_spec.v1alpha1.ClusterCachedModelSpec(
+                            storage_uri="0",
+                        ),
+                    )
+                ],
+            )
 
     def testV1alpha1ClusterCachedModelList(self):
         """Test V1alpha1ClusterCachedModelList"""
@@ -82,5 +93,5 @@ class TestV1alpha1ClusterCachedModelList(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

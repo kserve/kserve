@@ -30,8 +30,11 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1alpha1_model_cache_node_group import V1alpha1ModelCacheNodeGroup  # noqa: E501
+from kserve.models.v1alpha1_model_cache_node_group import (
+    V1alpha1ModelCacheNodeGroup,
+)  # noqa: E501
 from kserve.rest import ApiException
+
 
 class TestV1alpha1ModelCacheNodeGroup(unittest.TestCase):
     """V1alpha1ModelCacheNodeGroup unit test stubs"""
@@ -44,26 +47,25 @@ class TestV1alpha1ModelCacheNodeGroup(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1ModelCacheNodeGroup
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_model_cache_node_group.V1alpha1ModelCacheNodeGroup()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1ModelCacheNodeGroup(
-                api_version = '0', 
-                kind = '0', 
-                metadata = None, 
-                spec = kserve.models.v1alpha1/model_cache_node_group_spec.v1alpha1.ModelCacheNodeGroupSpec(
-                    node_selector = {
-                        'key' : '0'
-                        }, 
-                    persistent_volume = None, 
-                    persistent_volume_claim = None, 
-                    storage_limit = None, )
+                api_version="0",
+                kind="0",
+                metadata=None,
+                spec=kserve.models.v1alpha1
+                / model_cache_node_group_spec.v1alpha1.ModelCacheNodeGroupSpec(
+                    node_selector={"key": "0"},
+                    persistent_volume=None,
+                    persistent_volume_claim=None,
+                    storage_limit=None,
+                ),
             )
-        else :
-            return V1alpha1ModelCacheNodeGroup(
-        )
+        else:
+            return V1alpha1ModelCacheNodeGroup()
 
     def testV1alpha1ModelCacheNodeGroup(self):
         """Test V1alpha1ModelCacheNodeGroup"""
@@ -71,5 +73,5 @@ class TestV1alpha1ModelCacheNodeGroup(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
