@@ -106,6 +106,9 @@ kserve:
     huggingfaceserver:
       image: kserve/huggingfaceserver
       tag: *defaultVersion
+    huggingfaceTritonserver:
+        image: kserve/huggingface-tritonserver
+        tag: *defaultVersion
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3

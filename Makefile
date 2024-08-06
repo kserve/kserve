@@ -17,6 +17,7 @@ CUSTOM_MODEL_GRPC_IMG ?= custom-model-grpc
 CUSTOM_TRANSFORMER_IMG ?= image-transformer
 CUSTOM_TRANSFORMER_GRPC_IMG ?= custom-image-transformer-grpc
 HUGGINGFACE_SERVER_IMG ?= huggingfaceserver
+HUGGINGFACE_TRITON_IMG ?= huggingface-tritonserver
 AIF_IMG ?= aiffairness
 ART_IMG ?= art-explainer
 STORAGE_INIT_IMG ?= storage-initializer
@@ -111,6 +112,9 @@ deploy-dev-paddle: docker-push-paddle
 
 deploy-dev-huggingface: docker-push-huggingface
 	./hack/serving_runtime_image_patch.sh "kserve-huggingfaceserver.yaml" "${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}"
+
+deploy-dev-huggingface-triton: docker-push-huggingface-triton
+	./hack/serving_runtime_image_patch.sh "kserve-huggingface-tritonserver.yaml" "${KO_DOCKER_REPO}/${HUGGINGFACE_TRITON_IMG}"
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
@@ -318,6 +322,12 @@ docker-build-huggingface:
 
 docker-push-huggingface: docker-build-huggingface
 	docker push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}
+
+docker-build-huggingface-triton:
+	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${HUGGINGFACE_TRITON_IMG} -f huggingface_triton_server.Dockerfile .
+
+docker-push-huggingface-triton: docker-build-huggingface-triton
+	docker push ${KO_DOCKER_REPO}/${HUGGINGFACE_TRITON_IMG}
 
 test-qpext:
 	cd qpext && go test -v ./... -cover

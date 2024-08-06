@@ -828,6 +828,36 @@ torch = ["torch"]
 vision = ["Pillow (>=6.2.1)"]
 
 [[package]]
+name = "cupy-cuda12x"
+version = "13.1.0"
+description = "CuPy: NumPy & SciPy for GPU"
+optional = true
+python-versions = ">=3.9"
+files = [
+    {file = "cupy_cuda12x-13.1.0-cp310-cp310-manylinux2014_aarch64.whl", hash = "sha256:2d16eaa2d086e416ac13467d4ff3184b9a081fe76b761ce51d4a46ec1c4bd28a"},
+    {file = "cupy_cuda12x-13.1.0-cp310-cp310-manylinux2014_x86_64.whl", hash = "sha256:230f8a8e99c81a653baa0ed00819990c0ed1f0cf0298214786b5e323461dc61a"},
+    {file = "cupy_cuda12x-13.1.0-cp310-cp310-win_amd64.whl", hash = "sha256:dac0284fecb90b5731f514e569a6fcf6674a730ae95b9490781a713b60a34423"},
+    {file = "cupy_cuda12x-13.1.0-cp311-cp311-manylinux2014_aarch64.whl", hash = "sha256:d60d1e124592cb82a5f3f45b3e7bee7bda7b72a743029f275e9d6b125f338c60"},
+    {file = "cupy_cuda12x-13.1.0-cp311-cp311-manylinux2014_x86_64.whl", hash = "sha256:e7a25ef1b44ae6276b5105affc2289edb34f1aa6676babd5bcd80907348c4cfa"},
+    {file = "cupy_cuda12x-13.1.0-cp311-cp311-win_amd64.whl", hash = "sha256:5afb6658faa22f21479ae2c0a07254df31c0aebc36907a64a1f6be4ecc9e96da"},
+    {file = "cupy_cuda12x-13.1.0-cp312-cp312-manylinux2014_aarch64.whl", hash = "sha256:51b1d6cb83d82dfa306c9efaeb4d57f24bad3041ebd8716d61072676abbcf67b"},
+    {file = "cupy_cuda12x-13.1.0-cp312-cp312-manylinux2014_x86_64.whl", hash = "sha256:4c8e9fdb1f3ffc3151808f8bb8c871518d2783e1be8b53792b698a840543d60c"},
+    {file = "cupy_cuda12x-13.1.0-cp312-cp312-win_amd64.whl", hash = "sha256:4c51a1062a3c5a826b0425952d229ffe73b1791656a31de95b318117e67a9576"},
+    {file = "cupy_cuda12x-13.1.0-cp39-cp39-manylinux2014_aarch64.whl", hash = "sha256:d3dc91ef9c4104652195eea4b282d343ecad653021efe20d1c8dd8dfe8ccfd86"},
+    {file = "cupy_cuda12x-13.1.0-cp39-cp39-manylinux2014_x86_64.whl", hash = "sha256:52185a2cf95d3bac2c3fda95c9c8e06a985b5a00cd2e587d3caace337db33899"},
+    {file = "cupy_cuda12x-13.1.0-cp39-cp39-win_amd64.whl", hash = "sha256:432273fd4b61a284f7d705d08b8291403548fd422bcbd945635cc155bc6a923d"},
+]
+
+[package.dependencies]
+fastrlock = ">=0.5"
+numpy = ">=1.22,<1.29"
+
+[package.extras]
+all = ["Cython (>=0.29.22,<3)", "optuna (>=2.0)", "scipy (>=1.7,<1.14)"]
+stylecheck = ["autopep8 (==1.5.5)", "flake8 (==3.8.4)", "mypy (==1.4.1)", "pbr (==5.5.1)", "pycodestyle (==2.6.0)", "types-setuptools (==57.4.14)"]
+test = ["hypothesis (>=6.37.2,<6.55.0)", "mpmath", "pytest (>=7.2)"]
+
+[[package]]
 name = "deprecation"
 version = "2.1.0"
 description = "A library to handle automated deprecations"
