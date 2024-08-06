@@ -20,11 +20,11 @@ import numpy
 
 from kserve import InferRequest, InferResponse, InferOutput
 from kserve.logging import logger
-from kserve.triton.triton_configuration import TritonOptions
 
 try:
     import tritonserver
     from tritonserver import DataType
+    from kserve.triton.triton_configuration import TritonOptions
 
     _triton = True
 except ImportError:
@@ -65,8 +65,8 @@ def triton_dtype_to_str(triton_dtype):
 
 
 def create_triton_infer_request(
-    request: InferRequest, model: tritonserver.Model
-) -> tritonserver.InferenceRequest:
+    request: InferRequest, model: "tritonserver.Model"
+) -> "tritonserver.InferenceRequest":
     infer_req = model.create_request()
     infer_req.request_id = request.id
     infer_req.parameters = request.parameters if request.parameters else {}
