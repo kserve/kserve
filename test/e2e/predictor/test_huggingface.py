@@ -341,8 +341,7 @@ async def test_huggingface_v2_text_embedding(rest_v2_client):
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.local
-# @pytest.mark.skip("Upload model to gcs")
+@pytest.mark.skip("Upload model to gcs")
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
 async def test_huggingface_triton_fill_mask(rest_v2_client):
