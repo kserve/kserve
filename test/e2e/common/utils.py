@@ -187,8 +187,8 @@ async def explain_response(client, service_name, input_path) -> Dict:
         namespace=KSERVE_TEST_NAMESPACE,
         version=constants.KSERVE_V1BETA1_VERSION,
     )
-    cluster_ip, host, _ = get_isvc_endpoint(isvc)
-    url = f"http://{cluster_ip}"
+    cluster_ip, host, path = get_isvc_endpoint(isvc)
+    url = f"http://{cluster_ip}{path}"
     headers = {"Host": host}
     with open(input_path) as json_file:
         data = json.load(json_file)
