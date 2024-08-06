@@ -54,23 +54,27 @@ class V2Endpoints:
         """
         return ServerMetadataResponse.parse_obj(self.dataplane.metadata())
 
-    @staticmethod
-    async def live() -> ServerLiveResponse:
+    async def live(self) -> ServerLiveResponse:
         """Server live endpoint.
 
         Returns:
             ServerLiveResponse: Server live message.
         """
-        return ServerLiveResponse(live=True)
+        response = await self.dataplane.live()
+        # TODO: if server is not live send 5xx error response.
+        is_live = response["status"] == "alive"
+        return ServerLiveResponse(live=is_live)
 
-    @staticmethod
-    async def ready() -> ServerReadyResponse:
+    async def ready(self) -> ServerReadyResponse:
         """Server ready endpoint.
 
         Returns:
             ServerReadyResponse: Server ready message.
         """
-        return ServerReadyResponse(ready=True)
+        is_ready = await self.dataplane.ready()
+        if not is_ready:
+            pass
+        return ServerReadyResponse(ready=is_ready)
 
     async def models(self) -> ListModelsResponse:
         """Get a list of models in the model registry.
@@ -116,7 +120,7 @@ class V2Endpoints:
         if model_version:
             raise NotImplementedError("Model versioning not supported yet.")
 
-        model_ready = self.dataplane.model_ready(model_name)
+        model_ready = await self.dataplane.model_ready(model_name)
 
         if not model_ready:
             raise ModelNotReady(model_name)
@@ -147,7 +151,7 @@ class V2Endpoints:
         if model_version:
             raise NotImplementedError("Model versioning not supported yet.")
 
-        model_ready = self.dataplane.model_ready(model_name)
+        model_ready = await self.dataplane.model_ready(model_name)
 
         if not model_ready:
             raise ModelNotReady(model_name)
