@@ -305,11 +305,11 @@ def test_unpack_zip_file():
     os.remove(os.path.join(out_dir, "model.pth"))
 
 
-@mock.patch(STORAGE_MODULE + '.Storage._download_azure_blob')
+@mock.patch(STORAGE_MODULE + ".Storage._download_azure_blob")
 def test_download_azure_blob_called_with_matching_uri(mock_download_azure_blob):
     azure_blob_uris = [
-        'https://accountname.blob.core.windows.net/container/some/blob/',
-        'https://accountname.z20.blob.storage.azure.net/container/some/blob/'
+        "https://accountname.blob.core.windows.net/container/some/blob/",
+        "https://accountname.z20.blob.storage.azure.net/container/some/blob/",
     ]
 
     for uri in azure_blob_uris:
@@ -319,11 +319,13 @@ def test_download_azure_blob_called_with_matching_uri(mock_download_azure_blob):
     mock_download_azure_blob.assert_has_calls(expected_calls)
 
 
-@mock.patch(STORAGE_MODULE + '.Storage._download_azure_file_share')
-def test_download_azure_file_share_called_with_matching_uri(mock_download_azure_file_share):
+@mock.patch(STORAGE_MODULE + ".Storage._download_azure_file_share")
+def test_download_azure_file_share_called_with_matching_uri(
+    mock_download_azure_file_share,
+):
     azure_file_uris = [
-        'https://accountname.file.core.windows.net/container/some/blob',
-        'https://accountname.z20.file.storage.azure.net/container/some/blob'
+        "https://accountname.file.core.windows.net/container/some/blob",
+        "https://accountname.z20.file.storage.azure.net/container/some/blob",
     ]
 
     for uri in azure_file_uris:
