@@ -1,0 +1,11 @@
+# V1alpha1ClusterCachedModelSpec
+
+StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.
+## Properties
+Name | Type | Description | Notes
+------------ | ------------- | ------------- | -------------
+**storage_uri** | **str** |  | [default to '']
+
+[[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
+
+
