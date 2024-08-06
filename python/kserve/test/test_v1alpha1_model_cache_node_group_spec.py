@@ -26,14 +26,15 @@
 
 from __future__ import absolute_import
 
-import unittest
 import datetime
+import unittest
+
+from kserve.models.v1alpha1_model_cache_node_group_spec import (  # noqa: E501
+    V1alpha1ModelCacheNodeGroupSpec,
+)
+from kserve.rest import ApiException
 
 import kserve
-from kserve.models.v1alpha1_model_cache_node_group_spec import (
-    V1alpha1ModelCacheNodeGroupSpec,
-)  # noqa: E501
-from kserve.rest import ApiException
 
 
 class TestV1alpha1ModelCacheNodeGroupSpec(unittest.TestCase):
@@ -54,16 +55,16 @@ class TestV1alpha1ModelCacheNodeGroupSpec(unittest.TestCase):
         if include_optional:
             return V1alpha1ModelCacheNodeGroupSpec(
                 node_selector={"key": "0"},
-                persistent_volume=None,
-                persistent_volume_claim=None,
-                storage_limit=None,
+                persistent_volume="",
+                persistent_volume_claim="",
+                storage_limit="1Gi",
             )
         else:
             return V1alpha1ModelCacheNodeGroupSpec(
                 node_selector={"key": "0"},
-                persistent_volume=None,
-                persistent_volume_claim=None,
-                storage_limit=None,
+                persistent_volume="",
+                persistent_volume_claim="",
+                storage_limit="1Gi",
             )
 
     def testV1alpha1ModelCacheNodeGroupSpec(self):

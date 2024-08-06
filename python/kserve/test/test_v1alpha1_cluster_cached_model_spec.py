@@ -26,14 +26,15 @@
 
 from __future__ import absolute_import
 
-import unittest
 import datetime
+import unittest
+
+from kserve.models.v1alpha1_cluster_cached_model_spec import (  # noqa: E501
+    V1alpha1ClusterCachedModelSpec,
+)
+from kserve.rest import ApiException
 
 import kserve
-from kserve.models.v1alpha1_cluster_cached_model_spec import (
-    V1alpha1ClusterCachedModelSpec,
-)  # noqa: E501
-from kserve.rest import ApiException
 
 
 class TestV1alpha1ClusterCachedModelSpec(unittest.TestCase):
@@ -52,10 +53,20 @@ class TestV1alpha1ClusterCachedModelSpec(unittest.TestCase):
         optional params are included"""
         # model = kserve.models.v1alpha1_cluster_cached_model_spec.V1alpha1ClusterCachedModelSpec()  # noqa: E501
         if include_optional:
-            return V1alpha1ClusterCachedModelSpec(storage_uri="0")
+            return V1alpha1ClusterCachedModelSpec(
+                cleanup_policy="0",
+                node_group="0",
+                storage_type="0",
+                storage_uri="0",
+                model_size="1Gi",
+            )
         else:
             return V1alpha1ClusterCachedModelSpec(
+                cleanup_policy="0",
+                node_group="0",
+                storage_type="0",
                 storage_uri="0",
+                model_size="1Gi",
             )
 
     def testV1alpha1ClusterCachedModelSpec(self):
