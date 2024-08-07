@@ -170,7 +170,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -180,13 +180,13 @@ func TestStorageInitializerInjector(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -235,7 +235,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 								},
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -245,7 +245,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"/mnt/pvc/some/path/on/pvc", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
@@ -256,7 +256,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 								},
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -314,7 +314,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -324,7 +324,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"s3://my-bucket/foo/bar", constants.DefaultModelLocalMountPath},
+							Args:  []string{"s3://my-bucket/foo/bar", ModelMountPath},
 							Env: []v1.EnvVar{
 								{
 									Name:  credentials.StorageOverrideConfigEnvKey,
@@ -336,7 +336,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -415,8 +415,9 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 
 func TestCustomSpecStorageUriInjection(t *testing.T) {
 	scenarios := map[string]struct {
-		original                      *v1.Pod
-		expectedStorageUriEnvVariable *v1.EnvVar
+		original                            *v1.Pod
+		expectedStorageUriEnvVariable       *v1.EnvVar
+		expectedStorageMountPathEnvVariable *v1.EnvVar
 	}{
 		"CustomSpecStorageUriSet": {
 			original: &v1.Pod{
@@ -434,6 +435,10 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: "pvc://mypvcname/some/path/on/pvc",
 								},
+								{
+									Name:  constants.CustomSpecStorageMountPathKey,
+									Value: "/model-store",
+								},
 							},
 						},
 					},
@@ -441,7 +446,11 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 			},
 			expectedStorageUriEnvVariable: &v1.EnvVar{
 				Name:  constants.CustomSpecStorageUriEnvVarKey,
-				Value: constants.DefaultModelLocalMountPath,
+				Value: "/model-store",
+			},
+			expectedStorageMountPathEnvVariable: &v1.EnvVar{
+				Name:  constants.CustomSpecStorageMountPathKey,
+				Value: "/model-store",
 			},
 		},
 		"CustomSpecStorageUriEmpty": {
@@ -460,6 +469,10 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: "",
 								},
+								{
+									Name:  constants.CustomSpecStorageMountPathKey,
+									Value: "",
+								},
 							},
 						},
 					},
@@ -467,6 +480,10 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 			},
 			expectedStorageUriEnvVariable: &v1.EnvVar{
 				Name:  constants.CustomSpecStorageUriEnvVarKey,
+				Value: "",
+			},
+			expectedStorageMountPathEnvVariable: &v1.EnvVar{
+				Name:  constants.CustomSpecStorageMountPathKey,
 				Value: "",
 			},
 		},
@@ -508,9 +525,12 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 		}
 
 		var originalEnvVar *v1.EnvVar
-		for _, envVar := range scenario.original.Spec.Containers[0].Env {
+
+		for i := range scenario.original.Spec.Containers[0].Env {
+			envVar := &scenario.original.Spec.Containers[0].Env[i]
 			if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
-				originalEnvVar = &envVar
+				originalEnvVar = envVar
+				break // 如果你只需要找到第一個匹配的變數，建議使用 break
 			}
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expectedStorageUriEnvVariable, originalEnvVar); diff != "" {
@@ -588,7 +608,7 @@ func TestCredentialInjection(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -598,13 +618,13 @@ func TestCredentialInjection(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 							Env: []v1.EnvVar{
@@ -688,7 +708,7 @@ func TestCredentialInjection(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -698,13 +718,13 @@ func TestCredentialInjection(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 								{
 									Name:      gcs.GCSCredentialVolumeName,
@@ -789,7 +809,7 @@ func TestCredentialInjection(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -799,7 +819,7 @@ func TestCredentialInjection(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"s3://my-bucket/foo/bar", constants.DefaultModelLocalMountPath},
+							Args:  []string{"s3://my-bucket/foo/bar", ModelMountPath},
 							Env: []v1.EnvVar{
 								{
 									Name: credentials.StorageConfigEnvKey,
@@ -820,7 +840,7 @@ func TestCredentialInjection(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -884,7 +904,7 @@ func TestCredentialInjection(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -894,7 +914,7 @@ func TestCredentialInjection(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"s3://my-bucket/foo/bar", constants.DefaultModelLocalMountPath},
+							Args:  []string{"s3://my-bucket/foo/bar", ModelMountPath},
 							Env: []v1.EnvVar{
 								{
 									Name: credentials.StorageConfigEnvKey,
@@ -915,7 +935,7 @@ func TestCredentialInjection(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -1000,7 +1020,7 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -1010,13 +1030,13 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    "kserve/storage-initializer@sha256:xxx",
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -1233,7 +1253,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -1243,7 +1263,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:  []string{"gs://foo", ModelMountPath},
 							Env: []v1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
@@ -1273,7 +1293,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -1334,7 +1354,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -1344,7 +1364,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:  []string{"gs://foo", ModelMountPath},
 							Env: []v1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
@@ -1376,7 +1396,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 								{
 									Name:      CaBundleVolumeName,
@@ -1454,7 +1474,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -1464,7 +1484,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:  []string{"gs://foo", ModelMountPath},
 							Env: []v1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
@@ -1497,7 +1517,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 								{
 									Name:      CaBundleVolumeName,
@@ -1576,7 +1596,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -1586,7 +1606,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:  []string{"gs://foo", ModelMountPath},
 							Env: []v1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
@@ -1619,7 +1639,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 								{
 									Name:      CaBundleVolumeName,
@@ -1691,7 +1711,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -1701,7 +1721,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:  []string{"gs://foo", ModelMountPath},
 							Env: []v1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
@@ -1732,7 +1752,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -1797,7 +1817,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -1807,7 +1827,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:  []string{"gs://foo", ModelMountPath},
 							Env: []v1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
@@ -1840,7 +1860,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 								{
 									Name:      CaBundleVolumeName,
@@ -1929,7 +1949,7 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/models",
+									MountPath: ModelMountPath,
 									SubPath:   "some/path/on/pvc",
 									ReadOnly:  true,
 								},
@@ -1978,7 +1998,7 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/models",
+									MountPath: ModelMountPath,
 									SubPath:   "", // volume's root
 									ReadOnly:  true,
 								},
@@ -2043,6 +2063,10 @@ func TestTransformerCollocation(t *testing.T) {
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: "pvc://mypvcname/some/path/on/pvc",
 								},
+								{
+									Name:  constants.CustomSpecStorageMountPathKey,
+									Value: ModelMountPath,
+								},
 							},
 						},
 						{
@@ -2063,7 +2087,11 @@ func TestTransformerCollocation(t *testing.T) {
 							Env: []v1.EnvVar{
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
-									Value: constants.DefaultModelLocalMountPath,
+									Value: ModelMountPath,
+								},
+								{
+									Name:  constants.CustomSpecStorageMountPathKey,
+									Value: ModelMountPath,
 								},
 							},
 							VolumeMounts: []v1.VolumeMount{
@@ -2074,7 +2102,7 @@ func TestTransformerCollocation(t *testing.T) {
 								},
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -2090,7 +2118,7 @@ func TestTransformerCollocation(t *testing.T) {
 								},
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -2100,7 +2128,7 @@ func TestTransformerCollocation(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"/mnt/pvc/some/path/on/pvc", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
@@ -2111,7 +2139,7 @@ func TestTransformerCollocation(t *testing.T) {
 								},
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -2155,6 +2183,10 @@ func TestTransformerCollocation(t *testing.T) {
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: "pvc://mypvcname/some/path/on/pvc",
 								},
+								{
+									Name:  constants.CustomSpecStorageMountPathKey,
+									Value: ModelMountPath,
+								},
 							},
 						},
 						{
@@ -2175,13 +2207,17 @@ func TestTransformerCollocation(t *testing.T) {
 							Env: []v1.EnvVar{
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
-									Value: constants.DefaultModelLocalMountPath,
+									Value: ModelMountPath,
+								},
+								{
+									Name:  constants.CustomSpecStorageMountPathKey,
+									Value: ModelMountPath,
 								},
 							},
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/models",
+									MountPath: ModelMountPath,
 									SubPath:   "some/path/on/pvc",
 									ReadOnly:  true,
 								},
@@ -2193,7 +2229,7 @@ func TestTransformerCollocation(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
-									MountPath: "/mnt/models",
+									MountPath: ModelMountPath,
 									SubPath:   "some/path/on/pvc",
 									ReadOnly:  true,
 								},
@@ -2231,6 +2267,10 @@ func TestTransformerCollocation(t *testing.T) {
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: "pvc://mypvcname/some/path/on/pvc",
 								},
+								{
+									Name:  constants.CustomSpecStorageMountPathKey,
+									Value: ModelMountPath,
+								},
 							},
 						},
 					},
@@ -2247,7 +2287,11 @@ func TestTransformerCollocation(t *testing.T) {
 							Env: []v1.EnvVar{
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
-									Value: constants.DefaultModelLocalMountPath,
+									Value: ModelMountPath,
+								},
+								{
+									Name:  constants.CustomSpecStorageMountPathKey,
+									Value: ModelMountPath,
 								},
 							},
 							VolumeMounts: []v1.VolumeMount{
@@ -2258,7 +2302,7 @@ func TestTransformerCollocation(t *testing.T) {
 								},
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -2268,7 +2312,7 @@ func TestTransformerCollocation(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"/mnt/pvc/some/path/on/pvc", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
@@ -2279,7 +2323,7 @@ func TestTransformerCollocation(t *testing.T) {
 								},
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -2483,7 +2527,7 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -2493,7 +2537,7 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:  []string{"s3://foo", constants.DefaultModelLocalMountPath},
+							Args:  []string{"s3://foo", ModelMountPath},
 							Resources: v1.ResourceRequirements{
 								Limits: map[v1.ResourceName]resource.Quantity{
 									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
@@ -2508,7 +2552,7 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 							Env: []v1.EnvVar{
@@ -2555,7 +2599,7 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -2565,13 +2609,13 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"https://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"https://foo", ModelMountPath},
 							Resources:                resourceRequirement, // from configMap instead of the CR
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -2796,7 +2840,7 @@ func checkVolumeMounts(t *testing.T, pod *v1.Pod, containerNames []string) {
 		volumeMounts := container.VolumeMounts
 		assert.NotEmpty(t, volumeMounts)
 		assert.Len(t, volumeMounts, 1)
-		assert.Equal(t, volumeMounts[0].MountPath, getParentDirectory(constants.DefaultModelLocalMountPath))
+		assert.Equal(t, volumeMounts[0].MountPath, getParentDirectory(ModelMountPath))
 	}
 }
 
@@ -2959,7 +3003,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -2975,13 +3019,13 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 							SecurityContext: &v1.SecurityContext{
@@ -3033,7 +3077,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -3046,13 +3090,13 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 							SecurityContext: &v1.SecurityContext{
@@ -3112,7 +3156,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -3131,13 +3175,13 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -3183,7 +3227,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -3193,13 +3237,13 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -3251,7 +3295,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -3267,13 +3311,13 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -3325,7 +3369,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -3341,13 +3385,13 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -3399,7 +3443,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -3415,13 +3459,13 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -3472,7 +3516,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -3488,13 +3532,13 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -3545,7 +3589,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -3561,13 +3605,13 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},
@@ -3619,7 +3663,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 									ReadOnly:  true,
 								},
 							},
@@ -3635,13 +3679,13 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
-							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Args:                     []string{"gs://foo", ModelMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
 							VolumeMounts: []v1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
-									MountPath: constants.DefaultModelLocalMountPath,
+									MountPath: ModelMountPath,
 								},
 							},
 						},

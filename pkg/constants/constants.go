@@ -209,6 +209,7 @@ const (
 // InferenceService Environment Variables
 const (
 	CustomSpecStorageUriEnvVarKey                     = "STORAGE_URI"
+	CustomSpecStorageMountPathKey                     = "STORAGE_MOUNT_PATH"
 	CustomSpecProtocolEnvVarKey                       = "PROTOCOL"
 	CustomSpecMultiModelServerEnvVarKey               = "MULTI_MODEL_SERVER"
 	KServeContainerPrometheusMetricsPortEnvVarKey     = "KSERVE_CONTAINER_PROMETHEUS_METRICS_PORT"
