@@ -30,7 +30,9 @@ def test_predictor_headers_v1():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-rest:" + os.environ.get("GITHUB_SHA"),
+                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
+                # Override the entrypoint to run the custom model rest server
+                command=["python", "-m", "custom_model.model"],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
@@ -45,8 +47,10 @@ def test_predictor_headers_v1():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-image-transformer-rest:"
+                image="kserve/custom-image-transformer-grpc:"
                 + os.environ.get("GITHUB_SHA"),
+                # Override the entrypoint to run the custom transformer rest server
+                command=["python", "-m", "custom_transformer.model"],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
@@ -114,7 +118,9 @@ def test_predictor_headers_v2():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-rest:" + os.environ.get("GITHUB_SHA"),
+                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
+                # Override the entrypoint to run the custom model rest server
+                command=["python", "-m", "custom_model.model"],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
@@ -129,8 +135,10 @@ def test_predictor_headers_v2():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-image-transformer-rest:"
+                image="kserve/custom-image-transformer-grpc:"
                 + os.environ.get("GITHUB_SHA"),
+                # Override the entrypoint to run the custom transformer rest server
+                command=["python", "-m", "custom_transformer.model"],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
