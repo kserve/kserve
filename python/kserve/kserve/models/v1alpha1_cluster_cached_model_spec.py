@@ -49,7 +49,7 @@ class V1alpha1ClusterCachedModelSpec(object):
     openapi_types = {
         'cleanup_policy': 'str',
         'model_size': 'ResourceQuantity',
-        'node_group': 'str',
+        'node_groups': 'list[str]',
         'storage_type': 'str',
         'storage_uri': 'str'
     }
@@ -57,12 +57,12 @@ class V1alpha1ClusterCachedModelSpec(object):
     attribute_map = {
         'cleanup_policy': 'cleanupPolicy',
         'model_size': 'modelSize',
-        'node_group': 'nodeGroup',
+        'node_groups': 'nodeGroups',
         'storage_type': 'storageType',
         'storage_uri': 'storageUri'
     }
 
-    def __init__(self, cleanup_policy='', model_size=None, node_group='', storage_type='', storage_uri='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cleanup_policy='', model_size=None, node_groups=None, storage_type='', storage_uri='', local_vars_configuration=None):  # noqa: E501
         """V1alpha1ClusterCachedModelSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -70,14 +70,14 @@ class V1alpha1ClusterCachedModelSpec(object):
 
         self._cleanup_policy = None
         self._model_size = None
-        self._node_group = None
+        self._node_groups = None
         self._storage_type = None
         self._storage_uri = None
         self.discriminator = None
 
         self.cleanup_policy = cleanup_policy
         self.model_size = model_size
-        self.node_group = node_group
+        self.node_groups = node_groups
         self.storage_type = storage_type
         self.storage_uri = storage_uri
 
@@ -128,27 +128,27 @@ class V1alpha1ClusterCachedModelSpec(object):
         self._model_size = model_size
 
     @property
-    def node_group(self):
-        """Gets the node_group of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+    def node_groups(self):
+        """Gets the node_groups of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
 
 
-        :return: The node_group of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-        :rtype: str
+        :return: The node_groups of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :rtype: list[str]
         """
-        return self._node_group
+        return self._node_groups
 
-    @node_group.setter
-    def node_group(self, node_group):
-        """Sets the node_group of this V1alpha1ClusterCachedModelSpec.
+    @node_groups.setter
+    def node_groups(self, node_groups):
+        """Sets the node_groups of this V1alpha1ClusterCachedModelSpec.
 
 
-        :param node_group: The node_group of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
-        :type: str
+        :param node_groups: The node_groups of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
+        :type: list[str]
         """
-        if self.local_vars_configuration.client_side_validation and node_group is None:  # noqa: E501
-            raise ValueError("Invalid value for `node_group`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and node_groups is None:  # noqa: E501
+            raise ValueError("Invalid value for `node_groups`, must not be `None`")  # noqa: E501
 
-        self._node_group = node_group
+        self._node_groups = node_groups
 
     @property
     def storage_type(self):

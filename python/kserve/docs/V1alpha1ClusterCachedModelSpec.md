@@ -6,7 +6,7 @@ Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **cleanup_policy** | **str** |  | [default to '']
 **model_size** | [**ResourceQuantity**](ResourceQuantity.md) |  | 
-**node_group** | **str** |  | [default to '']
+**node_groups** | **list[str]** |  | 
 **storage_type** | **str** | only local is supported for now | [default to '']
 **storage_uri** | **str** |  | [default to '']
 

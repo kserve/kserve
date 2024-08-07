@@ -55,7 +55,7 @@ class TestV1alpha1ClusterCachedModelSpec(unittest.TestCase):
         if include_optional:
             return V1alpha1ClusterCachedModelSpec(
                 cleanup_policy="0",
-                node_group="0",
+                node_groups=[],
                 storage_type="0",
                 storage_uri="0",
                 model_size="1Gi",
@@ -63,7 +63,7 @@ class TestV1alpha1ClusterCachedModelSpec(unittest.TestCase):
         else:
             return V1alpha1ClusterCachedModelSpec(
                 cleanup_policy="0",
-                node_group="0",
+                node_groups=[],
                 storage_type="0",
                 storage_uri="0",
                 model_size="1Gi",

@@ -93,7 +93,7 @@
       "required": [
         "storageUri",
         "modelSize",
-        "nodeGroup",
+        "nodeGroups",
         "storageType",
         "cleanupPolicy"
       ],
@@ -105,9 +105,12 @@
         "modelSize": {
           "$ref": "#/definitions/resource.Quantity"
         },
-        "nodeGroup": {
-          "type": "string",
-          "default": ""
+        "nodeGroups": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
         },
         "storageType": {
           "description": "only local is supported for now",

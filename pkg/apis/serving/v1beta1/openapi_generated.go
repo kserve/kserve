@@ -267,11 +267,18 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModelSpec(ref common.Referenc
 							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
-					"nodeGroup": {
+					"nodeGroups": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 					"storageType": {
@@ -290,7 +297,7 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModelSpec(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"storageUri", "modelSize", "nodeGroup", "storageType", "cleanupPolicy"},
+				Required: []string{"storageUri", "modelSize", "nodeGroups", "storageType", "cleanupPolicy"},
 			},
 		},
 		Dependencies: []string{

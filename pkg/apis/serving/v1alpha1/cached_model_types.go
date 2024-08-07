@@ -29,7 +29,7 @@ type ClusterCachedModelSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="StorageUri is immutable"
 	StorageUri string            `json:"storageUri" validate:"required"`
 	ModelSize  resource.Quantity `json:"modelSize" validate:"required"`
-	NodeGroup  string            `json:"nodeGroup" validate:"required"`
+	NodeGroups []string          `json:"nodeGroups" validate:"required"`
 	// only local is supported for now
 	StorageType   StorageType   `json:"storageType" validate:"required"`
 	CleanupPolicy CleanupPolicy `json:"cleanupPolicy" validate:"required"`
