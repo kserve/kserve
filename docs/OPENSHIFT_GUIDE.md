@@ -67,16 +67,17 @@ oc apply -f openshift/service-mesh/smcp.yaml
 oc wait --for=condition=ready pod --all -n openshift-operators --timeout=300s
 oc wait --for=condition=ready pod --all -n istio-system --timeout=300s
 
-# Make sure to add your namespaces to the ServiceMeshMemberRoll and create a
-# PeerAuthentication Policy for each of your namespaces
+# Make sure to add your namespaces to the ServiceMeshMemberRoll
 oc create ns kserve 
 oc create ns kserve-demo
 oc apply -f openshift/service-mesh/smmr.yaml
-oc apply -f openshift/service-mesh/peer-authentication.yaml
 
 # Install OpenShift Serverless operator
 oc apply -f openshift/serverless/operator.yaml
 oc wait --for=condition=ready pod --all -n openshift-serverless --timeout=300s
+
+# Create a PeerAuthentication Policy for each of your namespaces
+oc apply -f openshift/service-mesh/peer-authentication.yaml
 
 # Create an Knative instance
 oc apply -f openshift/serverless/knativeserving-istio.yaml
