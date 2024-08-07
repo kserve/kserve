@@ -2732,7 +2732,7 @@
         "ingressGateway": {
           "type": "string"
         },
-        "ingressService": {
+        "knativeLocalGatewayService": {
           "type": "string"
         },
         "localGateway": {
