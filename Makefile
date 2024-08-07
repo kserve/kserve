@@ -1,7 +1,7 @@
 
 # Base Image URL
-BASE_IMG ?= python:3.9-slim-bullseye
-PMML_BASE_IMG ?= openjdk:11-slim
+BASE_IMG ?= python:3.11-slim-bookworm
+PMML_BASE_IMG ?= openjdk:21-slim-bookworm
 
 # Image URL to use all building/pushing image targets
 IMG ?= kserve-controller:latest
@@ -24,7 +24,7 @@ QPEXT_IMG ?= qpext:latest
 CRD_OPTIONS ?= "crd:maxDescLen=0"
 KSERVE_ENABLE_SELF_SIGNED_CA ?= false
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.27
+ENVTEST_K8S_VERSION = 1.29
 SUCCESS_200_ISVC_IMG ?= success-200-isvc
 ERROR_404_ISVC_IMG ?= error-404-isvc
 

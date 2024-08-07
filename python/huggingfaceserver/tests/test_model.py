@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pytest
-
+import torch
 from kserve.model import PredictorConfig
 from kserve.protocol.rest.openai import ChatCompletionRequest, CompletionRequest
 from kserve.protocol.rest.openai.types import (
@@ -24,12 +24,11 @@ from pytest_httpx import HTTPXMock
 from transformers import AutoConfig
 from pytest import approx
 
-from .task import infer_task_from_model_architecture
-from .encoder_model import HuggingfaceEncoderModel
-from .generative_model import HuggingfaceGenerativeModel
-from .task import MLTask
-import torch
-from .test_output import bert_token_classification_retrun_prob_expected_output
+from huggingfaceserver.task import infer_task_from_model_architecture
+from huggingfaceserver.encoder_model import HuggingfaceEncoderModel
+from huggingfaceserver.generative_model import HuggingfaceGenerativeModel
+from huggingfaceserver.task import MLTask
+from test_output import bert_token_classification_return_prob_expected_output
 
 
 @pytest.fixture(scope="module")
@@ -98,7 +97,7 @@ def bert_base_return_prob():
 
 
 @pytest.fixture(scope="module")
-def bert_token_classification_retrun_prob():
+def bert_token_classification_return_prob():
     model = HuggingfaceEncoderModel(
         "bert-large-cased-finetuned-conll03-english",
         model_id_or_path="dbmdz/bert-large-cased-finetuned-conll03-english",
@@ -284,13 +283,13 @@ async def test_bert_sequence_classification_return_probabilities(bert_base_retur
 
 @pytest.mark.asyncio
 async def test_bert_token_classification_return_prob(
-    bert_token_classification_retrun_prob,
+    bert_token_classification_return_prob,
 ):
     request = "Hello, my dog is cute."
-    response = await bert_token_classification_retrun_prob(
+    response = await bert_token_classification_return_prob(
         {"instances": [request, request]}, headers={}
     )
-    assert response == bert_token_classification_retrun_prob_expected_output
+    assert response == bert_token_classification_return_prob_expected_output
 
 
 @pytest.mark.asyncio
@@ -330,7 +329,8 @@ async def test_bloom_completion_max_tokens(bloom_model: HuggingfaceGenerativeMod
         prompt="Hello, my dog is cute",
         stream=False,
         echo=True,
-        max_tokens=100,  # bloom doesn't have any field specifying context length. Our implementation would default to 2048. Testing with something longer than HF's default max_length of 20
+        max_tokens=100,
+        # bloom doesn't have any field specifying context length. Our implementation would default to 2048. Testing with something longer than HF's default max_length of 20
     )
     request = CompletionRequest(params=params, context={})
     response = await bloom_model.create_completion(request)

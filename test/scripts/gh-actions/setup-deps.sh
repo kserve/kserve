@@ -25,7 +25,7 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && 
 DEPLOYMENT_MODE="${1:-'serverless'}"
 
 ISTIO_VERSION="1.20.4"
-CERT_MANAGER_VERSION="v1.5.0"
+CERT_MANAGER_VERSION="v1.15.1"
 YQ_VERSION="v4.28.1"
 
 echo "Installing yq ..."
@@ -63,10 +63,8 @@ if [[ $DEPLOYMENT_MODE != "raw" ]];then
 
   echo "Installing Knative serving ..."
   kubectl apply -f ./test/overlays/knative/knative-serving-istio.yaml
-  # sleep to avoid running kubectl wait before pods are created
-  sleep 15
   echo "Waiting for Knative to be ready ..."
-  kubectl wait --for=condition=Ready pods --all --timeout=400s -n knative-serving -l 'app in (webhook, activator,autoscaler,autoscaler-hpa,controller,net-istio-controller,net-istio-webhook)'
+  kubectl wait --for=condition=Ready -n knative-serving KnativeServing knative-serving --timeout=300s
   # echo "Add knative hpa..."
   # kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.0.0/serving-hpa.yaml
 fi
