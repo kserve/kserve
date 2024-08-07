@@ -59,6 +59,49 @@ spec:
             - storageType
             - storageUri
             type: object
+          status:
+            properties:
+              copies:
+                properties:
+                  successfulCopies:
+                    default: 0
+                    type: integer
+                  totalCopies:
+                    type: integer
+                required:
+                - successfulCopies
+                type: object
+              infereneceServices:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  type: object
+                type: array
+              nodeStatus:
+                additionalProperties:
+                  enum:
+                  - ""
+                  - Ready
+                  - Unknown
+                  - Downloading
+                  - Deleting
+                  - Deleted
+                  type: string
+                type: object
+              overallStatus:
+                enum:
+                - ""
+                - Ready
+                - Unknown
+                - Downloading
+                - Deleting
+                type: string
+            type: object
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}

@@ -85,6 +85,7 @@ class V1alpha1ClusterCachedModelSpec(object):
     def cleanup_policy(self):
         """Gets the cleanup_policy of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
 
+        Whether model cache controller creates a job to delete models on local disks  # noqa: E501
 
         :return: The cleanup_policy of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
         :rtype: str
@@ -95,6 +96,7 @@ class V1alpha1ClusterCachedModelSpec(object):
     def cleanup_policy(self, cleanup_policy):
         """Sets the cleanup_policy of this V1alpha1ClusterCachedModelSpec.
 
+        Whether model cache controller creates a job to delete models on local disks  # noqa: E501
 
         :param cleanup_policy: The cleanup_policy of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
         :type: str
@@ -131,6 +133,7 @@ class V1alpha1ClusterCachedModelSpec(object):
     def node_groups(self):
         """Gets the node_groups of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
 
+        group of nodes to cache the model on.  # noqa: E501
 
         :return: The node_groups of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
         :rtype: list[str]
@@ -141,6 +144,7 @@ class V1alpha1ClusterCachedModelSpec(object):
     def node_groups(self, node_groups):
         """Sets the node_groups of this V1alpha1ClusterCachedModelSpec.
 
+        group of nodes to cache the model on.  # noqa: E501
 
         :param node_groups: The node_groups of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
         :type: list[str]
@@ -179,6 +183,7 @@ class V1alpha1ClusterCachedModelSpec(object):
     def storage_uri(self):
         """Gets the storage_uri of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
 
+        Original StorageUri  # noqa: E501
 
         :return: The storage_uri of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
         :rtype: str
@@ -189,6 +194,7 @@ class V1alpha1ClusterCachedModelSpec(object):
     def storage_uri(self, storage_uri):
         """Sets the storage_uri of this V1alpha1ClusterCachedModelSpec.
 
+        Original StorageUri  # noqa: E501
 
         :param storage_uri: The storage_uri of this V1alpha1ClusterCachedModelSpec.  # noqa: E501
         :type: str

@@ -192,11 +192,17 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModel(ref common.ReferenceCal
 							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterCachedModelSpec"),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CachedModelStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterCachedModelSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CachedModelStatus", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterCachedModelSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -252,24 +258,26 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModelSpec(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.",
-				Type:        []string{"object"},
+				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
 					"storageUri": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "Original StorageUri",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"modelSize": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+							Description: "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
 					"nodeGroups": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "group of nodes to cache the model on.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -291,9 +299,10 @@ func schema_pkg_apis_serving_v1alpha1_ClusterCachedModelSpec(ref common.Referenc
 					},
 					"cleanupPolicy": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "Whether model cache controller creates a job to delete models on local disks",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

@@ -21,17 +21,20 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.
 // +k8s:openapi-gen=true
 type ClusterCachedModelSpec struct {
 	// Container spec for the storage initializer init container
 
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="StorageUri is immutable"
-	StorageUri string            `json:"storageUri" validate:"required"`
-	ModelSize  resource.Quantity `json:"modelSize" validate:"required"`
-	NodeGroups []string          `json:"nodeGroups" validate:"required"`
+	// Original StorageUri
+	StorageUri string `json:"storageUri" validate:"required"`
+	// Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.
+	ModelSize resource.Quantity `json:"modelSize" validate:"required"`
+	// group of nodes to cache the model on.
+	NodeGroups []string `json:"nodeGroups" validate:"required"`
 	// only local is supported for now
-	StorageType   StorageType   `json:"storageType" validate:"required"`
+	StorageType StorageType `json:"storageType" validate:"required"`
+	// Whether model cache controller creates a job to delete models on local disks
 	CleanupPolicy CleanupPolicy `json:"cleanupPolicy" validate:"required"`
 }
 
@@ -58,12 +61,14 @@ const (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:resource:scope="Cluster"
 type ClusterCachedModel struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec ClusterCachedModelSpec `json:"spec,omitempty"`
+	Spec   ClusterCachedModelSpec `json:"spec,omitempty"`
+	Status CachedModelStatus      `json:"status,omitempty"`
 }
 
 // +k8s:openapi-gen=true

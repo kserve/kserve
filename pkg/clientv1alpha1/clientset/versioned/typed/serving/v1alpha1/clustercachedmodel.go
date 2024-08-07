@@ -40,6 +40,7 @@ type ClusterCachedModelsGetter interface {
 type ClusterCachedModelInterface interface {
 	Create(ctx context.Context, clusterCachedModel *v1alpha1.ClusterCachedModel, opts v1.CreateOptions) (*v1alpha1.ClusterCachedModel, error)
 	Update(ctx context.Context, clusterCachedModel *v1alpha1.ClusterCachedModel, opts v1.UpdateOptions) (*v1alpha1.ClusterCachedModel, error)
+	UpdateStatus(ctx context.Context, clusterCachedModel *v1alpha1.ClusterCachedModel, opts v1.UpdateOptions) (*v1alpha1.ClusterCachedModel, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
 	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ClusterCachedModel, error)
@@ -128,6 +129,22 @@ func (c *clusterCachedModels) Update(ctx context.Context, clusterCachedModel *v1
 		Namespace(c.ns).
 		Resource("clustercachedmodels").
 		Name(clusterCachedModel.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(clusterCachedModel).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *clusterCachedModels) UpdateStatus(ctx context.Context, clusterCachedModel *v1alpha1.ClusterCachedModel, opts v1.UpdateOptions) (result *v1alpha1.ClusterCachedModel, err error) {
+	result = &v1alpha1.ClusterCachedModel{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("clustercachedmodels").
+		Name(clusterCachedModel.Name).
+		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterCachedModel).
 		Do(ctx).
