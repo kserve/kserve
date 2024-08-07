@@ -375,7 +375,6 @@ class DataPlane:
         response, res_headers = await model(request, headers=headers)
         response_headers.update(res_headers)
         return response, response_headers
-    
 
     async def explain(
         self,
@@ -408,6 +407,8 @@ class DataPlane:
             raise ValueError(
                 f"Model of type {type(model).__name__} does not support inference"
             )
-        response, res_headers = await model(request, verb=InferenceVerb.EXPLAIN, headers=headers)
+        response, res_headers = await model(
+            request, verb=InferenceVerb.EXPLAIN, headers=headers
+        )
         response_headers.update(res_headers)
         return response, response_headers

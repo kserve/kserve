@@ -40,10 +40,6 @@ env:
   IMAGE_TRANSFORMER_IMG: "image-transformer"
   IMAGE_TRANSFORMER_IMG_TAG: "kserve/image-transformer:${{ github.sha }}"
   CUSTOM_TRANSFORMER_GRPC_IMG: "custom-image-transformer-grpc"
-
-  CUSTOM_MODEL_REST_IMG: "custom-model-rest"
-  CUSTOM_TRANSFORMER_REST_IMG: "custom-image-transformer-rest"
-
   # Graph images
   SUCCESS_200_ISVC_IMG: "success-200-isvc"
   ERROR_404_ISVC_IMG: "error-404-isvc"
@@ -209,20 +205,6 @@ jobs:
         with:
           name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
           path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
-      - name: Upload custom model rest image
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_REST_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CUSTOM_MODEL_REST_IMG }}-${{ github.sha }}
-          compression-level: 0
-          if-no-files-found: error
-  
-
-      - name: Upload custom model transformer rest image
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.CUSTOM_TRANSFORMER_REST_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CUSTOM_TRANSFORMER_REST_IMG }}-${{ github.sha }}
           compression-level: 0
           if-no-files-found: error
 
@@ -407,12 +389,6 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ github.sha }}
-          path: ./tmp
-
-      - name: Download custom model rest image
-        uses: actions/download-artifact@v4
-        with:
-          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_REST_IMG }}-${{ github.sha }}
           path: ./tmp
 
       - name: Load docker images
