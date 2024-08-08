@@ -32,7 +32,11 @@ import (
 	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
+
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var log = logf.Log.WithName("RawKubeReconciler")
 
 // RawKubeReconciler reconciles the Native K8S Resources
 type RawKubeReconciler struct {
@@ -61,13 +65,20 @@ func NewRawKubeReconciler(client client.Client,
 		return nil, err
 	}
 
+	// do not return error as service config is optional
+	serviceConfig, err1 := v1beta1.NewServiceConfig(clientset)
+	if err1 != nil {
+		log.Error(err1, "failed to get service config")
+	}
+
 	return &RawKubeReconciler{
 		client:     client,
 		scheme:     scheme,
 		Deployment: deployment.NewDeploymentReconciler(client, scheme, componentMeta, componentExt, podSpec),
-		Service:    service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec),
-		Scaler:     as,
-		URL:        url,
+		// default raw to true as it is raw k8s resource
+		Service: service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, serviceConfig),
+		Scaler:  as,
+		URL:     url,
 	}, nil
 }
 

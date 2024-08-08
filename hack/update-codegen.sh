@@ -21,6 +21,9 @@ set -o pipefail
 KUBE_ROOT=$(dirname "${BASH_SOURCE[0]}")/..
 CODEGEN_VERSION=$(cd "${KUBE_ROOT}" && grep 'k8s.io/code-generator' go.mod | awk '{print $2}')
 
+# For debugging purposes
+echo "Codegen version ${CODEGEN_VERSION}"
+
 if [ -z "${GOPATH:-}" ]; then
     GOPATH=$(go env GOPATH)
     export GOPATH
