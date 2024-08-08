@@ -179,9 +179,3 @@ for webhookConfigName in "${validatingWebhookConfigNames[@]}"; do
   kubectl patch validatingwebhookconfiguration "${webhookConfigName}" \
     --type='json' -p="${validatingPatchString}"
 done
-
-echo "patching ca bundler for conversion webhook configuration.."
-conversionPatchString='[{"op": "replace", "path": "/spec/conversion/webhook/clientConfig/caBundle", "value":"{{CA_BUNDLE}}"}]'
-conversionPatchString=$(echo ${conversionPatchString} | sed "s|{{CA_BUNDLE}}|${caBundle}|g")
-kubectl patch CustomResourceDefinition inferenceservices.serving.kserve.io \
-  --type='json' -p="${conversionPatchString}"
