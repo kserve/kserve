@@ -11,3 +11,6 @@ images:
 - name: default-storage-initilizer
   newName: kserve/storage-initializer
   newTag: latest
+- name: default-hf-storage-initilizer
+  newName: kserve/hf-storage-initializer
+  newTag: latest

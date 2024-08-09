@@ -27,16 +27,7 @@ import zipfile
 from pathlib import Path
 from typing import Dict
 from urllib.parse import urlparse
-
-import boto3
 import requests
-from azure.storage.blob import BlobServiceClient
-from azure.storage.blob._list_blobs_helper import BlobPrefix
-from azure.storage.fileshare import ShareServiceClient
-from botocore import UNSIGNED
-from botocore.client import Config
-from google.auth import exceptions
-from google.cloud import storage
 
 from ..logging import logger
 
@@ -53,6 +44,7 @@ _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
+_HF_PREFIX = "hf://"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
@@ -99,6 +91,8 @@ class Storage(object):
                 model_dir = Storage._download_azure_file_share(uri, out_dir)
             elif re.search(_URI_RE, uri):
                 model_dir = Storage._download_from_uri(uri, out_dir)
+            elif uri.startswith(_HF_PREFIX):
+                model_dir = Storage._download_hf(uri, out_dir)
             else:
                 raise Exception(
                     "Cannot recognize storage type for "
@@ -154,6 +148,9 @@ class Storage(object):
 
     @staticmethod
     def get_S3_config():
+        from botocore import UNSIGNED
+        from botocore.client import Config
+
         # default s3 config
         c = Config()
 
@@ -177,6 +174,8 @@ class Storage(object):
 
     @staticmethod
     def _download_s3(uri, temp_dir: str) -> str:
+        import boto3
+
         # Boto3 looks at various configuration locations until it finds configuration values.
         # lookup order:
         # 1. Config object passed in as the config parameter when creating S3 resource
@@ -279,7 +278,28 @@ class Storage(object):
         return temp_dir
 
     @staticmethod
+    def _download_hf(uri, temp_dir: str) -> str:
+        from transformers import AutoTokenizer, AutoConfig, AutoModel
+
+        components = uri.split("://")[1].split("/")
+
+        repo = components[0]
+        model, _, hash_value = components[1].partition(":")
+        revision = hash_value if hash_value else None
+
+        tokenizer = AutoTokenizer.from_pretrained(f"{repo}/{model}", revision=revision)
+        model_config = AutoConfig.from_pretrained(f"{repo}/{model}", revision=revision)
+        model = AutoModel.from_config(model_config)
+
+        tokenizer.save_pretrained(temp_dir)
+        model.save_pretrained(temp_dir)
+        return temp_dir
+
+    @staticmethod
     def _download_gcs(uri, temp_dir: str) -> str:
+        from google.auth import exceptions
+        from google.cloud import storage
+
         try:
             storage_client = storage.Client()
         except exceptions.DefaultCredentialsError:
@@ -440,6 +460,9 @@ class Storage(object):
     def _download_azure_blob(
         uri, out_dir: str
     ) -> str:  # pylint: disable=too-many-locals
+        from azure.storage.blob import BlobServiceClient
+        from azure.storage.blob._list_blobs_helper import BlobPrefix
+
         account_name, account_url, container_name, prefix = Storage._parse_azure_uri(
             uri
         )
@@ -500,6 +523,8 @@ class Storage(object):
     def _download_azure_file_share(
         uri, out_dir: str
     ) -> str:  # pylint: disable=too-many-locals
+        from azure.storage.fileshare import ShareServiceClient
+
         account_name, account_url, share_name, prefix = Storage._parse_azure_uri(uri)
         logger.info(
             "Connecting to file share account: [%s], container: [%s], prefix: [%s]",
