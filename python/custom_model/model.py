@@ -42,7 +42,7 @@ from kserve.utils.utils import generate_uuid
 # and then passed to the custom predictor, the output is the prediction response.
 class AlexNetModel(Model):
     def __init__(self, name: str):
-        super().__init__(name)
+        super().__init__(name, response_headers=True)
         self.model = None
         self.ready = False
         self.load()
@@ -99,8 +99,14 @@ class AlexNetModel(Model):
         return input_tensor.unsqueeze(0)
 
     def predict(
-        self, input_tensor: torch.Tensor, headers: Dict[str, str] = None
+        self,
+        input_tensor: torch.Tensor,
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
+        if response_headers is not None:
+            response_headers.update({"my-header": "test_header"})
+
         output = self.model(input_tensor)
         torch.nn.functional.softmax(output, dim=1)
         values, top_5 = torch.topk(output, 5)
