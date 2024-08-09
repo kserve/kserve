@@ -52,12 +52,12 @@ class ModelRepository:
     def get_models(self) -> Dict[str, Union[BaseKServeModel, DeploymentHandle]]:
         return self.models
 
-    def is_model_ready(self, name: str):
+    async def is_model_ready(self, name: str):
         model = self.get_model(name)
         if not model:
             return False
         if isinstance(model, BaseKServeModel):
-            return model.healthy()
+            return await model.healthy()
         else:
             # For Ray Serve, the models are guaranteed to be ready after deploying the model.
             return True
