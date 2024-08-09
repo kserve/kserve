@@ -56,7 +56,7 @@ class BaseKServeModel(ABC):
         self.name = name
         self.ready = False
 
-    def healthy(self) -> bool:
+    async def healthy(self) -> bool:
         """
         Check the health of this model. By default returns `self.ready`.
 

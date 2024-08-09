@@ -48,11 +48,11 @@ class ModelRepository:
     def get_models(self) -> Dict[str, BaseKServeModel]:
         return self.models
 
-    def is_model_ready(self, name: str):
+    async def is_model_ready(self, name: str):
         model = self.get_model(name)
         if not model:
             return False
-        return model.healthy()
+        return await model.healthy()
 
     def update(self, model: BaseKServeModel):
         self.models[model.name] = model
