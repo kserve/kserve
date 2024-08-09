@@ -33,7 +33,7 @@ class ModelRepositoryExtension:
     def __init__(self, model_registry: ModelRepository):
         self._model_registry = model_registry
 
-    def index(self, filter_ready: Optional[bool] = False) -> List[Dict[str, str]]:
+    async def index(self, filter_ready: Optional[bool] = False) -> List[Dict[str, str]]:
         """Returns information about every model available in a model repository.
 
         Args:
@@ -50,17 +50,13 @@ class ModelRepositoryExtension:
         """
         model_list = []
         for model_name in self._model_registry.get_models().keys():
-            model_ready = self._model_registry.is_model_ready(model_name)
+            model_ready = await self._model_registry.is_model_ready(model_name)
             if model_ready or not filter_ready:
                 # If model is ready or filter_ready is set to False
                 model_list.append(
                     {
                         "name": model_name,
-                        "state": (
-                            "Ready"
-                            if self._model_registry.is_model_ready(model_name)
-                            else "NotReady"
-                        ),
+                        "state": ("Ready" if model_ready else "NotReady"),
                         "reason": "",
                     }
                 )
@@ -89,8 +85,8 @@ class ModelRepositoryExtension:
             raise ModelNotReady(
                 model_name, f"Error type: {ex_type} error msg: {ex_value}"
             )
-
-        if not self._model_registry.is_model_ready(model_name):
+        is_ready = await self._model_registry.is_model_ready(model_name)
+        if not is_ready:
             raise ModelNotReady(model_name)
 
     async def unload(self, model_name: str) -> None:
