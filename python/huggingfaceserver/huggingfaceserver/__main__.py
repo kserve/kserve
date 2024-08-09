@@ -164,7 +164,7 @@ def load_model():
         args.model = args.model_id or args.model_dir
         args.revision = args.model_revision
         engine_args = build_vllm_engine_args(args)
-        model = VLLMModel(args.model_name, engine_args)
+        model = VLLMModel(args.model_name, engine_args, max_log_len=args.max_log_len)
 
     else:
         kwargs = vars(args)
