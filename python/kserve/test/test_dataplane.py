@@ -35,6 +35,7 @@ from kserve.errors import InvalidInput, ModelNotFound
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.rest.openai import CompletionRequest, OpenAIModel
 from kserve.model_repository import ModelRepository
+from kserve.ray import RayModel
 from test.test_server import (
     DummyModel,
     dummy_cloud_event,
@@ -65,10 +66,11 @@ class TestDataPlane:
 
             # https://github.com/ray-project/ray/blob/releases/2.8.0/python/ray/serve/deployment.py#L256
             app = DummyServeModel.bind(name=self.MODEL_NAME)
-            handle = serve.run(app, name="TestModel", route_prefix="/")
+            handle = serve.run(app, name=self.MODEL_NAME, route_prefix="/")
 
-            handle.load.remote()
-            dataplane._model_registry.update_handle(self.MODEL_NAME, handle)
+            model = RayModel(self.MODEL_NAME, handle=handle)
+            model.load()
+            dataplane._model_registry.update(model)
             yield dataplane
             serve.delete(name="TestModel")
 
