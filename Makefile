@@ -328,7 +328,7 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
-	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.17
 
 apidocs:
 	docker buildx build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
