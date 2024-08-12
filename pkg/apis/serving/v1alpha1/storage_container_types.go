@@ -32,6 +32,7 @@ type StorageContainerSpec struct {
 
 	// List of URI formats that this container supports
 	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats" validate:"required"`
+	UseCase             UseCase              `json:"useCase" validate:"required"`
 }
 
 // SupportedUriFormat can be either prefix or regex. Todo: Add validation that only one of them is set.
@@ -39,6 +40,12 @@ type StorageContainerSpec struct {
 type SupportedUriFormat struct {
 	Prefix string `json:"prefix,omitempty"`
 	Regex  string `json:"regex,omitempty"`
+}
+
+// Use case for this spec
+type UseCase struct {
+	StorageInitializer string `json:"storageInitializer,omitempty"`
+	ModelCacheDownload string `json:"modelCacheDownload,omitempty"`
 }
 
 // +k8s:openapi-gen=true

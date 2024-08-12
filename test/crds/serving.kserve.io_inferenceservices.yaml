@@ -2549,9 +2549,17 @@ spec:
                       type: string
                   type: object
                 type: array
+              useCase:
+                properties:
+                  modelCacheDownload:
+                    type: string
+                  storageInitializer:
+                    type: string
+                type: object
             required:
             - container
             - supportedUriFormats
+            - useCase
             type: object
         type: object
     served: true

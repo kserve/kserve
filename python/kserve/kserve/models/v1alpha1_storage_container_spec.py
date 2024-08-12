@@ -48,15 +48,17 @@ class V1alpha1StorageContainerSpec(object):
     """
     openapi_types = {
         'container': 'V1Container',
-        'supported_uri_formats': 'list[V1alpha1SupportedUriFormat]'
+        'supported_uri_formats': 'list[V1alpha1SupportedUriFormat]',
+        'use_case': 'V1alpha1UseCase'
     }
 
     attribute_map = {
         'container': 'container',
-        'supported_uri_formats': 'supportedUriFormats'
+        'supported_uri_formats': 'supportedUriFormats',
+        'use_case': 'useCase'
     }
 
-    def __init__(self, container=None, supported_uri_formats=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, container=None, supported_uri_formats=None, use_case=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1StorageContainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -64,10 +66,12 @@ class V1alpha1StorageContainerSpec(object):
 
         self._container = None
         self._supported_uri_formats = None
+        self._use_case = None
         self.discriminator = None
 
         self.container = container
         self.supported_uri_formats = supported_uri_formats
+        self.use_case = use_case
 
     @property
     def container(self):
@@ -116,6 +120,29 @@ class V1alpha1StorageContainerSpec(object):
             raise ValueError("Invalid value for `supported_uri_formats`, must not be `None`")  # noqa: E501
 
         self._supported_uri_formats = supported_uri_formats
+
+    @property
+    def use_case(self):
+        """Gets the use_case of this V1alpha1StorageContainerSpec.  # noqa: E501
+
+
+        :return: The use_case of this V1alpha1StorageContainerSpec.  # noqa: E501
+        :rtype: V1alpha1UseCase
+        """
+        return self._use_case
+
+    @use_case.setter
+    def use_case(self, use_case):
+        """Sets the use_case of this V1alpha1StorageContainerSpec.
+
+
+        :param use_case: The use_case of this V1alpha1StorageContainerSpec.  # noqa: E501
+        :type: V1alpha1UseCase
+        """
+        if self.local_vars_configuration.client_side_validation and use_case is None:  # noqa: E501
+            raise ValueError("Invalid value for `use_case`, must not be `None`")  # noqa: E501
+
+        self._use_case = use_case
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -816,7 +816,8 @@
       "type": "object",
       "required": [
         "container",
-        "supportedUriFormats"
+        "supportedUriFormats",
+        "useCase"
       ],
       "properties": {
         "container": {
@@ -831,6 +832,10 @@
             "default": {},
             "$ref": "#/definitions/v1alpha1.SupportedUriFormat"
           }
+        },
+        "useCase": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.UseCase"
         }
       }
     },
@@ -949,6 +954,18 @@
           "description": "Predictor model spec",
           "default": {},
           "$ref": "#/definitions/v1alpha1.ModelSpec"
+        }
+      }
+    },
+    "v1alpha1.UseCase": {
+      "description": "Use case for this spec",
+      "type": "object",
+      "properties": {
+        "modelCacheDownload": {
+          "type": "string"
+        },
+        "storageInitializer": {
+          "type": "string"
         }
       }
     },
