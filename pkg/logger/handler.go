@@ -43,10 +43,11 @@ type LoggerHandler struct {
 	endpoint         string
 	next             http.Handler
 	metadataHeaders  []string
+	tlsCertName      string
 }
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
-	inferenceService string, namespace string, endpoint string, component string, next http.Handler, metadataHeaders []string) http.Handler {
+	inferenceService string, namespace string, endpoint string, component string, next http.Handler, metadataHeaders []string, tlsCertName string) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
 		log:              logf.Log.WithName("Logger"),
@@ -59,6 +60,7 @@ func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 		endpoint:         endpoint,
 		next:             next,
 		metadataHeaders:  metadataHeaders,
+		tlsCertName:      tlsCertName,
 	}
 }
 
@@ -113,6 +115,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Endpoint:         eh.endpoint,
 			Component:        eh.component,
 			Metadata:         metadata,
+			TlsCertName:      eh.tlsCertName,
 		}); err != nil {
 			eh.log.Error(err, "Failed to log request")
 		}
@@ -141,6 +144,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				Namespace:        eh.namespace,
 				Endpoint:         eh.endpoint,
 				Component:        eh.component,
+				TlsCertName:      eh.tlsCertName,
 			}); err != nil {
 				eh.log.Error(err, "Failed to log response")
 			}

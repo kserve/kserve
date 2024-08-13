@@ -18,6 +18,8 @@ package logger
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -25,6 +27,8 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
 	"go.uber.org/zap"
+	"os"
+	"path/filepath"
 )
 
 const (
@@ -42,6 +46,7 @@ const (
 
 	LoggerWorkerQueueSize = 100
 	CloudEventsIdHeader   = "Ce-Id"
+	CaCertPath            = "/etc/tls/logger"
 )
 
 // A buffered channel that we can send work requests on.
@@ -83,6 +88,29 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 
 	if err != nil {
 		return fmt.Errorf("while creating http transport: %w", err)
+	}
+
+	if logReq.Url.Scheme == "https" {
+		caCertFilePath := filepath.Join(CaCertPath, logReq.TlsCertName)
+		caCertFile, err := os.ReadFile(caCertFilePath)
+		// Do not fail if certificates not found, for backwards compatibility
+		if err == nil {
+			clientCertPool := x509.NewCertPool()
+			if !clientCertPool.AppendCertsFromPEM(caCertFile) {
+				return fmt.Errorf("while parsing CA certificate")
+			}
+
+			tlsTransport := &http.Transport{
+				TLSClientConfig: &tls.Config{
+					RootCAs:            clientCertPool,
+					MinVersion:         tls.VersionTLS12,
+					InsecureSkipVerify: false,
+				},
+			}
+			t.Client.Transport = tlsTransport
+		} else {
+			w.Log.Warnf("using https endpoint but could not find CA cert file %s", caCertFilePath)
+		}
 	}
 
 	c, err := cloudevents.NewClient(t,

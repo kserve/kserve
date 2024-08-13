@@ -19,6 +19,7 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"k8s.io/utils/ptr"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -39,6 +40,9 @@ const (
 	LoggerArgumentNamespace        = "--namespace"
 	LoggerArgumentEndpoint         = "--endpoint"
 	LoggerArgumentComponent        = "--component"
+	LoggerCaBundleVolume           = "agent-ca-bundle"
+	LoggerCaCertMountPath          = "/etc/tls/logger"
+	LoggerArgumentCaCertFile       = "--log-tls-cert"
 	LoggerArgumentMetadataHeaders  = "--metadata-headers"
 )
 
@@ -57,6 +61,8 @@ type LoggerConfig struct {
 	MemoryRequest string `json:"memoryRequest"`
 	MemoryLimit   string `json:"memoryLimit"`
 	DefaultUrl    string `json:"defaultUrl"`
+	CaBundle      string `json:"CaBundle"`
+	CaCertFile    string `json:"CaCertFile"`
 }
 
 type AgentInjector struct {
@@ -112,7 +118,6 @@ func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
 			return loggerConfig, fmt.Errorf("Failed to parse resource configuration for %q: %q", LoggerConfigMapKeyName, err.Error())
 		}
 	}
-
 	return loggerConfig, nil
 }
 
@@ -202,6 +207,12 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			loggerArgs = append(loggerArgs, logHeaderMetadata)
 		}
 		args = append(args, loggerArgs...)
+
+		// Add TLS cert name if specified. If not specified it will fall back to the arg's default.
+		if ag.loggerConfig.CaCertFile != "" {
+			args = append(args, LoggerArgumentCaCertFile, ag.loggerConfig.CaCertFile)
+		}
+
 	}
 
 	var queueProxyEnvs []v1.EnvVar
@@ -281,6 +292,30 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 				},
 			},
 		},
+	}
+
+	// If the Logger TLS bundle ConfigMap is specified, mount it
+	if injectLogger && ag.loggerConfig.CaBundle != "" {
+		// Optional. If the ConfigMap is not found, this will not make the Pod fail
+		configMapVolume := v1.VolumeSource{
+			ConfigMap: &v1.ConfigMapVolumeSource{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: ag.loggerConfig.CaBundle,
+				},
+				Optional: ptr.To(true),
+			},
+		}
+
+		pod.Spec.Volumes = append(pod.Spec.Volumes, v1.Volume{
+			Name:         LoggerCaBundleVolume,
+			VolumeSource: configMapVolume,
+		})
+
+		agentContainer.VolumeMounts = append(agentContainer.VolumeMounts, v1.VolumeMount{
+			Name:      LoggerCaBundleVolume,
+			MountPath: LoggerCaCertMountPath,
+			ReadOnly:  true,
+		})
 	}
 
 	// Inject credentials

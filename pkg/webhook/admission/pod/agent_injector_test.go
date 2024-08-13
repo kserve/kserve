@@ -17,6 +17,7 @@ limitations under the License.
 package pod
 
 import (
+	"k8s.io/utils/ptr"
 	"testing"
 
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
@@ -54,6 +55,12 @@ var (
 	loggerConfig = &LoggerConfig{
 		Image:      "gcr.io/kfserving/agent:latest",
 		DefaultUrl: "http://httpbin.org/",
+	}
+	loggerConfigTls = &LoggerConfig{
+		Image:      "gcr.io/kfserving/agent:latest",
+		DefaultUrl: "https://httpbin.org/",
+		CaBundle:   "kserve-tls-bundle",
+		CaCertFile: "ca.crt",
 	}
 	batcherTestConfig = &BatcherConfig{
 		Image: "gcr.io/kfserving/batcher:latest",
@@ -1228,6 +1235,156 @@ func TestAgentInjector(t *testing.T) {
 			},
 		},
 	}
+	scenariosTls := map[string]struct {
+		original *v1.Pod
+		expected *v1.Pod
+	}{
+		"AddLogger": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.LoggerInternalAnnotationKey:        "true",
+						constants.LoggerSinkUrlInternalAnnotationKey: "https://httpbin.org/",
+						constants.LoggerModeInternalAnnotationKey:    string(v1beta1.LogAll),
+					},
+					Labels: map[string]string{
+						"serving.kserve.io/inferenceservice": "sklearn",
+						constants.KServiceModelLabel:         "sklearn",
+						constants.KServiceEndpointLabel:      "default",
+						constants.KServiceComponentLabel:     "predictor",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &v1.Probe{
+								ProbeHandler: v1.ProbeHandler{
+									TCPSocket: &v1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
+									},
+								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+						{
+							Name: "queue-proxy",
+							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+					Annotations: map[string]string{
+						constants.LoggerInternalAnnotationKey:        "true",
+						constants.LoggerSinkUrlInternalAnnotationKey: "https://httpbin.org/",
+						constants.LoggerModeInternalAnnotationKey:    string(v1beta1.LogAll),
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &v1.Probe{
+								ProbeHandler: v1.ProbeHandler{
+									TCPSocket: &v1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
+									},
+								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+						{
+							Name: "queue-proxy",
+							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+						{
+							Name:  constants.AgentContainerName,
+							Image: loggerConfig.Image,
+							Args: []string{
+								LoggerArgumentLogUrl,
+								"https://httpbin.org/",
+								LoggerArgumentSourceUri,
+								"deployment",
+								LoggerArgumentMode,
+								"all",
+								LoggerArgumentInferenceService,
+								"sklearn",
+								LoggerArgumentNamespace,
+								"default",
+								LoggerArgumentEndpoint,
+								"default",
+								LoggerArgumentComponent,
+								"predictor",
+								LoggerArgumentCaCertFile,
+								loggerConfigTls.CaCertFile,
+							},
+							Ports: []v1.ContainerPort{
+								{
+									Name:          "agent-port",
+									ContainerPort: constants.InferenceServiceDefaultAgentPort,
+									Protocol:      "TCP",
+								},
+							},
+							Env:       []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Resources: agentResourceRequirement,
+							ReadinessProbe: &v1.Probe{
+								ProbeHandler: v1.ProbeHandler{
+									HTTPGet: &v1.HTTPGetAction{
+										HTTPHeaders: []v1.HTTPHeader{
+											{
+												Name:  "K-Network-Probe",
+												Value: "queue",
+											},
+										},
+										Port:   intstr.FromInt(9081),
+										Path:   "/",
+										Scheme: "HTTP",
+									},
+								},
+							},
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      LoggerCaBundleVolume,
+									ReadOnly:  true,
+									MountPath: LoggerCaCertMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: LoggerCaBundleVolume,
+							VolumeSource: v1.VolumeSource{
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: loggerConfigTls.CaBundle,
+									},
+									Optional: ptr.To(true),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 	clientset := fakeclientset.NewSimpleClientset()
 	credentialBuilder := credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
 		Data: map[string]string{},
@@ -1238,6 +1395,32 @@ func TestAgentInjector(t *testing.T) {
 			credentialBuilder,
 			agentConfig,
 			loggerConfig,
+			batcherTestConfig,
+		}
+		injector.InjectAgent(scenario.original)
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
+	// Run TLS logger config with non-TLS scenarios
+	for name, scenario := range scenarios {
+		injector := &AgentInjector{
+			credentialBuilder,
+			agentConfig,
+			loggerConfigTls,
+			batcherTestConfig,
+		}
+		injector.InjectAgent(scenario.original)
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
+	// Run TLS logger config with TLS scenarios
+	for name, scenario := range scenariosTls {
+		injector := &AgentInjector{
+			credentialBuilder,
+			agentConfig,
+			loggerConfigTls,
 			batcherTestConfig,
 		}
 		injector.InjectAgent(scenario.original)

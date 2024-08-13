@@ -32,4 +32,5 @@ type LogRequest struct {
 	Component        string
 	Endpoint         string
 	Metadata         map[string][]string
+	TlsCertName      string
 }

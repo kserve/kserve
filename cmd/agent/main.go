@@ -75,6 +75,7 @@ var (
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout") //nolint: unused
 	// This creates an abstract socket instead of an actual file.
 	unixSocketPath = "@/kserve/agent.sock"
+	CaCertFile     = flag.String("logger-ca-cert-file", "service-ca.crt", "The logger CA certificate file")
 )
 
 const (
@@ -114,6 +115,7 @@ type loggerArgs struct {
 	endpoint         string
 	component        string
 	metadataHeaders  []string
+	tlsCertName      string
 }
 
 type batcherArgs struct {
@@ -292,6 +294,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		namespace:        *namespace,
 		component:        *component,
 		metadataHeaders:  *metadataHeaders,
+		tlsCertName:      *CaCertFile,
 	}
 }
 
@@ -350,7 +353,8 @@ func buildServer(ctx context.Context, port string, userPort int, loggerArgs *log
 	}
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
-			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler, loggerArgs.metadataHeaders)
+			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler,
+			loggerArgs.metadataHeaders, loggerArgs.tlsCertName)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
