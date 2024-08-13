@@ -982,11 +982,6 @@ func schema_pkg_apis_serving_v1alpha1_ModelCacheNodeGroupSpec(ref common.Referen
 				Description: "ModelCacheNodeGroupSpec defines a group of nodes for to download the model to.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"storageLimit": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
-						},
-					},
 					"nodeSelector": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"object"},
@@ -1017,11 +1012,11 @@ func schema_pkg_apis_serving_v1alpha1_ModelCacheNodeGroupSpec(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"storageLimit", "nodeSelector", "persistentVolume", "persistentVolumeClaim"},
+				Required: []string{"nodeSelector", "persistentVolume", "persistentVolumeClaim"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolume", "k8s.io/api/core/v1.PersistentVolumeClaim", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"k8s.io/api/core/v1.PersistentVolume", "k8s.io/api/core/v1.PersistentVolumeClaim"},
 	}
 }
 

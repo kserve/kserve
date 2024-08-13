@@ -502,7 +502,6 @@
       "description": "ModelCacheNodeGroupSpec defines a group of nodes for to download the model to.",
       "type": "object",
       "required": [
-        "storageLimit",
         "nodeSelector",
         "persistentVolume",
         "persistentVolumeClaim"
@@ -524,9 +523,6 @@
           "description": "PVC spec template",
           "default": {},
           "$ref": "#/definitions/v1.PersistentVolumeClaim"
-        },
-        "storageLimit": {
-          "$ref": "#/definitions/resource.Quantity"
         }
       }
     },

@@ -18,14 +18,12 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ModelCacheNodeGroupSpec defines a group of nodes for to download the model to.
 // +k8s:openapi-gen=true
 type ModelCacheNodeGroupSpec struct {
-	StorageLimit resource.Quantity `json:"storageLimit"`
 	NodeSelector map[string]string `json:"nodeSelector"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolume is immutable"
 	// PV spec template
