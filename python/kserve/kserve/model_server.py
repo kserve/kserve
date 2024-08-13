@@ -15,19 +15,20 @@
 import argparse
 import asyncio
 import concurrent.futures
-import multiprocessing
 import signal
-import socket
 import sys
-from multiprocessing import Process
-from typing import Any, Callable, Dict, List, Optional, Union
+from importlib import metadata
+from typing import Any, Callable, Dict, List, Optional
 
-from ray import serve as rayserve
-from ray.serve.api import Deployment
-from ray.serve.handle import DeploymentHandle
+from fastapi import FastAPI
+from fastapi.responses import ORJSONResponse
 
 from . import logging
-from .constants.constants import MAX_GRPC_MESSAGE_LENGTH
+from .constants.constants import (
+    DEFAULT_HTTP_PORT,
+    DEFAULT_GRPC_PORT,
+    MAX_GRPC_MESSAGE_LENGTH,
+)
 from .logging import logger
 from .model import BaseKServeModel
 from .model_repository import ModelRepository
@@ -37,9 +38,6 @@ from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
 from .utils import utils
 from kserve.errors import NoModelReady
-
-DEFAULT_HTTP_PORT = 8080
-DEFAULT_GRPC_PORT = 8081
 
 parser = argparse.ArgumentParser(
     add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -168,6 +166,14 @@ parser.add_argument(
 )
 args, _ = parser.parse_known_args()
 
+app = FastAPI(
+    title="KServe ModelServer",
+    version=metadata.version("kserve"),
+    docs_url="/docs" if args.enable_docs_url else None,
+    redoc_url=None,
+    default_response_class=ORJSONResponse,
+)
+
 
 class ModelServer:
     def __init__(
@@ -234,9 +240,36 @@ class ModelServer:
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
 
-    def start(
-        self, models: Union[List[BaseKServeModel], Dict[str, Deployment]]
-    ) -> None:
+    async def _serve_rest(self):
+        logger.info(f"Starting uvicorn with {self.workers} workers")
+        loop = asyncio.get_event_loop()
+        if sys.platform not in ["win32", "win64"]:
+            sig_list = [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]
+        else:
+            sig_list = [signal.SIGINT, signal.SIGTERM]
+
+        for sig in sig_list:
+            loop.add_signal_handler(
+                sig, lambda s=sig: asyncio.create_task(self.stop(sig=s))
+            )
+        if self._custom_exception_handler is None:
+            loop.set_exception_handler(self.default_exception_handler)
+        else:
+            loop.set_exception_handler(self._custom_exception_handler)
+        self._rest_server = UvicornServer(
+            app,
+            self.http_port,
+            self.dataplane,
+            self.model_repository_extension,
+            # By setting log_config to None we tell Uvicorn not to configure logging as it is already
+            # configured by kserve.
+            log_config=None,
+            access_log_format=self.access_log_format,
+            workers=self.workers,
+        )
+        await self._rest_server.run()
+
+    def start(self, models: List[BaseKServeModel]) -> None:
         """Start the model server with a set of registered models.
 
         Args:
@@ -251,24 +284,13 @@ class ModelServer:
                         self.register_model(model)
                         # pass whether to log request latency into the model
                         model.enable_latency_logging = self.enable_latency_logging
+                    model.start()
                 else:
                     raise RuntimeError("Model type should be 'BaseKServeModel'")
             if not at_least_one_model_ready and models:
                 raise NoModelReady(models)
-        elif isinstance(models, dict):
-            if all([isinstance(v, Deployment) for v in models.values()]):
-                # TODO: make this port number a variable
-                rayserve.start(
-                    detached=True, http_options={"host": "0.0.0.0", "port": 9071}
-                )
-                for key in models:
-                    models[key].deploy()
-                    handle = models[key].get_handle()
-                    self.register_model_handle(key, handle)
-            else:
-                raise RuntimeError("Model type should be RayServe Deployment")
         else:
-            raise RuntimeError("Unknown model collection types")
+            raise RuntimeError("Unknown model collection type")
 
         if self.max_asyncio_workers is None:
             # formula as suggest in https://bugs.python.org/issue35279
@@ -278,62 +300,8 @@ class ModelServer:
             concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers)
         )
 
-        async def serve():
-            logger.info(f"Starting uvicorn with {self.workers} workers")
-            loop = asyncio.get_event_loop()
-            if sys.platform not in ["win32", "win64"]:
-                sig_list = [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]
-            else:
-                sig_list = [signal.SIGINT, signal.SIGTERM]
-
-            for sig in sig_list:
-                loop.add_signal_handler(
-                    sig, lambda s=sig: asyncio.create_task(self.stop(sig=s))
-                )
-            if self._custom_exception_handler is None:
-                loop.set_exception_handler(self.default_exception_handler)
-            else:
-                loop.set_exception_handler(self._custom_exception_handler)
-            if self.workers == 1:
-                self._rest_server = UvicornServer(
-                    self.http_port,
-                    [],
-                    self.dataplane,
-                    self.model_repository_extension,
-                    self.enable_docs_url,
-                    # By setting log_config to None we tell Uvicorn not to configure logging as it is already
-                    # configured by kserve.
-                    log_config=None,
-                    access_log_format=self.access_log_format,
-                )
-                await self._rest_server.run()
-            else:
-                # Since py38 MacOS/Windows defaults to use spawn for starting multiprocessing.
-                # https://docs.python.org/3/library/multiprocessing.html#contexts-and-start-methods
-                # Spawn does not work with FastAPI/uvicorn in multiprocessing mode, use fork for multiprocessing
-                # https://github.com/tiangolo/fastapi/issues/1586
-                serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                serversocket.bind(("0.0.0.0", self.http_port))
-                serversocket.listen(5)
-                multiprocessing.set_start_method("fork")
-                self._rest_server = UvicornServer(
-                    self.http_port,
-                    [serversocket],
-                    self.dataplane,
-                    self.model_repository_extension,
-                    self.enable_docs_url,
-                    # By setting log_config to None we tell Uvicorn not to configure logging as it is already
-                    # configured by kserve.
-                    log_config=None,
-                    access_log_format=self.access_log_format,
-                )
-                for _ in range(self.workers):
-                    p = Process(target=self._rest_server.run_sync)
-                    p.start()
-
         async def servers_task():
-            servers = [serve()]
+            servers = [self._serve_rest()]
             if self.enable_grpc:
                 servers.append(self._grpc_server.start(self.max_threads))
             await asyncio.gather(*servers)
@@ -376,23 +344,12 @@ class ModelServer:
         """Default exception handler for event loop.
 
         This is called when an exception occurs and no exception handler is set.
-        By default, this will shut down the server gracefully.
-
         This can be called by a custom exception handler that wants to defer to the default handler behavior.
         """
-        # gracefully shutdown the server
-        loop.run_until_complete(self.stop())
+        if "exception" in context:
+            logger.error(f"Caught exception: {context.get('exception')}")
+        logger.error(f"message: { context.get('message')}")
         loop.default_exception_handler(context)
-
-    def register_model_handle(self, name: str, model_handle: DeploymentHandle):
-        """Register a model handle to the model server.
-
-        Args:
-            name: The name of the model handle.
-            model_handle: The model handle object.
-        """
-        self.registered_models.update_handle(name, model_handle)
-        logger.info("Registering model handle: %s", name)
 
     def register_model(self, model: BaseKServeModel):
         """Register a model to the model server.

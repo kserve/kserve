@@ -132,6 +132,7 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
+            args=["--workers=2"],
         ),
     )
 

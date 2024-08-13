@@ -18,12 +18,11 @@ from typing import Dict
 import numpy as np
 from art.attacks.evasion.square_attack import SquareAttack
 from art.estimators.classification import BlackBoxClassifierNeuralNetwork
-
-
 import nest_asyncio
 
 import kserve
 from kserve.logging import logger
+
 
 nest_asyncio.apply()
 
@@ -62,7 +61,7 @@ class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
         prediction = np.array(resp["predictions"])
         return [1 if x == prediction else 0 for x in range(0, self.nb_classes)]
 
-    def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
+    async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         image = payload["instances"][0]
         label = payload["instances"][1]
         try:

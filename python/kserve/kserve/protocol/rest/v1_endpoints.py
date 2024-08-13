@@ -11,14 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from typing import Optional, Union, Dict, List, AsyncIterator
 
-from fastapi import Request, Response
+from fastapi import Request, Response, FastAPI, APIRouter
 from starlette.responses import StreamingResponse
 
 from kserve.errors import ModelNotReady
 from ..dataplane import DataPlane
 from ..model_repository_extension import ModelRepositoryExtension
+from ...constants.constants import V1_ROUTE_PREFIX
 
 
 class V1Endpoints:
@@ -127,3 +129,39 @@ class V1Endpoints:
         if not isinstance(response, dict):
             return Response(content=response, headers=response_headers)
         return response
+
+
+def register_v1_endpoints(
+    app: FastAPI,
+    dataplane: DataPlane,
+    model_repository_extension: Optional[ModelRepositoryExtension],
+):
+    """Register V1 endpoints.
+
+    Args:
+        app (FastAPI): FastAPI app.
+        dataplane (DataPlane): DataPlane object.
+        model_repository_extension (Optional[ModelRepositoryExtension]): Model repository extension.
+    """
+    v1_endpoints = V1Endpoints(dataplane, model_repository_extension)
+    v1_router = APIRouter(prefix=V1_ROUTE_PREFIX, tags=["V1"])
+    v1_router.add_api_route(r"/models", v1_endpoints.models, methods=["GET"])
+    # Model Health API returns 200 if model is ready to serve.
+    v1_router.add_api_route(
+        r"/models/{model_name}", v1_endpoints.model_ready, methods=["GET"]
+    )
+    # Note: Set response_model to None to resolve fastapi Response issue
+    # https://fastapi.tiangolo.com/tutorial/response-model/#disable-response-model
+    v1_router.add_api_route(
+        r"/models/{model_name}:predict",
+        v1_endpoints.predict,
+        response_model=None,
+        methods=["POST"],
+    )
+    v1_router.add_api_route(
+        r"/models/{model_name}:explain",
+        v1_endpoints.explain,
+        response_model=None,
+        methods=["POST"],
+    )
+    app.include_router(v1_router)
