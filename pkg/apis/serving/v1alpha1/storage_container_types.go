@@ -42,11 +42,13 @@ type SupportedUriFormat struct {
 	Regex  string `json:"regex,omitempty"`
 }
 
-// Use case for this spec
-type UseCase struct {
-	StorageInitializer string `json:"storageInitializer,omitempty"`
-	ModelCacheDownload string `json:"modelCacheDownload,omitempty"`
-}
+// +k8s:openapi-gen=true
+type UseCase string
+
+const (
+	StorageInitializer UseCase = "storageInitializer"
+	ModelCacheDownload UseCase = "modelCacheDownload"
+)
 
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

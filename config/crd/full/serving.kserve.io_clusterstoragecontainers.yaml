@@ -656,12 +656,7 @@ spec:
                   type: object
                 type: array
               useCase:
-                properties:
-                  modelCacheDownload:
-                    type: string
-                  storageInitializer:
-                    type: string
-                type: object
+                type: string
             required:
             - container
             - supportedUriFormats

@@ -61,7 +61,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModel":                schema_pkg_apis_serving_v1alpha1_TrainedModel(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelList":            schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelSpec":            schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.UseCase":                     schema_pkg_apis_serving_v1alpha1_UseCase(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec":             schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher":                      schema_pkg_apis_serving_v1beta1_Batcher(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentExtensionSpec":       schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
@@ -1571,8 +1570,9 @@ func schema_pkg_apis_serving_v1alpha1_StorageContainerSpec(ref common.ReferenceC
 					},
 					"useCase": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.UseCase"),
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
 						},
 					},
 				},
@@ -1580,7 +1580,7 @@ func schema_pkg_apis_serving_v1alpha1_StorageContainerSpec(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedUriFormat", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.UseCase", "k8s.io/api/core/v1.Container"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedUriFormat", "k8s.io/api/core/v1.Container"},
 	}
 }
 
@@ -1798,31 +1798,6 @@ func schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref common.ReferenceCallb
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ModelSpec"},
-	}
-}
-
-func schema_pkg_apis_serving_v1alpha1_UseCase(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "Use case for this spec",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"storageInitializer": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-					"modelCacheDownload": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
-				},
-			},
-		},
 	}
 }
 
