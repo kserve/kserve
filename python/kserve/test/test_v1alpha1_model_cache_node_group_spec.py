@@ -57,14 +57,12 @@ class TestV1alpha1ModelCacheNodeGroupSpec(unittest.TestCase):
                 node_selector={"key": "0"},
                 persistent_volume="",
                 persistent_volume_claim="",
-                storage_limit="1Gi",
             )
         else:
             return V1alpha1ModelCacheNodeGroupSpec(
                 node_selector={"key": "0"},
                 persistent_volume="",
                 persistent_volume_claim="",
-                storage_limit="1Gi",
             )
 
     def testV1alpha1ModelCacheNodeGroupSpec(self):

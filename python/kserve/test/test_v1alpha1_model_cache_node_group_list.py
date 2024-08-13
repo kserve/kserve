@@ -64,7 +64,6 @@ class TestV1alpha1ModelCacheNodeGroupList(unittest.TestCase):
                             node_selector={"key": "0"},
                             persistent_volume="",
                             persistent_volume_claim="",
-                            storage_limit="1Gi",
                         ),
                     )
                 ],
@@ -82,7 +81,6 @@ class TestV1alpha1ModelCacheNodeGroupList(unittest.TestCase):
                             node_selector={"key": "0"},
                             persistent_volume="",
                             persistent_volume_claim="",
-                            storage_limit="1Gi",
                         ),
                     )
                 ],
