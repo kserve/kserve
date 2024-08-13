@@ -46,8 +46,8 @@ type SupportedUriFormat struct {
 type UseCase string
 
 const (
-	StorageInitializer UseCase = "storageInitializer"
-	ModelCacheDownload UseCase = "modelCacheDownload"
+	StorageInitializerDownload UseCase = "storageInitializerDownload"
+	ModelCacheDownload         UseCase = "modelCacheDownload"
 )
 
 // +k8s:openapi-gen=true
