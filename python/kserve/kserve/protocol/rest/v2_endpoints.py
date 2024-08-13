@@ -164,7 +164,7 @@ class V2Endpoints:
             request=infer_request,
             headers=request_headers,
         )
-        response, response_headers = self.dataplane.encode(
+        response, res_headers = self.dataplane.encode(
             model_name=model_name,
             response=response,
             headers=request_headers,

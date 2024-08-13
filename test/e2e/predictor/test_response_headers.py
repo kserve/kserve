@@ -97,12 +97,10 @@ def test_predictor_headers_v1():
         )
         if response.status_code == 200:
             res_data = json.loads(response.content.decode("utf-8"))
-            res_data["headers"] = response.headers
         else:
             response.raise_for_status()
 
-    response_headers = res_data["headers"]
-    assert response_headers["my-header"] == "test_header"
+    assert "prediction-counter" in response.headers
     points = ["%.3f" % (point) for point in list(res_data["predictions"])]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -187,7 +185,7 @@ def test_predictor_headers_v2():
         else:
             response.raise_for_status()
 
-    assert response.headers["my-header"] == "test_header"
+    assert "prediction-counter" in response.headers
     points = ["%.3f" % (point) for point in list(res_data["outputs"][0]["data"])]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

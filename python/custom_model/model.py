@@ -37,6 +37,9 @@ from kserve.model_server import app
 from kserve.utils.utils import generate_uuid
 
 
+PREDICTION_COUNTER = 0
+
+
 # This custom predictor example implements the custom model following KServe REST v1/v2 protocol,
 # the input can be raw image base64 encoded bytes or image tensor which is pre-processed by transformer
 # and then passed to the custom predictor, the output is the prediction response.
@@ -104,8 +107,12 @@ class AlexNetModel(Model):
         headers: Dict[str, str] = None,
         response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
+
+        global PREDICTION_COUNTER
+        PREDICTION_COUNTER += 1
+
         if response_headers is not None:
-            response_headers.update({"my-header": "test_header"})
+            response_headers.update({"prediction-counter": f"{PREDICTION_COUNTER}"})
 
         output = self.model(input_tensor)
         torch.nn.functional.softmax(output, dim=1)
