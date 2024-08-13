@@ -14,11 +14,12 @@
 
 from transformers import PretrainedConfig
 from typing import Optional
+
 from kserve.logging import logger
 
-"This implementation is based on vLLM's _get_and_verify_max_len https://github.com/vllm-project/vllm/blob/a377f0bd5e1fa0ca069e3dbf28f4de5af64d0bb1/vllm/config.py#L1160"
 
-
+# "This implementation is based on vLLM's _get_and_verify_max_len "
+# "https://github.com/vllm-project/vllm/blob/a377f0bd5e1fa0ca069e3dbf28f4de5af64d0bb1/vllm/config.py#L1160"
 def _get_and_verify_max_len(
     hf_config: PretrainedConfig,
     max_model_len: Optional[int],

@@ -42,14 +42,11 @@ class VLLMModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no
         model_name: str,
         engine_args: AsyncEngineArgs = None,
         predictor_config: Optional[PredictorConfig] = None,
-        max_log_len: Optional[int] = None,
+        request_logger: Optional[RequestLogger] = None,
     ):
         super().__init__(model_name, predictor_config)
         self.vllm_engine_args = engine_args
-        if self.vllm_engine_args.disable_log_requests:
-            self.request_logger = None
-        else:
-            self.request_logger = RequestLogger(max_log_len=max_log_len)
+        self.request_logger = request_logger
 
     def load(self) -> bool:
         if torch.cuda.is_available():

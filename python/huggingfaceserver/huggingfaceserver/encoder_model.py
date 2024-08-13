@@ -38,6 +38,7 @@ from transformers import (
     TensorType,
 )
 
+from .request_logger import RequestLogger
 from .task import (
     MLTask,
     is_generative_task,
@@ -81,6 +82,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         trust_remote_code: bool = False,
         return_probabilities: bool = False,
         predictor_config: Optional[PredictorConfig] = None,
+        request_logger: Optional[RequestLogger] = None,
     ):
         super().__init__(model_name, predictor_config)
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -95,6 +97,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         self.tokenizer_revision = tokenizer_revision
         self.trust_remote_code = trust_remote_code
         self.return_probabilities = return_probabilities
+        self.request_logger = request_logger
 
         if model_config:
             self.model_config = model_config
@@ -187,6 +190,11 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         context: Dict[str, Any],
     ) -> Union[BatchEncoding, InferRequest]:
         instances = get_predict_input(payload)
+        if isinstance(payload, InferRequest):
+            request_id = payload.id
+        else:
+            request_id = "N.A."
+        self._log_request(request_id, instances)
         # Serialize to tensor
         if self.predictor_host:
             inputs = self._tokenizer(
@@ -301,4 +309,11 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         else:
             raise ValueError(
                 f"Unsupported task {self.task}. Please check the supported `task` option."
+            )
+
+    def _log_request(self, request_id: str, prompt: list[str]) -> None:
+        if self.request_logger:
+            self.request_logger.log_inputs(
+                request_id,
+                prompt=prompt,
             )
