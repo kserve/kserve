@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -275,7 +276,7 @@ func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alph
 
 // ReplacePlaceholders Replace placeholders in runtime container by values from inferenceservice metadata
 func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error {
-	data, _ := json.Marshal(container)
+	data, _ := yaml.Marshal(container)
 	tmpl, err := template.New("container-tmpl").Parse(string(data))
 	if err != nil {
 		return err
@@ -285,7 +286,7 @@ func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error 
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(buf.Bytes(), container)
+	return yaml.Unmarshal(buf.Bytes(), container)
 }
 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
