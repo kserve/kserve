@@ -32,27 +32,28 @@ type NamespacedName struct {
 }
 
 // NodeStatus enum
-// +kubebuilder:validation:Enum="";Ready;Unknown;Downloading;Deleting;Deleted
+// +kubebuilder:validation:Enum="";NodeReady;NodeDownloading;NodeDownloadError;Deleting;NodeDeletionError;NodeDeleted
 type NodeStatus string
 
 // NodeStatus Enum values
 const (
-	Ready       NodeStatus = "Ready"
-	Downloading NodeStatus = "Downloading"
-	Deleting    NodeStatus = "Deleting"
-	Deleted     NodeStatus = "Deleted"
+	NodeReady         NodeStatus = "NodeReady"
+	NodeDownloading   NodeStatus = "NodeDownloading"
+	NodeDownloadError NodeStatus = "NodeDownloadError"
+	NodeDeleting      NodeStatus = "NodeDeleting"
+	NodeDeletionError NodeStatus = "NodeDeletionError"
+	NodeDeleted       NodeStatus = "NodeDeleted"
 )
 
 // OverallStatus enum
-// +kubebuilder:validation:Enum="";Ready;Unknown;Downloading;Deleting
+// +kubebuilder:validation:Enum="";ModelReady;ModelDownloading;ModelDeleting
 type OverallStatus string
 
 // OverallStatus Enum values
 const (
-	ModelReady          OverallStatus = "Ready"
-	ModelPartiallyReady OverallStatus = "PartiallyReady"
-	ModelDownloading    OverallStatus = "Downloading"
-	ModelDeleting       OverallStatus = "Deleting"
+	ModelReady       OverallStatus = "ModelReady"
+	ModelDownloading OverallStatus = "ModelDownloading"
+	ModelDeleting    OverallStatus = "ModelDeleting"
 )
 
 type ModelCopies struct {

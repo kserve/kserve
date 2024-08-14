@@ -84,20 +84,20 @@ spec:
                 additionalProperties:
                   enum:
                   - ""
-                  - Ready
-                  - Unknown
-                  - Downloading
+                  - NodeReady
+                  - NodeDownloading
+                  - NodeDownloadError
                   - Deleting
-                  - Deleted
+                  - NodeDeletionError
+                  - NodeDeleted
                   type: string
                 type: object
               overallStatus:
                 enum:
                 - ""
-                - Ready
-                - Unknown
-                - Downloading
-                - Deleting
+                - ModelReady
+                - ModelDownloading
+                - ModelDeleting
                 type: string
             type: object
         type: object
