@@ -1798,16 +1798,10 @@ files = []
 develop = true
 
 [package.dependencies]
-azure-identity = {version = "^1.15.0", optional = true}
-azure-storage-blob = {version = "^12.20.0", optional = true}
-azure-storage-file-share = {version = "^12.16.0", optional = true}
-boto3 = {version = "^1.29.0", optional = true}
 cloudevents = "^1.6.2"
-fastapi = ">=0.115.2"
-google-cloud-storage = {version = "^2.14.0", optional = true}
+fastapi = ">=0.115.3"
 grpcio = "^1.60.0"
 httpx = "^0.27.2"
-huggingface-hub = {version = "^0.24.5", extras = ["hf-transfer"], optional = true}
 kubernetes = ">=23.3.0"
 numpy = "^1.26.0"
 orjson = "^3.9.15"
@@ -1821,9 +1815,7 @@ pydantic = [
 ]
 python-dateutil = "^2.8.0"
 pyyaml = "^6.0.0"
-requests = {version = "^2.32.2", optional = true}
 six = "^1.16.0"
-starlette = ">=0.40.0,<0.41.0"
 tabulate = "^0.9.0"
 timing-asgi = "^0.3.0"
 uvicorn = {version = "^0.30.6", extras = ["standard"]}
@@ -1831,7 +1823,6 @@ uvicorn = {version = "^0.30.6", extras = ["standard"]}
 [package.extras]
 logging = ["asgi-logger (>=0.1.0,<0.2.0)"]
 ray = ["ray[serve] (>=2.35.0,<2.36.0)"]
-storage = ["azure-identity (>=1.15.0,<2.0.0)", "azure-storage-blob (>=12.20.0,<13.0.0)", "azure-storage-file-share (>=12.16.0,<13.0.0)", "boto3 (>=1.29.0,<2.0.0)", "google-cloud-storage (>=2.14.0,<3.0.0)", "huggingface-hub[hf-transfer] (>=0.24.5,<0.25.0)", "requests (>=2.32.2,<3.0.0)"]
 
 [package.source]
 type = "directory"
@@ -4493,6 +4484,31 @@ typing-extensions = {version = ">=3.10.0", markers = "python_version < \"3.10\""
 full = ["httpx (>=0.22.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.7)", "pyyaml"]
 
 [[package]]
+name = "storage"
+version = "0.14.0"
+description = "A storage initializer for KServe"
+optional = false
+python-versions = ">=3.9,<3.13"
+files = []
+develop = true
+
+[package.dependencies]
+azure-identity = "^1.15.0"
+azure-storage-blob = "^12.20.0"
+azure-storage-file-share = "^12.16.0"
+boto3 = "^1.29.0"
+google-cloud-storage = "^2.14.0"
+huggingface-hub = {version = "^0.24.5", extras = ["hf-transfer"]}
+requests = "^2.32.2"
+
+[package.extras]
+logging = ["asgi-logger (>=0.1.0,<0.2.0)", "pyyaml (>=6.0.0,<7.0.0)"]
+
+[package.source]
+type = "directory"
+url = "../storage"
+
+[[package]]
 name = "sympy"
 version = "1.13.3"
 description = "Computer algebra system (CAS) in Python"
@@ -4911,11 +4927,6 @@ files = [
     {file = "triton-3.0.0-1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:34e509deb77f1c067d8640725ef00c5cbfcb2052a1a3cb6a6d343841f92624eb"},
     {file = "triton-3.0.0-1-cp38-cp38-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:bcbf3b1c48af6a28011a5c40a5b3b9b5330530c3827716b5fbf6d7adcc1e53e9"},
     {file = "triton-3.0.0-1-cp39-cp39-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:6e5727202f7078c56f91ff13ad0c1abab14a0e7f2c87e91b12b6f64f3e8ae609"},
-    {file = "triton-3.0.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:39b052da883351fdf6be3d93cedae6db3b8e3988d3b09ed221bccecfa9612230"},
-    {file = "triton-3.0.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:cd34f19a8582af96e6291d4afce25dac08cb2a5d218c599163761e8e0827208e"},
-    {file = "triton-3.0.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0d5e10de8c011adeb7c878c6ce0dd6073b14367749e34467f1cff2bde1b78253"},
-    {file = "triton-3.0.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e8903767951bf86ec960b4fe4e21bc970055afc65e9d57e916d79ae3c93665e3"},
-    {file = "triton-3.0.0-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:41004fb1ae9a53fcb3e970745feb87f0e3c94c6ce1ba86e95fa3b8537894bef7"},
 ]
 
 [package.dependencies]
@@ -5596,4 +5607,4 @@ vllm = ["vllm"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "2fc504f3facbfbd64b2442d18a7f7913517c6e5da64083f8083a0af3f9059d9f"
+content-hash = "af89e85e504201e686cb849d7f20f7ffcef76c0c98f304b23485bd8c913de9cf"
