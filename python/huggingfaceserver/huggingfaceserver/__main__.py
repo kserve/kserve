@@ -70,6 +70,13 @@ parser.add_argument(
     help="Huggingface tokenizer revision",
 )
 parser.add_argument(
+    "--max_length",
+    dest="max_model_len",
+    type=int,
+    required=False,
+    help="max sequence length for the tokenizer. will be deprecated in favour of --max-model-length",
+)
+parser.add_argument(
     "--disable_lower_case",
     action="store_true",
     help="do not use lower case for the tokenizer",
