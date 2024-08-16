@@ -285,7 +285,7 @@ class Storage(object):
 
     @staticmethod
     def _download_hf(uri, temp_dir: str) -> str:
-        from transformers import AutoTokenizer, AutoConfig, AutoModel
+        from huggingface_hub import snapshot_download
 
         components = uri.split("://")[1].split("/")
 
@@ -293,12 +293,9 @@ class Storage(object):
         model, _, hash_value = components[1].partition(":")
         revision = hash_value if hash_value else None
 
-        tokenizer = AutoTokenizer.from_pretrained(f"{repo}/{model}", revision=revision)
-        model_config = AutoConfig.from_pretrained(f"{repo}/{model}", revision=revision)
-        model = AutoModel.from_config(model_config)
-
-        tokenizer.save_pretrained(temp_dir)
-        model.save_pretrained(temp_dir)
+        snapshot_download(
+            repo_id=f"{repo}/{model}", revision=revision, local_dir=temp_dir
+        )
         return temp_dir
 
     @staticmethod
