@@ -29,7 +29,7 @@ from typing import Dict
 from urllib.parse import urlparse
 import requests
 
-from ..logging import logger
+from .storage_logging import logger
 
 MODEL_MOUNT_DIRS = "/mnt/models"
 

@@ -18,7 +18,7 @@ import tensorflow as tf
 import json
 import numpy as np
 import dill
-from kserve.storage import Storage
+from storage import Storage
 
 
 CIFAR10_EXPLAINER_URI = (
