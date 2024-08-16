@@ -21,6 +21,11 @@ ENV VIRTUAL_ENV=${VENV_PATH}
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
+COPY storage/pyproject.toml storage/poetry.lock storage/
+RUN cd storage && poetry install --no-root --no-interaction --no-cache
+COPY storage storage
+RUN cd storage && poetry install --no-interaction --no-cache
+
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
 RUN cd kserve && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
@@ -50,6 +55,7 @@ RUN useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
+COPY --from=builder storage storage
 COPY --from=builder paddleserver paddleserver
 
 USER 1000

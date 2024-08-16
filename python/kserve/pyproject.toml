@@ -54,14 +54,10 @@ pandas =  "^2.2.0"
 pydantic = [{ version = "^2.5.0", python = "3.12" }, { version = ">1.0,<3", python = ">=3.9,<3.12" }]
 pyyaml = "^6.0.0"
 
+#TODO
 # Storage dependencies. They can be opted into by apps.
-requests = { version = "^2.32.2", optional = true }
-google-cloud-storage = { version = "^2.14.0", optional = true }
-azure-storage-blob = { version = "^12.20.0", optional = true }
-azure-storage-file-share = { version = "^12.16.0", optional = true }
-azure-identity = { version = "^1.15.0", optional = true }
-boto3 = { version = "^1.29.0", optional = true }
-huggingface-hub = { version = "^0.24.5", extras = ["hf-transfer"], optional = true }
+# KServe Storage module. They can be opted into by apps.
+# storage = { version = "0.14.0rc1", optional = true }
 
 # Logging dependencies. They can be opted into by apps.
 asgi-logger = { version = "^0.1.0", optional = true }
@@ -70,22 +66,18 @@ asgi-logger = { version = "^0.1.0", optional = true }
 ray = { version = "~2.35.0", extras = ["serve"], optional = true }
 
 [tool.poetry.extras]
-storage = [
-    "requests",
-    "google-cloud-storage",
-    "azure-storage-blob",
-    "azure-storage-file-share",
-    "azure-identity",
-    "boto3",
-    "huggingface-hub"
-
-]
+# The storage module will be migrated to its own model and removed from here on new releses,
+# please update it accordingly.
+#storage = [
+#    "storage"
+#]
 logging = [
     "asgi-logger"
 ]
 ray = [
     "ray"
 ]
+
 [tool.poetry.group.test]
 optional = true
 
