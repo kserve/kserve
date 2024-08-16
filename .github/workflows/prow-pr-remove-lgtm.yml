@@ -1,0 +1,14 @@
+# This workflow will remove the lgtm label from a PR that gets updated.
+# This prevents any un-reviewed code from being automatically merged by the lgtm-merger mechanism.
+
+name: "Remove lgtm label"
+on: pull_request
+
+jobs:
+  remove-lgtm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: jpmcb/prow-github-actions@v1.1.3
+        with:
+          jobs: 'lgtm'
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
