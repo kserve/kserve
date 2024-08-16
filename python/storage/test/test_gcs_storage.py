@@ -14,9 +14,9 @@
 
 import unittest.mock as mock
 import pytest
-from kserve.storage import Storage
+from storage import Storage
 
-STORAGE_MODULE = "kserve.storage.storage"
+STORAGE_MODULE = "storage.storage"
 
 
 def get_call_args(call_args_list):
