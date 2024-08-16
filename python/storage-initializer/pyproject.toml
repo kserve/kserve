@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "storage-initializer"
+version = "0.14.0rc1"
+description = "A storage initializer for KServe"
+authors = ["KServe authors"]
+license = "https://github.com/kserve/kserve/blob/master/LICENSE"
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+
+packages = [
+    { include = "scripts/initializer-entrypoint" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.13"
+storage = { path = "../storage", extras = ["logging"], develop = true }
+
+
+[tool.poetry-version-plugin]
+source = "file"
+file_path = "../VERSION"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
