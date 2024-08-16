@@ -22,6 +22,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -898,6 +899,11 @@ func (in *PredictorSpec) DeepCopyInto(out *PredictorSpec) {
 	if in.Model != nil {
 		in, out := &in.Model, &out.Model
 		*out = new(ModelSpec)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.WorkerSpec != nil {
+		in, out := &in.WorkerSpec, &out.WorkerSpec
+		*out = new(v1alpha1.WorkerSpec)
 		(*in).DeepCopyInto(*out)
 	}
 	in.PodSpec.DeepCopyInto(&out.PodSpec)
