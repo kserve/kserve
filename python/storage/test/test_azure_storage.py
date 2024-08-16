@@ -16,9 +16,9 @@ import unittest.mock as mock
 import pytest
 import shutil
 
-from kserve.storage import Storage
+from storage import Storage
 
-STORAGE_MODULE = "kserve.storage.storage"
+STORAGE_MODULE = "storage.storage"
 
 
 def create_mock_item(path):

@@ -2028,17 +2028,11 @@ files = []
 develop = true
 
 [package.dependencies]
-azure-identity = {version = "^1.15.0", optional = true}
-azure-storage-blob = {version = "^12.20.0", optional = true}
-azure-storage-file-share = {version = "^12.16.0", optional = true}
-boto3 = {version = "^1.29.0", optional = true}
 cloudevents = "^1.6.2"
 fastapi = ">=0.115.3"
-google-cloud-storage = {version = "^2.14.0", optional = true}
 grpc-interceptor = ">=0.15.4,<1.0.0"
 grpcio = "^1.60.0"
 httpx = "^0.27.2"
-huggingface-hub = {version = "^0.24.5", extras = ["hf-transfer"], optional = true}
 kubernetes = ">=23.3.0"
 numpy = "^1.26.0"
 orjson = "^3.9.15"
@@ -2052,7 +2046,6 @@ pydantic = [
 ]
 python-dateutil = "^2.8.0"
 pyyaml = "^6.0.0"
-requests = {version = "^2.32.2", optional = true}
 six = "^1.16.0"
 tabulate = "^0.9.0"
 timing-asgi = "^0.3.0"
@@ -2063,7 +2056,6 @@ vllm = {version = "^0.7.3", optional = true}
 llm = ["vllm (>=0.7.3,<0.8.0)"]
 logging = ["asgi-logger (>=0.1.0,<0.2.0)"]
 ray = ["ray[serve] (>=2.40.0,<2.41.0)"]
-storage = ["azure-identity (>=1.15.0,<2.0.0)", "azure-storage-blob (>=12.20.0,<13.0.0)", "azure-storage-file-share (>=12.16.0,<13.0.0)", "boto3 (>=1.29.0,<2.0.0)", "google-cloud-storage (>=2.14.0,<3.0.0)", "huggingface-hub[hf-transfer] (>=0.24.5,<0.25.0)", "requests (>=2.32.2,<3.0.0)"]
 
 [package.source]
 type = "directory"
@@ -4730,6 +4722,31 @@ typing-extensions = {version = ">=3.10.0", markers = "python_version < \"3.10\""
 full = ["httpx (>=0.27.0,<0.29.0)", "itsdangerous", "jinja2", "python-multipart (>=0.0.18)", "pyyaml"]
 
 [[package]]
+name = "storage"
+version = "0.14.0"
+description = "A storage initializer for KServe"
+optional = false
+python-versions = ">=3.9,<3.13"
+files = []
+develop = true
+
+[package.dependencies]
+azure-identity = "^1.15.0"
+azure-storage-blob = "^12.20.0"
+azure-storage-file-share = "^12.16.0"
+boto3 = "^1.29.0"
+google-cloud-storage = "^2.14.0"
+huggingface-hub = {version = "^0.24.5", extras = ["hf-transfer"]}
+requests = "^2.32.2"
+
+[package.extras]
+logging = ["asgi-logger (>=0.1.0,<0.2.0)", "pyyaml (>=6.0.0,<7.0.0)"]
+
+[package.source]
+type = "directory"
+url = "../storage"
+
+[[package]]
 name = "sympy"
 version = "1.13.1"
 description = "Computer algebra system (CAS) in Python"
@@ -5671,4 +5688,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "cda76fbd02427b5e13d68d77a5f27c0162336cdb21a68cf3c4e492d73a5615d7"
+content-hash = "0994229082c23d8a3cc5ee2a7742dec04c26f0b7565b1a83e184fff0d52972e5"

@@ -11,8 +11,10 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
-kserve = { path = "../kserve", extras = ["storage"], develop = true }
+storage = { path = "../storage", develop = true }
+kserve = { path = "../kserve", develop = true }
 xgboost = "~2.1.1"
+
 
 [tool.poetry.group.test]
 optional = true

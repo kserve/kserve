@@ -22,9 +22,9 @@ from pathlib import Path
 
 import pytest
 
-from kserve.storage import Storage
+from storage import Storage
 
-STORAGE_MODULE = "kserve.storage.storage"
+STORAGE_MODULE = "storage.storage"
 HTTPS_URI_TARGZ = "https://foo.bar/model.tar.gz"
 HTTPS_URI_TARGZ_WITH_QUERY = HTTPS_URI_TARGZ + "?foo=bar"
 

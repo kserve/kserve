@@ -14,4 +14,5 @@
 
 # flake8: noqa
 
-from kserve.storage.storage import Storage
+from .storage_logging import configure_logging, logger
+from .ks_storage import Storage

@@ -20,7 +20,7 @@ import unittest.mock as mock
 
 from botocore.client import Config
 from botocore import UNSIGNED
-from kserve.storage import Storage
+from storage import Storage
 
 
 def create_mock_obj(path):
