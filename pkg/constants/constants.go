@@ -91,7 +91,7 @@ var (
 	KServeContainerPrometheusPathKey            = "prometheus.kserve.io/path"
 	PrometheusPortAnnotationKey                 = "prometheus.io/port"
 	PrometheusPathAnnotationKey                 = "prometheus.io/path"
-	StorageReadonly                             = "storage.kserve.io/readonly"
+	StorageReadonlyAnnotationKey                = "storage.kserve.io/readonly"
 	DefaultPrometheusPath                       = "/metrics"
 	QueueProxyAggregatePrometheusMetricsPort    = 9088
 	DefaultPodPrometheusPort                    = "9091"
