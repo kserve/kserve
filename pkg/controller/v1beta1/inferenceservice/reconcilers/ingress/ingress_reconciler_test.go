@@ -787,15 +787,15 @@ func TestCreateVirtualService(t *testing.T) {
 		}, {
 			name: "found predictor status with the additional ingress domains with duplication",
 			ingressConfig: &v1beta1.IngressConfig{
-				IngressGateway:           constants.KnativeIngressGateway,
-				IngressServiceName:       "someIngressServiceName",
-				LocalGateway:             constants.KnativeLocalGateway,
-				LocalGatewayServiceName:  "knative-local-gateway.istio-system.svc.cluster.local",
-				UrlScheme:                "http",
-				IngressDomain:            "my-domain.com",
-				AdditionalIngressDomains: &[]string{"example.com", additionalDomain, additionalSecondDomain, additionalDomain},
-				PathTemplate:             "/serving/{{ .Namespace }}/{{ .Name }}",
-				DisableIstioVirtualHost:  false,
+				IngressGateway:             constants.KnativeIngressGateway,
+				KnativeLocalGatewayService: knativeLocalGatewayService,
+				LocalGateway:               constants.KnativeLocalGateway,
+				LocalGatewayServiceName:    "knative-local-gateway.istio-system.svc.cluster.local",
+				UrlScheme:                  "http",
+				IngressDomain:              "my-domain.com",
+				AdditionalIngressDomains:   &[]string{"example.com", additionalDomain, additionalSecondDomain, additionalDomain},
+				PathTemplate:               "/serving/{{ .Namespace }}/{{ .Name }}",
+				DisableIstioVirtualHost:    false,
 			},
 			domainList: &[]string{"my-domain-1.com", "example.com"},
 			useDefault: false,
@@ -867,8 +867,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Route: []*istiov1beta1.HTTPRouteDestination{
 								{
-									Destination: &istiov1beta1.Destination{Host: constants.LocalGatewayHost, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
-									Weight:      100,
+									Destination: &istiov1beta1.Destination{Host: knativeLocalGatewayService,
+										Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight: 100,
 								},
 							},
 							Headers: &istiov1beta1.Headers{
@@ -909,7 +910,7 @@ func TestCreateVirtualService(t *testing.T) {
 								Uri: "/",
 							},
 							Route: []*istiov1beta1.HTTPRouteDestination{
-								createHTTPRouteDestination("knative-local-gateway.istio-system.svc.cluster.local"),
+								createHTTPRouteDestination(knativeLocalGatewayService),
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{
