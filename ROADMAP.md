@@ -14,13 +14,13 @@
 - LLM RAG/Agent Pipeline Orchestration
    * Support declarative RAG/Agent workflow using KServe Inference Graph [https://github.com/kserve/kserve/issues/3829].
 
-- GenAI Task APIs
+-  Open Inference Protocol extension to GenAI Task APIs
    * Community-maintained Open Inference Protocol repo for OpenAI schema [https://docs.google.com/document/d/1odTMdIFdm01CbRQ6CpLzUIGVppHSoUvJV_zwcX6GuaU].
    * Support vertical GenAI Task APIs such as embedding, Text-to-Image, Text-To-Code, Doc-To-Text [https://github.com/kserve/kserve/issues/3572].
 
 - LLM Gateway
    * Support multiple LLM providers.
-   * Support token based rating limiting.
+   * Support token based rate limiting.
    * Support LLM router with traffic shaping, fallback, load balancing.
    * LLM Gateway observability for metrics and cost reporting
 
@@ -47,7 +47,7 @@ Reference: [Control plane issues](https://github.com/kserve/kserve/issues?q=is%3
 
 Reference：[Python SDK issues](https://github.com/kserve/kserve/issues?q=is%3Aissue+is%3Aopen+label%3Akserve%2Fsdk), [Storage issues](https://github.com/kserve/kserve/issues?q=is%3Aissue+is%3Aopen+label%3Akfserving%2Fstorage)
 
-## Objective: "Graduate InferenceGraph to beta"
+## Objective: "Graduate InferenceGraph"
 - Improve `InferenceGraph` spec for replica and concurrency control
 - Support distributed tracing
 - Support gRPC for `InferenceGraph`
