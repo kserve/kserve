@@ -24,7 +24,6 @@ env:
   # Controller images
   CONTROLLER_IMG: "kserve-controller"
   STORAGE_INIT_IMG: "storage-initializer"
-  HF_STORAGE_INIT_IMG: "hf-storage-initializer"
   AGENT_IMG: "agent"
   ROUTER_IMG: "router"
   # Predictor runtime server images
@@ -91,14 +90,6 @@ jobs:
         with:
           name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.STORAGE_INIT_IMG }}-${{ github.sha }}
           path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.STORAGE_INIT_IMG }}-${{ github.sha }}
-          compression-level: 0
-          if-no-files-found: error
-      
-      - name: Upload hf storage initializer image
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.HF_STORAGE_INIT_IMG }}-${{ github.sha }}
-          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.HF_STORAGE_INIT_IMG }}-${{ github.sha }}
           compression-level: 0
           if-no-files-found: error
 

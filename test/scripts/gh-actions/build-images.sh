@@ -25,7 +25,6 @@ set -o pipefail
 echo "Github SHA ${GITHUB_SHA}"
 CONTROLLER_IMG_TAG=${DOCKER_REPO}/${CONTROLLER_IMG}:${GITHUB_SHA}
 STORAGE_INIT_IMG_TAG=${DOCKER_REPO}/${STORAGE_INIT_IMG}:${GITHUB_SHA}
-HF_STORAGE_INIT_IMG_TAG=${DOCKER_REPO}/${HF_STORAGE_INIT_IMG}:${GITHUB_SHA}
 AGENT_IMG_TAG=${DOCKER_REPO}/${AGENT_IMG}:${GITHUB_SHA}
 ROUTER_IMG_TAG=${DOCKER_REPO}/${ROUTER_IMG}:${GITHUB_SHA}
 
@@ -48,12 +47,6 @@ pushd python >/dev/null
   echo "Building storage initializer"
   docker buildx build -f storage-initializer.Dockerfile . -t "${STORAGE_INIT_IMG_TAG}" \
     -o type=docker,dest="${DOCKER_IMAGES_PATH}/${STORAGE_INIT_IMG}-${GITHUB_SHA}",compression-level=0
-popd
-
-pushd python >/dev/null
-  echo "Building huggingface storage initializer"
-  docker buildx build -f hf-storage-initializer.Dockerfile . -t "${HF_STORAGE_INIT_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HF_STORAGE_INIT_IMG}-${GITHUB_SHA}",compression-level=0
 popd
 
 echo "Done building images"

@@ -32,11 +32,6 @@ packages = [
 ]
 exclude = ["kserve/storage/test"]
 
-[[tool.poetry.source]]
-name = "pytorch"
-url = "https://download.pytorch.org/whl/cpu"
-priority = "explicit"
-
 [tool.poetry.dependencies]
 python = ">=3.8,<3.12"
 uvicorn = { version = "^0.21.1", extras = ["standard"] }
@@ -65,9 +60,7 @@ azure-storage-blob = { version = "^12.10.0", optional = true }
 azure-storage-file-share = { version = "^12.7.0", optional = true }
 azure-identity = { version = "^1.8.0", optional = true }
 boto3 = { version = "^1.21.0", optional = true }
-transformers = { version = "^4.44.0", optional = true }
 huggingface-hub = { version = "^0.24.5", optional = true }
-torch = { version = "^2.3.0+cpu", optional = true, source = "pytorch"}
 
 # Logging dependencies. They can be opted into by apps.
 asgi-logger = { version = "^0.1.0", optional = true, python = ">3.8.0,<3.11" }
@@ -82,10 +75,9 @@ storage = [
     "azure-storage-blob",
     "azure-storage-file-share",
     "azure-identity",
-    "boto3"
-]
-hf-storage = [
+    "boto3",
     "huggingface-hub"
+
 ]
 logging = [
     "asgi-logger"
