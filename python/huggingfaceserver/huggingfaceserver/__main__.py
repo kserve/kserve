@@ -18,6 +18,7 @@ from typing import cast
 
 import torch
 import kserve
+from huggingfaceserver.request_logger import RequestLogger
 from kserve import logging
 from kserve.logging import logger
 from kserve.model import PredictorConfig
@@ -113,7 +114,18 @@ parser.add_argument(
     action="store_true",
     help="Return all probabilities",
 )
-
+parser.add_argument(
+    "--disable_log_requests", action="store_true", help="Disable logging requests"
+)
+parser.add_argument(
+    "--max_log_len",
+    "--max-log-len",
+    type=int,
+    default=None,
+    help="Max number of prompt characters or prompt "
+    "ID numbers being printed in log."
+    "\n\nDefault: Unlimited",
+)
 parser = maybe_add_vllm_cli_parser(parser)
 
 default_dtype = "float16" if torch.cuda.is_available() else "float32"
@@ -124,7 +136,8 @@ if not vllm_available():
         required=False,
         default="auto",
         choices=dtype_choices,
-        help=f"data type to load the weights in. One of {dtype_choices}. Defaults to float16 for GPU and float32 for CPU systems",
+        help=f"data type to load the weights in. One of {dtype_choices}. "
+        f"Defaults to float16 for GPU and float32 for CPU systems",
     )
 
 args, _ = parser.parse_known_args()
@@ -145,6 +158,11 @@ def load_model():
     else:
         model_id_or_path = Path(Storage.download(args.model_dir))
 
+    if args.disable_log_requests:
+        request_logger = None
+    else:
+        request_logger = RequestLogger(max_log_len=args.max_log_len)
+
     if model_id_or_path is None:
         raise ValueError("You must provide a model_id or model_dir")
 
@@ -164,7 +182,7 @@ def load_model():
         args.model = args.model_id or args.model_dir
         args.revision = args.model_revision
         engine_args = build_vllm_engine_args(args)
-        model = VLLMModel(args.model_name, engine_args)
+        model = VLLMModel(args.model_name, engine_args, request_logger=request_logger)
 
     else:
         kwargs = vars(args)
@@ -214,6 +232,7 @@ def load_model():
                 max_length=kwargs["max_length"],
                 dtype=dtype,
                 trust_remote_code=kwargs["trust_remote_code"],
+                request_logger=request_logger,
             )
         else:
             # Convert dtype from string to torch dtype. Default to float32
@@ -242,6 +261,7 @@ def load_model():
                 tensor_input_names=kwargs.get("tensor_input_names", None),
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
                 predictor_config=predictor_config,
+                request_logger=request_logger,
             )
     model.load()
     return model

@@ -58,6 +58,7 @@ from transformers import (
     set_seed,
 )
 from kserve.metrics import LLMStats
+from .request_logger import RequestLogger
 
 from .stop_sequence_stopping_criteria import StopSequenceStoppingCriteria
 from .task import (
@@ -151,6 +152,7 @@ class HuggingfaceGenerativeModel(
         tokenizer_revision: Optional[str] = None,
         trust_remote_code: bool = False,
         system_fingerprint: Optional[str] = None,
+        request_logger: Optional[RequestLogger] = None,
     ):
         super().__init__(name)
         self.model_config = model_config
@@ -164,6 +166,7 @@ class HuggingfaceGenerativeModel(
         self.trust_remote_code = trust_remote_code
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._request_queue = queue.Queue()
+        self.request_logger = request_logger
 
         if model_config:
             self.model_config = model_config
@@ -396,6 +399,7 @@ class HuggingfaceGenerativeModel(
     async def create_completion(
         self, request: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
+        self._log_request(request)
         params = request.params
         if params.prompt is None:
             raise ValueError("prompt is required")
@@ -492,4 +496,18 @@ class HuggingfaceGenerativeModel(
                     completion_tokens=stats.num_generation_tokens,
                     total_tokens=stats.num_prompt_tokens + stats.num_generation_tokens,
                 ),
+            )
+
+    def _log_request(self, request: CompletionRequest) -> None:
+        is_prompt_token = isinstance(request.params.prompt, list) and (
+            isinstance(request.params.prompt[0], int)
+            or isinstance(request.params.prompt[0], list)
+            and isinstance(request.params.prompt[0][0], int)
+        )
+        if self.request_logger:
+            self.request_logger.log_inputs(
+                request_id=request.request_id,
+                prompt=request.params.prompt if not is_prompt_token else None,
+                prompt_token_ids=request.params.prompt if is_prompt_token else None,
+                params=request.params.model_dump(exclude={"prompt"}),
             )
