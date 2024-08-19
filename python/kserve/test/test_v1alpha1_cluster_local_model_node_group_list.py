@@ -26,12 +26,16 @@
 
 from __future__ import absolute_import
 
-import unittest
 import datetime
+import unittest
+
+from kserve.models.v1alpha1_cluster_local_model_node_group_list import (  # noqa: E501
+    V1alpha1ClusterLocalModelNodeGroupList,
+)
+from kserve.rest import ApiException
 
 import kserve
-from kserve.models.v1alpha1_cluster_local_model_node_group_list import V1alpha1ClusterLocalModelNodeGroupList  # noqa: E501
-from kserve.rest import ApiException
+
 
 class TestV1alpha1ClusterLocalModelNodeGroupList(unittest.TestCase):
     """V1alpha1ClusterLocalModelNodeGroupList unit test stubs"""
@@ -44,37 +48,41 @@ class TestV1alpha1ClusterLocalModelNodeGroupList(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1ClusterLocalModelNodeGroupList
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_cluster_local_model_node_group_list.V1alpha1ClusterLocalModelNodeGroupList()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1ClusterLocalModelNodeGroupList(
-                api_version = '0', 
-                items = [
-                    kserve.models.v1alpha1/cluster_local_model_node_group.v1alpha1.ClusterLocalModelNodeGroup(
-                        api_version = '0', 
-                        kind = '0', 
-                        metadata = None, 
-                        spec = kserve.models.v1alpha1/cluster_local_model_node_group_spec.v1alpha1.ClusterLocalModelNodeGroupSpec(
-                            persistent_volume_claim_spec = None, 
-                            persistent_volume_spec = None, ), )
-                    ], 
-                kind = '0', 
-                metadata = None
+                api_version="0",
+                items=[
+                    kserve.models.v1alpha1_cluster_local_model_node_group.V1alpha1ClusterLocalModelNodeGroup(
+                        api_version="0",
+                        kind="0",
+                        metadata=None,
+                        spec=kserve.models.v1alpha1_cluster_local_model_node_group_spec.V1alpha1ClusterLocalModelNodeGroupSpec(
+                            persistent_volume_claim_spec="",
+                            persistent_volume_spec="",
+                        ),
+                    )
+                ],
+                kind="0",
+                metadata=None,
             )
-        else :
+        else:
             return V1alpha1ClusterLocalModelNodeGroupList(
-                items = [
-                    kserve.models.v1alpha1/cluster_local_model_node_group.v1alpha1.ClusterLocalModelNodeGroup(
-                        api_version = '0', 
-                        kind = '0', 
-                        metadata = None, 
-                        spec = kserve.models.v1alpha1/cluster_local_model_node_group_spec.v1alpha1.ClusterLocalModelNodeGroupSpec(
-                            persistent_volume_claim_spec = None, 
-                            persistent_volume_spec = None, ), )
-                    ],
-        )
+                items=[
+                    kserve.models.v1alpha1_cluster_local_model_node_group.V1alpha1ClusterLocalModelNodeGroup(
+                        api_version="0",
+                        kind="0",
+                        metadata=None,
+                        spec=kserve.models.v1alpha1_cluster_local_model_node_group_spec.V1alpha1ClusterLocalModelNodeGroupSpec(
+                            persistent_volume_claim_spec="",
+                            persistent_volume_spec="",
+                        ),
+                    )
+                ],
+            )
 
     def testV1alpha1ClusterLocalModelNodeGroupList(self):
         """Test V1alpha1ClusterLocalModelNodeGroupList"""
@@ -82,5 +90,5 @@ class TestV1alpha1ClusterLocalModelNodeGroupList(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

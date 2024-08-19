@@ -26,12 +26,16 @@
 
 from __future__ import absolute_import
 
-import unittest
 import datetime
+import unittest
+
+from kserve.models.v1alpha1_cluster_local_model_spec import (  # noqa: E501
+    V1alpha1ClusterLocalModelSpec,
+)
+from kserve.rest import ApiException
 
 import kserve
-from kserve.models.v1alpha1_cluster_local_model_spec import V1alpha1ClusterLocalModelSpec  # noqa: E501
-from kserve.rest import ApiException
+
 
 class TestV1alpha1ClusterLocalModelSpec(unittest.TestCase):
     """V1alpha1ClusterLocalModelSpec unit test stubs"""
@@ -44,26 +48,20 @@ class TestV1alpha1ClusterLocalModelSpec(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1ClusterLocalModelSpec
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_cluster_local_model_spec.V1alpha1ClusterLocalModelSpec()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1ClusterLocalModelSpec(
-                model_size = None, 
-                node_groups = [
-                    '0'
-                    ], 
-                source_model_uri = '0'
+                model_size="1Gi", node_groups=["0"], source_model_uri="0"
             )
-        else :
+        else:
             return V1alpha1ClusterLocalModelSpec(
-                model_size = None,
-                node_groups = [
-                    '0'
-                    ],
-                source_model_uri = '0',
-        )
+                model_size="1Gi",
+                node_groups=["0"],
+                source_model_uri="0",
+            )
 
     def testV1alpha1ClusterLocalModelSpec(self):
         """Test V1alpha1ClusterLocalModelSpec"""
@@ -71,5 +69,5 @@ class TestV1alpha1ClusterLocalModelSpec(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

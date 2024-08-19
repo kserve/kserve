@@ -26,12 +26,16 @@
 
 from __future__ import absolute_import
 
-import unittest
 import datetime
+import unittest
+
+from kserve.models.v1alpha1_cluster_local_model_list import (  # noqa: E501
+    V1alpha1ClusterLocalModelList,
+)
+from kserve.rest import ApiException
 
 import kserve
-from kserve.models.v1alpha1_cluster_local_model_list import V1alpha1ClusterLocalModelList  # noqa: E501
-from kserve.rest import ApiException
+
 
 class TestV1alpha1ClusterLocalModelList(unittest.TestCase):
     """V1alpha1ClusterLocalModelList unit test stubs"""
@@ -44,45 +48,45 @@ class TestV1alpha1ClusterLocalModelList(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1ClusterLocalModelList
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_cluster_local_model_list.V1alpha1ClusterLocalModelList()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1ClusterLocalModelList(
-                api_version = '0', 
-                items = [
-                    kserve.models.v1alpha1/cluster_local_model.v1alpha1.ClusterLocalModel(
-                        api_version = '0', 
-                        kind = '0', 
-                        metadata = None, 
-                        spec = kserve.models.v1alpha1/cluster_local_model_spec.v1alpha1.ClusterLocalModelSpec(
-                            model_size = None, 
-                            node_groups = [
-                                '0'
-                                ], 
-                            source_model_uri = '0', ), 
-                        status = None, )
-                    ], 
-                kind = '0', 
-                metadata = None
+                api_version="0",
+                items=[
+                    kserve.models.v1alpha1_cluster_local_model.V1alpha1ClusterLocalModel(
+                        api_version="0",
+                        kind="0",
+                        metadata=None,
+                        spec=kserve.models.v1alpha1_cluster_local_model_spec.V1alpha1ClusterLocalModelSpec(
+                            model_size="1Gi",
+                            node_groups=["0"],
+                            source_model_uri="0",
+                        ),
+                        status=None,
+                    )
+                ],
+                kind="0",
+                metadata=None,
             )
-        else :
+        else:
             return V1alpha1ClusterLocalModelList(
-                items = [
-                    kserve.models.v1alpha1/cluster_local_model.v1alpha1.ClusterLocalModel(
-                        api_version = '0', 
-                        kind = '0', 
-                        metadata = None, 
-                        spec = kserve.models.v1alpha1/cluster_local_model_spec.v1alpha1.ClusterLocalModelSpec(
-                            model_size = None, 
-                            node_groups = [
-                                '0'
-                                ], 
-                            source_model_uri = '0', ), 
-                        status = None, )
-                    ],
-        )
+                items=[
+                    kserve.models.v1alpha1_cluster_local_model.V1alpha1ClusterLocalModel(
+                        api_version="0",
+                        kind="0",
+                        metadata=None,
+                        spec=kserve.models.v1alpha1_cluster_local_model_spec.V1alpha1ClusterLocalModelSpec(
+                            model_size="1Gi",
+                            node_groups=["0"],
+                            source_model_uri="0",
+                        ),
+                        status=None,
+                    )
+                ],
+            )
 
     def testV1alpha1ClusterLocalModelList(self):
         """Test V1alpha1ClusterLocalModelList"""
@@ -90,5 +94,5 @@ class TestV1alpha1ClusterLocalModelList(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
