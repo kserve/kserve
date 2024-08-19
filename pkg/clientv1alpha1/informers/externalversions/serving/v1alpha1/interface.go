@@ -24,16 +24,16 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// ClusterCachedModels returns a ClusterCachedModelInformer.
-	ClusterCachedModels() ClusterCachedModelInformer
+	// ClusterLocalModels returns a ClusterLocalModelInformer.
+	ClusterLocalModels() ClusterLocalModelInformer
+	// ClusterLocalModelNodeGroups returns a ClusterLocalModelNodeGroupInformer.
+	ClusterLocalModelNodeGroups() ClusterLocalModelNodeGroupInformer
 	// ClusterServingRuntimes returns a ClusterServingRuntimeInformer.
 	ClusterServingRuntimes() ClusterServingRuntimeInformer
 	// ClusterStorageContainers returns a ClusterStorageContainerInformer.
 	ClusterStorageContainers() ClusterStorageContainerInformer
 	// InferenceGraphs returns a InferenceGraphInformer.
 	InferenceGraphs() InferenceGraphInformer
-	// ModelCacheNodeGroups returns a ModelCacheNodeGroupInformer.
-	ModelCacheNodeGroups() ModelCacheNodeGroupInformer
 	// ServingRuntimes returns a ServingRuntimeInformer.
 	ServingRuntimes() ServingRuntimeInformer
 	// TrainedModels returns a TrainedModelInformer.
@@ -51,9 +51,14 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// ClusterCachedModels returns a ClusterCachedModelInformer.
-func (v *version) ClusterCachedModels() ClusterCachedModelInformer {
-	return &clusterCachedModelInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+// ClusterLocalModels returns a ClusterLocalModelInformer.
+func (v *version) ClusterLocalModels() ClusterLocalModelInformer {
+	return &clusterLocalModelInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterLocalModelNodeGroups returns a ClusterLocalModelNodeGroupInformer.
+func (v *version) ClusterLocalModelNodeGroups() ClusterLocalModelNodeGroupInformer {
+	return &clusterLocalModelNodeGroupInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // ClusterServingRuntimes returns a ClusterServingRuntimeInformer.
@@ -69,11 +74,6 @@ func (v *version) ClusterStorageContainers() ClusterStorageContainerInformer {
 // InferenceGraphs returns a InferenceGraphInformer.
 func (v *version) InferenceGraphs() InferenceGraphInformer {
 	return &inferenceGraphInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
-// ModelCacheNodeGroups returns a ModelCacheNodeGroupInformer.
-func (v *version) ModelCacheNodeGroups() ModelCacheNodeGroupInformer {
-	return &modelCacheNodeGroupInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // ServingRuntimes returns a ServingRuntimeInformer.

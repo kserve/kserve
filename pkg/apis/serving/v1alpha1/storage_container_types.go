@@ -32,7 +32,7 @@ type StorageContainerSpec struct {
 
 	// List of URI formats that this container supports
 	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats" validate:"required"`
-	UseCase             UseCase              `json:"useCase" validate:"required"`
+	WorkloadType        WorkloadType         `json:"workloadType" validate:"required"`
 }
 
 // SupportedUriFormat can be either prefix or regex. Todo: Add validation that only one of them is set.
@@ -43,11 +43,11 @@ type SupportedUriFormat struct {
 }
 
 // +k8s:openapi-gen=true
-type UseCase string
+type WorkloadType string
 
 const (
-	StorageInitializerDownload UseCase = "storageInitializerDownload"
-	ModelCacheDownload         UseCase = "modelCacheDownload"
+	StorageInitializer WorkloadType = "storageInitializer"
+	LocalModelDownload WorkloadType = "localModelDownload"
 )
 
 // +k8s:openapi-gen=true

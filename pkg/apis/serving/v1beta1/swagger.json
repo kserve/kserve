@@ -39,7 +39,7 @@
         }
       }
     },
-    "v1alpha1.ClusterCachedModel": {
+    "v1alpha1.ClusterLocalModel": {
       "type": "object",
       "properties": {
         "apiVersion": {
@@ -56,15 +56,15 @@
         },
         "spec": {
           "default": {},
-          "$ref": "#/definitions/v1alpha1.ClusterCachedModelSpec"
+          "$ref": "#/definitions/v1alpha1.ClusterLocalModelSpec"
         },
         "status": {
           "default": {},
-          "$ref": "#/definitions/v1alpha1.CachedModelStatus"
+          "$ref": "#/definitions/v1alpha1.ClusterLocalModelStatus"
         }
       }
     },
-    "v1alpha1.ClusterCachedModelList": {
+    "v1alpha1.ClusterLocalModelList": {
       "type": "object",
       "required": [
         "items"
@@ -78,7 +78,7 @@
           "type": "array",
           "items": {
             "default": {},
-            "$ref": "#/definitions/v1alpha1.ClusterCachedModel"
+            "$ref": "#/definitions/v1alpha1.ClusterLocalModel"
           }
         },
         "kind": {
@@ -91,21 +91,80 @@
         }
       }
     },
-    "v1alpha1.ClusterCachedModelSpec": {
+    "v1alpha1.ClusterLocalModelNodeGroup": {
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.ClusterLocalModelNodeGroupSpec"
+        }
+      }
+    },
+    "v1alpha1.ClusterLocalModelNodeGroupList": {
       "type": "object",
       "required": [
-        "storageUri",
-        "modelSize",
-        "nodeGroups",
-        "storageType",
-        "cleanupPolicy"
+        "items"
       ],
       "properties": {
-        "cleanupPolicy": {
-          "description": "Whether model cache controller creates a job to delete models on local disks",
-          "type": "string",
-          "default": ""
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
         },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.ClusterLocalModelNodeGroup"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.ClusterLocalModelNodeGroupSpec": {
+      "description": "ClusterLocalModelNodeGroupSpec defines a group of nodes for to download the model to.",
+      "type": "object",
+      "required": [
+        "persistentVolumeSpec",
+        "persistentVolumeClaimSpec"
+      ],
+      "properties": {
+        "persistentVolumeClaimSpec": {
+          "default": {},
+          "$ref": "#/definitions/v1.PersistentVolumeClaimSpec"
+        },
+        "persistentVolumeSpec": {
+          "default": {},
+          "$ref": "#/definitions/v1.PersistentVolumeSpec"
+        }
+      }
+    },
+    "v1alpha1.ClusterLocalModelSpec": {
+      "type": "object",
+      "required": [
+        "sourceModelUri",
+        "modelSize",
+        "nodeGroups"
+      ],
+      "properties": {
         "modelSize": {
           "description": "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
           "$ref": "#/definitions/resource.Quantity"
@@ -118,12 +177,7 @@
             "default": ""
           }
         },
-        "storageType": {
-          "description": "only local is supported for now",
-          "type": "string",
-          "default": ""
-        },
-        "storageUri": {
+        "sourceModelUri": {
           "description": "Original StorageUri",
           "type": "string",
           "default": ""
@@ -450,82 +504,6 @@
         }
       }
     },
-    "v1alpha1.ModelCacheNodeGroup": {
-      "type": "object",
-      "properties": {
-        "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-          "type": "string"
-        },
-        "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-          "type": "string"
-        },
-        "metadata": {
-          "default": {},
-          "$ref": "#/definitions/v1.ObjectMeta"
-        },
-        "spec": {
-          "default": {},
-          "$ref": "#/definitions/v1alpha1.ModelCacheNodeGroupSpec"
-        }
-      }
-    },
-    "v1alpha1.ModelCacheNodeGroupList": {
-      "type": "object",
-      "required": [
-        "items"
-      ],
-      "properties": {
-        "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-          "type": "string"
-        },
-        "items": {
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/v1alpha1.ModelCacheNodeGroup"
-          }
-        },
-        "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-          "type": "string"
-        },
-        "metadata": {
-          "default": {},
-          "$ref": "#/definitions/v1.ListMeta"
-        }
-      }
-    },
-    "v1alpha1.ModelCacheNodeGroupSpec": {
-      "description": "ModelCacheNodeGroupSpec defines a group of nodes for to download the model to.",
-      "type": "object",
-      "required": [
-        "nodeSelector",
-        "persistentVolume",
-        "persistentVolumeClaim"
-      ],
-      "properties": {
-        "nodeSelector": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "string",
-            "default": ""
-          }
-        },
-        "persistentVolume": {
-          "description": "PV spec template",
-          "default": {},
-          "$ref": "#/definitions/v1.PersistentVolume"
-        },
-        "persistentVolumeClaim": {
-          "description": "PVC spec template",
-          "default": {},
-          "$ref": "#/definitions/v1.PersistentVolumeClaim"
-        }
-      }
-    },
     "v1alpha1.ModelSpec": {
       "description": "ModelSpec describes a TrainedModel",
       "type": "object",
@@ -813,7 +791,7 @@
       "required": [
         "container",
         "supportedUriFormats",
-        "useCase"
+        "workloadType"
       ],
       "properties": {
         "container": {
@@ -829,7 +807,7 @@
             "$ref": "#/definitions/v1alpha1.SupportedUriFormat"
           }
         },
-        "useCase": {
+        "workloadType": {
           "type": "string",
           "default": ""
         }

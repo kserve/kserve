@@ -18,13 +18,21 @@ limitations under the License.
 
 package v1alpha1
 
-// ClusterCachedModelListerExpansion allows custom methods to be added to
-// ClusterCachedModelLister.
-type ClusterCachedModelListerExpansion interface{}
+// ClusterLocalModelListerExpansion allows custom methods to be added to
+// ClusterLocalModelLister.
+type ClusterLocalModelListerExpansion interface{}
 
-// ClusterCachedModelNamespaceListerExpansion allows custom methods to be added to
-// ClusterCachedModelNamespaceLister.
-type ClusterCachedModelNamespaceListerExpansion interface{}
+// ClusterLocalModelNamespaceListerExpansion allows custom methods to be added to
+// ClusterLocalModelNamespaceLister.
+type ClusterLocalModelNamespaceListerExpansion interface{}
+
+// ClusterLocalModelNodeGroupListerExpansion allows custom methods to be added to
+// ClusterLocalModelNodeGroupLister.
+type ClusterLocalModelNodeGroupListerExpansion interface{}
+
+// ClusterLocalModelNodeGroupNamespaceListerExpansion allows custom methods to be added to
+// ClusterLocalModelNodeGroupNamespaceLister.
+type ClusterLocalModelNodeGroupNamespaceListerExpansion interface{}
 
 // ClusterServingRuntimeListerExpansion allows custom methods to be added to
 // ClusterServingRuntimeLister.
@@ -49,14 +57,6 @@ type InferenceGraphListerExpansion interface{}
 // InferenceGraphNamespaceListerExpansion allows custom methods to be added to
 // InferenceGraphNamespaceLister.
 type InferenceGraphNamespaceListerExpansion interface{}
-
-// ModelCacheNodeGroupListerExpansion allows custom methods to be added to
-// ModelCacheNodeGroupLister.
-type ModelCacheNodeGroupListerExpansion interface{}
-
-// ModelCacheNodeGroupNamespaceListerExpansion allows custom methods to be added to
-// ModelCacheNodeGroupNamespaceLister.
-type ModelCacheNodeGroupNamespaceListerExpansion interface{}
 
 // ServingRuntimeListerExpansion allows custom methods to be added to
 // ServingRuntimeLister.

@@ -28,11 +28,11 @@ import (
 
 type ServingV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	ClusterCachedModelsGetter
+	ClusterLocalModelsGetter
+	ClusterLocalModelNodeGroupsGetter
 	ClusterServingRuntimesGetter
 	ClusterStorageContainersGetter
 	InferenceGraphsGetter
-	ModelCacheNodeGroupsGetter
 	ServingRuntimesGetter
 	TrainedModelsGetter
 }
@@ -42,8 +42,12 @@ type ServingV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *ServingV1alpha1Client) ClusterCachedModels(namespace string) ClusterCachedModelInterface {
-	return newClusterCachedModels(c, namespace)
+func (c *ServingV1alpha1Client) ClusterLocalModels(namespace string) ClusterLocalModelInterface {
+	return newClusterLocalModels(c, namespace)
+}
+
+func (c *ServingV1alpha1Client) ClusterLocalModelNodeGroups(namespace string) ClusterLocalModelNodeGroupInterface {
+	return newClusterLocalModelNodeGroups(c, namespace)
 }
 
 func (c *ServingV1alpha1Client) ClusterServingRuntimes(namespace string) ClusterServingRuntimeInterface {
@@ -56,10 +60,6 @@ func (c *ServingV1alpha1Client) ClusterStorageContainers(namespace string) Clust
 
 func (c *ServingV1alpha1Client) InferenceGraphs(namespace string) InferenceGraphInterface {
 	return newInferenceGraphs(c, namespace)
-}
-
-func (c *ServingV1alpha1Client) ModelCacheNodeGroups(namespace string) ModelCacheNodeGroupInterface {
-	return newModelCacheNodeGroups(c, namespace)
 }
 
 func (c *ServingV1alpha1Client) ServingRuntimes(namespace string) ServingRuntimeInterface {

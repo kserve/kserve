@@ -2549,12 +2549,12 @@ spec:
                       type: string
                   type: object
                 type: array
-              useCase:
+              workloadType:
                 type: string
             required:
             - container
             - supportedUriFormats
-            - useCase
+            - workloadType
             type: object
         type: object
     served: true

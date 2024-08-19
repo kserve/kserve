@@ -49,16 +49,16 @@ class V1alpha1StorageContainerSpec(object):
     openapi_types = {
         'container': 'V1Container',
         'supported_uri_formats': 'list[V1alpha1SupportedUriFormat]',
-        'use_case': 'str'
+        'workload_type': 'str'
     }
 
     attribute_map = {
         'container': 'container',
         'supported_uri_formats': 'supportedUriFormats',
-        'use_case': 'useCase'
+        'workload_type': 'workloadType'
     }
 
-    def __init__(self, container=None, supported_uri_formats=None, use_case='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, container=None, supported_uri_formats=None, workload_type='', local_vars_configuration=None):  # noqa: E501
         """V1alpha1StorageContainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,12 +66,12 @@ class V1alpha1StorageContainerSpec(object):
 
         self._container = None
         self._supported_uri_formats = None
-        self._use_case = None
+        self._workload_type = None
         self.discriminator = None
 
         self.container = container
         self.supported_uri_formats = supported_uri_formats
-        self.use_case = use_case
+        self.workload_type = workload_type
 
     @property
     def container(self):
@@ -122,27 +122,27 @@ class V1alpha1StorageContainerSpec(object):
         self._supported_uri_formats = supported_uri_formats
 
     @property
-    def use_case(self):
-        """Gets the use_case of this V1alpha1StorageContainerSpec.  # noqa: E501
+    def workload_type(self):
+        """Gets the workload_type of this V1alpha1StorageContainerSpec.  # noqa: E501
 
 
-        :return: The use_case of this V1alpha1StorageContainerSpec.  # noqa: E501
+        :return: The workload_type of this V1alpha1StorageContainerSpec.  # noqa: E501
         :rtype: str
         """
-        return self._use_case
+        return self._workload_type
 
-    @use_case.setter
-    def use_case(self, use_case):
-        """Sets the use_case of this V1alpha1StorageContainerSpec.
+    @workload_type.setter
+    def workload_type(self, workload_type):
+        """Sets the workload_type of this V1alpha1StorageContainerSpec.
 
 
-        :param use_case: The use_case of this V1alpha1StorageContainerSpec.  # noqa: E501
+        :param workload_type: The workload_type of this V1alpha1StorageContainerSpec.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and use_case is None:  # noqa: E501
-            raise ValueError("Invalid value for `use_case`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and workload_type is None:  # noqa: E501
+            raise ValueError("Invalid value for `workload_type`, must not be `None`")  # noqa: E501
 
-        self._use_case = use_case
+        self._workload_type = workload_type
 
     def to_dict(self):
         """Returns the model properties as a dict"""
