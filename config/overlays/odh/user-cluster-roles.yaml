@@ -43,7 +43,7 @@ metadata:
     rbac.authorization.k8s.io/aggregate-to-view: "true"
 rules:
   - apiGroups:
-      - kubeflow.org
+      - serving.kserve.io
     resources:
       - servingruntimes
       - servingruntimes/status
