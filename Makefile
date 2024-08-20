@@ -74,10 +74,10 @@ deploy: manifests
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	echo > ../certmanager/certificate.yaml; \
 	else git checkout HEAD -- ../certmanager/certificate.yaml; fi;
-	kubectl apply -k config/default
+	kubectl apply --server-side=true -k config/default
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kubectl apply -k config/clusterresources
+	kubectl apply  --server-side=true  -k config/clusterresources
 	git checkout HEAD -- config/certmanager/certificate.yaml
 
 
@@ -87,11 +87,11 @@ deploy-dev: manifests
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	echo > ../certmanager/certificate.yaml; \
 	else git checkout HEAD -- ../certmanager/certificate.yaml; fi;
-	kubectl apply -k config/overlays/development
+	kubectl apply --server-side=true -k config/overlays/development
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kubectl apply -k config/clusterresources
+	kubectl apply --server-side=true -k config/clusterresources
 	git checkout HEAD -- config/certmanager/certificate.yaml
 
 deploy-dev-sklearn: docker-push-sklearn
@@ -114,13 +114,13 @@ deploy-dev-huggingface: docker-push-huggingface
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
-	kubectl apply -k config/overlays/dev-image-config
+	kubectl apply --server-side=true -k config/overlays/dev-image-config
 
 deploy-ci: manifests
-	kubectl apply -k config/overlays/test
+	kubectl apply --server-side=true -k config/overlays/test
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kubectl apply -k config/overlays/test/clusterresources
+	kubectl apply --server-side=true -k config/overlays/test/clusterresources
 
 deploy-helm: manifests
 	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
