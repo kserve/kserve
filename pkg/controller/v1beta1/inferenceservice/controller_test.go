@@ -1363,7 +1363,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 
-	Context("When creating an inference service with a ServingRuntime which is disabled", func(){
+	Context("When creating an inference service with a ServingRuntime which is disabled", func() {
 		It("Should fail with reason RuntimeDisabled", func() {
 			serviceName := "svc-with-disabled-servingruntime"
 			servingRuntimeName := "tf-serving-disabled"
