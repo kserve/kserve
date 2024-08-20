@@ -26,12 +26,16 @@
 
 from __future__ import absolute_import
 
-import unittest
 import datetime
+import unittest
+
+from kserve.models.v1alpha1_local_model_node_group_spec import (  # noqa: E501
+    V1alpha1LocalModelNodeGroupSpec,
+)
+from kserve.rest import ApiException
 
 import kserve
-from kserve.models.v1alpha1_local_model_node_group_spec import V1alpha1LocalModelNodeGroupSpec  # noqa: E501
-from kserve.rest import ApiException
+
 
 class TestV1alpha1LocalModelNodeGroupSpec(unittest.TestCase):
     """V1alpha1LocalModelNodeGroupSpec unit test stubs"""
@@ -44,20 +48,20 @@ class TestV1alpha1LocalModelNodeGroupSpec(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1LocalModelNodeGroupSpec
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_local_model_node_group_spec.V1alpha1LocalModelNodeGroupSpec()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1LocalModelNodeGroupSpec(
-                persistent_volume_claim_spec = None, 
-                persistent_volume_spec = None
+                persistent_volume_claim_spec="",
+                persistent_volume_spec="",
             )
-        else :
+        else:
             return V1alpha1LocalModelNodeGroupSpec(
-                persistent_volume_claim_spec = None,
-                persistent_volume_spec = None,
-        )
+                persistent_volume_claim_spec="",
+                persistent_volume_spec="",
+            )
 
     def testV1alpha1LocalModelNodeGroupSpec(self):
         """Test V1alpha1LocalModelNodeGroupSpec"""
@@ -65,5 +69,5 @@ class TestV1alpha1LocalModelNodeGroupSpec(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
