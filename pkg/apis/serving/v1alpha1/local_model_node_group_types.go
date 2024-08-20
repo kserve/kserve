@@ -39,7 +39,8 @@ type LocalModelNodeGroup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec LocalModelNodeGroupSpec `json:"spec,omitempty"`
+	Spec   LocalModelNodeGroupSpec   `json:"spec,omitempty"`
+	Status LocalModelNodeGroupStatus `json:"status,omitempty"`
 }
 
 // +k8s:openapi-gen=true

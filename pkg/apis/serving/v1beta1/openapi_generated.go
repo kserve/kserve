@@ -903,11 +903,17 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNodeGroup(ref common.ReferenceCa
 							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeGroupSpec"),
 						},
 					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeGroupStatus"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeGroupSpec", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeGroupSpec", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeGroupStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 

@@ -40,6 +40,7 @@ type LocalModelNodeGroupsGetter interface {
 type LocalModelNodeGroupInterface interface {
 	Create(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.CreateOptions) (*v1alpha1.LocalModelNodeGroup, error)
 	Update(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (*v1alpha1.LocalModelNodeGroup, error)
+	UpdateStatus(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (*v1alpha1.LocalModelNodeGroup, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
 	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.LocalModelNodeGroup, error)
@@ -128,6 +129,22 @@ func (c *localModelNodeGroups) Update(ctx context.Context, localModelNodeGroup *
 		Namespace(c.ns).
 		Resource("localmodelnodegroups").
 		Name(localModelNodeGroup.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
+		Body(localModelNodeGroup).
+		Do(ctx).
+		Into(result)
+	return
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *localModelNodeGroups) UpdateStatus(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (result *v1alpha1.LocalModelNodeGroup, err error) {
+	result = &v1alpha1.LocalModelNodeGroup{}
+	err = c.client.Put().
+		Namespace(c.ns).
+		Resource("localmodelnodegroups").
+		Name(localModelNodeGroup.Name).
+		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(localModelNodeGroup).
 		Do(ctx).

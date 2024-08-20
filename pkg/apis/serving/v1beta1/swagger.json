@@ -456,6 +456,10 @@
         "spec": {
           "default": {},
           "$ref": "#/definitions/v1alpha1.LocalModelNodeGroupSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LocalModelNodeGroupStatus"
         }
       }
     },

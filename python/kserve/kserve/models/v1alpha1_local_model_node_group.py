@@ -50,17 +50,19 @@ class V1alpha1LocalModelNodeGroup(object):
         'api_version': 'str',
         'kind': 'str',
         'metadata': 'V1ObjectMeta',
-        'spec': 'V1alpha1LocalModelNodeGroupSpec'
+        'spec': 'V1alpha1LocalModelNodeGroupSpec',
+        'status': 'V1alpha1LocalModelNodeGroupStatus'
     }
 
     attribute_map = {
         'api_version': 'apiVersion',
         'kind': 'kind',
         'metadata': 'metadata',
-        'spec': 'spec'
+        'spec': 'spec',
+        'status': 'status'
     }
 
-    def __init__(self, api_version=None, kind=None, metadata=None, spec=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, api_version=None, kind=None, metadata=None, spec=None, status=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1LocalModelNodeGroup - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -70,6 +72,7 @@ class V1alpha1LocalModelNodeGroup(object):
         self._kind = None
         self._metadata = None
         self._spec = None
+        self._status = None
         self.discriminator = None
 
         if api_version is not None:
@@ -80,6 +83,8 @@ class V1alpha1LocalModelNodeGroup(object):
             self.metadata = metadata
         if spec is not None:
             self.spec = spec
+        if status is not None:
+            self.status = status
 
     @property
     def api_version(self):
@@ -168,6 +173,27 @@ class V1alpha1LocalModelNodeGroup(object):
         """
 
         self._spec = spec
+
+    @property
+    def status(self):
+        """Gets the status of this V1alpha1LocalModelNodeGroup.  # noqa: E501
+
+
+        :return: The status of this V1alpha1LocalModelNodeGroup.  # noqa: E501
+        :rtype: V1alpha1LocalModelNodeGroupStatus
+        """
+        return self._status
+
+    @status.setter
+    def status(self, status):
+        """Sets the status of this V1alpha1LocalModelNodeGroup.
+
+
+        :param status: The status of this V1alpha1LocalModelNodeGroup.  # noqa: E501
+        :type: V1alpha1LocalModelNodeGroupStatus
+        """
+
+        self._status = status
 
     def to_dict(self):
         """Returns the model properties as a dict"""
