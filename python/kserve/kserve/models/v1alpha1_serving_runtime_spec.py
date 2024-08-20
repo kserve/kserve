@@ -64,7 +64,8 @@ class V1alpha1ServingRuntimeSpec(object):
         'storage_helper': 'V1alpha1StorageHelper',
         'supported_model_formats': 'list[V1alpha1SupportedModelFormat]',
         'tolerations': 'list[V1Toleration]',
-        'volumes': 'list[V1Volume]'
+        'volumes': 'list[V1Volume]',
+        'worker_spec': 'V1alpha1WorkerSpec'
     }
 
     attribute_map = {
@@ -85,10 +86,11 @@ class V1alpha1ServingRuntimeSpec(object):
         'storage_helper': 'storageHelper',
         'supported_model_formats': 'supportedModelFormats',
         'tolerations': 'tolerations',
-        'volumes': 'volumes'
+        'volumes': 'volumes',
+        'worker_spec': 'workerSpec'
     }
 
-    def __init__(self, affinity=None, annotations=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, http_data_endpoint=None, image_pull_secrets=None, labels=None, multi_model=None, node_selector=None, protocol_versions=None, replicas=None, storage_helper=None, supported_model_formats=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, annotations=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, http_data_endpoint=None, image_pull_secrets=None, labels=None, multi_model=None, node_selector=None, protocol_versions=None, replicas=None, storage_helper=None, supported_model_formats=None, tolerations=None, volumes=None, worker_spec=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -112,6 +114,7 @@ class V1alpha1ServingRuntimeSpec(object):
         self._supported_model_formats = None
         self._tolerations = None
         self._volumes = None
+        self._worker_spec = None
         self.discriminator = None
 
         if affinity is not None:
@@ -149,6 +152,8 @@ class V1alpha1ServingRuntimeSpec(object):
             self.tolerations = tolerations
         if volumes is not None:
             self.volumes = volumes
+        if worker_spec is not None:
+            self.worker_spec = worker_spec
 
     @property
     def affinity(self):
@@ -559,6 +564,27 @@ class V1alpha1ServingRuntimeSpec(object):
         """
 
         self._volumes = volumes
+
+    @property
+    def worker_spec(self):
+        """Gets the worker_spec of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+
+
+        :return: The worker_spec of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :rtype: V1alpha1WorkerSpec
+        """
+        return self._worker_spec
+
+    @worker_spec.setter
+    def worker_spec(self, worker_spec):
+        """Sets the worker_spec of this V1alpha1ServingRuntimeSpec.
+
+
+        :param worker_spec: The worker_spec of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :type: V1alpha1WorkerSpec
+        """
+
+        self._worker_spec = worker_spec
 
     def to_dict(self):
         """Returns the model properties as a dict"""

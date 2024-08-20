@@ -633,6 +633,10 @@
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge,retainKeys"
+        },
+        "workerSpec": {
+          "description": "Set WorkerSpec to enable multi-node/multi-gpu",
+          "$ref": "#/definitions/v1alpha1.WorkerSpec"
         }
       }
     },
@@ -4438,6 +4442,10 @@
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge,retainKeys"
+        },
+        "workerSpec": {
+          "description": "WorkerSpec for enabling multi-node/multi-gpu",
+          "$ref": "#/definitions/v1alpha1.WorkerSpec"
         },
         "xgboost": {
           "description": "Spec for XGBoost model server",
