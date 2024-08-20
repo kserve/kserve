@@ -58,7 +58,7 @@ class V1alpha1StorageContainerSpec(object):
         'workload_type': 'workloadType'
     }
 
-    def __init__(self, container=None, supported_uri_formats=None, workload_type='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, container=None, supported_uri_formats=None, workload_type=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1StorageContainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -71,7 +71,8 @@ class V1alpha1StorageContainerSpec(object):
 
         self.container = container
         self.supported_uri_formats = supported_uri_formats
-        self.workload_type = workload_type
+        if workload_type is not None:
+            self.workload_type = workload_type
 
     @property
     def container(self):
@@ -139,8 +140,6 @@ class V1alpha1StorageContainerSpec(object):
         :param workload_type: The workload_type of this V1alpha1StorageContainerSpec.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and workload_type is None:  # noqa: E501
-            raise ValueError("Invalid value for `workload_type`, must not be `None`")  # noqa: E501
 
         self._workload_type = workload_type
 

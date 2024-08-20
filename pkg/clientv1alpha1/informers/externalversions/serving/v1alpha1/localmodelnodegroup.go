@@ -32,59 +32,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// ClusterLocalModelNodeGroupInformer provides access to a shared informer and lister for
-// ClusterLocalModelNodeGroups.
-type ClusterLocalModelNodeGroupInformer interface {
+// LocalModelNodeGroupInformer provides access to a shared informer and lister for
+// LocalModelNodeGroups.
+type LocalModelNodeGroupInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ClusterLocalModelNodeGroupLister
+	Lister() v1alpha1.LocalModelNodeGroupLister
 }
 
-type clusterLocalModelNodeGroupInformer struct {
+type localModelNodeGroupInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewClusterLocalModelNodeGroupInformer constructs a new informer for ClusterLocalModelNodeGroup type.
+// NewLocalModelNodeGroupInformer constructs a new informer for LocalModelNodeGroup type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewClusterLocalModelNodeGroupInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredClusterLocalModelNodeGroupInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewLocalModelNodeGroupInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredLocalModelNodeGroupInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredClusterLocalModelNodeGroupInformer constructs a new informer for ClusterLocalModelNodeGroup type.
+// NewFilteredLocalModelNodeGroupInformer constructs a new informer for LocalModelNodeGroup type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredClusterLocalModelNodeGroupInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredLocalModelNodeGroupInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ServingV1alpha1().ClusterLocalModelNodeGroups(namespace).List(context.TODO(), options)
+				return client.ServingV1alpha1().LocalModelNodeGroups(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ServingV1alpha1().ClusterLocalModelNodeGroups(namespace).Watch(context.TODO(), options)
+				return client.ServingV1alpha1().LocalModelNodeGroups(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1alpha1.ClusterLocalModelNodeGroup{},
+		&servingv1alpha1.LocalModelNodeGroup{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *clusterLocalModelNodeGroupInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredClusterLocalModelNodeGroupInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *localModelNodeGroupInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredLocalModelNodeGroupInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *clusterLocalModelNodeGroupInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1alpha1.ClusterLocalModelNodeGroup{}, f.defaultInformer)
+func (f *localModelNodeGroupInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&servingv1alpha1.LocalModelNodeGroup{}, f.defaultInformer)
 }
 
-func (f *clusterLocalModelNodeGroupInformer) Lister() v1alpha1.ClusterLocalModelNodeGroupLister {
-	return v1alpha1.NewClusterLocalModelNodeGroupLister(f.Informer().GetIndexer())
+func (f *localModelNodeGroupInformer) Lister() v1alpha1.LocalModelNodeGroupLister {
+	return v1alpha1.NewLocalModelNodeGroupLister(f.Informer().GetIndexer())
 }

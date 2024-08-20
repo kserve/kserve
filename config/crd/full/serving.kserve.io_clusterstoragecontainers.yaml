@@ -660,7 +660,6 @@ spec:
             required:
             - container
             - supportedUriFormats
-            - workloadType
             type: object
         type: object
     served: true

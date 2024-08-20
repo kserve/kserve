@@ -26,14 +26,6 @@ type ClusterLocalModelListerExpansion interface{}
 // ClusterLocalModelNamespaceLister.
 type ClusterLocalModelNamespaceListerExpansion interface{}
 
-// ClusterLocalModelNodeGroupListerExpansion allows custom methods to be added to
-// ClusterLocalModelNodeGroupLister.
-type ClusterLocalModelNodeGroupListerExpansion interface{}
-
-// ClusterLocalModelNodeGroupNamespaceListerExpansion allows custom methods to be added to
-// ClusterLocalModelNodeGroupNamespaceLister.
-type ClusterLocalModelNodeGroupNamespaceListerExpansion interface{}
-
 // ClusterServingRuntimeListerExpansion allows custom methods to be added to
 // ClusterServingRuntimeLister.
 type ClusterServingRuntimeListerExpansion interface{}
@@ -57,6 +49,14 @@ type InferenceGraphListerExpansion interface{}
 // InferenceGraphNamespaceListerExpansion allows custom methods to be added to
 // InferenceGraphNamespaceLister.
 type InferenceGraphNamespaceListerExpansion interface{}
+
+// LocalModelNodeGroupListerExpansion allows custom methods to be added to
+// LocalModelNodeGroupLister.
+type LocalModelNodeGroupListerExpansion interface{}
+
+// LocalModelNodeGroupNamespaceListerExpansion allows custom methods to be added to
+// LocalModelNodeGroupNamespaceLister.
+type LocalModelNodeGroupNamespaceListerExpansion interface{}
 
 // ServingRuntimeListerExpansion allows custom methods to be added to
 // ServingRuntimeLister.

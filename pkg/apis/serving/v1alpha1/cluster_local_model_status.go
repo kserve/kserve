@@ -17,8 +17,7 @@ limitations under the License.
 package v1alpha1
 
 type ClusterLocalModelStatus struct {
-	Status     ClusterLocalModelOverallStatus `json:"status,omitempty"`
-	NodeStatus map[string]NodeStatus          `json:"nodeStatus,omitempty"`
+	NodeStatus map[string]NodeStatus `json:"nodeStatus,omitempty"`
 
 	// How many nodes have the model available
 	// +optional
@@ -45,21 +44,11 @@ const (
 	NodeDeleted       NodeStatus = "NodeDeleted"
 )
 
-// OverallStatus enum
-// +kubebuilder:validation:Enum="";ModelReady;ModelNotReady;ModelPartiallyReady;ModelDeleting
-type ClusterLocalModelOverallStatus string
-
-// ClusterLocalModelOverallStatus Enum values
-const (
-	ModelReady          ClusterLocalModelOverallStatus = "ModelReady"
-	ModelNotReady       ClusterLocalModelOverallStatus = "ModelNotReady"
-	ModelPartiallyReady ClusterLocalModelOverallStatus = "ModelPartiallyReady"
-	ModelDeleting       ClusterLocalModelOverallStatus = "ModelDeleting"
-)
-
 type ModelCopies struct {
 	// +kubebuilder:default=0
-	SuccessfulCopies int `json:"successfulCopies"`
-	// +optional
-	TotalCopies int `json:"totalCopies,omitempty"`
+	Available int `json:"available,omitempty"`
+	// Total number of nodes that we expect the model to be downloaded. Including nodes that are not ready
+	Total int `json:"total,omitempty"`
+	// Download Failed
+	Failed int `json:"failed,omitempty"`
 }

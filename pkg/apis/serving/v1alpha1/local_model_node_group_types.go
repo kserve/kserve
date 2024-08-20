@@ -21,9 +21,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ClusterLocalModelNodeGroupSpec defines a group of nodes for to download the model to.
+// LocalModelNodeGroupSpec defines a group of nodes for to download the model to.
 // +k8s:openapi-gen=true
-type ClusterLocalModelNodeGroupSpec struct {
+type LocalModelNodeGroupSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolume is immutable"
 	PersistentVolumeSpec corev1.PersistentVolumeSpec `json:"persistentVolumeSpec"`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolumeClaim is immutable"
@@ -35,22 +35,22 @@ type ClusterLocalModelNodeGroupSpec struct {
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope="Cluster"
-type ClusterLocalModelNodeGroup struct {
+type LocalModelNodeGroup struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec ClusterLocalModelNodeGroupSpec `json:"spec,omitempty"`
+	Spec LocalModelNodeGroupSpec `json:"spec,omitempty"`
 }
 
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ClusterLocalModelNodeGroupList struct {
+type LocalModelNodeGroupList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterLocalModelNodeGroup `json:"items"`
+	Items           []LocalModelNodeGroup `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ClusterLocalModelNodeGroup{}, &ClusterLocalModelNodeGroupList{})
+	SchemeBuilder.Register(&LocalModelNodeGroup{}, &LocalModelNodeGroupList{})
 }

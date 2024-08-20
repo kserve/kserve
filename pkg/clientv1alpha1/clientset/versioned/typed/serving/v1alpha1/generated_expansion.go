@@ -20,13 +20,13 @@ package v1alpha1
 
 type ClusterLocalModelExpansion interface{}
 
-type ClusterLocalModelNodeGroupExpansion interface{}
-
 type ClusterServingRuntimeExpansion interface{}
 
 type ClusterStorageContainerExpansion interface{}
 
 type InferenceGraphExpansion interface{}
+
+type LocalModelNodeGroupExpansion interface{}
 
 type ServingRuntimeExpansion interface{}
 

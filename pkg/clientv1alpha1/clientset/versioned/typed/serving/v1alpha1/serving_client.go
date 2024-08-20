@@ -29,10 +29,10 @@ import (
 type ServingV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	ClusterLocalModelsGetter
-	ClusterLocalModelNodeGroupsGetter
 	ClusterServingRuntimesGetter
 	ClusterStorageContainersGetter
 	InferenceGraphsGetter
+	LocalModelNodeGroupsGetter
 	ServingRuntimesGetter
 	TrainedModelsGetter
 }
@@ -46,10 +46,6 @@ func (c *ServingV1alpha1Client) ClusterLocalModels(namespace string) ClusterLoca
 	return newClusterLocalModels(c, namespace)
 }
 
-func (c *ServingV1alpha1Client) ClusterLocalModelNodeGroups(namespace string) ClusterLocalModelNodeGroupInterface {
-	return newClusterLocalModelNodeGroups(c, namespace)
-}
-
 func (c *ServingV1alpha1Client) ClusterServingRuntimes(namespace string) ClusterServingRuntimeInterface {
 	return newClusterServingRuntimes(c, namespace)
 }
@@ -60,6 +56,10 @@ func (c *ServingV1alpha1Client) ClusterStorageContainers(namespace string) Clust
 
 func (c *ServingV1alpha1Client) InferenceGraphs(namespace string) InferenceGraphInterface {
 	return newInferenceGraphs(c, namespace)
+}
+
+func (c *ServingV1alpha1Client) LocalModelNodeGroups(namespace string) LocalModelNodeGroupInterface {
+	return newLocalModelNodeGroups(c, namespace)
 }
 
 func (c *ServingV1alpha1Client) ServingRuntimes(namespace string) ServingRuntimeInterface {

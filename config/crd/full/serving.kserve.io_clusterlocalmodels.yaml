@@ -50,13 +50,13 @@ spec:
             properties:
               copies:
                 properties:
-                  successfulCopies:
+                  available:
                     default: 0
                     type: integer
-                  totalCopies:
+                  failed:
                     type: integer
-                required:
-                - successfulCopies
+                  total:
+                    type: integer
                 type: object
               infereneceServices:
                 items:
@@ -79,14 +79,6 @@ spec:
                   - NodeDeleted
                   type: string
                 type: object
-              status:
-                enum:
-                - ""
-                - ModelReady
-                - ModelNotReady
-                - ModelPartiallyReady
-                - ModelDeleting
-                type: string
             type: object
         type: object
     served: true
