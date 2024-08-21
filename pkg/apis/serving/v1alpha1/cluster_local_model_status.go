@@ -38,6 +38,7 @@ type NodeStatus string
 const (
 	NodeNotReady      NodeStatus = "NodeNotReady"
 	NodeDownloading   NodeStatus = "NodeDownloading"
+	NodeDownloaded    NodeStatus = "NodeDownloaded"
 	NodeDownloadError NodeStatus = "NodeDownloadError"
 	NodeDeleting      NodeStatus = "NodeDeleting"
 	NodeDeletionError NodeStatus = "NodeDeletionError"
