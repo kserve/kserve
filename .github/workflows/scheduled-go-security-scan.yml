@@ -22,7 +22,7 @@ jobs:
           args: '-no-fail -fmt=sarif -out=go-security-scan-results.sarif -exclude-dir=pkg/client -exclude-dir=pkg/clientv1alpha1 ./...'
 
       - name: Upload SARIF file to Github Code Scanning
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: go-security-scan-results.sarif
           category: gosec-tool
