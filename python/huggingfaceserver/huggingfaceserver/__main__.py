@@ -276,5 +276,5 @@ if __name__ == "__main__":
     except Exception as e:
         import sys
 
-        logger.error(f"Failed to start model server: {e}")
+        logger.error(f"Failed to start model server: {e}", exc_info=True)
         sys.exit(1)
