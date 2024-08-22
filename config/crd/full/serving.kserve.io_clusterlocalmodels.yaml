@@ -51,7 +51,6 @@ spec:
               copies:
                 properties:
                   available:
-                    default: 0
                     type: integer
                   failed:
                     type: integer
@@ -73,6 +72,7 @@ spec:
                   - ""
                   - NodeNotReady
                   - NodeDownloading
+                  - NodeDownloaded
                   - NodeDownloadError
                   - Deleting
                   - NodeDeletionError

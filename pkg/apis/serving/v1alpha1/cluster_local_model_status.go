@@ -31,7 +31,7 @@ type NamespacedName struct {
 }
 
 // NodeStatus enum
-// +kubebuilder:validation:Enum="";NodeNotReady;NodeDownloading;NodeDownloadError;Deleting;NodeDeletionError;NodeDeleted
+// +kubebuilder:validation:Enum="";NodeNotReady;NodeDownloading;NodeDownloaded;NodeDownloadError;Deleting;NodeDeletionError;NodeDeleted
 type NodeStatus string
 
 // NodeStatus Enum values
@@ -46,7 +46,6 @@ const (
 )
 
 type ModelCopies struct {
-	// +kubebuilder:default=0
 	Available int `json:"available,omitempty"`
 	// Total number of nodes that we expect the model to be downloaded. Including nodes that are not ready
 	Total int `json:"total,omitempty"`

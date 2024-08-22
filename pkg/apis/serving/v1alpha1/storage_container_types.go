@@ -32,7 +32,8 @@ type StorageContainerSpec struct {
 
 	// List of URI formats that this container supports
 	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats" validate:"required"`
-	WorkloadType        WorkloadType         `json:"workloadType,omitempty"`
+	// +kubebuilder:default="localModelDownloadJob"
+	WorkloadType WorkloadType `json:"workloadType,omitempty"`
 }
 
 // SupportedUriFormat can be either prefix or regex. Todo: Add validation that only one of them is set.

@@ -2550,6 +2550,7 @@ spec:
                   type: object
                 type: array
               workloadType:
+                default: localModelDownloadJob
                 type: string
             required:
             - container
