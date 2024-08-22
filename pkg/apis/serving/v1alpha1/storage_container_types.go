@@ -32,7 +32,7 @@ type StorageContainerSpec struct {
 
 	// List of URI formats that this container supports
 	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats" validate:"required"`
-	// +kubebuilder:default="localModelDownloadJob"
+	// +kubebuilder:default="initContainer"
 	WorkloadType WorkloadType `json:"workloadType,omitempty"`
 }
 

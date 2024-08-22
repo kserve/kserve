@@ -656,7 +656,7 @@ spec:
                   type: object
                 type: array
               workloadType:
-                default: localModelDownloadJob
+                default: initContainer
                 type: string
             required:
             - container
