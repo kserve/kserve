@@ -31,7 +31,7 @@ type NamespacedName struct {
 }
 
 // NodeStatus enum
-// +kubebuilder:validation:Enum="";NodeNotReady;NodeDownloading;NodeDownloaded;NodeDownloadError;Deleting;NodeDeletionError;NodeDeleted
+// +kubebuilder:validation:Enum="";NodeNotReady;NodeDownloading;NodeDownloaded;NodeDownloadError;NodeDeleting;NodeDeletionError;NodeDeleted
 type NodeStatus string
 
 // NodeStatus Enum values

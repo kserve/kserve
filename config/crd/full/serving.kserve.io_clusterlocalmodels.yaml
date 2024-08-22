@@ -74,7 +74,7 @@ spec:
                   - NodeDownloading
                   - NodeDownloaded
                   - NodeDownloadError
-                  - Deleting
+                  - NodeDeleting
                   - NodeDeletionError
                   - NodeDeleted
                   type: string
