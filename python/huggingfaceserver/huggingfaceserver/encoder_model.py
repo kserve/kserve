@@ -31,6 +31,7 @@ from torch import Tensor
 from transformers import (
     AutoConfig,
     AutoTokenizer,
+    AutoProcessor,
     BatchEncoding,
     PreTrainedModel,
     PreTrainedTokenizerBase,
@@ -62,6 +63,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
     trust_remote_code: bool
     ready: bool = False
     _tokenizer: PreTrainedTokenizerBase
+    _processor: Optional = None
     _model: Optional[PreTrainedModel] = None
     _device: torch.device
 
@@ -158,6 +160,9 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         )
         logger.info("Successfully loaded tokenizer")
 
+        self._processor = AutoProcessor.from_pretrained(str(model_id_or_path))
+        logger.info("Successfully loaded processor")
+
         # load huggingface model using from_pretrained for inference mode
         if not self.predictor_host:
             self._model = model_cls.from_pretrained(
@@ -246,10 +251,20 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             # like NVIDIA triton inference server
             return await super().predict(input_batch, context)
         else:
+            from PIL import Image
+            import requests
+            from io import BytesIO
+            url = "https://templates.invoicehome.com/invoice-template-us-neat-750px.png"
+            response = requests.get(url)
+            image_data = response.content
+            image = Image.open(BytesIO(image_data))
+
+            encoding = self._processor(image.convert("RGB"), "What is the invoice number?", return_tensors="pt")
+
             input_batch = input_batch.to(self._device)
             try:
                 with torch.no_grad():
-                    outputs = self._model(**input_batch).logits
+                    outputs = self._model(**encoding).logits
                     return outputs
             except Exception as e:
                 raise InferenceError(str(e))
