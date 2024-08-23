@@ -354,7 +354,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{
 									Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace),
+										"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace),
+										"KServe-Isvc-Name":      serviceName,
+										"KServe-Isvc-Namespace": serviceKey.Namespace,
 									},
 								},
 							},

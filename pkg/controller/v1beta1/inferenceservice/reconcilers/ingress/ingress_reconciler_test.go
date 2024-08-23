@@ -145,7 +145,10 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Headers: &istiov1beta1.Headers{
 							Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-								"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+								"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+								"KServe-Isvc-Name":      serviceName,
+								"KServe-Isvc-Namespace": namespace,
+							}},
 						},
 					},
 				},
@@ -209,7 +212,9 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Headers: &istiov1beta1.Headers{
 							Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-								"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+								"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+								"KServe-Isvc-Name":      serviceName,
+								"KServe-Isvc-Namespace": namespace}},
 						},
 					},
 				},
@@ -308,7 +313,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
+									"Host":                  network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace,
 								}},
 							},
 						},
@@ -380,7 +387,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
+									"Host":                  network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace,
 								}},
 							},
 						},
@@ -506,7 +515,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace)},
+									"Host":                  network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace},
 								},
 							},
 						},
@@ -520,7 +531,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)},
+									"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace},
 								},
 							},
 						},
@@ -597,7 +610,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+									"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace}},
 							},
 						},
 						{
@@ -638,7 +653,9 @@ func TestCreateVirtualService(t *testing.T) {
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{
 									Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										"KServe-Isvc-Name":      serviceName,
+										"KServe-Isvc-Namespace": namespace,
 									},
 								},
 							},
@@ -735,7 +752,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+									"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace}},
 							},
 						},
 						{
@@ -776,7 +795,9 @@ func TestCreateVirtualService(t *testing.T) {
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{
 									Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										"KServe-Isvc-Name":      serviceName,
+										"KServe-Isvc-Namespace": namespace,
 									},
 								},
 							},
@@ -874,7 +895,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+									"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace}},
 							},
 						},
 						{
@@ -915,7 +938,9 @@ func TestCreateVirtualService(t *testing.T) {
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{
 									Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										"KServe-Isvc-Name":      serviceName,
+										"KServe-Isvc-Namespace": namespace,
 									},
 								},
 							},
@@ -972,7 +997,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
+									"Host":                  network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace}},
 							},
 						},
 					},
@@ -1043,7 +1070,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+									"Host":                  network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace,
 								}},
 							},
 						},
@@ -1250,7 +1279,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+									"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace}},
 							},
 						},
 					},
