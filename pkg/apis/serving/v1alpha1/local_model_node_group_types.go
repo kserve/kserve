@@ -24,9 +24,7 @@ import (
 // LocalModelNodeGroupSpec defines a group of nodes for to download the model to.
 // +k8s:openapi-gen=true
 type LocalModelNodeGroupSpec struct {
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolume is immutable"
-	PersistentVolumeSpec corev1.PersistentVolumeSpec `json:"persistentVolumeSpec"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="persistentVolumeClaim is immutable"
+	PersistentVolumeSpec      corev1.PersistentVolumeSpec      `json:"persistentVolumeSpec"`
 	PersistentVolumeClaimSpec corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaimSpec"`
 }
 

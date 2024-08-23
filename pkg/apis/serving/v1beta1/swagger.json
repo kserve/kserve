@@ -96,20 +96,17 @@
       "required": [
         "sourceModelUri",
         "modelSize",
-        "nodeGroups"
+        "nodeGroup"
       ],
       "properties": {
         "modelSize": {
           "description": "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
           "$ref": "#/definitions/resource.Quantity"
         },
-        "nodeGroups": {
+        "nodeGroup": {
           "description": "group of nodes to cache the model on.",
-          "type": "array",
-          "items": {
-            "type": "string",
-            "default": ""
-          }
+          "type": "string",
+          "default": ""
         },
         "sourceModelUri": {
           "description": "Original StorageUri",

@@ -32,10 +32,8 @@ spec:
                 - type: string
                 pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                 x-kubernetes-int-or-string: true
-              nodeGroups:
-                items:
-                  type: string
-                type: array
+              nodeGroup:
+                type: string
               sourceModelUri:
                 type: string
                 x-kubernetes-validations:
@@ -43,7 +41,7 @@ spec:
                   rule: self == oldSelf
             required:
             - modelSize
-            - nodeGroups
+            - nodeGroup
             - sourceModelUri
             type: object
           status:

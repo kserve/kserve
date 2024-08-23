@@ -62,7 +62,7 @@ class TestV1alpha1ClusterLocalModelList(unittest.TestCase):
                         metadata=None,
                         spec=kserve.models.v1alpha1_cluster_local_model_spec.V1alpha1ClusterLocalModelSpec(
                             model_size="1Gi",
-                            node_groups=["0"],
+                            node_group="0",
                             source_model_uri="0",
                         ),
                         status=None,
@@ -80,7 +80,7 @@ class TestV1alpha1ClusterLocalModelList(unittest.TestCase):
                         metadata=None,
                         spec=kserve.models.v1alpha1_cluster_local_model_spec.V1alpha1ClusterLocalModelSpec(
                             model_size="1Gi",
-                            node_groups=["0"],
+                            node_group="0",
                             source_model_uri="0",
                         ),
                         status=None,

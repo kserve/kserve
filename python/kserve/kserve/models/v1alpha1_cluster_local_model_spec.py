@@ -48,29 +48,29 @@ class V1alpha1ClusterLocalModelSpec(object):
     """
     openapi_types = {
         'model_size': 'ResourceQuantity',
-        'node_groups': 'list[str]',
+        'node_group': 'str',
         'source_model_uri': 'str'
     }
 
     attribute_map = {
         'model_size': 'modelSize',
-        'node_groups': 'nodeGroups',
+        'node_group': 'nodeGroup',
         'source_model_uri': 'sourceModelUri'
     }
 
-    def __init__(self, model_size=None, node_groups=None, source_model_uri='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, model_size=None, node_group='', source_model_uri='', local_vars_configuration=None):  # noqa: E501
         """V1alpha1ClusterLocalModelSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._model_size = None
-        self._node_groups = None
+        self._node_group = None
         self._source_model_uri = None
         self.discriminator = None
 
         self.model_size = model_size
-        self.node_groups = node_groups
+        self.node_group = node_group
         self.source_model_uri = source_model_uri
 
     @property
@@ -97,29 +97,29 @@ class V1alpha1ClusterLocalModelSpec(object):
         self._model_size = model_size
 
     @property
-    def node_groups(self):
-        """Gets the node_groups of this V1alpha1ClusterLocalModelSpec.  # noqa: E501
+    def node_group(self):
+        """Gets the node_group of this V1alpha1ClusterLocalModelSpec.  # noqa: E501
 
         group of nodes to cache the model on.  # noqa: E501
 
-        :return: The node_groups of this V1alpha1ClusterLocalModelSpec.  # noqa: E501
-        :rtype: list[str]
+        :return: The node_group of this V1alpha1ClusterLocalModelSpec.  # noqa: E501
+        :rtype: str
         """
-        return self._node_groups
+        return self._node_group
 
-    @node_groups.setter
-    def node_groups(self, node_groups):
-        """Sets the node_groups of this V1alpha1ClusterLocalModelSpec.
+    @node_group.setter
+    def node_group(self, node_group):
+        """Sets the node_group of this V1alpha1ClusterLocalModelSpec.
 
         group of nodes to cache the model on.  # noqa: E501
 
-        :param node_groups: The node_groups of this V1alpha1ClusterLocalModelSpec.  # noqa: E501
-        :type: list[str]
+        :param node_group: The node_group of this V1alpha1ClusterLocalModelSpec.  # noqa: E501
+        :type: str
         """
-        if self.local_vars_configuration.client_side_validation and node_groups is None:  # noqa: E501
-            raise ValueError("Invalid value for `node_groups`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and node_group is None:  # noqa: E501
+            raise ValueError("Invalid value for `node_group`, must not be `None`")  # noqa: E501
 
-        self._node_groups = node_groups
+        self._node_group = node_group
 
     @property
     def source_model_uri(self):

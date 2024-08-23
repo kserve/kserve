@@ -121,9 +121,6 @@ spec:
                   volumeName:
                     type: string
                 type: object
-                x-kubernetes-validations:
-                - message: persistentVolumeClaim is immutable
-                  rule: self == oldSelf
               persistentVolumeSpec:
                 properties:
                   accessModes:
@@ -649,9 +646,6 @@ spec:
                     - volumePath
                     type: object
                 type: object
-                x-kubernetes-validations:
-                - message: persistentVolume is immutable
-                  rule: self == oldSelf
             required:
             - persistentVolumeClaimSpec
             - persistentVolumeSpec

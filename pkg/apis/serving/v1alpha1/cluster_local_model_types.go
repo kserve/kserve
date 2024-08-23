@@ -29,7 +29,7 @@ type ClusterLocalModelSpec struct {
 	// Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.
 	ModelSize resource.Quantity `json:"modelSize" validate:"required"`
 	// group of nodes to cache the model on.
-	NodeGroups []string `json:"nodeGroups" validate:"required"`
+	NodeGroup string `json:"nodeGroup" validate:"required"`
 }
 
 // +k8s:openapi-gen=true
