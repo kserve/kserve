@@ -48,9 +48,9 @@ class ImageTransformer(kserve.Model):
         self, inputs: Union[Dict, InferRequest], headers: Dict[str, str] = None
     ) -> Union[Dict, InferRequest]:
         logger.info("Received inputs %s", inputs)
-        if inputs["EventName"] == "s3:ObjectCreated:Put":
-            bucket = inputs["Records"][0]["s3"]["bucket"]["name"]
-            key = inputs["Records"][0]["s3"]["object"]["key"]
+        if inputs["data"]["EventName"] == "s3:ObjectCreated:Put":
+            bucket = inputs["data"]["Records"][0]["s3"]["bucket"]["name"]
+            key = inputs["data"]["Records"][0]["s3"]["object"]["key"]
             self._key = key
             client.download_file(bucket, key, "/tmp/" + key)
             request = image_transform("/tmp/" + key)
