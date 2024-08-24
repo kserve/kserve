@@ -2,14 +2,14 @@
 
 Helm chart for deploying kserve resources
 
-![Version: v0.13.0](https://img.shields.io/badge/Version-v0.13.0-informational?style=flat-square)
+![Version: v0.14.0-rc0](https://img.shields.io/badge/Version-v0.14.0--rc0-informational?style=flat-square)
 
 ## Installing the Chart
 
 To install the chart, run the following:
 
 ```console
-$ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.13.0
+$ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0-rc0
 ```
 
 ## Values
@@ -20,6 +20,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.13.0
 | kserve.agent.tag | string | `"v0.13.0"` |  |
 | kserve.controller.affinity | object | `{}` |  |
 | kserve.controller.annotations | object | `{}` |  |
+| kserve.controller.containerSecurityContext | object | `{}` |  |
 | kserve.controller.deploymentMode | string | `"Serverless"` |  |
 | kserve.controller.gateway.additionalIngressDomains | list | `[]` |  |
 | kserve.controller.gateway.disableIngressCreation | bool | `false` |  |
@@ -38,11 +39,12 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.13.0
 | kserve.controller.nodeSelector | object | `{}` |  |
 | kserve.controller.podAnnotations | object | `{}` |  |
 | kserve.controller.podLabels | object | `{}` |  |
-| kserve.controller.rbacProxyImage | string | `"gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1"` |  |
+| kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.18.0"` |  |
 | kserve.controller.resources.limits.cpu | string | `"100m"` |  |
 | kserve.controller.resources.limits.memory | string | `"300Mi"` |  |
 | kserve.controller.resources.requests.cpu | string | `"100m"` |  |
 | kserve.controller.resources.requests.memory | string | `"300Mi"` |  |
+| kserve.controller.securityContext | object | `{}` |  |
 | kserve.controller.tag | string | `"v0.13.0"` |  |
 | kserve.controller.tolerations | list | `[]` |  |
 | kserve.controller.topologySpreadConstraints | list | `[]` |  |
