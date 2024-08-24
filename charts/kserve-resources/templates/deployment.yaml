@@ -12,6 +12,9 @@ metadata:
     {{- end }}
   annotations:
     prometheus.io/scrape: 'true'
+    {{- if .Values.kserve.controller.annotations }}
+    {{- toYaml .Values.kserve.controller.annotations | nindent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:
@@ -27,6 +30,9 @@ spec:
         {{- end }}
       annotations:
         kubectl.kubernetes.io/default-container: manager
+        {{- if .Values.kserve.controller.podAnnotations }}
+        {{- toYaml .Values.kserve.controller.podAnnotations | nindent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: kserve-controller-manager
       {{- with .Values.kserve.controller.nodeSelector }}
