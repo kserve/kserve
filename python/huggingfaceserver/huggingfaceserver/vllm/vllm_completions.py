@@ -25,6 +25,7 @@ from typing import (
     Union,
     Iterator,
 )
+from http import HTTPStatus
 
 import torch
 from vllm import PoolingParams
@@ -50,8 +51,7 @@ from kserve.protocol.rest.openai.types.openapi import (
     CreateCompletionResponse as Completion,
     Logprobs,
 )
-from kserve.errors import InvalidInput
-from kserve.protocol.rest.openai.errors import OpenAIError
+from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
 from kserve.protocol.rest.openai import ChatCompletionRequestMessage, CompletionRequest
 
 
@@ -159,7 +159,7 @@ class OpenAIServingCompletion:
                     )
                 )
         except Exception as e:
-            raise OpenAIError(str(e))
+            raise e if isinstance(e, OpenAIError) else OpenAIError(str(e))
 
         result_generator: AsyncIterator[Tuple[int, RequestOutput]] = (
             merge_async_iterators(*generators)
@@ -388,13 +388,17 @@ class OpenAIServingCompletion:
             request.max_tokens = self.max_model_len - token_num
 
         if token_num + request.max_tokens > self.max_model_len:
-            raise InvalidInput(
-                f"This model's maximum context length is "
-                f"{self.max_model_len} tokens. However, you requested "
-                f"{request.max_tokens + token_num} tokens "
-                f"({token_num} in the messages, "
-                f"{request.max_tokens} in the completion). "
-                f"Please reduce the length of the messages or completion.",
+            raise OpenAIError(
+                response=create_error_response(
+                    f"This model's maximum context length is "
+                    f"{self.max_model_len} tokens. However, you requested "
+                    f"{request.max_tokens + token_num} tokens "
+                    f"({token_num} in the messages, "
+                    f"{request.max_tokens} in the completion). "
+                    f"Please reduce the length of the messages or completion.",
+                    err_type="BadRequest",
+                    status_code=HTTPStatus.BAD_REQUEST,
+                )
             )
         else:
             return input_ids, input_text
