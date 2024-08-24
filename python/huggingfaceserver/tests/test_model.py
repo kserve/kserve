@@ -30,7 +30,6 @@ from huggingfaceserver.generative_model import HuggingfaceGenerativeModel
 from huggingfaceserver.task import MLTask
 from test_output import bert_token_classification_return_prob_expected_output
 import torch.nn.functional as F
-import torch
 
 
 @pytest.fixture(scope="module")

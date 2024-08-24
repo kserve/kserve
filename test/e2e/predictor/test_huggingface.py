@@ -286,7 +286,8 @@ def test_huggingface_openai_text_2_text():
 
 
 @pytest.mark.llm
-def test_huggingface_v2_text_embedding():
+@pytest.mark.asyncio(scope="session")
+async def test_huggingface_v2_text_embedding(rest_v2_client):
     service_name = "hf-text-embedding-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -332,10 +333,8 @@ def test_huggingface_v2_text_embedding():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(
-        service_name,
-        "./data/text_embedding_input_v2.json",
-        protocol_version=protocol_version,
+    res = await predict_isvc(
+        rest_v2_client, service_name, "./data/text_embedding_input_v2.json"
     )
     assert res["outputs"][0]["data"] == huggingface_text_embedding_expected_output
 
