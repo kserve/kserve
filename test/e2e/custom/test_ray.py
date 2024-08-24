@@ -67,7 +67,7 @@ async def test_custom_model_http_ray(rest_v1_client):
     response = await predict_isvc(
         rest_v1_client,
         service_name=service_name,
-        input_path="./data/custom_model_input.json",
+        input="./data/custom_model_input.json",
         model_name=model_name,
     )
     outputs = response["predictions"]

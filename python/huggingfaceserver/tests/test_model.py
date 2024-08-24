@@ -227,8 +227,10 @@ async def test_model_revision(request: HuggingfaceEncoderModel):
 
 @pytest.mark.asyncio
 async def test_bert_predictor_host(request, httpx_mock: HTTPXMock):
+    model_name = "bert"
     httpx_mock.add_response(
         json={
+            "model_name": model_name,
             "outputs": [
                 {
                     "name": "OUTPUT__0",
@@ -236,12 +238,12 @@ async def test_bert_predictor_host(request, httpx_mock: HTTPXMock):
                     "data": [1] * 9 * 758,
                     "datatype": "INT64",
                 }
-            ]
+            ],
         }
     )
 
     model = HuggingfaceEncoderModel(
-        "bert",
+        model_name,
         model_id_or_path="google-bert/bert-base-uncased",
         tensor_input_names="input_ids",
         predictor_config=PredictorConfig(

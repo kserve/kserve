@@ -92,7 +92,8 @@ def test_model_joblib():
     )
     infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
     infer_response = model.predict(infer_request)
-    assert infer_response.to_rest()["outputs"][0]["data"] == [0]
+    infer_dict, _ = infer_response.to_rest()
+    assert infer_dict["outputs"][0]["data"] == [0]
 
 
 def test_mixedtype_model_joblib():
@@ -118,7 +119,8 @@ def test_mixedtype_model_joblib():
     # test v2 infer call for mixed type input
     infer_request = create_v2_request(request=request, model_name="model")
     infer_response = model.predict(infer_request)
-    assert infer_response.to_rest()["outputs"][0]["data"] == [12.202832815138274]
+    infer_dict, _ = infer_response.to_rest()
+    assert infer_dict["outputs"][0]["data"] == [12.202832815138274]
 
 
 def test_model_pickle():
