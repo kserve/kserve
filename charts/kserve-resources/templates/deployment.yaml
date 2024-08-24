@@ -7,8 +7,14 @@ metadata:
   labels:
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
+    {{- if .Values.kserve.controller.labels }}
+    {{- toYaml .Values.kserve.controller.labels | nindent 4 }}
+    {{- end }}
   annotations:
     prometheus.io/scrape: 'true'
+    {{- if .Values.kserve.controller.annotations }}
+    {{- toYaml .Values.kserve.controller.annotations | nindent 4 }}
+    {{- end }}
 spec:
   selector:
     matchLabels:
@@ -19,8 +25,14 @@ spec:
       labels:
         control-plane: kserve-controller-manager
         controller-tools.k8s.io: "1.0"
+        {{- if .Values.kserve.controller.podLabels }}
+        {{- toYaml .Values.kserve.controller.podLabels | nindent 8 }}
+        {{- end }}
       annotations:
         kubectl.kubernetes.io/default-container: manager
+        {{- if .Values.kserve.controller.podAnnotations }}
+        {{- toYaml .Values.kserve.controller.podAnnotations | nindent 8 }}
+        {{- end }}
     spec:
       serviceAccountName: kserve-controller-manager
       {{- with .Values.kserve.controller.nodeSelector }}
