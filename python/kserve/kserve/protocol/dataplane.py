@@ -295,7 +295,7 @@ class DataPlane:
             json_length = headers.get(INFERENCE_CONTENT_LENGTH_HEADER, None)
             if json_length is None:
                 raise InvalidInput(
-                    f"A byte input is received. But, the"
+                    f"received byte inputs, but the"
                     f"'{INFERENCE_CONTENT_LENGTH_HEADER}' header is missing."
                 )
             return InferRequest.from_bytes(body, int(json_length), model_name)

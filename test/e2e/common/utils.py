@@ -58,7 +58,7 @@ def grpc_client(host):
 async def predict_isvc(
     client: InferenceRESTClient,
     service_name,
-    input: [str, InferRequest],
+    input: Union[str, InferRequest],
     version=constants.KSERVE_V1BETA1_VERSION,
     model_name=None,
     is_batch=False,
@@ -90,7 +90,7 @@ async def predict(
     client: InferenceRESTClient,
     url,
     host,
-    input: [str, InferRequest],
+    input: Union[str, InferRequest],
     model_name=None,
     is_batch=False,
     is_graph=False,
