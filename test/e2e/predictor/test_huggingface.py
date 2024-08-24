@@ -336,6 +336,6 @@ async def test_huggingface_v2_text_embedding(rest_v2_client):
     res = await predict_isvc(
         rest_v2_client, service_name, "./data/text_embedding_input_v2.json"
     )
-    assert res["outputs"][0]["data"] == huggingface_text_embedding_expected_output
+    assert res.outputs[0].data == huggingface_text_embedding_expected_output
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
