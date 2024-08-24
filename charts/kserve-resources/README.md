@@ -19,6 +19,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.13.0
 | kserve.agent.image | string | `"kserve/agent"` |  |
 | kserve.agent.tag | string | `"v0.13.0"` |  |
 | kserve.controller.affinity | object | `{}` |  |
+| kserve.controller.annotations | object | `{}` |  |
 | kserve.controller.deploymentMode | string | `"Serverless"` |  |
 | kserve.controller.gateway.additionalIngressDomains | list | `[]` |  |
 | kserve.controller.gateway.disableIngressCreation | bool | `false` |  |
@@ -33,7 +34,10 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.13.0
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.controller.image | string | `"kserve/kserve-controller"` |  |
 | kserve.controller.imagePullSecrets | list | `[]` |  |
+| kserve.controller.labels | object | `{}` |  |
 | kserve.controller.nodeSelector | object | `{}` |  |
+| kserve.controller.podAnnotations | object | `{}` |  |
+| kserve.controller.podLabels | object | `{}` |  |
 | kserve.controller.rbacProxyImage | string | `"gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1"` |  |
 | kserve.controller.resources.limits.cpu | string | `"100m"` |  |
 | kserve.controller.resources.limits.memory | string | `"300Mi"` |  |
