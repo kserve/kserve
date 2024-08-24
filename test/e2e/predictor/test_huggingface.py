@@ -28,6 +28,7 @@ from kserve import (
 )
 from kserve.constants import constants
 from ..common.utils import KSERVE_TEST_NAMESPACE, generate, predict_isvc
+from .test_output import huggingface_text_embedding_expected_output
 
 
 @pytest.mark.llm
@@ -280,5 +281,61 @@ def test_huggingface_openai_text_2_text():
         service_name, "./data/t5_small_generate.json", chat_completions=False
     )
     assert res["choices"][0]["text"] == "Das ist für Deutschland"
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.llm
+@pytest.mark.asyncio(scope="session")
+async def test_huggingface_v2_text_embedding(rest_v2_client):
+    service_name = "hf-text-embedding-v2"
+    protocol_version = "v2"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="huggingface",
+            ),
+            protocol_version=protocol_version,
+            args=[
+                "--model_id",
+                "sentence-transformers/all-MiniLM-L6-v2",
+                "--model_revision",
+                "8b3219a92973c328a8e22fadcfa821b5dc75636a",
+                "--tokenizer_revision",
+                "8b3219a92973c328a8e22fadcfa821b5dc75636a",
+                # This model will fail with "Task couldn't be inferred from BertModel"
+                # if the task is not specified.
+                "--task",
+                "text_embedding",
+                "--backend",
+                "huggingface",
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "1", "memory": "2Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = await predict_isvc(
+        rest_v2_client, service_name, "./data/text_embedding_input_v2.json"
+    )
+    assert res.outputs[0].data == huggingface_text_embedding_expected_output
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

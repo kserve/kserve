@@ -16,6 +16,7 @@ import pathlib
 from typing import Any, Dict, Optional, Union
 
 import torch
+import torch.nn.functional as F
 from accelerate import init_empty_weights
 from kserve import Model
 from kserve.errors import InferenceError
@@ -45,7 +46,7 @@ from .task import (
     get_model_class_for_task,
     infer_task_from_model_architecture,
 )
-from .utils import _get_and_verify_max_len
+from .utils import _get_and_verify_max_len, _mean_pooling
 
 
 class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
@@ -208,6 +209,8 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
+            if self.task == MLTask.text_embedding:
+                context["attention_mask"] = inputs["attention_mask"]
             infer_inputs = []
             for key, input_tensor in inputs.items():
                 if (not self.tensor_input_names) or (key in self.tensor_input_names):
@@ -234,6 +237,8 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
+            if self.task == MLTask.text_embedding:
+                context["attention_mask"] = inputs["attention_mask"]
             return inputs
 
     async def predict(
@@ -249,7 +254,12 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             input_batch = input_batch.to(self._device)
             try:
                 with torch.no_grad():
-                    outputs = self._model(**input_batch).logits
+                    outputs = self._model(**input_batch)
+                    if self.task == MLTask.text_embedding.value:
+                        # last_hidden_state contains all token embeddings
+                        outputs = outputs.last_hidden_state
+                    else:
+                        outputs = outputs.logits
                     return outputs
             except Exception as e:
                 raise InferenceError(str(e))
@@ -305,6 +315,15 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
                 else:
                     predictions = torch.argmax(output, dim=2)
                     inferences.append(predictions.tolist())
+            return get_predict_response(request, inferences, self.name)
+        elif self.task == MLTask.text_embedding:
+            # Perform pooling
+            outputs = _mean_pooling(outputs, context["attention_mask"])
+            # Normalize embeddings
+            outputs = F.normalize(outputs, p=2, dim=1)
+            num_rows, _ = outputs.shape
+            for i in range(num_rows):
+                inferences.append(outputs[i].tolist())
             return get_predict_response(request, inferences, self.name)
         else:
             raise ValueError(
