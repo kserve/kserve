@@ -32,11 +32,13 @@ kserve:
     enablePrometheusScraping: "false"
   controller:
     deploymentMode: "Serverless"
-    rbacProxyImage: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+    rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
     labels: {}
     podLabels: {}
     annotations: {}
     podAnnotations: {}
+    securityContext: {}
+    containerSecurityContext: {}  
     gateway:
       domain: example.com
       additionalIngressDomains: []
