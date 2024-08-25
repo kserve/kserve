@@ -133,13 +133,6 @@ if not vllm_available():
         choices=dtype_choices,
         help=f"data type to load the weights in. One of {dtype_choices}. Defaults to float16 for GPU and float32 for CPU systems",
     )
-    # vLLM uses max-model-len as paramter to denote max tokens. Register the same for HuggingFace (if vllm not available)
-    parser.add_argument(
-        "--max-model-len",
-        required=False,
-        type=int,
-        help="max number of tokens the model can process/tokenize. If not mentioned, uses model's max position encodings",
-    )
 
 
 args, _ = parser.parse_known_args()
