@@ -74,7 +74,13 @@ parser.add_argument(
     dest="max_model_len",
     type=int,
     required=False,
-    help="max sequence length for the tokenizer. will be deprecated in favour of --max-model-len",
+    help="max sequence length for the tokenizer. will be deprecated in favour of --max_model_len",
+)
+parser.add_argument(
+    "--max_model_len",
+    type=int,
+    required=False,
+    help="max number of tokens the model can process/tokenize. If not mentioned, uses model's max position encodings",
 )
 parser.add_argument(
     "--disable_lower_case",
