@@ -75,13 +75,6 @@ spec:
         imagePullPolicy: IfNotPresent
         name: manager
         securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
-          privileged: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
           {{- with .Values.kserve.controller.containerSecurityContext}}
           {{- toYaml . | nindent 10 }}
           {{- end }}
