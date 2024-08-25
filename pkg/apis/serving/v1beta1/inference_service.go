@@ -61,7 +61,7 @@ type LoggerSpec struct {
 	// - "response": log only response <br />
 	// +optional
 	Mode LoggerType `json:"mode,omitempty"`
-	// Matched HTTP headers for logging cloud events metadata.
+	// Matched metadata HTTP headers for propagating to inference logger cloud events.
 	// +optional
 	MetadataHeaders []string `json:"metadataHeaders,omitempty"`
 }
