@@ -52,6 +52,7 @@ class V1alpha1InferenceStep(object):
         'dependency': 'str',
         'name': 'str',
         'node_name': 'str',
+        'response': 'bool',
         'service_name': 'str',
         'service_url': 'str',
         'weight': 'int'
@@ -63,12 +64,13 @@ class V1alpha1InferenceStep(object):
         'dependency': 'dependency',
         'name': 'name',
         'node_name': 'nodeName',
+        'response': 'response',
         'service_name': 'serviceName',
         'service_url': 'serviceUrl',
         'weight': 'weight'
     }
 
-    def __init__(self, condition=None, data=None, dependency=None, name=None, node_name=None, service_name=None, service_url=None, weight=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, condition=None, data=None, dependency=None, name=None, node_name=None, response=None, service_name=None, service_url=None, weight=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceStep - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -79,6 +81,7 @@ class V1alpha1InferenceStep(object):
         self._dependency = None
         self._name = None
         self._node_name = None
+        self._response = None
         self._service_name = None
         self._service_url = None
         self._weight = None
@@ -94,6 +97,8 @@ class V1alpha1InferenceStep(object):
             self.name = name
         if node_name is not None:
             self.node_name = node_name
+        if response is not None:
+            self.response = response
         if service_name is not None:
             self.service_name = service_name
         if service_url is not None:
@@ -215,6 +220,29 @@ class V1alpha1InferenceStep(object):
         """
 
         self._node_name = node_name
+
+    @property
+    def response(self):
+        """Gets the response of this V1alpha1InferenceStep.  # noqa: E501
+
+        specify this step response be returned alongside final step response in sequence node final step response will always be returned  # noqa: E501
+
+        :return: The response of this V1alpha1InferenceStep.  # noqa: E501
+        :rtype: bool
+        """
+        return self._response
+
+    @response.setter
+    def response(self, response):
+        """Sets the response of this V1alpha1InferenceStep.
+
+        specify this step response be returned alongside final step response in sequence node final step response will always be returned  # noqa: E501
+
+        :param response: The response of this V1alpha1InferenceStep.  # noqa: E501
+        :type: bool
+        """
+
+        self._response = response
 
     @property
     def service_name(self):

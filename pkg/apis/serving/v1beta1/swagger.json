@@ -326,6 +326,10 @@
           "description": "The node name for routing as next step",
           "type": "string"
         },
+        "response": {
+          "description": "specify this step response be returned alongside final step response in sequence node final step response will always be returned",
+          "type": "boolean"
+        },
         "serviceName": {
           "description": "named reference for InferenceService",
           "type": "string"
