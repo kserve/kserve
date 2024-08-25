@@ -2385,7 +2385,7 @@ spec:
                       type: object
                     logger:
                       properties:
-                        MetadataHeaders:
+                        metadataHeaders:
                           items:
                             type: string
                           type: array
@@ -6306,7 +6306,7 @@ spec:
                       type: object
                     logger:
                       properties:
-                        MetadataHeaders:
+                        metadataHeaders:
                           items:
                             type: string
                           type: array
@@ -14627,7 +14627,7 @@ spec:
                       type: object
                     logger:
                       properties:
-                        MetadataHeaders:
+                        metadataHeaders:
                           items:
                             type: string
                           type: array

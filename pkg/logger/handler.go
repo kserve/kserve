@@ -89,14 +89,9 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if eh.metadataHeaders != nil {
 		// Loop over header names
 		for name, values := range r.Header {
-
 			// Loop over all values for the name.
 			if slices.Contains(eh.metadataHeaders, name) {
-				metadataValues := []string{}
-				for _, value := range values {
-					metadataValues = append(metadataValues, value)
-				}
-				metadata[name] = metadataValues
+				metadata[name] = values
 			}
 		}
 	}

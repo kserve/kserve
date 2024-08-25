@@ -63,7 +63,7 @@ type LoggerSpec struct {
 	Mode LoggerType `json:"mode,omitempty"`
 	// Matched HTTP headers for logging cloud events metadata.
 	// +optional
-	MetadataHeaders []string `json:"MetadataHeaders,omitempty"`
+	MetadataHeaders []string `json:"metadataHeaders,omitempty"`
 }
 
 // Batcher specifies optional payload batching available for all components

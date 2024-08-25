@@ -175,11 +175,6 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			logMode = string(v1beta1.LogAll)
 		}
 
-		logHeaderMetadata, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataHeadersInternalAnnotationKey]
-		if !ok {
-			logHeaderMetadata = ""
-		}
-
 		inferenceServiceName := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
 		namespace := pod.ObjectMeta.Namespace
 		endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
@@ -200,8 +195,11 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			endpoint,
 			LoggerArgumentComponent,
 			component,
-			LoggerArgumentMetadataHeaders,
-			logHeaderMetadata,
+		}
+		logHeaderMetadata, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataHeadersInternalAnnotationKey]
+		if ok {
+			loggerArgs = append(loggerArgs, LoggerArgumentMetadataHeaders)
+			loggerArgs = append(loggerArgs, logHeaderMetadata)
 		}
 		args = append(args, loggerArgs...)
 	}
