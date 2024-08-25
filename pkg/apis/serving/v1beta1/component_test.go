@@ -140,8 +140,8 @@ func TestComponentExtensionSpec_validateLogger(t *testing.T) {
 		},
 		"LoggerWithHeaderMetadata": {
 			logger: &LoggerSpec{
-				Mode:           LogAll,
-				HeaderMetadata: []string{"Foo", "Bar"},
+				Mode:            LogAll,
+				MetadataHeaders: []string{"Foo", "Bar"},
 			},
 			matcher: gomega.BeNil(),
 		},

@@ -474,8 +474,8 @@ func (in *LoggerSpec) DeepCopyInto(out *LoggerSpec) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.HeaderMetadata != nil {
-		in, out := &in.HeaderMetadata, &out.HeaderMetadata
+	if in.MetadataHeaders != nil {
+		in, out := &in.MetadataHeaders, &out.MetadataHeaders
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

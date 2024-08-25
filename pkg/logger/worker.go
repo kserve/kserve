@@ -112,20 +112,20 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	}
 
 	res := c.Send(w.CeCtx, event)
-        if cloudevents.IsUndelivered(res) {
-                return fmt.Errorf("while sending event: %w", res)
-        } else {
-                var httpResult *cehttp.Result
-                if cloudevents.ResultAs(res, &httpResult) {
-                        var err error
-                        if httpResult.StatusCode != http.StatusOK {
-                                err = fmt.Errorf(httpResult.Format, httpResult.Args...)
-                        }
-                        w.Log.Infof("Sent with status code %d, error: %v", httpResult.StatusCode, err)
-                } else {
-                        w.Log.Infof("Send did not return an HTTP response: %s", res)
-                }
-        }
+	if cloudevents.IsUndelivered(res) {
+		return fmt.Errorf("while sending event: %w", res)
+	} else {
+		var httpResult *cehttp.Result
+		if cloudevents.ResultAs(res, &httpResult) {
+			var err error
+			if httpResult.StatusCode != http.StatusOK {
+				err = fmt.Errorf(httpResult.Format, httpResult.Args...)
+			}
+			w.Log.Infof("Sent with status code %d, error: %v", httpResult.StatusCode, err)
+		} else {
+			w.Log.Infof("Send did not return an HTTP response: %s", res)
+		}
+	}
 	return nil
 }
 

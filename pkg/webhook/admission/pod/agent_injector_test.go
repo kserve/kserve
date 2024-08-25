@@ -357,10 +357,10 @@ func TestAgentInjector(t *testing.T) {
 					Name:      "deployment",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.LoggerInternalAnnotationKey:               "true",
-						constants.LoggerSinkUrlInternalAnnotationKey:        "http://httpbin.org/",
-						constants.LoggerModeInternalAnnotationKey:           string(v1beta1.LogAll),
-						constants.LoggerHeaderMetadataInternalAnnotationKey: "Foo,Bar",
+						constants.LoggerInternalAnnotationKey:                "true",
+						constants.LoggerSinkUrlInternalAnnotationKey:         "http://httpbin.org/",
+						constants.LoggerModeInternalAnnotationKey:            string(v1beta1.LogAll),
+						constants.LoggerMetadataHeadersInternalAnnotationKey: "Foo,Bar",
 					},
 					Labels: map[string]string{
 						"serving.kserve.io/inferenceservice": "sklearn",
@@ -445,7 +445,7 @@ func TestAgentInjector(t *testing.T) {
 								"default",
 								LoggerArgumentComponent,
 								"predictor",
-								LoggerArgumentHeaderAllowList,
+								LoggerArgumentMetadataHeaders,
 								"Foo,Bar",
 							},
 							Ports: []v1.ContainerPort{

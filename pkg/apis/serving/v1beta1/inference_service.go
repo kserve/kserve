@@ -41,11 +41,11 @@ type LoggerType string
 
 // LoggerType Enum
 const (
-	// Logger mode to log both request and response
+	// LogAll Logger mode to log both request and response
 	LogAll LoggerType = "all"
-	// Logger mode to log only request
+	// LogRequest Logger mode to log only request
 	LogRequest LoggerType = "request"
-	// Logger mode to log only response
+	// LogResponse Logger mode to log only response
 	LogResponse LoggerType = "response"
 )
 
@@ -60,8 +60,10 @@ type LoggerSpec struct {
 	// - "request": log only request; <br />
 	// - "response": log only response <br />
 	// +optional
-	Mode           LoggerType `json:"mode,omitempty"`
-	HeaderMetadata []string   `json:"headerMetadata,omitempty"`
+	Mode LoggerType `json:"mode,omitempty"`
+	// Matched HTTP headers for logging cloud events metadata.
+	// +optional
+	MetadataHeaders []string `json:"MetadataHeaders,omitempty"`
 }
 
 // Batcher specifies optional payload batching available for all components

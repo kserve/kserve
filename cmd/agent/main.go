@@ -66,7 +66,7 @@ var (
 	namespace        = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint         = flag.String("endpoint", "", "The endpoint name to add as header to log events")
 	component        = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
-	headerAllowList  = flag.StringArray("header-allow-list", nil, "Allow list of headers that will be passed down as metadata")
+	metadataHeaders  = flag.StringArray("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
 	// batcher flags
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
@@ -110,7 +110,7 @@ type loggerArgs struct {
 	namespace        string
 	endpoint         string
 	component        string
-	headerAllowList  []string
+	metadataHeaders  []string
 }
 
 type batcherArgs struct {
@@ -288,7 +288,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		endpoint:         *endpoint,
 		namespace:        *namespace,
 		component:        *component,
-		headerAllowList:  *headerAllowList,
+		metadataHeaders:  *metadataHeaders,
 	}
 }
 
@@ -342,7 +342,7 @@ func buildServer(ctx context.Context, port string, userPort int, loggerArgs *log
 	}
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
-			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler, loggerArgs.headerAllowList)
+			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler, loggerArgs.metadataHeaders)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)

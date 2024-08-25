@@ -42,11 +42,11 @@ type LoggerHandler struct {
 	component        string
 	endpoint         string
 	next             http.Handler
-	headerAllowList  []string
+	metadataHeaders  []string
 }
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
-	inferenceService string, namespace string, endpoint string, component string, next http.Handler, headerAllowList []string) http.Handler {
+	inferenceService string, namespace string, endpoint string, component string, next http.Handler, metadataHeaders []string) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
 		log:              logf.Log.WithName("Logger"),
@@ -58,7 +58,7 @@ func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 		component:        component,
 		endpoint:         endpoint,
 		next:             next,
-		headerAllowList:  headerAllowList,
+		metadataHeaders:  metadataHeaders,
 	}
 }
 
@@ -86,12 +86,12 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	metadata := map[string][]string{}
-	if eh.headerAllowList != nil {
+	if eh.metadataHeaders != nil {
 		// Loop over header names
 		for name, values := range r.Header {
 
 			// Loop over all values for the name.
-			if slices.Contains(eh.headerAllowList, name) {
+			if slices.Contains(eh.metadataHeaders, name) {
 				metadataValues := []string{}
 				for _, value := range values {
 					metadataValues = append(metadataValues, value)
