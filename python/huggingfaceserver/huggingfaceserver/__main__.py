@@ -72,9 +72,16 @@ parser.add_argument(
 )
 parser.add_argument(
     "--max_length",
+    dest="max_model_len",
     type=int,
     required=False,
-    help="max sequence length for the tokenizer",
+    help="max sequence length for the tokenizer. will be deprecated in favour of --max_model_len",
+)
+parser.add_argument(
+    "--max_model_len",
+    type=int,
+    required=False,
+    help="max number of tokens the model can process/tokenize. If not mentioned, uses model's max position encodings",
 )
 parser.add_argument(
     "--disable_lower_case",
@@ -139,6 +146,7 @@ if not vllm_available():
         help=f"data type to load the weights in. One of {dtype_choices}. "
         f"Defaults to float16 for GPU and float32 for CPU systems",
     )
+
 
 args, _ = parser.parse_known_args()
 
@@ -229,7 +237,7 @@ def load_model():
                 model_revision=kwargs.get("model_revision", None),
                 tokenizer_revision=kwargs.get("tokenizer_revision", None),
                 do_lower_case=not kwargs.get("disable_lower_case", False),
-                max_length=kwargs["max_length"],
+                max_length=kwargs["max_model_len"],
                 dtype=dtype,
                 trust_remote_code=kwargs["trust_remote_code"],
                 request_logger=request_logger,
@@ -255,7 +263,7 @@ def load_model():
                 tokenizer_revision=kwargs.get("tokenizer_revision", None),
                 do_lower_case=not kwargs.get("disable_lower_case", False),
                 add_special_tokens=not kwargs.get("disable_special_tokens", False),
-                max_length=kwargs["max_length"],
+                max_length=kwargs["max_model_len"],
                 dtype=dtype,
                 trust_remote_code=kwargs["trust_remote_code"],
                 tensor_input_names=kwargs.get("tensor_input_names", None),

@@ -49,7 +49,7 @@ def test_huggingface_openai_chat_completions():
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--backend",
                 "huggingface",
-                "--max_length",
+                "--max_model_len",
                 "512",
             ],
             resources=V1ResourceRequirements(
@@ -252,7 +252,7 @@ def test_huggingface_openai_text_2_text():
                 "t5-small",
                 "--backend",
                 "huggingface",
-                "--max_length",
+                "--max_model_len",
                 "512",
             ],
             resources=V1ResourceRequirements(
