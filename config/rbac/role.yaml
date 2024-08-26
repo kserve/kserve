@@ -82,11 +82,7 @@ rules:
   resources:
   - secrets
   verbs:
-  - create
-  - delete
   - get
-  - patch
-  - update
 - apiGroups:
   - ""
   resources:
