@@ -287,7 +287,6 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 		// If there was a difference and there was no error.
 		isReady := inferenceServiceReadiness(desiredService.Status)
 		isReadyFalse := inferenceServiceReadinessFalse(desiredService.Status)
-		r.Log.Info("Checking isReadyFalse value", "isReadyFalse", isReadyFalse)
 		if wasReady && isReadyFalse { // Moved to NotReady State
 			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceServiceNotReadyState),
 				fmt.Sprintf("InferenceService [%v] is no longer Ready because of: %v", desiredService.GetName(), r.GetFailConditions(desiredService)))
