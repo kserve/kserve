@@ -278,13 +278,6 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-
-		// Instead, if the model keep running on False state
-		// Raise an event for info of failed conditions.
-		if !wasReady {
-			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceServiceNotReadyState),
-				fmt.Sprintf("InferenceService [%v] is not Ready because of: %v", desiredService.GetName(), r.GetFailConditions(desiredService)))
-		}
 	} else if err := r.Status().Update(context.TODO(), desiredService); err != nil {
 		r.Log.Error(err, "Failed to update InferenceService status", "InferenceService", desiredService.Name)
 		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
@@ -293,7 +286,9 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 	} else {
 		// If there was a difference and there was no error.
 		isReady := inferenceServiceReadiness(desiredService.Status)
-		if wasReady && !isReady { // Moved to NotReady State
+		isReadyFalse := inferenceServiceReadinessFalse(desiredService.Status)
+		r.Log.Info("Checking isReadyFalse value", "isReadyFalse", isReadyFalse)
+		if wasReady && isReadyFalse { // Moved to NotReady State
 			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceServiceNotReadyState),
 				fmt.Sprintf("InferenceService [%v] is no longer Ready because of: %v", desiredService.GetName(), r.GetFailConditions(desiredService)))
 		} else if !wasReady && isReady { // Moved to Ready State
@@ -308,6 +303,11 @@ func inferenceServiceReadiness(status v1beta1api.InferenceServiceStatus) bool {
 	return status.Conditions != nil &&
 		status.GetCondition(apis.ConditionReady) != nil &&
 		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
+}
+
+func inferenceServiceReadinessFalse(status v1beta1api.InferenceServiceStatus) bool {
+	readyCondition := status.GetCondition(apis.ConditionReady)
+	return readyCondition != nil && readyCondition.Status == v1.ConditionFalse
 }
 
 func inferenceServiceStatusEqual(s1, s2 v1beta1api.InferenceServiceStatus, deploymentMode constants.DeploymentModeType) bool {
