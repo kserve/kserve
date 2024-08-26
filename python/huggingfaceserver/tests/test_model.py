@@ -442,7 +442,7 @@ async def test_text_embedding(text_embedding):
         return torch.mm(a_norm, b_norm.transpose(0, 1))
 
     requests = ["I'm happy", "I'm full of happiness", "They were at the park."]
-    response = await text_embedding({"instances": requests}, headers={})
+    response, _ = await text_embedding({"instances": requests}, headers={})
     predictions = response["predictions"]
 
     # The first two requests are semantically similar, so the cosine similarity should be high

@@ -500,7 +500,6 @@ class InferenceRESTClient:
             )
         if not response.is_success:
             raise self._consturct_http_status_error(response)
-        output = orjson.loads(response.content)
         if response_headers is not None:
             response_headers.update(response.headers)
         # If inference graph result, return it as dict
