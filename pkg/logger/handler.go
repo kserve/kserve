@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"slices"
 
 	"github.com/go-logr/logr"
 	guuid "github.com/google/uuid"
@@ -41,10 +42,11 @@ type LoggerHandler struct {
 	component        string
 	endpoint         string
 	next             http.Handler
+	metadataHeaders  []string
 }
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
-	inferenceService string, namespace string, endpoint string, component string, next http.Handler) http.Handler {
+	inferenceService string, namespace string, endpoint string, component string, next http.Handler, metadataHeaders []string) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
 		log:              logf.Log.WithName("Logger"),
@@ -56,6 +58,7 @@ func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 		component:        component,
 		endpoint:         endpoint,
 		next:             next,
+		metadataHeaders:  metadataHeaders,
 	}
 }
 
@@ -82,6 +85,17 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	metadata := map[string][]string{}
+	if eh.metadataHeaders != nil {
+		// Loop over header names
+		for name, values := range r.Header {
+			// Loop over all values for the name.
+			if slices.Contains(eh.metadataHeaders, name) {
+				metadata[name] = values
+			}
+		}
+	}
+
 	// Get or Create an ID
 	id := getOrCreateID(r)
 	contentType := r.Header.Get("Content-Type")
@@ -98,6 +112,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Namespace:        eh.namespace,
 			Endpoint:         eh.endpoint,
 			Component:        eh.component,
+			Metadata:         metadata,
 		}); err != nil {
 			eh.log.Error(err, "Failed to log request")
 		}

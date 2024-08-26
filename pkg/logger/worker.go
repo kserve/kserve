@@ -18,9 +18,12 @@ package logger
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
 	"go.uber.org/zap"
 )
 
@@ -33,6 +36,7 @@ const (
 	InferenceServiceAttr = "inferenceservicename"
 	NamespaceAttr        = "namespace"
 	ComponentAttr        = "component"
+	MetadataAttr         = "metadata"
 	// endpoint would be either default or canary
 	EndpointAttr = "endpoint"
 
@@ -96,13 +100,31 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	event.SetExtension(ComponentAttr, logReq.Component)
 	event.SetExtension(EndpointAttr, logReq.Endpoint)
 
+	encodedMetadata, err := json.Marshal(logReq.Metadata)
+	if err != nil {
+		return fmt.Errorf("could not encode metadata as json: %w", err)
+	}
+	event.SetExtension(MetadataAttr, string(encodedMetadata))
+
 	event.SetSource(logReq.SourceUri.String())
 	if err := event.SetData(logReq.ContentType, *logReq.Bytes); err != nil {
 		return fmt.Errorf("while setting cloudevents data: %w", err)
 	}
 
-	if result := c.Send(w.CeCtx, event); cloudevents.IsUndelivered(result) {
-		return fmt.Errorf("while sending event: %w", result)
+	res := c.Send(w.CeCtx, event)
+	if cloudevents.IsUndelivered(res) {
+		return fmt.Errorf("while sending event: %w", res)
+	} else {
+		var httpResult *cehttp.Result
+		if cloudevents.ResultAs(res, &httpResult) {
+			var err error
+			if httpResult.StatusCode != http.StatusOK {
+				err = fmt.Errorf(httpResult.Format, httpResult.Args...)
+			}
+			w.Log.Infof("Sent with status code %d, error: %v", httpResult.StatusCode, err)
+		} else {
+			w.Log.Infof("Send did not return an HTTP response: %s", res)
+		}
 	}
 	return nil
 }
