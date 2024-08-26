@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KServe Authors.
+Copyright 2024 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,12 +17,14 @@ limitations under the License.
 package v1alpha1
 
 type ClusterLocalModelStatus struct {
+	// Status of the model on a node, like NodeDownloaded or NodeNotReady
 	NodeStatus map[string]NodeStatus `json:"nodeStatus,omitempty"`
 
-	// How many nodes have the model available
+	// How many nodes have the model available locally
 	// +optional
-	ModelCopies       *ModelCopies     `json:"copies,omitempty"`
-	InferenceServices []NamespacedName `json:"infereneceServices,omitempty"`
+	ModelCopies *ModelCopies `json:"copies,omitempty"`
+	// Inference services using this local model
+	InferenceServices []NamespacedName `json:"inferenceServices,omitempty"`
 }
 
 type NamespacedName struct {
