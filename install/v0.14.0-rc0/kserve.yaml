@@ -5484,6 +5484,10 @@ spec:
                     type: object
                   logger:
                     properties:
+                      metadataHeaders:
+                        items:
+                          type: string
+                        type: array
                       mode:
                         enum:
                         - all
@@ -9401,6 +9405,10 @@ spec:
                     type: object
                   logger:
                     properties:
+                      metadataHeaders:
+                        items:
+                          type: string
+                        type: array
                       mode:
                         enum:
                         - all
@@ -17718,6 +17726,10 @@ spec:
                     type: object
                   logger:
                     properties:
+                      metadataHeaders:
+                        items:
+                          type: string
+                        type: array
                       mode:
                         enum:
                         - all
@@ -21679,6 +21691,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
+    app.kubernetes.io/name: kserve-controller-manager
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
   name: kserve-controller-manager
@@ -21686,6 +21699,7 @@ metadata:
 spec:
   selector:
     matchLabels:
+      app.kubernetes.io/name: kserve-controller-manager
       control-plane: kserve-controller-manager
       controller-tools.k8s.io: "1.0"
   template:
@@ -21693,6 +21707,7 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
+        app.kubernetes.io/name: kserve-controller-manager
         control-plane: kserve-controller-manager
         controller-tools.k8s.io: "1.0"
     spec:
@@ -21740,6 +21755,12 @@ spec:
             memory: 200Mi
         securityContext:
           allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
@@ -21749,12 +21770,20 @@ spec:
         - --upstream=http://127.0.0.1:8080/
         - --logtostderr=true
         - --v=10
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+        image: quay.io/brancz/kube-rbac-proxy:v0.18.0
         name: kube-rbac-proxy
         ports:
         - containerPort: 8443
           name: https
           protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
       securityContext:
         runAsNonRoot: true
       serviceAccountName: kserve-controller-manager
