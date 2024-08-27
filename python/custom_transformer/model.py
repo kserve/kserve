@@ -70,7 +70,7 @@ class ImageTransformer(Model):
         super().__init__(
             name,
             PredictorConfig(predictor_host, predictor_protocol, predictor_use_ssl),
-            response_headers=True,
+            return_response_headers=True,
         )
         self.ready = True
 

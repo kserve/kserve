@@ -159,7 +159,7 @@ class Model(InferenceModel):
         self,
         name: str,
         predictor_config: Optional[PredictorConfig] = None,
-        response_headers: bool = False,
+        return_response_headers: bool = False,
     ):
         """KServe Model Public Interface
 
@@ -193,7 +193,7 @@ class Model(InferenceModel):
         self._http_client_instance = None
         self._grpc_client_stub = None
         self.enable_latency_logging = False
-        self.required_response_headers = response_headers
+        self.required_response_headers = return_response_headers
 
     async def __call__(
         self,
@@ -260,11 +260,18 @@ class Model(InferenceModel):
 
         with POST_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
-            response = (
-                await self.postprocess(response, headers)
-                if inspect.iscoroutinefunction(self.postprocess)
-                else self.postprocess(response, headers)
-            )
+            if self.required_response_headers:
+                response, headers = (
+                    await self.postprocess(response, headers, response_headers)
+                    if inspect.iscoroutinefunction(self.postprocess)
+                    else self.postprocess(response, headers, response_headers)
+                )
+            else:
+                response = (
+                    await self.postprocess(response, headers)
+                    if inspect.iscoroutinefunction(self.postprocess)
+                    else self.postprocess(response, headers)
+                )
             postprocess_ms = get_latency_ms(start, time.time())
 
         if self.enable_latency_logging is True:
@@ -337,7 +344,10 @@ class Model(InferenceModel):
         return payload
 
     async def postprocess(
-        self, result: Union[Dict, InferResponse], headers: Dict[str, str] = None
+        self,
+        result: Union[Dict, InferResponse],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         """The `postprocess` handler can be overridden for inference result or response transformation.
         The predictor sends back the inference result in `Dict` for v1 endpoints and `InferResponse` for v2 endpoints.

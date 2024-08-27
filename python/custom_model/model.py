@@ -45,7 +45,7 @@ PREDICTION_COUNTER = 0
 # and then passed to the custom predictor, the output is the prediction response.
 class AlexNetModel(Model):
     def __init__(self, name: str):
-        super().__init__(name, response_headers=True)
+        super().__init__(name, return_response_headers=True)
         self.model = None
         self.ready = False
         self.load()
@@ -111,6 +111,7 @@ class AlexNetModel(Model):
         global PREDICTION_COUNTER
         PREDICTION_COUNTER += 1
 
+        # Example for custom response headers
         if response_headers is not None:
             response_headers.update({"prediction-counter": f"{PREDICTION_COUNTER}"})
 
