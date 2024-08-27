@@ -82,6 +82,12 @@ async def test_sklearn_v2_mlserver(rest_v2_client):
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
             ),
+            readiness_probe=client.V1Probe(
+                http_get=client.V1HTTPGetAction(
+                    path=f"/v2/models/{service_name}/ready", port=8080
+                ),
+                initial_delay_seconds=30,
+            ),
         ),
     )
 
@@ -126,6 +132,7 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "256Mi"},
             ),
+            args=["--workers=2"],
         ),
     )
 
@@ -166,6 +173,12 @@ async def test_sklearn_v2_runtime_mlserver(rest_v2_client):
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
+            ),
+            readiness_probe=client.V1Probe(
+                http_get=client.V1HTTPGetAction(
+                    path=f"/v2/models/{service_name}/ready", port=8080
+                ),
+                initial_delay_seconds=30,
             ),
         ),
     )
@@ -234,6 +247,20 @@ async def test_sklearn_v2(rest_v2_client):
         rest_v2_client,
         service_name,
         "./data/iris_input_v2.json",
+    )
+    assert res.outputs[0].data == [1, 1]
+
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2_binary.json",
+    )
+    assert res.outputs[0].data == [1, 1]
+
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2_all_binary.json",
     )
     assert res.outputs[0].data == [1, 1]
 

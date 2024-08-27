@@ -11,6 +11,7 @@ API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,TrainedModelList,Items
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentStatusSpec,Traffic
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,InferenceServiceList,Items
+API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,LoggerSpec,MetadataHeaders
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,Containers
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,EphemeralContainers
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,HostAliases
@@ -30,7 +31,6 @@ API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExplainerConfig,ContainerImage
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExplainerExtensionSpec,StorageURI
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExplainersConfig,ARTExplainer
-API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,IngressConfig,IngressServiceName
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,IngressConfig,LocalGatewayServiceName
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ModelStatus,ModelCopies
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ModelStatus,ModelRevisionStates

@@ -14,19 +14,21 @@
 
 import time
 from importlib import metadata
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Union, cast
+from inspect import iscoroutinefunction
 
 import cloudevents.exceptions as ce
 import orjson
 
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
-from ray.serve.handle import DeploymentHandle
 
+from .rest.v2_datamodels import InferenceRequest
 from ..constants import constants
+from ..constants.constants import INFERENCE_CONTENT_LENGTH_HEADER, PredictorProtocol
 from ..errors import InvalidInput, ModelNotFound
 from ..logging import logger
-from ..model import InferenceVerb, Model
+from ..model import InferenceVerb, BaseKServeModel, InferenceModel
 from ..model_repository import ModelRepository
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
@@ -36,15 +38,8 @@ JSON_HEADERS = [
     "application/json",
     "application/cloudevents+json",
     "application/ld+json",
+    "application/octet-stream",
 ]
-
-# RayServeHandle used to be the return type of serve.run.
-# RayServeSyncHandle has been the return type of serve.run since Ray 2.5.
-# DeploymentHandle will be the new return type (still under feature flag in Ray 2.7).
-# ref https://github.com/ray-project/ray/pull/37817
-# On Ray 2.10, it now returns DeploymentHandle:
-# https://docs.ray.io/en/latest/serve/api/index.html#deployment-handles
-ModelHandleType = Union[Model, DeploymentHandle]
 
 
 class DataPlane:
@@ -62,14 +57,14 @@ class DataPlane:
     def model_registry(self):
         return self._model_registry
 
-    def get_model_from_registry(self, name: str) -> ModelHandleType:
+    def get_model_from_registry(self, name: str) -> BaseKServeModel:
         model = self._model_registry.get_model(name)
         if model is None:
             raise ModelNotFound(name)
 
         return model
 
-    def get_model(self, name: str) -> ModelHandleType:
+    def get_model(self, name: str) -> BaseKServeModel:
         """Get the model instance with the given name.
 
         Args:
@@ -182,12 +177,20 @@ class DataPlane:
         # TODO: model versioning is not supported yet
         model = self.get_model_from_registry(model_name)
 
-        if isinstance(model, DeploymentHandle):
-            input_types = await model.get_input_types.remote()
-            output_types = await model.get_output_types.remote()
-        else:
-            input_types = model.get_input_types()
-            output_types = model.get_output_types()
+        if not isinstance(model, InferenceModel):
+            raise ValueError(
+                f"Model of type {type(model).__name__} does not support inference"
+            )
+        input_types = (
+            await model.get_input_types()
+            if iscoroutinefunction(model.get_input_types)
+            else model.get_input_types()
+        )
+        output_types = (
+            await model.get_output_types()
+            if iscoroutinefunction(model.get_output_types)
+            else model.get_output_types()
+        )
 
         return {
             "name": model_name,
@@ -224,11 +227,22 @@ class DataPlane:
 
         return self._model_registry.is_model_ready(model_name)
 
-    def decode(self, body, headers) -> Tuple[Union[Dict, InferRequest], Dict]:
+    def decode(
+        self,
+        body,
+        headers,
+        protocol_version: str = PredictorProtocol.REST_V1.value,
+        model_name: str = None,
+    ) -> Tuple[Union[Dict, InferRequest], Dict]:
         t1 = time.time()
         attributes = {}
         if isinstance(body, InferRequest):
             return body, attributes
+        elif isinstance(body, InferenceRequest) or (
+            protocol_version.lower() == PredictorProtocol.REST_V2.value
+            and isinstance(body, bytes)
+        ):
+            return self.decode_inference_request(body, headers, model_name), attributes
         if headers:
             if has_binary_headers(headers):
                 # returns CloudEvent
@@ -238,13 +252,7 @@ class DataPlane:
                 and headers["content-type"] not in JSON_HEADERS
             ):
                 return body, attributes
-            else:
-                if type(body) is bytes:
-                    try:
-                        body = orjson.loads(body)
-                    except orjson.JSONDecodeError as e:
-                        raise InvalidInput(f"Unrecognized request format: {e}")
-        elif type(body) is bytes:
+        if type(body) is bytes:
             try:
                 body = orjson.loads(body)
             except orjson.JSONDecodeError as e:
@@ -280,15 +288,35 @@ class DataPlane:
                 del attributes["data"]
         return decoded_body, attributes
 
+    def decode_inference_request(
+        self, body: Union[bytes, InferenceRequest], headers: Dict, model_name: str
+    ) -> InferRequest:
+        if isinstance(body, bytes):
+            json_length = headers.get(INFERENCE_CONTENT_LENGTH_HEADER, None)
+            if json_length is None:
+                raise InvalidInput(
+                    f"received byte inputs, but the"
+                    f"'{INFERENCE_CONTENT_LENGTH_HEADER}' header is missing."
+                )
+            return InferRequest.from_bytes(body, int(json_length), model_name)
+        else:
+            return InferRequest.from_inference_request(body, model_name)
+
     def encode(
-        self, model_name, response, headers, req_attributes: Dict
+        self,
+        model_name,
+        response,
+        headers,
+        req_attributes: Dict,
     ) -> Tuple[Dict, Dict[str, str]]:
         response_headers = {}
         # if we received a cloudevent, then also return a cloudevent
         is_cloudevent = False
         is_binary_cloudevent = False
         if isinstance(response, InferResponse):
-            response = response.to_rest()
+            response, json_size = response.to_rest()
+            if json_size is not None:
+                response_headers[INFERENCE_CONTENT_LENGTH_HEADER] = str(json_size)
         if headers:
             if has_binary_headers(headers):
                 is_cloudevent = True
@@ -337,10 +365,12 @@ class DataPlane:
         if isinstance(model, OpenAIModel):
             error_msg = f"Model {model_name} is of type OpenAIModel. It does not support the infer method."
             raise InvalidInput(reason=error_msg)
-        if isinstance(model, DeploymentHandle):
-            response = await model.remote(request, headers=headers)
-        else:
-            response = await model(request, headers=headers)
+        if not isinstance(model, InferenceModel):
+            raise ValueError(
+                f"Model of type {type(model).__name__} does not support inference"
+            )
+        model = cast(InferenceModel, model)
+        response = await model(request, headers=headers)
         return response, headers
 
     async def explain(
@@ -369,8 +399,9 @@ class DataPlane:
                 f"Model {model_name} is of type OpenAIModel. It does not support the explain method."
                 " A request exercised this path and will cause a server crash."
             )
-        if isinstance(model, DeploymentHandle):
-            response = await model.remote(request, verb=InferenceVerb.EXPLAIN)
-        else:
-            response = await model(request, verb=InferenceVerb.EXPLAIN)
+        if not isinstance(model, InferenceModel):
+            raise ValueError(
+                f"Model of type {type(model).__name__} does not support inference"
+            )
+        response = await model(request, verb=InferenceVerb.EXPLAIN, headers=headers)
         return response, headers

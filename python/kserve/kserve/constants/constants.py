@@ -85,3 +85,15 @@ class PredictorProtocol(Enum):
 
 # LLM stats map key
 LLM_STATS_KEY = "llm-stats"
+
+# Default GRPC max message length
+MAX_GRPC_MESSAGE_LENGTH = 8388608
+
+V2_ROUTE_PREFIX = "/v2"
+V1_ROUTE_PREFIX = "/v1"
+
+DEFAULT_HTTP_PORT = 8080
+DEFAULT_GRPC_PORT = 8081
+
+# Header containing the json length in case of REST raw response.
+INFERENCE_CONTENT_LENGTH_HEADER = "inference-header-content-length"

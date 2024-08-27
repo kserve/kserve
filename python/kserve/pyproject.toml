@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kserve"
-version = "0.13.0"
+version = "0.14.0rc0"
 description = "KServe Python SDK"
 authors = [
     "The KServe Authors <dsun20@bloomberg.net>",
@@ -42,9 +42,8 @@ kubernetes = ">=23.3.0"
 python-dateutil = "^2.8.0"
 numpy = "^1.23.5"
 psutil = "^5.9.0"
-ray = { version = "~2.10.0", extras = ["serve"] }
 grpcio = "^1.49.1"
-protobuf = "^3.19.0"
+protobuf = "^4.25.4"
 prometheus-client = "^0.20.0"
 orjson = "^3.9.15"
 httpx = "^0.26.0"
@@ -65,6 +64,9 @@ boto3 = { version = "^1.21.0", optional = true }
 # Logging dependencies. They can be opted into by apps.
 asgi-logger = { version = "^0.1.0", optional = true, python = ">3.8.0,<3.11" }
 
+# Ray dependency
+ray = { version = "~2.10.0", extras = ["serve"] }
+
 [tool.poetry.extras]
 storage = [
     "requests",
@@ -77,7 +79,9 @@ storage = [
 logging = [
     "asgi-logger"
 ]
-
+ray = [
+    "ray"
+]
 [tool.poetry.group.test]
 optional = true
 

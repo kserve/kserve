@@ -18,7 +18,6 @@ import pydantic
 
 from pydantic import BaseModel, StrictBool, StrictInt, StrictFloat
 
-
 # this is needed to add support for both pydantic 1.x and 2.x
 is_pydantic_2 = pydantic.__version__.startswith("2.")
 

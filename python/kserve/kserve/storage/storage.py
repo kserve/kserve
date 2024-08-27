@@ -48,8 +48,14 @@ _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _HDFS_PREFIX = "hdfs://"
 _WEBHDFS_PREFIX = "webhdfs://"
-_AZURE_BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
-_AZURE_FILE_RE = "https://(.+?).file.core.windows.net/(.+)"
+_AZURE_BLOB_RE = [
+    "https://(.+?).blob.core.windows.net/(.+)",
+    "https://(.+?).z[0-9]{2}.blob.storage.azure.net/(.+)",
+]
+_AZURE_FILE_RE = [
+    "https://(.+?).file.core.windows.net/(.+)",
+    "https://(.+?).z[0-9]{2}.file.storage.azure.net/(.+)",
+]
 _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
@@ -95,9 +101,9 @@ class Storage(object):
                 model_dir = Storage._download_s3(uri, out_dir)
             elif uri.startswith(_HDFS_PREFIX) or uri.startswith(_WEBHDFS_PREFIX):
                 model_dir = Storage._download_hdfs(uri, out_dir)
-            elif re.search(_AZURE_BLOB_RE, uri):
+            elif any(re.search(pattern, uri) for pattern in _AZURE_BLOB_RE):
                 model_dir = Storage._download_azure_blob(uri, out_dir)
-            elif re.search(_AZURE_FILE_RE, uri):
+            elif any(re.search(pattern, uri) for pattern in _AZURE_FILE_RE):
                 model_dir = Storage._download_azure_file_share(uri, out_dir)
             elif re.search(_URI_RE, uri):
                 model_dir = Storage._download_from_uri(uri, out_dir)

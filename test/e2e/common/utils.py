@@ -51,13 +51,14 @@ def grpc_client(host):
         channel_args=[
             ("grpc.ssl_target_name_override", host),
         ],
+        timeout=120,
     )
 
 
 async def predict_isvc(
     client: InferenceRESTClient,
     service_name,
-    input_path,
+    input: Union[str, InferRequest],
     version=constants.KSERVE_V1BETA1_VERSION,
     model_name=None,
     is_batch=False,
@@ -78,7 +79,7 @@ async def predict_isvc(
         client,
         base_url,
         host,
-        input_path,
+        input,
         model_name=model_name,
         is_batch=is_batch,
         is_graph=False,
@@ -89,13 +90,16 @@ async def predict(
     client: InferenceRESTClient,
     url,
     host,
-    input_path,
+    input: Union[str, InferRequest],
     model_name=None,
     is_batch=False,
     is_graph=False,
 ) -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
-    with open(input_path) as json_file:
-        data = json.load(json_file)
+    if isinstance(input, str):
+        with open(input) as json_file:
+            data = json.load(json_file)
+    else:
+        data = input
     headers = {"Host": host, "Content-Type": "application/json"}
     if is_batch:
         with futures.ThreadPoolExecutor(max_workers=4) as executor:

@@ -7,16 +7,14 @@ runs:
     - name: Install kubectl
       uses: azure/setup-kubectl@v4.0.0
       with:
-        version: 'v1.27.4'
+        version: 'v1.29.7'
 
     - name: Setup Minikube
       uses: medyagh/setup-minikube@latest
       with:
-        minikube-version: '1.32.0'
-        kubernetes-version: 'v1.27.4'
+        minikube-version: '1.33.1'
+        kubernetes-version: 'v1.29.7'
         driver: 'none'
-        network-plugin: 'cni'
-        cni: 'calico'
         wait: 'all'
         start-args: --wait-timeout=6m0s
 
