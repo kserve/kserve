@@ -5,6 +5,7 @@ metadata:
   name: kserve-controller-manager
   namespace: {{ .Release.Namespace }}
   labels:
+    app.kubernetes.io/name: kserve-controller-manager
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
     {{- if .Values.kserve.controller.labels }}
@@ -18,11 +19,13 @@ metadata:
 spec:
   selector:
     matchLabels:
+      app.kubernetes.io/name: kserve-controller-manager
       control-plane: kserve-controller-manager
       controller-tools.k8s.io: "1.0"
   template:
     metadata:
       labels:
+        app.kubernetes.io/name: kserve-controller-manager
         control-plane: kserve-controller-manager
         controller-tools.k8s.io: "1.0"
         {{- if .Values.kserve.controller.podLabels }}
@@ -51,6 +54,10 @@ spec:
       topologySpreadConstraints:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.kserve.controller.securityContext}}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
       - name: kube-rbac-proxy
         image: "{{ .Values.kserve.controller.rbacProxyImage }}"
@@ -67,6 +74,10 @@ spec:
         image: "{{ .Values.kserve.controller.image }}:{{ .Values.kserve.controller.tag }}"
         imagePullPolicy: IfNotPresent
         name: manager
+        securityContext:
+          {{- with .Values.kserve.controller.containerSecurityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
         args:
         - "--metrics-addr=127.0.0.1:8080"
         - "--leader-elect"

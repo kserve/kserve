@@ -10,54 +10,198 @@ kserve:
   storage:
     image: kserve/storage-initializer
     tag: *defaultVersion
+ 
+    # -- Flag for enabling model sidecar feature.
     enableModelcar: false
+
+    # -- Model sidecar cpu requirement.
     cpuModelcar: 10m
+
+    # -- Model sidecar memory requirement.
     memoryModelcar: 15Mi
+
+    # -- Mounted CA bundle config map name for storage initializer.
     caBundleConfigMapName: ""
+
+    # -- Mounted path for CA bundle config map.
     caBundleVolumeMountPath: "/etc/ssl/custom-certs"
+
+    # -- Storage spec secret name.
     storageSpecSecretName: storage-config
+
+    # -- Storage secret name reference for storage initializer.
     storageSecretNameAnnotation: serving.kserve.io/secretName
+
+    # -- Configurations for S3 storage
     s3:
+      # -- AWS S3 static access key id.
       accessKeyIdName: AWS_ACCESS_KEY_ID
+
+      # -- AWS S3 static secret access key.
       secretAccessKeyName: AWS_SECRET_ACCESS_KEY
+
+      # -- AWS S3 endpoint.
       endpoint: ""
+ 
+      # -- Whether to use secured https or http to download models, allowed values are 0 and 1 and default to 1.
       useHttps: ""
+
+      # -- Default region name of AWS S3.
       region: ""
+
+      # -- Whether to verify the tls/ssl certificate, default to true.
       verifySSL: ""
+
+      # -- Whether to use virtual bucket or not, default to false.
       useVirtualBucket: ""
+
+      # -- Whether to use anonymous credentials to download the model or not, default to false.
       useAnonymousCredential: ""
+ 
+      # -- The path to the certificate bundle to use for HTTPS certificate validation.
       CABundle: ""
+
   metricsaggregator:
+    # -- configures metric aggregation annotation. This adds the annotation serving.kserve.io/enable-metric-aggregation to every
+    # service with the specified boolean value. If true enables metric aggregation in queue-proxy by setting env vars in the queue proxy container
+    # to configure scraping ports.
     enableMetricAggregation: "false"
+ 
+    # -- If true, prometheus annotations are added to the pod to scrape the metrics. If serving.kserve.io/enable-metric-aggregation is false,
+    # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
     enablePrometheusScraping: "false"
   controller:
+    # -- KServe deployment mode: "Serverless", "RawDeployment".
     deploymentMode: "Serverless"
-    rbacProxyImage: gcr.io/kubebuilder/kube-rbac-proxy:v0.13.1
+
+    # -- KServe controller manager rbac proxy contrainer image
+    rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
+
+    # -- Optional additional labels to add to the controller deployment.
     labels: {}
+ 
+    # -- Optional additional labels to add to the controller Pods.
     podLabels: {}
+
+    # -- Optional additional annotations to add to the controller deployment.
     annotations: {}
+
+    # -- Optional additional labels to add to the controller Pods.
     podAnnotations: {}
+
+    # -- Pod Security Context.
+    # For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
+    securityContext:
+      runAsNonRoot: true
+
+    # -- Container Security Context to be set on the controller component container.
+    # For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      readOnlyRootFilesystem: true
+
     gateway:
+      # -- Ingress domain for RawDeployment mode, for Serverless it is configured in Knative.
       domain: example.com
+
+      # -- Optional additional domains for ingress routing.
       additionalIngressDomains: []
+
+      # -- Ingress domain template for RawDeployment mode, for Serverless mode it is configured in Knative.
       domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
+
+      # -- HTTP endpoint url scheme.
       urlScheme: http
+
+      # -- DisableIstioVirtualHost controls whether to use istio as network layer for top level component routing or path based routing.
+      # This configuration is only applicable for Serverless mode, when disabled Istio is no longer required.
       disableIstioVirtualHost: false
+
+      # -- Whether to disable ingress creation for RawDeployment mode.
       disableIngressCreation: false
+
       localGateway:
+        # -- localGateway specifies the gateway which handles the network traffic within the cluster.
         gateway: knative-serving/knative-local-gateway
+
+        # -- localGatewayService specifies the hostname of the local gateway service.
+
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local
+
+        # -- knativeLocalGatewayService specifies the hostname of the Knative's local gateway service.
+        # When unset, the value of "localGatewayService" will be used. When enabling strict mTLS in Istio, KServe local gateway should be created and pointed to the Knative local gateway.
         knativeGatewayService: ""
       ingressGateway:
         gateway: knative-serving/knative-ingress-gateway
         className: istio
+
+    # -- The nodeSelector on Pods tells Kubernetes to schedule Pods on the nodes with matching labels.
+    # For more information, see [Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).
+    #
     nodeSelector: {}
+
+    # -- A list of Kubernetes Tolerations, if required. For more information, see [Toleration v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#toleration-v1-core).
+    #
+    # For example:
+    #   tolerations:
+    #   - key: foo.bar.com/role
+    #     operator: Equal
+    #     value: master
+    #     effect: NoSchedule
     tolerations: []
+
+    # -- A list of Kubernetes TopologySpreadConstraints, if required. For more information, see [Topology spread constraint v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#topologyspreadconstraint-v1-core
+    #
+    # For example:
+    #   topologySpreadConstraints:
+    #   - maxSkew: 2
+    #     topologyKey: topology.kubernetes.io/zone
+    #     whenUnsatisfiable: ScheduleAnyway
+    #     labelSelector:
+    #       matchLabels:
+    #         app.kubernetes.io/instance: kserve-controller-manager
+    #         app.kubernetes.io/component: controller
     topologySpreadConstraints: []
+
+    # -- A Kubernetes Affinity, if required. For more information, see [Affinity v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#affinity-v1-core).
+    #
+    # For example:
+    #   affinity:
+    #     nodeAffinity:
+    #      requiredDuringSchedulingIgnoredDuringExecution:
+    #        nodeSelectorTerms:
+    #        - matchExpressions:
+    #          - key: foo.bar.com/role
+    #            operator: In
+    #            values:
+    #            - master
     affinity: {}
+
+    # -- KServe controller container image name.
     image: kserve/kserve-controller
+
+    # -- KServe controller contrainer image tag.
     tag: *defaultVersion
+
+    # -- Reference to one or more secrets to be used when pulling images.
+    # For more information, see [Pull an Image from a Private Registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/).
+    #
+    # For example:
+    #  imagePullSecrets:
+    #    - name: "image-pull-secret"
     imagePullSecrets: []
+
+    # -- Resources to provide to the kserve controller pod.
+    #
+    # For example:
+    #  requests:
+    #    cpu: 10m
+    #    memory: 32Mi
+    #
+    # For more information, see [Resource Management for Pods and Containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
     resources:
       limits:
         cpu: 100m
@@ -93,6 +237,7 @@ kserve:
       restProxyImage: kserve/rest-proxy
       restProxyImageTag: *defaultModelMeshVersion
       podsPerRuntime: 2
+
   servingruntime:
     modelNamePlaceholder: "{{.Name}}"
     tensorflow:
