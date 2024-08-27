@@ -313,7 +313,7 @@ def test_unpack_zip_file():
         "STORAGE_CONFIG": json.dumps(
             {
                 "type": "gs",
-                "base64_service_account": base64.b64encode(
+                "base64_service_account_key_file": base64.b64encode(
                     json.dumps({"key": "value"}).encode("utf-8")
                 ).decode("utf-8"),
             }

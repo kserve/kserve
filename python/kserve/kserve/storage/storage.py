@@ -155,13 +155,13 @@ class Storage(object):
                     f.flush()
 
         if storage_secret_json.get("type", "") == "gs":
-            if storage_secret_json.get("base64_service_account", "") != "":
+            if storage_secret_json.get("base64_service_account_key_file", "") != "":
                 try:
-                    base64_service_account = storage_secret_json.get(
-                        "base64_service_account", ""
+                    base64_service_account_key_file = storage_secret_json.get(
+                        "base64_service_account_key_file", ""
                     )
                     service_account_str = base64.b64decode(
-                        base64_service_account
+                        base64_service_account_key_file
                     ).decode("utf-8")
                     service_account_dict = json.loads(service_account_str)
                     os.environ["GOOGLE_SERVICE_ACCOUNT"] = json.dumps(
