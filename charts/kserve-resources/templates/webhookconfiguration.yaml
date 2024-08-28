@@ -7,7 +7,6 @@ metadata:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: {{ .Release.Namespace }}
@@ -27,7 +26,6 @@ webhooks:
         resources:
           - inferenceservices
   - clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: {{ .Release.Namespace }}
@@ -60,7 +58,6 @@ metadata:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: {{ .Release.Namespace }}
@@ -89,7 +86,6 @@ metadata:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: {{ .Release.Namespace }}
@@ -119,7 +115,6 @@ metadata:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: {{ .Release.Namespace }}
@@ -148,7 +143,6 @@ metadata:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: {{ .Release.Namespace }}
@@ -177,7 +171,6 @@ metadata:
     cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: {{ .Release.Namespace }}

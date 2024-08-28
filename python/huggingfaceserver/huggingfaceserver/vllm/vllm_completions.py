@@ -25,9 +25,14 @@ from typing import (
     Union,
     Iterator,
 )
+from http import HTTPStatus
 
 import torch
+from vllm import PoolingParams
+from vllm.entrypoints.logger import RequestLogger
 from vllm.inputs import parse_and_batch_prompt
+from vllm.lora.request import LoRARequest
+from vllm.prompt_adapter.request import PromptAdapterRequest
 from vllm.sampling_params import SamplingParams
 from vllm.utils import random_uuid
 
@@ -38,6 +43,7 @@ from vllm.entrypoints.openai.serving_completion import (
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.transformers_utils.tokenizer import get_tokenizer
 from vllm.sequence import Logprob
+
 from kserve.protocol.rest.openai.types.openapi import (
     Choice as CompletionChoice,
     CompletionUsage,
@@ -45,8 +51,7 @@ from kserve.protocol.rest.openai.types.openapi import (
     CreateCompletionResponse as Completion,
     Logprobs,
 )
-from kserve.errors import InvalidInput
-from kserve.protocol.rest.openai.errors import OpenAIError
+from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
 from kserve.protocol.rest.openai import ChatCompletionRequestMessage, CompletionRequest
 
 
@@ -85,11 +90,12 @@ def to_sampling_params(request: CreateCompletionRequest):
 
 class OpenAIServingCompletion:
 
-    def __init__(self, engine: AsyncLLMEngine):
+    def __init__(self, engine: AsyncLLMEngine, request_logger: RequestLogger = None):
         self.engine = engine
 
         self.max_model_len = 0
         self.tokenizer = None
+        self.request_logger = request_logger
 
         try:
             event_loop = asyncio.get_running_loop()
@@ -144,6 +150,7 @@ class OpenAIServingCompletion:
             )
 
             for i, prompt_inputs in enumerate(prompts):
+                self._log_inputs(request_id, prompt_inputs, sampling_params)
                 generators.append(
                     self.engine.generate(
                         {"prompt_token_ids": prompt_inputs[0]},
@@ -152,7 +159,7 @@ class OpenAIServingCompletion:
                     )
                 )
         except Exception as e:
-            raise OpenAIError(str(e))
+            raise e if isinstance(e, OpenAIError) else OpenAIError(str(e))
 
         result_generator: AsyncIterator[Tuple[int, RequestOutput]] = (
             merge_async_iterators(*generators)
@@ -381,13 +388,17 @@ class OpenAIServingCompletion:
             request.max_tokens = self.max_model_len - token_num
 
         if token_num + request.max_tokens > self.max_model_len:
-            raise InvalidInput(
-                f"This model's maximum context length is "
-                f"{self.max_model_len} tokens. However, you requested "
-                f"{request.max_tokens + token_num} tokens "
-                f"({token_num} in the messages, "
-                f"{request.max_tokens} in the completion). "
-                f"Please reduce the length of the messages or completion.",
+            raise OpenAIError(
+                response=create_error_response(
+                    f"This model's maximum context length is "
+                    f"{self.max_model_len} tokens. However, you requested "
+                    f"{request.max_tokens + token_num} tokens "
+                    f"({token_num} in the messages, "
+                    f"{request.max_tokens} in the completion). "
+                    f"Please reduce the length of the messages or completion.",
+                    err_type="BadRequest",
+                    status_code=HTTPStatus.BAD_REQUEST,
+                )
             )
         else:
             return input_ids, input_text
@@ -516,3 +527,27 @@ class OpenAIServingCompletion:
             last_token_len = len(token)
 
         return logprobs
+
+    def _log_inputs(
+        self,
+        request_id: str,
+        input: Tuple[List[int], str],
+        params: Optional[Union[SamplingParams, PoolingParams]] = None,
+        lora_request: Optional[LoRARequest] = None,
+        prompt_adapter_request: Optional[PromptAdapterRequest] = None,
+    ):
+        if self.request_logger is None:
+            return
+        prompt_token_ids, prompt = input
+        max_log_len = self.request_logger.max_log_len
+        if max_log_len is not None:
+            prompt = prompt[:max_log_len]
+            prompt_token_ids = prompt_token_ids[:max_log_len]
+        self.request_logger.log_inputs(
+            request_id,
+            prompt,
+            prompt_token_ids,
+            params,
+            lora_request,
+            prompt_adapter_request,
+        )

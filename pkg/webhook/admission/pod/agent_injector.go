@@ -39,6 +39,7 @@ const (
 	LoggerArgumentNamespace        = "--namespace"
 	LoggerArgumentEndpoint         = "--endpoint"
 	LoggerArgumentComponent        = "--component"
+	LoggerArgumentMetadataHeaders  = "--metadata-headers"
 )
 
 type AgentConfig struct {
@@ -194,6 +195,11 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			endpoint,
 			LoggerArgumentComponent,
 			component,
+		}
+		logHeaderMetadata, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataHeadersInternalAnnotationKey]
+		if ok {
+			loggerArgs = append(loggerArgs, LoggerArgumentMetadataHeaders)
+			loggerArgs = append(loggerArgs, logHeaderMetadata)
 		}
 		args = append(args, loggerArgs...)
 	}
