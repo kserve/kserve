@@ -114,7 +114,7 @@ jobs:
           key: kserve-pydantic-v1-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve-pydantic-v1/poetry.lock') }}
       # install kserve pydantic v1 dependencies if cache does not exist
       - name: Install kserve pydantic v1 dependencies
-        if: ${{ steps.cached-kserve-pydantic-v1-dependencies.outputs.cache-hit != 'true' && !startsWith(steps.setup-python.outputs.python-version, '3.12') }}
+        if: ${{ !startsWith(steps.setup-python.outputs.python-version, '3.12') && steps.cached-kserve-pydantic-v1-dependencies.outputs.cache-hit != 'true' }}
         run: |
           cd python/kserve-pydantic-v1
           make install_dependencies
