@@ -39,6 +39,14 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0-rc0
 | kserve.controller.nodeSelector | object | `{}` | The nodeSelector on Pods tells Kubernetes to schedule Pods on the nodes with matching labels. For more information, see [Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).  |
 | kserve.controller.podAnnotations | object | `{}` | Optional additional labels to add to the controller Pods. |
 | kserve.controller.podLabels | object | `{}` | Optional additional labels to add to the controller Pods. |
+| kserve.controller.rbacProxy.resources.limits.cpu | string | `"100m"` |  |
+| kserve.controller.rbacProxy.resources.limits.memory | string | `"300Mi"` |  |
+| kserve.controller.rbacProxy.resources.requests.cpu | string | `"100m"` |  |
+| kserve.controller.rbacProxy.resources.requests.memory | string | `"300Mi"` |  |
+| kserve.controller.rbacProxy.securityContext.allowPrivilegeEscalation | bool | `false` |  |
+| kserve.controller.rbacProxy.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| kserve.controller.rbacProxy.securityContext.readOnlyRootFilesystem | bool | `true` |  |
+| kserve.controller.rbacProxy.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.18.0"` | KServe controller manager rbac proxy contrainer image |
 | kserve.controller.resources | object | `{"limits":{"cpu":"100m","memory":"300Mi"},"requests":{"cpu":"100m","memory":"300Mi"}}` | Resources to provide to the kserve controller pod.  For example:  requests:    cpu: 10m    memory: 32Mi  For more information, see [Resource Management for Pods and Containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/). |
 | kserve.controller.securityContext | object | `{"runAsNonRoot":true}` | Pod Security Context. For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/). |
