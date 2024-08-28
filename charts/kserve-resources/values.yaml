@@ -90,6 +90,7 @@ kserve:
           drop:
           - ALL
         readOnlyRootFilesystem: true
+        runAsNonRoot: true
 
     # -- Optional additional labels to add to the controller deployment.
     labels: {}
