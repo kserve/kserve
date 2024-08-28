@@ -491,17 +491,24 @@
       "description": "LocalModelNodeGroupSpec defines a group of nodes for to download the model to.",
       "type": "object",
       "required": [
+        "storageLimit",
         "persistentVolumeSpec",
         "persistentVolumeClaimSpec"
       ],
       "properties": {
         "persistentVolumeClaimSpec": {
+          "description": "Used to create PersistentVolumeClaims for download and in inference service namespaces",
           "default": {},
           "$ref": "#/definitions/v1.PersistentVolumeClaimSpec"
         },
         "persistentVolumeSpec": {
+          "description": "Used to create PersistentVolumes for downloading models and in inference service namespaces",
           "default": {},
           "$ref": "#/definitions/v1.PersistentVolumeSpec"
+        },
+        "storageLimit": {
+          "description": "Max storage size per node in this node group",
+          "$ref": "#/definitions/resource.Quantity"
         }
       }
     },

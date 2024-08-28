@@ -54,11 +54,13 @@ class TestV1alpha1LocalModelNodeGroupSpec(unittest.TestCase):
         # model = kserve.models.v1alpha1_local_model_node_group_spec.V1alpha1LocalModelNodeGroupSpec()  # noqa: E501
         if include_optional:
             return V1alpha1LocalModelNodeGroupSpec(
+                storage_limit="1Gi",
                 persistent_volume_claim_spec="",
                 persistent_volume_spec="",
             )
         else:
             return V1alpha1LocalModelNodeGroupSpec(
+                storage_limit="1Gi",
                 persistent_volume_claim_spec="",
                 persistent_volume_spec="",
             )

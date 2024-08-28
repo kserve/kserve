@@ -58,6 +58,7 @@ class TestV1alpha1LocalModelNodeGroup(unittest.TestCase):
                 kind="0",
                 metadata=None,
                 spec=kserve.models.v1alpha1_local_model_node_group_spec.V1alpha1LocalModelNodeGroupSpec(
+                    storage_limit="1Gi",
                     persistent_volume_claim_spec="",
                     persistent_volume_spec="",
                 ),

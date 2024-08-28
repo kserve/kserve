@@ -48,15 +48,17 @@ class V1alpha1LocalModelNodeGroupSpec(object):
     """
     openapi_types = {
         'persistent_volume_claim_spec': 'V1PersistentVolumeClaimSpec',
-        'persistent_volume_spec': 'V1PersistentVolumeSpec'
+        'persistent_volume_spec': 'V1PersistentVolumeSpec',
+        'storage_limit': 'ResourceQuantity'
     }
 
     attribute_map = {
         'persistent_volume_claim_spec': 'persistentVolumeClaimSpec',
-        'persistent_volume_spec': 'persistentVolumeSpec'
+        'persistent_volume_spec': 'persistentVolumeSpec',
+        'storage_limit': 'storageLimit'
     }
 
-    def __init__(self, persistent_volume_claim_spec=None, persistent_volume_spec=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, persistent_volume_claim_spec=None, persistent_volume_spec=None, storage_limit=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1LocalModelNodeGroupSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -64,10 +66,12 @@ class V1alpha1LocalModelNodeGroupSpec(object):
 
         self._persistent_volume_claim_spec = None
         self._persistent_volume_spec = None
+        self._storage_limit = None
         self.discriminator = None
 
         self.persistent_volume_claim_spec = persistent_volume_claim_spec
         self.persistent_volume_spec = persistent_volume_spec
+        self.storage_limit = storage_limit
 
     @property
     def persistent_volume_claim_spec(self):
@@ -114,6 +118,29 @@ class V1alpha1LocalModelNodeGroupSpec(object):
             raise ValueError("Invalid value for `persistent_volume_spec`, must not be `None`")  # noqa: E501
 
         self._persistent_volume_spec = persistent_volume_spec
+
+    @property
+    def storage_limit(self):
+        """Gets the storage_limit of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
+
+
+        :return: The storage_limit of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
+        :rtype: ResourceQuantity
+        """
+        return self._storage_limit
+
+    @storage_limit.setter
+    def storage_limit(self, storage_limit):
+        """Sets the storage_limit of this V1alpha1LocalModelNodeGroupSpec.
+
+
+        :param storage_limit: The storage_limit of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
+        :type: ResourceQuantity
+        """
+        if self.local_vars_configuration.client_side_validation and storage_limit is None:  # noqa: E501
+            raise ValueError("Invalid value for `storage_limit`, must not be `None`")  # noqa: E501
+
+        self._storage_limit = storage_limit
 
     def to_dict(self):
         """Returns the model properties as a dict"""

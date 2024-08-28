@@ -18,13 +18,18 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // LocalModelNodeGroupSpec defines a group of nodes for to download the model to.
 // +k8s:openapi-gen=true
 type LocalModelNodeGroupSpec struct {
-	PersistentVolumeSpec      corev1.PersistentVolumeSpec      `json:"persistentVolumeSpec"`
+	// Max storage size per node in this node group
+	StorageLimit resource.Quantity `json:"storageLimit"`
+	// Used to create PersistentVolumes for downloading models and in inference service namespaces
+	PersistentVolumeSpec corev1.PersistentVolumeSpec `json:"persistentVolumeSpec"`
+	// Used to create PersistentVolumeClaims for download and in inference service namespaces
 	PersistentVolumeClaimSpec corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaimSpec"`
 }
 

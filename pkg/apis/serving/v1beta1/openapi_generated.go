@@ -965,24 +965,32 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNodeGroupSpec(ref common.Referen
 				Description: "LocalModelNodeGroupSpec defines a group of nodes for to download the model to.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"storageLimit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Max storage size per node in this node group",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
 					"persistentVolumeSpec": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/api/core/v1.PersistentVolumeSpec"),
+							Description: "Used to create PersistentVolumes for downloading models and in inference service namespaces",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeSpec"),
 						},
 					},
 					"persistentVolumeClaimSpec": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref("k8s.io/api/core/v1.PersistentVolumeClaimSpec"),
+							Description: "Used to create PersistentVolumeClaims for download and in inference service namespaces",
+							Default:     map[string]interface{}{},
+							Ref:         ref("k8s.io/api/core/v1.PersistentVolumeClaimSpec"),
 						},
 					},
 				},
-				Required: []string{"persistentVolumeSpec", "persistentVolumeClaimSpec"},
+				Required: []string{"storageLimit", "persistentVolumeSpec", "persistentVolumeClaimSpec"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.PersistentVolumeClaimSpec", "k8s.io/api/core/v1.PersistentVolumeSpec"},
+			"k8s.io/api/core/v1.PersistentVolumeClaimSpec", "k8s.io/api/core/v1.PersistentVolumeSpec", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
