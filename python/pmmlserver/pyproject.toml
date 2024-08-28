@@ -12,14 +12,14 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.8,<3.13"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
-jpmml-evaluator = "~0.10.2"
+jpmml-evaluator = "~0.10.3"
 
 [tool.poetry.group.test]
 optional = true
 
 [tool.poetry.group.test.dependencies]
-pytest = "^7.2.0"
-pytest-cov = "^4.0.0"
+pytest = "^7.4.4"
+pytest-cov = "^5.0.0"
 mypy = "^0.991"
 pytest-asyncio = ">=0.23.4, <1.0.0"
 

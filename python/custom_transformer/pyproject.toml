@@ -25,7 +25,7 @@ priority = "explicit"
 optional = true
 
 [tool.poetry.group.test.dependencies]
-pytest = "^7.2.0"
+pytest = "^7.4.4"
 mypy = "^0.991"
 
 [tool.poetry.group.dev]

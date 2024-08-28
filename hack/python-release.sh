@@ -23,7 +23,7 @@ do
         continue
     fi
     pushd "${folder}"
-        poetry update --lock
+        poetry lock --no-update
     popd
 
 done
