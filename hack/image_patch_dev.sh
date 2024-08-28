@@ -19,6 +19,7 @@ spec:
       containers:
         - name: manager
           command:
+            - /ko-app/manager
           image: ${IMG}
 EOF
 

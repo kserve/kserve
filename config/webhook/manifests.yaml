@@ -6,7 +6,6 @@ metadata:
   name: inferenceservice.serving.kserve.io
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -26,7 +25,6 @@ webhooks:
         resources:
           - inferenceservices
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -62,7 +60,6 @@ metadata:
   name: inferenceservice.serving.kserve.io
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -89,7 +86,6 @@ metadata:
   name: trainedmodel.serving.kserve.io
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -116,7 +112,6 @@ metadata:
   name: inferencegraph.serving.kserve.io
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -143,7 +138,6 @@ metadata:
   name: clusterservingruntime.serving.kserve.io
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
@@ -170,7 +164,6 @@ metadata:
   name: servingruntime.serving.kserve.io
 webhooks:
   - clientConfig:
-      caBundle: Cg==
       service:
         name: $(webhookServiceName)
         namespace: $(kserveNamespace)
