@@ -1,6 +1,6 @@
 kserve:
-  version: &defaultVersion v0.13.0
-  modelmeshVersion: &defaultModelMeshVersion v0.12.0-rc0
+  version: &defaultVersion v0.14.0-rc0
+  modelmeshVersion: &defaultModelMeshVersion v0.12.0
   agent:
     image: kserve/agent
     tag: *defaultVersion

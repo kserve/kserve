@@ -21731,7 +21731,6 @@ webhooks:
   - admissionReviewVersions:
       - v1beta1
     clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: kubeflow
@@ -21752,7 +21751,6 @@ webhooks:
   - admissionReviewVersions:
       - v1beta1
     clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: kubeflow
@@ -21793,7 +21791,6 @@ webhooks:
   - admissionReviewVersions:
       - v1beta1
     clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: kubeflow
@@ -21826,7 +21823,6 @@ webhooks:
   - admissionReviewVersions:
       - v1beta1
     clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: kubeflow
@@ -21859,7 +21855,6 @@ webhooks:
   - admissionReviewVersions:
       - v1beta1
     clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: kubeflow
@@ -21892,7 +21887,6 @@ webhooks:
   - admissionReviewVersions:
       - v1beta1
     clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: kubeflow
@@ -21925,7 +21919,6 @@ webhooks:
   - admissionReviewVersions:
       - v1beta1
     clientConfig:
-      caBundle: Cg==
       service:
         name: kserve-webhook-server-service
         namespace: kubeflow
