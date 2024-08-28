@@ -710,7 +710,7 @@ name = "kserve"
 version = "0.14.0rc0"
 description = "KServe Python SDK"
 optional = false
-python-versions = ">=3.8,<3.13"
+python-versions = ">=3.9,<3.13"
 files = []
 develop = true
 
@@ -720,27 +720,27 @@ fastapi = ">=0.114.1"
 grpcio = "^1.49.1"
 httpx = "^0.27.2"
 kubernetes = ">=23.3.0"
-numpy = {version = ">=1.26.0,<2.0.0", markers = "python_version >= \"3.9\" and python_version < \"3.13\""}
+numpy = "^1.26.0"
 orjson = "^3.9.15"
-pandas = {version = ">=2.2.0,<3.0.0", markers = "python_version >= \"3.9\" and python_version < \"3.13\""}
+pandas = "^2.2.0"
 prometheus-client = "^0.20.0"
 protobuf = "^4.25.4"
-psutil = "^5.9.0"
+psutil = "^5.9.6"
 pydantic = [
     {version = ">=2.5.0,<3.0.0", markers = "python_version == \"3.12\""},
-    {version = ">1.0,<3", markers = "python_version >= \"3.8\" and python_version < \"3.12\""},
+    {version = ">1.0,<3", markers = "python_version >= \"3.9\" and python_version < \"3.12\""},
 ]
 python-dateutil = "^2.8.0"
 pyyaml = "^6.0.0"
 six = "^1.16.0"
 tabulate = "^0.9.0"
 timing-asgi = "^0.3.0"
-uvicorn = {version = "^0.23.0", extras = ["standard"]}
+uvicorn = {version = "^0.30.6", extras = ["standard"]}
 
 [package.extras]
 logging = ["asgi-logger (>=0.1.0,<0.2.0)"]
 ray = ["ray[serve] (>=2.35.0,<2.36.0)"]
-storage = ["azure-identity (>=1.8.0,<2.0.0)", "azure-storage-blob (>=12.10.0,<13.0.0)", "azure-storage-file-share (>=12.7.0,<13.0.0)", "boto3 (>=1.21.0,<2.0.0)", "google-cloud-storage (>=2.3.0,<3.0.0)", "huggingface-hub (>=0.24.5,<0.25.0)", "requests (>=2.20.0,<3.0.0)"]
+storage = ["azure-identity (>=1.15.0,<2.0.0)", "azure-storage-blob (>=12.20.0,<13.0.0)", "azure-storage-file-share (>=12.16.0,<13.0.0)", "boto3 (>=1.29.0,<2.0.0)", "google-cloud-storage (>=2.14.0,<3.0.0)", "huggingface-hub (>=0.24.5,<0.25.0)", "requests (>=2.32.2,<3.0.0)"]
 
 [package.source]
 type = "directory"
@@ -836,9 +836,9 @@ files = [
 [package.dependencies]
 numpy = [
     {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
-    {version = ">=1.23.3", markers = "python_version >= \"3.11\" and python_version < \"3.12\""},
     {version = ">=1.21.2", markers = "python_version >= \"3.10\" and python_version < \"3.11\""},
     {version = ">1.20", markers = "python_version < \"3.10\""},
+    {version = ">=1.23.3", markers = "python_version >= \"3.11\" and python_version < \"3.12\""},
 ]
 
 [package.extras]
@@ -1195,8 +1195,8 @@ files = [
 [package.dependencies]
 numpy = [
     {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
-    {version = ">=1.23.2", markers = "python_version == \"3.11\""},
     {version = ">=1.22.4", markers = "python_version < \"3.11\""},
+    {version = ">=1.23.2", markers = "python_version == \"3.11\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
@@ -2055,13 +2055,13 @@ zstd = ["zstandard (>=0.18.0)"]
 
 [[package]]
 name = "uvicorn"
-version = "0.23.2"
+version = "0.30.6"
 description = "The lightning-fast ASGI server."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "uvicorn-0.23.2-py3-none-any.whl", hash = "sha256:1f9be6558f01239d4fdf22ef8126c39cb1ad0addf76c40e760549d2c2f43ab53"},
-    {file = "uvicorn-0.23.2.tar.gz", hash = "sha256:4d3cc12d7727ba72b64d12d3cc7743124074c0a69f7b201512fc50c3e3f1569a"},
+    {file = "uvicorn-0.30.6-py3-none-any.whl", hash = "sha256:65fd46fe3fda5bdc1b03b94eb634923ff18cd35b2f084813ea79d1f103f711b5"},
+    {file = "uvicorn-0.30.6.tar.gz", hash = "sha256:4b15decdda1e72be08209e860a1e10e92439ad5b97cf44cc945fcbee66fc5788"},
 ]
 
 [package.dependencies]
