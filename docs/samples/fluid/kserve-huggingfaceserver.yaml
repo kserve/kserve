@@ -1,0 +1,62 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-huggingfaceserver
+spec:
+  labels:
+    sidecar.istio.io/inject: "true"
+  annotations:
+    prometheus.kserve.io/path: /metrics
+    prometheus.kserve.io/port: "8080"
+  containers:
+  - image: kserve/huggingfaceserver:latest
+    name: kserve-container
+    command: ["/bin/bash"]
+    args:
+    - "-c"
+    - |
+      set -e
+      TARGET_DIR="${TARGET_DIR:-/mnt/models}"
+      MAX_JOBS="${MAX_JOBS:-16}"
+      BLOCK_SIZE="${BLOCK_SIZE:-4M}"
+      echo "Warming up data in directory: $TARGET_DIR with max jobs: $MAX_JOBS and block size: $BLOCK_SIZE"
+      start_time=$(date +%s)
+      count=0
+      for file in $(find "$TARGET_DIR" -type f); do
+        dd if="$file" of=/dev/null bs="$BLOCK_SIZE" &
+        count=$((count + 1))
+        if (( count >= MAX_JOBS )); then
+          wait -n
+          count=$((count - 1))
+        fi
+      done
+      wait
+      end_time=$(date +%s)
+      elapsed_time=$((end_time - start_time))
+      echo "Data warmup completed in $elapsed_time seconds"
+      
+      # Now run the Python script with all additional arguments
+      python3 -m huggingfaceserver "$@"
+    - --model_name={{.Name}}
+    resources:
+      limits:
+        cpu: "1"
+        memory: 2Gi
+      requests:
+        cpu: "1"
+        memory: 2Gi
+    volumeMounts:
+    - mountPath: /dev/shm
+      name: shm1
+  volumes:
+  - emptyDir:
+      medium: Memory
+    name: shm1
+  protocolVersions:
+  - v2
+  - v1
+  supportedModelFormats:
+  - autoSelect: true
+    name: huggingface
+    priority: 1
+    version: "1"
