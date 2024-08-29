@@ -33,19 +33,20 @@ if __name__ == "__main__":
     model_dir = Path(out_dir, f"models--{tmp_model_name}", "snapshots", revision)
 
     # check the model repo and update it accordingly
-    allow_patterns=["*.json", "*.safetensors", "*.model"]
+    allow_patterns = ["*.json", "*.safetensors", "*.model"]
     # here safetensors is the preferred format.
-    ignore_patterns=["*.msgpack", "*.h5", "*.bin"]
+    ignore_patterns = ["*.msgpack", "*.h5", "*.bin"]
 
     # set the path to download the model
     models_path = Path(model_dir)
     models_path.mkdir(parents=True, exist_ok=True)
 
     # download the snapshot
-    output_dir = snapshot_download(repo_id=model_name,
-                    revision=revision,
-                    allow_patterns=allow_patterns,
-                    ignore_patterns=ignore_patterns,
-                    local_dir=models_path)
-
+    output_dir = snapshot_download(
+        repo_id=model_name,
+        revision=revision,
+        allow_patterns=allow_patterns,
+        ignore_patterns=ignore_patterns,
+        local_dir=models_path,
+    )
     print(output_dir)
