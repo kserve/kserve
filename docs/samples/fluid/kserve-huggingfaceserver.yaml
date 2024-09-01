@@ -1,10 +1,8 @@
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
-  name: kserve-huggingfaceserver
+  name: custom-kserve-huggingfaceserver
 spec:
-  labels:
-    sidecar.istio.io/inject: "true"
   annotations:
     prometheus.kserve.io/path: /metrics
     prometheus.kserve.io/port: "8080"
@@ -46,12 +44,13 @@ spec:
         cpu: "1"
         memory: 2Gi
     volumeMounts:
-    - mountPath: /dev/shm
-      name: shm1
+    - name: devshm
+      mountPath: /dev/shm
   volumes:
-  - emptyDir:
+  - name: devshm
+    emptyDir:
       medium: Memory
-    name: shm1
+      sizeLimit: 1Gi
   protocolVersions:
   - v2
   - v1

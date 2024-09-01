@@ -8,6 +8,7 @@ spec:
     nodeSelector:
       node.kubernetes.io/instance-type: g5.8xlarge
     model:
+      runtime: custom-kserve-huggingfaceserver
       modelFormat:
         name: huggingface
       storageUri: pvc://s3-data/llama-31-8b-instruct
