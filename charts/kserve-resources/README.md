@@ -80,6 +80,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0-rc0
 | kserve.servingruntime.art.defaultVersion | string | `"v0.14.0-rc0"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
 | kserve.servingruntime.art.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.huggingfaceserver.devShmSizeLimit | string | `"1Gi"` |  |
 | kserve.servingruntime.huggingfaceserver.image | string | `"kserve/huggingfaceserver"` |  |
 | kserve.servingruntime.huggingfaceserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.huggingfaceserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
