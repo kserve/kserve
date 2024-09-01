@@ -461,6 +461,14 @@ spec:
         limits:
           cpu: "1"
           memory: 2Gi
+      volumeMounts:
+      - name: devshm
+        mountPath: /dev/shm
+  volumes:
+  - name: devshm
+    emptyDir:
+      medium: Memory
+      sizeLimit: {{ .Values.kserve.servingruntime.huggingfaceserver.devShmSizeLimit }}
   {{- with .Values.kserve.servingruntime.huggingfaceserver.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
