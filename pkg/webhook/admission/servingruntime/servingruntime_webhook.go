@@ -34,10 +34,10 @@ import (
 var log = logf.Log.WithName(constants.ServingRuntimeValidatorWebhookName)
 
 const (
-	InvalidPriorityError                       = "Same priority assigned for the model format %s"
+	InvalidPriorityError                       = "same priority assigned for the model format %s"
 	InvalidPriorityServingRuntimeError         = "%s in the servingruntimes %s and %s in namespace %s"
 	InvalidPriorityClusterServingRuntimeError  = "%s in the clusterservingruntimes %s and %s"
-	ProrityIsNotSameError                      = "Different priorities assigned for the model format %s"
+	ProrityIsNotSameError                      = "different priorities assigned for the model format %s"
 	ProrityIsNotSameServingRuntimeError        = "%s under the servingruntime %s"
 	ProrityIsNotSameClusterServingRuntimeError = "%s under the clusterservingruntime %s"
 )
@@ -46,14 +46,14 @@ const (
 
 type ClusterServingRuntimeValidator struct {
 	Client  client.Client
-	Decoder *admission.Decoder
+	Decoder admission.Decoder
 }
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-servingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=servingruntimes,versions=v1alpha1,name=servingruntime.kserve-webhook-server.validator
 
 type ServingRuntimeValidator struct {
 	Client  client.Client
-	Decoder *admission.Decoder
+	Decoder admission.Decoder
 }
 
 func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
