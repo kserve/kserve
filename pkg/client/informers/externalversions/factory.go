@@ -23,9 +23,9 @@ import (
 	sync "sync"
 	time "time"
 
-	versioned "github.com/kserve/kserve/serving/clientset/versioned"
-	internalinterfaces "github.com/kserve/kserve/serving/informers/externalversions/internalinterfaces"
-	serving "github.com/kserve/kserve/serving/informers/externalversions/serving"
+	versioned "github.com/kserve/kserve/pkg/client/clientset/versioned"
+	internalinterfaces "github.com/kserve/kserve/pkg/client/informers/externalversions/internalinterfaces"
+	serving "github.com/kserve/kserve/pkg/client/informers/externalversions/serving"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

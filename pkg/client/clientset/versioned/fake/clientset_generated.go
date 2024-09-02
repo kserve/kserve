@@ -19,11 +19,11 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/kserve/kserve/serving/clientset/versioned"
-	servingv1alpha1 "github.com/kserve/kserve/serving/clientset/versioned/typed/serving/v1alpha1"
-	fakeservingv1alpha1 "github.com/kserve/kserve/serving/clientset/versioned/typed/serving/v1alpha1/fake"
-	servingv1beta1 "github.com/kserve/kserve/serving/clientset/versioned/typed/serving/v1beta1"
-	fakeservingv1beta1 "github.com/kserve/kserve/serving/clientset/versioned/typed/serving/v1beta1/fake"
+	clientset "github.com/kserve/kserve/pkg/client/clientset/versioned"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	fakeservingv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha1/fake"
+	servingv1beta1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1beta1"
+	fakeservingv1beta1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1beta1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

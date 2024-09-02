@@ -22,7 +22,7 @@ import (
 	"net/http"
 
 	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/serving/clientset/versioned/scheme"
+	"github.com/kserve/kserve/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 

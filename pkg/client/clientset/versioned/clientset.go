@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"net/http"
 
-	servingv1alpha1 "github.com/kserve/kserve/serving/clientset/versioned/typed/serving/v1alpha1"
-	servingv1beta1 "github.com/kserve/kserve/serving/clientset/versioned/typed/serving/v1beta1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	servingv1beta1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1beta1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
