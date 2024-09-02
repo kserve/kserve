@@ -33,8 +33,12 @@ spec:
       elapsed_time=$((end_time - start_time))
       echo "Data warmup completed in $elapsed_time seconds"
       
-      # Now run the Python script with all additional arguments
+      # Print all arguments for debugging
+      echo "All arguments: $@"
+
+      # Now run the Python script with all arguments
       python3 -m huggingfaceserver "$@"
+    - "--"
     - --model_name={{.Name}}
     resources:
       limits:
