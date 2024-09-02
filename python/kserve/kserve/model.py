@@ -261,7 +261,7 @@ class Model(InferenceModel):
         with POST_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
             if self.required_response_headers:
-                response, headers = (
+                response = (
                     await self.postprocess(response, headers, response_headers)
                     if inspect.iscoroutinefunction(self.postprocess)
                     else self.postprocess(response, headers, response_headers)
