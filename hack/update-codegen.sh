@@ -39,6 +39,6 @@ kube::codegen::gen_helpers \
 kube::codegen::gen_client \
     --with-watch \
     --output-dir "${SCRIPT_ROOT}/pkg/client" \
-    --output-pkg "${THIS_PKG}/serving" \
+    --output-pkg "${THIS_PKG}/pkg/client" \
     --boilerplate "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
     "${SCRIPT_ROOT}/pkg/apis"
