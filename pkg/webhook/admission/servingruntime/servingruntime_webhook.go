@@ -20,14 +20,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -152,7 +151,7 @@ func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existi
 	// Only validate for priority if both servingruntimes supports the same protocol version
 	isTheProtocolSame := false
 	for _, protocolVersion := range existingSpec.ProtocolVersions {
-		if contains(newSpec.ProtocolVersions, protocolVersion) {
+		if slices.Contains(newSpec.ProtocolVersions, protocolVersion) {
 			isTheProtocolSame = true
 			break
 		}
@@ -170,13 +169,4 @@ func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existi
 		}
 	}
 	return nil
-}
-
-func contains[T comparable](slice []T, element T) bool {
-	for _, v := range slice {
-		if v == element {
-			return true
-		}
-	}
-	return false
 }
