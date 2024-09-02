@@ -23,9 +23,9 @@ import (
 	time "time"
 
 	servingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	versioned "github.com/kserve/kserve/pkg/client/clientset/versioned"
-	internalinterfaces "github.com/kserve/kserve/pkg/client/informers/externalversions/internalinterfaces"
-	v1beta1 "github.com/kserve/kserve/pkg/client/listers/serving/v1beta1"
+	versioned "github.com/kserve/kserve/serving/clientset/versioned"
+	internalinterfaces "github.com/kserve/kserve/serving/informers/externalversions/internalinterfaces"
+	v1beta1 "github.com/kserve/kserve/serving/listers/serving/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"

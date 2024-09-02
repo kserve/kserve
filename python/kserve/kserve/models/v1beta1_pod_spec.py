@@ -47,90 +47,132 @@ class V1beta1PodSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'active_deadline_seconds': 'int',
-        'affinity': 'V1Affinity',
-        'automount_service_account_token': 'bool',
-        'containers': 'list[V1Container]',
-        'dns_config': 'V1PodDNSConfig',
-        'dns_policy': 'str',
-        'enable_service_links': 'bool',
-        'ephemeral_containers': 'list[V1EphemeralContainer]',
-        'host_aliases': 'list[V1HostAlias]',
-        'host_ipc': 'bool',
-        'host_network': 'bool',
-        'host_pid': 'bool',
-        'host_users': 'bool',
-        'hostname': 'str',
-        'image_pull_secrets': 'list[V1LocalObjectReference]',
-        'init_containers': 'list[V1Container]',
-        'node_name': 'str',
-        'node_selector': 'dict(str, str)',
-        'os': 'V1PodOS',
-        'overhead': 'dict(str, ResourceQuantity)',
-        'preemption_policy': 'str',
-        'priority': 'int',
-        'priority_class_name': 'str',
-        'readiness_gates': 'list[V1PodReadinessGate]',
-        'resource_claims': 'list[V1PodResourceClaim]',
-        'restart_policy': 'str',
-        'runtime_class_name': 'str',
-        'scheduler_name': 'str',
-        'scheduling_gates': 'list[V1PodSchedulingGate]',
-        'security_context': 'V1PodSecurityContext',
-        'service_account': 'str',
-        'service_account_name': 'str',
-        'set_hostname_as_fqdn': 'bool',
-        'share_process_namespace': 'bool',
-        'subdomain': 'str',
-        'termination_grace_period_seconds': 'int',
-        'tolerations': 'list[V1Toleration]',
-        'topology_spread_constraints': 'list[V1TopologySpreadConstraint]',
-        'volumes': 'list[V1Volume]'
+        "active_deadline_seconds": "int",
+        "affinity": "V1Affinity",
+        "automount_service_account_token": "bool",
+        "containers": "list[V1Container]",
+        "dns_config": "V1PodDNSConfig",
+        "dns_policy": "str",
+        "enable_service_links": "bool",
+        "ephemeral_containers": "list[V1EphemeralContainer]",
+        "host_aliases": "list[V1HostAlias]",
+        "host_ipc": "bool",
+        "host_network": "bool",
+        "host_pid": "bool",
+        "host_users": "bool",
+        "hostname": "str",
+        "image_pull_secrets": "list[V1LocalObjectReference]",
+        "init_containers": "list[V1Container]",
+        "node_name": "str",
+        "node_selector": "dict(str, str)",
+        "os": "V1PodOS",
+        "overhead": "dict(str, ResourceQuantity)",
+        "preemption_policy": "str",
+        "priority": "int",
+        "priority_class_name": "str",
+        "readiness_gates": "list[V1PodReadinessGate]",
+        "resource_claims": "list[V1PodResourceClaim]",
+        "restart_policy": "str",
+        "runtime_class_name": "str",
+        "scheduler_name": "str",
+        "scheduling_gates": "list[V1PodSchedulingGate]",
+        "security_context": "V1PodSecurityContext",
+        "service_account": "str",
+        "service_account_name": "str",
+        "set_hostname_as_fqdn": "bool",
+        "share_process_namespace": "bool",
+        "subdomain": "str",
+        "termination_grace_period_seconds": "int",
+        "tolerations": "list[V1Toleration]",
+        "topology_spread_constraints": "list[V1TopologySpreadConstraint]",
+        "volumes": "list[V1Volume]",
     }
 
     attribute_map = {
-        'active_deadline_seconds': 'activeDeadlineSeconds',
-        'affinity': 'affinity',
-        'automount_service_account_token': 'automountServiceAccountToken',
-        'containers': 'containers',
-        'dns_config': 'dnsConfig',
-        'dns_policy': 'dnsPolicy',
-        'enable_service_links': 'enableServiceLinks',
-        'ephemeral_containers': 'ephemeralContainers',
-        'host_aliases': 'hostAliases',
-        'host_ipc': 'hostIPC',
-        'host_network': 'hostNetwork',
-        'host_pid': 'hostPID',
-        'host_users': 'hostUsers',
-        'hostname': 'hostname',
-        'image_pull_secrets': 'imagePullSecrets',
-        'init_containers': 'initContainers',
-        'node_name': 'nodeName',
-        'node_selector': 'nodeSelector',
-        'os': 'os',
-        'overhead': 'overhead',
-        'preemption_policy': 'preemptionPolicy',
-        'priority': 'priority',
-        'priority_class_name': 'priorityClassName',
-        'readiness_gates': 'readinessGates',
-        'resource_claims': 'resourceClaims',
-        'restart_policy': 'restartPolicy',
-        'runtime_class_name': 'runtimeClassName',
-        'scheduler_name': 'schedulerName',
-        'scheduling_gates': 'schedulingGates',
-        'security_context': 'securityContext',
-        'service_account': 'serviceAccount',
-        'service_account_name': 'serviceAccountName',
-        'set_hostname_as_fqdn': 'setHostnameAsFQDN',
-        'share_process_namespace': 'shareProcessNamespace',
-        'subdomain': 'subdomain',
-        'termination_grace_period_seconds': 'terminationGracePeriodSeconds',
-        'tolerations': 'tolerations',
-        'topology_spread_constraints': 'topologySpreadConstraints',
-        'volumes': 'volumes'
+        "active_deadline_seconds": "activeDeadlineSeconds",
+        "affinity": "affinity",
+        "automount_service_account_token": "automountServiceAccountToken",
+        "containers": "containers",
+        "dns_config": "dnsConfig",
+        "dns_policy": "dnsPolicy",
+        "enable_service_links": "enableServiceLinks",
+        "ephemeral_containers": "ephemeralContainers",
+        "host_aliases": "hostAliases",
+        "host_ipc": "hostIPC",
+        "host_network": "hostNetwork",
+        "host_pid": "hostPID",
+        "host_users": "hostUsers",
+        "hostname": "hostname",
+        "image_pull_secrets": "imagePullSecrets",
+        "init_containers": "initContainers",
+        "node_name": "nodeName",
+        "node_selector": "nodeSelector",
+        "os": "os",
+        "overhead": "overhead",
+        "preemption_policy": "preemptionPolicy",
+        "priority": "priority",
+        "priority_class_name": "priorityClassName",
+        "readiness_gates": "readinessGates",
+        "resource_claims": "resourceClaims",
+        "restart_policy": "restartPolicy",
+        "runtime_class_name": "runtimeClassName",
+        "scheduler_name": "schedulerName",
+        "scheduling_gates": "schedulingGates",
+        "security_context": "securityContext",
+        "service_account": "serviceAccount",
+        "service_account_name": "serviceAccountName",
+        "set_hostname_as_fqdn": "setHostnameAsFQDN",
+        "share_process_namespace": "shareProcessNamespace",
+        "subdomain": "subdomain",
+        "termination_grace_period_seconds": "terminationGracePeriodSeconds",
+        "tolerations": "tolerations",
+        "topology_spread_constraints": "topologySpreadConstraints",
+        "volumes": "volumes",
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        active_deadline_seconds=None,
+        affinity=None,
+        automount_service_account_token=None,
+        containers=None,
+        dns_config=None,
+        dns_policy=None,
+        enable_service_links=None,
+        ephemeral_containers=None,
+        host_aliases=None,
+        host_ipc=None,
+        host_network=None,
+        host_pid=None,
+        host_users=None,
+        hostname=None,
+        image_pull_secrets=None,
+        init_containers=None,
+        node_name=None,
+        node_selector=None,
+        os=None,
+        overhead=None,
+        preemption_policy=None,
+        priority=None,
+        priority_class_name=None,
+        readiness_gates=None,
+        resource_claims=None,
+        restart_policy=None,
+        runtime_class_name=None,
+        scheduler_name=None,
+        scheduling_gates=None,
+        security_context=None,
+        service_account=None,
+        service_account_name=None,
+        set_hostname_as_fqdn=None,
+        share_process_namespace=None,
+        subdomain=None,
+        termination_grace_period_seconds=None,
+        tolerations=None,
+        topology_spread_constraints=None,
+        volumes=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1PodSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -988,7 +1030,7 @@ class V1beta1PodSpec(object):
     def set_hostname_as_fqdn(self):
         """Gets the set_hostname_as_fqdn of this V1beta1PodSpec.  # noqa: E501
 
-        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
+        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\Tcpip\\\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
 
         :return: The set_hostname_as_fqdn of this V1beta1PodSpec.  # noqa: E501
         :rtype: bool
@@ -999,7 +1041,7 @@ class V1beta1PodSpec(object):
     def set_hostname_as_fqdn(self, set_hostname_as_fqdn):
         """Sets the set_hostname_as_fqdn of this V1beta1PodSpec.
 
-        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
+        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\Tcpip\\\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
 
         :param set_hostname_as_fqdn: The set_hostname_as_fqdn of this V1beta1PodSpec.  # noqa: E501
         :type: bool
@@ -1152,18 +1194,22 @@ class V1beta1PodSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
