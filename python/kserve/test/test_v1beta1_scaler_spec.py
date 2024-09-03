@@ -33,6 +33,7 @@ import kserve
 from kserve.models.v1beta1_scaler_spec import V1beta1ScalerSpec  # noqa: E501
 from kserve.rest import ApiException
 
+
 class TestV1beta1ScalerSpec(unittest.TestCase):
     """V1beta1ScalerSpec unit test stubs"""
 
@@ -44,24 +45,23 @@ class TestV1beta1ScalerSpec(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1beta1ScalerSpec
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1beta1_scaler_spec.V1beta1ScalerSpec()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1beta1ScalerSpec(
-                max_replicas = 56, 
-                min_replicas = 56, 
-                query = '0', 
-                query_parameters = '0', 
-                scale_metric = '0', 
-                scale_metric_type = '0', 
-                scale_target = 56, 
-                server_address = '0'
+                max_replicas=56,
+                min_replicas=56,
+                query="0",
+                query_parameters="0",
+                scale_metric="0",
+                scale_metric_type="0",
+                scale_target=56,
+                server_address="0",
             )
-        else :
-            return V1beta1ScalerSpec(
-        )
+        else:
+            return V1beta1ScalerSpec()
 
     def testV1beta1ScalerSpec(self):
         """Test V1beta1ScalerSpec"""
@@ -69,5 +69,5 @@ class TestV1beta1ScalerSpec(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
