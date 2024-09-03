@@ -30,7 +30,7 @@ from http import HTTPStatus
 import torch
 from vllm import PoolingParams
 from vllm.entrypoints.logger import RequestLogger
-from vllm.inputs import parse_and_batch_prompt
+from vllm.inputs.parse import parse_and_batch_prompt
 from vllm.lora.request import LoRARequest
 from vllm.prompt_adapter.request import PromptAdapterRequest
 from vllm.sampling_params import SamplingParams
