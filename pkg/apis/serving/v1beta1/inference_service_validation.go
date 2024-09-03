@@ -69,7 +69,6 @@ func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, obj runt
 	}
 	validatorLogger.Info("validate create", "name", isvc.Name)
 	return validateInferenceService(isvc)
-
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
