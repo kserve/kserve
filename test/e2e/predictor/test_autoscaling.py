@@ -291,3 +291,60 @@ async def test_sklearn_rolling_update():
     # Check if the deployment replicas still remain the same as min_replicas
     assert deployment.items[0].spec.replicas == min_replicas
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_keda_scale_raw(rest_v1_client):
+    service_name = "isvc-sklearn-keda-scale"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        max_replicas=5,
+        scale_metric="memory",
+        scale_metric_type="Utilization",
+        scale_target=50,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri=MODEL,
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+
+    annotations = dict()
+    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    annotations["serving.kserve.io/autoscalerClass"] = "keda"
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    api_instance = kserve_client.api_instance
+
+    scaledobject_resp = api_instance.list_namespaced_custom_object(
+        group="keda.sh",
+        version="v1alpha1",
+        namespace=KSERVE_TEST_NAMESPACE,
+        label_selector=f"serving.kserve.io/inferenceservice={service_name}",
+        plural="scaledobjects",
+    )
+
+    assert (
+        scaledobject_resp["items"][0]["spec"]["triggers"][0]["metricType"]
+        == "Utilization"
+    )
+    assert scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"] == "memory"
+    res = await predict_isvc(rest_v1_client, service_name, INPUT)
+    assert res["predictions"] == [1, 1]
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
