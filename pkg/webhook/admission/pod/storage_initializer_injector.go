@@ -307,7 +307,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		pvcSourceVolumeMount := v1.VolumeMount{
 			Name:      PvcSourceMountName,
 			MountPath: PvcSourceMountPath,
-			ReadOnly:  true,
+			ReadOnly:  isvcReadonlyStringFlag,
 		}
 		storageInitializerMounts = append(storageInitializerMounts, pvcSourceVolumeMount)
 
