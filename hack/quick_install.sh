@@ -23,6 +23,7 @@ export KNATIVE_SERVING_VERSION=1.15.2
 export KSERVE_VERSION=v0.15.0-rc0
 export CERT_MANAGER_VERSION=v1.16.1
 export GATEWAY_API_VERSION=v1.2.1
+export KEDA_VERSION=2.14.0
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 export SCRIPT_DIR
 
@@ -42,6 +43,9 @@ uninstall() {
 
    helm uninstall --ignore-not-found cert-manager -n cert-manager
    echo "😀 Successfully uninstalled Cert Manager"
+
+   helm uninstall --ignore-not-found keda -n keda
+   echo "😀 Successfully uninstalled KEDA"
 
    kubectl delete --ignore-not-found=true namespace istio-system
    kubectl delete --ignore-not-found=true namespace cert-manager
@@ -113,6 +117,11 @@ helm install \
    --version ${CERT_MANAGER_VERSION} \
    --set crds.enabled=true
 echo "😀 Successfully installed Cert Manager"
+
+#Install KEDA
+helm repo add kedacore https://kedacore.github.io/charts
+helm install keda kedacore/keda --version ${KEDA_VERSION} --namespace keda --create-namespace --wait
+echo "😀 Successfully installed KEDA"
 
 # Install Knative
 if [ $deploymentMode = "Serverless" ]; then
