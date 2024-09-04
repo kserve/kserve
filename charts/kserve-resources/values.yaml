@@ -86,6 +86,7 @@ kserve:
           memory: 300Mi
       securityContext:
         allowPrivilegeEscalation: false
+        privileged: false
         capabilities:
           drop:
           - ALL
@@ -116,7 +117,9 @@ kserve:
       capabilities:
         drop:
         - ALL
+      privileged: false
       readOnlyRootFilesystem: true
+      runAsNonRoot: true
 
     gateway:
       # -- Ingress domain for RawDeployment mode, for Serverless it is configured in Knative.

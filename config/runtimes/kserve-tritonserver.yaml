@@ -42,6 +42,13 @@ spec:
         - --http-port=8080
         - --allow-grpc=true
         - --allow-http=true
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
       resources:
         requests:
           cpu: "1"

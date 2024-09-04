@@ -26,6 +26,13 @@ spec:
       env:
         - name: "TS_SERVICE_ENVELOPE"
           value: "{{.Labels.serviceEnvelope}}"
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
       resources:
         requests:
           cpu: "1"
