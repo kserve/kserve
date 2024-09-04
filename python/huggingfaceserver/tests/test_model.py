@@ -29,6 +29,7 @@ from huggingfaceserver.encoder_model import HuggingfaceEncoderModel
 from huggingfaceserver.generative_model import HuggingfaceGenerativeModel
 from huggingfaceserver.task import MLTask
 from test_output import bert_token_classification_return_prob_expected_output
+import torch.nn.functional as F
 
 
 @pytest.fixture(scope="module")
@@ -138,6 +139,18 @@ def openai_gpt_model():
     model.stop()
 
 
+@pytest.fixture(scope="module")
+def text_embedding():
+    model = HuggingfaceEncoderModel(
+        "mxbai-embed-large-v1",
+        model_id_or_path="mixedbread-ai/mxbai-embed-large-v1",
+        task=MLTask.text_embedding,
+    )
+    model.load()
+    yield model
+    model.stop()
+
+
 def test_unsupported_model():
     config = AutoConfig.from_pretrained("google/tapas-base-finetuned-wtq")
     with pytest.raises(ValueError) as err_info:
@@ -227,8 +240,10 @@ async def test_model_revision(request: HuggingfaceEncoderModel):
 
 @pytest.mark.asyncio
 async def test_bert_predictor_host(request, httpx_mock: HTTPXMock):
+    model_name = "bert"
     httpx_mock.add_response(
         json={
+            "model_name": model_name,
             "outputs": [
                 {
                     "name": "OUTPUT__0",
@@ -236,12 +251,12 @@ async def test_bert_predictor_host(request, httpx_mock: HTTPXMock):
                     "data": [1] * 9 * 758,
                     "datatype": "INT64",
                 }
-            ]
+            ],
         }
     )
 
     model = HuggingfaceEncoderModel(
-        "bert",
+        model_name,
         model_id_or_path="google-bert/bert-base-uncased",
         tensor_input_names="input_ids",
         predictor_config=PredictorConfig(
@@ -409,6 +424,35 @@ async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativ
     assert (
         output
         == "The first thing you need to do is to get a good idea of what you are looking for."
+    )
+
+
+@pytest.mark.asyncio
+async def test_text_embedding(text_embedding):
+    def cosine_similarity(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+        if len(a.shape) == 1:
+            a = a.unsqueeze(0)
+
+        if len(b.shape) == 1:
+            b = b.unsqueeze(0)
+
+        a_norm = F.normalize(a, p=2, dim=1)
+        b_norm = F.normalize(b, p=2, dim=1)
+        return torch.mm(a_norm, b_norm.transpose(0, 1))
+
+    requests = ["I'm happy", "I'm full of happiness", "They were at the park."]
+    response = await text_embedding({"instances": requests}, headers={})
+    predictions = response["predictions"]
+
+    # The first two requests are semantically similar, so the cosine similarity should be high
+    assert (
+        cosine_similarity(torch.tensor(predictions[0]), torch.tensor(predictions[1]))[0]
+        > 0.9
+    )
+    # The third request is semantically different, so the cosine similarity should be low
+    assert (
+        cosine_similarity(torch.tensor(predictions[0]), torch.tensor(predictions[2]))[0]
+        < 0.55
     )
 
 

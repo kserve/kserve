@@ -22,7 +22,6 @@ from vllm.config import ModelConfig
 
 from huggingfaceserver.vllm.vllm_completions import OpenAIServingCompletion
 from huggingfaceserver.vllm.vllm_model import VLLMModel
-from kserve.errors import InvalidInput
 from kserve.logging import logger
 from kserve.protocol.rest.openai import ChatCompletionRequest, CompletionRequest
 from kserve.protocol.rest.openai.errors import OpenAIError
@@ -2814,7 +2813,7 @@ class TestOpenAIServingCompletion:
             prompt=prompt,
             max_tokens=opt_model.openai_serving_completion.max_model_len + 1,
         )
-        with pytest.raises(InvalidInput):
+        with pytest.raises(OpenAIError):
             opt_model.openai_serving_completion._validate_input(
                 request,
                 input_text=prompt,

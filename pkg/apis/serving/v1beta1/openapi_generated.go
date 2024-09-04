@@ -4942,7 +4942,7 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 							Format: "",
 						},
 					},
-					"ingressService": {
+					"knativeLocalGatewayService": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -5340,6 +5340,21 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 							Description: "Specifies the scope of the loggers. <br /> Valid values are: <br /> - \"all\" (default): log both request and response; <br /> - \"request\": log only request; <br /> - \"response\": log only response <br />",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"metadataHeaders": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Matched metadata HTTP headers for propagating to inference logger cloud events.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 				},

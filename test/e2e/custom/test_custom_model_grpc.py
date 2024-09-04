@@ -15,6 +15,7 @@ import base64
 import json
 import os
 
+import numpy as np
 import pytest
 from kserve import (
     KServeClient,
@@ -23,6 +24,8 @@ from kserve import (
     V1beta1PredictorSpec,
     V1beta1TransformerSpec,
     constants,
+    InferRequest,
+    InferInput,
 )
 from kubernetes.client import V1ResourceRequirements
 from kubernetes import client
@@ -229,6 +232,30 @@ async def test_predictor_grpc_with_transformer_http(rest_v2_client):
         rest_v2_client,
         service_name,
         "./data/custom_model_input_v2.json",
+        model_name=model_name,
+    )
+    points = ["%.3f" % point for point in list(res.outputs[0].data)]
+    assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
+
+    with open("./data/custom_model_input_v2.json") as json_data:
+        data = json.load(json_data)
+    infer_input = InferInput(
+        name=data["inputs"][0]["name"],
+        datatype=data["inputs"][0]["datatype"],
+        shape=data["inputs"][0]["shape"],
+    )
+    infer_input.set_data_from_numpy(
+        np.array(data["inputs"][0]["data"], dtype=np.object_)
+    )
+    infer_request = InferRequest(
+        model_name=model_name,
+        infer_inputs=[infer_input],
+        parameters={"binary_data_output": True},
+    )
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        infer_request,
         model_name=model_name,
     )
     points = ["%.3f" % point for point in list(res.outputs[0].data)]

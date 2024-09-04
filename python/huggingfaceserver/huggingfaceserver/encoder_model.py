@@ -16,6 +16,7 @@ import pathlib
 from typing import Any, Dict, Optional, Union
 
 import torch
+import torch.nn.functional as F
 from accelerate import init_empty_weights
 from kserve import Model
 from kserve.errors import InferenceError
@@ -38,13 +39,14 @@ from transformers import (
     TensorType,
 )
 
+from .request_logger import RequestLogger
 from .task import (
     MLTask,
     is_generative_task,
     get_model_class_for_task,
     infer_task_from_model_architecture,
 )
-from .utils import _get_and_verify_max_len
+from .utils import _get_and_verify_max_len, _mean_pooling
 
 
 class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
@@ -81,6 +83,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         trust_remote_code: bool = False,
         return_probabilities: bool = False,
         predictor_config: Optional[PredictorConfig] = None,
+        request_logger: Optional[RequestLogger] = None,
     ):
         super().__init__(model_name, predictor_config)
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -95,6 +98,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         self.tokenizer_revision = tokenizer_revision
         self.trust_remote_code = trust_remote_code
         self.return_probabilities = return_probabilities
+        self.request_logger = request_logger
 
         if model_config:
             self.model_config = model_config
@@ -187,6 +191,11 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         context: Dict[str, Any],
     ) -> Union[BatchEncoding, InferRequest]:
         instances = get_predict_input(payload)
+        if isinstance(payload, InferRequest):
+            request_id = payload.id
+        else:
+            request_id = "N.A."
+        self._log_request(request_id, instances)
         # Serialize to tensor
         if self.predictor_host:
             inputs = self._tokenizer(
@@ -200,6 +209,8 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
+            if self.task == MLTask.text_embedding:
+                context["attention_mask"] = inputs["attention_mask"]
             infer_inputs = []
             for key, input_tensor in inputs.items():
                 if (not self.tensor_input_names) or (key in self.tensor_input_names):
@@ -226,6 +237,8 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             )
             context["payload"] = payload
             context["input_ids"] = inputs["input_ids"]
+            if self.task == MLTask.text_embedding:
+                context["attention_mask"] = inputs["attention_mask"]
             return inputs
 
     async def predict(
@@ -241,7 +254,12 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             input_batch = input_batch.to(self._device)
             try:
                 with torch.no_grad():
-                    outputs = self._model(**input_batch).logits
+                    outputs = self._model(**input_batch)
+                    if self.task == MLTask.text_embedding.value:
+                        # last_hidden_state contains all token embeddings
+                        outputs = outputs.last_hidden_state
+                    else:
+                        outputs = outputs.logits
                     return outputs
             except Exception as e:
                 raise InferenceError(str(e))
@@ -298,7 +316,23 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
                     predictions = torch.argmax(output, dim=2)
                     inferences.append(predictions.tolist())
             return get_predict_response(request, inferences, self.name)
+        elif self.task == MLTask.text_embedding:
+            # Perform pooling
+            outputs = _mean_pooling(outputs, context["attention_mask"])
+            # Normalize embeddings
+            outputs = F.normalize(outputs, p=2, dim=1)
+            num_rows, _ = outputs.shape
+            for i in range(num_rows):
+                inferences.append(outputs[i].tolist())
+            return get_predict_response(request, inferences, self.name)
         else:
             raise ValueError(
                 f"Unsupported task {self.task}. Please check the supported `task` option."
+            )
+
+    def _log_request(self, request_id: str, prompt: list[str]) -> None:
+        if self.request_logger:
+            self.request_logger.log_inputs(
+                request_id,
+                prompt=prompt,
             )

@@ -13,6 +13,7 @@ Help() {
    echo "s Serverless Mode."
    echo "r RawDeployment Mode."
    echo "u Uninstall."
+   echo "d Install only dependencies."
    echo
 }
 
@@ -53,7 +54,7 @@ if ! command -v helm &>/dev/null; then
 fi
 
 deploymentMode="Serverless"
-while getopts ":hsru" option; do
+while getopts ":hsrud" option; do
    case $option in
    h) # display Help
       Help
@@ -67,6 +68,8 @@ while getopts ":hsru" option; do
       uninstall
       exit
       ;;
+   d) # install only dependencies
+      installKserve=false ;;
    \?) # Invalid option
       echo "Error: Invalid option"
       exit
@@ -127,8 +130,11 @@ EOF
    echo "😀 Successfully installed Knative"
 fi
 
+if [ $installKserve = false ]; then
+   exit
+fi
 # Install KServe
 helm install kserve-crd oci://ghcr.io/kserve/charts/kserve-crd --version ${KSERVE_VERSION} --namespace kserve --create-namespace --wait
 helm install kserve oci://ghcr.io/kserve/charts/kserve --version ${KSERVE_VERSION} --namespace kserve --create-namespace --wait \
-   --set-string kserve.controller.deploymentMode="${deploymentMode}"
+   --set-string kserve.controller.deploymentMode="${deploymentMode}" --set kserve.modelmesh.enabled=false
 echo "😀 Successfully installed KServe"

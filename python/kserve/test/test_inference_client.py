@@ -15,6 +15,7 @@
 import re
 
 import httpx
+import numpy as np
 import pytest
 import pytest_asyncio
 
@@ -22,6 +23,7 @@ from kserve import ModelServer, InferenceRESTClient, InferRequest, InferInput
 from kserve.model_server import app as kserve_app
 from kserve.errors import UnsupportedProtocol
 from kserve.inference_client import RESTConfig
+from kserve.protocol.infer_type import RequestedOutput
 from kserve.protocol.rest.server import RESTServer
 from test.test_server import DummyModel
 
@@ -237,6 +239,91 @@ class TestInferenceRESTClient:
                 headers={"Host": "test-server.com"},
                 timeout=2,
             )
+
+    @pytest.mark.parametrize(
+        "rest_client, protocol",
+        [("v2", "v2")],
+        indirect=["rest_client"],
+    )
+    async def test_infer_with_all_binary_data(self, rest_client, protocol):
+        request_id = "2ja0ls9j1309"
+        fp16_data = np.array([[1.1, 2.22], [3.345, 4.34343]], dtype=np.float16)
+        input_data = InferRequest(
+            model_name="TestModel",
+            request_id=request_id,
+            infer_inputs=[
+                InferInput(
+                    name="input-0",
+                    datatype="INT32",
+                    shape=[2, 2],
+                    data=[[1, 2], [3, 4]],
+                    parameters={"test-param": "abc"},
+                ),
+                InferInput(
+                    name="fp16_data",
+                    datatype="FP16",
+                    shape=[2, 2],
+                    parameters={"test-param": "abc"},
+                ),
+            ],
+            parameters={"test-param": "abc", "binary_data_output": True},
+        )
+        input_data.inputs[1].set_data_from_numpy(fp16_data, binary_data=True)
+
+        res = await rest_client.infer(
+            "http://test-server/",
+            model_name="TestModel",
+            data=input_data,
+            headers={"Host": "test-server.com"},
+            timeout=2,
+        )
+        assert res.outputs[0].data == [1, 2, 3, 4]
+        assert res.id == request_id
+
+    @pytest.mark.parametrize(
+        "rest_client, protocol",
+        [("v2", "v2")],
+        indirect=["rest_client"],
+    )
+    async def test_infer_with_binary_data(self, rest_client, protocol):
+        request_id = "2ja0ls9j1309"
+        fp16_data = np.array([[1.1, 2.22], [3.345, 4.34343]], dtype=np.float16)
+        input_data = InferRequest(
+            model_name="TestModel",
+            request_id=request_id,
+            infer_inputs=[
+                InferInput(
+                    name="input-0",
+                    datatype="INT32",
+                    shape=[2, 2],
+                    data=[[1, 2], [3, 4]],
+                    parameters={"test-param": "abc"},
+                ),
+                InferInput(
+                    name="fp16_data",
+                    datatype="FP16",
+                    shape=[2, 2],
+                    parameters={"test-param": "abc"},
+                ),
+            ],
+            parameters={"test-param": "abc"},
+            request_outputs=[
+                RequestedOutput(
+                    name="output-0", parameters={"binary_data_output": True}
+                )
+            ],
+        )
+        input_data.inputs[1].set_data_from_numpy(fp16_data, binary_data=True)
+
+        res = await rest_client.infer(
+            "http://test-server/",
+            model_name="TestModel",
+            data=input_data,
+            headers={"Host": "test-server.com"},
+            timeout=2,
+        )
+        assert res.outputs[0].data == [1, 2, 3, 4]
+        assert res.id == request_id
 
     # Because no versions of pytest-httpx match >v0.22.0,<0.23.0
     # and pytest-httpx (0.22.0) depends on httpx (==0.24.*), pytest-httpx (>=v0.22.0,<0.23.0) requires httpx (==0.24.*).

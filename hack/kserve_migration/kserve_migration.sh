@@ -121,7 +121,7 @@ ksvc_count=${#ksvc_names[@]}
         yq 'del(.metadata.managedFields)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
         yq 'del(.status)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
         sed -i -- 's/kubeflow.org/kserve.io/g' ${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml
-        kubectl apply -f "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
+        kubectl apply --server-side=true -f "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
     done
 )
 sleep 300

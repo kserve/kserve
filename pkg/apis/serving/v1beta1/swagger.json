@@ -2736,7 +2736,7 @@
         "ingressGateway": {
           "type": "string"
         },
-        "ingressService": {
+        "knativeLocalGatewayService": {
           "type": "string"
         },
         "localGateway": {
@@ -2923,6 +2923,14 @@
       "description": "LoggerSpec specifies optional payload logging available for all components",
       "type": "object",
       "properties": {
+        "metadataHeaders": {
+          "description": "Matched metadata HTTP headers for propagating to inference logger cloud events.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
         "mode": {
           "description": "Specifies the scope of the loggers. \u003cbr /\u003e Valid values are: \u003cbr /\u003e - \"all\" (default): log both request and response; \u003cbr /\u003e - \"request\": log only request; \u003cbr /\u003e - \"response\": log only response \u003cbr /\u003e",
           "type": "string"
