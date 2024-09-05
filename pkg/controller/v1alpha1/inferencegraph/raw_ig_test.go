@@ -163,9 +163,9 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 						},
 					},
 					SecurityContext: &v1.SecurityContext{
-						Privileged: proto.Bool(false),
-						RunAsNonRoot: proto.Bool(true),
-						ReadOnlyRootFilesystem: proto.Bool(true),
+						Privileged:               proto.Bool(false),
+						RunAsNonRoot:             proto.Bool(true),
+						ReadOnlyRootFilesystem:   proto.Bool(true),
 						AllowPrivilegeEscalation: proto.Bool(false),
 						Capabilities: &v1.Capabilities{
 							Drop: []v1.Capability{v1.Capability("ALL")},
@@ -201,9 +201,9 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 						},
 					},
 					SecurityContext: &v1.SecurityContext{
-						Privileged: proto.Bool(false),
-						RunAsNonRoot: proto.Bool(true),
-						ReadOnlyRootFilesystem: proto.Bool(true),
+						Privileged:               proto.Bool(false),
+						RunAsNonRoot:             proto.Bool(true),
+						ReadOnlyRootFilesystem:   proto.Bool(true),
 						AllowPrivilegeEscalation: proto.Bool(false),
 						Capabilities: &v1.Capabilities{
 							Drop: []v1.Capability{v1.Capability("ALL")},
@@ -233,9 +233,9 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 						},
 					},
 					SecurityContext: &v1.SecurityContext{
-						Privileged: proto.Bool(false),
-						RunAsNonRoot: proto.Bool(true),
-						ReadOnlyRootFilesystem: proto.Bool(true),
+						Privileged:               proto.Bool(false),
+						RunAsNonRoot:             proto.Bool(true),
+						ReadOnlyRootFilesystem:   proto.Bool(true),
 						AllowPrivilegeEscalation: proto.Bool(false),
 						Capabilities: &v1.Capabilities{
 							Drop: []v1.Capability{v1.Capability("ALL")},
