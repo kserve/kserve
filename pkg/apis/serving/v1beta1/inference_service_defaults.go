@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"strconv"
 
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes"
@@ -120,6 +121,22 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 				component.GetExtensions().Default(config)
 			}
 		}
+	}
+	setautomountServiceAccountToken(isvc)
+}
+
+// setautomountServiceAccountToken sets the default value for AutomountServiceAccountToken
+// Usually serving runtimes do not need access to kubernetes apiserver, so we set it to false by default.
+// This can be overridden by setting AutomountServiceAccountToken to true in the InferenceService spec
+func setautomountServiceAccountToken(isvc *InferenceService) {
+	if isvc.Spec.Predictor.AutomountServiceAccountToken == nil {
+		isvc.Spec.Predictor.AutomountServiceAccountToken = proto.Bool(false)
+	}
+	if isvc.Spec.Transformer != nil && isvc.Spec.Transformer.AutomountServiceAccountToken == nil {
+		isvc.Spec.Transformer.AutomountServiceAccountToken = proto.Bool(false)
+	}
+	if isvc.Spec.Explainer != nil && isvc.Spec.Explainer.AutomountServiceAccountToken == nil {
+		isvc.Spec.Explainer.AutomountServiceAccountToken = proto.Bool(false)
 	}
 }
 
