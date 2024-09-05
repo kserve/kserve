@@ -43,6 +43,7 @@ spec:
         - --allow-grpc=true
         - --allow-http=true
       securityContext:
+        runAsUser: 1000    # https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/customization_guide/deploy.html#run-as-a-non-root-user
         allowPrivilegeEscalation: false
         privileged: false
         runAsNonRoot: true

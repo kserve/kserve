@@ -130,6 +130,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0-rc0
 | kserve.servingruntime.tensorflow.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.tensorflow.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.tensorflow.securityContext.runAsNonRoot | bool | `true` |  |
+| kserve.servingruntime.tensorflow.securityContext.runAsUser | int | `1000` |  |
 | kserve.servingruntime.tensorflow.tag | string | `"2.6.2"` |  |
 | kserve.servingruntime.torchserve.image | string | `"pytorch/torchserve-kfs"` |  |
 | kserve.servingruntime.torchserve.imagePullSecrets | list | `[]` |  |
@@ -137,6 +138,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0-rc0
 | kserve.servingruntime.torchserve.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.torchserve.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.torchserve.securityContext.runAsNonRoot | bool | `true` |  |
+| kserve.servingruntime.torchserve.securityContext.runAsUser | int | `1000` |  |
 | kserve.servingruntime.torchserve.serviceEnvelopePlaceholder | string | `"{{.Labels.serviceEnvelope}}"` |  |
 | kserve.servingruntime.torchserve.tag | string | `"0.9.0"` |  |
 | kserve.servingruntime.tritonserver.image | string | `"nvcr.io/nvidia/tritonserver"` |  |
@@ -145,6 +147,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0-rc0
 | kserve.servingruntime.tritonserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.tritonserver.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.tritonserver.securityContext.runAsNonRoot | bool | `true` |  |
+| kserve.servingruntime.tritonserver.securityContext.runAsUser | int | `1000` |  |
 | kserve.servingruntime.tritonserver.tag | string | `"23.05-py3"` |  |
 | kserve.servingruntime.xgbserver.image | string | `"kserve/xgbserver"` |  |
 | kserve.servingruntime.xgbserver.imagePullSecrets | list | `[]` |  |
