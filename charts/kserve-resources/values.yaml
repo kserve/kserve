@@ -262,44 +262,114 @@ kserve:
       image: tensorflow/serving
       tag: 2.6.2
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     mlserver:
       image: docker.io/seldonio/mlserver
       tag: 1.5.0
       modelClassPlaceholder: "{{.Labels.modelClass}}"
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     sklearnserver:
       image: kserve/sklearnserver
       tag: *defaultVersion
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     xgbserver:
       image: kserve/xgbserver
       tag: *defaultVersion
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     huggingfaceserver:
       image: kserve/huggingfaceserver
       tag: *defaultVersion
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     pmmlserver:
       image: kserve/pmmlserver
       tag: *defaultVersion
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     paddleserver:
       image: kserve/paddleserver
       tag: *defaultVersion
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     lgbserver:
       image: kserve/lgbserver
       tag: *defaultVersion
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     torchserve:
       image: pytorch/torchserve-kfs
       tag: 0.9.0
       serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     art:
       image: kserve/art-explainer
       defaultVersion: *defaultVersion
