@@ -17,17 +17,19 @@ limitations under the License.
 package inferencegraph
 
 import (
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	. "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"testing"
 )
 
 func TestCreateInferenceGraphPodSpec(t *testing.T) {
@@ -160,8 +162,18 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 							v1.ResourceMemory: resource.MustParse("100Mi"),
 						},
 					},
+					SecurityContext: &v1.SecurityContext{
+						Privileged: proto.Bool(false),
+						RunAsNonRoot: proto.Bool(true),
+						ReadOnlyRootFilesystem: proto.Bool(true),
+						AllowPrivilegeEscalation: proto.Bool(false),
+						Capabilities: &v1.Capabilities{
+							Drop: []v1.Capability{v1.Capability("ALL")},
+						},
+					},
 				},
 			},
+			AutomountServiceAccountToken: proto.Bool(false),
 		},
 		"basicgraphwithheaders": {
 			Containers: []v1.Container{
@@ -188,8 +200,18 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 							v1.ResourceMemory: resource.MustParse("100Mi"),
 						},
 					},
+					SecurityContext: &v1.SecurityContext{
+						Privileged: proto.Bool(false),
+						RunAsNonRoot: proto.Bool(true),
+						ReadOnlyRootFilesystem: proto.Bool(true),
+						AllowPrivilegeEscalation: proto.Bool(false),
+						Capabilities: &v1.Capabilities{
+							Drop: []v1.Capability{v1.Capability("ALL")},
+						},
+					},
 				},
 			},
+			AutomountServiceAccountToken: proto.Bool(false),
 		},
 		"withresource": {
 			Containers: []v1.Container{
@@ -210,8 +232,18 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 							v1.ResourceMemory: resource.MustParse("100Mi"),
 						},
 					},
+					SecurityContext: &v1.SecurityContext{
+						Privileged: proto.Bool(false),
+						RunAsNonRoot: proto.Bool(true),
+						ReadOnlyRootFilesystem: proto.Bool(true),
+						AllowPrivilegeEscalation: proto.Bool(false),
+						Capabilities: &v1.Capabilities{
+							Drop: []v1.Capability{v1.Capability("ALL")},
+						},
+					},
 				},
 			},
+			AutomountServiceAccountToken: proto.Bool(false),
 		},
 	}
 

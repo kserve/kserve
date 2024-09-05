@@ -194,9 +194,19 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 										string(bytes),
 									},
 									Resources: constructResourceRequirements(*graph, *config),
+									SecurityContext: &v1.SecurityContext{
+										Privileged: proto.Bool(false),
+										RunAsNonRoot: proto.Bool(true),
+										ReadOnlyRootFilesystem: proto.Bool(true),
+										AllowPrivilegeEscalation: proto.Bool(false),
+										Capabilities: &v1.Capabilities{
+											Drop: []v1.Capability{v1.Capability("ALL")},
+										},
+									},
 								},
 							},
 							Affinity: graph.Spec.Affinity,
+							AutomountServiceAccountToken: proto.Bool(false), // Inference graph does not need access to api server
 						},
 					},
 				},
