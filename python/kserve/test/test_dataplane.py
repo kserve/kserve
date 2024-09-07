@@ -106,12 +106,14 @@ class TestDataPlane:
         ready_model = DummyModel("ReadyModel")
         ready_model.load()
         dataplane._model_registry.update(ready_model)
-        assert dataplane.model_ready(ready_model.name) is True
+        is_ready = await dataplane.model_ready(ready_model.name)
+        assert is_ready is True
 
         not_ready_model = DummyModel("NotReadyModel")
         # model.load()  # Model not loaded, i.e. not ready
         dataplane._model_registry.update(not_ready_model)
-        assert dataplane.model_ready(not_ready_model.name) is False
+        is_ready = await dataplane.model_ready(not_ready_model.name)
+        assert is_ready is False
 
     async def test_server_metadata(self):
         with open(pathlib.Path(__file__).parent.parent / "pyproject.toml") as toml_file:
