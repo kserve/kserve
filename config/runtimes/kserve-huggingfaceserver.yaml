@@ -19,6 +19,13 @@ spec:
       image: huggingfaceserver:replace
       args:
         - --model_name={{.Name}}
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
       resources:
         requests:
           cpu: "1"
