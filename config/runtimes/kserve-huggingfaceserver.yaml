@@ -34,10 +34,9 @@ spec:
           cpu: "1"
           memory: 2Gi
       volumeMounts:
-      - name: devshm
-        mountPath: /dev/shm
+        - name: devshm
+          mountPath: /dev/shm
   volumes:
-  - name: devshm
-    emptyDir:
-      medium: Memory
-      sizeLimit: 1Gi
+    - name: devshm
+      emptyDir:
+        medium: Memory
