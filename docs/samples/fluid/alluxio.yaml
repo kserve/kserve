@@ -58,5 +58,3 @@ spec:
   worker:
     nodeSelector:
       node.kubernetes.io/instance-type: m5n.xlarge
-  fuse:
-    cleanPolicy: OnDemand

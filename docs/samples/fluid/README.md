@@ -226,7 +226,7 @@ To conduct a performance benchmark, we will compare the scaling time of the infe
 
 We will use the following [machine types](https://aws.amazon.com/ec2/instance-types/g5/) for our tests:
 
-* Data: m5n.xlarge (gp3 volume)
+* Data: m5n.xlarge (EBS GP3)
 * Workload: g5.8xlarge (NVIDIA A10G)
 
 We will use the following Fluid runtimes for our tests:
@@ -239,6 +239,7 @@ Other assumptions:
 
 * S3 bucket and Cluster are in the same region (eu-central-1)
 * Data are preloaded in workers
+* fuse.cleanPolicy: OnDemand
 
 
 Command to measure the total time:

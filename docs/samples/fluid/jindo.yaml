@@ -65,4 +65,3 @@ spec:
       - -oattr_timeout=7200
       - -oentry_timeout=7200
       - -ometrics_port=9089
-    cleanPolicy: OnDemand
