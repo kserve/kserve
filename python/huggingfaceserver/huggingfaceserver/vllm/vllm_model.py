@@ -18,6 +18,7 @@ import torch
 from vllm.entrypoints.logger import RequestLogger
 
 from kserve import Model
+from kserve.errors import ModelNotReady
 from kserve.model import PredictorConfig
 from kserve.protocol.rest.openai import (
     ChatCompletionRequestMessage,
@@ -57,6 +58,13 @@ class VLLMModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no
         )
         self.ready = True
         return self.ready
+
+    async def healthy(self) -> bool:
+        try:
+            await self.vllm_engine.check_health()
+        except Exception as e:
+            raise ModelNotReady(self.name) from e
+        return True
 
     def apply_chat_template(
         self,

@@ -86,6 +86,7 @@ kserve:
           memory: 300Mi
       securityContext:
         allowPrivilegeEscalation: false
+        privileged: false
         capabilities:
           drop:
           - ALL
@@ -116,7 +117,9 @@ kserve:
       capabilities:
         drop:
         - ALL
+      privileged: false
       readOnlyRootFilesystem: true
+      runAsNonRoot: true
 
     gateway:
       # -- Ingress domain for RawDeployment mode, for Serverless it is configured in Knative.
@@ -259,44 +262,117 @@ kserve:
       image: tensorflow/serving
       tag: 2.6.2
       imagePullSecrets: []
+      securityContext:
+        runAsUser: 1000    # User is not defined in the Dockerfile, so we need to set it here to run as non-root
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     mlserver:
       image: docker.io/seldonio/mlserver
       tag: 1.5.0
       modelClassPlaceholder: "{{.Labels.modelClass}}"
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     sklearnserver:
       image: kserve/sklearnserver
       tag: *defaultVersion
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     xgbserver:
       image: kserve/xgbserver
       tag: *defaultVersion
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     huggingfaceserver:
       image: kserve/huggingfaceserver
       tag: *defaultVersion
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3
       imagePullSecrets: []
+      securityContext:
+        runAsUser: 1000    # https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/customization_guide/deploy.html#run-as-a-non-root-user
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     pmmlserver:
       image: kserve/pmmlserver
       tag: *defaultVersion
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     paddleserver:
       image: kserve/paddleserver
       tag: *defaultVersion
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     lgbserver:
       image: kserve/lgbserver
       tag: *defaultVersion
       imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     torchserve:
       image: pytorch/torchserve-kfs
       tag: 0.9.0
       serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
       imagePullSecrets: []
+      securityContext:
+        runAsUser: 1000    # User ID is not defined in the Dockerfile, so we need to set it here to run as non-root
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     art:
       image: kserve/art-explainer
       defaultVersion: *defaultVersion
