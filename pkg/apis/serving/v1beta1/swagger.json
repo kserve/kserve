@@ -1033,14 +1033,34 @@
           "type": "integer",
           "format": "int32"
         },
+        "query": {
+          "description": "Query to run to get metrics from Prometheus",
+          "type": "string"
+        },
+        "queryParameters": {
+          "description": "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+          "type": "string"
+        },
         "scaleMetric": {
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "type": "string"
+        },
+        "scaleMetricType": {
+          "description": "Type of metric to use. Options are Utilization, or AverageValue.",
           "type": "string"
         },
         "scaleTarget": {
           "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
+        },
+        "scaler": {
+          "description": "Specs for Scaling",
+          "$ref": "#/definitions/v1beta1.ScalerSpec"
+        },
+        "serverAddress": {
+          "description": "Address of Prometheus server.",
+          "type": "string"
         },
         "timeout": {
           "description": "TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.",
@@ -2233,6 +2253,14 @@
           "description": "If specified, indicates the pod's priority. \"system-node-critical\" and \"system-cluster-critical\" are two special keywords which indicate the highest priorities with the former being the highest priority. Any other name must be defined by creating a PriorityClass object with that name. If not specified, the pod priority will be default or zero if there is no default.",
           "type": "string"
         },
+        "query": {
+          "description": "Query to run to get metrics from Prometheus",
+          "type": "string"
+        },
+        "queryParameters": {
+          "description": "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+          "type": "string"
+        },
         "readinessGates": {
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
@@ -2267,10 +2295,18 @@
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
+        "scaleMetricType": {
+          "description": "Type of metric to use. Options are Utilization, or AverageValue.",
+          "type": "string"
+        },
         "scaleTarget": {
           "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
+        },
+        "scaler": {
+          "description": "Specs for Scaling",
+          "$ref": "#/definitions/v1beta1.ScalerSpec"
         },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
@@ -2293,6 +2329,10 @@
         "securityContext": {
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
           "$ref": "#/definitions/v1.PodSecurityContext"
+        },
+        "serverAddress": {
+          "description": "Address of Prometheus server.",
+          "type": "string"
         },
         "serviceAccount": {
           "description": "DeprecatedServiceAccount is a depreciated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
@@ -4311,6 +4351,14 @@
           "description": "Spec for TorchServe (https://pytorch.org/serve)",
           "$ref": "#/definitions/v1beta1.TorchServeSpec"
         },
+        "query": {
+          "description": "Query to run to get metrics from Prometheus",
+          "type": "string"
+        },
+        "queryParameters": {
+          "description": "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+          "type": "string"
+        },
         "readinessGates": {
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
@@ -4345,10 +4393,18 @@
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
+        "scaleMetricType": {
+          "description": "Type of metric to use. Options are Utilization, or AverageValue.",
+          "type": "string"
+        },
         "scaleTarget": {
           "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
+        },
+        "scaler": {
+          "description": "Specs for Scaling",
+          "$ref": "#/definitions/v1beta1.ScalerSpec"
         },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
@@ -4371,6 +4427,10 @@
         "securityContext": {
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
           "$ref": "#/definitions/v1.PodSecurityContext"
+        },
+        "serverAddress": {
+          "description": "Address of Prometheus server.",
+          "type": "string"
         },
         "serviceAccount": {
           "description": "DeprecatedServiceAccount is a depreciated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",
@@ -4615,6 +4675,46 @@
         },
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.ScalerSpec": {
+      "type": "object",
+      "properties": {
+        "maxReplicas": {
+          "description": "Maximum number of replicas for autoscaling.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "query": {
+          "description": "Query to run to get metrics from Prometheus",
+          "type": "string"
+        },
+        "queryParameters": {
+          "description": "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+          "type": "string"
+        },
+        "scaleMetric": {
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "type": "string"
+        },
+        "scaleMetricType": {
+          "description": "Type of metric to use. Options are Utilization, or AverageValue.",
+          "type": "string"
+        },
+        "scaleTarget": {
+          "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serverAddress": {
+          "description": "Address of Prometheus server.",
           "type": "string"
         }
       }
@@ -5160,6 +5260,14 @@
           "description": "If specified, indicates the pod's priority. \"system-node-critical\" and \"system-cluster-critical\" are two special keywords which indicate the highest priorities with the former being the highest priority. Any other name must be defined by creating a PriorityClass object with that name. If not specified, the pod priority will be default or zero if there is no default.",
           "type": "string"
         },
+        "query": {
+          "description": "Query to run to get metrics from Prometheus",
+          "type": "string"
+        },
+        "queryParameters": {
+          "description": "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+          "type": "string"
+        },
         "readinessGates": {
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
@@ -5194,10 +5302,18 @@
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
+        "scaleMetricType": {
+          "description": "Type of metric to use. Options are Utilization, or AverageValue.",
+          "type": "string"
+        },
         "scaleTarget": {
           "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
+        },
+        "scaler": {
+          "description": "Specs for Scaling",
+          "$ref": "#/definitions/v1beta1.ScalerSpec"
         },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
@@ -5220,6 +5336,10 @@
         "securityContext": {
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
           "$ref": "#/definitions/v1.PodSecurityContext"
+        },
+        "serverAddress": {
+          "description": "Address of Prometheus server.",
+          "type": "string"
         },
         "serviceAccount": {
           "description": "DeprecatedServiceAccount is a depreciated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.",

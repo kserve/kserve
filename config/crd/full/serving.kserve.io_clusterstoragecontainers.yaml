@@ -168,6 +168,14 @@ spec:
                             required:
                             - port
                             type: object
+                          sleep:
+                            properties:
+                              seconds:
+                                format: int64
+                                type: integer
+                            required:
+                            - seconds
+                            type: object
                           tcpSocket:
                             properties:
                               host:
@@ -217,6 +225,14 @@ spec:
                                 type: string
                             required:
                             - port
+                            type: object
+                          sleep:
+                            properties:
+                              seconds:
+                                format: int64
+                                type: integer
+                            required:
+                            - seconds
                             type: object
                           tcpSocket:
                             properties:

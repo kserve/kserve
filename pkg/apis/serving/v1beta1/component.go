@@ -24,6 +24,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
+	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -83,6 +84,18 @@ type ComponentExtensionSpec struct {
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
 	// +optional
 	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
+	// Type of metric to use. Options are Utilization, or AverageValue.
+	// +optional
+	ScaleMetricType *v2.MetricTargetType `json:"scaleMetricType,omitempty"`
+	// Address of Prometheus server.
+	// +optional
+	ServerAddress string `json:"serverAddress,omitempty"`
+	// Query to run to get metrics from Prometheus
+	// +optional
+	Query string `json:"query,omitempty"`
+	//  A comma-separated list of query Parameters to include while querying the Prometheus endpoint.
+	// +optional
+	QueryParameters string `json:"queryParameters,omitempty"`
 	// ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container
 	// concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).
 	// +optional
@@ -93,6 +106,9 @@ type ComponentExtensionSpec struct {
 	// CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision
 	// +optional
 	CanaryTrafficPercent *int64 `json:"canaryTrafficPercent,omitempty"`
+	// Specs for Scaling
+	// +optional
+	ScalerSpec *ScalerSpec `json:"scaler,omitempty"`
 	// Activate request/response logging and logger configurations
 	// +optional
 	Logger *LoggerSpec `json:"logger,omitempty"`
@@ -114,7 +130,7 @@ type ComponentExtensionSpec struct {
 }
 
 // ScaleMetric enum
-// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps
+// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps;prometheus
 type ScaleMetric string
 
 const (
@@ -122,6 +138,7 @@ const (
 	MetricMemory      ScaleMetric = "memory"
 	MetricConcurrency ScaleMetric = "concurrency"
 	MetricRPS         ScaleMetric = "rps"
+	MetricPrometheus  ScaleMetric = "prometheus"
 )
 
 // Default the ComponentExtensionSpec

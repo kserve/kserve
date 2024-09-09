@@ -89,6 +89,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":       schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec":                  schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec":                   schema_pkg_apis_serving_v1beta1_ScalerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec":                  schema_pkg_apis_serving_v1beta1_StorageSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec":                schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec":               schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
@@ -1881,6 +1882,34 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 							Format:      "",
 						},
 					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Address of Prometheus server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query to run to get metrics from Prometheus",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"queryParameters": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"containerConcurrency": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
@@ -1900,6 +1929,12 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 							Description: "CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision",
 							Type:        []string{"integer"},
 							Format:      "int64",
+						},
+					},
+					"scaler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specs for Scaling",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec"),
 						},
 					},
 					"logger": {
@@ -1956,7 +1991,7 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec", "k8s.io/api/apps/v1.DeploymentStrategy"},
 	}
 }
 
@@ -4221,6 +4256,34 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Address of Prometheus server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query to run to get metrics from Prometheus",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"queryParameters": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"containerConcurrency": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
@@ -4240,6 +4303,12 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Description: "CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision",
 							Type:        []string{"integer"},
 							Format:      "int64",
+						},
+					},
+					"scaler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specs for Scaling",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec"),
 						},
 					},
 					"logger": {
@@ -4296,7 +4365,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -7972,6 +8041,34 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Address of Prometheus server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query to run to get metrics from Prometheus",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"queryParameters": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"containerConcurrency": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
@@ -7991,6 +8088,12 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Description: "CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision",
 							Type:        []string{"integer"},
 							Format:      "int64",
+						},
+					},
+					"scaler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specs for Scaling",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec"),
 						},
 					},
 					"logger": {
@@ -8047,7 +8150,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -8347,6 +8450,74 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_ScalerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"minReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"maxReplicas": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Maximum number of replicas for autoscaling.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"scaleTarget": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"scaleMetric": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Address of Prometheus server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query to run to get metrics from Prometheus",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"queryParameters": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -9466,6 +9637,34 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Address of Prometheus server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query to run to get metrics from Prometheus",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"queryParameters": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"containerConcurrency": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
@@ -9485,6 +9684,12 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							Description: "CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision",
 							Type:        []string{"integer"},
 							Format:      "int64",
+						},
+					},
+					"scaler": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specs for Scaling",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec"),
 						},
 					},
 					"logger": {
@@ -9541,7 +9746,7 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
