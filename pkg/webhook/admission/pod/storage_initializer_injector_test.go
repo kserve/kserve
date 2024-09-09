@@ -2723,6 +2723,33 @@ func TestInjectModelcar(t *testing.T) {
 			t.Errorf("Expected two containers but got %d", len(pod.Spec.Containers))
 		}
 
+		// Check that an init container has been injected, and it is the model container
+		if len(pod.Spec.InitContainers) != 1 {
+			t.Errorf("Expected one init container but got %d", len(pod.Spec.InitContainers))
+		} else if pod.Spec.InitContainers[0].Name != ModelcarInitContainerName {
+			t.Errorf("Expected the init container to be the model but got %s", pod.Spec.InitContainers[0].Name)
+		} else {
+			// Check that resources are correctly set.
+			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[v1.ResourceCPU]; !ok {
+				t.Error("The model container does not have CPU limit set")
+			}
+			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[v1.ResourceMemory]; !ok {
+				t.Error("The model container does not have Memory limit set")
+			}
+			if _, ok := pod.Spec.InitContainers[0].Resources.Requests[v1.ResourceCPU]; !ok {
+				t.Error("The model container does not have CPU request set")
+			}
+			if _, ok := pod.Spec.InitContainers[0].Resources.Requests[v1.ResourceMemory]; !ok {
+				t.Error("The model container does not have Memory request set")
+			}
+
+			// Check args
+			joinedArgs := strings.Join(pod.Spec.InitContainers[0].Args, " ")
+			if !strings.Contains(joinedArgs, "Prefetched") {
+				t.Errorf("The model container args are not correctly setup. Got: %s", joinedArgs)
+			}
+		}
+
 		// Check that the user-container has an env var set
 		found := false
 		if pod.Spec.Containers[0].Env != nil {

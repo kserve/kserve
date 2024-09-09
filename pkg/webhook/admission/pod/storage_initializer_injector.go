@@ -48,6 +48,7 @@ const (
 	PvcSourceMountPath                      = "/mnt/pvc"
 	CaBundleVolumeName                      = "cabundle-cert"
 	ModelcarContainerName                   = "modelcar"
+	ModelcarInitContainerName               = "modelcar-init"
 	ModelInitModeEnv                        = "MODEL_INIT_MODE"
 	CpuModelcarDefault                      = "10m"
 	MemoryModelcarDefault                   = "15Mi"
@@ -172,6 +173,11 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 	if getContainerWithName(pod, ModelcarContainerName) == nil {
 		modelContainer := mi.createModelContainer(image, constants.DefaultModelLocalMountPath)
 		pod.Spec.Containers = append(pod.Spec.Containers, *modelContainer)
+
+		// Add the model container as an init-container to pre-fetch the model before
+		// the runtimes starts.
+		modelInitContainer := mi.createModelInitContainer(image)
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, *modelInitContainer)
 	}
 
 	// Enable process namespace sharing so that the modelcar's root filesystem
@@ -678,6 +684,42 @@ func (mi *StorageInitializerInjector) createModelContainer(image string, modelPa
 		modelContainer.SecurityContext = &v1.SecurityContext{
 			RunAsUser: mi.config.UidModelcar,
 		}
+	}
+
+	return modelContainer
+}
+
+func (mi *StorageInitializerInjector) createModelInitContainer(image string) *v1.Container {
+	cpu := mi.config.CpuModelcar
+	if cpu == "" {
+		cpu = CpuModelcarDefault
+	}
+	memory := mi.config.MemoryModelcar
+	if memory == "" {
+		memory = MemoryModelcarDefault
+	}
+
+	modelContainer := &v1.Container{
+		Name:  ModelcarInitContainerName,
+		Image: image,
+		Args: []string{
+			"sh",
+			"-c",
+			// Check that the expected models directory exists
+			"echo 'Pre-fetching modelcar " + image + ": ' && [ -d /models ] && [ \"$$(ls -A /models)\" ] && echo 'OK ... Prefetched and valid (/models exists)' || (echo 'NOK ... Prefetched but modelcar is invalid (/models does not exist or is empty)' && exit 1)",
+		},
+		Resources: v1.ResourceRequirements{
+			Limits: map[v1.ResourceName]resource.Quantity{
+				// Could possibly be reduced to even less
+				v1.ResourceCPU:    resource.MustParse(cpu),
+				v1.ResourceMemory: resource.MustParse(memory),
+			},
+			Requests: map[v1.ResourceName]resource.Quantity{
+				v1.ResourceCPU:    resource.MustParse(cpu),
+				v1.ResourceMemory: resource.MustParse(memory),
+			},
+		},
+		TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
 	}
 
 	return modelContainer
