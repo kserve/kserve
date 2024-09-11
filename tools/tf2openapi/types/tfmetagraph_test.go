@@ -199,19 +199,19 @@ func TestTFMetaGraphTypical(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	tfMetaGraph := expectedTFMetaGraph()
 	expectedRequestSchema := &openapi3.Schema{
-		Type: "object",
+		Type: &openapi3.Types{openapi3.TypeObject},
 		Properties: map[string]*openapi3.SchemaRef{
 			"instances": {
 				Value: &openapi3.Schema{
-					Type: "array",
+					Type: &openapi3.Types{openapi3.TypeArray},
 					Items: &openapi3.SchemaRef{
 						Value: &openapi3.Schema{
-							Type:     "array",
+							Type:     &openapi3.Types{openapi3.TypeArray},
 							MaxItems: func(u uint64) *uint64 { return &u }(3),
 							MinItems: 3,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
-									Type: "number",
+									Type: &openapi3.Types{openapi3.TypeNumber},
 								},
 							},
 						},
@@ -226,19 +226,19 @@ func TestTFMetaGraphTypical(t *testing.T) {
 		},
 	}
 	expectedResponseSchema := &openapi3.Schema{
-		Type: "object",
+		Type: &openapi3.Types{openapi3.TypeObject},
 		Properties: map[string]*openapi3.SchemaRef{
 			"predictions": {
 				Value: &openapi3.Schema{
-					Type: "array",
+					Type: &openapi3.Types{openapi3.TypeArray},
 					Items: &openapi3.SchemaRef{
 						Value: &openapi3.Schema{
-							Type:     "array",
+							Type:     &openapi3.Types{openapi3.TypeArray},
 							MaxItems: func(u uint64) *uint64 { return &u }(3),
 							MinItems: 3,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
-									Type: "number",
+									Type: &openapi3.Types{openapi3.TypeNumber},
 								},
 							},
 						},

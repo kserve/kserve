@@ -94,6 +94,9 @@ type config struct {
 	UserPort               int    `split_words:"true"`
 	RevisionTimeoutSeconds int    `split_words:"true"`
 	ServingReadinessProbe  string `split_words:"true" required:"true"`
+	// See https://github.com/knative/serving/issues/12387
+	EnableHTTP2AutoDetection   bool `envconfig:"ENABLE_HTTP2_AUTO_DETECTION"` // optional
+	EnableMultiContainerProbes bool `split_words:"true"`
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true"`
 	ServingLoggingLevel          string `split_words:"true"`
@@ -132,7 +135,7 @@ func main() {
 	// Setup probe to run for checking user container healthiness.
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
-		probe = buildProbe(logger, env.ServingReadinessProbe).ProbeContainer
+		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection, env.EnableMultiContainerProbes).ProbeContainer
 	}
 
 	if *enablePuller {
@@ -304,16 +307,21 @@ func startModelPuller(logger *zap.SugaredLogger) {
 	go watcher.Start()
 }
 
-func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
-	coreProbe, err := readiness.DecodeProbe(probeJSON)
+func buildProbe(logger *zap.SugaredLogger, probeJSON string, autodetectHTTP2 bool, multiContainerProbes bool) *readiness.Probe {
+	coreProbes, err := readiness.DecodeProbes(probeJSON, multiContainerProbes)
 	if err != nil {
 		logger.Fatalw("Agent failed to parse readiness probe", zap.Error(err))
 		panic("Agent failed to parse readiness probe")
 	}
-	newProbe := readiness.NewProbe(coreProbe)
-	if newProbe.InitialDelaySeconds == 0 {
-		newProbe.InitialDelaySeconds = 10
+	for _, probe := range coreProbes {
+		if probe.InitialDelaySeconds == 0 {
+			probe.InitialDelaySeconds = 10
+		}
 	}
+	if autodetectHTTP2 {
+		return readiness.NewProbeWithHTTP2AutoDetection(coreProbes)
+	}
+	newProbe := readiness.NewProbe(coreProbes)
 	return newProbe
 }
 

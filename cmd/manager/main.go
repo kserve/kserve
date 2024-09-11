@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/utils"
-	istio_networking "istio.io/api/networking/v1beta1"
+	istio_networking "istio.io/api/networking/v1alpha3"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -260,6 +260,7 @@ func main() {
 
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha1.TrainedModel{}).
+		WithValidator(&v1alpha1.TrainedModelValidator{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1")
 		os.Exit(1)
@@ -267,6 +268,7 @@ func main() {
 
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha1.InferenceGraph{}).
+		WithValidator(&v1alpha1.InferenceGraphValidator{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1")
 		os.Exit(1)
@@ -274,6 +276,8 @@ func main() {
 
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1beta1.InferenceService{}).
+		WithDefaulter(&v1beta1.InferenceServiceDefaulter{}).
+		WithValidator(&v1beta1.InferenceServiceValidator{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1beta1")
 		os.Exit(1)

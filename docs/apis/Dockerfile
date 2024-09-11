@@ -1,10 +1,8 @@
-FROM golang:1.21
+FROM golang:1.22
 
 RUN apt-get update && apt-get -y upgrade && apt-get -y install git
 
 RUN git clone https://github.com/ahmetb/gen-crd-api-reference-docs
-# replace the version pattern in the Dockerfile until we don't move to golang 1.22
-RUN sed -i 's/1.21.0/1.21/g' gen-crd-api-reference-docs/go.mod
 
 WORKDIR gen-crd-api-reference-docs
 

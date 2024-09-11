@@ -116,7 +116,7 @@ func canHaveRowSchema(t []TFTensor) bool {
 func (t *TFSignatureDef) rowFormatWrapper() (*openapi3.Schema, *openapi3.Schema) {
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_row_format
 	return &openapi3.Schema{
-			Type: "object",
+			Type: &openapi3.Types{openapi3.TypeObject},
 			Properties: map[string]*openapi3.SchemaRef{
 				"instances": rowSchema(t.Inputs).NewRef(),
 			},
@@ -126,7 +126,7 @@ func (t *TFSignatureDef) rowFormatWrapper() (*openapi3.Schema, *openapi3.Schema)
 				Schema: nil,
 			},
 		}, &openapi3.Schema{
-			Type: "object",
+			Type: &openapi3.Types{openapi3.TypeObject},
 			Properties: map[string]*openapi3.SchemaRef{
 				"predictions": rowSchema(t.Outputs).NewRef(),
 			},
@@ -141,7 +141,7 @@ func (t *TFSignatureDef) rowFormatWrapper() (*openapi3.Schema, *openapi3.Schema)
 func (t *TFSignatureDef) colFormatWrapper() (*openapi3.Schema, *openapi3.Schema) {
 	// https://www.tensorflow.org/tfx/serving/api_rest#specifying_input_tensors_in_column_format
 	return &openapi3.Schema{
-			Type: "object",
+			Type: &openapi3.Types{openapi3.TypeObject},
 			Properties: map[string]*openapi3.SchemaRef{
 				"inputs": colSchema(t.Inputs).NewRef(),
 			},
@@ -151,7 +151,7 @@ func (t *TFSignatureDef) colFormatWrapper() (*openapi3.Schema, *openapi3.Schema)
 				Schema: nil,
 			},
 		}, &openapi3.Schema{
-			Type: "object",
+			Type: &openapi3.Types{openapi3.TypeObject},
 			Properties: map[string]*openapi3.SchemaRef{
 				"outputs": colSchema(t.Outputs).NewRef(),
 			},
