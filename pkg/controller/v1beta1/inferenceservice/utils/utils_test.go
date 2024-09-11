@@ -24,10 +24,6 @@ import (
 	"knative.dev/pkg/apis"
 	knativeV1 "knative.dev/pkg/apis/duck/v1"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
@@ -35,6 +31,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestIsMMSPredictor(t *testing.T) {
@@ -1025,6 +1026,7 @@ func TestReplacePlaceholders(t *testing.T) {
 				Env: []v1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "MODELS_DIR", Value: "{{.Labels.modelDir}}"},
+					{Name: "MODEL_NAME", Value: "{{index .Annotations \"model-name\"}}"},
 				},
 				Resources: v1.ResourceRequirements{
 					Limits: v1.ResourceList{
@@ -1042,6 +1044,9 @@ func TestReplacePlaceholders(t *testing.T) {
 				Labels: map[string]string{
 					"modelDir": "/mnt/models",
 				},
+				Annotations: map[string]string{
+					"model-name": "a-useful-model",
+				},
 			},
 			expected: &v1.Container{
 				Name:  "kserve-container",
@@ -1054,6 +1059,7 @@ func TestReplacePlaceholders(t *testing.T) {
 				Env: []v1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "MODELS_DIR", Value: "/mnt/models"},
+					{Name: "MODEL_NAME", Value: "a-useful-model"},
 				},
 				Resources: v1.ResourceRequirements{
 					Limits: v1.ResourceList{
