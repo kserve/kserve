@@ -73,6 +73,7 @@ class V1beta1ExplainerSpec(object):
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
         'min_replicas': 'int',
+        'model': 'V1beta1ModelSpec',
         'node_name': 'str',
         'node_selector': 'dict(str, str)',
         'os': 'V1PodOS',
@@ -128,6 +129,7 @@ class V1beta1ExplainerSpec(object):
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
+        'model': 'model',
         'node_name': 'nodeName',
         'node_selector': 'nodeSelector',
         'os': 'os',
@@ -156,7 +158,7 @@ class V1beta1ExplainerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, model=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -188,6 +190,7 @@ class V1beta1ExplainerSpec(object):
         self._logger = None
         self._max_replicas = None
         self._min_replicas = None
+        self._model = None
         self._node_name = None
         self._node_selector = None
         self._os = None
@@ -268,6 +271,8 @@ class V1beta1ExplainerSpec(object):
             self.max_replicas = max_replicas
         if min_replicas is not None:
             self.min_replicas = min_replicas
+        if model is not None:
+            self.model = model
         if node_name is not None:
             self.node_name = node_name
         if node_selector is not None:
@@ -906,6 +911,27 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._min_replicas = min_replicas
+
+    @property
+    def model(self):
+        """Gets the model of this V1beta1ExplainerSpec.  # noqa: E501
+
+
+        :return: The model of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: V1beta1ModelSpec
+        """
+        return self._model
+
+    @model.setter
+    def model(self, model):
+        """Sets the model of this V1beta1ExplainerSpec.
+
+
+        :param model: The model of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: V1beta1ModelSpec
+        """
+
+        self._model = model
 
     @property
     def node_name(self):
