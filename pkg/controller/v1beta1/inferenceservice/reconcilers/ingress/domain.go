@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"knative.dev/pkg/network"
 )
 
 type DomainTemplateValues struct {
@@ -41,6 +42,33 @@ func GenerateDomainName(name string, obj metav1.ObjectMeta, ingressConfig *v1bet
 		Name:          name,
 		Namespace:     obj.Namespace,
 		IngressDomain: ingressConfig.IngressDomain,
+		Annotations:   obj.Annotations,
+		Labels:        obj.Labels,
+	}
+
+	tpl, err := template.New("domain-template").Parse(ingressConfig.DomainTemplate)
+	if err != nil {
+		return "", err
+	}
+
+	buf := bytes.Buffer{}
+	if err := tpl.Execute(&buf, values); err != nil {
+		return "", fmt.Errorf("error rendering the domain template: %w", err)
+	}
+
+	urlErrs := validation.IsFullyQualifiedDomainName(field.NewPath("url"), buf.String())
+	if urlErrs != nil {
+		return "", fmt.Errorf("invalid domain name %q: %w", buf.String(), urlErrs.ToAggregate())
+	}
+
+	return buf.String(), nil
+}
+
+func GenerateInternalDomainName(name string, obj metav1.ObjectMeta, ingressConfig *v1beta1.IngressConfig) (string, error) {
+	values := DomainTemplateValues{
+		Name:          name,
+		Namespace:     obj.Namespace,
+		IngressDomain: network.GetClusterDomainName(),
 		Annotations:   obj.Annotations,
 		Labels:        obj.Labels,
 	}

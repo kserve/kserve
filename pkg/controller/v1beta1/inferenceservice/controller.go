@@ -52,6 +52,7 @@ import (
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
+	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices;inferenceservices/finalizers,verbs=get;list;watch;create;update;patch;delete
@@ -79,6 +80,7 @@ import (
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
 
 // InferenceServiceState describes the Readiness of the InferenceService
 type InferenceServiceState string
@@ -245,11 +247,9 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// check raw deployment
 	if deploymentMode == constants.RawDeployment {
-		reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
-		}
-		if err := reconciler.Reconcile(isvc); err != nil {
+		reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig)
+
+		if err := reconciler.Reconcile(ctx, isvc); err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 		}
 	} else {
@@ -343,6 +343,11 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return err
 	}
 
+	gatewayapiFound, err := utils.IsCrdAvailable(r.ClientConfig, gatewayapiv1.GroupVersion.String(), constants.HTTPRouteKind)
+	if err != nil {
+		return err
+	}
+
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1api.InferenceService{}).
 		Owns(&appsv1.Deployment{})
@@ -357,6 +362,12 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Owns(&istioclientv1beta1.VirtualService{})
 	} else {
 		r.Log.Info("The InferenceService controller won't watch networking.istio.io/v1beta1/VirtualService resources because the CRD is not available.")
+	}
+
+	if gatewayapiFound {
+		ctrlBuilder = ctrlBuilder.Owns(&gatewayapiv1.HTTPRoute{})
+	} else {
+		r.Log.Info("The InferenceService controller won't watch gateway.networking.k8s.io/v1/HTTPRoute resources because the CRD is not available.")
 	}
 
 	return ctrlBuilder.Complete(r)
