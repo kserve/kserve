@@ -38,7 +38,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ## Tool Versions
-CONTROLLER_TOOLS_VERSION ?= v0.12.0
+CONTROLLER_TOOLS_VERSION ?= v0.16.2
 
 # CPU/Memory limits for controller-manager
 KSERVE_CONTROLLER_CPU_LIMIT ?= 100m

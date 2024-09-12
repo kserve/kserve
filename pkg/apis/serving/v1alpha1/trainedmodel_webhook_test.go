@@ -17,12 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
+	"testing"
+
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 var (
@@ -127,13 +129,14 @@ func TestValidateCreate(t *testing.T) {
 		},
 	}
 
+	validator := TrainedModelValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
 			tm := &scenario.tm
 			for tmField, value := range scenario.update {
 				tm.update(tmField, value)
 			}
-			warnings, err := scenario.tm.ValidateCreate()
+			warnings, err := validator.ValidateCreate(context.Background(), tm)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -251,13 +254,14 @@ func TestValidateUpdate(t *testing.T) {
 		},
 	}
 
+	validator := TrainedModelValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
 			tm := &scenario.tm
 			for tmField, value := range scenario.update {
 				tm.update(tmField, value)
 			}
-			warnings, err := scenario.tm.ValidateUpdate(old)
+			warnings, err := validator.ValidateUpdate(context.Background(), old, tm)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -283,9 +287,10 @@ func TestValidateDelete(t *testing.T) {
 		},
 	}
 
+	validator := TrainedModelValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
-			warnings, err := scenario.tm.ValidateDelete()
+			warnings, err := validator.ValidateDelete(context.Background(), &scenario.tm)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}

@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.12.0
+    controller-gen.kubebuilder.io/version: v0.16.2
   name: localmodelnodegroups.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -32,6 +32,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: atomic
                   dataSource:
                     properties:
                       apiGroup:
@@ -61,18 +62,6 @@ spec:
                     type: object
                   resources:
                     properties:
-                      claims:
-                        items:
-                          properties:
-                            name:
-                              type: string
-                          required:
-                          - name
-                          type: object
-                        type: array
-                        x-kubernetes-list-map-keys:
-                        - name
-                        x-kubernetes-list-type: map
                       limits:
                         additionalProperties:
                           anyOf:
@@ -103,11 +92,13 @@ spec:
                               items:
                                 type: string
                               type: array
+                              x-kubernetes-list-type: atomic
                           required:
                           - key
                           - operator
                           type: object
                         type: array
+                        x-kubernetes-list-type: atomic
                       matchLabels:
                         additionalProperties:
                           type: string
@@ -115,6 +106,8 @@ spec:
                     type: object
                     x-kubernetes-map-type: atomic
                   storageClassName:
+                    type: string
+                  volumeAttributesClassName:
                     type: string
                   volumeMode:
                     type: string
@@ -127,6 +120,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: atomic
                   awsElasticBlockStore:
                     properties:
                       fsType:
@@ -187,6 +181,7 @@ spec:
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       path:
                         type: string
                       readOnly:
@@ -314,10 +309,12 @@ spec:
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       wwids:
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                     type: object
                   flexVolume:
                     properties:
@@ -407,6 +404,7 @@ spec:
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       readOnly:
                         type: boolean
                       secretRef:
@@ -437,6 +435,7 @@ spec:
                     items:
                       type: string
                     type: array
+                    x-kubernetes-list-type: atomic
                   nfs:
                     properties:
                       path:
@@ -467,11 +466,13 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                                 matchFields:
                                   items:
                                     properties:
@@ -483,14 +484,17 @@ spec:
                                         items:
                                           type: string
                                         type: array
+                                        x-kubernetes-list-type: atomic
                                     required:
                                     - key
                                     - operator
                                     type: object
                                   type: array
+                                  x-kubernetes-list-type: atomic
                               type: object
                               x-kubernetes-map-type: atomic
                             type: array
+                            x-kubernetes-list-type: atomic
                         required:
                         - nodeSelectorTerms
                         type: object
@@ -548,6 +552,7 @@ spec:
                         items:
                           type: string
                         type: array
+                        x-kubernetes-list-type: atomic
                       pool:
                         type: string
                       readOnly:
@@ -630,6 +635,8 @@ spec:
                       volumeNamespace:
                         type: string
                     type: object
+                  volumeAttributesClassName:
+                    type: string
                   volumeMode:
                     type: string
                   vsphereVolume:
