@@ -23,7 +23,7 @@ import (
 	"time"
 
 	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	scheme "github.com/kserve/kserve/pkg/clientv1alpha1/clientset/versioned/scheme"
+	scheme "github.com/kserve/kserve/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

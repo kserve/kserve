@@ -288,7 +288,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -350,7 +350,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22"
+      
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -430,7 +431,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -508,7 +509,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -594,7 +595,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22"
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -653,16 +654,20 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.9"
 
-      - uses: ./.github/actions/free-up-disk-space
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
 
@@ -707,7 +712,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22"
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -787,7 +792,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -871,7 +877,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22"
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
