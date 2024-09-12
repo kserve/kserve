@@ -391,7 +391,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 		if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
 			sharedVolumeWriteMount.MountPath = envVar.Value
 		} else if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value == "" {
-			sharedVolumeWriteMount.MountPath = constants.DefaultModelLocalMountPath // 設置為默認值
+			sharedVolumeWriteMount.MountPath = constants.DefaultModelLocalMountPath 
 		}
 	}
 	storageInitializerMounts = append(storageInitializerMounts, sharedVolumeWriteMount)
@@ -401,6 +401,17 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 		storageInitializerImage = mi.config.Image
 	}
 
+	securityContext := userContainer.SecurityContext.DeepCopy()
+
+	args := []string{srcURI, constants.DefaultModelLocalMountPath}
+
+	for _, envVar := range userContainer.Env {
+		if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
+			args = []string{srcURI, envVar.Value}
+			break 
+		}
+	}
+	
 	// Add an init container to run provisioning logic to the PodSpec
 	initContainer := &corev1.Container{
 		Name:  StorageInitializerContainerName,
