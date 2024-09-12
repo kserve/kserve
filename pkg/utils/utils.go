@@ -234,3 +234,9 @@ func SetAvailableResourcesForApi(groupVersion string, resources *metav1.APIResou
 
 	gvResourcesCache[groupVersion] = resources
 }
+
+// ToPointer returns a pointer to the value passed in
+func ToPointer[T any](value T) *T {
+	tmp := value
+	return &tmp
+}
