@@ -19,8 +19,8 @@ package inferenceservice
 import (
 	"context"
 	"fmt"
-	"time"
 	"strings"
+	"time"
 
 	"knative.dev/pkg/kmp"
 
@@ -265,6 +265,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Resources: defaultResource,
 										},
 									},
+									AutomountServiceAccountToken: proto.Bool(false),
 								},
 							},
 						},
@@ -647,6 +648,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Resources: defaultResource,
 										},
 									},
+									AutomountServiceAccountToken: proto.Bool(false),
 								},
 							},
 						},
@@ -2322,13 +2324,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 				notReadyEventFound := false
 				for _, event := range events.Items {
-				        if event.InvolvedObject.Kind == "InferenceService" &&
-				            event.InvolvedObject.Name == serviceKey.Name &&
-				            event.Reason == string(InferenceServiceNotReadyState) {
+					if event.InvolvedObject.Kind == "InferenceService" &&
+						event.InvolvedObject.Name == serviceKey.Name &&
+						event.Reason == string(InferenceServiceNotReadyState) {
 
-				            notReadyEventFound = true
-				            break
-				        }
+						notReadyEventFound = true
+						break
+					}
 				}
 
 				err = k8sClient.Get(ctx, serviceKey, inferenceService)

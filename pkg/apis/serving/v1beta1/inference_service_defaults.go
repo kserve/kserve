@@ -17,12 +17,15 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"strconv"
 
+	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -41,8 +44,19 @@ var (
 	mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook")
 )
 
+// +kubebuilder:object:generate=false
+// +k8s:deepcopy-gen=false
+// +k8s:openapi-gen=false
+// InferenceServiceDefaulter is responsible for setting default values on the InferenceService
+// when created or updated.
+//
+// NOTE: The +kubebuilder:object:generate=false and +k8s:deepcopy-gen=false marker prevents controller-gen from generating DeepCopy methods,
+// as it is used only for temporary operations and does not need to be deeply copied.
+type InferenceServiceDefaulter struct {
+}
+
 // +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kserve-webhook-server.defaulter
-var _ webhook.Defaulter = &InferenceService{}
+var _ webhook.CustomDefaulter = &InferenceServiceDefaulter{}
 
 func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 	if requirements.Requests == nil {
@@ -64,27 +78,33 @@ func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
 	}
 }
 
-func (isvc *InferenceService) Default() {
+func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Object) error {
+	isvc, err := convertToInferenceService(obj)
+	if err != nil {
+		validatorLogger.Error(err, "Unable to convert object to InferenceService")
+		return err
+	}
 	mutatorLogger.Info("Defaulting InferenceService", "namespace", isvc.Namespace, "isvc", isvc.Spec.Predictor)
 	cfg, err := config.GetConfig()
 	if err != nil {
 		mutatorLogger.Error(err, "unable to set up client config")
-		panic(err)
+		return err
 	}
 	clientSet, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		mutatorLogger.Error(err, "unable to create clientSet")
-		panic(err)
+		return err
 	}
 	configMap, err := NewInferenceServicesConfig(clientSet)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	deployConfig, err := NewDeployConfig(clientSet)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	isvc.DefaultInferenceService(configMap, deployConfig)
+	return nil
 }
 
 func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig) {
@@ -120,6 +140,22 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 				component.GetExtensions().Default(config)
 			}
 		}
+	}
+	setautomountServiceAccountToken(isvc)
+}
+
+// setautomountServiceAccountToken sets the default value for AutomountServiceAccountToken
+// Usually serving runtimes do not need access to kubernetes apiserver, so we set it to false by default.
+// This can be overridden by setting AutomountServiceAccountToken to true in the InferenceService spec
+func setautomountServiceAccountToken(isvc *InferenceService) {
+	if isvc.Spec.Predictor.AutomountServiceAccountToken == nil {
+		isvc.Spec.Predictor.AutomountServiceAccountToken = proto.Bool(false)
+	}
+	if isvc.Spec.Transformer != nil && isvc.Spec.Transformer.AutomountServiceAccountToken == nil {
+		isvc.Spec.Transformer.AutomountServiceAccountToken = proto.Bool(false)
+	}
+	if isvc.Spec.Explainer != nil && isvc.Spec.Explainer.AutomountServiceAccountToken == nil {
+		isvc.Spec.Explainer.AutomountServiceAccountToken = proto.Bool(false)
 	}
 }
 

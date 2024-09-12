@@ -17,16 +17,15 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
-
-	"k8s.io/apimachinery/pkg/util/sets"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
 	"regexp"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 const (
@@ -58,14 +57,54 @@ var (
 	GraphRegexp = regexp.MustCompile("^" + GraphNameFmt + "$")
 )
 
+// +kubebuilder:object:generate=false
+// +k8s:deepcopy-gen=false
+// +k8s:openapi-gen=false
+// InferenceGraphValidator is responsible for setting default values on the InferenceGraph resources
+// when created or updated.
+//
+// NOTE: The +kubebuilder:object:generate=false and +k8s:deepcopy-gen=false marker prevents controller-gen from generating DeepCopy methods,
+// as it is used only for temporary operations and does not need to be deeply copied.
+type InferenceGraphValidator struct{}
+
 // +kubebuilder:webhook:verbs=create;update,path=/validate-inferencegraph,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=pods,versions=v1alpha1,name=inferencegraph.kserve-webhook-server.validator
 
-var _ webhook.Validator = &InferenceGraph{}
+var _ webhook.CustomValidator = &InferenceGraphValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (ig *InferenceGraph) ValidateCreate() (admission.Warnings, error) {
+func (v *InferenceGraphValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	ig, err := convertToInferenceGraph(obj)
+	if err != nil {
+		validatorLogger.Error(err, "Unable to convert object to InferenceGraph")
+		return nil, err
+	}
 	validatorLogger.Info("validate create", "name", ig.Name)
+	return validateInferenceGraph(ig)
+}
 
+// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+func (v *InferenceGraphValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	ig, err := convertToInferenceGraph(newObj)
+	if err != nil {
+		validatorLogger.Error(err, "Unable to convert object to InferenceGraph")
+		return nil, err
+	}
+	validatorLogger.Info("validate update", "name", ig.Name)
+	return validateInferenceGraph(ig)
+}
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+func (v *InferenceGraphValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	ig, err := convertToInferenceGraph(obj)
+	if err != nil {
+		validatorLogger.Error(err, "Unable to convert object to InferenceGraph")
+		return nil, err
+	}
+	validatorLogger.Info("validate delete", "name", ig.Name)
+	return nil, nil
+}
+
+func validateInferenceGraph(ig *InferenceGraph) (admission.Warnings, error) {
 	if err := validateInferenceGraphName(ig); err != nil {
 		return nil, err
 	}
@@ -85,19 +124,6 @@ func (ig *InferenceGraph) ValidateCreate() (admission.Warnings, error) {
 	if err := validateInferenceGraphSplitterWeight(ig); err != nil {
 		return nil, err
 	}
-	return nil, nil
-}
-
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (ig *InferenceGraph) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	validatorLogger.Info("validate update", "name", ig.Name)
-
-	return ig.ValidateCreate()
-}
-
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (ig *InferenceGraph) ValidateDelete() (admission.Warnings, error) {
-	validatorLogger.Info("validate delete", "name", ig.Name)
 	return nil, nil
 }
 
@@ -183,4 +209,13 @@ func validateInferenceGraphSplitterWeight(ig *InferenceGraph) error {
 		}
 	}
 	return nil
+}
+
+// Convert runtime.Object into InferenceGraph
+func convertToInferenceGraph(obj runtime.Object) (*InferenceGraph, error) {
+	ig, ok := obj.(*InferenceGraph)
+	if !ok {
+		return nil, fmt.Errorf("expected an InferenceGraph object but got %T", obj)
+	}
+	return ig, nil
 }
