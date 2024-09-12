@@ -310,3 +310,9 @@ func IsValidCustomGPUArray(s string) bool {
 
 	return true
 }
+
+// ToPointer returns a pointer to the value passed in
+func ToPointer[T any](value T) *T {
+	tmp := value
+	return &tmp
+}
