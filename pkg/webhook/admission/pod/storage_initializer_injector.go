@@ -391,7 +391,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 		if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
 			sharedVolumeWriteMount.MountPath = envVar.Value
 		} else if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value == "" {
-			sharedVolumeWriteMount.MountPath = constants.DefaultModelLocalMountPath 
+			sharedVolumeWriteMount.MountPath = constants.DefaultModelLocalMountPath
 		}
 	}
 	storageInitializerMounts = append(storageInitializerMounts, sharedVolumeWriteMount)
@@ -408,7 +408,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 	for _, envVar := range userContainer.Env {
 		if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
 			args = []string{srcURI, envVar.Value}
-			break 
+			break
 		}
 	}
 	
