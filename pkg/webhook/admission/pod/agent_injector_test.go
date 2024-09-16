@@ -1361,16 +1361,16 @@ func TestAgentInjector(t *testing.T) {
 							},
 							VolumeMounts: []v1.VolumeMount{
 								{
-									Name:      LoggerCaBundleVolume,
+									Name:      constants.LoggerCaBundleVolume,
 									ReadOnly:  true,
-									MountPath: LoggerCaCertMountPath,
+									MountPath: constants.LoggerCaCertMountPath,
 								},
 							},
 						},
 					},
 					Volumes: []v1.Volume{
 						{
-							Name: LoggerCaBundleVolume,
+							Name: constants.LoggerCaBundleVolume,
 							VolumeSource: v1.VolumeSource{
 								ConfigMap: &v1.ConfigMapVolumeSource{
 									LocalObjectReference: v1.LocalObjectReference{

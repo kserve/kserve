@@ -40,8 +40,6 @@ const (
 	LoggerArgumentNamespace        = "--namespace"
 	LoggerArgumentEndpoint         = "--endpoint"
 	LoggerArgumentComponent        = "--component"
-	LoggerCaBundleVolume           = "agent-ca-bundle"
-	LoggerCaCertMountPath          = "/etc/tls/logger"
 	LoggerArgumentCaCertFile       = "--log-tls-cert"
 	LoggerArgumentMetadataHeaders  = "--metadata-headers"
 )
@@ -307,13 +305,13 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		}
 
 		pod.Spec.Volumes = append(pod.Spec.Volumes, v1.Volume{
-			Name:         LoggerCaBundleVolume,
+			Name:         constants.LoggerCaBundleVolume,
 			VolumeSource: configMapVolume,
 		})
 
 		agentContainer.VolumeMounts = append(agentContainer.VolumeMounts, v1.VolumeMount{
-			Name:      LoggerCaBundleVolume,
-			MountPath: LoggerCaCertMountPath,
+			Name:      constants.LoggerCaBundleVolume,
+			MountPath: constants.LoggerCaCertMountPath,
 			ReadOnly:  true,
 		})
 	}
