@@ -268,7 +268,7 @@ type SupportedRuntime struct {
 type WorkerSpec struct {
 	ServingRuntimePodSpec `json:",inline"`
 
-	// Configure the number of replicas in the worker node Deployment in Ray Cluster.
+	// Configure the number of replicas in the worker set, each worker set represents the unit of scaling
 	// +optional
 	Replicas *uint16 `json:"replicas,omitempty"`
 }
