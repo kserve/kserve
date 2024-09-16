@@ -263,8 +263,6 @@ type SupportedRuntime struct {
 }
 
 // WorkerSpec is the schema for multi-node/multi-GPU feature
-// If WorkerSpec is specified, it is assumed that multi-node, multi-gpu will be used.
-// For now, it is specifically for vllm using ray
 type WorkerSpec struct {
 	ServingRuntimePodSpec `json:",inline"`
 
