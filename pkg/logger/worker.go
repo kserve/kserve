@@ -91,7 +91,7 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	}
 
 	if logReq.Url.Scheme == "https" {
-		caCertFilePath := filepath.Join(CaCertPath, logReq.TlsCertName)
+		caCertFilePath := filepath.Join(CaCertPath, logReq.CertName)
 		caCertFile, err := os.ReadFile(caCertFilePath)
 		// Do not fail if certificates not found, for backwards compatibility
 		if err == nil {

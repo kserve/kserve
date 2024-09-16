@@ -115,7 +115,7 @@ type loggerArgs struct {
 	endpoint         string
 	component        string
 	metadataHeaders  []string
-	tlsCertName      string
+	certName         string
 }
 
 type batcherArgs struct {
@@ -294,7 +294,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		namespace:        *namespace,
 		component:        *component,
 		metadataHeaders:  *metadataHeaders,
-		tlsCertName:      *CaCertFile,
+		certName:         *CaCertFile,
 	}
 }
 
@@ -354,7 +354,7 @@ func buildServer(ctx context.Context, port string, userPort int, loggerArgs *log
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
 			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler,
-			loggerArgs.metadataHeaders, loggerArgs.tlsCertName)
+			loggerArgs.metadataHeaders, loggerArgs.certName)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
