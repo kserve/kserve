@@ -315,6 +315,9 @@ kserve:
         capabilities:
           drop:
             - ALL
+      devShm:
+        enabled: false
+        sizeLimit: ""
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3
