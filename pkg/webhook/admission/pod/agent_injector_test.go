@@ -56,7 +56,7 @@ var (
 		Image:      "gcr.io/kfserving/agent:latest",
 		DefaultUrl: "http://httpbin.org/",
 	}
-	loggerConfigTls = &LoggerConfig{
+	loggerTLSConfig = &LoggerConfig{
 		Image:      "gcr.io/kfserving/agent:latest",
 		DefaultUrl: "https://httpbin.org/",
 		CaBundle:   "kserve-tls-bundle",
@@ -1333,7 +1333,7 @@ func TestAgentInjector(t *testing.T) {
 								LoggerArgumentComponent,
 								"predictor",
 								LoggerArgumentCaCertFile,
-								loggerConfigTls.CaCertFile,
+								loggerTLSConfig.CaCertFile,
 							},
 							Ports: []v1.ContainerPort{
 								{
@@ -1374,7 +1374,7 @@ func TestAgentInjector(t *testing.T) {
 							VolumeSource: v1.VolumeSource{
 								ConfigMap: &v1.ConfigMapVolumeSource{
 									LocalObjectReference: v1.LocalObjectReference{
-										Name: loggerConfigTls.CaBundle,
+										Name: loggerTLSConfig.CaBundle,
 									},
 									Optional: ptr.To(true),
 								},
@@ -1407,7 +1407,7 @@ func TestAgentInjector(t *testing.T) {
 		injector := &AgentInjector{
 			credentialBuilder,
 			agentConfig,
-			loggerConfigTls,
+			loggerTLSConfig,
 			batcherTestConfig,
 		}
 		injector.InjectAgent(scenario.original)
@@ -1420,7 +1420,7 @@ func TestAgentInjector(t *testing.T) {
 		injector := &AgentInjector{
 			credentialBuilder,
 			agentConfig,
-			loggerConfigTls,
+			loggerTLSConfig,
 			batcherTestConfig,
 		}
 		injector.InjectAgent(scenario.original)
