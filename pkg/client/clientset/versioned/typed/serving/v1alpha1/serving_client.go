@@ -28,9 +28,11 @@ import (
 
 type ServingV1alpha1Interface interface {
 	RESTClient() rest.Interface
+	ClusterLocalModelsGetter
 	ClusterServingRuntimesGetter
 	ClusterStorageContainersGetter
 	InferenceGraphsGetter
+	LocalModelNodeGroupsGetter
 	ServingRuntimesGetter
 	TrainedModelsGetter
 }
@@ -38,6 +40,10 @@ type ServingV1alpha1Interface interface {
 // ServingV1alpha1Client is used to interact with features provided by the serving.kserve.io group.
 type ServingV1alpha1Client struct {
 	restClient rest.Interface
+}
+
+func (c *ServingV1alpha1Client) ClusterLocalModels(namespace string) ClusterLocalModelInterface {
+	return newClusterLocalModels(c, namespace)
 }
 
 func (c *ServingV1alpha1Client) ClusterServingRuntimes(namespace string) ClusterServingRuntimeInterface {
@@ -50,6 +56,10 @@ func (c *ServingV1alpha1Client) ClusterStorageContainers(namespace string) Clust
 
 func (c *ServingV1alpha1Client) InferenceGraphs(namespace string) InferenceGraphInterface {
 	return newInferenceGraphs(c, namespace)
+}
+
+func (c *ServingV1alpha1Client) LocalModelNodeGroups(namespace string) LocalModelNodeGroupInterface {
+	return newLocalModelNodeGroups(c, namespace)
 }
 
 func (c *ServingV1alpha1Client) ServingRuntimes(namespace string) ServingRuntimeInterface {

@@ -24,12 +24,16 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// ClusterLocalModels returns a ClusterLocalModelInformer.
+	ClusterLocalModels() ClusterLocalModelInformer
 	// ClusterServingRuntimes returns a ClusterServingRuntimeInformer.
 	ClusterServingRuntimes() ClusterServingRuntimeInformer
 	// ClusterStorageContainers returns a ClusterStorageContainerInformer.
 	ClusterStorageContainers() ClusterStorageContainerInformer
 	// InferenceGraphs returns a InferenceGraphInformer.
 	InferenceGraphs() InferenceGraphInformer
+	// LocalModelNodeGroups returns a LocalModelNodeGroupInformer.
+	LocalModelNodeGroups() LocalModelNodeGroupInformer
 	// ServingRuntimes returns a ServingRuntimeInformer.
 	ServingRuntimes() ServingRuntimeInformer
 	// TrainedModels returns a TrainedModelInformer.
@@ -47,6 +51,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
+// ClusterLocalModels returns a ClusterLocalModelInformer.
+func (v *version) ClusterLocalModels() ClusterLocalModelInformer {
+	return &clusterLocalModelInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
 // ClusterServingRuntimes returns a ClusterServingRuntimeInformer.
 func (v *version) ClusterServingRuntimes() ClusterServingRuntimeInformer {
 	return &clusterServingRuntimeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
@@ -60,6 +69,11 @@ func (v *version) ClusterStorageContainers() ClusterStorageContainerInformer {
 // InferenceGraphs returns a InferenceGraphInformer.
 func (v *version) InferenceGraphs() InferenceGraphInformer {
 	return &inferenceGraphInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// LocalModelNodeGroups returns a LocalModelNodeGroupInformer.
+func (v *version) LocalModelNodeGroups() LocalModelNodeGroupInformer {
+	return &localModelNodeGroupInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // ServingRuntimes returns a ServingRuntimeInformer.
