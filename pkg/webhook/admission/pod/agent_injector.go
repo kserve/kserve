@@ -61,8 +61,8 @@ type LoggerConfig struct {
 	MemoryRequest string `json:"memoryRequest"`
 	MemoryLimit   string `json:"memoryLimit"`
 	DefaultUrl    string `json:"defaultUrl"`
-	CaBundle      string `json:"CaBundle"`
-	CaCertFile    string `json:"CaCertFile"`
+	CaBundle      string `json:"caBundle"`
+	CaCertFile    string `json:"caCertFile"`
 	TlsSkipVerify bool   `json:"tlsSkipVerify"`
 }
 
