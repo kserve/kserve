@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"k8s.io/utils/ptr"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -40,7 +41,8 @@ const (
 	LoggerArgumentNamespace        = "--namespace"
 	LoggerArgumentEndpoint         = "--endpoint"
 	LoggerArgumentComponent        = "--component"
-	LoggerArgumentCaCertFile       = "--log-tls-cert"
+	LoggerArgumentCaCertFile       = "--logger-ca-cert-file"
+	LoggerArgumentTlsSkipVerify    = "--logger-tls-skip-verify"
 	LoggerArgumentMetadataHeaders  = "--metadata-headers"
 )
 
@@ -61,6 +63,7 @@ type LoggerConfig struct {
 	DefaultUrl    string `json:"defaultUrl"`
 	CaBundle      string `json:"CaBundle"`
 	CaCertFile    string `json:"CaCertFile"`
+	TlsSkipVerify bool   `json:"tlsSkipVerify"`
 }
 
 type AgentInjector struct {
@@ -210,6 +213,8 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		if ag.loggerConfig.CaCertFile != "" {
 			args = append(args, LoggerArgumentCaCertFile, ag.loggerConfig.CaCertFile)
 		}
+		// Whether to skip TLS verification. If not present in the ConfigMap, this will default to `false`
+		args = append(args, LoggerArgumentTlsSkipVerify, strconv.FormatBool(ag.loggerConfig.TlsSkipVerify))
 
 	}
 

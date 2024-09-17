@@ -18,6 +18,7 @@ package pod
 
 import (
 	"k8s.io/utils/ptr"
+	"strconv"
 	"testing"
 
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
@@ -57,10 +58,11 @@ var (
 		DefaultUrl: "http://httpbin.org/",
 	}
 	loggerTLSConfig = &LoggerConfig{
-		Image:      "gcr.io/kfserving/agent:latest",
-		DefaultUrl: "https://httpbin.org/",
-		CaBundle:   "kserve-tls-bundle",
-		CaCertFile: "ca.crt",
+		Image:         "gcr.io/kfserving/agent:latest",
+		DefaultUrl:    "https://httpbin.org/",
+		CaBundle:      "kserve-tls-bundle",
+		CaCertFile:    "ca.crt",
+		TlsSkipVerify: true,
 	}
 	batcherTestConfig = &BatcherConfig{
 		Image: "gcr.io/kfserving/batcher:latest",
@@ -328,6 +330,8 @@ func TestAgentInjector(t *testing.T) {
 								"default",
 								LoggerArgumentComponent,
 								"predictor",
+								LoggerArgumentTlsSkipVerify,
+								"false",
 							},
 							Ports: []v1.ContainerPort{
 								{
@@ -454,6 +458,8 @@ func TestAgentInjector(t *testing.T) {
 								"predictor",
 								LoggerArgumentMetadataHeaders,
 								"Foo,Bar",
+								LoggerArgumentTlsSkipVerify,
+								"false",
 							},
 							Ports: []v1.ContainerPort{
 								{
@@ -924,6 +930,8 @@ func TestAgentInjector(t *testing.T) {
 								"default",
 								LoggerArgumentComponent,
 								"predictor",
+								LoggerArgumentTlsSkipVerify,
+								"false",
 								"--component-port",
 								constants.InferenceServiceDefaultHttpPort,
 							},
@@ -1053,6 +1061,8 @@ func TestAgentInjector(t *testing.T) {
 								"default",
 								LoggerArgumentComponent,
 								"predictor",
+								LoggerArgumentTlsSkipVerify,
+								"false",
 								"--component-port",
 								constants.InferenceServiceDefaultHttpPort,
 							},
@@ -1334,6 +1344,8 @@ func TestAgentInjector(t *testing.T) {
 								"predictor",
 								LoggerArgumentCaCertFile,
 								loggerTLSConfig.CaCertFile,
+								LoggerArgumentTlsSkipVerify,
+								strconv.FormatBool(loggerTLSConfig.TlsSkipVerify),
 							},
 							Ports: []v1.ContainerPort{
 								{

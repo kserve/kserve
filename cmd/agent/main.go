@@ -76,6 +76,7 @@ var (
 	// This creates an abstract socket instead of an actual file.
 	unixSocketPath = "@/kserve/agent.sock"
 	CaCertFile     = flag.String("logger-ca-cert-file", "service-ca.crt", "The logger CA certificate file")
+	TlsSkipVerify  = flag.Bool("logger-tls-skip-verify", false, "Skip verification of TLS certificate")
 )
 
 const (
@@ -116,6 +117,7 @@ type loggerArgs struct {
 	component        string
 	metadataHeaders  []string
 	certName         string
+	tlsSkipVerify    bool
 }
 
 type batcherArgs struct {
@@ -295,6 +297,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		component:        *component,
 		metadataHeaders:  *metadataHeaders,
 		certName:         *CaCertFile,
+		tlsSkipVerify:    *TlsSkipVerify,
 	}
 }
 
@@ -354,7 +357,7 @@ func buildServer(ctx context.Context, port string, userPort int, loggerArgs *log
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
 			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler,
-			loggerArgs.metadataHeaders, loggerArgs.certName)
+			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.tlsSkipVerify)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)

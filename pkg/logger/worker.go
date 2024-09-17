@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"github.com/kserve/kserve/pkg/constants"
 	"net/http"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
@@ -46,7 +47,6 @@ const (
 
 	LoggerWorkerQueueSize = 100
 	CloudEventsIdHeader   = "Ce-Id"
-	CaCertPath            = "/etc/tls/logger"
 )
 
 // A buffered channel that we can send work requests on.
@@ -91,7 +91,7 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	}
 
 	if logReq.Url.Scheme == "https" {
-		caCertFilePath := filepath.Join(CaCertPath, logReq.CertName)
+		caCertFilePath := filepath.Join(constants.LoggerCaCertMountPath, logReq.CertName)
 		caCertFile, err := os.ReadFile(caCertFilePath)
 		// Do not fail if certificates not found, for backwards compatibility
 		if err == nil {
@@ -104,7 +104,7 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 				TLSClientConfig: &tls.Config{
 					RootCAs:            clientCertPool,
 					MinVersion:         tls.VersionTLS12,
-					InsecureSkipVerify: false,
+					InsecureSkipVerify: logReq.TlsSkipVerify,
 				},
 			}
 			t.Client.Transport = tlsTransport
