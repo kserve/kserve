@@ -19,7 +19,6 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/utils/ptr"
 	"strconv"
 	"strings"
 
@@ -215,7 +214,6 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		}
 		// Whether to skip TLS verification. If not present in the ConfigMap, this will default to `false`
 		args = append(args, LoggerArgumentTlsSkipVerify, strconv.FormatBool(ag.loggerConfig.TlsSkipVerify))
-
 	}
 
 	var queueProxyEnvs []v1.EnvVar
@@ -300,12 +298,13 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	// If the Logger TLS bundle ConfigMap is specified, mount it
 	if injectLogger && ag.loggerConfig.CaBundle != "" {
 		// Optional. If the ConfigMap is not found, this will not make the Pod fail
+		optionalVolume := true
 		configMapVolume := v1.VolumeSource{
 			ConfigMap: &v1.ConfigMapVolumeSource{
 				LocalObjectReference: v1.LocalObjectReference{
 					Name: ag.loggerConfig.CaBundle,
 				},
-				Optional: ptr.To(true),
+				Optional: &optionalVolume,
 			},
 		}
 
