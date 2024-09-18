@@ -7,7 +7,7 @@ spec:
     prometheus.kserve.io/port: '8080'
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
-    - name: huggingface
+    - name: triton-hf
       version: "1"
       autoSelect: true
       priority: 1
@@ -21,6 +21,16 @@ spec:
         - --model_name={{.Name}}
         - --model_dir=/mnt/models
         - --log_error
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+      volumeMounts:
+        - name: devshm
+          mountPath: /dev/shm
       resources:
         requests:
           cpu: "1"
@@ -28,3 +38,7 @@ spec:
         limits:
           cpu: "1"
           memory: 2Gi
+  volumes:
+    - name: devshm
+      emptyDir:
+        medium: Memory

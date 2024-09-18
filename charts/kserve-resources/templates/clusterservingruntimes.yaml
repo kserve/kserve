@@ -22,10 +22,10 @@ spec:
         - --model_dir=/mnt/models
         - --http_port=8080
         - --nthread=1
+      {{- with .Values.kserve.servingruntime.lgbserver.securityContext}}
       securityContext:
-          {{- with .Values.kserve.servingruntime.lgbserver.securityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       resources:
         requests:
           cpu: "1"
@@ -95,10 +95,10 @@ spec:
           value: "9000"
         - name: "MODELS_DIR"
           value: "/mnt/models"
+      {{- with .Values.kserve.servingruntime.mlserver.securityContext}}
       securityContext:
-          {{- with .Values.kserve.servingruntime.mlserver.securityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       resources:
         requests:
           cpu: "1"
@@ -135,10 +135,10 @@ spec:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
         - --http_port=8080
+      {{- with .Values.kserve.servingruntime.paddleserver.securityContext}}
       securityContext:
-          {{- with .Values.kserve.servingruntime.paddleserver.securityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       resources:
         requests:
           cpu: "1"
@@ -179,10 +179,10 @@ spec:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
         - --http_port=8080
+      {{- with .Values.kserve.servingruntime.pmmlserver.securityContext}}
       securityContext:
-          {{- with .Values.kserve.servingruntime.pmmlserver.securityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       resources:
         requests:
           cpu: "1"
@@ -219,10 +219,10 @@ spec:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
         - --model_dir=/mnt/models
         - --http_port=8080
+      {{- with .Values.kserve.servingruntime.sklearnserver.securityContext}}
       securityContext:
-          {{- with .Values.kserve.servingruntime.sklearnserver.securityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       resources:
         requests:
           cpu: "1"
@@ -266,10 +266,10 @@ spec:
         - --rest_api_port=8080
         - --model_base_path=/mnt/models
         - --rest_api_timeout_in_ms=60000
+      {{- with .Values.kserve.servingruntime.tensorflow.securityContext}}
       securityContext:
-          {{- with .Values.kserve.servingruntime.tensorflow.securityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       resources:
         requests:
           cpu: "1"
@@ -311,10 +311,10 @@ spec:
       env:
         - name: "TS_SERVICE_ENVELOPE"
           value: "{{ .Values.kserve.servingruntime.torchserve.serviceEnvelopePlaceholder }}"
+      {{- with .Values.kserve.servingruntime.torchserve.securityContext}}
       securityContext:
-          {{- with .Values.kserve.servingruntime.torchserve.securityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       resources:
         requests:
           cpu: "1"
@@ -372,10 +372,10 @@ spec:
         - --http-port=8080
         - --allow-grpc=true
         - --allow-http=true
+      {{- with .Values.kserve.servingruntime.tritonserver.securityContext}}
       securityContext:
-          {{- with .Values.kserve.servingruntime.tritonserver.securityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       resources:
         requests:
           cpu: "1"
@@ -413,10 +413,10 @@ spec:
         - --model_dir=/mnt/models
         - --http_port=8080
         - --nthread=1
+      {{- with .Values.kserve.servingruntime.xgbserver.securityContext}}
       securityContext:
-          {{- with .Values.kserve.servingruntime.xgbserver.securityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       resources:
         requests:
           cpu: "1"
@@ -441,7 +441,7 @@ spec:
     - name: huggingface
       version: "1"
       autoSelect: true
-      priority: 2
+      priority: 1
   protocolVersions:
     - v1
     - v2
@@ -450,41 +450,14 @@ spec:
       image: "{{ .Values.kserve.servingruntime.huggingfaceserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceserver.tag }}"
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
-      resources:
-        requests:
-          cpu: "1"
-          memory: 2Gi
-        limits:
-          cpu: "1"
-          memory: 2Gi
----
-apiVersion: serving.kserve.io/v1alpha1
-kind: ClusterServingRuntime
-metadata:
-  name: kserve-huggingface-triton-server
-spec:
-  annotations:
-    prometheus.kserve.io/port: '8080'
-    prometheus.kserve.io/path: "/metrics"
-  supportedModelFormats:
-    - name: huggingface
-      version: "1"
-      autoSelect: true
-      priority: 1
-  protocolVersions:
-    - v1
-    - v2
-  containers:
-    - name: kserve-container
-      image: "{{ .Values.kserve.servingruntime.huggingfaceTritonserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceTritonserver.tag }}"
-      args:
-        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
-        - --model_dir=/mnt/models
-        - --log_error
+      {{- with .Values.kserve.servingruntime.huggingfaceserver.securityContext }}
       securityContext:
-          {{- with .Values.kserve.servingruntime.huggingfaceserver.securityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kserve.servingruntime.huggingfaceserver.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
       resources:
         requests:
           cpu: "1"
@@ -506,7 +479,56 @@ spec:
         sizeLimit: {{ . }}
         {{- end }}
   {{- end }}
-  {{- with .Values.kserve.servingruntime.huggingfaceserver.imagePullSecrets }}
-  imagePullSecrets:
-    {{- toYaml . | nindent 4 }}
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-huggingface-triton-server
+spec:
+  annotations:
+    prometheus.kserve.io/port: '8080'
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: triton-hf
+      version: "1"
+      autoSelect: true
+      priority: 1
+  protocolVersions:
+    - v1
+    - v2
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.huggingfaceTritonserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceTritonserver.tag }}"
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --model_dir=/mnt/models
+        - --log_error
+      {{- with .Values.kserve.servingruntime.huggingfaceTritonserver.securityContext}}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+    {{- with .Values.kserve.servingruntime.huggingfaceTritonserver.imagePullSecrets }}
+    imagePullSecrets:
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if .Values.kserve.servingruntime.huggingfaceTritonserver.devShm.enabled }}
+    volumeMounts:
+      - name: devshm
+        mountPath: /dev/shm
+    {{- end }}
+  {{- if .Values.kserve.servingruntime.huggingfaceTritonserver.devShm.enabled }}
+  volumes:
+    - name: devshm
+      emptyDir:
+        medium: Memory
+        {{- with .Values.kserve.servingruntime.huggingfaceTritonserver.devShm.sizeLimit }}
+        sizeLimit: {{ . }}
+        {{- end }}
   {{- end }}

@@ -352,7 +352,7 @@ async def test_huggingface_triton_fill_mask(rest_v2_client):
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
-                name="huggingface",
+                name="triton-hf",
             ),
             runtime="kserve-huggingface-tritonserver",
             protocol_version=protocol_version,

@@ -10,7 +10,7 @@ spec:
     - name: huggingface
       version: "1"
       autoSelect: true
-      priority: 2
+      priority: 1
   protocolVersions:
     - v2
     - v1
