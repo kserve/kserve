@@ -552,6 +552,12 @@ jobs:
           name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ github.sha }}
           path: ./tmp
 
+      - name: Download Art Explainer image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.EXPLAINER_ARTIFACT_PREFIX }}-${{ env.ART_IMG }}-${{ github.sha }}
+          path: ./tmp
+
       - name: Load docker images
         uses: ./.github/actions/load-docker-images
         with:

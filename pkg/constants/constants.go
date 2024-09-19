@@ -560,6 +560,10 @@ func ExplainPrefix() string {
 	return "^/v1/models/[\\w-]+:explain$"
 }
 
+func PathBasedExplainPrefix() string {
+	return "(/v1/models/[\\w-]+:explain)$"
+}
+
 func VirtualServiceHostname(name string, predictorHostName string) string {
 	index := strings.Index(predictorHostName, ".")
 	return name + predictorHostName[index:]
