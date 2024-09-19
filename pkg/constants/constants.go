@@ -130,6 +130,8 @@ const (
 	NetworkVisibility      = "networking.kserve.io/visibility"
 	ClusterLocalVisibility = "cluster-local"
 	ClusterLocalDomain     = "svc.cluster.local"
+	IsvcNameHeader         = "KServe-Isvc-Name"
+	IsvcNamespaceHeader    = "KServe-Isvc-Namespace"
 )
 
 // StorageSpec Constants
