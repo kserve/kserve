@@ -339,3 +339,60 @@ async def test_huggingface_v2_text_embedding(rest_v2_client):
     assert res.outputs[0].data == huggingface_text_embedding_expected_output
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.skip("Upload model to gcs")
+@pytest.mark.llm
+@pytest.mark.asyncio(scope="session")
+async def test_huggingface_triton_fill_mask(rest_v2_client):
+    service_name = "hf-bert-fill-mask-triton"
+    model_name = "bert-base-uncased"
+    protocol_version = "v2"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="triton-hf",
+            ),
+            runtime="kserve-huggingface-tritonserver",
+            protocol_version=protocol_version,
+            args=[
+                "--model_id",
+                "bert-base-uncased",
+                "--model_name",
+                model_name,
+                "--log_info",
+                "--tensor_input_names=attention_mask,input_ids,token_type_ids",
+                "--return_token_type_ids",
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "1", "memory": "2Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/bert_fill_mask_v2.json",
+        model_name=model_name,
+    )
+    assert res.outputs[0].data == ["paris", "france"]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

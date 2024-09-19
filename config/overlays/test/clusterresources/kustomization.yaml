@@ -27,3 +27,6 @@ images:
 
 - name: kserve/huggingfaceserver
   newTag: latest
+
+- name: kserve/huggingface-tritonserver
+  newTag: latest

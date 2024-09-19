@@ -23,6 +23,9 @@ set -o nounset
 set -o pipefail
 IFS=,
 
+# Note: Some of the ENV variables are set in the Github Actions e2e-test workflow file.
+# https://github.com/kserve/kserve/blob/96fb00e8e12ba4c4cf3dc68a6c7cd445a3f7c3b2/.github/workflows/e2e-test.yml#L14
+
 echo "Github SHA ${GITHUB_SHA}"
 # Predictor runtime server images
 SKLEARN_IMG_TAG=${DOCKER_REPO}/${SKLEARN_IMG}:${GITHUB_SHA}
@@ -33,6 +36,7 @@ PADDLE_IMG_TAG=${DOCKER_REPO}/${PADDLE_IMG}:${GITHUB_SHA}
 CUSTOM_MODEL_GRPC_IMG_TAG=${DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${GITHUB_SHA}
 CUSTOM_TRANSFORMER_GRPC_IMG_TAG=${DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${GITHUB_SHA}
 HUGGINGFACE_IMG_TAG=${DOCKER_REPO}/${HUGGINGFACE_IMG}:${GITHUB_SHA}
+HUGGINGFACE_TRITON_IMG_TAG=${DOCKER_REPO}/${HUGGINGFACE_TRITON_IMG}:${GITHUB_SHA}
 # Explainer images
 ART_IMG_TAG=${DOCKER_REPO}/${ART_IMG}:${GITHUB_SHA}
 # Transformer images
@@ -62,9 +66,15 @@ pushd python >/dev/null
     echo "Building image transformer gRPC image"
     docker buildx build -t "${CUSTOM_TRANSFORMER_GRPC_IMG_TAG}" -f custom_transformer_grpc.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CUSTOM_TRANSFORMER_GRPC_IMG}-${GITHUB_SHA}",compression-level=0 .
+  fi
+
+  if [[ " ${types[*]} " =~ "llm" ]]; then
     echo "Building Huggingface image"
     docker buildx build -t "${HUGGINGFACE_IMG_TAG}" -f huggingface_server.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Building Huggingface Triton image"
+    docker buildx build -t "${HUGGINGFACE_TRITON_IMG_TAG}" -f huggingface_triton_server.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_TRITON_IMG}-${GITHUB_SHA}",compression-level=0 .
   fi
 
   if [[ " ${types[*]} " =~ "explainer" ]]; then

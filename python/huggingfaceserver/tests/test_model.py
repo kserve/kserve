@@ -155,7 +155,7 @@ def test_unsupported_model():
     config = AutoConfig.from_pretrained("google/tapas-base-finetuned-wtq")
     with pytest.raises(ValueError) as err_info:
         infer_task_from_model_architecture(config)
-    assert "Task table_question_answering is not supported" in err_info.value.args[0]
+    assert "Unsupported task: table_question_answering" in err_info.value.args[0]
 
 
 @pytest.mark.asyncio

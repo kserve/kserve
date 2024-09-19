@@ -80,6 +80,15 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0-rc0
 | kserve.servingruntime.art.defaultVersion | string | `"v0.14.0-rc0"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
 | kserve.servingruntime.art.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.huggingfaceTritonserver.devShm.enabled | bool | `false` |  |
+| kserve.servingruntime.huggingfaceTritonserver.devShm.sizeLimit | string | `""` |  |
+| kserve.servingruntime.huggingfaceTritonserver.image | string | `"kserve/huggingface-tritonserver"` |  |
+| kserve.servingruntime.huggingfaceTritonserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.huggingfaceTritonserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
+| kserve.servingruntime.huggingfaceTritonserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| kserve.servingruntime.huggingfaceTritonserver.securityContext.privileged | bool | `false` |  |
+| kserve.servingruntime.huggingfaceTritonserver.securityContext.runAsNonRoot | bool | `true` |  |
+| kserve.servingruntime.huggingfaceTritonserver.tag | string | `"v0.14.0-rc0"` |  |
 | kserve.servingruntime.huggingfaceserver.devShm.enabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.devShm.sizeLimit | string | `""` |  |
 | kserve.servingruntime.huggingfaceserver.image | string | `"kserve/huggingfaceserver"` |  |
