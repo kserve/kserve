@@ -479,3 +479,6 @@ spec:
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
   {{- end }}
+  {{- if .Values.kserve.servingruntime.huggingfaceserver.hostIPC.enabled }}
+  hostIPC: true
+  {{- end }}

@@ -40,3 +40,4 @@ spec:
     - name: devshm
       emptyDir:
         medium: Memory
+  hostIPC: false
