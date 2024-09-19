@@ -73,6 +73,12 @@ const (
 	AgentModelDirArgName  = "--model-dir"
 )
 
+// InferenceLogger Constants
+const (
+	LoggerCaBundleVolume  = "agent-ca-bundle"
+	LoggerCaCertMountPath = "/etc/tls/logger"
+)
+
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
