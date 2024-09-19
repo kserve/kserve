@@ -440,9 +440,9 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			Headers: &istiov1beta1.Headers{
 				Request: &istiov1beta1.Headers_HeaderOperations{
 					Set: map[string]string{
-						"Host":                  network.GetServiceHostname(expBackend, isvc.Namespace),
-						"KServe-Isvc-Name":      isvc.Name,
-						"KServe-Isvc-Namespace": isvc.Namespace,
+						"Host":                        network.GetServiceHostname(expBackend, isvc.Namespace),
+						constants.IsvcNameHeader:      isvc.Name,
+						constants.IsvcNamespaceHeader: isvc.Namespace,
 					},
 				},
 			},
@@ -459,9 +459,9 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		Headers: &istiov1beta1.Headers{
 			Request: &istiov1beta1.Headers_HeaderOperations{
 				Set: map[string]string{
-					"Host":                  network.GetServiceHostname(backend, isvc.Namespace),
-					"KServe-Isvc-Name":      isvc.Name,
-					"KServe-Isvc-Namespace": isvc.Namespace,
+					"Host":                        network.GetServiceHostname(backend, isvc.Namespace),
+					constants.IsvcNameHeader:      isvc.Name,
+					constants.IsvcNamespaceHeader: isvc.Namespace,
 				},
 			},
 		},
@@ -510,12 +510,14 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 					},
 				},
 				Route: []*istiov1beta1.HTTPRouteDestination{
-					createHTTPRouteDestination(config.LocalGatewayServiceName),
+					createHTTPRouteDestination(config.KnativeLocalGatewayService),
 				},
 				Headers: &istiov1beta1.Headers{
 					Request: &istiov1beta1.Headers_HeaderOperations{
 						Set: map[string]string{
-							"Host": network.GetServiceHostname(expBackend, isvc.Namespace),
+							"Host":                        network.GetServiceHostname(expBackend, isvc.Namespace),
+							constants.IsvcNameHeader:      isvc.Name,
+							constants.IsvcNamespaceHeader: isvc.Namespace,
 						},
 					},
 				},
@@ -559,9 +561,9 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			Headers: &istiov1beta1.Headers{
 				Request: &istiov1beta1.Headers_HeaderOperations{
 					Set: map[string]string{
-						"Host":                  network.GetServiceHostname(backend, isvc.Namespace),
-						"KServe-Isvc-Name":      isvc.Name,
-						"KServe-Isvc-Namespace": isvc.Namespace,
+						"Host":                        network.GetServiceHostname(backend, isvc.Namespace),
+						constants.IsvcNameHeader:      isvc.Name,
+						constants.IsvcNamespaceHeader: isvc.Namespace,
 					},
 				},
 			},
