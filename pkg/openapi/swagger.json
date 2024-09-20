@@ -4666,7 +4666,7 @@
         },
         "workerSpec": {
           "description": "WorkerSpec for enabling multi-node/multi-gpu",
-          "$ref": "#/definitions/v1alpha1.WorkerSpec"
+          "$ref": "#/definitions/v1beta1.PodSpec"
         },
         "xgboost": {
           "description": "Spec for XGBoost model server",

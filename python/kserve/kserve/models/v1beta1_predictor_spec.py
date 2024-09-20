@@ -108,7 +108,7 @@ class V1beta1PredictorSpec(object):
         'topology_spread_constraints': 'list[V1TopologySpreadConstraint]',
         'triton': 'V1beta1TritonSpec',
         'volumes': 'list[V1Volume]',
-        'worker_spec': 'V1alpha1WorkerSpec',
+        'worker_spec': 'V1beta1PodSpec',
         'xgboost': 'V1beta1XGBoostSpec'
     }
 
@@ -1751,7 +1751,7 @@ class V1beta1PredictorSpec(object):
 
 
         :return: The worker_spec of this V1beta1PredictorSpec.  # noqa: E501
-        :rtype: V1alpha1WorkerSpec
+        :rtype: V1beta1PodSpec
         """
         return self._worker_spec
 
@@ -1761,7 +1761,7 @@ class V1beta1PredictorSpec(object):
 
 
         :param worker_spec: The worker_spec of this V1beta1PredictorSpec.  # noqa: E501
-        :type: V1alpha1WorkerSpec
+        :type: V1beta1PodSpec
         """
 
         self._worker_spec = worker_spec

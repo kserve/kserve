@@ -19,7 +19,6 @@ package v1beta1
 import (
 	"reflect"
 
-	isvc_v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
@@ -58,7 +57,7 @@ type PredictorSpec struct {
 	Model *ModelSpec `json:"model,omitempty"`
 
 	// WorkerSpec for enabling multi-node/multi-gpu
-	WorkerSpec *isvc_v1alpha1.WorkerSpec `json:"workerSpec,omitempty"`
+	WorkerSpec *PodSpec `json:"workerSpec,omitempty"`
 
 	// This spec is dual purpose. <br />
 	// 1) Provide a full PodSpec for custom predictor.

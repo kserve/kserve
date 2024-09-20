@@ -65,7 +65,7 @@ Name | Type | Description | Notes
 **topology_spread_constraints** | [**list[V1TopologySpreadConstraint]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1TopologySpreadConstraint.md) | TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed. | [optional] 
 **triton** | [**V1beta1TritonSpec**](V1beta1TritonSpec.md) |  | [optional] 
 **volumes** | [**list[V1Volume]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Volume.md) | List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes | [optional] 
-**worker_spec** | [**V1alpha1WorkerSpec**](V1alpha1WorkerSpec.md) |  | [optional] 
+**worker_spec** | [**V1beta1PodSpec**](V1beta1PodSpec.md) |  | [optional] 
 **xgboost** | [**V1beta1XGBoostSpec**](V1beta1XGBoostSpec.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
