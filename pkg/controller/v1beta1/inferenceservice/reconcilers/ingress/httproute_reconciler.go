@@ -1,9 +1,26 @@
+/*
+Copyright 2024 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package ingress
 
 import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -74,7 +91,7 @@ func getRawServiceHost(isvc *v1beta1.InferenceService, client client.Client) str
 }
 
 func createHTTPRouteMatch(prefix string, targetHosts, internalHosts []string, additionalHosts *[]string,
-	isInternal bool, config *v1beta1.IngressConfig) []gatewayapiv1.HTTPRouteMatch {
+	isInternal bool) []gatewayapiv1.HTTPRouteMatch {
 	var pathMatch *gatewayapiv1.HTTPPathMatch
 	var httpRouteMatches []gatewayapiv1.HTTPRouteMatch
 	if prefix != "" {
@@ -84,8 +101,6 @@ func createHTTPRouteMatch(prefix string, targetHosts, internalHosts []string, ad
 		}
 	}
 	for _, internalHost := range internalHosts {
-		log.Info("internal host", "host", internalHost)
-		log.Info("path prefix", "path", pathMatch)
 		httpRouteMatches = append(httpRouteMatches, gatewayapiv1.HTTPRouteMatch{
 			Path: pathMatch,
 			Headers: []gatewayapiv1.HTTPHeaderMatch{
@@ -176,7 +191,7 @@ func createRawHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.I
 
 	var httpRouteRules []gatewayapiv1.HTTPRouteRule
 	var allowedHosts []gatewayapiv1.Hostname
-	var additionalHosts []string
+	additionalHosts := ingressConfig.AdditionalIngressDomains
 
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
@@ -200,6 +215,12 @@ func createRawHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.I
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate top level ingress host: %w", err)
 	}
+	allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(topLevelHost))
+	// Add additional hosts to allowed hosts
+	for _, host := range *additionalHosts {
+		allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(host))
+	}
+
 	if isvc.Spec.Explainer != nil {
 		// Scenario: When explainer present
 		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
@@ -218,13 +239,15 @@ func createRawHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.I
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate explainer ingress host: %w", err)
 		}
+		allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(explainerHost))
+
 		// Add explainer host rules
-		explainerRouteMatch := createHTTPRouteMatch(constants.FallbackPrefix(), []string{explainerHost}, nil, nil, false, ingressConfig)
+		explainerRouteMatch := createHTTPRouteMatch(constants.FallbackPrefix(), []string{explainerHost}, nil, nil, false)
 		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(explainerRouteMatch, nil, explainerName, isvc.Namespace, constants.CommonDefaultHttpPort))
 
 		// Add toplevel host :explain route
 		// :explain routes to the explainer when there is only explainer
-		explainRouteMatch := createHTTPRouteMatch(constants.ExplainPrefix(), []string{topLevelHost}, nil, nil, false, ingressConfig)
+		explainRouteMatch := createHTTPRouteMatch(constants.ExplainPrefix(), []string{topLevelHost}, nil, nil, false)
 		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(explainRouteMatch, nil,
 			explainerName, isvc.Namespace, constants.CommonDefaultHttpPort))
 	}
@@ -247,10 +270,11 @@ func createRawHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.I
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate transformer ingress host: %w", err)
 		}
+		allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(transformerHost))
 
 		// :predict routes to the transformer when there are both predictor and transformer
 		targetHosts := []string{topLevelHost, transformerHost}
-		routeMatch := createHTTPRouteMatch(constants.FallbackPrefix(), targetHosts, nil, &additionalHosts, false, ingressConfig)
+		routeMatch := createHTTPRouteMatch(constants.FallbackPrefix(), targetHosts, nil, additionalHosts, false)
 		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, nil, transformerName, isvc.Namespace, constants.CommonDefaultHttpPort))
 	} else {
 		// Scenario: When predictor without transformer and with/without explainer present
@@ -263,7 +287,7 @@ func createRawHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.I
 			return nil, nil
 		}
 		// Add toplevel host rules for predictor which routes all traffic to predictor
-		routeMatch := createHTTPRouteMatch(constants.FallbackPrefix(), []string{topLevelHost}, nil, &additionalHosts, false, ingressConfig)
+		routeMatch := createHTTPRouteMatch(constants.FallbackPrefix(), []string{topLevelHost}, nil, additionalHosts, false)
 		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, nil, predictorName, isvc.Namespace, constants.CommonDefaultHttpPort))
 	}
 	// Add predictor host rules
@@ -271,8 +295,10 @@ func createRawHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.I
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate predictor ingress host: %w", err)
 	}
-	routeMatch := createHTTPRouteMatch(constants.FallbackPrefix(), []string{predictorHost}, nil, nil, false, ingressConfig)
+	allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(predictorHost))
+	routeMatch := createHTTPRouteMatch(constants.FallbackPrefix(), []string{predictorHost}, nil, nil, false)
 	httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, nil, predictorName, isvc.Namespace, int32(constants.CommonDefaultHttpPort)))
+	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
 	httpRoute := gatewayapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        isvc.Name,
@@ -287,8 +313,8 @@ func createRawHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.I
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 						Kind:      (*gatewayapiv1.Kind)(utils.ToPointer(constants.GatewayKind)),
-						Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(constants.KServeNamespace)),
-						Name:      gatewayapiv1.ObjectName(constants.GatewayName),
+						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
+						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
 						Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
 					},
 				},

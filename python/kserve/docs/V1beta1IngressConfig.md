@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **ingress_domain** | **str** |  | [optional] 
 **ingress_gateway** | **str** |  | [optional] 
 **knative_local_gateway_service** | **str** |  | [optional] 
+**kserve_ingress_gateway** | **str** |  | [optional] 
 **local_gateway** | **str** |  | [optional] 
 **local_gateway_service** | **str** |  | [optional] 
 **path_template** | **str** |  | [optional] 

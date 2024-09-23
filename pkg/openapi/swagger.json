@@ -3026,6 +3026,9 @@
         "knativeLocalGatewayService": {
           "type": "string"
         },
+        "kserveIngressGateway": {
+          "type": "string"
+        },
         "localGateway": {
           "type": "string"
         },
