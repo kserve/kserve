@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import unittest.mock as mock
+import pytest
 
 from kserve.storage import Storage
 
@@ -31,3 +32,20 @@ def test_download_model(mock_snapshot_download):
         revision=revision,
         local_dir=mock.ANY,
     )
+
+
+@mock.patch("huggingface_hub.snapshot_download")
+@pytest.mark.parametrize("invalid_uri, error_message", [
+    ("invalid_uri_format", "Invalid URI format"),                # Missing hf:// prefix
+    ("hf://", "URI must contain exactly one '/' separating"),    # Missing repo and model
+    ("hf://repo_only", "URI must contain exactly one '/' separating"),  # Missing model
+    ("hf:///model_only", "Repository name cannot be empty"),     # Missing repo
+    ("hf://repo/model:", "Model name cannot be empty"),          # Missing model name but has colon
+    ("hf://repo/:hash_value", "Model name cannot be empty"),     # Missing model name, hash exists
+])
+def test_invalid_uri(mock_snapshot_download, invalid_uri, error_message):
+    with pytest.raises(ValueError, match=error_message):
+        Storage.download(invalid_uri)
+
+    # Ensure that snapshot_download was never called
+    mock_snapshot_download.assert_not_called()

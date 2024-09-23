@@ -287,10 +287,25 @@ class Storage(object):
     def _download_hf(uri, temp_dir: str) -> str:
         from huggingface_hub import snapshot_download
 
-        components = uri.split("://")[1].split("/")
+        components = uri[len(_HF_PREFIX):].split("/")
+
+        # Validate that the URI has two parts: repo and model (optional hash)
+        if len(components) != 2:
+            raise ValueError("URI must contain exactly one '/' separating the repo and model name")
 
         repo = components[0]
-        model, _, hash_value = components[1].partition(":")
+        model_part = components[1]
+
+        if not repo:
+            raise ValueError("Repository name cannot be empty")
+        if not model_part:
+            raise ValueError("Model name cannot be empty")
+
+        model, _, hash_value = model_part.partition(":")
+        # Ensure model is non-empty
+        if not model:
+            raise ValueError("Model name cannot be empty")
+
         revision = hash_value if hash_value else None
 
         snapshot_download(
