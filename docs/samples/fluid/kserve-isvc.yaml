@@ -1,33 +1,32 @@
-apiVersion: "serving.kserve.io/v1beta1"
-kind: "InferenceService"
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
 metadata:
-  name: "kserve-bloom"
+  name: llama-31-8b-instruct
 spec:
   predictor:
-    terminationGracePeriodSeconds: 60
-    timeout: 600
+    annotations:
+      traffic.sidecar.istio.io/excludeOutboundPorts: "443"
     minReplicas: 0
-    serviceAccountName: sa
+    serviceAccountName: s3sa
     nodeSelector:
-      node.kubernetes.io/instance-type: m5.4xlarge
-    containers:
-      - name: kserve-container
-        image: lizzzcai/kserve-fluid:bloom-gpu-v1
-        # # below are for running bloom-7b1 using cpu
-        # resources:
-        #   limits:
-        #     cpu: "12"
-        #     memory: 48Gi
-        #   requests:
-        #     cpu: "12"
-        #     memory: 48Gi
-        env:
-          - name: STORAGE_URI
-            # please update it accordingly
-            value: "s3://${bucket}/models/bloom-560m"
-            # value: "s3://${bucket}/models/bloom-7b1"
-          - name: MODEL_NAME
-            value: "bloom"
-            # set to "True" if you are using GPU, update the resources as well
-          - name: GPU_ENABLED
-            value: "False"
+      node.kubernetes.io/instance-type: g5.8xlarge
+    model:
+      modelFormat:
+        name: huggingface
+      args:
+        - --gpu-memory-utilization=0.95
+        - --max-model-len=1024
+        - --tensor-parallel-size=1
+        - --enforce-eager
+        - --disable-log-stats
+        - --disable-log-requests
+      storageUri: s3://${bucket}/models/meta-llama--Meta-Llama-3.1-8B-Instruct
+      resources:
+        limits:
+          cpu: "24"
+          memory: 48Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "24"
+          memory: 48Gi
+          nvidia.com/gpu: "1"

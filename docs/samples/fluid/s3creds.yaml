@@ -16,6 +16,6 @@ stringData:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: sa
+  name: s3sa
 secrets:
 - name: s3creds
