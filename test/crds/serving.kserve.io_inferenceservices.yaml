@@ -1242,6 +1242,8 @@ spec:
                 type: string
               grpcEndpoint:
                 type: string
+              hostIPC:
+                type: boolean
               httpDataEndpoint:
                 type: string
               imagePullSecrets:
@@ -21913,6 +21915,8 @@ spec:
                 type: string
               grpcEndpoint:
                 type: string
+              hostIPC:
+                type: boolean
               httpDataEndpoint:
                 type: string
               imagePullSecrets:

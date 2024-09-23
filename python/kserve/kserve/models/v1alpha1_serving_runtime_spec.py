@@ -54,6 +54,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'disabled': 'bool',
         'grpc_data_endpoint': 'str',
         'grpc_endpoint': 'str',
+        'host_ipc': 'bool',
         'http_data_endpoint': 'str',
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'labels': 'dict(str, str)',
@@ -75,6 +76,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'disabled': 'disabled',
         'grpc_data_endpoint': 'grpcDataEndpoint',
         'grpc_endpoint': 'grpcEndpoint',
+        'host_ipc': 'hostIPC',
         'http_data_endpoint': 'httpDataEndpoint',
         'image_pull_secrets': 'imagePullSecrets',
         'labels': 'labels',
@@ -88,7 +90,7 @@ class V1alpha1ServingRuntimeSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, affinity=None, annotations=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, http_data_endpoint=None, image_pull_secrets=None, labels=None, multi_model=None, node_selector=None, protocol_versions=None, replicas=None, storage_helper=None, supported_model_formats=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, annotations=None, built_in_adapter=None, containers=None, disabled=None, grpc_data_endpoint=None, grpc_endpoint=None, host_ipc=None, http_data_endpoint=None, image_pull_secrets=None, labels=None, multi_model=None, node_selector=None, protocol_versions=None, replicas=None, storage_helper=None, supported_model_formats=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -101,6 +103,7 @@ class V1alpha1ServingRuntimeSpec(object):
         self._disabled = None
         self._grpc_data_endpoint = None
         self._grpc_endpoint = None
+        self._host_ipc = None
         self._http_data_endpoint = None
         self._image_pull_secrets = None
         self._labels = None
@@ -127,6 +130,8 @@ class V1alpha1ServingRuntimeSpec(object):
             self.grpc_data_endpoint = grpc_data_endpoint
         if grpc_endpoint is not None:
             self.grpc_endpoint = grpc_endpoint
+        if host_ipc is not None:
+            self.host_ipc = host_ipc
         if http_data_endpoint is not None:
             self.http_data_endpoint = http_data_endpoint
         if image_pull_secrets is not None:
@@ -308,6 +313,29 @@ class V1alpha1ServingRuntimeSpec(object):
         """
 
         self._grpc_endpoint = grpc_endpoint
+
+    @property
+    def host_ipc(self):
+        """Gets the host_ipc of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+
+        Use the host's ipc namespace. Optional: Default to false.  # noqa: E501
+
+        :return: The host_ipc of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._host_ipc
+
+    @host_ipc.setter
+    def host_ipc(self, host_ipc):
+        """Sets the host_ipc of this V1alpha1ServingRuntimeSpec.
+
+        Use the host's ipc namespace. Optional: Default to false.  # noqa: E501
+
+        :param host_ipc: The host_ipc of this V1alpha1ServingRuntimeSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._host_ipc = host_ipc
 
     @property
     def http_data_endpoint(self):

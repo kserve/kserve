@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **disabled** | **bool** | Set to true to disable use of this runtime | [optional] 
 **grpc_data_endpoint** | **str** | Grpc endpoint for inferencing | [optional] 
 **grpc_endpoint** | **str** | Grpc endpoint for internal model-management (implementing mmesh.ModelRuntime gRPC service) Assumed to be single-model runtime if omitted | [optional] 
+**host_ipc** | **bool** | Use the host&#39;s ipc namespace. Optional: Default to false. | [optional] 
 **http_data_endpoint** | **str** | HTTP endpoint for inferencing | [optional] 
 **image_pull_secrets** | [**list[V1LocalObjectReference]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1LocalObjectReference.md) | ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod | [optional] 
 **labels** | **dict(str, str)** | Labels that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/labels | [optional] 

@@ -318,6 +318,8 @@ kserve:
       devShm:
         enabled: false
         sizeLimit: ""
+      hostIPC:
+        enabled: false
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3
