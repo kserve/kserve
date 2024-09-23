@@ -1006,6 +1006,10 @@ func TestCreateVirtualService(t *testing.T) {
 				PathTemplate:               "/serving/{{ .Namespace }}/{{ .Name }}",
 				DisableIstioVirtualHost:    false,
 			},
+			deployConfig: &v1beta1.DeployConfig{
+				DefaultDeploymentMode:              "Serverless",
+				AnnotationsPropagationDisallowList: constants.ServiceAnnotationDisallowedList,
+			},
 			useDefault: false,
 			componentStatus: &v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
