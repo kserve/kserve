@@ -180,6 +180,7 @@ data:
      # Example
      ingress: |-
        {
+           "kserveIngressGateway" : "kserve/kserve-ingress-gateway",
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
            "localGateway" : "knative-serving/knative-local-gateway",
            "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
@@ -193,6 +194,13 @@ data:
        }
      ingress: |-
        {
+           # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/) to serve external traffic. 
+           # By default, KServe configures a default gateway to serve external traffic.
+           # But, KServe can be configured to use a custom gateway by modifying this configuration.
+           # The gateway should be specified in format <gateway namespace>/<gateway name>
+           # NOTE: This configuration only applicable for raw deployment.
+           "kserveIngressGateway": "kserve/kserve-ingress-gateway",
+           
            # ingressGateway specifies the ingress gateway to serve external traffic.
            # The gateway should be specified in format <gateway namespace>/<gateway name>
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
@@ -534,6 +542,7 @@ data:
     }
   ingress: |-
     {
+        "kserveIngressGateway" : "{{ .Values.kserve.controller.gateway.ingressGateway.kserveGateway }}",
         "ingressGateway" : "{{ .Values.kserve.controller.gateway.ingressGateway.gateway }}",
         "knativeLocalGatewayService" : "{{ .Values.kserve.controller.gateway.localGateway.knativeGatewayService }}",
         "localGateway" : "{{ .Values.kserve.controller.gateway.localGateway.gateway }}",

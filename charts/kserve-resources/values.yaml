@@ -176,6 +176,8 @@ kserve:
         # When unset, the value of "localGatewayService" will be used. When enabling strict mTLS in Istio, KServe local gateway should be created and pointed to the Knative local gateway.
         knativeGatewayService: ""
       ingressGateway:
+        # -- ingressGateway specifies the gateway which handles the network traffic from outside the cluster.
+        kserveGateway: kserve/kserve-ingress-gateway
         gateway: knative-serving/knative-ingress-gateway
         className: istio
 

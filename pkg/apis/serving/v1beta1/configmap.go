@@ -20,10 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"text/template"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -66,6 +68,7 @@ type InferenceServicesConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
+	KserveIngressGateway       string    `json:"kserveIngressGateway,omitempty"`
 	IngressGateway             string    `json:"ingressGateway,omitempty"`
 	KnativeLocalGatewayService string    `json:"knativeLocalGatewayService,omitempty"`
 	LocalGateway               string    `json:"localGateway,omitempty"`
@@ -123,6 +126,25 @@ func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServi
 	return icfg, nil
 }
 
+func validateIngressGateway(ingressConfig *IngressConfig) error {
+	if ingressConfig.KserveIngressGateway == "" {
+		return fmt.Errorf("invalid ingress config - kserveIngressGateway is required")
+	}
+	splits := strings.Split(ingressConfig.KserveIngressGateway, "/")
+	if len(splits) != 2 {
+		return fmt.Errorf("invalid ingress config - kserveIngressGateway should be in the format <namespace>/<name>")
+	}
+	errs := validation.IsDNS1123Label(splits[0])
+	if len(errs) != 0 {
+		return fmt.Errorf("invalid ingress config - kserveIngressGateway namespace is invalid")
+	}
+	errs = validation.IsDNS1123Label(splits[1])
+	if len(errs) != 0 {
+		return fmt.Errorf("invalid ingress config - kserveIngressGateway name is invalid")
+	}
+	return nil
+}
+
 func NewIngressConfig(clientset kubernetes.Interface) (*IngressConfig, error) {
 	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
@@ -133,6 +155,12 @@ func NewIngressConfig(clientset kubernetes.Interface) (*IngressConfig, error) {
 		err := json.Unmarshal([]byte(ingress), &ingressConfig)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse ingress config json: %w", err)
+		}
+		if ingressConfig.KserveIngressGateway == "" {
+			return nil, fmt.Errorf("invalid ingress config - kserveIngressGateway is required")
+		}
+		if err := validateIngressGateway(ingressConfig); err != nil {
+			return nil, err
 		}
 
 		if ingressConfig.IngressGateway == "" {
