@@ -287,11 +287,13 @@ class Storage(object):
     def _download_hf(uri, temp_dir: str) -> str:
         from huggingface_hub import snapshot_download
 
-        components = uri[len(_HF_PREFIX):].split("/")
+        components = uri[len(_HF_PREFIX) :].split("/")
 
         # Validate that the URI has two parts: repo and model (optional hash)
         if len(components) != 2:
-            raise ValueError("URI must contain exactly one '/' separating the repo and model name")
+            raise ValueError(
+                "URI must contain exactly one '/' separating the repo and model name"
+            )
 
         repo = components[0]
         model_part = components[1]
