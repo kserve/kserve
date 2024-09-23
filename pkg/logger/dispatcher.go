@@ -20,11 +20,11 @@ import (
 	"go.uber.org/zap"
 )
 
-var WorkerQueue chan chan LogRequest
+var WorkerQueue chan chan []LogRequest
 
 func StartDispatcher(nworkers int, logger *zap.SugaredLogger) {
 	// First, initialize the channel we are going to but the workers' work channels into.
-	WorkerQueue = make(chan chan LogRequest, nworkers)
+	WorkerQueue = make(chan chan []LogRequest, nworkers)
 
 	// Now, create all of our workers.
 	for i := 0; i < nworkers; i++ {
