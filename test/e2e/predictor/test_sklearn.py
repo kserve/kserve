@@ -430,3 +430,40 @@ async def test_sklearn_v2_mixed_grpc():
     assert prediction == [12.202832815138274]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+# @pytest.mark.local
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_kserve_raw(rest_v1_client):
+    service_name = "isvc-sklearn-raw"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations={"serving.kserve.io/deploymentMode": "RawDeployment"},
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+    assert res["predictions"] == [1, 1]
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
