@@ -220,8 +220,10 @@ func createRawHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.I
 	}
 	allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(topLevelHost))
 	// Add additional hosts to allowed hosts
-	for _, host := range *additionalHosts {
-		allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(host))
+	if additionalHosts != nil {
+		for _, host := range *additionalHosts {
+			allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(host))
+		}
 	}
 
 	if isvc.Spec.Explainer != nil {
@@ -246,7 +248,7 @@ func createRawHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.I
 
 		// Add toplevel host :explain route
 		// :explain routes to the explainer when there is only explainer
-		explainRouteMatch := createHTTPRouteMatch(constants.ExplainPrefix(), []string{topLevelHost}, nil, nil, false)
+		explainRouteMatch := createHTTPRouteMatch(constants.ExplainPrefix(), []string{topLevelHost}, nil, additionalHosts, false)
 		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(explainRouteMatch, nil,
 			explainerName, isvc.Namespace, constants.CommonDefaultHttpPort))
 	}
