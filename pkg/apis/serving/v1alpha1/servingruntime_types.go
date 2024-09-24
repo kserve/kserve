@@ -265,10 +265,6 @@ type SupportedRuntime struct {
 // WorkerSpec is the schema for multi-node/multi-GPU feature
 type WorkerSpec struct {
 	ServingRuntimePodSpec `json:",inline"`
-
-	// Configure the number of replicas in the worker set, each worker set represents the unit of scaling
-	// +optional
-	Replicas *uint16 `json:"replicas,omitempty"`
 }
 
 func init() {

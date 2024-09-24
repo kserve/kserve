@@ -3214,8 +3214,6 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
-                    replicas:
-                      type: integer
                     tolerations:
                       items:
                         properties:
