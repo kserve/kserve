@@ -14,6 +14,7 @@
 
 import asyncio
 
+import httpx
 import pytest
 import pytest_asyncio
 
@@ -40,7 +41,7 @@ def event_loop():
 async def rest_v1_client():
     v1_client = InferenceRESTClient(
         config=RESTConfig(
-            timeout=60,
+            timeout=httpx.Timeout(connect=60, read=120, write=60, pool=60),
             verbose=True,
             protocol=PredictorProtocol.REST_V1,
         )
