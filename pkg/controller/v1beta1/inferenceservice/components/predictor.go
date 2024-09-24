@@ -19,6 +19,7 @@ package components
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -72,8 +73,14 @@ func NewPredictor(client client.Client, clientset kubernetes.Interface, scheme *
 func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	var container *v1.Container
 	var podSpec v1.PodSpec
+	var workerPodSpec v1.PodSpec
+	var workerObjectMeta metav1.ObjectMeta
+	var multiNodeEnabled bool
+	var sRuntime v1alpha1.ServingRuntimeSpec
 	var sRuntimeLabels map[string]string
 	var sRuntimeAnnotations map[string]string
+	var sRuntimeWorkerLabels map[string]string
+	var sRuntimeWorkerAnnotations map[string]string
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
@@ -96,7 +103,6 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 
 	// If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
 	if isvc.Spec.Predictor.Model != nil {
-		var sRuntime v1alpha1.ServingRuntimeSpec
 		var err error
 
 		if isvc.Spec.Predictor.Model.Runtime != nil {
@@ -241,6 +247,128 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 	}
 
+	if isvc.Spec.Predictor.WorkerSpec != nil {
+		mergedWorkerServingRuntimeSpec, err := isvcutils.MergeServingRuntimePodSpec(&sRuntime.WorkerSpec.ServingRuntimePodSpec, &isvc.Spec.Predictor.WorkerSpec.PodSpec)
+		if err != nil {
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidPredictorSpec,
+				Message: "Failed to consolidate serving runtime WorkerSpec ServingRuntimePodSpec",
+			})
+			return ctrl.Result{}, errors.Wrapf(err, "failed to consolidate serving runtime WorkerSpec ServingRuntimePodSpec")
+		}
+
+		if sRuntime.WorkerSpec == nil {
+			sRuntime.WorkerSpec = &v1alpha1.WorkerSpec{}
+		}
+
+		sRuntime.WorkerSpec.ServingRuntimePodSpec = *mergedWorkerServingRuntimeSpec
+	}
+
+	if sRuntime.WorkerSpec != nil {
+		multiNodeEnabled = true
+		// Check if workerSpec does not have containers information, it should return errors
+		if len(sRuntime.WorkerSpec.Containers) == 0 {
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidPredictorSpec,
+				Message: "No workerSpec container configuration found in selected serving runtime",
+			})
+			return ctrl.Result{}, errors.New("no workerSpec container configuration found in selected serving runtime")
+		}
+		workerContainerIdx := -1
+		for i := range sRuntime.Containers {
+			if sRuntime.WorkerSpec.Containers[i].Name == constants.WorkerContainerName {
+				workerContainerIdx = i
+				break
+			}
+		}
+		if workerContainerIdx == -1 {
+			return ctrl.Result{}, fmt.Errorf("failed to find %s in ServingRuntime workerSpec containers", constants.WorkerContainerName)
+		}
+
+		var workerSpecContainer *v1.Container
+		if isvc.Spec.Predictor.WorkerSpec != nil && isvc.Spec.Predictor.WorkerSpec.Containers != nil {
+			workerSpecContainer = &isvc.Spec.Predictor.WorkerSpec.Containers[0]
+		} else {
+			workerSpecContainer = &v1.Container{}
+		}
+
+		workerContainer, err := isvcutils.MergeRuntimeContainers(&sRuntime.WorkerSpec.Containers[workerContainerIdx], workerSpecContainer)
+		if err != nil {
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidPredictorSpec,
+				Message: "Failed to get runtime container",
+			})
+			return ctrl.Result{}, errors.Wrapf(err, "failed to get runtime container")
+		}
+		if isvc.Spec.Predictor.WorkerSpec == nil {
+			isvc.Spec.Predictor.WorkerSpec = &v1beta1.WorkerSpec{
+				PodSpec: v1beta1.PodSpec{},
+			}
+		}
+		mergedWorkerPodSpec, err := isvcutils.MergePodSpec(&sRuntime.WorkerSpec.ServingRuntimePodSpec, &isvc.Spec.Predictor.WorkerSpec.PodSpec)
+		if err != nil {
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidPredictorSpec,
+				Message: "Failed to consolidate serving runtime WorkerSpec PodSpecs",
+			})
+			return ctrl.Result{}, errors.Wrapf(err, "failed to consolidate serving runtime WorkerSpec PodSpecs")
+		}
+
+		// Set the worker size from InferenceService to ServingRuntime worker size
+		if isvc.Spec.Predictor.WorkerSpec.Size != 0 {
+			sRuntime.WorkerSpec.Size = isvc.Spec.Predictor.WorkerSpec.Size
+		}
+
+		// Replace placeholders in runtime container by values from inferenceservice metadata
+		if err = isvcutils.ReplacePlaceholders(workerContainer, isvc.ObjectMeta); err != nil {
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidPredictorSpec,
+				Message: "Failed to replace placeholders in serving runtime worker Container",
+			})
+			return ctrl.Result{}, errors.Wrapf(err, "failed to replace placeholders in serving runtime worker Container")
+		}
+
+		workerPodSpec = *mergedWorkerPodSpec
+		workerPodSpec.Containers = []v1.Container{
+			*workerContainer,
+		}
+		// Label filter will be handled in ksvc_reconciler
+		sRuntimeWorkerLabels = sRuntime.WorkerSpec.ServingRuntimePodSpec.Labels
+		sRuntimeWorkerAnnotations = utils.Filter(sRuntime.WorkerSpec.ServingRuntimePodSpec.Annotations, func(key string) bool {
+			return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		})
+
+		//
+		workerSize := constants.DefaultWorkerMinSize
+		if sRuntime.WorkerSpec.Size > constants.DefaultWorkerMinSize {
+			workerSize = sRuntime.WorkerSpec.Size
+		}
+		// Check if the PIPELINE_PARALLEL_SIZE environment variable specified
+		// Priority for worker node count:
+		// 	1. PIPELINE_PARALLEL_SIZE environment variable
+		// 	2. Worker.Size
+		for _, container := range podSpec.Containers {
+			if container.Name == constants.InferenceServiceContainerName {
+				if envPipelineParallelSize, exists := utils.GetEnvVarValue(container.Env, constants.PipelineParallelSizeEnvName); exists {
+					// if pipelineParallelSize is bigger than 1  (head + worker)
+					if intPipelineParallelSize, err := strconv.Atoi(envPipelineParallelSize); err == nil && intPipelineParallelSize > 1 {
+						// pipelineParallelSize is higher priority than workerSpec.Size
+						if intPipelineParallelSize-1 != workerSize {
+							workerSize = intPipelineParallelSize - 1
+						}
+					} else {
+						p.Log.Info("Using the WorkerSpec.Size because the provided value for pipelineParallelSize is less than 1")
+					}
+				} else {
+					p.Log.Error(err, "Failed to convert pipelineParallelSize to int, using the WorkerSpec.Size")
+				}
+				break
+			}
+		}
+
+		sRuntimeAnnotations[constants.WorkerNodeSize] = strconv.Itoa(workerSize)
+	}
+
 	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
@@ -276,6 +404,33 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
 
+	// If it is multi-node case, Autoscaler should be ignored.
+	workerObjectMeta = metav1.ObjectMeta{}
+	if multiNodeEnabled {
+		annotations[constants.AutoscalerClass] = string(constants.AutoscalerClassExternal)
+		WorkerNodeName := constants.PredictorWorkerServiceName(isvc.Name)
+		// Labels and annotations priority: predictor component > isvc > ServingRuntimePodSpec
+		// Labels and annotations from high priority will overwrite that from low priority
+		workerObjectMeta = metav1.ObjectMeta{
+			Name:      WorkerNodeName,
+			Namespace: isvc.Namespace,
+			Labels: utils.Union(
+				sRuntimeWorkerLabels,
+				isvc.Labels,
+				predictorLabels,
+				map[string]string{
+					constants.InferenceServicePodLabelKey: isvc.Name,
+					constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+				},
+			),
+			Annotations: utils.Union(
+				sRuntimeWorkerAnnotations,
+				annotations,
+				predictorAnnotations,
+			),
+		}
+	}
+
 	// Labels and annotations priority: predictor component > isvc > ServingRuntimePodSpec
 	// Labels and annotations from high priority will overwrite that from low priority
 	objectMeta := metav1.ObjectMeta{
@@ -306,18 +461,24 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	if p.deploymentMode == constants.RawDeployment {
 		rawDeployment = true
 		podLabelKey = constants.RawDeploymentAppLabel
-		r, err := raw.NewRawKubeReconciler(p.client, p.clientset, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
-			&podSpec)
+		// This is main RawKubeReconciler to create objects (deployment, svc, scaler)
+		r, err := raw.NewRawKubeReconciler(p.client, p.clientset, p.scheme, objectMeta, workerObjectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
+			&podSpec, &workerPodSpec)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")
 		}
+
 		// set Deployment Controller
-		if err := controllerutil.SetControllerReference(isvc, r.Deployment.Deployment, p.scheme); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for predictor")
+		for _, deployment := range r.Deployment.DeploymentList {
+			if err := controllerutil.SetControllerReference(isvc, deployment, p.scheme); err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for predictor")
+			}
 		}
-		// set Service Controller
-		if err := controllerutil.SetControllerReference(isvc, r.Service.Service, p.scheme); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for predictor")
+		for _, svc := range r.Service.ServiceList {
+			// set Service Controller
+			if err := controllerutil.SetControllerReference(isvc, svc, p.scheme); err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for predictor")
+			}
 		}
 		// set autoscaler Controller
 		if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {
@@ -329,6 +490,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile predictor")
 		}
 		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deployment, r.URL)
+
 	} else {
 		podLabelKey = constants.RevisionLabel
 		r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
@@ -342,6 +504,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, status)
 	}
+
 	statusSpec := isvc.Status.Components[v1beta1.PredictorComponent]
 	if rawDeployment {
 		podLabelValue = constants.GetRawServiceLabel(predictorName)

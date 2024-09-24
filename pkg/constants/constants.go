@@ -125,6 +125,7 @@ var (
 	PredictorProtocolAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/predictor-protocol"
 	LocalModelLabel                                  = InferenceServiceInternalAnnotationsPrefix + "/localmodel"
 	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
+	WorkerNodeSize                                   = KServeAPIGroupName + "/worker-node-size"
 )
 
 // kserve networking constants
@@ -147,6 +148,7 @@ var (
 	ControllerLabelName             = KServeName + "-controller-manager"
 	DefaultIstioSidecarUID          = int64(1337)
 	DefaultMinReplicas              = 1
+	DefaultWorkerMinSize            = 1
 	IstioInitContainerName          = "istio-init"
 	IstioInterceptModeRedirect      = "REDIRECT"
 	IstioInterceptionModeAnnotation = "sidecar.istio.io/interceptionMode"
@@ -246,6 +248,8 @@ var (
 	IstioMeshGateway = "mesh"
 )
 
+const WorkerNodePostfix = "worker"
+
 // InferenceService Component enums
 const (
 	Predictor   InferenceServiceComponent = "predictor"
@@ -314,6 +318,9 @@ const (
 
 	// TransformerContainerName transformer container name in collocation
 	TransformerContainerName = "transformer-container"
+
+	// WorkerContainerName is for worker node container
+	WorkerContainerName = "worker-container"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
@@ -458,9 +465,25 @@ const (
 	ClusterLocalModelKind   = "ClusterLocalModel"
 )
 
+// Model Parallel Options
+const (
+	TensorParallelSizeEnvName   = "TENSOR_PARALLEL_SIZE"
+	PipelineParallelSizeEnvName = "PIPELINE_PARALLEL_SIZE"
+)
+
+// Model Parallel Options Default value
+const (
+	DefaultTensorParallelSize = "1"
+)
+
 // GetRawServiceLabel generate native service label
 func GetRawServiceLabel(service string) string {
 	return "isvc." + service
+}
+
+// GetRawWorkerServiceLabel generate native service label for worker
+func GetRawWorkerServiceLabel(service string) string {
+	return "isvc." + service + "-worker"
 }
 
 func (e InferenceServiceComponent) String() string {
@@ -497,6 +520,10 @@ func DefaultPredictorServiceName(name string) string {
 
 func PredictorServiceName(name string) string {
 	return name + "-" + string(Predictor)
+}
+
+func PredictorWorkerServiceName(name string) string {
+	return name + "-" + string(Predictor) + "-" + string(WorkerNodePostfix)
 }
 
 func CanaryPredictorServiceName(name string) string {

@@ -68,7 +68,6 @@ type PredictorSpec struct {
 	// Component extension defines the deployment configurations for a predictor
 	ComponentExtensionSpec `json:",inline"`
 }
-
 type WorkerSpec struct {
 	PodSpec `json:",inline"`
 

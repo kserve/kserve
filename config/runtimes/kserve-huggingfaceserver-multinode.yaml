@@ -1,0 +1,207 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-huggingfaceserver-multinode
+spec:
+  annotations:
+    prometheus.kserve.io/port: "3000"
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: huggingface
+      version: "1"
+      autoSelect: true
+      priority: 2
+  protocolVersions:
+    - v2
+    - v1
+  containers:
+    - name: kserve-container
+      image: huggingfaceserver:replace
+      command: ["bash", "-c"]
+      args:
+        - |
+          ray start --head --disable-usage-stats --include-dashboard false 
+          # wait for other node to join
+          until [[ $(ray status | grep -c node_) -eq ${PIPELINE_PARALLEL_SIZE} ]]; do
+            echo "Waiting..."
+            sleep 1
+          done
+          ray status
+
+          export MODEL=${MODEL_ID}
+          if [[ ! -z ${MODEL_DIR} ]]
+          then
+            MODEL=${MODEL_DIR}
+          fi
+
+          python3 -m huggingfaceserver --model_name=${MODEL_NAME}  --model_dir=${MODEL} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE}
+        
+      env:
+        - name: RAY_PORT
+          value: "6379"
+        - name: RAY_ADDRESS
+          value: 127.0.0.1:6379
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: TENSOR_PARALLEL_SIZE
+          value: "1"
+        - name: HF_HUB_CACHE
+          value: /tmp
+      resources:
+        limits:
+          cpu: "16"
+          memory: 48Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "8"
+      volumeMounts:
+        - name: shm
+          mountPath: /dev/shm     
+      livenessProbe:
+        failureThreshold: 2
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 5
+        exec:
+          command:
+            - bash
+            - -c
+            - |
+              # Check GPU usage (when worker node restarted, it becomes NOT ready)
+              gpu_status=$(ray status | grep GPU)
+              used_gpu=$(echo "$gpu_status" | awk '{print $1}' | cut -d'/' -f1)
+              reserved_gpu=$(echo "$gpu_status" | awk '{print $1}' | cut -d'/' -f2)
+
+              # Determine health status based on GPU usage
+              if [[ "$used_gpu" != "$reserved_gpu" ]]; then
+                  echo "Liveness Probe: Unhealthy - Used: $used_gpu, Reserved: $reserved_gpu"
+                  exit 1
+              else
+                  exit 0                  
+              fi 
+      readinessProbe:
+        failureThreshold: 2
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+        exec:
+          command:
+            - bash
+            - -c
+            - |
+              [[ $(ray status | grep -c node_) -eq ${PIPELINE_PARALLEL_SIZE} ]] &
+              p1=$!
+
+              curl --silent --max-time 5 http://localhost:8080 &              
+              p2=$!
+
+              # Check GPU usage (when worker node restarted, it becomes NOT ready)
+              gpu_status=$(ray status | grep GPU)
+              used_gpu=$(echo "$gpu_status" | awk '{print $1}' | cut -d'/' -f1)
+              reserved_gpu=$(echo "$gpu_status" | awk '{print $1}' | cut -d'/' -f2)
+
+              # Determine health status based on GPU usage
+              if [[ "$used_gpu" != "$reserved_gpu" ]]; then
+                  echo "Readiness Probe: Unhealthy - Used: $used_gpu, Reserved: $reserved_gpu"
+                  exit 1
+              else
+                  exit 0                  
+              fi & # Run this check in the background
+              p3=$!
+
+              # Wait for all processes to complete
+              wait $p1 $p2 $p3
+              wait $p1 && wait $p2 && wait $p3
+      startupProbe:
+        failureThreshold: 40
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 5
+        exec:
+          command:
+            - bash
+            - -c
+            - |
+              curl --silent --max-time 5 http://localhost:8080
+  volumes:
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 12Gi
+  workerSpec:
+    size: 1
+    containers:
+      - name: worker-container
+        image: huggingfaceserver:replace
+        command: ["bash", "-c"]
+        args:
+          - |
+            SECONDS=0
+
+            while true; do              
+              if (( SECONDS <= 120 )); then
+                if ray health-check --address "${ISVC_NAME}-head.${POD_NAMESPACE}.svc.cluster.local:6379" > /dev/null 2>&1; then
+                  echo "GCS is ready."
+                  break
+                fi
+                echo "$SECONDS seconds elapsed: Waiting for GCS to be ready."
+              else
+                if ray health-check --address "${ISVC_NAME}-head.${POD_NAMESPACE}.svc.cluster.local:6379"; then
+                  echo "GCS is ready. Any error messages above can be safely ignored."
+                  break
+                fi
+                echo "$SECONDS seconds elapsed: Still waiting for GCS to be ready."
+                echo "For troubleshooting, refer to the FAQ at https://github.com/ray-project/kuberay/blob/master/docs/guidance/FAQ.md."
+              fi
+              
+              sleep 5
+            done
+
+            echo "Attempting to connect to Ray cluster at $RAY_HEAD_ADDRESS ..."
+            RAY_HEAD_ADDRESS="${ISVC_NAME}-head.${POD_NAMESPACE}.svc.cluster.local:6379"
+            ray start --address="$RAY_HEAD_ADDRESS" --block
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace              
+        resources:
+          limits:
+            cpu: "16"
+            memory: 48Gi
+          requests:
+            cpu: "8"
+        volumeMounts:
+          - name: shm
+            mountPath: /dev/shm
+        livenessProbe:
+          failureThreshold: 3
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 5
+          exec:
+            command:
+              - bash
+              - -c
+              - |
+                [[ $(ray status | grep -c node_) -eq ${PIPELINE_PARALLEL_SIZE} ]]
+        startupProbe:
+          failureThreshold: 12
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 5
+          exec:
+            command:
+              - ray
+              - status
+    volumes:
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 12Gi

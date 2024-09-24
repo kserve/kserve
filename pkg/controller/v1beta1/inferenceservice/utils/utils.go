@@ -366,3 +366,33 @@ func ValidateStorageURI(storageURI *string, client client.Client) error {
 
 	return fmt.Errorf(v1beta1.UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
 }
+
+func MergeServingRuntimePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, podSpec *v1beta1.PodSpec) (*v1alpha1.ServingRuntimePodSpec, error) {
+	podSpecJson, err := json.Marshal(v1.PodSpec{
+		NodeSelector:     podSpec.NodeSelector,
+		Affinity:         podSpec.Affinity,
+		Tolerations:      podSpec.Tolerations,
+		Volumes:          podSpec.Volumes,
+		ImagePullSecrets: podSpec.ImagePullSecrets,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	overrides, err := json.Marshal(runtimePodSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	mergedSpec := v1alpha1.ServingRuntimePodSpec{}
+	jsonResult, err := strategicpatch.StrategicMergePatch(podSpecJson, overrides, mergedSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(jsonResult, &mergedSpec); err != nil {
+		return nil, err
+	}
+
+	return &mergedSpec, nil
+}

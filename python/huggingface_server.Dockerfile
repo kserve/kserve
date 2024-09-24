@@ -36,7 +36,7 @@ RUN pip3 install vllm==${VLLM_VERSION}
 
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS prod
 
-RUN apt-get update -y && apt-get install python3.10-venv build-essential gcc python3-dev -y && apt-get clean && \
+RUN apt-get update -y && apt-get install python3.10-venv build-essential gcc python3-dev curl -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 COPY third_party third_party
@@ -66,4 +66,3 @@ ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 USER 1000
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]
-

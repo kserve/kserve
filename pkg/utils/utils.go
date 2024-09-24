@@ -234,3 +234,12 @@ func SetAvailableResourcesForApi(groupVersion string, resources *metav1.APIResou
 
 	gvResourcesCache[groupVersion] = resources
 }
+
+func GetEnvVarValue(envVars []v1.EnvVar, key string) (string, bool) {
+	for _, envVar := range envVars {
+		if envVar.Name == key {
+			return envVar.Value, true // if key exist, return value, true
+		}
+	}
+	return "", false // if key does not exist, return "", false
+}
