@@ -138,6 +138,12 @@ func TestComponentExtensionSpec_validateLogger(t *testing.T) {
 			},
 			matcher: gomega.BeNil(),
 		},
+		"LoggerWithLogCombinedMode": {
+			logger: &LoggerSpec{
+				Mode: LogCombined,
+			},
+			matcher: gomega.BeNil(),
+		},
 		"LoggerWithHeaderMetadata": {
 			logger: &LoggerSpec{
 				Mode:            LogAll,
