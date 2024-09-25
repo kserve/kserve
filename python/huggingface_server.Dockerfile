@@ -11,6 +11,9 @@ ARG POETRY_VERSION=1.8.3
 # Install vllm
 ARG VLLM_VERSION=0.6.1.post2
 
+# Install lmcache_vllm
+ARG LMCACHE_VLLM_VERSION=0.6.1
+
 RUN apt-get update -y && apt-get install gcc python3.10-venv python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip3 install poetry==${POETRY_VERSION}
@@ -33,6 +36,7 @@ COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
 RUN pip3 install vllm==${VLLM_VERSION}
+RUN pip3 install lmcache_vllm==${LMCACHE_VLLM_VERSION}
 
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS prod
 
