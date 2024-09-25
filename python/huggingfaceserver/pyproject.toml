@@ -16,6 +16,7 @@ transformers = "~4.43.3"
 accelerate = "~0.32.0"
 torch = "~2.4.0"
 vllm = { version = "^0.6.1.post2", optional = true }
+lmcache_vllm = { version = "^0.6.1", optional = true }
 
 [tool.poetry.extras]
 vllm = [
