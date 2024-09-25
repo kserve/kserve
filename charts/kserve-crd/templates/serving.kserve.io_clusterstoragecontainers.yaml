@@ -654,6 +654,9 @@ spec:
                       type: string
                   type: object
                 type: array
+              workloadType:
+                default: initContainer
+                type: string
             required:
             - container
             - supportedUriFormats

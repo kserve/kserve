@@ -461,7 +461,24 @@ spec:
         limits:
           cpu: "1"
           memory: 2Gi
+      {{- if .Values.kserve.servingruntime.huggingfaceserver.devShm.enabled }}
+      volumeMounts:
+        - name: devshm
+          mountPath: /dev/shm
+      {{- end }}
+  {{- if .Values.kserve.servingruntime.huggingfaceserver.devShm.enabled }}
+  volumes:
+    - name: devshm
+      emptyDir:
+        medium: Memory
+        {{- with .Values.kserve.servingruntime.huggingfaceserver.devShm.sizeLimit }}
+        sizeLimit: {{ . }}
+        {{- end }}
+  {{- end }}
   {{- with .Values.kserve.servingruntime.huggingfaceserver.imagePullSecrets }}
   imagePullSecrets:
     {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- if .Values.kserve.servingruntime.huggingfaceserver.hostIPC.enabled }}
+  hostIPC: true
   {{- end }}

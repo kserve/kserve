@@ -39,6 +39,82 @@
         }
       }
     },
+    "v1alpha1.ClusterLocalModel": {
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.ClusterLocalModelSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.ClusterLocalModelStatus"
+        }
+      }
+    },
+    "v1alpha1.ClusterLocalModelList": {
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.ClusterLocalModel"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.ClusterLocalModelSpec": {
+      "type": "object",
+      "required": [
+        "sourceModelUri",
+        "modelSize",
+        "nodeGroup"
+      ],
+      "properties": {
+        "modelSize": {
+          "description": "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
+          "$ref": "#/definitions/resource.Quantity"
+        },
+        "nodeGroup": {
+          "description": "group of nodes to cache the model on.",
+          "type": "string",
+          "default": ""
+        },
+        "sourceModelUri": {
+          "description": "Original StorageUri",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
     "v1alpha1.ClusterServingRuntime": {
       "description": "ClusterServingRuntime is the Schema for the servingruntimes API",
       "type": "object",
@@ -359,6 +435,83 @@
         }
       }
     },
+    "v1alpha1.LocalModelNodeGroup": {
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LocalModelNodeGroupSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LocalModelNodeGroupStatus"
+        }
+      }
+    },
+    "v1alpha1.LocalModelNodeGroupList": {
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.LocalModelNodeGroup"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.LocalModelNodeGroupSpec": {
+      "description": "LocalModelNodeGroupSpec defines a group of nodes for to download the model to.",
+      "type": "object",
+      "required": [
+        "storageLimit",
+        "persistentVolumeSpec",
+        "persistentVolumeClaimSpec"
+      ],
+      "properties": {
+        "persistentVolumeClaimSpec": {
+          "description": "Used to create PersistentVolumeClaims for download and in inference service namespaces",
+          "default": {},
+          "$ref": "#/definitions/v1.PersistentVolumeClaimSpec"
+        },
+        "persistentVolumeSpec": {
+          "description": "Used to create PersistentVolumes for downloading models and in inference service namespaces",
+          "default": {},
+          "$ref": "#/definitions/v1.PersistentVolumeSpec"
+        },
+        "storageLimit": {
+          "description": "Max storage size per node in this node group",
+          "$ref": "#/definitions/resource.Quantity"
+        }
+      }
+    },
     "v1alpha1.ModelSpec": {
       "description": "ModelSpec describes a TrainedModel",
       "type": "object",
@@ -466,6 +619,10 @@
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "hostIPC": {
+          "description": "Use the host's ipc namespace. Optional: Default to false.",
+          "type": "boolean"
+        },
         "imagePullSecrets": {
           "description": "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
           "type": "array",
@@ -556,6 +713,10 @@
         "grpcEndpoint": {
           "description": "Grpc endpoint for internal model-management (implementing mmesh.ModelRuntime gRPC service) Assumed to be single-model runtime if omitted",
           "type": "string"
+        },
+        "hostIPC": {
+          "description": "Use the host's ipc namespace. Optional: Default to false.",
+          "type": "boolean"
         },
         "httpDataEndpoint": {
           "description": "HTTP endpoint for inferencing",
@@ -664,6 +825,9 @@
             "default": {},
             "$ref": "#/definitions/v1alpha1.SupportedUriFormat"
           }
+        },
+        "workloadType": {
+          "type": "string"
         }
       }
     },

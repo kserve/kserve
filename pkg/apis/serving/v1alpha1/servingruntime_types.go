@@ -106,6 +106,11 @@ type ServingRuntimePodSpec struct {
 	// +patchMergeKey=name
 	// +patchStrategy=merge
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
+	// Use the host's ipc namespace.
+	// Optional: Default to false.
+	// +k8s:conversion-gen=false
+	// +optional
+	HostIPC bool `json:"hostIPC,omitempty" protobuf:"varint,13,opt,name=hostIPC"`
 
 	// Possibly other things here
 }

@@ -8,6 +8,5 @@ spec:
     namespace: kserve-fluid-demo
   target:
     # # please update it accordingly
-    - path: /bloom-560m
-    # - path: /bloom-7b1
-      replicas: 2
+    - path: /llama-31-8b-instruct
+      replicas: 3

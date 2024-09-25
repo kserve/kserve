@@ -1242,6 +1242,8 @@ spec:
                 type: string
               grpcEndpoint:
                 type: string
+              hostIPC:
+                type: boolean
               httpDataEndpoint:
                 type: string
               imagePullSecrets:
@@ -4722,6 +4724,9 @@ spec:
                       type: string
                   type: object
                 type: array
+              workloadType:
+                default: initContainer
+                type: string
             required:
             - container
             - supportedUriFormats
@@ -27381,6 +27386,8 @@ spec:
                 type: string
               grpcEndpoint:
                 type: string
+              hostIPC:
+                type: boolean
               httpDataEndpoint:
                 type: string
               imagePullSecrets:

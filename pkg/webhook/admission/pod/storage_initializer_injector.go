@@ -184,7 +184,7 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 
 // InjectStorageInitializer injects an init container to provision model data
 // for the serving container in a unified way across storage tech by injecting
-// a provisioning INIT container. This is a work around because KNative does not
+// a provisioning INIT container. This is a workaround because KNative does not
 // support INIT containers: https://github.com/knative/serving/issues/4307
 func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) error {
 	// Only inject if the required annotations are set
@@ -207,6 +207,15 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	for _, container := range pod.Spec.InitContainers {
 		if strings.Compare(container.Name, StorageInitializerContainerName) == 0 {
 			return nil
+		}
+	}
+
+	// Update volume mount's readonly annotation based on the ISVC annotation
+	isvcReadonlyStringFlag := true
+	isvcReadonlyString, ok := pod.ObjectMeta.Annotations[constants.StorageReadonlyAnnotationKey]
+	if ok {
+		if isvcReadonlyString == "false" {
+			isvcReadonlyStringFlag = false
 		}
 	}
 
@@ -252,7 +261,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 				MountPath: constants.DefaultModelLocalMountPath,
 				// only path to volume's root ("") or folder is supported
 				SubPath:  pvcPath,
-				ReadOnly: true,
+				ReadOnly: isvcReadonlyStringFlag,
 			}
 
 			// Check if PVC source URIs is already mounted
@@ -298,7 +307,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		pvcSourceVolumeMount := v1.VolumeMount{
 			Name:      PvcSourceMountName,
 			MountPath: PvcSourceMountPath,
-			ReadOnly:  true,
+			ReadOnly:  isvcReadonlyStringFlag,
 		}
 		storageInitializerMounts = append(storageInitializerMounts, pvcSourceVolumeMount)
 
@@ -361,7 +370,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	sharedVolumeReadMount := v1.VolumeMount{
 		Name:      StorageInitializerVolumeName,
 		MountPath: constants.DefaultModelLocalMountPath,
-		ReadOnly:  true,
+		ReadOnly:  isvcReadonlyStringFlag,
 	}
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
 	if transformerContainer != nil {
