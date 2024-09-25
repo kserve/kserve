@@ -3198,6 +3198,8 @@ spec:
                       - name
                       type: object
                     type: array
+                  hostIPC:
+                    type: boolean
                   imagePullSecrets:
                     items:
                       properties:
@@ -29342,6 +29344,8 @@ spec:
                       - name
                       type: object
                     type: array
+                  hostIPC:
+                    type: boolean
                   imagePullSecrets:
                     items:
                       properties:
