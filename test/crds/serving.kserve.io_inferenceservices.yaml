@@ -3217,6 +3217,8 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  size:
+                    type: integer
                   tolerations:
                     items:
                       properties:
@@ -29363,6 +29365,8 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  size:
+                    type: integer
                   tolerations:
                     items:
                       properties:
