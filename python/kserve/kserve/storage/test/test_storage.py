@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import io
+import json
 import os
 import tempfile
 import binascii
@@ -303,6 +305,26 @@ def test_unpack_zip_file():
     Storage._unpack_archive_file(tar_file, mimetype, out_dir)
     assert os.path.exists(os.path.join(out_dir, "model.pth"))
     os.remove(os.path.join(out_dir, "model.pth"))
+
+
+@mock.patch.dict(
+    "os.environ",
+    {
+        "STORAGE_CONFIG": json.dumps(
+            {
+                "type": "gs",
+                "base64_service_account_key_file": base64.b64encode(
+                    json.dumps({"key": "value"}).encode("utf-8")
+                ).decode("utf-8"),
+            }
+        )
+    },
+    clear=True,
+)
+def test_gs_storage_spec():
+    Storage._update_with_storage_spec()
+    assert "GOOGLE_SERVICE_ACCOUNT" in os.environ
+    assert json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT"]) == {"key": "value"}
 
 
 @mock.patch(STORAGE_MODULE + ".Storage._download_azure_blob")
