@@ -441,6 +441,16 @@ data:
          "enablePrometheusScraping" : "false"
        }
 
+     # ====================================== LOCALMODEL CONFIGURATION ======================================
+     # Example
+     localModel: |-
+       {
+         # jobNamespace specifies the namespace where the download job will be created.
+         "jobNamespace": "kserve-localmodel-jobs",
+         # defaultJobImage specifies the default image used for the download job.
+         "defaultJobImage" : "kserve/storage-initializer:latest"
+       }
+
   agent: |-
     {
         "image" : "{{ .Values.kserve.agent.image }}:{{ .Values.kserve.agent.tag }}",
@@ -542,4 +552,10 @@ data:
     {
       "enableMetricAggregation": "{{ .Values.kserve.metricsaggregator.enableMetricAggregation }}",
       "enablePrometheusScraping" : "{{ .Values.kserve.metricsaggregator.enablePrometheusScraping }}"
+    }
+  localModel: |-
+    {
+      "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
+      "defaultJobImage" : "kserve/storage-initializer:latest"
+      "FSGroup": "{{ .Values.kserve.localmodel.securityContext.FSGroup }}"
     }

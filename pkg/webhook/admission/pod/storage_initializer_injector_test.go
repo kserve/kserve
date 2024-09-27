@@ -3964,3 +3964,117 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 		}
 	}
 }
+
+func TestLocalModelPVC(t *testing.T) {
+	storageConfig := &StorageInitializerConfig{
+		EnableDirectPvcVolumeMount: true, // enable direct volume mount for PVC
+	}
+	scenarios := map[string]struct {
+		storageUri               string
+		localModelLabel          string
+		localModelSourceUriLabel string
+		expectedSubPath          string
+	}{
+		"basic": {
+			storageUri:               "s3://foo",
+			localModelLabel:          "bar",
+			localModelSourceUriLabel: "s3://foo",
+			expectedSubPath:          "models/bar/",
+		},
+		"extra / at the end": {
+			storageUri:               "s3://foo/",
+			localModelLabel:          "bar",
+			localModelSourceUriLabel: "s3://foo",
+			expectedSubPath:          "models/bar/",
+		},
+		"subfolder": {
+			storageUri:               "s3://foo/model1",
+			localModelLabel:          "bar",
+			localModelSourceUriLabel: "s3://foo",
+			expectedSubPath:          "models/bar/model1",
+		},
+		"subfolder2": {
+			storageUri:               "s3://foo/model1",
+			localModelLabel:          "bar",
+			localModelSourceUriLabel: "s3://foo/",
+			expectedSubPath:          "models/bar/model1",
+		},
+	}
+
+	podScenarios := make(map[string]struct {
+		original *v1.Pod
+		expected *v1.Pod
+	})
+
+	for name, scenario := range scenarios {
+		original := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageUri,
+					constants.LocalModelSourceUriAnnotationKey:                 scenario.localModelSourceUriLabel,
+				},
+				Labels: map[string]string{
+					constants.LocalModelLabel: scenario.localModelLabel,
+				},
+			},
+			Spec: v1.PodSpec{
+				Containers: []v1.Container{
+					{
+						Name: constants.InferenceServiceContainerName,
+					},
+				},
+			},
+		}
+		expected := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageUri,
+				},
+			},
+			Spec: v1.PodSpec{
+				Containers: []v1.Container{
+					{
+						Name: constants.InferenceServiceContainerName,
+						VolumeMounts: []v1.VolumeMount{
+							{
+								Name:      "kserve-pvc-source",
+								MountPath: constants.DefaultModelLocalMountPath,
+								ReadOnly:  true,
+								SubPath:   scenario.expectedSubPath,
+							},
+						},
+					},
+				},
+				Volumes: []v1.Volume{
+					{
+						Name: "kserve-pvc-source",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{ClaimName: scenario.localModelLabel, ReadOnly: false},
+						},
+					},
+				},
+			},
+		}
+
+		podScenarios[name] = struct {
+			original *v1.Pod
+			expected *v1.Pod
+		}{original: original, expected: expected}
+	}
+	for name, scenario := range podScenarios {
+		injector := &StorageInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+			config: storageConfig,
+			client: c,
+		}
+
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
+}

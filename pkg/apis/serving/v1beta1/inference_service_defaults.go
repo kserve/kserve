@@ -21,18 +21,22 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 var (
@@ -103,11 +107,32 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 	if err != nil {
 		return err
 	}
-	isvc.DefaultInferenceService(configMap, deployConfig)
+
+	var c client.Client
+	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
+		mutatorLogger.Error(err, "Failed to start client")
+		return err
+	}
+	localModelFound, err := utils.IsCrdAvailable(cfg, v1alpha1.SchemeGroupVersion.String(), constants.ClusterLocalModelKind)
+	if err != nil {
+		mutatorLogger.Error(err, "error when checking if ClusterLocalModel kind is available")
+		return err
+	}
+
+	var models *v1alpha1.ClusterLocalModelList
+	if localModelFound {
+		models = &v1alpha1.ClusterLocalModelList{}
+		if err := c.List(context.TODO(), models); err != nil {
+			mutatorLogger.Error(err, "Cannot List local models")
+			return err
+		}
+	}
+
+	isvc.DefaultInferenceService(configMap, deployConfig, models)
 	return nil
 }
 
-func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig) {
+func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, models *v1alpha1.ClusterLocalModelList) {
 	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
 
 	if !ok && deployConfig != nil {
@@ -141,6 +166,8 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 			}
 		}
 	}
+
+	isvc.setLocalModelLabel(models)
 	setautomountServiceAccountToken(isvc)
 }
 
@@ -399,4 +426,40 @@ func (isvc *InferenceService) SetTritonDefaults() {
 		isvc.Spec.Predictor.Model.Args = append(isvc.Spec.Predictor.Model.Args,
 			fmt.Sprintf("%s=%s", "--model-control-mode", "explicit"))
 	}
+}
+
+// If there is a ClusterLocalModel resource, add a label to the isvc, which is used by the local model controller to manage PV/PVCs.
+func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.ClusterLocalModelList) {
+	if models == nil {
+		return
+	}
+	// Todo: support multiple storage uris?
+	var storageUri string
+	var predictor ComponentImplementation
+	if predictor = isvc.Spec.Predictor.GetImplementation(); predictor == nil {
+		return
+	}
+	if predictor.GetStorageUri() == nil {
+		return
+	}
+	storageUri = *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
+	var localModel *v1alpha1.ClusterLocalModel
+	for i, model := range models.Items {
+		if strings.HasPrefix(storageUri, model.Spec.SourceModelUri) {
+			localModel = &models.Items[i]
+			break
+		}
+	}
+	if localModel == nil {
+		return
+	}
+	if isvc.Labels == nil {
+		isvc.Labels = make(map[string]string)
+	}
+	if isvc.Annotations == nil {
+		isvc.Annotations = make(map[string]string)
+	}
+	isvc.Labels[constants.LocalModelLabel] = localModel.Name
+	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = localModel.Spec.SourceModelUri
+	mutatorLogger.Info("ClusterLocalModel found", "model", localModel.Name, "namespace", isvc.Namespace, "isvc", isvc.Name)
 }

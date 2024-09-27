@@ -107,6 +107,9 @@ func GetContainerSpecForStorageUri(storageUri string, client client.Client) (*v1
 		if sc.IsDisabled() {
 			continue
 		}
+		if sc.Spec.WorkloadType != v1alpha1.InitContainer {
+			continue
+		}
 		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
 		if err != nil {
 			return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
@@ -225,6 +228,15 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 
 	if userContainer == nil {
 		return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
+	}
+
+	// Mount pvc directly if local model label exists
+	if modelName, ok := pod.ObjectMeta.Labels[constants.LocalModelLabel]; ok {
+		subPath, _ := strings.CutPrefix(srcURI, pod.ObjectMeta.Annotations[constants.LocalModelSourceUriAnnotationKey])
+		if !strings.HasPrefix(subPath, "/") {
+			subPath = "/" + subPath
+		}
+		srcURI = "pvc://" + modelName + "/models/" + modelName + subPath
 	}
 
 	podVolumes := []v1.Volume{}

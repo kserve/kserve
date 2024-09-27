@@ -3217,6 +3217,25 @@
         }
       }
     },
+    "v1beta1.LocalModelConfig": {
+      "type": "object",
+      "required": [
+        "jobNamespace"
+      ],
+      "properties": {
+        "defaultJobImage": {
+          "type": "string"
+        },
+        "fsGroup": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "jobNamespace": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
     "v1beta1.LoggerSpec": {
       "description": "LoggerSpec specifies optional payload logging available for all components",
       "type": "object",
