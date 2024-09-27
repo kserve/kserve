@@ -302,6 +302,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	localModelConfig, err := v1beta1.NewLocalModelConfig(c.Clientset)
 	if err != nil {
+		c.Log.Error(err, "Failed to get local model config")
 		return reconcile.Result{}, err
 	}
 	defaultJobImage = localModelConfig.DefaultJobImage
