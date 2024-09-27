@@ -388,8 +388,8 @@ func SetObjectDefaults_InferenceService(in *InferenceService) {
 		}
 	}
 	if in.Spec.Predictor.WorkerSpec != nil {
-		for i := range in.Spec.Predictor.WorkerSpec.InitContainers {
-			a := &in.Spec.Predictor.WorkerSpec.InitContainers[i]
+		for i := range in.Spec.Predictor.WorkerSpec.PodSpec.InitContainers {
+			a := &in.Spec.Predictor.WorkerSpec.PodSpec.InitContainers[i]
 			for j := range a.Ports {
 				b := &a.Ports[j]
 				if b.Protocol == "" {
@@ -421,8 +421,8 @@ func SetObjectDefaults_InferenceService(in *InferenceService) {
 				}
 			}
 		}
-		for i := range in.Spec.Predictor.WorkerSpec.Containers {
-			a := &in.Spec.Predictor.WorkerSpec.Containers[i]
+		for i := range in.Spec.Predictor.WorkerSpec.PodSpec.Containers {
+			a := &in.Spec.Predictor.WorkerSpec.PodSpec.Containers[i]
 			for j := range a.Ports {
 				b := &a.Ports[j]
 				if b.Protocol == "" {
@@ -454,8 +454,8 @@ func SetObjectDefaults_InferenceService(in *InferenceService) {
 				}
 			}
 		}
-		for i := range in.Spec.Predictor.WorkerSpec.EphemeralContainers {
-			a := &in.Spec.Predictor.WorkerSpec.EphemeralContainers[i]
+		for i := range in.Spec.Predictor.WorkerSpec.PodSpec.EphemeralContainers {
+			a := &in.Spec.Predictor.WorkerSpec.PodSpec.EphemeralContainers[i]
 			for j := range a.EphemeralContainerCommon.Ports {
 				b := &a.EphemeralContainerCommon.Ports[j]
 				if b.Protocol == "" {

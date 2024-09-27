@@ -57,7 +57,7 @@ type PredictorSpec struct {
 	Model *ModelSpec `json:"model,omitempty"`
 
 	// WorkerSpec for enabling multi-node/multi-gpu
-	WorkerSpec *PodSpec `json:"workerSpec,omitempty"`
+	WorkerSpec *WorkerSpec `json:"workerSpec,omitempty"`
 
 	// This spec is dual purpose. <br />
 	// 1) Provide a full PodSpec for custom predictor.
@@ -67,6 +67,14 @@ type PredictorSpec struct {
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for a predictor
 	ComponentExtensionSpec `json:",inline"`
+}
+
+type WorkerSpec struct{
+	PodSpec `json:",inline"`
+	
+	// Configure the number of replicas in the worker set, each worker set represents the unit of scaling
+	// +optional
+	Size int `json:"size,omitempty"`
 }
 
 var _ Component = &PredictorSpec{}

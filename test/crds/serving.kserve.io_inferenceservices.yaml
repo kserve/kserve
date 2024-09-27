@@ -21508,6 +21508,8 @@ spec:
                         type: boolean
                       shareProcessNamespace:
                         type: boolean
+                      size:
+                        type: integer
                       subdomain:
                         type: string
                       terminationGracePeriodSeconds:
