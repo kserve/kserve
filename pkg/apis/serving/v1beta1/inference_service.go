@@ -36,7 +36,7 @@ type InferenceServiceSpec struct {
 }
 
 // LoggerType controls the scope of log publishing
-// +kubebuilder:validation:Enum=all;request;response
+// +kubebuilder:validation:Enum=all;request;response;combined
 type LoggerType string
 
 // LoggerType Enum
@@ -47,6 +47,8 @@ const (
 	LogRequest LoggerType = "request"
 	// LogResponse Logger mode to log only response
 	LogResponse LoggerType = "response"
+	// LogCombined Logger mode to log both request and repsonse in combined payload
+	LogCombined LoggerType = "combined"
 )
 
 // LoggerSpec specifies optional payload logging available for all components
