@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from torchvision import models, transforms
 from typing import Dict, Union
 import torch
+import time
 from PIL import Image
 import base64
 import io
@@ -35,9 +36,6 @@ from kserve import (
 from kserve.errors import InvalidInput
 from kserve.model_server import app
 from kserve.utils.utils import generate_uuid
-
-
-PREDICTION_COUNTER = 0
 
 
 # This custom predictor example implements the custom model following KServe REST v1/v2 protocol,
@@ -107,13 +105,7 @@ class AlexNetModel(Model):
         headers: Dict[str, str] = None,
         response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
-
-        global PREDICTION_COUNTER
-        PREDICTION_COUNTER += 1
-
-        # Example for custom response headers
-        if response_headers is not None:
-            response_headers.update({"prediction-counter": f"{PREDICTION_COUNTER}"})
+        start = time.time()
 
         output = self.model(input_tensor)
         torch.nn.functional.softmax(output, dim=1)
@@ -126,6 +118,14 @@ class AlexNetModel(Model):
         infer_response = InferResponse(
             model_name=self.name, infer_outputs=[infer_output], response_id=response_id
         )
+        end = time.time()
+
+        # Example for custom response headers
+        if response_headers is not None:
+            response_headers.update(
+                {"prediction-time-latency": f"{round((end - start) * 1000, 9)}"}
+            )
+
         if "request-type" in headers and headers["request-type"] == "v1":
             return {"predictions": result}
         else:
