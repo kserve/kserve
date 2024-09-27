@@ -573,5 +573,5 @@ data:
     {
       "jobNamespace": "kserve-localmodel-jobs",
       "defaultJobImage" : "kserve/storage-initializer:latest",
-      "FSGroup": "1000"
+      "FSGroup": 1000
     }

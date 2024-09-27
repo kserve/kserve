@@ -557,5 +557,5 @@ data:
     {
       "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
       "defaultJobImage" : "kserve/storage-initializer:latest",
-      "FSGroup": "{{ .Values.kserve.localmodel.securityContext.FSGroup }}"
+      "FSGroup": {{ .Values.kserve.localmodel.securityContext.FSGroup }}
     }
