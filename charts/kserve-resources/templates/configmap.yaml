@@ -556,6 +556,6 @@ data:
   localModel: |-
     {
       "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
-      "defaultJobImage" : "kserve/storage-initializer:latest"
+      "defaultJobImage" : "kserve/storage-initializer:latest",
       "FSGroup": "{{ .Values.kserve.localmodel.securityContext.FSGroup }}"
     }

@@ -572,6 +572,6 @@ data:
   localModel: |-
     {
       "jobNamespace": "kserve-localmodel-jobs",
-      "defaultJobImage" : "kserve/storage-initializer:latest"
-      "FSGroup": "1000",
+      "defaultJobImage" : "kserve/storage-initializer:latest",
+      "FSGroup": "1000"
     }
