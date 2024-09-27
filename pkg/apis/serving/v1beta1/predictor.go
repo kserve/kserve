@@ -69,9 +69,9 @@ type PredictorSpec struct {
 	ComponentExtensionSpec `json:",inline"`
 }
 
-type WorkerSpec struct{
+type WorkerSpec struct {
 	PodSpec `json:",inline"`
-	
+
 	// Configure the number of replicas in the worker set, each worker set represents the unit of scaling
 	// +optional
 	Size int `json:"size,omitempty"`
