@@ -47,6 +47,14 @@ const (
 	DefaultUrlScheme      = "http"
 )
 
+// Error messages
+const (
+	ErrKserveIngressGatewayRequired         = "invalid ingress config - kserveIngressGateway is required"
+	ErrInvalidKserveIngressGatewayFormat    = "invalid ingress config - kserveIngressGateway should be in the format <namespace>/<name>"
+	ErrInvalidKserveIngressGatewayName      = "invalid ingress config - kserveIngressGateway gateway name is invalid"
+	ErrInvalidKserveIngressGatewayNamespace = "invalid ingress config - kserveIngressGateway gateway namespace is invalid"
+)
+
 // +kubebuilder:object:generate=false
 type ExplainerConfig struct {
 	// explainer docker image name
@@ -128,19 +136,19 @@ func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServi
 
 func validateIngressGateway(ingressConfig *IngressConfig) error {
 	if ingressConfig.KserveIngressGateway == "" {
-		return fmt.Errorf("invalid ingress config - kserveIngressGateway is required")
+		return fmt.Errorf(ErrKserveIngressGatewayRequired)
 	}
 	splits := strings.Split(ingressConfig.KserveIngressGateway, "/")
 	if len(splits) != 2 {
-		return fmt.Errorf("invalid ingress config - kserveIngressGateway should be in the format <namespace>/<name>")
+		return fmt.Errorf(ErrInvalidKserveIngressGatewayFormat)
 	}
 	errs := validation.IsDNS1123Label(splits[0])
 	if len(errs) != 0 {
-		return fmt.Errorf("invalid ingress config - kserveIngressGateway namespace is invalid")
+		return fmt.Errorf(ErrInvalidKserveIngressGatewayNamespace)
 	}
 	errs = validation.IsDNS1123Label(splits[1])
 	if len(errs) != 0 {
-		return fmt.Errorf("invalid ingress config - kserveIngressGateway name is invalid")
+		return fmt.Errorf(ErrInvalidKserveIngressGatewayName)
 	}
 	return nil
 }
