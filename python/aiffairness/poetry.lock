@@ -360,22 +360,23 @@ test = ["pytest (>=6)"]
 
 [[package]]
 name = "fastapi"
-version = "0.109.2"
+version = "0.115.0"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "fastapi-0.109.2-py3-none-any.whl", hash = "sha256:2c9bab24667293b501cad8dd388c05240c850b58ec5876ee3283c47d6e1e3a4d"},
-    {file = "fastapi-0.109.2.tar.gz", hash = "sha256:f3817eac96fe4f65a2ebb4baa000f394e55f5fccdaf7f75250804bc58f354f73"},
+    {file = "fastapi-0.115.0-py3-none-any.whl", hash = "sha256:17ea427674467486e997206a5ab25760f6b09e069f099b96f5b55a32fb6f1631"},
+    {file = "fastapi-0.115.0.tar.gz", hash = "sha256:f93b4ca3529a8ebc6fc3fcf710e5efa8de3df9b41570958abf1d97d843138004"},
 ]
 
 [package.dependencies]
 pydantic = ">=1.7.4,<1.8 || >1.8,<1.8.1 || >1.8.1,<2.0.0 || >2.0.0,<2.0.1 || >2.0.1,<2.1.0 || >2.1.0,<3.0.0"
-starlette = ">=0.36.3,<0.37.0"
+starlette = ">=0.37.2,<0.39.0"
 typing-extensions = ">=4.8.0"
 
 [package.extras]
-all = ["email-validator (>=2.0.0)", "httpx (>=0.23.0)", "itsdangerous (>=1.1.0)", "jinja2 (>=2.11.2)", "orjson (>=3.2.1)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.7)", "pyyaml (>=5.3.1)", "ujson (>=4.0.1,!=4.0.2,!=4.1.0,!=4.2.0,!=4.3.0,!=5.0.0,!=5.1.0)", "uvicorn[standard] (>=0.12.0)"]
+all = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.5)", "httpx (>=0.23.0)", "itsdangerous (>=1.1.0)", "jinja2 (>=2.11.2)", "orjson (>=3.2.1)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.7)", "pyyaml (>=5.3.1)", "ujson (>=4.0.1,!=4.0.2,!=4.1.0,!=4.2.0,!=4.3.0,!=5.0.0,!=5.1.0)", "uvicorn[standard] (>=0.12.0)"]
+standard = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.5)", "httpx (>=0.23.0)", "jinja2 (>=2.11.2)", "python-multipart (>=0.0.7)", "uvicorn[standard] (>=0.12.0)"]
 
 [[package]]
 name = "google-auth"
@@ -606,7 +607,7 @@ develop = true
 
 [package.dependencies]
 cloudevents = "^1.6.2"
-fastapi = "^0.109.1"
+fastapi = ">=0.114.1"
 grpcio = "^1.49.1"
 httpx = "^0.26.0"
 kubernetes = ">=23.3.0"
@@ -627,7 +628,7 @@ uvicorn = {version = "^0.21.1", extras = ["standard"]}
 [package.extras]
 logging = ["asgi-logger (>=0.1.0,<0.2.0)"]
 ray = ["ray[serve] (>=2.10.0,<2.11.0)"]
-storage = ["azure-identity (>=1.8.0,<2.0.0)", "azure-storage-blob (>=12.10.0,<13.0.0)", "azure-storage-file-share (>=12.7.0,<13.0.0)", "boto3 (>=1.21.0,<2.0.0)", "google-cloud-storage (>=2.3.0,<3.0.0)", "requests (>=2.20.0,<3.0.0)"]
+storage = ["azure-identity (>=1.8.0,<2.0.0)", "azure-storage-blob (>=12.10.0,<13.0.0)", "azure-storage-file-share (>=12.7.0,<13.0.0)", "boto3 (>=1.21.0,<2.0.0)", "google-cloud-storage (>=2.3.0,<3.0.0)", "huggingface-hub (>=0.24.5,<0.25.0)", "requests (>=2.20.0,<3.0.0)"]
 
 [package.source]
 type = "directory"
@@ -1260,6 +1261,7 @@ files = [
     {file = "PyYAML-6.0.1-cp311-cp311-win_amd64.whl", hash = "sha256:bf07ee2fef7014951eeb99f56f39c9bb4af143d8aa3c21b1677805985307da34"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:855fb52b0dc35af121542a76b9a84f8d1cd886ea97c84703eaa6d88e37a2ad28"},
     {file = "PyYAML-6.0.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:40df9b996c2b73138957fe23a16a4f0ba614f4c0efce1e9406a184b6d07fa3a9"},
+    {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a08c6f0fe150303c1c6b71ebcd7213c2858041a7e01975da3a99aed1e7a378ef"},
     {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6c22bec3fbe2524cde73d7ada88f6566758a8f7227bfbf93a408a9d86bcc12a0"},
     {file = "PyYAML-6.0.1-cp312-cp312-musllinux_1_1_x86_64.whl", hash = "sha256:8d4e9c88387b0f5c7d5f281e55304de64cf7f9c0021a3525bd3b1c542da3b0e4"},
     {file = "PyYAML-6.0.1-cp312-cp312-win32.whl", hash = "sha256:d483d2cdf104e7c9fa60c544d92981f12ad66a457afae824d146093b8c294c54"},
@@ -1456,13 +1458,13 @@ files = [
 
 [[package]]
 name = "starlette"
-version = "0.36.3"
+version = "0.38.6"
 description = "The little ASGI library that shines."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "starlette-0.36.3-py3-none-any.whl", hash = "sha256:13d429aa93a61dc40bf503e8c801db1f1bca3dc706b10ef2434a36123568f044"},
-    {file = "starlette-0.36.3.tar.gz", hash = "sha256:90a671733cfb35771d8cc605e0b679d23b992f8dcfad48cc60b38cb29aeb7080"},
+    {file = "starlette-0.38.6-py3-none-any.whl", hash = "sha256:4517a1409e2e73ee4951214ba012052b9e16f60e90d73cfb06192c19203bbb05"},
+    {file = "starlette-0.38.6.tar.gz", hash = "sha256:863a1588f5574e70a821dadefb41e4881ea451a47a3cd1b4df359d4ffefe5ead"},
 ]
 
 [package.dependencies]

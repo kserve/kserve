@@ -55,6 +55,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
