@@ -391,7 +391,8 @@ async def test_bloom_chat_completion(bloom_model: HuggingfaceGenerativeModel):
         max_tokens=20,
     )
     request = ChatCompletionRequest(params=params, context={})
-    response = await bloom_model.create_chat_completion(request)
+    chat_template = "{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}"
+    response = await bloom_model.create_chat_completion(request, chat_template)
     assert (
         response.choices[0].message.content
         == "The first thing you need to do is to get a good idea of what you are looking for."
@@ -418,7 +419,8 @@ async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativ
         max_tokens=20,
     )
     request = ChatCompletionRequest(params=params, context={})
-    response = await bloom_model.create_chat_completion(request)
+    chat_template = "{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}"
+    response = await bloom_model.create_chat_completion(request, chat_template)
     output = ""
     async for chunk in response:
         output += chunk.choices[0].delta.content
