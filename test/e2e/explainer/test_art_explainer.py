@@ -167,12 +167,12 @@ async def test_raw_tabular_explainer(rest_v1_client):
         raise e
 
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/mnist_input_bw_flat.json"
+        rest_v1_client, service_name, "./data/mnist_input_bw_flat.json", is_raw=True
     )
     assert res["predictions"] == [3]
 
     adv_prediction = await explain_art(
-        rest_v1_client, service_name, "./data/mnist_input_bw.json"
+        rest_v1_client, service_name, "./data/mnist_input_bw.json", is_raw=True
     )
     assert adv_prediction != 3
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
