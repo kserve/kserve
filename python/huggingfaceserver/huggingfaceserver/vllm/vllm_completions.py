@@ -359,9 +359,11 @@ class OpenAIServingCompletion:
     def apply_chat_template(
         self,
         messages: Iterable[ChatCompletionRequestMessage,],
+        chat_template: Optional[str] = None,
+
     ):
         return self.tokenizer.apply_chat_template(
-            conversation=messages, tokenize=False, add_generation_prompt=True
+            conversation=messages, chat_template=chat_template, tokenize=False, add_generation_prompt=True
         )
 
     async def _post_init(self):
