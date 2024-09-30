@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import AsyncIterator, Iterable, Union, cast
+from typing import AsyncIterator, Iterable, Union, cast, Optional
 
 from kserve.protocol.rest.openai.types import (
     ChatCompletion,
@@ -193,7 +193,9 @@ class OpenAIChatAdapterModel(OpenAIModel):
         )
 
     async def create_chat_completion(
-        self, request: ChatCompletionRequest, chat_template: str | None = None,
+        self,
+        request: ChatCompletionRequest,
+        chat_template: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         params = request.params
 
