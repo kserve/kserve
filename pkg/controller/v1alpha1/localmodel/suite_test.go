@@ -36,7 +36,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kfservingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kservev1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 	// +kubebuilder:scaffold:imports
@@ -71,7 +71,7 @@ var _ = BeforeSuite(func() {
 
 	err = v1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = kfservingv1beta1.AddToScheme(scheme.Scheme)
+	err = kservev1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = knservingv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -86,7 +86,7 @@ var _ = BeforeSuite(func() {
 	Expect(clientset).ToNot(BeNil())
 
 	// Creates namespace
-	kfservingNamespaceObj := &v1.Namespace{
+	kserveNamespaceObj := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.KServeNamespace,
 		},
@@ -96,7 +96,7 @@ var _ = BeforeSuite(func() {
 			Name: "kserve-localmodel-jobs",
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), kfservingNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
 	Expect(k8sClient.Create(context.Background(), jobsNamespaceObj)).Should(Succeed())
 
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
