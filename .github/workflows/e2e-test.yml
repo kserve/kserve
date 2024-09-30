@@ -730,7 +730,7 @@ jobs:
   test-raw:
     runs-on: ubuntu-22.04
     needs:
-      [kserve-image-build, predictor-runtime-build]
+      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -776,11 +776,12 @@ jobs:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ github.sha }}
           path: ./tmp
 
-      - name: Download transformer image
+      - name: Download transformer and explainer artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ github.sha }}
           path: ./tmp
+          pattern: +(${{ env.TRANSFORMER_ARTIFACT_PREFIX }}|${{ env.EXPLAINER_ARTIFACT_PREFIX }})-*
+          merge-multiple: true
 
       - name: Load docker images
         uses: ./.github/actions/load-docker-images
@@ -805,6 +806,18 @@ jobs:
         timeout-minutes: 30
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6"
+      
+      - name: Patch inferenceservice config for path based routing
+        run: |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-ingress.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+      
+      - name: Run E2E tests with path based routing
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6"
+
+  
 
       - name: Patch inferenceservice config for cluster ip none
         run: |
