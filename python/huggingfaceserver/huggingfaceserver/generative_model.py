@@ -384,7 +384,9 @@ class HuggingfaceGenerativeModel(
         return GenerationConfig(**kwargs)
 
     def apply_chat_template(
-        self, messages: Iterable[ChatCompletionRequestMessage], chat_template: Optional[str] = None,
+        self,
+        messages: Iterable[ChatCompletionRequestMessage],
+        chat_template: Optional[str] = None,
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
