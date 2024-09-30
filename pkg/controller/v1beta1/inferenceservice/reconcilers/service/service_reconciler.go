@@ -137,7 +137,7 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 				Port: constants.CommonDefaultHttpPort,
 				TargetPort: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: portInt32, // #nosec G109
+					IntVal: int32(port), // #nosec G109 #nosec G115
 				},
 				Protocol: corev1.ProtocolTCP,
 			})
