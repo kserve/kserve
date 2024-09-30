@@ -73,7 +73,9 @@ async def test_raw_deployment_kserve(rest_v1_client):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+    res = await predict_isvc(
+        rest_v1_client, service_name, "./data/iris_input.json", is_raw=True
+    )
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -115,7 +117,9 @@ async def test_raw_deployment_runtime_kserve(rest_v1_client):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+    res = await predict_isvc(
+        rest_v1_client, service_name, "./data/iris_input.json", is_raw=True
+    )
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -181,7 +185,7 @@ async def test_isvc_with_multiple_container_port():
     ]
     expected_output = ["14.976", "14.037", "13.966", "12.252", "12.086"]
     grpc_response = await predict_grpc(
-        service_name=service_name, payload=payload, model_name=model_name
+        service_name=service_name, payload=payload, model_name=model_name, is_raw=True
     )
     fields = grpc_response.outputs[0].data
     grpc_output = ["%.3f" % value for value in fields]

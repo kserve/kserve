@@ -754,6 +754,7 @@ jobs:
         uses: ./.github/actions/kserve-dep-setup
         with:
           deployment-mode: "raw"
+          network-layer: "envoy"
 
       - name: Download base images
         uses: ./.github/actions/base-download

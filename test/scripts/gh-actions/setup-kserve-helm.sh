@@ -22,6 +22,10 @@ set -o nounset
 set -o pipefail
 
 sed -i -e "s/*defaultVersion/${GITHUB_SHA}/g" charts/kserve-resources/values.yaml
+GATEWAY_API_VERSION="v1.1.0"
+
+echo "Installing Gateway CRDs ..."
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 
 cat ./charts/kserve-resources/values.yaml
 

@@ -216,7 +216,7 @@ async def test_sklearn_scale_raw(rest_v1_client):
     )
 
     assert hpa_resp["items"][0]["spec"]["targetCPUUtilizationPercentage"] == 50
-    res = await predict_isvc(rest_v1_client, service_name, INPUT)
+    res = await predict_isvc(rest_v1_client, service_name, INPUT, is_raw=True)
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 

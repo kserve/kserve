@@ -141,7 +141,9 @@ async def base_test(msg_dumper, service_name, predictor, rest_v1_client):
         for pod in pods.items:
             print(pod)
 
-    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+    res = await predict_isvc(
+        rest_v1_client, service_name, "./data/iris_input.json", is_raw=True
+    )
     assert res["predictions"] == [1, 1]
     pods = kserve_client.core_api.list_namespaced_pod(
         KSERVE_TEST_NAMESPACE,

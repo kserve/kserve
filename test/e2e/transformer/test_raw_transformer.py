@@ -94,7 +94,11 @@ async def test_transformer(rest_v1_client):
         raise e
 
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/transformer.json", model_name="mnist"
+        rest_v1_client,
+        service_name,
+        "./data/transformer.json",
+        model_name="mnist",
+        is_raw=True,
     )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

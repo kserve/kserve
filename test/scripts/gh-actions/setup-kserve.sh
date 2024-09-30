@@ -29,8 +29,12 @@ shopt -s nocasematch
 if [[ $DEPLOYMENT_MODE == "raw" ]];then
   echo "Patching default deployment mode to raw deployment"
   kubectl patch cm -n kserve inferenceservice-config --patch='{"data": {"deploy": "{\"defaultDeploymentMode\": \"RawDeployment\"}"}}'
+
+  echo "Waiting for envoy gateway to be ready ..."
+  kubectl wait --timeout=5m -n envoy-gateway-system pod -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gateway --for=condition=Ready
 fi
 shopt -u nocasematch
+
 echo "Waiting for KServe started ..."
 kubectl wait --for=condition=Ready pods --all --timeout=180s -n kserve
 kubectl get events -A

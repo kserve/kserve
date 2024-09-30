@@ -1068,6 +1068,7 @@ async def test_inference_graph_raw_mode(rest_v1_client):
     #    rest_v1_client,
     #     graph_name,
     #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
+    #     is_raw=True,
     # )
     # assert res["predictions"] == [1, 1]
 
@@ -1231,6 +1232,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client):
     #     rest_v1_client,
     #     graph_name,
     #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
+    #     is_raw=True,
     # )
     # assert res["predictions"] == [1, 1]
 
