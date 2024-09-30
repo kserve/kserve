@@ -62,6 +62,7 @@ async def predict_isvc(
     version=constants.KSERVE_V1BETA1_VERSION,
     model_name=None,
     is_batch=False,
+    is_raw: bool = False,
 ) -> Union[InferResponse, Dict, List[Union[Dict, InferResponse]]]:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -71,7 +72,7 @@ async def predict_isvc(
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, is_raw)
     if model_name is None:
         model_name = service_name
     base_url = f"{scheme}://{cluster_ip}{path}"
@@ -158,6 +159,7 @@ async def predict_ig(
     ig_name,
     input_path,
     version=constants.KSERVE_V1ALPHA1_VERSION,
+    is_raw: bool = False,
 ) -> Union[InferResponse, Dict]:
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -167,22 +169,17 @@ async def predict_ig(
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    scheme, cluster_ip, host, _ = get_isvc_endpoint(ig)
+    scheme, cluster_ip, host, _ = get_isvc_endpoint(ig, is_raw)
     url = f"{scheme}://{cluster_ip}"
     return await predict(client, url, host, input_path, is_graph=True)
 
 
-async def explain(service_name, input_path):
-    res = await explain_response(service_name, input_path)
-    return res["data"]["precision"]
-
-
-async def explain_art(client, service_name, input_path):
-    res = await explain_response(client, service_name, input_path)
+async def explain_art(client, service_name, input_path, is_raw: bool = False) -> Dict:
+    res = await explain_response(client, service_name, input_path, is_raw)
     return res["explanations"]["adversarial_prediction"]
 
 
-async def explain_response(client, service_name, input_path) -> Dict:
+async def explain_response(client, service_name, input_path, is_raw: bool) -> Dict:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -191,7 +188,7 @@ async def explain_response(client, service_name, input_path) -> Dict:
         namespace=KSERVE_TEST_NAMESPACE,
         version=constants.KSERVE_V1BETA1_VERSION,
     )
-    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc, is_raw)
     url = f"{scheme}://{cluster_ip}{path}"
     headers = {"Host": host}
     with open(input_path) as json_file:
@@ -227,11 +224,26 @@ async def explain_response(client, service_name, input_path) -> Dict:
         return response
 
 
-def get_cluster_ip(name="istio-ingressgateway", namespace="istio-system"):
+def get_cluster_ip(
+    name="istio-ingressgateway", namespace="istio-system", labels: dict = None
+):
     cluster_ip = os.environ.get("KSERVE_INGRESS_HOST_PORT")
     if cluster_ip is None:
         api_instance = k8s_client.CoreV1Api(k8s_client.ApiClient())
-        service = api_instance.read_namespaced_service(name, namespace)
+        if labels:
+            label_selector = ",".join(
+                [f"{key}={value}" for key, value in labels.items()]
+            )
+            services = api_instance.list_namespaced_service(
+                namespace, label_selector=label_selector
+            )
+            if services.items:
+                service = services.items[0]
+            else:
+                raise RuntimeError(f"No service found with labels: {labels}")
+        else:
+            service = api_instance.read_namespaced_service(name, namespace)
+
         if service.status.load_balancer.ingress is None:
             cluster_ip = service.spec.cluster_ip
         else:
@@ -248,6 +260,7 @@ async def predict_grpc(
     parameters=None,
     version=constants.KSERVE_V1BETA1_VERSION,
     model_name=None,
+    is_raw: bool = False,
 ) -> InferResponse:
     kfs_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -257,7 +270,7 @@ async def predict_grpc(
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    _, _, host, _ = get_isvc_endpoint(isvc)
+    _, _, host, _ = get_isvc_endpoint(isvc, is_raw)
 
     if model_name is None:
         model_name = service_name
@@ -292,14 +305,22 @@ async def predict_modelmesh(
         return response
 
 
-def get_isvc_endpoint(isvc):
+def get_isvc_endpoint(isvc, is_raw: bool = False):
     scheme = urlparse(isvc["status"]["url"]).scheme
     host = urlparse(isvc["status"]["url"]).netloc
     path = urlparse(isvc["status"]["url"]).path
     if os.environ.get("CI_USE_ISVC_HOST") == "1":
         cluster_ip = host
     else:
-        cluster_ip = get_cluster_ip()
+        if is_raw:
+            cluster_ip = get_cluster_ip(
+                namespace="envoy-gateway-system",
+                labels={
+                    "gateway.envoyproxy.io/owning-gateway-name": "kserve-ingress-gateway"
+                },
+            )
+        else:
+            cluster_ip = get_cluster_ip()
     return scheme, cluster_ip, host, path
 
 
