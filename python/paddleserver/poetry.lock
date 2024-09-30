@@ -1157,14 +1157,14 @@ files = []
 develop = true
 
 [package.dependencies]
-azure-identity = {version = "^1.8.0", optional = true}
-azure-storage-blob = {version = "^12.10.0", optional = true}
-azure-storage-file-share = {version = "^12.7.0", optional = true}
-boto3 = {version = "^1.21.0", optional = true}
+azure-identity = {version = "^1.15.0", optional = true}
+azure-storage-blob = {version = "^12.20.0", optional = true}
+azure-storage-file-share = {version = "^12.16.0", optional = true}
+boto3 = {version = "^1.29.0", optional = true}
 cloudevents = "^1.6.2"
 fastapi = ">=0.114.1"
-google-cloud-storage = {version = "^2.3.0", optional = true}
-grpcio = "^1.49.1"
+google-cloud-storage = {version = "^2.14.0", optional = true}
+grpcio = "^1.60.0"
 httpx = "^0.27.2"
 huggingface-hub = {version = "^0.24.5", optional = true}
 kubernetes = ">=23.3.0"
@@ -2156,7 +2156,6 @@ files = [
     {file = "PyYAML-6.0.2-cp311-cp311-win_amd64.whl", hash = "sha256:e10ce637b18caea04431ce14fabcf5c64a1c61ec9c56b071a4b7ca131ca52d44"},
     {file = "PyYAML-6.0.2-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:c70c95198c015b85feafc136515252a261a84561b7b1d51e3384e0655ddf25ab"},
     {file = "PyYAML-6.0.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:ce826d6ef20b1bc864f0a68340c8b3287705cae2f8b4b1d932177dcc76721725"},
-    {file = "PyYAML-6.0.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a08c6f0fe150303c1c6b71ebcd7213c2858041a7e01975da3a99aed1e7a378ef"},
     {file = "PyYAML-6.0.2-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1f71ea527786de97d1a0cc0eacd1defc0985dcf6b3f17bb77dcfc8c34bec4dc5"},
     {file = "PyYAML-6.0.2-cp312-cp312-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:9b22676e8097e9e22e36d6b7bda33190d0d400f345f23d4065d48f4ca7ae0425"},
     {file = "PyYAML-6.0.2-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:80bab7bfc629882493af4aa31a4cfa43a4c57c83813253626916b8c7ada83476"},
