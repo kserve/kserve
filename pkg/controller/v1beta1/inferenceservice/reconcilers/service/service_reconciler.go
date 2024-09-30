@@ -103,7 +103,7 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 				Port: constants.CommonDefaultHttpPort,
 				TargetPort: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: int32(port), // #nosec G109
+					IntVal: int32(port), // #nosec G109 #nosec G115
 				},
 				Protocol: corev1.ProtocolTCP,
 			})
