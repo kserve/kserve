@@ -82,27 +82,27 @@ const (
 
 // InferenceService Annotations
 var (
-	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
-	DeploymentMode                              = KServeAPIGroupName + "/deploymentMode"
-	EnableRoutingTagAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
-	DisableLocalModelKey                        = KServeAPIGroupName + "/disable-localmodel"
-	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
-	AutoscalerMetrics                           = KServeAPIGroupName + "/metrics"
-	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
-	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/min-scale"
-	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/max-scale"
-	RollOutDurationAnnotationKey                = KnativeServingAPIGroupName + "/rollout-duration"
-	KnativeOpenshiftEnablePassthroughKey        = "serving.knative.openshift.io/enablePassthrough"
-	EnableMetricAggregation                     = KServeAPIGroupName + "/enable-metric-aggregation"
-	SetPrometheusAnnotation                     = KServeAPIGroupName + "/enable-prometheus-scraping"
-	KserveContainerPrometheusPortKey            = "prometheus.kserve.io/port"
-	KServeContainerPrometheusPathKey            = "prometheus.kserve.io/path"
-	PrometheusPortAnnotationKey                 = "prometheus.io/port"
-	PrometheusPathAnnotationKey                 = "prometheus.io/path"
-	StorageReadonlyAnnotationKey                = "storage.kserve.io/readonly"
-	DefaultPrometheusPath                       = "/metrics"
-	QueueProxyAggregatePrometheusMetricsPort    = 9088
-	DefaultPodPrometheusPort                    = "9091"
+	InferenceServiceGKEAcceleratorAnnotationKey       = KServeAPIGroupName + "/gke-accelerator"
+	DeploymentMode                                    = KServeAPIGroupName + "/deploymentMode"
+	EnableRoutingTagAnnotationKey                     = KServeAPIGroupName + "/enable-tag-routing"
+	DisableLocalModelKey                              = KServeAPIGroupName + "/disable-localmodel"
+	AutoscalerClass                                   = KServeAPIGroupName + "/autoscalerClass"
+	AutoscalerMetrics                                 = KServeAPIGroupName + "/metrics"
+	TargetUtilizationPercentage                       = KServeAPIGroupName + "/targetUtilizationPercentage"
+	MinScaleAnnotationKey                             = KnativeAutoscalingAPIGroupName + "/min-scale"
+	MaxScaleAnnotationKey                             = KnativeAutoscalingAPIGroupName + "/max-scale"
+	RollOutDurationAnnotationKey                      = KnativeServingAPIGroupName + "/rollout-duration"
+	KnativeOpenshiftEnablePassthroughKey              = "serving.knative.openshift.io/enablePassthrough"
+	EnableMetricAggregation                           = KServeAPIGroupName + "/enable-metric-aggregation"
+	SetPrometheusAnnotation                           = KServeAPIGroupName + "/enable-prometheus-scraping"
+	KserveContainerPrometheusPortKey                  = "prometheus.kserve.io/port"
+	KServeContainerPrometheusPathKey                  = "prometheus.kserve.io/path"
+	PrometheusPortAnnotationKey                       = "prometheus.io/port"
+	PrometheusPathAnnotationKey                       = "prometheus.io/path"
+	StorageReadonlyAnnotationKey                      = "storage.kserve.io/readonly"
+	DefaultPrometheusPath                             = "/metrics"
+	QueueProxyAggregatePrometheusMetricsPort    int32 = 9088
+	DefaultPodPrometheusPort                          = "9091"
 )
 
 // InferenceService Internal Annotations

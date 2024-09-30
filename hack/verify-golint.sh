@@ -23,7 +23,7 @@ golangci_lint_binary="$(go env GOPATH)/bin/golangci-lint"
 # Check if golangci-lint is already installed
 if ! command -v golangci-lint &> /dev/null; then
     echo "installing golangci-lint"
-    go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
+    go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61
 	# Verify golangci-lint installation
 	$golangci_lint_binary --version
 fi

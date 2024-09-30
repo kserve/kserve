@@ -69,7 +69,7 @@ func TestInjectMetricsAggregator(t *testing.T) {
 							Env: []v1.EnvVar{
 								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
 								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
-								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort)},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(int(constants.QueueProxyAggregatePrometheusMetricsPort))},
 							},
 							Ports: []v1.ContainerPort{
 								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
@@ -185,7 +185,7 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					Annotations: map[string]string{
 						constants.EnableMetricAggregation:     "true",
 						constants.SetPrometheusAnnotation:     "true",
-						constants.PrometheusPortAnnotationKey: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort),
+						constants.PrometheusPortAnnotationKey: strconv.Itoa(int(constants.QueueProxyAggregatePrometheusMetricsPort)),
 						constants.PrometheusPathAnnotationKey: constants.DefaultPrometheusPath,
 					},
 				},
@@ -198,7 +198,7 @@ func TestInjectMetricsAggregator(t *testing.T) {
 							Env: []v1.EnvVar{
 								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
 								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
-								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort)},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(int(constants.QueueProxyAggregatePrometheusMetricsPort))},
 							},
 							Ports: []v1.ContainerPort{
 								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
@@ -292,7 +292,7 @@ func TestInjectMetricsAggregator(t *testing.T) {
 							Env: []v1.EnvVar{
 								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
 								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
-								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort)},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(int(constants.QueueProxyAggregatePrometheusMetricsPort))},
 							},
 							Ports: []v1.ContainerPort{
 								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},

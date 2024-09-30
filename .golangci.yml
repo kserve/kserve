@@ -2,18 +2,19 @@ run:
   timeout: 6m
   go: "1.22"
   tests: false
-  skip-dirs: # skip auto gen folders
-    - "client/"
-    - "clientv1alpha1/"
-    - "tools/tf2openapi/generated/"
 
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0
+  exclude-dirs:  # skip auto gen folders
+    - "client/"
+    - "clientv1alpha1/"
+    - "tools/tf2openapi/generated/"
 
 
 output:
-  format: "github-actions,line-number"
+  formats: 
+    - format: "colored-line-number"
   print-issued-lines: true
   print-linter-name: true
   uniq-by-line: true
@@ -27,7 +28,7 @@ linters:
     - errorlint
     - bodyclose
     - dogsled
-    - exportloopref
+    - copyloopvar
     - gocritic
     - goimports
     - gosec
@@ -43,7 +44,6 @@ linters:
     - unconvert
     - unused
     - whitespace
-
     # - prealloc
     - gofmt
 
