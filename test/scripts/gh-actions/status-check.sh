@@ -66,6 +66,12 @@ for pod in $(kubectl get pods -l 'serving.kserve.io/inferencegraph=model-chainer
 done
 echo "::endgroup::"
 
+echo "::group::envoy gateway"
+kubectl get pods -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gateway -n envoy-gateway-system
+kubectl get svc -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gateway -n envoy-gateway-system
+echo "::endgroup::"
+
+
 shopt -s nocasematch
 if [[ $# -eq 1 && "$1" == "kourier" ]]; then
   echo "::group::Kourier Gateway Pod logs"
