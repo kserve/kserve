@@ -39,8 +39,7 @@ TRANSFORMER_CONTAINER = "transformer-container"
 STORAGE_URI_ENV = "STORAGE_URI"
 
 
-def grpc_client(host):
-    cluster_ip = get_cluster_ip()
+def grpc_client(host, cluster_ip):
     if ":" not in cluster_ip:
         cluster_ip = cluster_ip + ":80"
     logger.info("Cluster IP: %s", cluster_ip)
@@ -270,11 +269,11 @@ async def predict_grpc(
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    _, _, host, _ = get_isvc_endpoint(isvc, is_raw)
+    cluster_ip, _, host, _ = get_isvc_endpoint(isvc, is_raw)
 
     if model_name is None:
         model_name = service_name
-    client = grpc_client(host)
+    client = grpc_client(host, cluster_ip)
 
     response = await client.infer(
         InferRequest.from_grpc(
