@@ -5817,6 +5817,13 @@ func schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref common.ReferenceCallba
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 					"jobNamespace": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -5837,7 +5844,7 @@ func schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"jobNamespace"},
+				Required: []string{"enabled", "jobNamespace"},
 			},
 		},
 	}

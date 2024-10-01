@@ -107,20 +107,19 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 	if err != nil {
 		return err
 	}
+	localModelConfig, err := NewLocalModelConfig(clientSet)
+	if err != nil {
+		return err
+	}
 
 	var c client.Client
 	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
 		mutatorLogger.Error(err, "Failed to start client")
 		return err
 	}
-	localModelCRDFound, err := utils.IsCrdAvailable(cfg, v1alpha1.SchemeGroupVersion.String(), constants.ClusterLocalModelKind)
-	if err != nil {
-		mutatorLogger.Error(err, "error when checking if ClusterLocalModel kind is available")
-		return err
-	}
 
 	var models *v1alpha1.ClusterLocalModelList
-	if localModelCRDFound {
+	if localModelConfig.Enabled {
 		models = &v1alpha1.ClusterLocalModelList{}
 		if err := c.List(context.TODO(), models); err != nil {
 			mutatorLogger.Error(err, "Cannot List local models")

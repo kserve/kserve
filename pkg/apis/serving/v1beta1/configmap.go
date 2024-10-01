@@ -85,6 +85,7 @@ type DeployConfig struct {
 
 // +kubebuilder:object:generate=false
 type LocalModelConfig struct {
+	Enabled         bool   `json:"enabled"`
 	JobNamespace    string `json:"jobNamespace"`
 	DefaultJobImage string `json:"defaultJobImage,omitempty"`
 	FSGroup         *int64 `json:"fsGroup,omitempty"`

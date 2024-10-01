@@ -445,10 +445,13 @@ data:
      # Example
      localModel: |-
        {
+         "enabled": false,
          # jobNamespace specifies the namespace where the download job will be created.
          "jobNamespace": "kserve-localmodel-jobs",
          # defaultJobImage specifies the default image used for the download job.
-         "defaultJobImage" : "kserve/storage-initializer:latest"
+         "defaultJobImage" : "kserve/storage-initializer:latest",
+         # Kubernetes modifies the filesystem group ID on the attached volume.
+         "FSGroup": 1000
        }
 
   agent: |-
@@ -555,6 +558,7 @@ data:
     }
   localModel: |-
     {
+      "enabled": {{ .Values.kserve.localmodel.enabled }},
       "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
       "defaultJobImage" : "kserve/storage-initializer:latest",
       "FSGroup": {{ .Values.kserve.localmodel.securityContext.FSGroup }}

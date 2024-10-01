@@ -48,29 +48,33 @@ class V1beta1LocalModelConfig(object):
     """
     openapi_types = {
         'default_job_image': 'str',
+        'enabled': 'bool',
         'fs_group': 'int',
         'job_namespace': 'str'
     }
 
     attribute_map = {
         'default_job_image': 'defaultJobImage',
+        'enabled': 'enabled',
         'fs_group': 'fsGroup',
         'job_namespace': 'jobNamespace'
     }
 
-    def __init__(self, default_job_image=None, fs_group=None, job_namespace='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_job_image=None, enabled=False, fs_group=None, job_namespace='', local_vars_configuration=None):  # noqa: E501
         """V1beta1LocalModelConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._default_job_image = None
+        self._enabled = None
         self._fs_group = None
         self._job_namespace = None
         self.discriminator = None
 
         if default_job_image is not None:
             self.default_job_image = default_job_image
+        self.enabled = enabled
         if fs_group is not None:
             self.fs_group = fs_group
         self.job_namespace = job_namespace
@@ -95,6 +99,29 @@ class V1beta1LocalModelConfig(object):
         """
 
         self._default_job_image = default_job_image
+
+    @property
+    def enabled(self):
+        """Gets the enabled of this V1beta1LocalModelConfig.  # noqa: E501
+
+
+        :return: The enabled of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._enabled
+
+    @enabled.setter
+    def enabled(self, enabled):
+        """Sets the enabled of this V1beta1LocalModelConfig.
+
+
+        :param enabled: The enabled of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: bool
+        """
+        if self.local_vars_configuration.client_side_validation and enabled is None:  # noqa: E501
+            raise ValueError("Invalid value for `enabled`, must not be `None`")  # noqa: E501
+
+        self._enabled = enabled
 
     @property
     def fs_group(self):

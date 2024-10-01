@@ -3220,11 +3220,16 @@
     "v1beta1.LocalModelConfig": {
       "type": "object",
       "required": [
+        "enabled",
         "jobNamespace"
       ],
       "properties": {
         "defaultJobImage": {
           "type": "string"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": false
         },
         "fsGroup": {
           "type": "integer",
