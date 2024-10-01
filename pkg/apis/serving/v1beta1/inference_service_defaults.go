@@ -113,14 +113,14 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 		mutatorLogger.Error(err, "Failed to start client")
 		return err
 	}
-	localModelFound, err := utils.IsCrdAvailable(cfg, v1alpha1.SchemeGroupVersion.String(), constants.ClusterLocalModelKind)
+	localModelCRDFound, err := utils.IsCrdAvailable(cfg, v1alpha1.SchemeGroupVersion.String(), constants.ClusterLocalModelKind)
 	if err != nil {
 		mutatorLogger.Error(err, "error when checking if ClusterLocalModel kind is available")
 		return err
 	}
 
 	var models *v1alpha1.ClusterLocalModelList
-	if localModelFound {
+	if localModelCRDFound {
 		models = &v1alpha1.ClusterLocalModelList{}
 		if err := c.List(context.TODO(), models); err != nil {
 			mutatorLogger.Error(err, "Cannot List local models")
@@ -128,6 +128,7 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 		}
 	}
 
+	// Pass a list of ClusterLocalModel resources to set the local model label if there is a match
 	isvc.DefaultInferenceService(configMap, deployConfig, models)
 	return nil
 }
@@ -428,7 +429,8 @@ func (isvc *InferenceService) SetTritonDefaults() {
 	}
 }
 
-// If there is a ClusterLocalModel resource, add a label to the isvc, which is used by the local model controller to manage PV/PVCs.
+// If there is a ClusterLocalModel resource, add the name of the ClusterLocalModel and sourceModelUri to the isvc,
+// which is used by the local model controller to manage PV/PVCs.
 func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.ClusterLocalModelList) {
 	if models == nil {
 		return
