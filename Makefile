@@ -164,9 +164,10 @@ manifests: controller-gen
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
 	
+	# TODO: Commenting out the following as it produces differences in verify codegen during release process
 	# Copy the crds to the helm chart
-	cp config/crd/full/* charts/kserve-crd/templates
-	rm charts/kserve-crd/templates/kustomization.yaml
+	# cp config/crd/full/* charts/kserve-crd/templates
+	# rm charts/kserve-crd/templates/kustomization.yaml
 	# Generate minimal crd
 	./hack/minimal-crdgen.sh
 	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_inferenceservices.yaml
