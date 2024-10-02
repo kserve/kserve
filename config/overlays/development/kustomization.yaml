@@ -6,3 +6,4 @@ resources:
 patches:
 - path: configmap/inferenceservice_patch.yaml
 - path: manager_image_patch.yaml
+- path: localmodel_image_patch.yaml

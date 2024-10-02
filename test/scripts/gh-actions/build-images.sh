@@ -24,6 +24,7 @@ set -o pipefail
 
 echo "Github SHA ${GITHUB_SHA}"
 CONTROLLER_IMG_TAG=${DOCKER_REPO}/${CONTROLLER_IMG}:${GITHUB_SHA}
+LOCALMODEL_CONTROLLER_IMG_TAG=${DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${GITHUB_SHA}
 STORAGE_INIT_IMG_TAG=${DOCKER_REPO}/${STORAGE_INIT_IMG}:${GITHUB_SHA}
 AGENT_IMG_TAG=${DOCKER_REPO}/${AGENT_IMG}:${GITHUB_SHA}
 ROUTER_IMG_TAG=${DOCKER_REPO}/${ROUTER_IMG}:${GITHUB_SHA}
@@ -31,6 +32,10 @@ ROUTER_IMG_TAG=${DOCKER_REPO}/${ROUTER_IMG}:${GITHUB_SHA}
 echo "Building Kserve controller image"
 docker buildx build . -t "${CONTROLLER_IMG_TAG}" \
   -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CONTROLLER_IMG}-${GITHUB_SHA}",compression-level=0
+
+echo "Building localmodel controller image"
+docker buildx build -f localmodel.Dockerfile . -t "${LOCALMODEL_CONTROLLER_IMG_TAG}" \
+  -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_CONTROLLER_IMG}-${GITHUB_SHA}",compression-level=0
 
 echo "Building agent image"
 docker buildx build -f agent.Dockerfile . -t "${AGENT_IMG_TAG}" \
