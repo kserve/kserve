@@ -115,10 +115,10 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 	var models *v1alpha1.ClusterLocalModelList
 	if localModelConfig.Enabled {
 		var c client.Client
-	        if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
-		        mutatorLogger.Error(err, "Failed to start client")
-		        return err
-	        }
+		if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
+			mutatorLogger.Error(err, "Failed to start client")
+			return err
+		}
 		models = &v1alpha1.ClusterLocalModelList{}
 		if err := c.List(context.TODO(), models); err != nil {
 			mutatorLogger.Error(err, "Cannot List local models")
