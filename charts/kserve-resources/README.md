@@ -35,6 +35,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0-rc0
 | kserve.controller.gateway.urlScheme | string | `"http"` | HTTP endpoint url scheme. |
 | kserve.controller.image | string | `"kserve/kserve-controller"` | KServe controller container image name. |
 | kserve.controller.imagePullSecrets | list | `[]` | Reference to one or more secrets to be used when pulling images. For more information, see [Pull an Image from a Private Registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/).  For example:  imagePullSecrets:    - name: "image-pull-secret" |
+| kserve.controller.knativeAddressableResolver | object | `{"enabled":false}` | Indicates whether to create an addressable resolver ClusterRole for Knative Eventing. This ClusterRole grants the necessary permissions for the Knative's DomainMapping reconciler to resolve InferenceService addressables. |
 | kserve.controller.labels | object | `{}` | Optional additional labels to add to the controller deployment. |
 | kserve.controller.nodeSelector | object | `{}` | The nodeSelector on Pods tells Kubernetes to schedule Pods on the nodes with matching labels. For more information, see [Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).  |
 | kserve.controller.podAnnotations | object | `{}` | Optional additional labels to add to the controller Pods. |

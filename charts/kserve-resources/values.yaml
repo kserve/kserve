@@ -227,6 +227,10 @@ kserve:
       requests:
         cpu: 100m
         memory: 300Mi
+    # -- Indicates whether to create an addressable resolver ClusterRole for Knative Eventing.
+    # This ClusterRole grants the necessary permissions for the Knative's DomainMapping reconciler to resolve InferenceService addressables.
+    knativeAddressableResolver:
+      enabled: false
   modelmesh:
     enabled: true
     controller:
