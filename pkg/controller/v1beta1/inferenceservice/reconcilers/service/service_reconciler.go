@@ -23,6 +23,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -50,7 +51,6 @@ func NewServiceReconciler(client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, multiNodeEnabled bool) *ServiceReconciler {
-
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
@@ -61,7 +61,6 @@ func NewServiceReconciler(client client.Client,
 
 func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, multiNodeEnabled bool) []*corev1.Service {
-
 	var svcList []*corev1.Service
 	var isWorkerContainer bool
 
@@ -131,12 +130,16 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 			}
 		} else {
 			port, _ := strconv.Atoi(constants.InferenceServiceDefaultHttpPort)
+			portInt32, err := utils.ConvertStringToInt32(port, 8080)
+			if err != nil {
+				log.Error(err, "Failed to convert port int to int32, using the default value(8080) for port.")
+			}
 			servicePorts = append(servicePorts, corev1.ServicePort{
 				Name: componentMeta.Name,
 				Port: constants.CommonDefaultHttpPort,
 				TargetPort: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: int32(port), // #nosec G109
+					IntVal: portInt32, // #nosec G109
 				},
 				Protocol: corev1.ProtocolTCP,
 			})
@@ -213,7 +216,6 @@ func semanticServiceEquals(desired, existing *corev1.Service) bool {
 
 // Reconcile ...
 func (r *ServiceReconciler) Reconcile() ([]*corev1.Service, error) {
-
 	for _, svc := range r.ServiceList {
 		// reconcile Service
 		checkResult, _, err := r.checkServiceExist(r.client, svc)

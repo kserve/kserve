@@ -2535,7 +2535,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Eventually(func() bool {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
 			}, timeout, interval).Should(BeTrue())
-			
+
 			// Verify deployments details
 			verifyDeployments(actualDefaultDeployment, actualWorkerDeployment, "4", int32Ptr(3))
 		})

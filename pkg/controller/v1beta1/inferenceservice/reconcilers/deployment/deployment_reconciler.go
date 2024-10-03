@@ -192,9 +192,15 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	setDefaultDeploymentSpec(&deployment.Spec)
 
 	// default workerNode deployment replicas
-	replicas := int32(constants.DefaultWorkerMinSize)
+	replicas, err := utils.ConvertStringToInt32(constants.DefaultWorkerMinSize, 1)
+	if err != nil {
+		log.Error(err, "Failed to convert replicas int to int32, using the default value(1) for replicas.")
+	}
 	if parsedValue, err := strconv.Atoi(pipelineParallelSize); err == nil {
-		replicas = int32(parsedValue - 1) // minus 1 (excluding head node)
+		replicas, err = utils.ConvertStringToInt32(parsedValue-1, 1)
+		if err != nil {
+			log.Error(err, "Failed to convert replicas int to int32, using the default value(1) for replicas.")
+		}
 	} else {
 		log.Error(err, "Failed to convert pipelineParallelSize string to int, using the default value(1) for replicas.")
 	}
@@ -327,7 +333,6 @@ func addEnvVarToDeploymentSpec(deploymentSpec *appsv1.DeploymentSpec, containerN
 	// Iterate over the containers in the PodTemplateSpec to find the specified container
 	for i, container := range deploymentSpec.Template.Spec.Containers {
 		if container.Name == containerName {
-
 			if _, exists := utils.GetEnvVarValue(container.Env, envName); exists {
 				// Overwrite the environment variable
 				for j, envVar := range container.Env {
@@ -338,10 +343,11 @@ func addEnvVarToDeploymentSpec(deploymentSpec *appsv1.DeploymentSpec, containerN
 				}
 			} else {
 				// Add the new environment variable to the Env field if it ooes not exist
-				deploymentSpec.Template.Spec.Containers[i].Env = append(container.Env, corev1.EnvVar{
+				container.Env = append(container.Env, corev1.EnvVar{
 					Name:  envName,
 					Value: envValue,
 				})
+				deploymentSpec.Template.Spec.Containers[i].Env = container.Env
 			}
 			log.Info("Added env variable to container",
 				"envName", envName,
@@ -350,14 +356,12 @@ func addEnvVarToDeploymentSpec(deploymentSpec *appsv1.DeploymentSpec, containerN
 			return
 		}
 	}
-
 	log.Info("Container not found in DeploymentSpec", "containerName", containerName)
 }
 
 func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerName string, tensorParallelSize string) {
 	for i, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == targetContainerName {
-
 			// Initialize Limits map if it's nil
 			if container.Resources.Limits == nil {
 				deployment.Spec.Template.Spec.Containers[i].Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
@@ -380,7 +384,6 @@ func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerNa
 
 // Reconcile ...
 func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
-
 	for _, deployment := range r.DeploymentList {
 		// Reconcile Deployment
 		checkResult, _, err := r.checkDeploymentExist(r.client, deployment)
@@ -416,7 +419,6 @@ func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
 
 			// Patch the deployment object with the strategic merge patch
 			opErr = r.client.Patch(context.TODO(), deployment, client.RawPatch(types.StrategicMergePatchType, patchByte))
-
 		}
 
 		if opErr != nil {
