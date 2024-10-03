@@ -387,6 +387,107 @@ func SetObjectDefaults_InferenceService(in *InferenceService) {
 			}
 		}
 	}
+	if in.Spec.Predictor.WorkerSpec != nil {
+		for i := range in.Spec.Predictor.WorkerSpec.PodSpec.InitContainers {
+			a := &in.Spec.Predictor.WorkerSpec.PodSpec.InitContainers[i]
+			for j := range a.Ports {
+				b := &a.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			if a.LivenessProbe != nil {
+				if a.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.ReadinessProbe != nil {
+				if a.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.StartupProbe != nil {
+				if a.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		for i := range in.Spec.Predictor.WorkerSpec.PodSpec.Containers {
+			a := &in.Spec.Predictor.WorkerSpec.PodSpec.Containers[i]
+			for j := range a.Ports {
+				b := &a.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			if a.LivenessProbe != nil {
+				if a.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.ReadinessProbe != nil {
+				if a.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.StartupProbe != nil {
+				if a.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		for i := range in.Spec.Predictor.WorkerSpec.PodSpec.EphemeralContainers {
+			a := &in.Spec.Predictor.WorkerSpec.PodSpec.EphemeralContainers[i]
+			for j := range a.EphemeralContainerCommon.Ports {
+				b := &a.EphemeralContainerCommon.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			if a.EphemeralContainerCommon.LivenessProbe != nil {
+				if a.EphemeralContainerCommon.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.EphemeralContainerCommon.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.EphemeralContainerCommon.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.EphemeralContainerCommon.ReadinessProbe != nil {
+				if a.EphemeralContainerCommon.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.EphemeralContainerCommon.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.EphemeralContainerCommon.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.EphemeralContainerCommon.StartupProbe != nil {
+				if a.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.EphemeralContainerCommon.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+	}
 	for i := range in.Spec.Predictor.PodSpec.InitContainers {
 		a := &in.Spec.Predictor.PodSpec.InitContainers[i]
 		for j := range a.Ports {
