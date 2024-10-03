@@ -483,7 +483,7 @@ func GetRawServiceLabel(service string) string {
 
 // GetRawWorkerServiceLabel generate native service label for worker
 func GetRawWorkerServiceLabel(service string) string {
-	return "isvc." + service + "-worker"
+	return "isvc." + service + "-" + string(WorkerNodePostfix)
 }
 
 func (e InferenceServiceComponent) String() string {
