@@ -2154,7 +2154,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			ctx = context.Background()
 			storageUri = "pvc://llama-3-8b-pvc/hf/8b_instruction_tuned"
 
-			// Create common ConfigMap
+			// Create a ConfigMap
 			configs := map[string]string{
 				"ingress": `{
             "ingressGateway": "knative-serving/knative-ingress-gateway",
@@ -2184,7 +2184,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				k8sClient.Delete(ctx, configMap)
 			})
 
-			// Create shared ServingRuntime
+			// Create a ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "huggingface-server-multinode",
@@ -2237,8 +2237,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				k8sClient.Delete(ctx, servingRuntime)
 			})
 		})
-
-		It("Should have services/deployments for head/worker without autoscaler", func() {
+		It("Should have services/deployments for head/worker without an autoscaler", func() {
 			By("creating a new InferenceService")
 			isvcName := "raw-huggingface-multinode-1"
 			predictorDeploymentName := constants.PredictorServiceName(isvcName)
@@ -2287,10 +2286,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
 			}, timeout, interval).Should(BeTrue())
 
-			// Verify deployments
+			// Verify deployments details
 			verifyDeployments(actualDefaultDeployment, actualWorkerDeployment, "2", int32Ptr(1))
 
-			// Verify Services
+			// Check Services
 			actualService := &v1.Service{}
 			headServiceName := isvcName + "-head"
 			defaultServiceName := isvcName + "-predictor"
@@ -2316,7 +2315,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 
-			// Verify there if HPA is not created.
+			// Verify there if the default autoscaler(HPA) is not created.
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(isvcName),
 				Namespace: isvcNamespace}
@@ -2378,9 +2377,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
 			}, timeout, interval).Should(BeTrue())
 
+			// Verify deployments details
 			verifyDeployments(actualDefaultDeployment, actualWorkerDeployment, "2", int32Ptr(1))
 		})
-
 		It("Should use default value when user set unexpectable value for WorkerSpec.size", func() {
 			By("creating a new InferenceService")
 			isvcName := "raw-huggingface-multinode-3"
@@ -2427,9 +2426,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
 			}, timeout, interval).Should(BeTrue())
 
+			// Verify deployments details
 			verifyDeployments(actualDefaultDeployment, actualWorkerDeployment, "2", int32Ptr(1))
 		})
-
 		It("Should use WorkerSpec.Size value when pipeline-parallel-size is not set", func() {
 			By("By creating a new InferenceService")
 			isvcName := "raw-huggingface-multinode-4"
@@ -2482,6 +2481,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
 			}, timeout, interval).Should(BeTrue())
 
+			// Verify deployments details
 			verifyDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", int32Ptr(2))
 		})
 		It("Should use pipeline-parallel-size value when pipeline-parallel-size is set", func() {
@@ -2535,7 +2535,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Eventually(func() bool {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
 			}, timeout, interval).Should(BeTrue())
-
+			
+			// Verify deployments details
 			verifyDeployments(actualDefaultDeployment, actualWorkerDeployment, "4", int32Ptr(3))
 		})
 	})

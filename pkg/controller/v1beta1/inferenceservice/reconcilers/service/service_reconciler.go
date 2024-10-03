@@ -74,11 +74,11 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 	}
 
 	if !multiNodeEnabled {
-		// if multiNodeEnabled is false, it will create defaultSvc only
+		// If multiNodeEnabled is false, only defaultSvc will be created.
 		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec)
 		svcList = append(svcList, defaultSvc)
 	} else if multiNodeEnabled && !isWorkerContainer {
-		// if multiNodeEnabled is true and it is head node, it will create defaultSvc, headSvc both
+		// If multiNodeEnabled is true, both defaultSvc and headSvc will be created.
 		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec)
 		svcList = append(svcList, defaultSvc)
 

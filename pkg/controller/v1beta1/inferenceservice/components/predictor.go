@@ -300,6 +300,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			})
 			return ctrl.Result{}, errors.Wrapf(err, "failed to get runtime container")
 		}
+		// This is for using isvcutils.MergePodSpec for workerSpec
 		if isvc.Spec.Predictor.WorkerSpec == nil {
 			isvc.Spec.Predictor.WorkerSpec = &v1beta1.WorkerSpec{
 				PodSpec: v1beta1.PodSpec{},
@@ -323,9 +324,9 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		if err = isvcutils.ReplacePlaceholders(workerContainer, isvc.ObjectMeta); err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.InvalidPredictorSpec,
-				Message: "Failed to replace placeholders in serving runtime worker Container",
+				Message: "Failed to replace placeholders of worker container in serving runtime ",
 			})
-			return ctrl.Result{}, errors.Wrapf(err, "failed to replace placeholders in serving runtime worker Container")
+			return ctrl.Result{}, errors.Wrapf(err, "failed to replace placeholders of worker container in serving runtime")
 		}
 
 		workerPodSpec = *mergedWorkerPodSpec
@@ -346,13 +347,13 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		// Check if the PIPELINE_PARALLEL_SIZE environment variable specified
 		// Priority for worker node count:
 		// 	1. PIPELINE_PARALLEL_SIZE environment variable
-		// 	2. Worker.Size
+		// 	2. WorkerSpec.Size
 		for _, container := range podSpec.Containers {
 			if container.Name == constants.InferenceServiceContainerName {
 				if envPipelineParallelSize, exists := utils.GetEnvVarValue(container.Env, constants.PipelineParallelSizeEnvName); exists {
-					// if pipelineParallelSize is bigger than 1  (head + worker)
+					// pipelineParallelSize should be bigger than 1 (head + worker)
 					if intPipelineParallelSize, err := strconv.Atoi(envPipelineParallelSize); err == nil && intPipelineParallelSize > 1 {
-						// pipelineParallelSize is higher priority than workerSpec.Size
+						// pipelineParallelSize value is higher priority than workerSpec.Size, so pipelineParallelSize - 1(head node) will be set to workerSize
 						if intPipelineParallelSize-1 != workerSize {
 							workerSize = intPipelineParallelSize - 1
 						}
@@ -365,7 +366,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 				break
 			}
 		}
-
+		// Set workerNodeSize annotation to be used for worker deployment replicas
 		sRuntimeAnnotations[constants.WorkerNodeSize] = strconv.Itoa(workerSize)
 	}
 
@@ -404,7 +405,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
 	})
 
-	// If it is multi-node case, Autoscaler should be ignored.
+	// Autoscaler should be ignored when multiNodeEnabled is true
 	workerObjectMeta = metav1.ObjectMeta{}
 	if multiNodeEnabled {
 		annotations[constants.AutoscalerClass] = string(constants.AutoscalerClassExternal)

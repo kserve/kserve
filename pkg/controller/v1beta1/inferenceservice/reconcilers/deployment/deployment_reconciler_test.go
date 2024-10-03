@@ -20,7 +20,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -73,7 +72,6 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			},
 			workerPodSpec: nil,
 		},
-
 		"multiNode-deployment": {
 			objectMeta: metav1.ObjectMeta{
 				Name:      "default-predictor",
@@ -98,22 +96,6 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				},
 			},
 			componentExt: &v1beta1.ComponentExtensionSpec{},
-			workerPodSpec: &corev1.PodSpec{
-				Volumes: []corev1.Volume{
-					{
-						Name: "worker-predictor-example-volume",
-					},
-				},
-				Containers: []corev1.Container{
-					{
-						Name:  "worker-container",
-						Image: "worker-predictor-example-image",
-						Env: []corev1.EnvVar{
-							{Name: "worker-predictor-example-env", Value: "example-env"},
-						},
-					},
-				},
-			},
 			podSpec: &corev1.PodSpec{
 				Volumes: []corev1.Volume{
 					{
@@ -126,6 +108,22 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						Image: "default-predictor-example-image",
 						Env: []corev1.EnvVar{
 							{Name: "TENSOR_PARALLEL_SIZE", Value: "1"},
+						},
+					},
+				},
+			},
+			workerPodSpec: &corev1.PodSpec{
+				Volumes: []corev1.Volume{
+					{
+						Name: "worker-predictor-example-volume",
+					},
+				},
+				Containers: []corev1.Container{
+					{
+						Name:  "worker-container",
+						Image: "worker-predictor-example-image",
+						Env: []corev1.EnvVar{
+							{Name: "worker-predictor-example-env", Value: "example-env"},
 						},
 					},
 				},
@@ -388,6 +386,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		})
 	}
 
+	// To test additional multi-node scenarios
 	getDefaultArgs := func() args {
 		return args{
 			objectMeta:       testInput["multiNode-deployment"].objectMeta,
@@ -409,7 +408,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		modifyExpected func([]*appsv1.Deployment) []*appsv1.Deployment
 	}{
 		{
-			name: "Change workerNodeSize annotation to 3, then PIPELINE_PARALLEL_SIZE should be set 4 and worker node replicas set to 3",
+			name: "When the workerNodeSize annotation is set to 3, PIPELINE_PARALLEL_SIZE should be set to 4, and the number of worker node replicas should be set to 3",
 			modifyArgs: func(updatedArgs args) args {
 				updatedArgs.objectMeta.GetAnnotations()[constants.WorkerNodeSize] = "3"
 				return updatedArgs
@@ -462,7 +461,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		modifyExpected func([]*appsv1.Deployment) []*appsv1.Deployment
 	}{
 		{
-			name: "Use default value for gpu resouce, when tensor-parallel-size used wrong value",
+			name: "Use the default value for GPU resources when an incorrect value is provided for tensor-parallel-size",
 			modifyArgs: func(updatedArgs args) args {
 
 				if _, exists := utils.GetEnvVarValue(updatedArgs.podSpec.Containers[0].Env, constants.TensorParallelSizeEnvName); exists {
@@ -488,7 +487,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			},
 		},
 		{
-			name: "Use tensor-parallel-size  value for gpu resouce",
+			name: "Use the value of TENSOR_PARALLEL_SIZE from the environment variables for GPU resources when it is set",
 			modifyArgs: func(updatedArgs args) args {
 
 				if _, exists := utils.GetEnvVarValue(updatedArgs.podSpec.Containers[0].Env, constants.TensorParallelSizeEnvName); exists {

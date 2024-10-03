@@ -85,7 +85,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 		}
 	}
 
-	// Defaut value(1) if tensor-parallel-size is not set (gpu count)
+	// Use defaut value(1) if tensor-parallel-size is not set (gpu count)
 	tensorParallelSize := constants.DefaultTensorParallelSize
 
 	for _, container := range podSpec.Containers {
@@ -113,21 +113,21 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 		// Update GPU resource of default podSpec
 		addGPUResourceToDeployment(defaultDeployment, constants.InferenceServiceContainerName, tensorParallelSize)
 
-		// Set the environment variables for "isvc name" to the model name when multiNodeEnabled is enabled.
+		// Set the environment variable for "isvc name" to the MODEL_NAME when multiNodeEnabled is true.
 		addEnvVarToDeploymentSpec(&defaultDeployment.Spec, constants.InferenceServiceContainerName, "MODEL_NAME", isvcName)
 
 		deploymentAnnotations := componentMeta.GetAnnotations()[constants.StorageInitializerSourceUriInternalAnnotationKey]
 		storageProtocol := strings.Split(deploymentAnnotations, "://")[0]
 		if storageProtocol == "pvc" {
-			// Set the environment variables for "/mnt/models" to the model dir when multiNodeEnabled is enabled.
+			// Set the environment variable for "/mnt/models" to the MODEL_DIR when multiNodeEnabled is true.
 			addEnvVarToDeploymentSpec(&defaultDeployment.Spec, constants.InferenceServiceContainerName, "MODEL_DIR", constants.DefaultModelLocalMountPath)
 		}
-		// Set the environment variables PIPELINE_PARALLEL_SIZE when multiNodeEnabled is enabled.
+		// Set the environment variable PIPELINE_PARALLEL_SIZE when multiNodeEnabled is true.
 		addEnvVarToDeploymentSpec(&defaultDeployment.Spec, constants.InferenceServiceContainerName, constants.PipelineParallelSizeEnvName, pipelineParallelSize)
 	}
 	deploymentList = append(deploymentList, defaultDeployment)
 
-	// If Multi-node is enabled, it adds workerNode deployment.
+	// Adds workerNode deployment
 	if multiNodeEnabled {
 		workerDeployment := createRawWorkerDeployment(workerComponentMeta, componentExt, workerPodSpec, componentMeta.Name, pipelineParallelSize, isvcName)
 
