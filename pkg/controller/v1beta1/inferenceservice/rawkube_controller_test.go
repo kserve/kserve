@@ -47,7 +47,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -2141,24 +2140,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 	Context("When creating inference service with raw kube predictor with workerSpec", func() {
 		var (
-			ctx                 context.Context
-			serviceKey          types.NamespacedName
-			expectedIsvcRequest reconcile.Request
-			storageUri          string
-			isvc                *v1beta1.InferenceService
+			ctx        context.Context
+			serviceKey types.NamespacedName
+			storageUri string
+			isvc       *v1beta1.InferenceService
 		)
 
-		isvcName := "raw-huggingface-multinode"
 		isvcNamespace := "default"
 		actualDefaultDeployment := &appsv1.Deployment{}
 		actualWorkerDeployment := &appsv1.Deployment{}
-		predictorDeploymentName := constants.PredictorServiceName(isvcName)
-		workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
 
 		BeforeEach(func() {
 			ctx = context.Background()
-			expectedIsvcRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}}
-			serviceKey = expectedIsvcRequest.NamespacedName
 			storageUri = "pvc://llama-3-8b-pvc/hf/8b_instruction_tuned"
 
 			// Create common ConfigMap
@@ -2245,26 +2238,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			})
 		})
 
-		AfterEach(func() {
-			// Delete the InferenceService to clean up
-			if isvc != nil {
-				k8sClient.Delete(context.TODO(), isvc)
-			}
-			// Delete all deployments for next tests
-			deploymentList := &appsv1.DeploymentList{}
-
-			Expect(k8sClient.List(context.TODO(), deploymentList, &client.ListOptions{
-				Namespace: isvcNamespace,
-			})).NotTo(HaveOccurred())
-
-			for _, deployment := range deploymentList.Items {
-				Expect(k8sClient.Delete(context.TODO(), &deployment)).NotTo(HaveOccurred())
-			}
-
-		})
-
 		It("Should have services/deployments for head/worker without autoscaler", func() {
 			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-1"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+
 			isvc = &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      isvcName,
@@ -2351,6 +2331,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 		It("Should use default value when user set unexpectable value for pipeline-parallel-size", func() {
 			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-2"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+
 			// Create a infereceService
 			isvc = &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2398,6 +2383,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		It("Should use default value when user set unexpectable value for WorkerSpec.size", func() {
 			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-3"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
 			// Create a infereceService
 			isvc = &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2443,6 +2432,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		It("Should use WorkerSpec.Size value when pipeline-parallel-size is not set", func() {
 			By("By creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-4"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
 			// Create a infereceService
 			isvc = &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2493,6 +2486,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 		It("Should use pipeline-parallel-size value when pipeline-parallel-size is set", func() {
 			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-5"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+
 			// Create a infereceService
 			isvc = &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2559,5 +2557,9 @@ func verifyDeployments(actualDefaultDeployment *appsv1.Deployment, actualWorkerD
 }
 
 func int32Ptr(i int32) *int32 {
+	return &i
+}
+
+func int64Ptr(i int64) *int64 {
 	return &i
 }
