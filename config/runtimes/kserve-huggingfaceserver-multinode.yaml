@@ -1,5 +1,5 @@
 apiVersion: serving.kserve.io/v1alpha1
-kind: ClusterServingRuntime
+kind: ServingRuntime
 metadata:
   name: kserve-huggingfaceserver-multinode
 spec:
@@ -16,7 +16,7 @@ spec:
     - v1
   containers:
     - name: kserve-container
-      image: huggingfaceserver:replace
+      image: kserve/huggingfaceserver:latest
       command: ["bash", "-c"]
       args:
         - |
@@ -39,6 +39,8 @@ spec:
       env:
         - name: RAY_PORT
           value: "6379"
+        - name: HOME
+          value: "/tmp"
         - name: RAY_ADDRESS
           value: 127.0.0.1:6379
         - name: POD_NAMESPACE
@@ -60,16 +62,16 @@ spec:
         - name: shm
           mountPath: /dev/shm     
       livenessProbe:
-        failureThreshold: 2
-        periodSeconds: 20
+        failureThreshold: 3
+        periodSeconds: 30
         successThreshold: 1
         timeoutSeconds: 5
         exec:
           command:
             - bash
             - -c
-            - |
-              # Check GPU usage (when worker node restarted, it becomes NOT ready)
+            - |            
+              # Check GPU usage (If worker node restarted, it becomes NOT ready)
               gpu_status=$(ray status | grep GPU)
               used_gpu=$(echo "$gpu_status" | awk '{print $1}' | cut -d'/' -f1)
               reserved_gpu=$(echo "$gpu_status" | awk '{print $1}' | cut -d'/' -f2)
@@ -91,13 +93,15 @@ spec:
             - bash
             - -c
             - |
+              # Check if the registered ray nodes count is the same as PIPELINE_PARALLEL_SIZE
               [[ $(ray status | grep -c node_) -eq ${PIPELINE_PARALLEL_SIZE} ]] &
               p1=$!
 
-              curl --silent --max-time 5 http://localhost:8080 &              
+              # Check if huggingface server health
+              curl --silent --max-time 5 http://localhost:8080 &
               p2=$!
 
-              # Check GPU usage (when worker node restarted, it becomes NOT ready)
+              # Check GPU usage (If worker node restarted, it becomes NOT ready)
               gpu_status=$(ray status | grep GPU)
               used_gpu=$(echo "$gpu_status" | awk '{print $1}' | cut -d'/' -f1)
               reserved_gpu=$(echo "$gpu_status" | awk '{print $1}' | cut -d'/' -f2)
@@ -124,17 +128,16 @@ spec:
             - bash
             - -c
             - |
-              curl --silent --max-time 5 http://localhost:8080
+              ray status
   volumes:
     - name: shm
       emptyDir:
         medium: Memory
         sizeLimit: 12Gi
   workerSpec:
-    size: 1
     containers:
       - name: worker-container
-        image: huggingfaceserver:replace
+        image: kserve/huggingfaceserver:latest
         command: ["bash", "-c"]
         args:
           - |
