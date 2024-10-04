@@ -55,43 +55,6 @@ rules:
   verbs:
   - get
 - apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - create
-  - get
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - events
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  - serviceaccounts
-  verbs:
-  - get
-- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - mutatingwebhookconfigurations
@@ -197,8 +160,6 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - clusterservingruntimes
-  - clusterservingruntimes/finalizers
   - clusterlocalmodels
   verbs:
   - get
@@ -227,10 +188,6 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - clusterservingruntimes/status
-  - inferencegraphs/status
-  - inferenceservices/status
-  - servingruntimes/status
   - clusterservingruntimes/status
   - inferencegraphs/status
   - inferenceservices/status
