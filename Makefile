@@ -202,7 +202,7 @@ bump-version:
 	echo "bumping version numbers for this release"
 
 # Build the docker image
-docker-build: #test
+docker-build:
 	${ENGINE} buildx build ${ARCH} . -t ${IMG}
 	@echo "updating kustomize image patch file for manager resource"
 
