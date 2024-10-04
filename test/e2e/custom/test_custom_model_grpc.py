@@ -279,7 +279,9 @@ async def test_predictor_grpc_with_transformer_grpc_raw():
                     limits={"cpu": "100m", "memory": "1Gi"},
                 ),
                 ports=[
-                    V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")
+                    V1ContainerPort(
+                        container_port=8081, name="h2c-port", protocol="TCP"
+                    )
                 ],
                 args=["--model_name", model_name],
             )
@@ -297,7 +299,9 @@ async def test_predictor_grpc_with_transformer_grpc_raw():
                     limits={"cpu": "100m", "memory": "1Gi"},
                 ),
                 ports=[
-                    V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")
+                    V1ContainerPort(
+                        container_port=8081, name="grpc-port", protocol="TCP"
+                    )
                 ],
                 args=["--model_name", model_name, "--predictor_protocol", "grpc-v2"],
             )
@@ -308,7 +312,9 @@ async def test_predictor_grpc_with_transformer_grpc_raw():
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations={"serving.kserve.io/deploymentMode": "RawDeployment"},
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer),
     )
