@@ -134,6 +134,8 @@ const (
 	ClusterLocalDomain     = "svc.cluster.local"
 	IsvcNameHeader         = "KServe-Isvc-Name"
 	IsvcNamespaceHeader    = "KServe-Isvc-Namespace"
+	HostHeader             = "Host"
+	GatewayName            = "kserve-ingress-gateway"
 )
 
 // StorageSpec Constants
@@ -456,6 +458,9 @@ const (
 	IstioVirtualServiceKind = "VirtualService"
 	KnativeServiceKind      = "Service"
 	ClusterLocalModelKind   = "ClusterLocalModel"
+	HTTPRouteKind           = "HTTPRoute"
+	GatewayKind             = "Gateway"
+	ServiceKind             = "Service"
 )
 
 // GetRawServiceLabel generate native service label
@@ -563,6 +568,11 @@ func PredictPrefix() string {
 
 func ExplainPrefix() string {
 	return "^/v1/models/[\\w-]+:explain$"
+}
+
+// FallbackPrefix returns the regex pattern to match any path
+func FallbackPrefix() string {
+	return "^/.*$"
 }
 
 func PathBasedExplainPrefix() string {
