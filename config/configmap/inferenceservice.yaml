@@ -451,6 +451,19 @@ data:
          # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
          "enablePrometheusScraping" : "false"
        }
+      
+     # ====================================== LOCALMODEL CONFIGURATION ======================================
+     # Example
+     localModel: |-
+       {
+         "enabled": false,
+         # jobNamespace specifies the namespace where the download job will be created.
+         "jobNamespace": "kserve-localmodel-jobs",
+         # defaultJobImage specifies the default image used for the download job.
+         "defaultJobImage" : "kserve/storage-initializer:latest",
+         # Kubernetes modifies the filesystem group ID on the attached volume.
+         "FSGroup": 1000
+       }
 
   explainers: |-
     {
@@ -557,4 +570,12 @@ data:
     {
       "enableMetricAggregation": "false",
       "enablePrometheusScraping" : "false"
+    }
+
+  localModel: |-
+    {
+      "enabled": false,
+      "jobNamespace": "kserve-localmodel-jobs",
+      "defaultJobImage" : "kserve/storage-initializer:latest",
+      "FSGroup": 1000
     }

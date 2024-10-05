@@ -1,5 +1,5 @@
 kserve:
-  version: &defaultVersion v0.14.0-rc0
+  version: &defaultVersion v0.14.0-rc1
   modelmeshVersion: &defaultModelMeshVersion v0.12.0
   agent:
     image: kserve/agent
@@ -42,7 +42,7 @@ kserve:
 
       # -- AWS S3 endpoint.
       endpoint: ""
- 
+
       # -- Whether to use secured https or http to download models, allowed values are 0 and 1 and default to 1.
       useHttps: ""
 
@@ -57,7 +57,7 @@ kserve:
 
       # -- Whether to use anonymous credentials to download the model or not, default to false.
       useAnonymousCredential: ""
- 
+
       # -- The path to the certificate bundle to use for HTTPS certificate validation.
       CABundle: ""
 
@@ -66,7 +66,7 @@ kserve:
     # service with the specified boolean value. If true enables metric aggregation in queue-proxy by setting env vars in the queue proxy container
     # to configure scraping ports.
     enableMetricAggregation: "false"
- 
+
     # -- If true, prometheus annotations are added to the pod to scrape the metrics. If serving.kserve.io/enable-metric-aggregation is false,
     # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
     enablePrometheusScraping: "false"
@@ -95,7 +95,7 @@ kserve:
 
     # -- Optional additional labels to add to the controller deployment.
     labels: {}
- 
+
     # -- Optional additional labels to add to the controller Pods.
     podLabels: {}
 
@@ -227,6 +227,10 @@ kserve:
       requests:
         cpu: 100m
         memory: 300Mi
+    # -- Indicates whether to create an addressable resolver ClusterRole for Knative Eventing.
+    # This ClusterRole grants the necessary permissions for the Knative's DomainMapping reconciler to resolve InferenceService addressables.
+    knativeAddressableResolver:
+      enabled: false
   modelmesh:
     enabled: true
     controller:
@@ -315,6 +319,11 @@ kserve:
         capabilities:
           drop:
             - ALL
+      devShm:
+        enabled: false
+        sizeLimit: ""
+      hostIPC:
+        enabled: false
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3
@@ -377,3 +386,11 @@ kserve:
       image: kserve/art-explainer
       defaultVersion: *defaultVersion
       imagePullSecrets: []
+  localmodel:
+      enabled: false
+      controller:
+        image: kserve/kserve-localmodel-controller
+        tag: *defaultVersion
+      jobNamespace: kserve-localmodel-jobs
+      securityContext:
+        FSGroup: 1000

@@ -49,7 +49,7 @@ jobs:
       # This can be removed once https://github.com/snyk/cli/pull/5409 is merged.
       - name: Replace security-severity undefined for license-related findings
         run: |
-          sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
+          sudo sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
@@ -94,7 +94,7 @@ jobs:
       # This can be removed once https://github.com/snyk/cli/pull/5409 is merged.
       - name: Replace security-severity undefined for license-related findings
         run: |
-          sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
+          sudo sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
@@ -135,7 +135,7 @@ jobs:
       # This can be removed once https://github.com/snyk/cli/pull/5409 is merged.
       - name: Replace security-severity undefined for license-related findings
         run: |
-          sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
+          sudo sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
 
       - name: Upload sarif file to Github Code Scanning
         if: always()

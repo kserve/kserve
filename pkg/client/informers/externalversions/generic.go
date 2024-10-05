@@ -54,12 +54,16 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=serving.kserve.io, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("clusterlocalmodels"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ClusterLocalModels().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("clusterservingruntimes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ClusterServingRuntimes().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("clusterstoragecontainers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ClusterStorageContainers().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("inferencegraphs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().InferenceGraphs().Informer()}, nil
+	case v1alpha1.SchemeGroupVersion.WithResource("localmodelnodegroups"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().LocalModelNodeGroups().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("servingruntimes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ServingRuntimes().Informer()}, nil
 	case v1alpha1.SchemeGroupVersion.WithResource("trainedmodels"):

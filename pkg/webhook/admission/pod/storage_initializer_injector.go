@@ -107,6 +107,9 @@ func GetContainerSpecForStorageUri(storageUri string, client client.Client) (*v1
 		if sc.IsDisabled() {
 			continue
 		}
+		if sc.Spec.WorkloadType != v1alpha1.InitContainer {
+			continue
+		}
 		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
 		if err != nil {
 			return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
@@ -184,7 +187,7 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 
 // InjectStorageInitializer injects an init container to provision model data
 // for the serving container in a unified way across storage tech by injecting
-// a provisioning INIT container. This is a work around because KNative does not
+// a provisioning INIT container. This is a workaround because KNative does not
 // support INIT containers: https://github.com/knative/serving/issues/4307
 func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) error {
 	// Only inject if the required annotations are set
@@ -210,12 +213,30 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
+	// Update volume mount's readonly annotation based on the ISVC annotation
+	isvcReadonlyStringFlag := true
+	isvcReadonlyString, ok := pod.ObjectMeta.Annotations[constants.StorageReadonlyAnnotationKey]
+	if ok {
+		if isvcReadonlyString == "false" {
+			isvcReadonlyStringFlag = false
+		}
+	}
+
 	// Find the kserve-container (this is the model inference server) and transformer container
 	userContainer := getContainerWithName(pod, constants.InferenceServiceContainerName)
 	transformerContainer := getContainerWithName(pod, constants.TransformerContainerName)
 
 	if userContainer == nil {
 		return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
+	}
+
+	// Mount pvc directly if local model label exists
+	if modelName, ok := pod.ObjectMeta.Labels[constants.LocalModelLabel]; ok {
+		subPath, _ := strings.CutPrefix(srcURI, pod.ObjectMeta.Annotations[constants.LocalModelSourceUriAnnotationKey])
+		if !strings.HasPrefix(subPath, "/") {
+			subPath = "/" + subPath
+		}
+		srcURI = "pvc://" + modelName + "/models/" + modelName + subPath
 	}
 
 	podVolumes := []v1.Volume{}
@@ -252,7 +273,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 				MountPath: constants.DefaultModelLocalMountPath,
 				// only path to volume's root ("") or folder is supported
 				SubPath:  pvcPath,
-				ReadOnly: true,
+				ReadOnly: isvcReadonlyStringFlag,
 			}
 
 			// Check if PVC source URIs is already mounted
@@ -298,7 +319,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		pvcSourceVolumeMount := v1.VolumeMount{
 			Name:      PvcSourceMountName,
 			MountPath: PvcSourceMountPath,
-			ReadOnly:  true,
+			ReadOnly:  isvcReadonlyStringFlag,
 		}
 		storageInitializerMounts = append(storageInitializerMounts, pvcSourceVolumeMount)
 
@@ -361,7 +382,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	sharedVolumeReadMount := v1.VolumeMount{
 		Name:      StorageInitializerVolumeName,
 		MountPath: constants.DefaultModelLocalMountPath,
-		ReadOnly:  true,
+		ReadOnly:  isvcReadonlyStringFlag,
 	}
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
 	if transformerContainer != nil {

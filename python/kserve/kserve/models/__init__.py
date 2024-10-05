@@ -29,6 +29,9 @@ from __future__ import absolute_import
 
 # import models into model package
 from kserve.models.v1alpha1_built_in_adapter import V1alpha1BuiltInAdapter
+from kserve.models.v1alpha1_cluster_local_model import V1alpha1ClusterLocalModel
+from kserve.models.v1alpha1_cluster_local_model_list import V1alpha1ClusterLocalModelList
+from kserve.models.v1alpha1_cluster_local_model_spec import V1alpha1ClusterLocalModelSpec
 from kserve.models.v1alpha1_cluster_serving_runtime import V1alpha1ClusterServingRuntime
 from kserve.models.v1alpha1_cluster_serving_runtime_list import V1alpha1ClusterServingRuntimeList
 from kserve.models.v1alpha1_cluster_storage_container import V1alpha1ClusterStorageContainer
@@ -40,6 +43,9 @@ from kserve.models.v1alpha1_inference_graph_status import V1alpha1InferenceGraph
 from kserve.models.v1alpha1_inference_router import V1alpha1InferenceRouter
 from kserve.models.v1alpha1_inference_step import V1alpha1InferenceStep
 from kserve.models.v1alpha1_inference_target import V1alpha1InferenceTarget
+from kserve.models.v1alpha1_local_model_node_group import V1alpha1LocalModelNodeGroup
+from kserve.models.v1alpha1_local_model_node_group_list import V1alpha1LocalModelNodeGroupList
+from kserve.models.v1alpha1_local_model_node_group_spec import V1alpha1LocalModelNodeGroupSpec
 from kserve.models.v1alpha1_model_spec import V1alpha1ModelSpec
 from kserve.models.v1alpha1_serving_runtime import V1alpha1ServingRuntime
 from kserve.models.v1alpha1_serving_runtime_list import V1alpha1ServingRuntimeList
@@ -73,6 +79,7 @@ from kserve.models.v1beta1_inference_service_status import V1beta1InferenceServi
 from kserve.models.v1beta1_inference_services_config import V1beta1InferenceServicesConfig
 from kserve.models.v1beta1_ingress_config import V1beta1IngressConfig
 from kserve.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
+from kserve.models.v1beta1_local_model_config import V1beta1LocalModelConfig
 from kserve.models.v1beta1_logger_spec import V1beta1LoggerSpec
 from kserve.models.v1beta1_model_copies import V1beta1ModelCopies
 from kserve.models.v1beta1_model_format import V1beta1ModelFormat
@@ -91,4 +98,5 @@ from kserve.models.v1beta1_tf_serving_spec import V1beta1TFServingSpec
 from kserve.models.v1beta1_torch_serve_spec import V1beta1TorchServeSpec
 from kserve.models.v1beta1_transformer_spec import V1beta1TransformerSpec
 from kserve.models.v1beta1_triton_spec import V1beta1TritonSpec
+from kserve.models.v1beta1_worker_spec import V1beta1WorkerSpec
 from kserve.models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec

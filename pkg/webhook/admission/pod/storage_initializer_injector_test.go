@@ -202,6 +202,192 @@ func TestStorageInitializerInjector(t *testing.T) {
 				},
 			},
 		},
+
+		"StorageInitializerInjectedReadOnlyUnset": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      StorageInitializerVolumeName,
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      StorageInitializerVolumeName,
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: StorageInitializerVolumeName,
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+
+		"StorageInitializerInjectedReadOnlyFalse": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+						constants.StorageReadonlyAnnotationKey:                     "false",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      StorageInitializerVolumeName,
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  false,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      StorageInitializerVolumeName,
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: StorageInitializerVolumeName,
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+
+		"StorageInitializerInjectedReadOnlyTrue": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+						constants.StorageReadonlyAnnotationKey:                     "true",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      StorageInitializerVolumeName,
+									MountPath: constants.DefaultModelLocalMountPath,
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					InitContainers: []v1.Container{
+						{
+							Name:                     "storage-initializer",
+							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
+							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
+							Resources:                resourceRequirement,
+							TerminationMessagePolicy: "FallbackToLogsOnError",
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      StorageInitializerVolumeName,
+									MountPath: constants.DefaultModelLocalMountPath,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: StorageInitializerVolumeName,
+							VolumeSource: v1.VolumeSource{
+								EmptyDir: &v1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+
 		"StorageInitializerInjectedAndMountsPvc": {
 			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1999,6 +2185,106 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 				},
 			},
 		},
+		"StorageInitializerNotInjectedAndMountsPvcViaVolumeMountReadOnlyFalse": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+						constants.StorageReadonlyAnnotationKey:                     "false",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/models",
+									SubPath:   "some/path/on/pvc",
+									ReadOnly:  false,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-pvc-source",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "mypvcname",
+									ReadOnly:  false,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"StorageInitializerNotInjectedAndMountsPvcViaVolumeMountReadOnlyTrue": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+						constants.StorageReadonlyAnnotationKey:                     "true",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/models",
+									SubPath:   "some/path/on/pvc",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-pvc-source",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "mypvcname",
+									ReadOnly:  false,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for name, scenario := range scenarios {
@@ -3671,6 +3957,120 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if err := injector.SetIstioCniSecurityContext(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
+}
+
+func TestLocalModelPVC(t *testing.T) {
+	storageConfig := &StorageInitializerConfig{
+		EnableDirectPvcVolumeMount: true, // enable direct volume mount for PVC
+	}
+	scenarios := map[string]struct {
+		storageUri               string
+		localModelLabel          string
+		localModelSourceUriLabel string
+		expectedSubPath          string
+	}{
+		"basic": {
+			storageUri:               "s3://foo",
+			localModelLabel:          "bar",
+			localModelSourceUriLabel: "s3://foo",
+			expectedSubPath:          "models/bar/",
+		},
+		"extra / at the end": {
+			storageUri:               "s3://foo/",
+			localModelLabel:          "bar",
+			localModelSourceUriLabel: "s3://foo",
+			expectedSubPath:          "models/bar/",
+		},
+		"subfolder": {
+			storageUri:               "s3://foo/model1",
+			localModelLabel:          "bar",
+			localModelSourceUriLabel: "s3://foo",
+			expectedSubPath:          "models/bar/model1",
+		},
+		"subfolder2": {
+			storageUri:               "s3://foo/model1",
+			localModelLabel:          "bar",
+			localModelSourceUriLabel: "s3://foo/",
+			expectedSubPath:          "models/bar/model1",
+		},
+	}
+
+	podScenarios := make(map[string]struct {
+		original *v1.Pod
+		expected *v1.Pod
+	})
+
+	for name, scenario := range scenarios {
+		original := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageUri,
+					constants.LocalModelSourceUriAnnotationKey:                 scenario.localModelSourceUriLabel,
+				},
+				Labels: map[string]string{
+					constants.LocalModelLabel: scenario.localModelLabel,
+				},
+			},
+			Spec: v1.PodSpec{
+				Containers: []v1.Container{
+					{
+						Name: constants.InferenceServiceContainerName,
+					},
+				},
+			},
+		}
+		expected := &v1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageUri,
+				},
+			},
+			Spec: v1.PodSpec{
+				Containers: []v1.Container{
+					{
+						Name: constants.InferenceServiceContainerName,
+						VolumeMounts: []v1.VolumeMount{
+							{
+								Name:      "kserve-pvc-source",
+								MountPath: constants.DefaultModelLocalMountPath,
+								ReadOnly:  true,
+								SubPath:   scenario.expectedSubPath,
+							},
+						},
+					},
+				},
+				Volumes: []v1.Volume{
+					{
+						Name: "kserve-pvc-source",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{ClaimName: scenario.localModelLabel, ReadOnly: false},
+						},
+					},
+				},
+			},
+		}
+
+		podScenarios[name] = struct {
+			original *v1.Pod
+			expected *v1.Pod
+		}{original: original, expected: expected}
+	}
+	for name, scenario := range podScenarios {
+		injector := &StorageInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+			config: storageConfig,
+			client: c,
+		}
+
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
