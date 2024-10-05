@@ -3,15 +3,14 @@
     "messages": [
       {
         "role": "system",
-        "content": "You are a helpful assistant."
+        "content": "You are a friendly chatbot who always responds in the style of a pirate",
       },
       {
         "role": "user",
-        "content": "What are we having for dinner?"
+        "content": "How many helicopters can a human eat in one sitting?",
       }
     ],
     "temperature": 0,
     "max_tokens": 20,
     "chat_template": "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
-
 }
