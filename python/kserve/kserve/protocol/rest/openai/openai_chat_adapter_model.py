@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import AsyncIterator, Iterable, Union, cast, Optional
+from typing import AsyncIterator, Iterable, Union, cast
 
 from kserve.protocol.rest.openai.types import (
     ChatCompletion,
@@ -195,7 +195,6 @@ class OpenAIChatAdapterModel(OpenAIModel):
     async def create_chat_completion(
         self,
         request: ChatCompletionRequest,
-        chat_template: Optional[str] = None,
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
         params = request.params
 
@@ -203,7 +202,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
             raise InvalidInput("n != 1 is not supported")
 
         # Convert the messages into a prompt
-        chat_prompt = self.apply_chat_template(params.messages, chat_template)
+        chat_prompt = self.apply_chat_template(params.messages, params.chat_template)
         # Translate the chat completion request to a completion request
         completion_params = self.chat_completion_params_to_completion_params(
             params, chat_prompt.prompt
