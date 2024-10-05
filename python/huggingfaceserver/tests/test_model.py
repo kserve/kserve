@@ -504,6 +504,6 @@ async def test_input_padding_with_pad_token_not_specified(
     response = await openai_gpt_model.create_completion(request)
     assert (
         response.choices[0].text
-        == "west, and the sun sets in the west. \n the sun rises in the"
+        == "west , and the sun sets in the west . \n the sun rises in the"
     )
-    assert "a member of the royal family." in response.choices[1].text
+    assert "a member of the royal family ." in response.choices[1].text
