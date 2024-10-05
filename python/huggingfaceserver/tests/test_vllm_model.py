@@ -160,10 +160,10 @@ class TestChatCompletions:
             messages=messages,
             stream=False,
             max_tokens=10,
+            chat_template="{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
         )
         request = ChatCompletionRequest(params=params, context={})
-        chat_template = "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
-        response = await opt_model.create_chat_completion(request, chat_template)
+        response = await opt_model.create_chat_completion(request)
         expected = CreateChatCompletionResponse(
             id=request_id,
             choices=[
@@ -217,12 +217,12 @@ class TestChatCompletions:
             messages=messages,
             stream=False,
             max_tokens=10,
+            chat_template="{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
         )
-        chat_template = "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
-        response = await opt_model.create_chat_completion(request, chat_template)
+        response = await opt_model.create_chat_completion(request)
         expected = CreateChatCompletionResponse(
             id=request_id,
             choices=[
@@ -277,14 +277,13 @@ class TestChatCompletions:
             messages=messages,
             stream=True,
             max_tokens=10,
+            chat_template="{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
+
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
         )
-        chat_template = "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
-        response_iterator = await opt_model.create_chat_completion(
-            request, chat_template
-        )
+        response_iterator = await opt_model.create_chat_completion(request)
         completion = ""
         async for resp in response_iterator:
             assert len(resp.choices) == 1
@@ -330,12 +329,12 @@ class TestChatCompletions:
             max_tokens=10,
             log_probs=True,
             top_logprobs=2,
+            chat_template="{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
         )
-        chat_template = "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
-        response = await opt_model.create_chat_completion(request, chat_template)
+        response = await opt_model.create_chat_completion(request)
         expected = CreateChatCompletionResponse(
             id=request_id,
             choices=[
@@ -641,14 +640,12 @@ class TestChatCompletions:
             max_tokens=10,
             log_probs=True,
             top_logprobs=2,
+            chat_template="{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
         )
-        chat_template = "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
-        response_iterator = await opt_model.create_chat_completion(
-            request, chat_template
-        )
+        response_iterator = await opt_model.create_chat_completion(request)
         completion = ""
         log_probs = ChatCompletionChoiceLogprobs(
             content=[],
@@ -899,13 +896,13 @@ class TestChatCompletions:
             messages=messages,
             stream=True,
             max_tokens=2048,
+            chat_template="{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
         )
         with pytest.raises(OpenAIError):
-            chat_template = "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
-            await opt_model.create_chat_completion(request, chat_template)
+            await opt_model.create_chat_completion(request)
 
     async def test_vllm_chat_completion_facebook_opt_model_with_logit_bias(
         self, vllm_opt_model
@@ -936,12 +933,12 @@ class TestChatCompletions:
             stream=False,
             max_tokens=10,
             logit_bias={"1527": 50, "27449": 100},
+            chat_template="{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
         )
-        chat_template = "{% for message in messages %}{{'<|im_start|>' + message['role'] + '\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\n'}}{% endif %}{% endfor %} {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\n' }}{% endif %}"
-        response = await opt_model.create_chat_completion(request, chat_template)
+        response = await opt_model.create_chat_completion(request)
         expected = CreateChatCompletionResponse(
             id=request_id,
             choices=[
