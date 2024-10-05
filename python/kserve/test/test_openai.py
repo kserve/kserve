@@ -14,7 +14,7 @@
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator, Callable, Iterable, List, Tuple, Union, cast
+from typing import AsyncIterator, Callable, Iterable, List, Tuple, Union, cast, Optional
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -86,6 +86,7 @@ class DummyModel(OpenAIChatAdapterModel):
     def apply_chat_template(
         self,
         messages: Iterable[ChatCompletionRequestMessage],
+        chat_template: Optional[str] = None,
     ) -> ChatPrompt:
         return ChatPrompt(prompt="hello")
 
