@@ -40,7 +40,7 @@ jobs:
       - name: Run tests
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64, linux/arm64/v8, linux/ppc64le
+          platforms: linux/ppc64le
           context: python
           file: python/sklearn.Dockerfile
           push: false
@@ -94,7 +94,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64, linux/arm64/v8, linux/ppc64le
+          platforms: linux/ppc64le
           context: python
           file: python/sklearn.Dockerfile
           push: true
