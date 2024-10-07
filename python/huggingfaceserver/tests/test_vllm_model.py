@@ -215,7 +215,7 @@ class TestChatCompletions:
             stream=False,
             max_tokens=10,
             chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}"""  # noqa: E501
+{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
         )
         request = ChatCompletionRequest(params=params, context={})
         response = await opt_model.create_chat_completion(request)
@@ -273,7 +273,7 @@ class TestChatCompletions:
             stream=False,
             max_tokens=10,
             chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}"""  # noqa: E501
+{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -334,7 +334,7 @@ class TestChatCompletions:
             stream=True,
             max_tokens=10,
             chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}"""  # noqa: E501
+{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -386,7 +386,7 @@ class TestChatCompletions:
             log_probs=True,
             top_logprobs=2,
             chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}"""  # noqa: E501
+{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -698,7 +698,7 @@ class TestChatCompletions:
             log_probs=True,
             top_logprobs=2,
             chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}"""  # noqa: E501
+{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -955,7 +955,7 @@ class TestChatCompletions:
             stream=True,
             max_tokens=2048,
             chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}"""  # noqa: E501
+{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -993,7 +993,7 @@ class TestChatCompletions:
             max_tokens=10,
             logit_bias={"1527": 50, "27449": 100},
             chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}"""  # noqa: E501
+{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
