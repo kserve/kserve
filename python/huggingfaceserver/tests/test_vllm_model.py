@@ -121,7 +121,7 @@ def compare_chatprompt_to_expected(actual, expected, fields_to_compare=None) -> 
 
 @pytest.mark.asyncio()
 class TestChatTemplate:
-    async def test_vllm_chat_completion_tokenization_facebook_opt_model_(
+    async def test_vllm_chat_completion_tokenization_facebook_opt_model(
         self, vllm_opt_model
     ):
         opt_model, _ = vllm_opt_model
@@ -136,11 +136,8 @@ class TestChatTemplate:
                 "content": "How many helicopters can a human eat in one sitting?",
             },
         ]
-        chat_template = (
-            """{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",
-        )
-
+        chat_template = """{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
+{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}"""  # noqa: E501
         response = opt_model.apply_chat_template(messages, chat_template)
 
         expected = ChatPrompt(
