@@ -23,7 +23,11 @@ from vllm.config import ModelConfig
 from huggingfaceserver.vllm.vllm_completions import OpenAIServingCompletion
 from huggingfaceserver.vllm.vllm_model import VLLMModel
 from kserve.logging import logger
-from kserve.protocol.rest.openai import ChatCompletionRequest, CompletionRequest
+from kserve.protocol.rest.openai import (
+    ChatCompletionRequest,
+    CompletionRequest,
+    ChatPrompt,
+)
 from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai.types import (
     CreateChatCompletionRequest,
@@ -96,6 +100,59 @@ def vllm_opt_model():
     yield model, mock_vllm_engine
     model.stop()
     mp.undo()
+
+
+def compare_chatprompt_to_expected(actual, expected, fields_to_compare=None) -> bool:
+    if fields_to_compare is None:
+        fields_to_compare = [
+            "response_role",
+            "prompt",
+        ]
+    for field in fields_to_compare:
+        if not getattr(actual, field) == getattr(expected, field):
+            logger.error(
+                "expected: %s\n  got: %s",
+                getattr(expected, field),
+                getattr(actual, field),
+            )
+            return False
+    return True
+
+
+@pytest.mark.asyncio()
+class TestChatTemplate:
+    async def test_vllm_chat_completion_tokenization_facebook_opt_model_(
+        self, vllm_opt_model
+    ):
+        opt_model, _ = vllm_opt_model
+
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a friendly chatbot who always responds in the style of a pirate",
+            },
+            {
+                "role": "user",
+                "content": "How many helicopters can a human eat in one sitting?",
+            },
+        ]
+        chat_template = (
+            """{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
+{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",
+        )
+
+        response = opt_model.apply_chat_temple(messages, chat_template)
+
+        expected = ChatPrompt(
+            response_role="assistant",
+            prompt="""<|im_start|>system
+You are a friendly chatbot who always responds in the style of a pirate<|im_end|>
+<|im_start|>user
+How many helicopters can a human eat in one sitting?<|im_end|>
+<|im_start|>assistant
+""",
+        )
+        assert compare_chatprompt_to_expected(response, expected) is True
 
 
 def compare_response_to_expected(actual, expected, fields_to_compare=None) -> bool:
