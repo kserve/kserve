@@ -141,7 +141,7 @@ class TestChatTemplate:
 {% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",
         )
 
-        response = opt_model.apply_chat_temple(messages, chat_template)
+        response = opt_model.apply_chat_template(messages, chat_template)
 
         expected = ChatPrompt(
             response_role="assistant",
