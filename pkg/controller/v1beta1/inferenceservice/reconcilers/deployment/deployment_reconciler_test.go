@@ -461,32 +461,6 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		modifyExpected func([]*appsv1.Deployment) []*appsv1.Deployment
 	}{
 		{
-			name: "Use the default value for GPU resources when an incorrect value is provided for tensor-parallel-size",
-			modifyArgs: func(updatedArgs args) args {
-
-				if _, exists := utils.GetEnvVarValue(updatedArgs.podSpec.Containers[0].Env, constants.TensorParallelSizeEnvName); exists {
-					// Overwrite the environment variable
-					for j, envVar := range updatedArgs.podSpec.Containers[0].Env {
-						if envVar.Name == constants.TensorParallelSizeEnvName {
-							updatedArgs.podSpec.Containers[0].Env[j].Value = "-1"
-							break
-						}
-					}
-				}
-				return updatedArgs
-			},
-			modifyExpected: func(updatedExpected []*appsv1.Deployment) []*appsv1.Deployment {
-				// Overwrite the environment variable
-				for j, envVar := range updatedExpected[0].Spec.Template.Spec.Containers[0].Env {
-					if envVar.Name == constants.TensorParallelSizeEnvName {
-						updatedExpected[0].Spec.Template.Spec.Containers[0].Env[j].Value = "-1"
-						break
-					}
-				}
-				return updatedExpected
-			},
-		},
-		{
 			name: "Use the value of TENSOR_PARALLEL_SIZE from the environment variables for GPU resources when it is set",
 			modifyArgs: func(updatedArgs args) args {
 
@@ -516,6 +490,55 @@ func TestCreateDefaultDeployment(t *testing.T) {
 						},
 						Requests: corev1.ResourceList{
 							constants.NvidiaGPUResourceType: resource.MustParse("2"),
+						},
+					}
+				}
+
+				return updatedExpected
+			},
+		},
+		{
+			name: "Use TENSOR_PARALLEL_SIZE value in environment variabels for GPU resources even though GPU resources is set by users",
+			modifyArgs: func(updatedArgs args) args {
+
+				if _, exists := utils.GetEnvVarValue(updatedArgs.podSpec.Containers[0].Env, constants.TensorParallelSizeEnvName); exists {
+					// Overwrite the environment variable
+					for j, envVar := range updatedArgs.podSpec.Containers[0].Env {
+						if envVar.Name == constants.TensorParallelSizeEnvName {
+							updatedArgs.podSpec.Containers[0].Env[j].Value = "1"
+							break
+						}
+					}
+				}
+				for _, container := range updatedArgs.podSpec.Containers {
+					if container.Name == constants.InferenceServiceContainerName {
+						if container.Resources.Limits == nil {
+							container.Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
+						}
+						if container.Resources.Requests == nil {
+							container.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
+						}
+						container.Resources.Requests[constants.NvidiaGPUResourceType] = resource.MustParse("5")
+						container.Resources.Limits[constants.NvidiaGPUResourceType] = resource.MustParse("5")
+					}
+				}
+				return updatedArgs
+			},
+			modifyExpected: func(updatedExpected []*appsv1.Deployment) []*appsv1.Deployment {
+				// Overwrite the environment variable
+				for j, envVar := range updatedExpected[0].Spec.Template.Spec.Containers[0].Env {
+					if envVar.Name == constants.TensorParallelSizeEnvName {
+						updatedExpected[0].Spec.Template.Spec.Containers[0].Env[j].Value = "1"
+						break
+					}
+				}
+				for _, deploy := range updatedExpected {
+					deploy.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							constants.NvidiaGPUResourceType: resource.MustParse("1"),
+						},
+						Limits: corev1.ResourceList{
+							constants.NvidiaGPUResourceType: resource.MustParse("1"),
 						},
 					}
 				}

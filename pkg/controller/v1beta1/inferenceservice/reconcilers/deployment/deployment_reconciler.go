@@ -91,20 +91,10 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 	for _, container := range podSpec.Containers {
 		if container.Name == constants.InferenceServiceContainerName {
 			if value, exists := utils.GetEnvVarValue(container.Env, constants.TensorParallelSizeEnvName); exists {
-				if intValue, err := strconv.Atoi(value); err == nil {
-					if intValue > 0 {
-						// Use the environment variable value if it's greater than 0
-						tensorParallelSize = value
-					} else {
-						log.Info("Using the default value for tensor-parallel-size because the provided value is less than 0")
-					}
-				} else {
-					// Log the error if the conversion fails, and use default
-					log.Error(err, "Failed to convert tensorParallelSize to int, using default")
-				}
-
-				break
+				// Use the environment variable value
+				tensorParallelSize = value
 			}
+			break
 		}
 	}
 

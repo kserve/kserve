@@ -30,15 +30,19 @@ import (
 
 // Known error messages
 const (
-	MinReplicasShouldBeLessThanMaxError = "'MinReplicas' cannot be greater than MaxReplicas"
-	MinReplicasLowerBoundExceededError  = "'MinReplicas' cannot be less than 0"
-	MaxReplicasLowerBoundExceededError  = "'MaxReplicas' cannot be less than 0"
-	ParallelismLowerBoundExceededError  = "parallelism cannot be less than 0"
-	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
-	UnsupportedStorageSpecFormatError   = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported"
-	InvalidLoggerType                   = "invalid logger type"
-	InvalidISVCNameFormatError          = "the InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
-	InvalidProtocol                     = "invalid protocol %s. Must be one of [%s]"
+	MinReplicasShouldBeLessThanMaxError   = "'MinReplicas' cannot be greater than MaxReplicas"
+	MinReplicasLowerBoundExceededError    = "'MinReplicas' cannot be less than 0"
+	MaxReplicasLowerBoundExceededError    = "'MaxReplicas' cannot be less than 0"
+	ParallelismLowerBoundExceededError    = "parallelism cannot be less than 0"
+	UnsupportedStorageURIFormatError      = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
+	UnsupportedStorageSpecFormatError     = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported"
+	InvalidLoggerType                     = "invalid logger type"
+	InvalidISVCNameFormatError            = "the InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+	InvalidProtocol                       = "invalid protocol %s. Must be one of [%s]"
+	InvalidWorkerSpecSizeValueError       = "the InferenceService \"%s\" is invalid: WorkerSpec.Size cannot be less than 2(\"%d\")"
+	InvalidPipelineParallelSizeValueError = "the InferenceService \"%s\" is invalid: PIPELINE_PARALLE_SIZE cannot be less than 2(\"%s\")"
+	InvalidTensorParallelSizeValueError   = "the InferenceService \"%s\" is invalid: TENSOR_PARALLE_SIZE cannot be less than 1(\"%s\")"
+	InvalidParallelSizeValueError         = "the InferenceService \"%s\" is invalid: the value(\"%s\") of PIPELINE_PARALLEL_SIZE or TENSOR_PARALLEL_SIZE is incorrect"
 )
 
 // Constants

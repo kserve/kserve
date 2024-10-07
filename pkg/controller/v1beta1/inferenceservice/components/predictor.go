@@ -352,7 +352,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			if container.Name == constants.InferenceServiceContainerName {
 				if envPipelineParallelSize, exists := utils.GetEnvVarValue(container.Env, constants.PipelineParallelSizeEnvName); exists {
 					// pipelineParallelSize should be bigger than 1 (head + worker)
-					if intPipelineParallelSize, err := strconv.Atoi(envPipelineParallelSize); err == nil && intPipelineParallelSize > 1 {
+					if intPipelineParallelSize, err := strconv.Atoi(envPipelineParallelSize); err == nil {
 						// pipelineParallelSize value is higher priority than workerSpec.Size, so pipelineParallelSize - 1(head node) will be set to workerSize
 						if intPipelineParallelSize-1 != workerSize {
 							workerSize = intPipelineParallelSize - 1
