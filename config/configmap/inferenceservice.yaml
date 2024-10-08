@@ -582,5 +582,5 @@ data:
   
   security: |-
     {
-      "autoMountServiceAccountToken": false
+      "autoMountServiceAccountToken": true
     }

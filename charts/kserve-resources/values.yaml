@@ -394,3 +394,5 @@ kserve:
       jobNamespace: kserve-localmodel-jobs
       securityContext:
         FSGroup: 1000
+  security:
+    autoMountServiceAccountToken: true
