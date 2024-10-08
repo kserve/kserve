@@ -43,7 +43,7 @@ const (
 	ProrityIsNotSameServingRuntimeError        = "%s under the servingruntime %s"
 	ProrityIsNotSameClusterServingRuntimeError = "%s under the clusterservingruntime %s"
 	InvalidWorkerSpecSizeValueError            = "the WorkerSpec.Size cannot be less than 2(%d)"
-	InvalidPipelineParallelSizeValueError      = "the PIPELINE_PARALLE_SIZE cannot be less than 2(%s)"
+	InvalidPipelineParallelSizeValueError      = "the PIPELINE_PARALLEL_SIZE cannot be less than 2 (%s) because PipelineParallelSize should include at least 1 head node and 1 worker node."
 	InvalidTensorParallelSizeValueError        = "the TENSOR_PARALLE_SIZE cannot be less than 1(%s)"
 	InvalidParallelSizeValueError              = "the value of PIPELINE_PARALLEL_SIZE or TENSOR_PARALLEL_SIZE is incorrect"
 	InvalidMultiNodeEnvVariablesError          = "the %s %s is invalid: %s"

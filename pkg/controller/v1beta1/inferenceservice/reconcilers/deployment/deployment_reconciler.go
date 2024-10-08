@@ -182,12 +182,12 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	setDefaultDeploymentSpec(&deployment.Spec)
 
 	// default workerNode deployment replicas
-	replicas, err := utils.ConvertStringToInt32(constants.DefaultWorkerMinSize, 1)
+	replicas, err := utils.ConvertIntToInt32(constants.DefaultWorkerMinSize, 1)
 	if err != nil {
 		log.Error(err, "Failed to convert replicas int to int32, using the default value(1) for replicas.")
 	}
 	if parsedValue, err := strconv.Atoi(pipelineParallelSize); err == nil {
-		replicas, err = utils.ConvertStringToInt32(parsedValue-1, 1)
+		replicas, err = utils.ConvertIntToInt32(parsedValue-1, 1)
 		if err != nil {
 			log.Error(err, "Failed to convert replicas int to int32, using the default value(1) for replicas.")
 		}

@@ -246,7 +246,7 @@ func GetEnvVarValue(envVars []v1.EnvVar, key string) (string, bool) {
 	return "", false // if key does not exist, return "", false
 }
 
-func ConvertStringToInt32(number int, defaultValue int) (int32, error) {
+func ConvertIntToInt32(number int, defaultValue int) (int32, error) {
 	// Check if the number exceeds the int32 limits
 	if number > math.MaxInt32 || number < math.MinInt32 {
 		// Also check the defaultValue to ensure it's safe to convert

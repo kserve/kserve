@@ -130,7 +130,7 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 			}
 		} else {
 			port, _ := strconv.Atoi(constants.InferenceServiceDefaultHttpPort)
-			portInt32, err := utils.ConvertStringToInt32(port, 8080)
+			portInt32, err := utils.ConvertIntToInt32(port, 8080)
 			if err != nil {
 				log.Error(err, "Failed to convert port int to int32, using the default value(8080) for port.")
 			}

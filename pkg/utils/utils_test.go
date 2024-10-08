@@ -18,6 +18,7 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -538,6 +539,83 @@ func TestIsPrefixSupported(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			res := IsPrefixSupported(scenario.input, prefixes)
 			g.Expect(res).Should(gomega.Equal(scenario.expected))
+		})
+	}
+}
+
+func TestGetEnvVarValue(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		envList          []v1.EnvVar
+		targetEnvName    string
+		expectedEnvValue string
+		expectedExist    bool
+	}{
+		"EnvExist": {
+			envList: []v1.EnvVar{
+				{Name: "test-name", Value: "test-value"},
+			},
+			targetEnvName:    "test-name",
+			expectedEnvValue: "test-value",
+			expectedExist:    true,
+		},
+		"EnvDoesNotExist": {
+			envList: []v1.EnvVar{
+				{Name: "test-name", Value: "test-value"},
+			},
+			targetEnvName:    "wrong",
+			expectedEnvValue: "",
+			expectedExist:    false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res, exists := GetEnvVarValue(scenario.envList, scenario.targetEnvName)
+			g.Expect(res).Should(gomega.Equal(scenario.expectedEnvValue))
+			g.Expect(exists).Should(gomega.Equal(scenario.expectedExist))
+		})
+	}
+
+}
+func TestConvertIntToInt32(t *testing.T) {
+
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		strNumber           int
+		defaultIntNumber    int
+		expectedInt32Number int32
+		expectedErr         error
+	}{
+		"TargetNumberConvertSucceed": {
+			strNumber:           1,
+			defaultIntNumber:    1,
+			expectedInt32Number: int32(1),
+			expectedErr:         nil,
+		},
+		"TargetNumberConvertFailBZNotInInt32Limit": {
+			strNumber:           1 << 31,
+			defaultIntNumber:    10,
+			expectedInt32Number: int32(10),
+			expectedErr:         fmt.Errorf("the value exceeds int32 limit"),
+		},
+		"DefaultValueConvertFailBZNotInInt32Limit": {
+			strNumber:           1 << 31,
+			defaultIntNumber:    1 << 31,
+			expectedInt32Number: int32(0),
+			expectedErr:         fmt.Errorf("the default value exceeds int32 limit"),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res, err := ConvertIntToInt32(scenario.strNumber, scenario.defaultIntNumber)
+			g.Expect(res).Should(gomega.Equal(scenario.expectedInt32Number))
+			if scenario.expectedErr == nil {
+				g.Expect(err).Should(gomega.BeNil())
+			} else {
+				g.Expect(err).Should(gomega.Equal(scenario.expectedErr))
+			}
 		})
 	}
 }

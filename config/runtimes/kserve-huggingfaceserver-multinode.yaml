@@ -146,16 +146,16 @@ spec:
             while true; do              
               if (( SECONDS <= 120 )); then
                 if ray health-check --address "${ISVC_NAME}-head.${POD_NAMESPACE}.svc.cluster.local:6379" > /dev/null 2>&1; then
-                  echo "GCS is ready."
+                  echo "Global Control Service(GCS) is ready."
                   break
                 fi
-                echo "$SECONDS seconds elapsed: Waiting for GCS to be ready."
+                echo "$SECONDS seconds elapsed: Waiting for Global Control Service(GCS) to be ready."
               else
                 if ray health-check --address "${ISVC_NAME}-head.${POD_NAMESPACE}.svc.cluster.local:6379"; then
-                  echo "GCS is ready. Any error messages above can be safely ignored."
+                  echo "Global Control Service(GCS) is ready. Any error messages above can be safely ignored."
                   break
                 fi
-                echo "$SECONDS seconds elapsed: Still waiting for GCS to be ready."
+                echo "$SECONDS seconds elapsed: Still waiting for Global Control Service(GCS) to be ready."
                 echo "For troubleshooting, refer to the FAQ at https://github.com/ray-project/kuberay/blob/master/docs/guidance/FAQ.md."
               fi
               
