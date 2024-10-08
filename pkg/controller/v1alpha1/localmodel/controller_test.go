@@ -326,7 +326,7 @@ var _ = Describe("CachedModel controller", func() {
 			// Mutating webhook adds a local model label
 			cachedModelList := &v1alpha1.ClusterLocalModelList{}
 			cachedModelList.Items = []v1alpha1.ClusterLocalModel{*cachedModel}
-			isvc.DefaultInferenceService(nil, nil, cachedModelList)
+			isvc.DefaultInferenceService(nil, nil, nil, cachedModelList)
 
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			inferenceService := &v1beta1.InferenceService{}

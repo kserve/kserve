@@ -579,3 +579,8 @@ data:
       "defaultJobImage" : "kserve/storage-initializer:latest",
       "FSGroup": 1000
     }
+  
+  security: |-
+    {
+      "autoMountServiceAccountToken": true
+    }
