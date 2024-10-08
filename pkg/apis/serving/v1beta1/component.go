@@ -39,10 +39,10 @@ const (
 	InvalidLoggerType                     = "invalid logger type"
 	InvalidISVCNameFormatError            = "the InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
 	InvalidProtocol                       = "invalid protocol %s. Must be one of [%s]"
-	InvalidWorkerSpecSizeValueError       = "the InferenceService \"%s\" is invalid: WorkerSpec.Size cannot be less than 2(\"%d\")"
-	InvalidPipelineParallelSizeValueError = "the InferenceService \"%s\" is invalid: PIPELINE_PARALLE_SIZE cannot be less than 2(\"%s\")"
-	InvalidTensorParallelSizeValueError   = "the InferenceService \"%s\" is invalid: TENSOR_PARALLE_SIZE cannot be less than 1(\"%s\")"
-	InvalidParallelSizeValueError         = "the InferenceService \"%s\" is invalid: the value(\"%s\") of PIPELINE_PARALLEL_SIZE or TENSOR_PARALLEL_SIZE is incorrect"
+	InvalidWorkerSpecSizeValueError       = "the InferenceService \"%s\" is invalid: WorkerSpec.Size cannot be less than 2(%d)"
+	InvalidPipelineParallelSizeValueError = "the InferenceService \"%s\" is invalid: PIPELINE_PARALLE_SIZE cannot be less than 2(%s)"
+	InvalidTensorParallelSizeValueError   = "the InferenceService \"%s\" is invalid: TENSOR_PARALLE_SIZE cannot be less than 1(%s)"
+	InvalidParallelSizeValueError         = "the InferenceService \"%s\" is invalid: the value(%s) of PIPELINE_PARALLEL_SIZE or TENSOR_PARALLEL_SIZE is incorrect"
 )
 
 // Constants

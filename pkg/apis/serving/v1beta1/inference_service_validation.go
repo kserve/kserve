@@ -150,17 +150,20 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 	if isvc.Spec.Predictor.Model != nil {
 		if envPipelineParallelSize, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.PipelineParallelSizeEnvName); exists {
 			// pipelineParallelSize should be bigger than 1 (head + worker)
-			if intPipelineParallelSize, err := strconv.Atoi(envPipelineParallelSize); err == nil && intPipelineParallelSize < 2 {
-				return fmt.Errorf(InvalidPipelineParallelSizeValueError, isvc.Name, envPipelineParallelSize)
+			if intPipelineParallelSize, err := strconv.Atoi(envPipelineParallelSize); err == nil {
+				if intPipelineParallelSize < 2 {
+					return fmt.Errorf(InvalidPipelineParallelSizeValueError, isvc.Name, envPipelineParallelSize)
+				}
 			} else {
 				return fmt.Errorf(InvalidParallelSizeValueError, isvc.Name, envPipelineParallelSize)
 			}
 		}
-
 		if envTensorParallelSize, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.TensorParallelSizeEnvName); exists {
 			// GPU resource should be bigger than 1.
-			if intTensorParallelSize, err := strconv.Atoi(envTensorParallelSize); err == nil && intTensorParallelSize < 1 {
-				return fmt.Errorf(InvalidTensorParallelSizeValueError, isvc.Name, envTensorParallelSize)
+			if intTensorParallelSize, err := strconv.Atoi(envTensorParallelSize); err == nil {
+				if intTensorParallelSize < 1 {
+					return fmt.Errorf(InvalidTensorParallelSizeValueError, isvc.Name, envTensorParallelSize)
+				}
 			} else {
 				return fmt.Errorf(InvalidParallelSizeValueError, isvc.Name, envTensorParallelSize)
 			}

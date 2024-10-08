@@ -42,11 +42,11 @@ const (
 	ProrityIsNotSameError                      = "different priorities assigned for the model format %s"
 	ProrityIsNotSameServingRuntimeError        = "%s under the servingruntime %s"
 	ProrityIsNotSameClusterServingRuntimeError = "%s under the clusterservingruntime %s"
-	InvalidWorkerSpecSizeValueError            = "the WorkerSpec.Size cannot be less than 2(\"%d\")"
-	InvalidPipelineParallelSizeValueError      = "the PIPELINE_PARALLE_SIZE cannot be less than 2(\"%s\")"
-	InvalidTensorParallelSizeValueError        = "the TENSOR_PARALLE_SIZE cannot be less than 1(\"%s\")"
+	InvalidWorkerSpecSizeValueError            = "the WorkerSpec.Size cannot be less than 2(%d)"
+	InvalidPipelineParallelSizeValueError      = "the PIPELINE_PARALLE_SIZE cannot be less than 2(%s)"
+	InvalidTensorParallelSizeValueError        = "the TENSOR_PARALLE_SIZE cannot be less than 1(%s)"
 	InvalidParallelSizeValueError              = "the value of PIPELINE_PARALLEL_SIZE or TENSOR_PARALLEL_SIZE is incorrect"
-	InvalidMultiNodeEnvVariablesError          = "the \"%s\" \"%s\" is invalid: \"%s\""
+	InvalidMultiNodeEnvVariablesError          = "the %s %s is invalid: %s"
 )
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-clusterservingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=clusterservingruntimes,versions=v1alpha1,name=clusterservingruntime.kserve-webhook-server.validator
@@ -192,8 +192,10 @@ func validateMultiNodeVariables(newSpec *v1alpha1.ServingRuntimeSpec) error {
 			if container.Name == constants.InferenceServiceContainerName {
 				if envPipelineParallelSize, exists := utils.GetEnvVarValue(newSpec.Containers[i].Env, constants.PipelineParallelSizeEnvName); exists {
 					// pipelineParallelSize should be bigger than 1 (head + worker)
-					if intPipelineParallelSize, err := strconv.Atoi(envPipelineParallelSize); err == nil && intPipelineParallelSize < 2 {
-						return fmt.Errorf(InvalidPipelineParallelSizeValueError, envPipelineParallelSize)
+					if intPipelineParallelSize, err := strconv.Atoi(envPipelineParallelSize); err == nil {
+						if intPipelineParallelSize < 2 {
+							return fmt.Errorf(InvalidPipelineParallelSizeValueError, envPipelineParallelSize)
+						}
 					} else {
 						return errors.New(InvalidParallelSizeValueError)
 					}
@@ -201,8 +203,10 @@ func validateMultiNodeVariables(newSpec *v1alpha1.ServingRuntimeSpec) error {
 
 				if envTensorParallelSize, exists := utils.GetEnvVarValue(newSpec.Containers[i].Env, constants.TensorParallelSizeEnvName); exists {
 					// GPU resource should be bigger than 1.
-					if intTensorParallelSize, err := strconv.Atoi(envTensorParallelSize); err == nil && intTensorParallelSize < 1 {
-						return fmt.Errorf(InvalidTensorParallelSizeValueError, envTensorParallelSize)
+					if intTensorParallelSize, err := strconv.Atoi(envTensorParallelSize); err == nil {
+						if intTensorParallelSize < 1 {
+							return fmt.Errorf(InvalidTensorParallelSizeValueError, envTensorParallelSize)
+						}
 					} else {
 						return errors.New(InvalidParallelSizeValueError)
 					}
