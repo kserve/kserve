@@ -55,13 +55,11 @@ class TestV1alpha1LocalModelNodeList(unittest.TestCase):
             return V1alpha1LocalModelNodeList(
                 api_version="0",
                 items=[
-                    kserve.models.v1alpha1
-                    / local_model_node.v1alpha1.LocalModelNode(
+                    kserve.models.v1alpha1_local_model_node.V1alpha1LocalModelNode(
                         api_version="0",
                         kind="0",
                         metadata=None,
-                        spec=kserve.models.v1alpha1
-                        / local_model_node_spec.v1alpha1.LocalModelNodeSpec(
+                        spec=kserve.models.v1alpha1_local_model_node_spec.V1alpha1LocalModelNodeSpec(
                             model_status="0",
                             source_destinations=[None],
                         ),
@@ -74,13 +72,11 @@ class TestV1alpha1LocalModelNodeList(unittest.TestCase):
         else:
             return V1alpha1LocalModelNodeList(
                 items=[
-                    kserve.models.v1alpha1
-                    / local_model_node.v1alpha1.LocalModelNode(
+                    kserve.models.v1alpha1_local_model_node.V1alpha1LocalModelNode(
                         api_version="0",
                         kind="0",
                         metadata=None,
-                        spec=kserve.models.v1alpha1
-                        / local_model_node_spec.v1alpha1.LocalModelNodeSpec(
+                        spec=kserve.models.v1alpha1_local_model_node_spec.V1alpha1LocalModelNodeSpec(
                             model_status="0",
                             source_destinations=[None],
                         ),

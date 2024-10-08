@@ -54,8 +54,7 @@ class TestV1alpha1LocalModelNode(unittest.TestCase):
                 api_version="0",
                 kind="0",
                 metadata=None,
-                spec=kserve.models.v1alpha1
-                / local_model_node_spec.v1alpha1.LocalModelNodeSpec(
+                spec=kserve.models.v1alpha1_local_model_node_spec.V1alpha1LocalModelNodeSpec(
                     model_status="0",
                     source_destinations=[None],
                 ),
