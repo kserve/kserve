@@ -219,7 +219,6 @@ func validateMultiNodeVariables(newSpec *v1alpha1.ServingRuntimeSpec) error {
 		if WorkerSpecSize < 1 {
 			return fmt.Errorf(InvalidWorkerSpecSizeValueError, WorkerSpecSize)
 		}
-
 	}
 	return nil
 }

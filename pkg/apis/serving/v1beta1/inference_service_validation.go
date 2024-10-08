@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -318,7 +319,7 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 		if container.Name == constants.TransformerContainerName {
 			for _, env := range container.Env {
 				if env.Name == constants.CustomSpecStorageUriEnvVarKey {
-					return fmt.Errorf(StorageUriPresentInTransformerError)
+					return errors.New(StorageUriPresentInTransformerError)
 				}
 			}
 			break
