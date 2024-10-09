@@ -136,7 +136,11 @@ class TestChatTemplate:
                 "content": "How many helicopters can a human eat in one sitting?",
             },
         ]
-        chat_template = "{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}"
+        chat_template = (
+            "{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}"
+        )
         response = opt_model.apply_chat_template(messages, chat_template)
 
         expected = ChatPrompt(
@@ -208,7 +212,9 @@ class TestChatCompletions:
             messages=messages,
             stream=False,
             max_tokens=10,
-            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(params=params, context={})
         response = await opt_model.create_chat_completion(request)
@@ -265,7 +271,9 @@ class TestChatCompletions:
             messages=messages,
             stream=False,
             max_tokens=10,
-            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -325,7 +333,9 @@ class TestChatCompletions:
             messages=messages,
             stream=True,
             max_tokens=10,
-            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -376,7 +386,9 @@ class TestChatCompletions:
             max_tokens=10,
             log_probs=True,
             top_logprobs=2,
-            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -687,7 +699,9 @@ class TestChatCompletions:
             max_tokens=10,
             log_probs=True,
             top_logprobs=2,
-            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -943,7 +957,9 @@ class TestChatCompletions:
             messages=messages,
             stream=True,
             max_tokens=2048,
-            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -980,7 +996,9 @@ class TestChatCompletions:
             stream=False,
             max_tokens=10,
             logit_bias={"1527": 50, "27449": 100},
-            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
