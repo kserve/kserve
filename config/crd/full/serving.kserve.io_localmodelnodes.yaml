@@ -26,7 +26,7 @@ spec:
             type: object
           spec:
             properties:
-              sourceDestinations:
+              localModels:
                 items:
                   properties:
                     modelName:
@@ -39,7 +39,7 @@ spec:
                   type: object
                 type: array
             required:
-            - sourceDestinations
+            - localModels
             type: object
           status:
             properties:

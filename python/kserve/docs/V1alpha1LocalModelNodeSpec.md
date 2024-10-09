@@ -3,7 +3,7 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**source_destinations** | [**list[V1alpha1ModelInfo]**](V1alpha1ModelInfo.md) | List of model source URI and destination pairs | 
+**local_models** | [**list[V1alpha1LocalModelInfo]**](V1alpha1LocalModelInfo.md) | List of model source URI and their names | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

@@ -567,15 +567,15 @@
     "v1alpha1.LocalModelNodeSpec": {
       "type": "object",
       "required": [
-        "sourceDestinations"
+        "localModels"
       ],
       "properties": {
-        "sourceDestinations": {
-          "description": "List of model source URI and destination pairs",
+        "localModels": {
+          "description": "List of model source URI and their names",
           "type": "array",
           "items": {
             "default": {},
-            "$ref": "#/definitions/v1alpha1.ModelInfo"
+            "$ref": "#/definitions/v1alpha1.LocalModelInfo"
           }
         }
       }

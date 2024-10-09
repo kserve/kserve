@@ -47,48 +47,48 @@ class V1alpha1LocalModelNodeSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'source_destinations': 'list[V1alpha1ModelInfo]'
+        'local_models': 'list[V1alpha1LocalModelInfo]'
     }
 
     attribute_map = {
-        'source_destinations': 'sourceDestinations'
+        'local_models': 'localModels'
     }
 
-    def __init__(self, source_destinations=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, local_models=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1LocalModelNodeSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._source_destinations = None
+        self._local_models = None
         self.discriminator = None
 
-        self.source_destinations = source_destinations
+        self.local_models = local_models
 
     @property
-    def source_destinations(self):
-        """Gets the source_destinations of this V1alpha1LocalModelNodeSpec.  # noqa: E501
+    def local_models(self):
+        """Gets the local_models of this V1alpha1LocalModelNodeSpec.  # noqa: E501
 
-        List of model source URI and destination pairs  # noqa: E501
+        List of model source URI and their names  # noqa: E501
 
-        :return: The source_destinations of this V1alpha1LocalModelNodeSpec.  # noqa: E501
-        :rtype: list[V1alpha1ModelInfo]
+        :return: The local_models of this V1alpha1LocalModelNodeSpec.  # noqa: E501
+        :rtype: list[V1alpha1LocalModelInfo]
         """
-        return self._source_destinations
+        return self._local_models
 
-    @source_destinations.setter
-    def source_destinations(self, source_destinations):
-        """Sets the source_destinations of this V1alpha1LocalModelNodeSpec.
+    @local_models.setter
+    def local_models(self, local_models):
+        """Sets the local_models of this V1alpha1LocalModelNodeSpec.
 
-        List of model source URI and destination pairs  # noqa: E501
+        List of model source URI and their names  # noqa: E501
 
-        :param source_destinations: The source_destinations of this V1alpha1LocalModelNodeSpec.  # noqa: E501
-        :type: list[V1alpha1ModelInfo]
+        :param local_models: The local_models of this V1alpha1LocalModelNodeSpec.  # noqa: E501
+        :type: list[V1alpha1LocalModelInfo]
         """
-        if self.local_vars_configuration.client_side_validation and source_destinations is None:  # noqa: E501
-            raise ValueError("Invalid value for `source_destinations`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and local_models is None:  # noqa: E501
+            raise ValueError("Invalid value for `local_models`, must not be `None`")  # noqa: E501
 
-        self._source_destinations = source_destinations
+        self._local_models = local_models
 
     def to_dict(self):
         """Returns the model properties as a dict"""
