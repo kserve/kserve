@@ -172,15 +172,15 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 	}
 
 	isvc.setLocalModelLabel(models)
-	if securityConfig != nil && securityConfig.AutoMountServiceAccountToken {
-		setAutomountServiceAccountToken(isvc)
+	if securityConfig != nil && !securityConfig.AutoMountServiceAccountToken {
+		disableAutomountServiceAccountToken(isvc)
 	}
 }
 
-// setAutomountServiceAccountToken sets the default value for AutomountServiceAccountToken
+// disableAutomountServiceAccountToken sets AutomountServiceAccountToken to be false
 // Usually serving runtimes do not need access to kubernetes apiserver, so we set it to false by default.
 // This can be overridden by setting AutomountServiceAccountToken to true in the InferenceService spec
-func setAutomountServiceAccountToken(isvc *InferenceService) {
+func disableAutomountServiceAccountToken(isvc *InferenceService) {
 	if isvc.Spec.Predictor.AutomountServiceAccountToken == nil {
 		isvc.Spec.Predictor.AutomountServiceAccountToken = proto.Bool(false)
 	}
