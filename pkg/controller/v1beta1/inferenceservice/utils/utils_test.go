@@ -1892,3 +1892,84 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 		}
 	}
 }
+
+func TestMergeServingRuntimePodSpec(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		servingRuntimePodSpecBase *v1alpha1.ServingRuntimePodSpec
+		podSpecOverride           *v1beta1.PodSpec
+		expected                  *v1alpha1.ServingRuntimePodSpec
+	}{
+		"BasicMerge": {
+			servingRuntimePodSpecBase: &v1alpha1.ServingRuntimePodSpec{},
+			podSpecOverride: &v1beta1.PodSpec{
+				NodeSelector: map[string]string{
+					"foo": "bar",
+					"aaa": "bbb",
+				},
+				Tolerations: []v1.Toleration{
+					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
+				},
+				Volumes: []v1.Volume{
+					{
+						Name: "foo",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bar",
+							},
+						},
+					},
+					{
+						Name: "aaa",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bbb",
+							},
+						},
+					},
+				},
+				ImagePullSecrets: []v1.LocalObjectReference{
+					{Name: "foo"},
+				},
+			},
+			expected: &v1alpha1.ServingRuntimePodSpec{
+				NodeSelector: map[string]string{
+					"foo": "bar",
+					"aaa": "bbb",
+				},
+				Tolerations: []v1.Toleration{
+					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
+				},
+				Volumes: []v1.Volume{
+					{
+						Name: "foo",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bar",
+							},
+						},
+					},
+					{
+						Name: "aaa",
+						VolumeSource: v1.VolumeSource{
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+								ClaimName: "bbb",
+							},
+						},
+					},
+				},
+				ImagePullSecrets: []v1.LocalObjectReference{
+					{Name: "foo"},
+				},
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res, _ := MergeServingRuntimePodSpec(scenario.servingRuntimePodSpecBase, scenario.podSpecOverride)
+			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
+				t.Errorf("got %v, want %v", res, scenario.expected)
+			}
+		})
+	}
+}

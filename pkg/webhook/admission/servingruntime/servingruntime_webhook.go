@@ -43,7 +43,7 @@ const (
 	ProrityIsNotSameServingRuntimeError        = "%s under the servingruntime %s"
 	ProrityIsNotSameClusterServingRuntimeError = "%s under the clusterservingruntime %s"
 	InvalidWorkerSpecSizeValueError            = "the WorkerSpec.Size cannot be less than 2(%d)"
-	InvalidPipelineParallelSizeValueError      = "the PIPELINE_PARALLEL_SIZE cannot be less than 2 (%s) because PipelineParallelSize should include at least 1 head node and 1 worker node."
+	InvalidPipelineParallelSizeValueError      = "the PIPELINE_PARALLEL_SIZE cannot be less than 2 (%s) because PipelineParallelSize should include at least 1 head node and 1 worker node"
 	InvalidTensorParallelSizeValueError        = "the TENSOR_PARALLE_SIZE cannot be less than 1(%s)"
 	InvalidParallelSizeValueError              = "the value of PIPELINE_PARALLEL_SIZE or TENSOR_PARALLEL_SIZE is incorrect"
 	InvalidMultiNodeEnvVariablesError          = "the %s %s is invalid: %s"
@@ -186,6 +186,7 @@ func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existi
 	return nil
 }
 
+// validateMultiNodeVariables validates one of the following: tensor-parallel-size, pipeline-parallel-size, or WorkerSpec.Size
 func validateMultiNodeVariables(newSpec *v1alpha1.ServingRuntimeSpec) error {
 	if newSpec.WorkerSpec != nil {
 		for i, container := range newSpec.Containers {

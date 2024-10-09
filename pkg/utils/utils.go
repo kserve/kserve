@@ -17,8 +17,6 @@ limitations under the License.
 package utils
 
 import (
-	"fmt"
-	"math"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -244,17 +242,4 @@ func GetEnvVarValue(envVars []v1.EnvVar, key string) (string, bool) {
 		}
 	}
 	return "", false // if key does not exist, return "", false
-}
-
-func ConvertIntToInt32(number int, defaultValue int) (int32, error) {
-	// Check if the number exceeds the int32 limits
-	if number > math.MaxInt32 || number < math.MinInt32 {
-		// Also check the defaultValue to ensure it's safe to convert
-		if defaultValue > math.MaxInt32 || defaultValue < math.MinInt32 {
-			return int32(0), fmt.Errorf("the default value exceeds int32 limit")
-		}
-		return int32(defaultValue), fmt.Errorf("the value exceeds int32 limit")
-	}
-	convertedNumber := int32(number)
-	return convertedNumber, nil
 }

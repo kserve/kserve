@@ -146,7 +146,7 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	return allWarnings, nil
 }
 
-// Validate multi-node variables(tensor-parallel-size, pipeline-parallel-size, WorkerSpec.Size)
+// validateMultiNodeVariables validates one of the following: tensor-parallel-size, pipeline-parallel-size, or WorkerSpec.Size
 func validateMultiNodeVariables(isvc *InferenceService) error {
 	if isvc.Spec.Predictor.Model != nil {
 		if envPipelineParallelSize, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.PipelineParallelSizeEnvName); exists {

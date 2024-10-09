@@ -70,6 +70,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 	var deploymentList []*appsv1.Deployment
 	var workerNodeSize string
 	var pipelineParallelSize string
+	var tensorParallelSize string
 
 	isvcName := componentMeta.GetLabels()[constants.InferenceServiceLabel]
 	multiNodeEnabled := false
@@ -85,21 +86,20 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 		}
 	}
 
-	// Use defaut value(1) if tensor-parallel-size is not set (gpu count)
-	tensorParallelSize := constants.DefaultTensorParallelSize
-
-	for _, container := range podSpec.Containers {
-		if container.Name == constants.InferenceServiceContainerName {
-			if value, exists := utils.GetEnvVarValue(container.Env, constants.TensorParallelSizeEnvName); exists {
-				// Use the environment variable value
-				tensorParallelSize = value
-			}
-			break
-		}
-	}
-
 	defaultDeployment := createRawDefaultDeployment(componentMeta, componentExt, podSpec)
 	if multiNodeEnabled {
+		// Use defaut value(1) if tensor-parallel-size is not set (gpu count)
+		tensorParallelSize = constants.DefaultTensorParallelSize
+
+		for _, container := range podSpec.Containers {
+			if container.Name == constants.InferenceServiceContainerName {
+				if value, exists := utils.GetEnvVarValue(container.Env, constants.TensorParallelSizeEnvName); exists {
+					// Use the environment variable value
+					tensorParallelSize = value
+				}
+				break
+			}
+		}
 		// Update GPU resource of default podSpec
 		addGPUResourceToDeployment(defaultDeployment, constants.InferenceServiceContainerName, tensorParallelSize)
 
@@ -182,20 +182,14 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	setDefaultDeploymentSpec(&deployment.Spec)
 
 	// default workerNode deployment replicas
-	replicas, err := utils.ConvertIntToInt32(constants.DefaultWorkerMinSize, 1)
-	if err != nil {
-		log.Error(err, "Failed to convert replicas int to int32, using the default value(1) for replicas.")
-	}
+	replicas := intstr.FromInt(constants.DefaultWorkerMinSize)
 	if parsedValue, err := strconv.Atoi(pipelineParallelSize); err == nil {
-		replicas, err = utils.ConvertIntToInt32(parsedValue-1, 1)
-		if err != nil {
-			log.Error(err, "Failed to convert replicas int to int32, using the default value(1) for replicas.")
-		}
+		replicas = intstr.FromInt(parsedValue - 1)
 	} else {
 		log.Error(err, "Failed to convert pipelineParallelSize string to int, using the default value(1) for replicas.")
 	}
 
-	deployment.Spec.Replicas = &replicas
+	deployment.Spec.Replicas = &replicas.IntVal
 	addEnvVarToDeploymentSpec(&deployment.Spec, constants.WorkerContainerName, "ISVC_NAME", isvcName)
 	addEnvVarToDeploymentSpec(&deployment.Spec, constants.WorkerContainerName, constants.PipelineParallelSizeEnvName, pipelineParallelSize)
 	return deployment

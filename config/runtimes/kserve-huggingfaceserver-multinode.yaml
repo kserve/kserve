@@ -156,7 +156,7 @@ spec:
                   break
                 fi
                 echo "$SECONDS seconds elapsed: Still waiting for Global Control Service(GCS) to be ready."
-                echo "For troubleshooting, refer to the FAQ at https://github.com/ray-project/kuberay/blob/master/docs/guidance/FAQ.md."
+                echo "For troubleshooting, refer to the FAQ at https://docs.ray.io/en/master/cluster/kubernetes/troubleshooting/troubleshooting.html#kuberay-troubleshootin-guides"
               fi
               
               sleep 5

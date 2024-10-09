@@ -23,7 +23,6 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -130,16 +129,13 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 			}
 		} else {
 			port, _ := strconv.Atoi(constants.InferenceServiceDefaultHttpPort)
-			portInt32, err := utils.ConvertIntToInt32(port, 8080)
-			if err != nil {
-				log.Error(err, "Failed to convert port int to int32, using the default value(8080) for port.")
-			}
+			portInt32 := intstr.FromInt(port)
 			servicePorts = append(servicePorts, corev1.ServicePort{
 				Name: componentMeta.Name,
 				Port: constants.CommonDefaultHttpPort,
 				TargetPort: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: portInt32, // #nosec G109
+					IntVal: portInt32.IntVal, // #nosec G109
 				},
 				Protocol: corev1.ProtocolTCP,
 			})

@@ -579,8 +579,10 @@ func TestCreateDefaultDeployment(t *testing.T) {
 }
 
 func int32Ptr(i int32) *int32 {
-	return &i
+	val := i
+	return &val
 }
 func BoolPtr(b bool) *bool {
-	return &b
+	val := b
+	return &val
 }
