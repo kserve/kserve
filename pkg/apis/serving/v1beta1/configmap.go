@@ -219,8 +219,8 @@ func NewSecurityConfig(clientset kubernetes.Interface) (*SecurityConfig, error) 
 		return nil, err
 	}
 	securityConfig := &SecurityConfig{}
-	if securityConfig, ok := configMap.Data[SecurityConfigName]; ok {
-		err := json.Unmarshal([]byte(securityConfig), &securityConfig)
+	if security, ok := configMap.Data[SecurityConfigName]; ok {
+		err := json.Unmarshal([]byte(security), &securityConfig)
 		if err != nil {
 			return nil, err
 		}
