@@ -570,14 +570,12 @@
         "sourceDestinations"
       ],
       "properties": {
-        "modelStatus": {
-          "type": "string"
-        },
         "sourceDestinations": {
+          "description": "List of model source URI and destination pairs",
           "type": "array",
           "items": {
             "default": {},
-            "$ref": "#/definitions/v1alpha1.SourceDestination"
+            "$ref": "#/definitions/v1alpha1.ModelInfo"
           }
         }
       }

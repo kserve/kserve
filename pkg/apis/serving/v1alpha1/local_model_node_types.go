@@ -18,15 +18,17 @@ package v1alpha1
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-type SourceDestination struct {
-	SourceURI   string `json:"sourceUri"`
-	Destination string `json:"destination"`
+type ModelInfo struct {
+	// Original StorageUri
+	SourceModelUri string `json:"sourceModelUri" validate:"required"`
+	// Model name. Used as name of the subdirectory to store model locally
+	ModelName string `json:"modelName" validate:"required"`
 }
 
 // +k8s:openapi-gen=true
 type LocalModelNodeSpec struct {
-	SourceDestinations []SourceDestination `json:"sourceDestinations"`
-	ModelStatus        *ModelStatus        `json:"modelStatus,omitempty"`
+	// List of model source URI and destination pairs
+	SourceDestinations []ModelInfo `json:"sourceDestinations"`
 }
 
 // +k8s:openapi-gen=true

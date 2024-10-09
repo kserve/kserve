@@ -26,24 +26,16 @@ spec:
             type: object
           spec:
             properties:
-              modelStatus:
-                enum:
-                - ""
-                - ModelDownloadPending
-                - ModelDownloading
-                - ModelDownloaded
-                - ModelDownloadError
-                type: string
               sourceDestinations:
                 items:
                   properties:
-                    destination:
+                    modelName:
                       type: string
-                    sourceUri:
+                    sourceModelUri:
                       type: string
                   required:
-                  - destination
-                  - sourceUri
+                  - modelName
+                  - sourceModelUri
                   type: object
                 type: array
             required:

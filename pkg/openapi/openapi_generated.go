@@ -1099,21 +1099,16 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNodeSpec(ref common.ReferenceCal
 				Properties: map[string]spec.Schema{
 					"sourceDestinations": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "List of model source URI and destination pairs",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
 										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SourceDestination"),
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ModelInfo"),
 									},
 								},
 							},
-						},
-					},
-					"modelStatus": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
 						},
 					},
 				},
@@ -1121,7 +1116,7 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNodeSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SourceDestination"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ModelInfo"},
 	}
 }
 

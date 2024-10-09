@@ -3,8 +3,7 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**model_status** | **str** |  | [optional] 
-**source_destinations** | [**list[V1alpha1SourceDestination]**](V1alpha1SourceDestination.md) |  | 
+**source_destinations** | [**list[V1alpha1ModelInfo]**](V1alpha1ModelInfo.md) | List of model source URI and destination pairs | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
