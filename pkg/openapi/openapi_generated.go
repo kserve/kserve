@@ -2236,7 +2236,7 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 					},
 					"labels": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels",
+							Description: "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -2252,7 +2252,7 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 					},
 					"annotations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations",
+							Description: "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -4704,7 +4704,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 					},
 					"labels": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels",
+							Description: "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -4720,7 +4720,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 					},
 					"annotations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations",
+							Description: "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -8682,7 +8682,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					},
 					"labels": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels",
+							Description: "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -8698,7 +8698,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					},
 					"annotations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations",
+							Description: "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -10274,7 +10274,7 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 					},
 					"labels": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels",
+							Description: "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
@@ -10290,7 +10290,7 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 					},
 					"annotations": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations",
+							Description: "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
 							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
