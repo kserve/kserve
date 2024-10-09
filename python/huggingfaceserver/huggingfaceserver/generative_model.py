@@ -218,6 +218,7 @@ class HuggingfaceGenerativeModel(
             tokenizer_kwargs["trust_remote_code"] = True
 
         model_kwargs["torch_dtype"] = self.dtype
+        tokenizer_kwargs["clean_up_tokenization_spaces"] = True
 
         # load huggingface tokenizer
         self._tokenizer = AutoTokenizer.from_pretrained(
