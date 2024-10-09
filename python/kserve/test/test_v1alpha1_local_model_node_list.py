@@ -30,8 +30,11 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1alpha1_local_model_node_list import V1alpha1LocalModelNodeList  # noqa: E501
+from kserve.models.v1alpha1_local_model_node_list import (
+    V1alpha1LocalModelNodeList,
+)  # noqa: E501
 from kserve.rest import ApiException
+
 
 class TestV1alpha1LocalModelNodeList(unittest.TestCase):
     """V1alpha1LocalModelNodeList unit test stubs"""
@@ -44,41 +47,41 @@ class TestV1alpha1LocalModelNodeList(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1LocalModelNodeList
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_local_model_node_list.V1alpha1LocalModelNodeList()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1LocalModelNodeList(
-                api_version = '0', 
-                items = [
+                api_version="0",
+                items=[
                     kserve.models.v1alpha1_local_model_node.V1alpha1LocalModelNode(
-                        api_version = '0', 
-                        kind = '0', 
-                        metadata = None, 
-                        spec = kserve.models.v1alpha1_local_model_node_spec.V1alpha1LocalModelNodeSpec(
-                            local_models = [
-                                None
-                                ], ), 
-                        status = None, )
-                    ], 
-                kind = '0', 
-                metadata = None
+                        api_version="0",
+                        kind="0",
+                        metadata=None,
+                        spec=kserve.models.v1alpha1_local_model_node_spec.V1alpha1LocalModelNodeSpec(
+                            local_models=[None],
+                        ),
+                        status=None,
+                    )
+                ],
+                kind="0",
+                metadata=None,
             )
-        else :
+        else:
             return V1alpha1LocalModelNodeList(
-                items = [
+                items=[
                     kserve.models.v1alpha1_local_model_node.V1alpha1LocalModelNode(
-                        api_version = '0', 
-                        kind = '0', 
-                        metadata = None, 
-                        spec = kserve.models.v1alpha1_local_model_node_spec.V1alpha1LocalModelNodeSpec(
-                            local_models = [
-                                None
-                                ], ), 
-                        status = None, )
-                    ],
-        )
+                        api_version="0",
+                        kind="0",
+                        metadata=None,
+                        spec=kserve.models.v1alpha1_local_model_node_spec.V1alpha1LocalModelNodeSpec(
+                            local_models=[None],
+                        ),
+                        status=None,
+                    )
+                ],
+            )
 
     def testV1alpha1LocalModelNodeList(self):
         """Test V1alpha1LocalModelNodeList"""
@@ -86,5 +89,5 @@ class TestV1alpha1LocalModelNodeList(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
