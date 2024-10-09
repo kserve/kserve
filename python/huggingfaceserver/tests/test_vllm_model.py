@@ -136,18 +136,12 @@ class TestChatTemplate:
                 "content": "How many helicopters can a human eat in one sitting?",
             },
         ]
-        chat_template = """{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}"""  # noqa: E501
+        chat_template = "{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}"
         response = opt_model.apply_chat_template(messages, chat_template)
 
         expected = ChatPrompt(
             response_role="assistant",
-            prompt="""<|im_start|>system
-You are a friendly chatbot who always responds in the style of a pirate<|im_end|>
-<|im_start|>user
-How many helicopters can a human eat in one sitting?<|im_end|>
-<|im_start|>assistant
-""",
+            prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
         )
         assert compare_chatprompt_to_expected(response, expected) is True
 
@@ -214,8 +208,7 @@ class TestChatCompletions:
             messages=messages,
             stream=False,
             max_tokens=10,
-            chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
+            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
         )
         request = ChatCompletionRequest(params=params, context={})
         response = await opt_model.create_chat_completion(request)
@@ -272,8 +265,7 @@ class TestChatCompletions:
             messages=messages,
             stream=False,
             max_tokens=10,
-            chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
+            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -333,8 +325,7 @@ class TestChatCompletions:
             messages=messages,
             stream=True,
             max_tokens=10,
-            chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
+            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -385,8 +376,7 @@ class TestChatCompletions:
             max_tokens=10,
             log_probs=True,
             top_logprobs=2,
-            chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
+            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -697,8 +687,7 @@ class TestChatCompletions:
             max_tokens=10,
             log_probs=True,
             top_logprobs=2,
-            chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
+            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -954,8 +943,7 @@ class TestChatCompletions:
             messages=messages,
             stream=True,
             max_tokens=2048,
-            chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
+            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -992,8 +980,7 @@ class TestChatCompletions:
             stream=False,
             max_tokens=10,
             logit_bias={"1527": 50, "27449": 100},
-            chat_template="""{% for message in messages %}{{'<|im_start|>' + message['role'] + '\\n' + message['content']}}{% if (loop.last and add_generation_prompt) or not loop.last %}{{ '<|im_end|>' + '\\n'}}{% endif %}{% endfor %}
-{% if add_generation_prompt and messages[-1]['role'] != 'assistant' %}{{ '<|im_start|>assistant\\n' }}{% endif %}""",  # noqa: E501
+            chat_template="{% for message in messages %}" "{{ message.content }}{{ eos_token }}" "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
