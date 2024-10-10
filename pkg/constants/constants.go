@@ -82,27 +82,27 @@ const (
 
 // InferenceService Annotations
 var (
-	InferenceServiceGKEAcceleratorAnnotationKey       = KServeAPIGroupName + "/gke-accelerator"
-	DeploymentMode                                    = KServeAPIGroupName + "/deploymentMode"
-	EnableRoutingTagAnnotationKey                     = KServeAPIGroupName + "/enable-tag-routing"
-	DisableLocalModelKey                              = KServeAPIGroupName + "/disable-localmodel"
-	AutoscalerClass                                   = KServeAPIGroupName + "/autoscalerClass"
-	AutoscalerMetrics                                 = KServeAPIGroupName + "/metrics"
-	TargetUtilizationPercentage                       = KServeAPIGroupName + "/targetUtilizationPercentage"
-	MinScaleAnnotationKey                             = KnativeAutoscalingAPIGroupName + "/min-scale"
-	MaxScaleAnnotationKey                             = KnativeAutoscalingAPIGroupName + "/max-scale"
-	RollOutDurationAnnotationKey                      = KnativeServingAPIGroupName + "/rollout-duration"
-	KnativeOpenshiftEnablePassthroughKey              = "serving.knative.openshift.io/enablePassthrough"
-	EnableMetricAggregation                           = KServeAPIGroupName + "/enable-metric-aggregation"
-	SetPrometheusAnnotation                           = KServeAPIGroupName + "/enable-prometheus-scraping"
-	KserveContainerPrometheusPortKey                  = "prometheus.kserve.io/port"
-	KServeContainerPrometheusPathKey                  = "prometheus.kserve.io/path"
-	PrometheusPortAnnotationKey                       = "prometheus.io/port"
-	PrometheusPathAnnotationKey                       = "prometheus.io/path"
-	StorageReadonlyAnnotationKey                      = "storage.kserve.io/readonly"
-	DefaultPrometheusPath                             = "/metrics"
-	QueueProxyAggregatePrometheusMetricsPort    int32 = 9088
-	DefaultPodPrometheusPort                          = "9091"
+	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
+	DeploymentMode                              = KServeAPIGroupName + "/deploymentMode"
+	EnableRoutingTagAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
+	DisableLocalModelKey                        = KServeAPIGroupName + "/disable-localmodel"
+	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
+	AutoscalerMetrics                           = KServeAPIGroupName + "/metrics"
+	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
+	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/min-scale"
+	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/max-scale"
+	RollOutDurationAnnotationKey                = KnativeServingAPIGroupName + "/rollout-duration"
+	KnativeOpenshiftEnablePassthroughKey        = "serving.knative.openshift.io/enablePassthrough"
+	EnableMetricAggregation                     = KServeAPIGroupName + "/enable-metric-aggregation"
+	SetPrometheusAnnotation                     = KServeAPIGroupName + "/enable-prometheus-scraping"
+	KserveContainerPrometheusPortKey            = "prometheus.kserve.io/port"
+	KServeContainerPrometheusPathKey            = "prometheus.kserve.io/path"
+	PrometheusPortAnnotationKey                 = "prometheus.io/port"
+	PrometheusPathAnnotationKey                 = "prometheus.io/path"
+	StorageReadonlyAnnotationKey                = "storage.kserve.io/readonly"
+	DefaultPrometheusPath                       = "/metrics"
+	QueueProxyAggregatePrometheusMetricsPort    = "9088"
+	DefaultPodPrometheusPort                    = "9091"
 )
 
 // InferenceService Internal Annotations
@@ -147,14 +147,14 @@ var (
 
 // Controller Constants
 var (
-	ControllerLabelName             = KServeName + "-controller-manager"
-	DefaultIstioSidecarUID          = int64(1337)
-	DefaultMinReplicas              = 1
-	IstioInitContainerName          = "istio-init"
-	IstioInterceptModeRedirect      = "REDIRECT"
-	IstioInterceptionModeAnnotation = "sidecar.istio.io/interceptionMode"
-	IstioSidecarUIDAnnotationKey    = KServeAPIGroupName + "/storage-initializer-uid"
-	IstioSidecarStatusAnnotation    = "sidecar.istio.io/status"
+	ControllerLabelName                   = KServeName + "-controller-manager"
+	DefaultIstioSidecarUID                = int64(1337)
+	DefaultMinReplicas              int32 = 1
+	IstioInitContainerName                = "istio-init"
+	IstioInterceptModeRedirect            = "REDIRECT"
+	IstioInterceptionModeAnnotation       = "sidecar.istio.io/interceptionMode"
+	IstioSidecarUIDAnnotationKey          = KServeAPIGroupName + "/storage-initializer-uid"
+	IstioSidecarStatusAnnotation          = "sidecar.istio.io/status"
 )
 
 type AutoscalerClassType string

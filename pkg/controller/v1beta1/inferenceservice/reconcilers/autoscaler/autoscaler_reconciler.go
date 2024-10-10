@@ -84,7 +84,7 @@ func createAutoscaler(client client.Client,
 	ac := getAutoscalerClass(componentMeta)
 	switch ac {
 	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal:
-		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt), nil
+		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt)
 	default:
 		return nil, fmt.Errorf("unknown autoscaler class type: %v", ac)
 	}
