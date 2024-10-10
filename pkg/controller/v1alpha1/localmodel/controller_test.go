@@ -20,9 +20,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -30,6 +27,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var _ = Describe("CachedModel controller", func() {
@@ -211,6 +212,31 @@ var _ = Describe("CachedModel controller", func() {
 			// Now let's test deletion
 			k8sClient.Delete(ctx, cachedModel)
 
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
+				if err != nil {
+					return false
+				}
+				if cachedModel.Status.ModelCopies == nil {
+					return false
+				}
+				if cachedModel.Status.NodeStatus[nodeName] != v1alpha1.NodeDeleting {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue(), "Node status should be deleting")
+
+			// Deletion job should be created
+			deletionJob := &batchv1.Job{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: "iris-node-1-delete", Namespace: modelCacheNamespace}, deletionJob)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Let's we update deletion job status to be successful and check if the cr is deleted.
+			deletionJob.Status.Succeeded = 1
+			Expect(k8sClient.Status().Update(ctx, deletionJob)).Should(Succeed())
+
 			newLocalModel := &v1alpha1.ClusterLocalModel{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, newLocalModel)
@@ -285,10 +311,7 @@ var _ = Describe("CachedModel controller", func() {
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			// Expects a pv and a pvc are created in the isvcNamespace

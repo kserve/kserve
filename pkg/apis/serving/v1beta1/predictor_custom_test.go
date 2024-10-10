@@ -19,14 +19,15 @@ package v1beta1
 import (
 	"testing"
 
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestCustomPredictorValidation(t *testing.T) {
@@ -171,7 +172,6 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 }
 
 func TestCreateCustomPredictorContainer(t *testing.T) {
-
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.Quantity{
