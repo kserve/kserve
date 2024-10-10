@@ -254,7 +254,7 @@ func (in *InferenceGraphSpec) DeepCopyInto(out *InferenceGraphSpec) {
 	}
 	if in.MinReplicas != nil {
 		in, out := &in.MinReplicas, &out.MinReplicas
-		*out = new(int)
+		*out = new(int32)
 		**out = **in
 	}
 	if in.ScaleTarget != nil {
