@@ -17,14 +17,18 @@ limitations under the License.
 package servingruntime
 
 import (
+	"errors"
 	"fmt"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
+
 	"google.golang.org/protobuf/proto"
+	"testing"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestValidateServingRuntimePriority(t *testing.T) {
@@ -1443,6 +1447,186 @@ func TestValidateModelFormatPrioritySame(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
 			err := validateModelFormatPrioritySame(&scenario.newServingRuntime.Spec)
+			g.Expect(err).To(scenario.expected)
+		})
+	}
+}
+
+func TestValidateMultiNodeVariables(t *testing.T) {
+	scenarios := map[string]struct {
+		name              string
+		newServingRuntime *v1alpha1.ServingRuntime
+		expected          gomega.OmegaMatcher
+	}{
+		"When pipeline-parallel-size set less than 2, then it should return error": {
+			newServingRuntime: &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "example-runtime-1",
+					Namespace: "test",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  constants.InferenceServiceContainerName,
+								Image: "kserve/sklearnserver:latest",
+								Args: []string{
+									"--model_name={{.Name}}",
+									"--model_dir=/mnt/models",
+									"--http_port=8080",
+								},
+								Env: []corev1.EnvVar{
+									{Name: constants.PipelineParallelSizeEnvName, Value: "1"},
+								},
+							},
+						},
+					},
+					WorkerSpec: &v1alpha1.WorkerSpec{
+						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:    "worker-container",
+									Image:   "kserve/huggingfaceserver:latest",
+									Command: []string{"bash", "-c"},
+									Args: []string{
+										"ray start --address=$RAY_HEAD_ADDRESS --block",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidPipelineParallelSizeValueError, "1")),
+		},
+		"When tensor-parallel-size set less than 1, then it should return error": {
+			newServingRuntime: &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "example-runtime-1",
+					Namespace: "test",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  constants.InferenceServiceContainerName,
+								Image: "kserve/sklearnserver:latest",
+								Args: []string{
+									"--model_name={{.Name}}",
+									"--model_dir=/mnt/models",
+									"--http_port=8080",
+								},
+								Env: []corev1.EnvVar{
+									{Name: constants.TensorParallelSizeEnvName, Value: "0"},
+								},
+							},
+						},
+					},
+					WorkerSpec: &v1alpha1.WorkerSpec{
+						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:    "worker-container",
+									Image:   "kserve/huggingfaceserver:latest",
+									Command: []string{"bash", "-c"},
+									Args: []string{
+										"ray start --address=$RAY_HEAD_ADDRESS --block",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidTensorParallelSizeValueError, "0")),
+		},
+		"When pipeline-parallel-size set wrong value, then it should return error": {
+			newServingRuntime: &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "example-runtime-1",
+					Namespace: "test",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  constants.InferenceServiceContainerName,
+								Image: "kserve/sklearnserver:latest",
+								Args: []string{
+									"--model_name={{.Name}}",
+									"--model_dir=/mnt/models",
+									"--http_port=8080",
+								},
+								Env: []corev1.EnvVar{
+									{Name: constants.PipelineParallelSizeEnvName, Value: "test"},
+								},
+							},
+						},
+					},
+					WorkerSpec: &v1alpha1.WorkerSpec{
+						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:    "worker-container",
+									Image:   "kserve/huggingfaceserver:latest",
+									Command: []string{"bash", "-c"},
+									Args: []string{
+										"ray start --address=$RAY_HEAD_ADDRESS --block",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(errors.New(InvalidParallelSizeValueError)),
+		},
+		"When tensor-parallel-size set wrong value, then it should return error": {
+			newServingRuntime: &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "example-runtime-1",
+					Namespace: "test",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  constants.InferenceServiceContainerName,
+								Image: "kserve/sklearnserver:latest",
+								Args: []string{
+									"--model_name={{.Name}}",
+									"--model_dir=/mnt/models",
+									"--http_port=8080",
+								},
+								Env: []corev1.EnvVar{
+									{Name: constants.TensorParallelSizeEnvName, Value: "test"},
+								},
+							},
+						},
+					},
+					WorkerSpec: &v1alpha1.WorkerSpec{
+						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:    "worker-container",
+									Image:   "kserve/huggingfaceserver:latest",
+									Command: []string{"bash", "-c"},
+									Args: []string{
+										"ray start --address=$RAY_HEAD_ADDRESS --block",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(errors.New(InvalidParallelSizeValueError)),
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			err := validateMultiNodeVariables(&scenario.newServingRuntime.Spec)
 			g.Expect(err).To(scenario.expected)
 		})
 	}

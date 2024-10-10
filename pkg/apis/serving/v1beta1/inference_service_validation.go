@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -116,6 +117,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
+	if err := validateMultiNodeVariables(isvc); err != nil {
+		return allWarnings, err
+	}
+
 	if err := validateCollocationStorageURI(isvc.Spec.Predictor); err != nil {
 		return allWarnings, err
 	}
@@ -139,6 +144,40 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		}
 	}
 	return allWarnings, nil
+}
+
+// validateMultiNodeVariables validates one of the following: tensor-parallel-size, pipeline-parallel-size, or WorkerSpec.Size
+func validateMultiNodeVariables(isvc *InferenceService) error {
+	if isvc.Spec.Predictor.Model != nil {
+		if envPipelineParallelSize, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.PipelineParallelSizeEnvName); exists {
+			// pipelineParallelSize should be bigger than 1 (head + worker)
+			if intPipelineParallelSize, err := strconv.Atoi(envPipelineParallelSize); err == nil {
+				if intPipelineParallelSize < 2 {
+					return fmt.Errorf(InvalidPipelineParallelSizeValueError, isvc.Name, envPipelineParallelSize)
+				}
+			} else {
+				return fmt.Errorf(InvalidParallelSizeValueError, isvc.Name, envPipelineParallelSize)
+			}
+		}
+		if envTensorParallelSize, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.TensorParallelSizeEnvName); exists {
+			// GPU resource should be bigger than 1.
+			if intTensorParallelSize, err := strconv.Atoi(envTensorParallelSize); err == nil {
+				if intTensorParallelSize < 1 {
+					return fmt.Errorf(InvalidTensorParallelSizeValueError, isvc.Name, envTensorParallelSize)
+				}
+			} else {
+				return fmt.Errorf(InvalidParallelSizeValueError, isvc.Name, envTensorParallelSize)
+			}
+		}
+	}
+	if isvc.Spec.Predictor.WorkerSpec != nil {
+		// WorkerSpec.Size should be bigger than 0.
+		WorkerSpecSize := isvc.Spec.Predictor.WorkerSpec.Size
+		if WorkerSpecSize < 1 {
+			return fmt.Errorf(InvalidWorkerSpecSizeValueError, isvc.Name, WorkerSpecSize)
+		}
+	}
+	return nil
 }
 
 // Validate scaling options component extensions
@@ -280,7 +319,7 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 		if container.Name == constants.TransformerContainerName {
 			for _, env := range container.Env {
 				if env.Name == constants.CustomSpecStorageUriEnvVarKey {
-					return fmt.Errorf(StorageUriPresentInTransformerError)
+					return errors.New(StorageUriPresentInTransformerError)
 				}
 			}
 			break

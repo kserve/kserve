@@ -541,3 +541,38 @@ func TestIsPrefixSupported(t *testing.T) {
 		})
 	}
 }
+
+func TestGetEnvVarValue(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		envList          []v1.EnvVar
+		targetEnvName    string
+		expectedEnvValue string
+		expectedExist    bool
+	}{
+		"EnvExist": {
+			envList: []v1.EnvVar{
+				{Name: "test-name", Value: "test-value"},
+			},
+			targetEnvName:    "test-name",
+			expectedEnvValue: "test-value",
+			expectedExist:    true,
+		},
+		"EnvDoesNotExist": {
+			envList: []v1.EnvVar{
+				{Name: "test-name", Value: "test-value"},
+			},
+			targetEnvName:    "wrong",
+			expectedEnvValue: "",
+			expectedExist:    false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res, exists := GetEnvVarValue(scenario.envList, scenario.targetEnvName)
+			g.Expect(res).Should(gomega.Equal(scenario.expectedEnvValue))
+			g.Expect(exists).Should(gomega.Equal(scenario.expectedExist))
+		})
+	}
+}

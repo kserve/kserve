@@ -145,18 +145,22 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 	objectMeta, componentExtSpec := constructForRawDeployment(graph)
 
 	// create the reconciler
-	reconciler, err := raw.NewRawKubeReconciler(cl, clientset, scheme, objectMeta, &componentExtSpec, desiredSvc)
+	reconciler, err := raw.NewRawKubeReconciler(cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
 
 	if err != nil {
 		return nil, reconciler.URL, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
 	}
 	// set Deployment Controller
-	if err := controllerutil.SetControllerReference(graph, reconciler.Deployment.Deployment, scheme); err != nil {
-		return nil, reconciler.URL, errors.Wrapf(err, "fails to set deployment owner reference for inference graph")
+	for _, deployment := range reconciler.Deployment.DeploymentList {
+		if err := controllerutil.SetControllerReference(graph, deployment, scheme); err != nil {
+			return nil, reconciler.URL, errors.Wrapf(err, "fails to set deployment owner reference for inference graph")
+		}
 	}
 	// set Service Controller
-	if err := controllerutil.SetControllerReference(graph, reconciler.Service.Service, scheme); err != nil {
-		return nil, reconciler.URL, errors.Wrapf(err, "fails to set service owner reference for inference graph")
+	for _, svc := range reconciler.Service.ServiceList {
+		if err := controllerutil.SetControllerReference(graph, svc, scheme); err != nil {
+			return nil, reconciler.URL, errors.Wrapf(err, "fails to set service owner reference for inference graph")
+		}
 	}
 
 	// set autoscaler Controller

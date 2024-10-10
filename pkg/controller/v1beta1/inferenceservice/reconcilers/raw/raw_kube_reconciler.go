@@ -49,8 +49,9 @@ func NewRawKubeReconciler(client client.Client,
 	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
+	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec) (*RawKubeReconciler, error) {
+	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) (*RawKubeReconciler, error) {
 	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt)
 	if err != nil {
 		return nil, err
@@ -60,12 +61,16 @@ func NewRawKubeReconciler(client client.Client,
 	if err != nil {
 		return nil, err
 	}
+	var multiNodeEnabled bool
+	if workerComponentMeta.Name != "" {
+		multiNodeEnabled = true
+	}
 
 	return &RawKubeReconciler{
 		client:     client,
 		scheme:     scheme,
-		Deployment: deployment.NewDeploymentReconciler(client, scheme, componentMeta, componentExt, podSpec),
-		Service:    service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec),
+		Deployment: deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec),
+		Service:    service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled),
 		Scaler:     as,
 		URL:        url,
 	}, nil
@@ -104,5 +109,5 @@ func (r *RawKubeReconciler) Reconcile() (*appsv1.Deployment, error) {
 	if err != nil {
 		return nil, err
 	}
-	return deployment, nil
+	return deployment[0], nil
 }

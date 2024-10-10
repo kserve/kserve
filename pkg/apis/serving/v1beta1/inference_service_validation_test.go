@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -508,4 +509,142 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 		})
 	}
 
+}
+
+func TestValidateMultiNodeVariables(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc     *InferenceService
+		expected gomega.OmegaMatcher
+	}{
+		"When pipeline-parallel-size set less than 2, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-1",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Env: []v1.EnvVar{
+										{Name: constants.PipelineParallelSizeEnvName, Value: "1"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidPipelineParallelSizeValueError, "foo-1", "1")),
+		},
+		"When tensor-parallel-size set less than 1, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-2",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Env: []v1.EnvVar{
+										{Name: constants.TensorParallelSizeEnvName, Value: "0"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidTensorParallelSizeValueError, "foo-2", "0")),
+		},
+		"When pipeline-parallel-size set wrong value, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-3",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Env: []v1.EnvVar{
+										{Name: constants.PipelineParallelSizeEnvName, Value: "test"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidParallelSizeValueError, "foo-3", "test")),
+		},
+		"When tensor-parallel-size set wrong value, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-4",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Env: []v1.EnvVar{
+										{Name: constants.TensorParallelSizeEnvName, Value: "test"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidParallelSizeValueError, "foo-4", "test")),
+		},
+		"When WorkerSpec.Size set less than 2, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-5",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec: PodSpec{},
+							Size:    0,
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecSizeValueError, "foo-5", 0)),
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateMultiNodeVariables(scenario.isvc)
+			g.Expect(err).To(scenario.expected)
+		})
+	}
 }

@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -37,26 +38,56 @@ var log = logf.Log.WithName("ServiceReconciler")
 
 // ServiceReconciler is the struct of Raw K8S Object
 type ServiceReconciler struct {
-	client       client.Client
-	scheme       *runtime.Scheme
-	Service      *corev1.Service
-	componentExt *v1beta1.ComponentExtensionSpec
+	client           client.Client
+	scheme           *runtime.Scheme
+	ServiceList      []*corev1.Service
+	componentExt     *v1beta1.ComponentExtensionSpec
+	multiNodeEnabled bool
 }
 
 func NewServiceReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec) *ServiceReconciler {
+	podSpec *corev1.PodSpec, multiNodeEnabled bool) *ServiceReconciler {
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
-		Service:      createService(componentMeta, componentExt, podSpec),
+		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled),
 		componentExt: componentExt,
 	}
 }
 
 func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
+	podSpec *corev1.PodSpec, multiNodeEnabled bool) []*corev1.Service {
+	var svcList []*corev1.Service
+	var isWorkerContainer bool
+
+	if multiNodeEnabled {
+		for _, container := range podSpec.Containers {
+			if container.Name == constants.WorkerContainerName {
+				isWorkerContainer = true
+			}
+		}
+	}
+
+	if !multiNodeEnabled {
+		// If multiNodeEnabled is false, only defaultSvc will be created.
+		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec)
+		svcList = append(svcList, defaultSvc)
+	} else if multiNodeEnabled && !isWorkerContainer {
+		// If multiNodeEnabled is true, both defaultSvc and headSvc will be created.
+		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec)
+		svcList = append(svcList, defaultSvc)
+
+		headSvc := createHeadSvc(componentMeta)
+		svcList = append(svcList, headSvc)
+	}
+
+	return svcList
+}
+
+func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec) *corev1.Service {
 	var servicePorts []corev1.ServicePort
 	if len(podSpec.Containers) != 0 {
@@ -98,12 +129,13 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 			}
 		} else {
 			port, _ := strconv.Atoi(constants.InferenceServiceDefaultHttpPort)
+			portInt32 := intstr.FromInt(port)
 			servicePorts = append(servicePorts, corev1.ServicePort{
 				Name: componentMeta.Name,
 				Port: constants.CommonDefaultHttpPort,
 				TargetPort: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: int32(port), // #nosec G109
+					IntVal: portInt32.IntVal, // #nosec G109
 				},
 				Protocol: corev1.ProtocolTCP,
 			})
@@ -134,13 +166,30 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 	return service
 }
 
+func createHeadSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
+	predictorSvcName := componentMeta.Name
+	isvName := strings.TrimSuffix(componentMeta.Name, "-predictor")
+	componentMeta.Name = isvName + "-head"
+	service := &corev1.Service{
+		ObjectMeta: componentMeta,
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"app": constants.GetRawServiceLabel(predictorSvcName),
+			},
+			ClusterIP:                "None",
+			PublishNotReadyAddresses: true,
+		},
+	}
+	return service
+}
+
 // checkServiceExist checks if the service exists?
-func (r *ServiceReconciler) checkServiceExist(client client.Client) (constants.CheckResultType, *corev1.Service, error) {
+func (r *ServiceReconciler) checkServiceExist(client client.Client, svc *corev1.Service) (constants.CheckResultType, *corev1.Service, error) {
 	// get service
 	existingService := &corev1.Service{}
 	err := client.Get(context.TODO(), types.NamespacedName{
-		Namespace: r.Service.Namespace,
-		Name:      r.Service.Name,
+		Namespace: svc.Namespace,
+		Name:      svc.Name,
 	}, existingService)
 	if err != nil {
 		if apierr.IsNotFound(err) {
@@ -150,7 +199,7 @@ func (r *ServiceReconciler) checkServiceExist(client client.Client) (constants.C
 	}
 
 	// existed, check equivalent
-	if semanticServiceEquals(r.Service, existingService) {
+	if semanticServiceEquals(svc, existingService) {
 		return constants.CheckResultExisted, existingService, nil
 	}
 	return constants.CheckResultUpdate, existingService, nil
@@ -162,27 +211,29 @@ func semanticServiceEquals(desired, existing *corev1.Service) bool {
 }
 
 // Reconcile ...
-func (r *ServiceReconciler) Reconcile() (*corev1.Service, error) {
-	// reconcile Service
-	checkResult, existingService, err := r.checkServiceExist(r.client)
-	log.Info("service reconcile", "checkResult", checkResult, "err", err)
-	if err != nil {
-		return nil, err
+func (r *ServiceReconciler) Reconcile() ([]*corev1.Service, error) {
+	for _, svc := range r.ServiceList {
+		// reconcile Service
+		checkResult, _, err := r.checkServiceExist(r.client, svc)
+		log.Info("service reconcile", "checkResult", checkResult, "err", err)
+		if err != nil {
+			return nil, err
+		}
+
+		var opErr error
+		switch checkResult {
+		case constants.CheckResultCreate:
+			if !r.multiNodeEnabled {
+				opErr = r.client.Create(context.TODO(), svc)
+			}
+		case constants.CheckResultUpdate:
+			opErr = r.client.Update(context.TODO(), svc)
+		}
+
+		if opErr != nil {
+			return nil, opErr
+		}
 	}
 
-	var opErr error
-	switch checkResult {
-	case constants.CheckResultCreate:
-		opErr = r.client.Create(context.TODO(), r.Service)
-	case constants.CheckResultUpdate:
-		opErr = r.client.Update(context.TODO(), r.Service)
-	default:
-		return existingService, nil
-	}
-
-	if opErr != nil {
-		return nil, opErr
-	}
-
-	return r.Service, nil
+	return r.ServiceList, nil
 }
