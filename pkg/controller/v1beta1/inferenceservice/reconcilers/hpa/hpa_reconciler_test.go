@@ -19,18 +19,18 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestCreateHPA(t *testing.T) {
-
 	type args struct {
 		objectMeta   metav1.ObjectMeta
 		componentExt *v1beta1.ComponentExtensionSpec
