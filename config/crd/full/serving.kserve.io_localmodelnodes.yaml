@@ -1,0 +1,61 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.2
+  name: localmodelnodes.serving.kserve.io
+spec:
+  group: serving.kserve.io
+  names:
+    kind: LocalModelNode
+    listKind: LocalModelNodeList
+    plural: localmodelnodes
+    singular: localmodelnode
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              localModels:
+                items:
+                  properties:
+                    modelName:
+                      type: string
+                    sourceModelUri:
+                      type: string
+                  required:
+                  - modelName
+                  - sourceModelUri
+                  type: object
+                type: array
+            required:
+            - localModels
+            type: object
+          status:
+            properties:
+              modelStatus:
+                additionalProperties:
+                  enum:
+                  - ""
+                  - ModelDownloadPending
+                  - ModelDownloading
+                  - ModelDownloaded
+                  - ModelDownloadError
+                  type: string
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
