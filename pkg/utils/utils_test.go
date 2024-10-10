@@ -18,16 +18,17 @@ package utils
 
 import (
 	"errors"
+	"strconv"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials/gcs"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-
-	"github.com/google/go-cmp/cmp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestFilterUtil(t *testing.T) {
@@ -685,6 +686,223 @@ func TestIsValidCustomGPUArray(t *testing.T) {
 			result := IsValidCustomGPUArray(test.input)
 			if result != test.expected {
 				t.Errorf("expected %v, got %v", test.expected, result)
+			}
+		})
+	}
+}
+
+func TestAppendEnvVarIfNotExists(t *testing.T) {
+	scenarios := map[string]struct {
+		initialEnvs  []v1.EnvVar
+		newEnvs      []v1.EnvVar
+		expectedEnvs []v1.EnvVar
+	}{
+		"EnvVarAlreadyExists": {
+			initialEnvs: []v1.EnvVar{
+				{Name: "ENV1", Value: "value1"},
+				{Name: "ENV2", Value: "value2"},
+			},
+			newEnvs: []v1.EnvVar{
+				{Name: "ENV1", Value: "new_value1"},
+			},
+			expectedEnvs: []v1.EnvVar{
+				{Name: "ENV1", Value: "value1"},
+				{Name: "ENV2", Value: "value2"},
+			},
+		},
+		"EnvVarDoesNotExist": {
+			initialEnvs: []v1.EnvVar{
+				{Name: "ENV1", Value: "value1"},
+			},
+			newEnvs: []v1.EnvVar{
+				{Name: "ENV2", Value: "value2"},
+			},
+			expectedEnvs: []v1.EnvVar{
+				{Name: "ENV1", Value: "value1"},
+				{Name: "ENV2", Value: "value2"},
+			},
+		},
+		"MultipleNewEnvVars": {
+			initialEnvs: []v1.EnvVar{
+				{Name: "ENV1", Value: "value1"},
+			},
+			newEnvs: []v1.EnvVar{
+				{Name: "ENV2", Value: "value2"},
+				{Name: "ENV3", Value: "value3"},
+			},
+			expectedEnvs: []v1.EnvVar{
+				{Name: "ENV1", Value: "value1"},
+				{Name: "ENV2", Value: "value2"},
+				{Name: "ENV3", Value: "value3"},
+			},
+		},
+		"NoInitialEnvVars": {
+			initialEnvs: []v1.EnvVar{},
+			newEnvs: []v1.EnvVar{
+				{Name: "ENV1", Value: "value1"},
+			},
+			expectedEnvs: []v1.EnvVar{
+				{Name: "ENV1", Value: "value1"},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			result := AppendEnvVarIfNotExists(scenario.initialEnvs, scenario.newEnvs...)
+			if diff := cmp.Diff(scenario.expectedEnvs, result); diff != "" {
+				t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+			}
+		})
+	}
+}
+
+func TestAppendPortIfNotExists(t *testing.T) {
+	scenarios := map[string]struct {
+		initialPorts  []v1.ContainerPort
+		newPorts      []v1.ContainerPort
+		expectedPorts []v1.ContainerPort
+	}{
+		"PortAlreadyExists": {
+			initialPorts: []v1.ContainerPort{
+				{Name: "port1", ContainerPort: 8080},
+				{Name: "port2", ContainerPort: 9090},
+			},
+			newPorts: []v1.ContainerPort{
+				{Name: "port1", ContainerPort: 8081},
+			},
+			expectedPorts: []v1.ContainerPort{
+				{Name: "port1", ContainerPort: 8080},
+				{Name: "port2", ContainerPort: 9090},
+			},
+		},
+		"PortDoesNotExist": {
+			initialPorts: []v1.ContainerPort{
+				{Name: "port1", ContainerPort: 8080},
+			},
+			newPorts: []v1.ContainerPort{
+				{Name: "port2", ContainerPort: 9090},
+			},
+			expectedPorts: []v1.ContainerPort{
+				{Name: "port1", ContainerPort: 8080},
+				{Name: "port2", ContainerPort: 9090},
+			},
+		},
+		"MultipleNewPorts": {
+			initialPorts: []v1.ContainerPort{
+				{Name: "port1", ContainerPort: 8080},
+			},
+			newPorts: []v1.ContainerPort{
+				{Name: "port2", ContainerPort: 9090},
+				{Name: "port3", ContainerPort: 10090},
+			},
+			expectedPorts: []v1.ContainerPort{
+				{Name: "port1", ContainerPort: 8080},
+				{Name: "port2", ContainerPort: 9090},
+				{Name: "port3", ContainerPort: 10090},
+			},
+		},
+		"NoInitialPorts": {
+			initialPorts: []v1.ContainerPort{},
+			newPorts: []v1.ContainerPort{
+				{Name: "port1", ContainerPort: 8080},
+			},
+			expectedPorts: []v1.ContainerPort{
+				{Name: "port1", ContainerPort: 8080},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			result := AppendPortIfNotExists(scenario.initialPorts, scenario.newPorts...)
+			if diff := cmp.Diff(scenario.expectedPorts, result); diff != "" {
+				t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+			}
+		})
+	}
+}
+
+func TestSetAvailableResourcesForApi(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		groupVersion string
+		resources    *metav1.APIResourceList
+	}{
+		"SetResourcesInEmptyCache": {
+			groupVersion: "v1",
+			resources: &metav1.APIResourceList{
+				GroupVersion: "v1",
+				APIResources: []metav1.APIResource{
+					{Name: "pods", Kind: "Pod"},
+				},
+			},
+		},
+		"SetResourcesInNonEmptyCache": {
+			groupVersion: "v1",
+			resources: &metav1.APIResourceList{
+				GroupVersion: "v1",
+				APIResources: []metav1.APIResource{
+					{Name: "services", Kind: "Service"},
+				},
+			},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			// Reset the cache before each test
+			gvResourcesCache = nil
+
+			SetAvailableResourcesForApi(scenario.groupVersion, scenario.resources)
+
+			g.Expect(gvResourcesCache).ToNot(gomega.BeNil())
+			g.Expect(gvResourcesCache[scenario.groupVersion]).To(gomega.BeComparableTo(scenario.resources))
+		})
+	}
+}
+
+func TestStringToInt32(t *testing.T) {
+	scenarios := map[string]struct {
+		input    string
+		expected int32
+		err      error
+	}{
+		"ValidInt32": {
+			input:    "123",
+			expected: 123,
+			err:      nil,
+		},
+		"ValidNegativeInt32": {
+			input:    "-123",
+			expected: -123,
+			err:      nil,
+		},
+		"ExceedsInt32Limit": {
+			input:    "2147483648", // int32 max is 2147483647
+			expected: 0,
+			err:      &strconv.NumError{Func: "ParseInt", Num: "2147483648", Err: strconv.ErrRange},
+		},
+		"InvalidNumber": {
+			input:    "abc",
+			expected: 0,
+			err:      &strconv.NumError{Func: "ParseInt", Num: "abc", Err: strconv.ErrSyntax},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			result, err := StringToInt32(scenario.input)
+			if result != scenario.expected {
+				t.Errorf("Test %q unexpected result: got (%d), want (%d)", name, result, scenario.expected)
+			}
+			if err != nil && scenario.err != nil {
+				if err.Error() != scenario.err.Error() {
+					t.Errorf("Test %q unexpected error: got (%v), want (%v)", name, err, scenario.err)
+				}
+			} else if err != scenario.err {
+				t.Errorf("Test %q unexpected error: got (%v), want (%v)", name, err, scenario.err)
 			}
 		})
 	}

@@ -18,6 +18,7 @@ package utils
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -35,6 +36,11 @@ import (
  */
 
 var gvResourcesCache map[string]*metav1.APIResourceList
+
+// Errors
+const (
+	ErrValueExceedsInt32Limit = "value exceeds int32 limit %d"
+)
 
 func Filter(origin map[string]string, predicate func(string) bool) map[string]string {
 	result := make(map[string]string)
@@ -309,4 +315,19 @@ func IsValidCustomGPUArray(s string) bool {
 	}
 
 	return true
+}
+
+// StringToInt32 converts a given integer to int32. If the number exceeds the int32 limit, it returns an error.
+func StringToInt32(number string) (int32, error) {
+	converted, err := strconv.ParseInt(number, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int32(converted), err
+}
+
+// ToPointer returns a pointer to the given value.
+func ToPointer[T any](v T) *T {
+	temp := v
+	return &temp
 }
