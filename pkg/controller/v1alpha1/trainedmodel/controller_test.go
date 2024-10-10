@@ -20,10 +20,6 @@ import (
 	"context"
 	"time"
 
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
@@ -35,6 +31,11 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ = Describe("v1beta1 TrainedModel controller", func() {
@@ -221,10 +222,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			inferenceService.Status.Status = readyConditions
@@ -330,10 +328,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			// Updates the url and address of inference service status
@@ -480,10 +475,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			inferenceService.Status.Status = readyConditions
@@ -517,8 +509,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), modelConfig)
 			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), tmInstance)
-			//tmInstanceUpdate := &v1beta1.TrainedModel{}
-			//Verify that the model configmap is updated with the new TrainedModel
+			// tmInstanceUpdate := &v1beta1.TrainedModel{}
+			// Verify that the model configmap is updated with the new TrainedModel
 			configmapActual := &v1.ConfigMap{}
 			tmActual := &v1alpha1api.TrainedModel{}
 			expected := &v1.ConfigMap{
@@ -609,10 +601,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			inferenceService.Status.Status = readyConditions
@@ -740,10 +729,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			inferenceService.Status.Status = readyConditions
