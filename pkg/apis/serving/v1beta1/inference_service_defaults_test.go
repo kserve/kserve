@@ -305,7 +305,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	for _, scenario := range scenarios {
 		resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 		scenario.isvc.Spec.DeepCopy()
-		scenario.isvc.DefaultInferenceService(scenario.config, scenario.deployConfig, nil)
+		scenario.isvc.DefaultInferenceService(scenario.config, scenario.deployConfig, nil, nil)
 
 		g.Expect(scenario.isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Predictor.ONNX).To(gomega.BeNil())
@@ -356,7 +356,7 @@ func TestCustomPredictorDefaults(t *testing.T) {
 	}
 	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 	isvc.Spec.DeepCopy()
-	isvc.DefaultInferenceService(config, deployConfig, nil)
+	isvc.DefaultInferenceService(config, deployConfig, nil, nil)
 	g.Expect(isvc.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
 }
 
@@ -385,7 +385,7 @@ func TestInferenceServiceDefaultsModelMeshAnnotation(t *testing.T) {
 		},
 	}
 	isvc.Spec.DeepCopy()
-	isvc.DefaultInferenceService(config, deployConfig, nil)
+	isvc.DefaultInferenceService(config, deployConfig, nil, nil)
 	g.Expect(isvc.Spec.Predictor.Model).To(gomega.BeNil())
 	g.Expect(isvc.Spec.Predictor.Tensorflow).ToNot(gomega.BeNil())
 }
@@ -464,7 +464,7 @@ func TestRuntimeDefaults(t *testing.T) {
 		},
 	}
 	for name, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, nil)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &scenario.runtime
 		scenario.isvc.SetRuntimeDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
@@ -540,7 +540,7 @@ func TestTorchServeDefaults(t *testing.T) {
 	}
 	runtime := constants.TorchServe
 	for _, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, nil)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
 		scenario.isvc.SetTorchServeDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
@@ -598,7 +598,7 @@ func TestSetTritonDefaults(t *testing.T) {
 	}
 	runtime := constants.TritonServer
 	for _, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, nil)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
 		scenario.isvc.SetTritonDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
@@ -742,7 +742,7 @@ func TestMlServerDefaults(t *testing.T) {
 	}
 	runtime := constants.MLServer
 	for _, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, nil)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
 		scenario.isvc.SetMlServerDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
@@ -820,7 +820,7 @@ func TestLocalModelAnnotation(t *testing.T) {
 	}
 	localModels := &v1alpha1.ClusterLocalModelList{Items: []v1alpha1.ClusterLocalModel{*localModel}}
 	for _, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, localModels)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, localModels)
 		g.Expect(scenario.isvc.ObjectMeta.Labels).To(scenario.matcher)
 	}
 }
