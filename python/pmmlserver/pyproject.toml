@@ -11,7 +11,8 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
-kserve = { path = "../kserve", extras = ["storage"], develop = true }
+storage = { path = "../storage", develop = true }
+kserve = { path = "../kserve", develop = true }
 jpmml-evaluator = "~0.10.3"
 setuptools =  {version = "^70.0.0", python = "3.12"} # https://github.com/jpmml/jpmml-evaluator-python/issues/27
 
