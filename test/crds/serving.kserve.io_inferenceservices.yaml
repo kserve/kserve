@@ -5306,8 +5306,10 @@ spec:
                     type: object
                 type: object
               maxReplicas:
+                format: int32
                 type: integer
               minReplicas:
+                format: int32
                 type: integer
               nodes:
                 additionalProperties:
@@ -8087,8 +8089,10 @@ spec:
                         type: string
                     type: object
                   maxReplicas:
+                    format: int32
                     type: integer
                   minReplicas:
+                    format: int32
                     type: integer
                   nodeName:
                     type: string
@@ -12389,8 +12393,10 @@ spec:
                         type: string
                     type: object
                   maxReplicas:
+                    format: int32
                     type: integer
                   minReplicas:
+                    format: int32
                     type: integer
                   model:
                     properties:
@@ -25047,8 +25053,10 @@ spec:
                         type: string
                     type: object
                   maxReplicas:
+                    format: int32
                     type: integer
                   minReplicas:
+                    format: int32
                     type: integer
                   nodeName:
                     type: string
