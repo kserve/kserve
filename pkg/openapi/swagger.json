@@ -5043,6 +5043,18 @@
         }
       }
     },
+    "v1beta1.SecurityConfig": {
+      "type": "object",
+      "required": [
+        "autoMountServiceAccountToken"
+      ],
+      "properties": {
+        "autoMountServiceAccountToken": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
     "v1beta1.StorageSpec": {
       "type": "object",
       "properties": {
