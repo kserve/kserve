@@ -23,7 +23,11 @@ from vllm.config import ModelConfig
 from huggingfaceserver.vllm.vllm_completions import OpenAIServingCompletion
 from huggingfaceserver.vllm.vllm_model import VLLMModel
 from kserve.logging import logger
-from kserve.protocol.rest.openai import ChatCompletionRequest, CompletionRequest
+from kserve.protocol.rest.openai import (
+    ChatCompletionRequest,
+    CompletionRequest,
+    ChatPrompt,
+)
 from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai.types import (
     CreateChatCompletionRequest,
@@ -98,6 +102,54 @@ def vllm_opt_model():
     mp.undo()
 
 
+def compare_chatprompt_to_expected(actual, expected, fields_to_compare=None) -> bool:
+    if fields_to_compare is None:
+        fields_to_compare = [
+            "response_role",
+            "prompt",
+        ]
+    for field in fields_to_compare:
+        if not getattr(actual, field) == getattr(expected, field):
+            logger.error(
+                "expected: %s\n  got: %s",
+                getattr(expected, field),
+                getattr(actual, field),
+            )
+            return False
+    return True
+
+
+@pytest.mark.asyncio()
+class TestChatTemplate:
+    async def test_vllm_chat_completion_tokenization_facebook_opt_model(
+        self, vllm_opt_model
+    ):
+        opt_model, _ = vllm_opt_model
+
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a friendly chatbot who always responds in the style of a pirate",
+            },
+            {
+                "role": "user",
+                "content": "How many helicopters can a human eat in one sitting?",
+            },
+        ]
+        chat_template = (
+            "{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}"
+        )
+        response = opt_model.apply_chat_template(messages, chat_template)
+
+        expected = ChatPrompt(
+            response_role="assistant",
+            prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
+        )
+        assert compare_chatprompt_to_expected(response, expected) is True
+
+
 def compare_response_to_expected(actual, expected, fields_to_compare=None) -> bool:
     if fields_to_compare is None:
         fields_to_compare = [
@@ -160,6 +212,9 @@ class TestChatCompletions:
             messages=messages,
             stream=False,
             max_tokens=10,
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(params=params, context={})
         response = await opt_model.create_chat_completion(request)
@@ -216,6 +271,9 @@ class TestChatCompletions:
             messages=messages,
             stream=False,
             max_tokens=10,
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -275,6 +333,9 @@ class TestChatCompletions:
             messages=messages,
             stream=True,
             max_tokens=10,
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -325,6 +386,9 @@ class TestChatCompletions:
             max_tokens=10,
             log_probs=True,
             top_logprobs=2,
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -635,6 +699,9 @@ class TestChatCompletions:
             max_tokens=10,
             log_probs=True,
             top_logprobs=2,
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -890,6 +957,9 @@ class TestChatCompletions:
             messages=messages,
             stream=True,
             max_tokens=2048,
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
@@ -926,6 +996,9 @@ class TestChatCompletions:
             stream=False,
             max_tokens=10,
             logit_bias={"1527": 50, "27449": 100},
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
         )
         request = ChatCompletionRequest(
             request_id=request_id, params=params, context={}
