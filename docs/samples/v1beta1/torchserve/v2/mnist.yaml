@@ -8,3 +8,6 @@ spec:
       protocolVersion: v2
       storageUri: gs://kfserving-examples/models/torchserve/image_classifier/v2
       # storageUri: pvc://model-pv-claim
+      args:
+        - --disable-token-auth
+        - --enable-model-api 
