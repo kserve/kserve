@@ -80,10 +80,10 @@ type Component interface {
 type ComponentExtensionSpec struct {
 	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
 	// +optional
-	MinReplicas *int `json:"minReplicas,omitempty"`
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
 	// Maximum number of replicas for autoscaling.
 	// +optional
-	MaxReplicas int `json:"maxReplicas,omitempty"`
+	MaxReplicas int32 `json:"maxReplicas,omitempty"`
 	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
 	// concurrency and rps targets are supported by Knative Pod Autoscaler
 	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
@@ -172,7 +172,7 @@ func validateStorageSpec(storageSpec *StorageSpec, storageURI *string) error {
 	return nil
 }
 
-func validateReplicas(minReplicas *int, maxReplicas int) error {
+func validateReplicas(minReplicas *int32, maxReplicas int32) error {
 	if minReplicas == nil {
 		minReplicas = &constants.DefaultMinReplicas
 	}

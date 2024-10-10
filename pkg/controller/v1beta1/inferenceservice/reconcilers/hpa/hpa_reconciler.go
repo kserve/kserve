@@ -19,6 +19,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -44,30 +45,40 @@ type HPAReconciler struct {
 func NewHPAReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) *HPAReconciler {
+	componentExt *v1beta1.ComponentExtensionSpec) (*HPAReconciler, error) {
+	hpa, err := createHPA(componentMeta, componentExt)
+	if err != nil {
+		return nil, err
+	}
 	return &HPAReconciler{
 		client:       client,
 		scheme:       scheme,
-		HPA:          createHPA(componentMeta, componentExt),
+		HPA:          hpa,
 		componentExt: componentExt,
-	}
+	}, nil
 }
 
-func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2.MetricSpec {
+func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec) ([]autoscalingv2.MetricSpec, error) {
 	var metrics []autoscalingv2.MetricSpec
 	var utilization int32
+	var err error
 	annotations := metadata.Annotations
 	resourceName := corev1.ResourceCPU
 
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
-		utilizationInt, _ := strconv.Atoi(value)
-		utilization = int32(utilizationInt) // #nosec G109,G115
+		utilization, err = utils.StringToInt32(value)
+		if err != nil {
+			return metrics, err
+		}
 	} else {
 		utilization = constants.DefaultCPUUtilization
 	}
 
 	if componentExt.ScaleTarget != nil {
-		utilization = int32(*componentExt.ScaleTarget) // #nosec G109,G115
+		utilization, err = utils.StringToInt32(strconv.Itoa(*componentExt.ScaleTarget))
+		if err != nil {
+			return metrics, err
+		}
 	}
 
 	if componentExt.ScaleMetric != nil {
@@ -87,23 +98,26 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 		},
 	}
 	metrics = append(metrics, ms)
-	return metrics
+	return metrics, nil
 }
 
 func createHPA(componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) *autoscalingv2.HorizontalPodAutoscaler {
+	componentExt *v1beta1.ComponentExtensionSpec) (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	var minReplicas int32
 	if componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas {
-		minReplicas = int32(constants.DefaultMinReplicas) // #nosec G115
+		minReplicas = constants.DefaultMinReplicas
 	} else {
-		minReplicas = int32(*componentExt.MinReplicas) // #nosec G115
+		minReplicas = *componentExt.MinReplicas
 	}
 
-	maxReplicas := int32(componentExt.MaxReplicas) // #nosec G115
+	maxReplicas := componentExt.MaxReplicas
 	if maxReplicas < minReplicas {
 		maxReplicas = minReplicas
 	}
-	metrics := getHPAMetrics(componentMeta, componentExt)
+	metrics, err := getHPAMetrics(componentMeta, componentExt)
+	if err != nil {
+		return nil, err
+	}
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: componentMeta,
 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
@@ -118,7 +132,7 @@ func createHPA(componentMeta metav1.ObjectMeta,
 			Behavior:    &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 		},
 	}
-	return hpa
+	return hpa, nil
 }
 
 // checkHPAExist checks if the hpa exists?
@@ -199,6 +213,7 @@ func (r *HPAReconciler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, err
 
 	return r.HPA, nil
 }
+
 func (r *HPAReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
 	return controllerutil.SetControllerReference(owner, r.HPA, scheme)
 }
