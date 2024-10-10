@@ -20,16 +20,17 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	testify "github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 )
 
 func TestProcessAddOrUpdate(t *testing.T) {
@@ -279,5 +280,4 @@ func TestCreateEmptyModelConfig(t *testing.T) {
 	configMap, err := CreateEmptyModelConfig(isvc, shardId)
 	testify.Nil(t, err)
 	testify.Equal(t, configMap, expected)
-
 }

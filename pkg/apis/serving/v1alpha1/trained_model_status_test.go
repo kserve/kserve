@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/onsi/gomega"
@@ -24,7 +26,6 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	"testing"
 )
 
 func TestTrainedModelStatus_IsReady(t *testing.T) {
@@ -370,7 +371,6 @@ func TestTrainedModelStatus_SetCondition(t *testing.T) {
 			tc.serviceStatus.SetCondition(tc.conditionType, tc.condition)
 			res := tc.serviceStatus.GetCondition(tc.conditionType)
 			g.Expect(cmp.Equal(res, tc.expected, cmpopts.IgnoreFields(apis.Condition{}, "LastTransitionTime", "Severity"))).To(gomega.BeTrue())
-
 		})
 	}
 }
