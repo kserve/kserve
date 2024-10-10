@@ -21,6 +21,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
@@ -505,7 +506,7 @@ func TestModelPredictorGetContainer(t *testing.T) {
 		Namespace: "default",
 	}
 	componentSpec := &ComponentExtensionSpec{
-		MinReplicas: GetIntReference(3),
+		MinReplicas: utils.ToPointer(int32(3)),
 		MaxReplicas: 2,
 	}
 	scenarios := map[string]struct {

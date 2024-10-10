@@ -95,12 +95,6 @@ func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, obj runt
 	return nil, nil
 }
 
-// GetIntReference returns the pointer for the integer input
-func GetIntReference(number int) *int {
-	num := number
-	return &num
-}
-
 func validateInferenceService(isvc *InferenceService) (admission.Warnings, error) {
 	var allWarnings admission.Warnings
 	annotations := isvc.Annotations

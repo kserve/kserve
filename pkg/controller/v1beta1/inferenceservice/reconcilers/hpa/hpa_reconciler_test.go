@@ -21,6 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
@@ -66,9 +67,9 @@ func TestCreateHPA(t *testing.T) {
 				},
 			},
 			componentExt: &v1beta1.ComponentExtensionSpec{
-				MinReplicas: v1beta1.GetIntReference(2),
+				MinReplicas: utils.ToPointer(int32(2)),
 				MaxReplicas: 5,
-				ScaleTarget: v1beta1.GetIntReference(30),
+				ScaleTarget: utils.ToPointer(30),
 				ScaleMetric: &cpuResource,
 			},
 		},
@@ -84,16 +85,16 @@ func TestCreateHPA(t *testing.T) {
 		"predictorspecifiedhpa": {
 			objectMeta: metav1.ObjectMeta{},
 			componentExt: &v1beta1.ComponentExtensionSpec{
-				MinReplicas: v1beta1.GetIntReference(5),
+				MinReplicas: utils.ToPointer(int32(5)),
 				MaxReplicas: 10,
-				ScaleTarget: v1beta1.GetIntReference(50),
+				ScaleTarget: utils.ToPointer(50),
 				ScaleMetric: &cpuResource,
 			},
 		},
 		"invalidinputhpa": {
 			objectMeta: metav1.ObjectMeta{},
 			componentExt: &v1beta1.ComponentExtensionSpec{
-				MinReplicas: v1beta1.GetIntReference(0),
+				MinReplicas: utils.ToPointer(int32(0)),
 				MaxReplicas: -10,
 				ScaleTarget: nil,
 				ScaleMetric: &memoryResource,
@@ -213,6 +214,7 @@ func TestCreateHPA(t *testing.T) {
 		name     string
 		args     args
 		expected *autoscalingv2.HorizontalPodAutoscaler
+		err      error
 	}{
 		{
 			name: "inference graph default hpa",
@@ -221,6 +223,7 @@ func TestCreateHPA(t *testing.T) {
 				componentExt: testInput["igdefaulthpa"].componentExt,
 			},
 			expected: expectedHPASpecs["igdefaulthpa"],
+			err:      nil,
 		},
 		{
 			name: "inference graph specified hpa",
@@ -237,6 +240,7 @@ func TestCreateHPA(t *testing.T) {
 				componentExt: testInput["predictordefaulthpa"].componentExt,
 			},
 			expected: expectedHPASpecs["predictordefaulthpa"],
+			err:      nil,
 		},
 		{
 			name: "predictor specified hpa",
@@ -245,6 +249,7 @@ func TestCreateHPA(t *testing.T) {
 				componentExt: testInput["predictorspecifiedhpa"].componentExt,
 			},
 			expected: expectedHPASpecs["predictorspecifiedhpa"],
+			err:      nil,
 		},
 		{
 			name: "invalid input for hpa",
@@ -253,14 +258,16 @@ func TestCreateHPA(t *testing.T) {
 				componentExt: testInput["invalidinputhpa"].componentExt,
 			},
 			expected: expectedHPASpecs["predictordefaulthpa"],
+			err:      nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createHPA(tt.args.objectMeta, tt.args.componentExt)
+			got, err := createHPA(tt.args.objectMeta, tt.args.componentExt)
 			if diff := cmp.Diff(tt.expected, got); diff != "" {
 				t.Errorf("Test %q unexpected hpa (-want +got): %v", tt.name, diff)
 			}
+			assert.Equal(t, tt.err, err)
 		})
 	}
 }

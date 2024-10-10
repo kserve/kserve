@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
@@ -38,7 +39,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 		"ValidProtocolV1": {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          GetIntReference(3),
+					MinReplicas:          utils.ToPointer(int32(3)),
 					ContainerConcurrency: proto.Int64(-1),
 				},
 				PodSpec: PodSpec{
@@ -59,7 +60,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 		"ValidProtocolV2": {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          GetIntReference(3),
+					MinReplicas:          utils.ToPointer(int32(3)),
 					ContainerConcurrency: proto.Int64(-1),
 				},
 				PodSpec: PodSpec{
@@ -80,7 +81,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 		"InvalidValidProtocol": {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          GetIntReference(3),
+					MinReplicas:          utils.ToPointer(int32(3)),
 					ContainerConcurrency: proto.Int64(-1),
 				},
 				PodSpec: PodSpec{
