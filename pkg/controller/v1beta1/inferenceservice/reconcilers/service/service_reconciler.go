@@ -18,10 +18,10 @@ package service
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -97,13 +97,13 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 				servicePorts = append(servicePorts, servicePort)
 			}
 		} else {
-			port, _ := strconv.Atoi(constants.InferenceServiceDefaultHttpPort)
+			port, _ := utils.StringToInt32(constants.InferenceServiceDefaultHttpPort)
 			servicePorts = append(servicePorts, corev1.ServicePort{
 				Name: componentMeta.Name,
 				Port: constants.CommonDefaultHttpPort,
 				TargetPort: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: int32(port), // #nosec G109
+					IntVal: port,
 				},
 				Protocol: corev1.ProtocolTCP,
 			})

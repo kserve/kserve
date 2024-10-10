@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kserve/kserve/pkg/utils"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
@@ -35,7 +36,7 @@ func TestComponentExtensionSpec_Validate(t *testing.T) {
 	}{
 		"InvalidReplica": {
 			spec: ComponentExtensionSpec{
-				MinReplicas: GetIntReference(3),
+				MinReplicas: utils.ToPointer(int32(3)),
 				MaxReplicas: 2,
 			},
 			matcher: gomega.Not(gomega.BeNil()),

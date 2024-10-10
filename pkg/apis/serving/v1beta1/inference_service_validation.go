@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -92,12 +93,6 @@ func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, obj runt
 	}
 	validatorLogger.Info("validate delete", "name", isvc.Name)
 	return nil, nil
-}
-
-// GetIntReference returns the pointer for the integer input
-func GetIntReference(number int) *int {
-	num := number
-	return &num
 }
 
 func validateInferenceService(isvc *InferenceService) (admission.Warnings, error) {
@@ -280,7 +275,7 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 		if container.Name == constants.TransformerContainerName {
 			for _, env := range container.Env {
 				if env.Name == constants.CustomSpecStorageUriEnvVarKey {
-					return fmt.Errorf(StorageUriPresentInTransformerError)
+					return errors.New(StorageUriPresentInTransformerError)
 				}
 			}
 			break
