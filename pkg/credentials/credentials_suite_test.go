@@ -18,6 +18,7 @@ package credentials
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"k8s.io/client-go/kubernetes"
@@ -33,7 +34,10 @@ var c client.Client
 var clientset kubernetes.Interface
 
 func TestMain(m *testing.M) {
-	t := pkgtest.SetupEnvTest()
+	crdDirectoryPaths := []string{
+		filepath.Join("..", "..", "test", "crds"),
+	}
+	t := pkgtest.SetupEnvTest(crdDirectoryPaths)
 	var err error
 	if cfg, err = t.Start(); err != nil {
 		log.Error(err, "Failed to start testing panel")

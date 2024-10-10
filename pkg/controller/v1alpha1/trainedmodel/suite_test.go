@@ -18,6 +18,7 @@ package trainedmodel
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -66,7 +67,10 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	ctx, cancel = context.WithCancel(context.TODO())
 	By("bootstrapping test environment")
-	testEnv = pkgtest.SetupEnvTest()
+	crdDirectoryPaths := []string{
+		filepath.Join("..", "..", "..", "..", "test", "crds"),
+	}
+	testEnv = pkgtest.SetupEnvTest(crdDirectoryPaths)
 	var err error
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
