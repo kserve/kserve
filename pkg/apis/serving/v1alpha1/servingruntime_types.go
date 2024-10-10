@@ -19,11 +19,12 @@ package v1alpha1
 import (
 	"fmt"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"gopkg.in/go-playground/validator.v9"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // +k8s:openapi-gen=true

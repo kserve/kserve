@@ -19,9 +19,10 @@ package v1beta1
 import (
 	"strconv"
 
-	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // XGBoostSpec defines arguments for configuring XGBoost model serving.

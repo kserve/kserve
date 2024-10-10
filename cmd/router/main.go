@@ -29,8 +29,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
+
+	"github.com/kserve/kserve/pkg/constants"
 
 	"github.com/tidwall/gjson"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -39,8 +40,9 @@ import (
 	"crypto/rand"
 	"math/big"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	flag "github.com/spf13/pflag"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
 var log = logf.Log.WithName("InferenceGraphRouter")

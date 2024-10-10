@@ -17,8 +17,9 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
+
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // ExplainerSpec defines the container spec for a model explanation server,

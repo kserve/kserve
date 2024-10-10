@@ -17,9 +17,10 @@ limitations under the License.
 package pod
 
 import (
+	v1 "k8s.io/api/core/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
 )
 
 // These constants are used for detecting and applying GPU selectors
