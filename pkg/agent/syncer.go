@@ -24,9 +24,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
 type FileError error

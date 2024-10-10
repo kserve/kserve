@@ -29,4 +29,4 @@ if ! command -v golangci-lint &> /dev/null; then
 fi
 
 # Run golangci-lint
-$golangci_lint_binary run
+$golangci_lint_binary run --fix
