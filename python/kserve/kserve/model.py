@@ -155,7 +155,12 @@ class PredictorConfig:
 
 
 class Model(InferenceModel):
-    def __init__(self, name: str, predictor_config: Optional[PredictorConfig] = None):
+    def __init__(
+        self,
+        name: str,
+        predictor_config: Optional[PredictorConfig] = None,
+        return_response_headers: bool = False,
+    ):
         """KServe Model Public Interface
 
         Model is intended to be subclassed to implement the model handlers.
@@ -188,6 +193,7 @@ class Model(InferenceModel):
         self._http_client_instance = None
         self._grpc_client_stub = None
         self.enable_latency_logging = False
+        self.required_response_headers = return_response_headers
 
     async def __call__(
         self,
@@ -213,6 +219,7 @@ class Model(InferenceModel):
         predict_ms = 0
         postprocess_ms = 0
         prom_labels = get_labels(self.name)
+        response_headers = {}
 
         with PRE_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
@@ -235,22 +242,36 @@ class Model(InferenceModel):
         elif verb == InferenceVerb.PREDICT:
             with PREDICT_HIST_TIME.labels(**prom_labels).time():
                 start = time.time()
-                response = (
-                    (await self.predict(payload, headers))
-                    if inspect.iscoroutinefunction(self.predict)
-                    else self.predict(payload, headers)
-                )
+                if self.required_response_headers:
+                    response = (
+                        (await self.predict(payload, headers, response_headers))
+                        if inspect.iscoroutinefunction(self.predict)
+                        else self.predict(payload, headers, response_headers)
+                    )
+                else:
+                    response = (
+                        (await self.predict(payload, headers))
+                        if inspect.iscoroutinefunction(self.predict)
+                        else self.predict(payload, headers)
+                    )
                 predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
 
         with POST_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
-            response = (
-                await self.postprocess(response, headers)
-                if inspect.iscoroutinefunction(self.postprocess)
-                else self.postprocess(response, headers)
-            )
+            if self.required_response_headers:
+                response = (
+                    await self.postprocess(response, headers, response_headers)
+                    if inspect.iscoroutinefunction(self.postprocess)
+                    else self.postprocess(response, headers, response_headers)
+                )
+            else:
+                response = (
+                    await self.postprocess(response, headers)
+                    if inspect.iscoroutinefunction(self.postprocess)
+                    else self.postprocess(response, headers)
+                )
             postprocess_ms = get_latency_ms(start, time.time())
 
         if self.enable_latency_logging is True:
@@ -260,7 +281,7 @@ class Model(InferenceModel):
                 f"postprocess_ms: {postprocess_ms}"
             )
 
-        return response
+        return response, response_headers
 
     @property
     def _http_client(self) -> InferenceRESTClient:
@@ -323,7 +344,10 @@ class Model(InferenceModel):
         return payload
 
     async def postprocess(
-        self, result: Union[Dict, InferResponse], headers: Dict[str, str] = None
+        self,
+        result: Union[Dict, InferResponse],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         """The `postprocess` handler can be overridden for inference result or response transformation.
         The predictor sends back the inference result in `Dict` for v1 endpoints and `InferResponse` for v2 endpoints.
@@ -338,7 +362,10 @@ class Model(InferenceModel):
         return result
 
     async def _http_predict(
-        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
+        self,
+        payload: Union[Dict, InferRequest],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
@@ -358,7 +385,9 @@ class Model(InferenceModel):
             model_name=self.name,
             data=payload,
             headers=predict_headers,
+            response_headers=response_headers,
         )
+
         return response
 
     async def _grpc_predict(
@@ -382,6 +411,7 @@ class Model(InferenceModel):
         self,
         payload: Union[Dict, InferRequest, ModelInferRequest],
         headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse, AsyncIterator[Any]]:
         """The `predict` handler can be overridden for performing the inference.
             By default, the predict handler makes call to predictor for the inference step.
@@ -401,7 +431,7 @@ class Model(InferenceModel):
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             return await self._grpc_predict(payload, headers)
         else:
-            return await self._http_predict(payload, headers)
+            return await self._http_predict(payload, headers, response_headers)
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.

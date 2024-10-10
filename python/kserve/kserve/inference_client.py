@@ -444,6 +444,7 @@ class InferenceRESTClient:
         data: Union[InferRequest, dict],
         model_name: Optional[str] = None,
         headers: Optional[Mapping[str, str]] = None,
+        response_headers: Dict[str, str] = None,
         is_graph_endpoint: bool = False,
         timeout: Union[float, None, tuple, httpx.Timeout] = httpx.USE_CLIENT_DEFAULT,
     ) -> Union[InferResponse, Dict]:
@@ -499,6 +500,8 @@ class InferenceRESTClient:
             )
         if not response.is_success:
             raise self._consturct_http_status_error(response)
+        if response_headers is not None:
+            response_headers.update(response.headers)
         # If inference graph result, return it as dict
         if is_graph_endpoint:
             output = orjson.loads(response.content)

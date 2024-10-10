@@ -68,7 +68,9 @@ class ImageTransformer(Model):
         predictor_use_ssl: bool,
     ):
         super().__init__(
-            name, PredictorConfig(predictor_host, predictor_protocol, predictor_use_ssl)
+            name,
+            PredictorConfig(predictor_host, predictor_protocol, predictor_use_ssl),
+            return_response_headers=True,
         )
         self.ready = True
 
@@ -108,7 +110,10 @@ class ImageTransformer(Model):
             return infer_request
 
     def postprocess(
-        self, infer_response: Union[Dict, InferResponse], headers: Dict[str, str] = None
+        self,
+        infer_response: Union[Dict, InferResponse],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         if "request-type" in headers and headers["request-type"] == "v1":
             if self.protocol == PredictorProtocol.REST_V1.value:
