@@ -17,8 +17,9 @@ limitations under the License.
 package s3
 
 import (
-	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 /*
