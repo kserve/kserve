@@ -18,10 +18,12 @@ package v1alpha1
 
 import (
 	"fmt"
-	"github.com/kserve/kserve/pkg/constants"
+	"testing"
+
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
-	"testing"
+
+	"github.com/kserve/kserve/pkg/constants"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"

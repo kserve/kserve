@@ -1357,7 +1357,6 @@ func TestParsePvcURI(t *testing.T) {
 			g.Expect(pvcPath).Should(tc.matchers[1])
 			g.Expect(err).Should(tc.matchers[2])
 		})
-
 	}
 }
 
@@ -2079,7 +2078,6 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 		g.Expect(c.Delete(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
 		g.Expect(c.Delete(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
 	}
-
 }
 
 func TestDirectVolumeMountForPvc(t *testing.T) {
@@ -3013,11 +3011,12 @@ func TestInjectModelcar(t *testing.T) {
 		}
 
 		// Check that an init container has been injected, and it is the model container
-		if len(pod.Spec.InitContainers) != 1 {
+		switch {
+		case len(pod.Spec.InitContainers) != 1:
 			t.Errorf("Expected one init container but got %d", len(pod.Spec.InitContainers))
-		} else if pod.Spec.InitContainers[0].Name != ModelcarInitContainerName {
+		case pod.Spec.InitContainers[0].Name != ModelcarInitContainerName:
 			t.Errorf("Expected the init container to be the model but got %s", pod.Spec.InitContainers[0].Name)
-		} else {
+		default:
 			// Check that resources are correctly set.
 			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[v1.ResourceCPU]; !ok {
 				t.Error("The model container does not have CPU limit set")

@@ -20,15 +20,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/onsi/gomega"
 	"io"
-	pkglogging "knative.dev/pkg/logging"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
 	"sync"
 	"testing"
+
+	"github.com/onsi/gomega"
+	pkglogging "knative.dev/pkg/logging"
 )
 
 func serveRequest(batchHandler *BatchHandler, wg *sync.WaitGroup, index int) {
@@ -41,7 +42,9 @@ func serveRequest(batchHandler *BatchHandler, wg *sync.WaitGroup, index int) {
 	w := httptest.NewRecorder()
 	batchHandler.ServeHTTP(w, r)
 
-	b2, _ := io.ReadAll(w.Result().Body)
+	resp := w.Result()
+	defer resp.Body.Close()
+	b2, _ := io.ReadAll(resp.Body)
 	var res Response
 	_ = json.Unmarshal(b2, &res)
 	fmt.Printf("Got response %v\n", res)
@@ -82,7 +85,7 @@ func TestBatcher(t *testing.T) {
 		wg.Add(1)
 		go serveRequest(batchHandler, &wg, i)
 	}
-	//var responseBytes []byte
+	// var responseBytes []byte
 	<-responseChan
 	wg.Wait()
 }
@@ -122,7 +125,7 @@ func TestBatcherFail(t *testing.T) {
 		wg.Add(1)
 		go serveRequest(batchHandler, &wg, i)
 	}
-	//var responseBytes []byte
+	// var responseBytes []byte
 	<-responseChan
 	wg.Wait()
 }
@@ -164,7 +167,7 @@ func TestBatcherDefaults(t *testing.T) {
 		wg.Add(1)
 		go serveRequest(batchHandler, &wg, i)
 	}
-	//var responseBytes []byte
+	// var responseBytes []byte
 	<-responseChan
 	wg.Wait()
 	g.Expect(batchHandler.MaxBatchSize).To(gomega.Equal(MaxBatchSize))

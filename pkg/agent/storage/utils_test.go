@@ -23,8 +23,9 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/agent/mocks"
 	"github.com/onsi/gomega"
+
+	"github.com/kserve/kserve/pkg/agent/mocks"
 )
 
 func TestCreate(t *testing.T) {
@@ -39,6 +40,9 @@ func TestCreate(t *testing.T) {
 	folderPath := path.Join(tmpDir, "foo")
 	filePath := path.Join(folderPath, "bar.txt")
 	f, err := Create(filePath)
+	if err != nil {
+		t.Fatalf("Unable to create file: %v", err)
+	}
 	defer f.Close()
 
 	g.Expect(err).To(gomega.BeNil())
@@ -75,10 +79,16 @@ func TestRemoveDir(t *testing.T) {
 	syscall.Umask(0)
 	tmpDir, _ := os.MkdirTemp("", "test")
 	subDir, _ := os.MkdirTemp(tmpDir, "test")
-	os.CreateTemp(subDir, "tmp")
+
+	f, err := os.CreateTemp(subDir, "tmp")
+	if err != nil {
+		t.Fatalf("os.CreateTemp failed: %v", err)
+	}
+	defer f.Close()
+
 	os.CreateTemp(tmpDir, "tmp")
 
-	err := RemoveDir(tmpDir)
+	err = RemoveDir(tmpDir)
 	g.Expect(err).To(gomega.BeNil())
 	_, err = os.Stat(tmpDir)
 	g.Expect(os.IsNotExist(err)).To(gomega.BeTrue())

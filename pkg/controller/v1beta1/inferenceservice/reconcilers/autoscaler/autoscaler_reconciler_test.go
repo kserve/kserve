@@ -18,8 +18,9 @@ package autoscaler
 
 import (
 	"github.com/google/go-cmp/cmp"
-	"github.com/kserve/kserve/pkg/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 
 	"testing"
 )

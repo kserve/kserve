@@ -1,7 +1,7 @@
 run:
   timeout: 6m
   go: "1.22"
-  tests: false
+  tests: true
 
 issues:
   max-same-issues: 0

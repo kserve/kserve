@@ -26,10 +26,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
@@ -47,6 +43,11 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ = Describe("v1beta1 inference service controller", func() {
@@ -203,10 +204,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualService := &knservingv1.Service{}
@@ -305,7 +303,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				Expect(k8sClient.Status().Update(context.TODO(), updatedService)).NotTo(HaveOccurred())
 			}
-			//assert ingress
+			// assert ingress
 			virtualService := &istioclientv1beta1.VirtualService{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
@@ -367,17 +365,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(virtualService.Spec.DeepCopy()).To(Equal(expectedVirtualService.Spec.DeepCopy()))
 
-			//get inference service
+			// get inference service
 			time.Sleep(10 * time.Second)
 			actualIsvc := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, expectedRequest.NamespacedName, actualIsvc)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
-			//update inference service with annotations and labels
+			// update inference service with annotations and labels
 			annotations := map[string]string{"testAnnotation": "test"}
 			labels := map[string]string{"testLabel": "test"}
 			updatedIsvc := actualIsvc.DeepCopy()
@@ -456,9 +451,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				events := &v1.EventList{}
 				err := k8sClient.List(ctx, events, client.InNamespace(serviceKey.Namespace))
 				if err != nil {
-					return false
-				}
-				if events == nil {
 					return false
 				}
 
@@ -889,10 +881,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			updatedService := &knservingv1.Service{}
@@ -1092,23 +1081,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
-				//Check if InferenceService is created
+				// Check if InferenceService is created
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			modelConfigMap := &v1.ConfigMap{}
 			Eventually(func() bool {
-				//Check if modelconfig is created
+				// Check if modelconfig is created
 				err := k8sClient.Get(ctx, modelConfigMapKey, modelConfigMap)
 				if err != nil {
 					return false
 				}
 
-				//Verify that this configmap's ownerreference is it's parent InferenceService
+				// Verify that this configmap's ownerreference is it's parent InferenceService
 				Expect(modelConfigMap.OwnerReferences[0].Name).To(Equal(serviceKey.Name))
 
 				return true
@@ -1985,10 +1971,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualService := &knservingv1.Service{}
@@ -2015,10 +1998,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualIsvc := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, expectedRequest.NamespacedName, actualIsvc)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			Expect(actualIsvc.Status.URL).To(Equal(&apis.URL{
@@ -2284,7 +2264,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 
-			//Create original cabundle configmap with right file name
+			// Create original cabundle configmap with right file name
 			cabundleConfigMapData := make(map[string]string)
 			// cabundle data
 			cabundleConfigMapData["cabundle.crt"] = "SAMPLE_CA_BUNDLE"
@@ -2344,7 +2324,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 	})
-	Context("If the InferenceService occured any error", func() {
+	Context("If the InferenceService occurred any error", func() {
 		It("InferenceService should generate event message about non-ready conditions", func() {
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -2447,10 +2427,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// assert inference service predictor status
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			// should turn to fail

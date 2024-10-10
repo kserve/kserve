@@ -17,26 +17,25 @@ limitations under the License.
 package pod
 
 import (
-	"k8s.io/utils/ptr"
+	"encoding/json"
 	"strconv"
 	"testing"
 
-	fakeclientset "k8s.io/client-go/kubernetes/fake"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
+	fakeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmp"
 
-	"encoding/json"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/credentials"
 
-	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 const (

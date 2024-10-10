@@ -20,9 +20,10 @@ import (
 	"strconv"
 	"testing"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -469,7 +470,6 @@ func TestRuntimeDefaults(t *testing.T) {
 		scenario.isvc.SetRuntimeDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
 		switch name {
-
 		case "PyTorch":
 			g.Expect(scenario.isvc.Spec.Predictor.PyTorch).To(gomega.BeNil())
 

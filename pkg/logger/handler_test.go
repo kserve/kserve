@@ -26,15 +26,15 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/onsi/gomega"
 	pkglogging "knative.dev/pkg/logging"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 func TestLogger(t *testing.T) {
-
 	g := gomega.NewGomegaWithT(t)
 
 	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
@@ -83,7 +83,9 @@ func TestLogger(t *testing.T) {
 
 	oh.ServeHTTP(w, r)
 
-	b2, _ := io.ReadAll(w.Result().Body)
+	resp := w.Result()
+	defer resp.Body.Close()
+	b2, _ := io.ReadAll(resp.Body)
 	g.Expect(b2).To(gomega.Equal(predictorResponse))
 	// get logRequest
 	<-responseChan
@@ -92,7 +94,6 @@ func TestLogger(t *testing.T) {
 }
 
 func TestLoggerWithMetadata(t *testing.T) {
-
 	g := gomega.NewGomegaWithT(t)
 
 	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
@@ -116,7 +117,6 @@ func TestLoggerWithMetadata(t *testing.T) {
 
 			g.Expect(metadata["Foo"]).To(gomega.Equal([]string{"bar"}))
 		}
-
 	}))
 	// Close the server when test finishes
 	defer logSvc.Close()
@@ -152,7 +152,9 @@ func TestLoggerWithMetadata(t *testing.T) {
 
 	oh.ServeHTTP(w, r)
 
-	b2, _ := io.ReadAll(w.Result().Body)
+	resp := w.Result()
+	defer resp.Body.Close()
+	b2, _ := io.ReadAll(resp.Body)
 	g.Expect(b2).To(gomega.Equal(predictorResponse))
 	// get logRequest
 	<-responseChan
@@ -161,7 +163,6 @@ func TestLoggerWithMetadata(t *testing.T) {
 }
 
 func TestBadResponse(t *testing.T) {
-
 	g := gomega.NewGomegaWithT(t)
 
 	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)

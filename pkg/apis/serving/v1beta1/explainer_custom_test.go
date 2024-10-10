@@ -20,12 +20,13 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestCustomExplainerDefaulter(t *testing.T) {
@@ -90,7 +91,6 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 }
 
 func TestCreateCustomExplainerContainer(t *testing.T) {
-
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.Quantity{

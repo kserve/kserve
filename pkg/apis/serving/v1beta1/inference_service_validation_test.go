@@ -510,7 +510,6 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 			g.Expect(err).Should(scenario.errMatcher)
 		})
 	}
-
 }
 
 func TestValidateMultiNodeVariables(t *testing.T) {

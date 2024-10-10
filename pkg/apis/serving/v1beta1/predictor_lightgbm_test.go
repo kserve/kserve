@@ -22,11 +22,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestLightGBMValidation(t *testing.T) {
@@ -104,7 +105,6 @@ func TestLightGBMDefaulter(t *testing.T) {
 }
 
 func TestCreateLightGBMModelServingContainer(t *testing.T) {
-
 	var requestedResource = v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.MustParse("100m"),

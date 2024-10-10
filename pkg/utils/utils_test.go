@@ -22,13 +22,14 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/credentials/gcs"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/credentials/gcs"
 )
 
 func TestFilterUtil(t *testing.T) {
@@ -137,7 +138,6 @@ func TestContainsUtil(t *testing.T) {
 }
 
 func TestAppendVolumeIfNotExists(t *testing.T) {
-
 	scenarios := map[string]struct {
 		volumes         []v1.Volume
 		volume          v1.Volume
@@ -255,7 +255,6 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 }
 
 func TestMergeEnvs(t *testing.T) {
-
 	scenarios := map[string]struct {
 		baseEnvs     []v1.EnvVar
 		overrideEnvs []v1.EnvVar
@@ -901,8 +900,8 @@ func TestStringToInt32(t *testing.T) {
 				if err.Error() != scenario.err.Error() {
 					t.Errorf("Test %q unexpected error: got (%v), want (%v)", name, err, scenario.err)
 				}
-			} else if err != scenario.err {
-				t.Errorf("Test %q unexpected error: got (%v), want (%v)", name, err, scenario.err)
+			} else if !errors.Is(err, scenario.err) {
+				t.Errorf("got %v, want %v", err, scenario.err)
 			}
 		})
 	}

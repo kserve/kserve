@@ -24,8 +24,6 @@ import (
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
@@ -41,7 +39,6 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -179,10 +176,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
@@ -288,7 +282,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
-			//check service
+			// check service
 			actualService := &v1.Service{}
 			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
@@ -323,7 +317,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.InternalTrafficPolicy = nil
 			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
-			//check isvc status
+			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
 			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
@@ -333,7 +327,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
+			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
 			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
@@ -439,7 +433,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 			}, timeout).Should(BeEmpty())
 
-			//check HPA
+			// check HPA
 			var minReplicas int32 = 1
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
@@ -601,10 +595,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
@@ -703,7 +694,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
-			//check service
+			// check service
 			actualService := &v1.Service{}
 			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
@@ -738,7 +729,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.InternalTrafficPolicy = nil
 			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
-			//check isvc status
+			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
 			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
@@ -748,7 +739,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
+			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
 			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
@@ -854,7 +845,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 			}, timeout).Should(BeEmpty())
 
-			//check HPA
+			// check HPA
 			var minReplicas int32 = 1
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
@@ -1002,10 +993,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
@@ -1109,7 +1097,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
-			//check service
+			// check service
 			actualService := &v1.Service{}
 			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
@@ -1144,7 +1132,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.InternalTrafficPolicy = nil
 			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
-			//check isvc status
+			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
 			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
@@ -1154,7 +1142,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
+			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
 			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
@@ -1260,7 +1248,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 			}, timeout).Should(BeEmpty())
 
-			//check HPA is not created
+			// check HPA is not created
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 			predictorHPAKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
@@ -1374,10 +1362,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
@@ -1483,7 +1468,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
-			//check service
+			// check service
 			actualService := &v1.Service{}
 			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
@@ -1518,7 +1503,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.InternalTrafficPolicy = nil
 			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
-			//check isvc status
+			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
 			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
@@ -1528,7 +1513,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
+			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
 			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
@@ -1634,7 +1619,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 			}, timeout).Should(BeEmpty())
 
-			//check HPA
+			// check HPA
 			var minReplicas int32 = 1
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
@@ -1807,10 +1792,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
@@ -1916,7 +1898,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
-			//check service
+			// check service
 			actualService := &v1.Service{}
 			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace}
@@ -1951,7 +1933,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.InternalTrafficPolicy = nil
 			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
-			//check isvc status
+			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
 			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
@@ -1961,7 +1943,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
+			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
 			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
@@ -2067,7 +2049,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 			}, timeout).Should(BeEmpty())
 
-			//check HPA
+			// check HPA
 			var minReplicas int32 = 1
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
@@ -2321,7 +2303,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err != nil && apierr.IsNotFound(err) {
 					return nil
 				}
-				return fmt.Errorf("expected IsNotFound error, but got %v", err)
+				return fmt.Errorf("expected IsNotFound error, but got %w", err)
 			}, timeout).Should(Succeed())
 		})
 		It("Should use WorkerSpec.PipelineParallelSize value in isvc when it is set", func() {
@@ -2462,7 +2444,7 @@ func verifyTensorParallelSizeDeployments(actualDefaultDeployment *appsv1.Deploym
 	Expect(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[gpuResourceType]).Should(Equal(gpuResourceQuantity))
 	Expect(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[gpuResourceType]).Should(Equal(gpuResourceQuantity))
 
-	//worker node deployment
+	// worker node deployment
 	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[gpuResourceType]).Should(Equal(gpuResourceQuantity))
 	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[gpuResourceType]).Should(Equal(gpuResourceQuantity))
 }

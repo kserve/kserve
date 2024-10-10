@@ -25,9 +25,6 @@ import (
 	"knative.dev/pkg/apis"
 	knativeV1 "knative.dev/pkg/apis/duck/v1"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
@@ -35,6 +32,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestIsMMSPredictor(t *testing.T) {
@@ -1002,7 +1003,6 @@ func TestGetServingRuntime(t *testing.T) {
 		}
 		g.Expect(err.Error()).To(gomega.ContainSubstring("No ServingRuntimes or ClusterServingRuntimes with the name"))
 	})
-
 }
 
 func TestReplacePlaceholders(t *testing.T) {
@@ -1264,28 +1264,28 @@ func TestGetDeploymentMode(t *testing.T) {
 				constants.DeploymentMode: string(constants.RawDeployment),
 			},
 			deployConfig: &DeployConfig{},
-			expected:     constants.DeploymentModeType(constants.RawDeployment),
+			expected:     constants.RawDeployment,
 		},
 		"ServerlessDeployment": {
 			annotations: map[string]string{
 				constants.DeploymentMode: string(constants.Serverless),
 			},
 			deployConfig: &DeployConfig{},
-			expected:     constants.DeploymentModeType(constants.Serverless),
+			expected:     constants.Serverless,
 		},
 		"ModelMeshDeployment": {
 			annotations: map[string]string{
 				constants.DeploymentMode: string(constants.ModelMeshDeployment),
 			},
 			deployConfig: &DeployConfig{},
-			expected:     constants.DeploymentModeType(constants.ModelMeshDeployment),
+			expected:     constants.ModelMeshDeployment,
 		},
 		"DefaultDeploymentMode": {
 			annotations: map[string]string{},
 			deployConfig: &DeployConfig{
 				DefaultDeploymentMode: string(constants.Serverless),
 			},
-			expected: constants.DeploymentModeType(constants.Serverless),
+			expected: constants.Serverless,
 		},
 	}
 

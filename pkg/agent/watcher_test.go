@@ -31,15 +31,18 @@ import (
 	gstorage "cloud.google.com/go/storage"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/go-logr/zapr"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/kserve/kserve/pkg/agent/mocks"
 	"github.com/kserve/kserve/pkg/agent/storage"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/modelconfig"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var _ = Describe("Watcher", func() {
@@ -55,6 +58,7 @@ var _ = Describe("Watcher", func() {
 		sugar = zapLogger.Sugar()
 		logger.Printf("Creating temp dir %v\n", modelDir)
 		SetDefaultEventuallyTimeout(2 * time.Minute)
+		log.SetLogger(zapr.NewLogger(zapLogger))
 	})
 	AfterEach(func() {
 		os.RemoveAll(modelDir)
@@ -92,8 +96,13 @@ var _ = Describe("Watcher", func() {
 				}
 
 				file, _ := json.MarshalIndent(modelConfigs, "", " ")
-				if err := os.WriteFile("/tmp/configs/"+constants.ModelConfigFileName, file, os.ModePerm); err != nil {
-					logger.Fatal(err, " Failed to write config files")
+				tmpFile, err := os.Create("/tmp/configs" + constants.ModelConfigFileName) // #nosec G303
+				if err != nil {
+					logger.Fatal(err, "ioutil.TempFile failed")
+				}
+
+				if _, err := tmpFile.Write(file); err != nil {
+					logger.Fatal(err, "tmpFile.Write failed")
 				}
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 
@@ -124,6 +133,7 @@ var _ = Describe("Watcher", func() {
 				Expect(watcher.ModelTracker).Should(Equal(modelSpecMap))
 
 				DeferCleanup(func() {
+					tmpFile.Close()
 					os.RemoveAll("/tmp/configs")
 				})
 			})
@@ -312,8 +322,7 @@ var _ = Describe("Watcher", func() {
 					Bucket:  aws.String("modelRepo"),
 					Key:     aws.String("model1/model.pt"),
 				})
-				var err error
-				err = s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
+				err := s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
@@ -431,7 +440,6 @@ var _ = Describe("Watcher", func() {
 					Fail("Failed to write contents.")
 				}
 
-				const secondaryContents = "Secondary Contents"
 				w2 := bkt.Object("testModel2").NewWriter(ctx)
 				if _, err := fmt.Fprint(w2, modelContents); err != nil {
 					Fail("Failed to write contents.")
@@ -480,7 +488,6 @@ var _ = Describe("Watcher", func() {
 					Fail("Failed to write contents.")
 				}
 
-				const secondaryContents = "Secondary Contents"
 				w2 := bkt.Object("testModel2").NewWriter(ctx)
 				if _, err := fmt.Fprint(w2, modelContents); err != nil {
 					Fail("Failed to write contents.")

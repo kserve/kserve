@@ -21,9 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
@@ -36,6 +33,10 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ = Describe("Inference Graph controller test", func() {
@@ -109,10 +110,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			inferenceGraphSubmitted := &v1alpha1.InferenceGraph{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualKnServiceCreated := &knservingv1.Service{}
@@ -574,7 +572,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 
-			//No KNative Service should get created in Raw deployment mode
+			// No KNative Service should get created in Raw deployment mode
 			actualKnServiceCreated := &knservingv1.Service{}
 			Eventually(func() bool {
 				if err := k8sClient.Get(context.TODO(), serviceKey, actualKnServiceCreated); err != nil {
@@ -585,7 +583,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			}, timeout).
 				Should(BeFalse())
 
-			//No Knative Route should get created in Raw deployment mode
+			// No Knative Route should get created in Raw deployment mode
 			actualKnRouteCreated := &knservingv1.Route{}
 			Eventually(func() bool {
 				if err := k8sClient.Get(context.TODO(), serviceKey, actualKnRouteCreated); err != nil {

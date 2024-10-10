@@ -17,15 +17,17 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/onsi/gomega"
 	"net/url"
 	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
+
+	"github.com/kserve/kserve/pkg/constants"
+
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
