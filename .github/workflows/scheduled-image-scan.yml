@@ -43,13 +43,14 @@ jobs:
             --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
           sarif: false
 
-      # Replace any "undefined" security severity values with 0. The undefined value is used in the case
+      # Replace any "undefined" or "null" security severity values with 0. The undefined value is used in the case
       # of license-related findings, which do not indicate a security vulnerability.
       # See https://github.com/github/codeql-action/issues/2187 for more context.
       # This can be removed once https://github.com/snyk/cli/pull/5409 is merged.
       - name: Replace security-severity undefined for license-related findings
         run: |
           sudo sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
+          sudo sed -i 's/"security-severity": "null"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
@@ -88,13 +89,14 @@ jobs:
             --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
           sarif: false
 
-      # Replace any "undefined" security severity values with 0. The undefined value is used in the case
+      # Replace any "undefined" or "null" security severity values with 0. The undefined value is used in the case
       # of license-related findings, which do not indicate a security vulnerability.
       # See https://github.com/github/codeql-action/issues/2187 for more context.
       # This can be removed once https://github.com/snyk/cli/pull/5409 is merged.
       - name: Replace security-severity undefined for license-related findings
         run: |
           sudo sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
+          sudo sed -i 's/"security-severity": "null"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
@@ -129,13 +131,14 @@ jobs:
             --sarif-file-output=./application/${{ matrix.image.name }}/docker.snyk.sarif
           sarif: false
 
-      # Replace any "undefined" security severity values with 0. The undefined value is used in the case
+      # Replace any "undefined" or "null" security severity values with 0. The undefined value is used in the case
       # of license-related findings, which do not indicate a security vulnerability.
       # See https://github.com/github/codeql-action/issues/2187 for more context.
       # This can be removed once https://github.com/snyk/cli/pull/5409 is merged.
       - name: Replace security-severity undefined for license-related findings
         run: |
           sudo sed -i 's/"security-severity": "undefined"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
+          sudo sed -i 's/"security-severity": "null"/"security-severity": "0"/g' ./application/${{ matrix.image.name }}/docker.snyk.sarif
 
       - name: Upload sarif file to Github Code Scanning
         if: always()
