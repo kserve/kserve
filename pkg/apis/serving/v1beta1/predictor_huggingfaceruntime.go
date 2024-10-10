@@ -17,10 +17,11 @@ limitations under the License.
 package v1beta1
 
 import (
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // HuggingFaceRuntimeSpec defines arguments for configuring HuggingFace model serving.
