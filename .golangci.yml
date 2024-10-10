@@ -7,10 +7,11 @@ issues:
   max-same-issues: 0
   max-issues-per-linter: 0
   exclude-dirs:  # skip auto gen folders
-    - "client/"
-    - "clientv1alpha1/"
-    - "tools/tf2openapi/generated/"
-
+    - "client/*"
+    - "tools/tf2openapi/generated/*"
+    - "openapi/"
+  exclude-files:
+    - "zz_generated.*.go"
 
 output:
   formats: 
@@ -49,7 +50,7 @@ linters:
 
 linters-settings:
   goimports:
-    local-prefixes: "bbgithub.dev.bloomberg.com/cncr-inference/inferno"
+    local-prefixes: "github.com/kserve/kserve"
   gosec:
     # specify configuration of gosec rules: https://github.com/securego/gosec#available-rules
     config:
