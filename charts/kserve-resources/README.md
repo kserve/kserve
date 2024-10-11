@@ -168,6 +168,10 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0-rc1
 | kserve.servingruntime.xgbserver.tag | string | `"v0.14.0-rc1"` |  |
 | kserve.storage.caBundleConfigMapName | string | `""` | Mounted CA bundle config map name for storage initializer. |
 | kserve.storage.caBundleVolumeMountPath | string | `"/etc/ssl/custom-certs"` | Mounted path for CA bundle config map. |
+| kserve.storage.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
+| kserve.storage.containerSecurityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| kserve.storage.containerSecurityContext.privileged | bool | `false` |  |
+| kserve.storage.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | kserve.storage.cpuModelcar | string | `"10m"` | Model sidecar cpu requirement. |
 | kserve.storage.enableModelcar | bool | `false` | Flag for enabling model sidecar feature. |
 | kserve.storage.image | string | `"kserve/storage-initializer"` |  |

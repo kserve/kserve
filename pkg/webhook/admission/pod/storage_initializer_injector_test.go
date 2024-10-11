@@ -2623,6 +2623,9 @@ func TestGetStorageContainerSpec(t *testing.T) {
 						v1.ResourceMemory: resource.MustParse("200Mi"),
 					},
 				},
+				SecurityContext: &v1.SecurityContext{
+					RunAsNonRoot: ptr.Bool(true),
+				},
 			},
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
 		},
