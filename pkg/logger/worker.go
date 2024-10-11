@@ -122,7 +122,9 @@ func (w *Worker) prepareEvent(logReq LogRequest) (cloudevents.Event, error) {
 
 // buildClient constructs an http client and transport to send cloudevent request.
 func (w *Worker) buildClient(url *url.URL, certName string, tlsSkipVerify bool) (*http.Client, error) {
-	c := &http.Client{}
+	c := &http.Client{
+		Timeout: time.Second * 10,
+	}
 
 	if url.Scheme == "https" {
 		caCertFilePath := filepath.Join(LoggerCaCertMountPath, certName)
@@ -220,9 +222,12 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 		if err != nil {
 			w.Log.Warnf("unable to read body of response: %w", err)
 		}
-		err = fmt.Errorf(string(body))
+
+		w.Log.Errorf("Sent with status code %d, error: %v", res.StatusCode, fmt.Errorf(string(body)))
+	} else {
+		w.Log.Infof("Sent with status code %d", res.StatusCode)
 	}
-	w.Log.Infof("Sent with status code %d, error: %v", res.StatusCode, err)
+
 	return nil
 }
 
@@ -253,7 +258,7 @@ func (w *Worker) Start() {
 					}
 
 				} else {
-					w.Log.Errorf("Support for more than 2 work items not permitted")
+					w.Log.Errorf("Invalid amount of work items, number of work items must be 1 or 2, not %d", len(work))
 				}
 
 			case <-w.QuitChan:
