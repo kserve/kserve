@@ -354,7 +354,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		storageInitializerImage = mi.config.Image
 	}
 
-	securityContext := userContainer.SecurityContext.DeepCopy()
 	// Add an init container to run provisioning logic to the PodSpec
 	initContainer := &v1.Container{
 		Name:  StorageInitializerContainerName,
@@ -375,7 +374,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 				v1.ResourceMemory: resource.MustParse(mi.config.MemoryRequest),
 			},
 		},
-		SecurityContext: securityContext,
 	}
 
 	// Add a mount the shared volume on the kserve-container, update the PodSpec

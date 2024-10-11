@@ -10,6 +10,15 @@ kserve:
   storage:
     image: kserve/storage-initializer
     tag: *defaultVersion
+
+    # security context for the default storage container
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      privileged: false
+      runAsNonRoot: true
+      capabilities:
+        drop:
+          - ALL
  
     # -- Flag for enabling model sidecar feature.
     enableModelcar: false
