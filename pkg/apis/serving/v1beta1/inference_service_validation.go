@@ -160,7 +160,7 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 			}
 		}
 		if envTensorParallelSize, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.TensorParallelSizeEnvName); exists {
-			// GPU resource should be bigger than 1.
+			// GPU resource should not be less than 1.
 			if intTensorParallelSize, err := strconv.Atoi(envTensorParallelSize); err == nil {
 				if intTensorParallelSize < 1 {
 					return fmt.Errorf(InvalidTensorParallelSizeValueError, isvc.Name, envTensorParallelSize)

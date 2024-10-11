@@ -44,7 +44,7 @@ const (
 	ProrityIsNotSameClusterServingRuntimeError = "%s under the clusterservingruntime %s"
 	InvalidWorkerSpecSizeValueError            = "the WorkerSpec.Size cannot be less than 2(%d)"
 	InvalidPipelineParallelSizeValueError      = "the PIPELINE_PARALLEL_SIZE cannot be less than 2 (%s) because PipelineParallelSize should include at least 1 head node and 1 worker node"
-	InvalidTensorParallelSizeValueError        = "the TENSOR_PARALLE_SIZE cannot be less than 1(%s)"
+	InvalidTensorParallelSizeValueError        = "the TENSOR_PARALLEL_SIZE cannot be less than 1(%s)"
 	InvalidParallelSizeValueError              = "the value of PIPELINE_PARALLEL_SIZE or TENSOR_PARALLEL_SIZE is incorrect"
 	InvalidMultiNodeEnvVariablesError          = "the %s %s is invalid: %s"
 )
@@ -203,7 +203,7 @@ func validateMultiNodeVariables(newSpec *v1alpha1.ServingRuntimeSpec) error {
 				}
 
 				if envTensorParallelSize, exists := utils.GetEnvVarValue(newSpec.Containers[i].Env, constants.TensorParallelSizeEnvName); exists {
-					// GPU resource should be bigger than 1.
+					// GPU resource should be bigger than 0.
 					if intTensorParallelSize, err := strconv.Atoi(envTensorParallelSize); err == nil {
 						if intTensorParallelSize < 1 {
 							return fmt.Errorf(InvalidTensorParallelSizeValueError, envTensorParallelSize)

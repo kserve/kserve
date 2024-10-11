@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
 	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
@@ -95,7 +96,7 @@ func createRawURL(clientset kubernetes.Interface, metadata metav1.ObjectMeta) (*
 // Reconcile ...
 func (r *RawKubeReconciler) Reconcile() (*appsv1.Deployment, error) {
 	// reconcile Deployment
-	deployment, err := r.Deployment.Reconcile()
+	deploymentList, err := r.Deployment.Reconcile()
 	if err != nil {
 		return nil, err
 	}
@@ -109,5 +110,23 @@ func (r *RawKubeReconciler) Reconcile() (*appsv1.Deployment, error) {
 	if err != nil {
 		return nil, err
 	}
-	return deployment[0], nil
+	var defaultDeployment *appsv1.Deployment
+
+	for _, deployment := range deploymentList {
+		if notContainsContainer(deployment, constants.WorkerContainerName) {
+			defaultDeployment = deployment
+			break
+		}
+	}
+	return defaultDeployment, nil
+}
+
+// containsContainer checks if the deployment has a container with the specified name.
+func notContainsContainer(deployment *appsv1.Deployment, containerName string) bool {
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if container.Name != containerName {
+			return true
+		}
+	}
+	return false
 }

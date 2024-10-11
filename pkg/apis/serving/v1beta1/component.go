@@ -41,7 +41,7 @@ const (
 	InvalidProtocol                       = "invalid protocol %s. Must be one of [%s]"
 	InvalidWorkerSpecSizeValueError       = "the InferenceService \"%s\" is invalid: WorkerSpec.Size cannot be less than 2(%d)"
 	InvalidPipelineParallelSizeValueError = "the InferenceService \"%s\" is invalid: PIPELINE_PARALLEL_SIZE cannot be less than 2 (%s) because PipelineParallelSize should include at least 1 head node and 1 worker node"
-	InvalidTensorParallelSizeValueError   = "the InferenceService \"%s\" is invalid: TENSOR_PARALLE_SIZE cannot be less than 1(%s)"
+	InvalidTensorParallelSizeValueError   = "the InferenceService \"%s\" is invalid: TENSOR_PARALLEL_SIZE cannot be less than 1(%s)"
 	InvalidParallelSizeValueError         = "the InferenceService \"%s\" is invalid: the value(%s) of PIPELINE_PARALLEL_SIZE or TENSOR_PARALLEL_SIZE is incorrect"
 )
 
