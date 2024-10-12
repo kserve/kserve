@@ -18,6 +18,7 @@ from artserver import ARTModel
 
 import kserve
 from kserve import logging
+from kserve.model import PredictorConfig
 
 DEFAULT_ADVERSARY_TYPE = "SquareAttack"
 
@@ -44,9 +45,17 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
+    predictor_config = PredictorConfig(
+        predictor_host=args.predictor_host,
+        predictor_protocol=args.predictor_protocol,
+        predictor_use_ssl=args.predictor_use_ssl,
+        predictor_request_timeout_seconds=args.predictor_request_timeout_seconds,
+        predictor_request_retries=args.predictor_request_retries,
+        predictor_health_check=args.enable_predictor_health_check,
+    )
     model = ARTModel(
         args.model_name,
-        args.predictor_host,
+        predictor_config,
         adversary_type=args.adversary_type,
         nb_classes=args.nb_classes,
         max_iter=args.max_iter,
