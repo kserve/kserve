@@ -35,7 +35,7 @@ def test_predictor_headers_v1():
                 command=["python", "-m", "custom_model.model"],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"},
+                    limits={"cpu": "100m", "memory": "2Gi"},
                 ),
                 ports=[V1ContainerPort(container_port=8080, protocol="TCP")],
                 args=["--model_name", model_name],
@@ -121,7 +121,7 @@ def test_predictor_headers_v2():
                 command=["python", "-m", "custom_model.model"],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"},
+                    limits={"cpu": "100m", "memory": "2Gi"},
                 ),
                 ports=[V1ContainerPort(container_port=8080, protocol="TCP")],
                 args=["--model_name", model_name],
