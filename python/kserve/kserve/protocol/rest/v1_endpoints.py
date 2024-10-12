@@ -16,6 +16,7 @@ from typing import Optional, Union, Dict, List, AsyncIterator
 
 from fastapi import Request, Response, FastAPI, APIRouter
 from starlette.responses import StreamingResponse
+from fastapi.responses import JSONResponse
 
 from kserve.errors import ModelNotReady
 from ..dataplane import DataPlane
@@ -83,18 +84,20 @@ class V1Endpoints:
         response, response_headers = await self.dataplane.infer(
             model_name=model_name, request=infer_request, headers=headers
         )
-        response, response_headers = self.dataplane.encode(
+        response, res_headers = self.dataplane.encode(
             model_name=model_name,
             response=response,
             headers=headers,
             req_attributes=req_attributes,
         )
+        response_headers.update(res_headers)
+        response_headers.pop("content-length", None)
 
         if isinstance(response, bytes) or isinstance(response, str):
             return Response(content=response, headers=response_headers)
         if isinstance(response, AsyncIterator):
             return StreamingResponse(content=response)
-        return response
+        return JSONResponse(content=response, headers=response_headers)
 
     async def explain(self, model_name: str, request: Request) -> Union[Response, Dict]:
         """Explain handler.
@@ -119,12 +122,15 @@ class V1Endpoints:
         response, response_headers = await self.dataplane.explain(
             model_name=model_name, request=infer_request, headers=headers
         )
-        response, response_headers = self.dataplane.encode(
+        response, res_headers = self.dataplane.encode(
             model_name=model_name,
             response=response,
-            headers=headers,
+            headers=response_headers,
             req_attributes=req_attributes,
         )
+
+        response_headers.update(res_headers)
+        response_headers.pop("content-length", None)
 
         if not isinstance(response, dict):
             return Response(content=response, headers=response_headers)
