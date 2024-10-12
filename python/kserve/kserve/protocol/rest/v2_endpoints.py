@@ -164,12 +164,16 @@ class V2Endpoints:
             request=infer_request,
             headers=request_headers,
         )
-        response, response_headers = self.dataplane.encode(
+        response, res_headers = self.dataplane.encode(
             model_name=model_name,
             response=response,
-            headers=response_headers,
+            headers=request_headers,
             req_attributes={},
         )
+
+        response_headers.update(res_headers)
+        response_headers.pop("content-length", None)
+        response_headers.pop("content-type", None)
 
         if response_headers:
             raw_response.headers.update(response_headers)
