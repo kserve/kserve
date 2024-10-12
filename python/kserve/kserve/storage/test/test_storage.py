@@ -321,6 +321,8 @@ def test_unpack_zip_file():
     },
     clear=True,
 )
+
+
 def test_gs_storage_spec():
     Storage._update_with_storage_spec()
     assert "GOOGLE_SERVICE_ACCOUNT" in os.environ
