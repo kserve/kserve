@@ -171,7 +171,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
 			inferenceService := &v1beta1.InferenceService{}
@@ -271,6 +271,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								FSGroupChangePolicy: nil,
 								SeccompProfile:      nil,
 							},
+							AutomountServiceAccountToken: proto.Bool(false),
 						},
 					},
 					Strategy: appsv1.DeploymentStrategy{
@@ -592,7 +593,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
 			inferenceService := &v1beta1.InferenceService{}
@@ -688,6 +689,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								FSGroupChangePolicy: nil,
 								SeccompProfile:      nil,
 							},
+							AutomountServiceAccountToken: proto.Bool(false),
 						},
 					},
 					// This is now customized and different from defaults set via `setDefaultDeploymentSpec`.
@@ -992,7 +994,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
 			inferenceService := &v1beta1.InferenceService{}
@@ -1090,6 +1092,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								FSGroupChangePolicy: nil,
 								SeccompProfile:      nil,
 							},
+							AutomountServiceAccountToken: proto.Bool(false),
 						},
 					},
 					Strategy: appsv1.DeploymentStrategy{
@@ -1363,7 +1366,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
 			inferenceService := &v1beta1.InferenceService{}
@@ -1463,6 +1466,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								FSGroupChangePolicy: nil,
 								SeccompProfile:      nil,
 							},
+							AutomountServiceAccountToken: proto.Bool(false),
 						},
 					},
 					Strategy: appsv1.DeploymentStrategy{
@@ -1795,7 +1799,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
 			inferenceService := &v1beta1.InferenceService{}
@@ -1895,6 +1899,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								FSGroupChangePolicy: nil,
 								SeccompProfile:      nil,
 							},
+							AutomountServiceAccountToken: proto.Bool(false),
 						},
 					},
 					Strategy: appsv1.DeploymentStrategy{

@@ -19,7 +19,6 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: kserve-controller-manager
       control-plane: kserve-controller-manager
       controller-tools.k8s.io: "1.0"
   template:
@@ -69,6 +68,14 @@ spec:
         ports:
         - containerPort: 8443
           name: https
+        securityContext:
+          {{- with .Values.kserve.controller.rbacProxy.securityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+        resources:
+          {{- with .Values.kserve.controller.rbacProxy.resources }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
       - command:
         - /manager
         image: "{{ .Values.kserve.controller.image }}:{{ .Values.kserve.controller.tag }}"

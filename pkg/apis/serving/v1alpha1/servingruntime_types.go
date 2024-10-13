@@ -17,9 +17,13 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	"github.com/kserve/kserve/pkg/constants"
+	"gopkg.in/go-playground/validator.v9"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // +k8s:openapi-gen=true
@@ -102,6 +106,11 @@ type ServingRuntimePodSpec struct {
 	// +patchMergeKey=name
 	// +patchStrategy=merge
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
+	// Use the host's ipc namespace.
+	// Optional: Default to false.
+	// +k8s:conversion-gen=false
+	// +optional
+	HostIPC bool `json:"hostIPC,omitempty" protobuf:"varint,13,opt,name=hostIPC"`
 
 	// Possibly other things here
 }
@@ -125,6 +134,10 @@ type ServingRuntimeSpec struct {
 	// Supported protocol versions (i.e. v1 or v2 or grpc-v1 or grpc-v2)
 	// +optional
 	ProtocolVersions []constants.InferenceServiceProtocol `json:"protocolVersions,omitempty"`
+
+	// Set WorkerSpec to enable multi-node/multi-gpu
+	// +optional
+	WorkerSpec *WorkerSpec `json:"workerSpec,omitempty"`
 
 	ServingRuntimePodSpec `json:",inline"`
 
@@ -254,6 +267,15 @@ type SupportedRuntime struct {
 	Spec ServingRuntimeSpec
 }
 
+// WorkerSpec is the schema for multi-node/multi-GPU feature
+type WorkerSpec struct {
+	ServingRuntimePodSpec `json:",inline"`
+
+	// Configure the number of replicas in the worker set, each worker set represents the unit of scaling
+	// +optional
+	Size int `json:"size,omitempty"`
+}
+
 func init() {
 	SchemeBuilder.Register(&ServingRuntime{}, &ServingRuntimeList{})
 	SchemeBuilder.Register(&ClusterServingRuntime{}, &ClusterServingRuntimeList{})
@@ -291,4 +313,42 @@ func (srSpec *ServingRuntimeSpec) GetPriority(modelName string) *int32 {
 
 func (m *SupportedModelFormat) IsAutoSelectEnabled() bool {
 	return m.AutoSelect != nil && *m.AutoSelect
+}
+
+func (srSpec *ServingRuntimeSpec) IsValid() bool {
+	if err := srSpec.validatePodSpecAndWorkerSpec(); err != nil {
+		return false
+	}
+	return true
+}
+
+// common validation logic
+func (srSpec *ServingRuntimeSpec) validatePodSpecAndWorkerSpec() error {
+	// Respect for ServingRuntimePodSpec validate fields
+	if err := validate.Struct(srSpec.ServingRuntimePodSpec); err != nil {
+		return err
+	}
+
+	// Additional validation for WorkerSpec
+	if srSpec.WorkerSpec != nil {
+		if len(srSpec.WorkerSpec.Containers) == 0 {
+			return fmt.Errorf("spec.workerSpec.containers: Required value")
+		}
+	}
+
+	return nil
+}
+
+var validate = validator.New()
+
+func (srSpec *ServingRuntimeSpec) ValidateCreate() error {
+	return srSpec.validatePodSpecAndWorkerSpec()
+}
+
+func (srSpec *ServingRuntimeSpec) ValidateUpdate(old runtime.Object) error {
+	return srSpec.validatePodSpecAndWorkerSpec()
+}
+
+func (srSpec *ServingRuntimeSpec) ValidateDelete() error {
+	return nil
 }

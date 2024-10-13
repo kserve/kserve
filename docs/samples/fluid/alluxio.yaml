@@ -4,9 +4,8 @@ metadata:
   name: s3-data
 spec:
   mounts:
-    - mountPoint: "s3://${bucket}/models/bloom-560m/"
-      name: bloom-560m
-      path: /bloom-560m
+    - mountPoint: "s3://${bucket}/models/meta-llama--Meta-Llama-3.1-8B-Instruct/"
+      name: llama-31-8b-instruct
       options:
         alluxio.underfs.s3.region: "eu-central-1"
         alluxio.underfs.s3.secure.http.enabled: "true"
@@ -30,7 +29,7 @@ spec:
             - key: node.kubernetes.io/instance-type
               operator: In
               values:
-                - "m5.xlarge"
+                - "m5n.xlarge"
   placement: "Shared"
 ---
 apiVersion: data.fluid.io/v1alpha1
@@ -38,7 +37,7 @@ kind: AlluxioRuntime
 metadata:
   name: s3-data
 spec:
-  replicas: 2
+  replicas: 3
   properties:
     alluxio.user.ufs.block.read.location.policy: alluxio.client.block.policy.LocalFirstAvoidEvictionPolicy
     alluxio.user.block.size.bytes.default: 256MB
@@ -50,11 +49,12 @@ spec:
     levels:
       - mediumtype: SSD
         path: /mnt/ssd0/cache
-        quota: 10Gi
+        quota: 100Gi
         high: "0.95"
         low: "0.7"
   master:
     nodeSelector:
-      node.kubernetes.io/instance-type: m5.xlarge
-  fuse:
-    cleanPolicy: OnDemand
+      node.kubernetes.io/instance-type: m5n.xlarge
+  worker:
+    nodeSelector:
+      node.kubernetes.io/instance-type: m5n.xlarge

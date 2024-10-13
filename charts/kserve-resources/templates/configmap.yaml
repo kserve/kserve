@@ -441,6 +441,19 @@ data:
          "enablePrometheusScraping" : "false"
        }
 
+     # ====================================== LOCALMODEL CONFIGURATION ======================================
+     # Example
+     localModel: |-
+       {
+         "enabled": false,
+         # jobNamespace specifies the namespace where the download job will be created.
+         "jobNamespace": "kserve-localmodel-jobs",
+         # defaultJobImage specifies the default image used for the download job.
+         "defaultJobImage" : "kserve/storage-initializer:latest",
+         # Kubernetes modifies the filesystem group ID on the attached volume.
+         "FSGroup": 1000
+       }
+
   agent: |-
     {
         "image" : "{{ .Values.kserve.agent.image }}:{{ .Values.kserve.agent.tag }}",
@@ -542,4 +555,15 @@ data:
     {
       "enableMetricAggregation": "{{ .Values.kserve.metricsaggregator.enableMetricAggregation }}",
       "enablePrometheusScraping" : "{{ .Values.kserve.metricsaggregator.enablePrometheusScraping }}"
+    }
+  localModel: |-
+    {
+      "enabled": {{ .Values.kserve.localmodel.enabled }},
+      "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
+      "defaultJobImage" : "kserve/storage-initializer:latest",
+      "FSGroup": {{ .Values.kserve.localmodel.securityContext.FSGroup }}
+    }
+  security: |-
+    {
+      "autoMountServiceAccountToken": {{ .Values.kserve.security.autoMountServiceAccountToken }}
     }

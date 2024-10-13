@@ -73,6 +73,12 @@ const (
 	AgentModelDirArgName  = "--model-dir"
 )
 
+// InferenceLogger Constants
+const (
+	LoggerCaBundleVolume  = "agent-ca-bundle"
+	LoggerCaCertMountPath = "/etc/tls/logger"
+)
+
 // InferenceService Annotations
 var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
@@ -91,6 +97,7 @@ var (
 	KServeContainerPrometheusPathKey            = "prometheus.kserve.io/path"
 	PrometheusPortAnnotationKey                 = "prometheus.io/port"
 	PrometheusPathAnnotationKey                 = "prometheus.io/path"
+	StorageReadonlyAnnotationKey                = "storage.kserve.io/readonly"
 	DefaultPrometheusPath                       = "/metrics"
 	QueueProxyAggregatePrometheusMetricsPort    = 9088
 	DefaultPodPrometheusPort                    = "9091"
@@ -116,6 +123,8 @@ var (
 	AgentModelDirAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/modelDir"
 	PredictorHostAnnotationKey                       = InferenceServiceInternalAnnotationsPrefix + "/predictor-host"
 	PredictorProtocolAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/predictor-protocol"
+	LocalModelLabel                                  = InferenceServiceInternalAnnotationsPrefix + "/localmodel"
+	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
 )
 
 // kserve networking constants
@@ -123,6 +132,8 @@ const (
 	NetworkVisibility      = "networking.kserve.io/visibility"
 	ClusterLocalVisibility = "cluster-local"
 	ClusterLocalDomain     = "svc.cluster.local"
+	IsvcNameHeader         = "KServe-Isvc-Name"
+	IsvcNamespaceHeader    = "KServe-Isvc-Namespace"
 )
 
 // StorageSpec Constants
@@ -444,6 +455,7 @@ const (
 const (
 	IstioVirtualServiceKind = "VirtualService"
 	KnativeServiceKind      = "Service"
+	ClusterLocalModelKind   = "ClusterLocalModel"
 )
 
 // GetRawServiceLabel generate native service label
@@ -551,6 +563,10 @@ func PredictPrefix() string {
 
 func ExplainPrefix() string {
 	return "^/v1/models/[\\w-]+:explain$"
+}
+
+func PathBasedExplainPrefix() string {
+	return "(/v1/models/[\\w-]+:explain)$"
 }
 
 func VirtualServiceHostname(name string, predictorHostName string) string {

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "paddleserver"
-version = "0.14.0rc0"
+version = "0.14.0rc1"
 description = "Model Server implementation for Paddle. Not intended for use outside KServe Frameworks Images"
 authors = ["Zhengyuan Zhang <zhangzhengyuan0604@gmail.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
@@ -10,18 +10,19 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.12"
+python = ">=3.9,<3.13"
 kserve = {path = "../kserve", extras = ["storage"], develop = true}
 paddlepaddle = {version="^2.6.1", markers = "platform_system != 'Windows'"}
+setuptools =  {version = "^70.0.0", python = "3.12"} # setuptools is not part of python 3.12
 
 [tool.poetry.group.test]
 optional = true
 
 [tool.poetry.group.test.dependencies]
-pytest = "^7.2.0"
-pytest-cov = "^4.0.0"
+pytest = "^7.4.4"
+pytest-cov = "^5.0.0"
 mypy = "^0.991"
-opencv-python = "^4.2.0"
+opencv-python = "^4.10.0"
 
 [tool.poetry.group.dev]
 optional = true

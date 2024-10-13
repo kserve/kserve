@@ -115,7 +115,7 @@ class V2Endpoints:
         if model_version:
             raise NotImplementedError("Model versioning not supported yet.")
 
-        model_ready = self.dataplane.model_ready(model_name)
+        model_ready = await self.dataplane.model_ready(model_name)
 
         if not model_ready:
             raise ModelNotReady(model_name)
@@ -146,7 +146,7 @@ class V2Endpoints:
         if model_version:
             raise NotImplementedError("Model versioning not supported yet.")
 
-        model_ready = self.dataplane.model_ready(model_name)
+        model_ready = await self.dataplane.model_ready(model_name)
 
         if not model_ready:
             raise ModelNotReady(model_name)
@@ -164,12 +164,16 @@ class V2Endpoints:
             request=infer_request,
             headers=request_headers,
         )
-        response, response_headers = self.dataplane.encode(
+        response, res_headers = self.dataplane.encode(
             model_name=model_name,
             response=response,
-            headers=response_headers,
+            headers=request_headers,
             req_attributes={},
         )
+
+        response_headers.update(res_headers)
+        response_headers.pop("content-length", None)
+        response_headers.pop("content-type", None)
 
         if response_headers:
             raw_response.headers.update(response_headers)

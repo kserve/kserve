@@ -4,9 +4,8 @@ metadata:
   name: s3-data
 spec:
   mounts:
-    - mountPoint: "s3://${bucket}/models/bloom-560m/"
-      name: bloom-560m
-      path: /bloom-560m
+    - mountPoint: "s3://${bucket}/models/meta-llama--Meta-Llama-3.1-8B-Instruct/"
+      name: llama-31-8b-instruct
       options:
         fs.s3.region: "eu-central-1"
         fs.s3.endpoint: "s3.eu-central-1.amazonaws.com"
@@ -30,7 +29,7 @@ spec:
             - key: node.kubernetes.io/instance-type
               operator: In
               values:
-                - "m5.xlarge"
+                - "m5n.xlarge"
   placement: "Shared"
 ---
 apiVersion: data.fluid.io/v1alpha1
@@ -38,17 +37,20 @@ kind: JindoRuntime
 metadata:
   name: s3-data
 spec:
-  replicas: 2
+  replicas: 3
   tieredstore:
     levels:
       - mediumtype: SSD
         path: /mnt/ssd0/cache
-        quota: 50Gi
+        quota: 100Gi
         high: "0.95"
         low: "0.7"
   master:
     nodeSelector:
-      node.kubernetes.io/instance-type: m5.xlarge
+      node.kubernetes.io/instance-type: m5n.xlarge
+  worker:
+    nodeSelector:
+      node.kubernetes.io/instance-type: m5n.xlarge
   fuse:
     properties:
       fs.jindofsx.data.cache.enable: "true"
@@ -63,4 +65,3 @@ spec:
       - -oattr_timeout=7200
       - -oentry_timeout=7200
       - -ometrics_port=9089
-    cleanPolicy: OnDemand

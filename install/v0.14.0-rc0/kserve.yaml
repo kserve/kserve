@@ -21699,7 +21699,6 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: kserve-controller-manager
       control-plane: kserve-controller-manager
       controller-tools.k8s.io: "1.0"
   template:
@@ -21827,7 +21826,6 @@ webhooks:
 - admissionReviewVersions:
   - v1beta1
   clientConfig:
-    caBundle: Cg==
     service:
       name: kserve-webhook-server-service
       namespace: kserve
@@ -21848,7 +21846,6 @@ webhooks:
 - admissionReviewVersions:
   - v1beta1
   clientConfig:
-    caBundle: Cg==
     service:
       name: kserve-webhook-server-service
       namespace: kserve
@@ -21886,7 +21883,6 @@ webhooks:
 - admissionReviewVersions:
   - v1beta1
   clientConfig:
-    caBundle: Cg==
     service:
       name: kserve-webhook-server-service
       namespace: kserve
@@ -21916,7 +21912,6 @@ webhooks:
 - admissionReviewVersions:
   - v1beta1
   clientConfig:
-    caBundle: Cg==
     service:
       name: kserve-webhook-server-service
       namespace: kserve
@@ -21946,7 +21941,6 @@ webhooks:
 - admissionReviewVersions:
   - v1beta1
   clientConfig:
-    caBundle: Cg==
     service:
       name: kserve-webhook-server-service
       namespace: kserve
@@ -21976,7 +21970,6 @@ webhooks:
 - admissionReviewVersions:
   - v1beta1
   clientConfig:
-    caBundle: Cg==
     service:
       name: kserve-webhook-server-service
       namespace: kserve
@@ -22006,7 +21999,6 @@ webhooks:
 - admissionReviewVersions:
   - v1beta1
   clientConfig:
-    caBundle: Cg==
     service:
       name: kserve-webhook-server-service
       namespace: kserve

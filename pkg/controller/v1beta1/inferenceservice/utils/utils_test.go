@@ -1870,6 +1870,7 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 				},
 			},
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+			WorkloadType:        v1alpha1.InitContainer,
 		},
 	}
 

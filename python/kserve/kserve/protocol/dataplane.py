@@ -64,7 +64,7 @@ class DataPlane:
 
         return model
 
-    def get_model(self, name: str) -> BaseKServeModel:
+    async def get_model(self, name: str) -> BaseKServeModel:
         """Get the model instance with the given name.
 
         Args:
@@ -76,7 +76,8 @@ class DataPlane:
         model = self._model_registry.get_model(name)
         if model is None:
             raise ModelNotFound(name)
-        if not self._model_registry.is_model_ready(name):
+        is_ready = await self._model_registry.is_model_ready(name)
+        if not is_ready:
             model.load()
         return model
 
@@ -210,7 +211,7 @@ class DataPlane:
         """
         return True
 
-    def model_ready(self, model_name: str) -> bool:
+    async def model_ready(self, model_name: str) -> bool:
         """Check if a model is ready.
 
         Args:
@@ -225,7 +226,7 @@ class DataPlane:
         if self._model_registry.get_model(model_name) is None:
             raise ModelNotFound(model_name)
 
-        return self._model_registry.is_model_ready(model_name)
+        return await self._model_registry.is_model_ready(model_name)
 
     def decode(
         self,
@@ -361,7 +362,8 @@ class DataPlane:
         .. _CloudEvent: https://cloudevents.io/
         """
         # call model locally or remote model workers
-        model = self.get_model(model_name)
+        response_headers = {}
+        model = await self.get_model(model_name)
         if isinstance(model, OpenAIModel):
             error_msg = f"Model {model_name} is of type OpenAIModel. It does not support the infer method."
             raise InvalidInput(reason=error_msg)
@@ -370,8 +372,9 @@ class DataPlane:
                 f"Model of type {type(model).__name__} does not support inference"
             )
         model = cast(InferenceModel, model)
-        response = await model(request, headers=headers)
-        return response, headers
+        response, res_headers = await model(request, headers=headers)
+        response_headers.update(res_headers)
+        return response, response_headers
 
     async def explain(
         self,
@@ -393,7 +396,8 @@ class DataPlane:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         # call model locally or remote model workers
-        model = self.get_model(model_name)
+        response_headers = headers if headers else {}
+        model = await self.get_model(model_name)
         if isinstance(model, OpenAIModel):
             logger.warning(
                 f"Model {model_name} is of type OpenAIModel. It does not support the explain method."
@@ -403,5 +407,8 @@ class DataPlane:
             raise ValueError(
                 f"Model of type {type(model).__name__} does not support inference"
             )
-        response = await model(request, verb=InferenceVerb.EXPLAIN, headers=headers)
-        return response, headers
+        response, res_headers = await model(
+            request, verb=InferenceVerb.EXPLAIN, headers=headers
+        )
+        response_headers.update(res_headers)
+        return response, response_headers
