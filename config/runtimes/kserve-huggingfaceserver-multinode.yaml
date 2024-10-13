@@ -88,22 +88,19 @@ spec:
         periodSeconds: 10
         successThreshold: 1
         timeoutSeconds: 5
+        initialDelaySeconds: 10
         exec:
           command:
             - bash
             - -c
             - |
               # Check if the registered ray nodes count is the same as PIPELINE_PARALLEL_SIZE
-              if [[ $(ray status | grep -c node_) -eq ${PIPELINE_PARALLEL_SIZE} ]]; then
-                exit 0
-              else
-                exit 1
-              fi &
-              p1=$!
-
+              if [[ $(ray status | grep -c node_) -ne ${PIPELINE_PARALLEL_SIZE} ]]; then
+                  exit 1
+              fi
+              
               # Check if huggingface server health
-              curl --silent --max-time 5 http://localhost:8080 &
-              p2=$!
+              curl --silent --max-time 5 http://localhost:8080               
 
               # Check GPU usage (If worker node restarted, it becomes NOT ready)
               gpu_status=$(ray status | grep GPU)
@@ -114,32 +111,14 @@ spec:
               if [[ "$used_gpu" != "$reserved_gpu" ]]; then
                   echo "Readiness Probe: Unhealthy - Used: $used_gpu, Reserved: $reserved_gpu"
                   exit 1
-              else
-                  exit 0                  
-              fi & # Run this check in the background
-              p3=$!
-
-              # Wait for all processes to complete
-              wait $p1
-              status1=$?
-              wait $p2
-              status2=$?
-              wait $p3
-              status3=$?
-
-              # Check all return codes
-              if [[ $status1 -ne 0 || $status2 -ne 0 || $status3 -ne 0 ]]; then
-                  echo "One or more processes failed."
-                  exit 1
-              else
-                  echo "All processes succeeded."
-                  exit 0
               fi
+
       startupProbe:
         failureThreshold: 40
         periodSeconds: 30
         successThreshold: 1
         timeoutSeconds: 5
+        initialDelaySeconds: 5
         exec:
           command:
             - bash
@@ -173,7 +152,6 @@ spec:
                   break
                 fi
                 echo "$SECONDS seconds elapsed: Still waiting for Global Control Service(GCS) to be ready."
-                echo "For troubleshooting, refer to the FAQ at https://docs.ray.io/en/master/cluster/kubernetes/troubleshooting/troubleshooting.html#kuberay-troubleshootin-guides"
               fi
               
               sleep 5
@@ -210,11 +188,9 @@ spec:
               - bash
               - -c
               - |
-                if [[ $(ray status | grep -c node_) -eq ${PIPELINE_PARALLEL_SIZE} ]]; then
-                  exit 0
-                else
+                if [[ $(ray status | grep -c node_) -ne ${PIPELINE_PARALLEL_SIZE} ]]; then
                   exit 1
-                fi 
+                fi
         startupProbe:
           failureThreshold: 12
           periodSeconds: 5

@@ -248,7 +248,7 @@ var (
 	IstioMeshGateway = "mesh"
 )
 
-const WorkerNodeName = "worker"
+const WorkerSuffix = "worker"
 
 // InferenceService Component enums
 const (
@@ -473,7 +473,8 @@ const (
 
 // Model Parallel Options Default value
 const (
-	DefaultTensorParallelSize = "1"
+	DefaultTensorParallelSize   = "1"
+	DefaultPipelineParallelSize = "2"
 )
 
 // GetRawServiceLabel generate native service label
@@ -483,7 +484,13 @@ func GetRawServiceLabel(service string) string {
 
 // GetRawWorkerServiceLabel generate native service label for worker
 func GetRawWorkerServiceLabel(service string) string {
-	return "isvc." + service + "-" + WorkerNodeName
+	return "isvc." + service + "-" + WorkerSuffix
+}
+
+// GeHeadServiceName generate head service name
+func GeHeadServiceName(service string) string {
+	isvcName := strings.TrimSuffix(service, "-predictor")
+	return isvcName + "-" + "head"
 }
 
 func (e InferenceServiceComponent) String() string {
@@ -523,7 +530,7 @@ func PredictorServiceName(name string) string {
 }
 
 func PredictorWorkerServiceName(name string) string {
-	return name + "-" + string(Predictor) + "-" + WorkerNodeName
+	return name + "-" + string(Predictor) + "-" + WorkerSuffix
 }
 
 func CanaryPredictorServiceName(name string) string {

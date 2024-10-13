@@ -19,7 +19,6 @@ package service
 import (
 	"context"
 	"strconv"
-	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -129,13 +128,13 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 			}
 		} else {
 			port, _ := strconv.Atoi(constants.InferenceServiceDefaultHttpPort)
-			portInt32 := intstr.FromInt(port)
+			portInt32 := int32(port)
 			servicePorts = append(servicePorts, corev1.ServicePort{
 				Name: componentMeta.Name,
 				Port: constants.CommonDefaultHttpPort,
 				TargetPort: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: portInt32.IntVal, // #nosec G109
+					IntVal: portInt32, // #nosec G109
 				},
 				Protocol: corev1.ProtocolTCP,
 			})
@@ -168,8 +167,8 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 
 func createHeadSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
 	predictorSvcName := componentMeta.Name
-	isvName := strings.TrimSuffix(componentMeta.Name, "-predictor")
-	componentMeta.Name = isvName + "-head"
+	componentMeta.Name = constants.GeHeadServiceName(predictorSvcName)
+
 	service := &corev1.Service{
 		ObjectMeta: componentMeta,
 		Spec: corev1.ServiceSpec{

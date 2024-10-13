@@ -241,7 +241,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 									Env: []corev1.EnvVar{
 										{Name: "TENSOR_PARALLEL_SIZE", Value: "1"},
 										{Name: "MODEL_NAME"},
-										{Name: "PIPELINE_PARALLEL_SIZE"},
+										{Name: "PIPELINE_PARALLEL_SIZE", Value: "2"},
 									},
 									Resources: corev1.ResourceRequirements{
 										Limits: corev1.ResourceList{
@@ -315,7 +315,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 									Env: []corev1.EnvVar{
 										{Name: "worker-predictor-example-env", Value: "example-env"},
 										{Name: "ISVC_NAME"},
-										{Name: "PIPELINE_PARALLEL_SIZE"},
+										{Name: "PIPELINE_PARALLEL_SIZE", Value: "2"},
 									},
 									Resources: corev1.ResourceRequirements{
 										Limits: corev1.ResourceList{

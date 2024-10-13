@@ -78,6 +78,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 	if workerComponentMeta.Name != "" {
 		multiNodeEnabled = true
 		workerNodeSize = componentMeta.GetAnnotations()[constants.WorkerNodeSize]
+		pipelineParallelSize = constants.DefaultPipelineParallelSize
 		if parsedValue, err := strconv.Atoi(workerNodeSize); err == nil {
 			// Set pipelineParallelSize to workerNodeSize + 1 (head)
 			pipelineParallelSize = strconv.Itoa(parsedValue + 1)

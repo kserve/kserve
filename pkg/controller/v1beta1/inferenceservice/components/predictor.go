@@ -296,9 +296,9 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		if err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.InvalidPredictorSpec,
-				Message: "Failed to get runtime container",
+				Message: "Failed to get worker container",
 			})
-			return ctrl.Result{}, errors.Wrapf(err, "failed to get runtime container")
+			return ctrl.Result{}, errors.Wrapf(err, "failed to get worker container")
 		}
 		// This is for using isvcutils.MergePodSpec for workerSpec
 		if isvc.Spec.Predictor.WorkerSpec == nil {
@@ -333,13 +333,8 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		workerPodSpec.Containers = []v1.Container{
 			*workerContainer,
 		}
-		// Label filter will be handled in ksvc_reconciler
 		sRuntimeWorkerLabels = sRuntime.WorkerSpec.ServingRuntimePodSpec.Labels
-		sRuntimeWorkerAnnotations = utils.Filter(sRuntime.WorkerSpec.ServingRuntimePodSpec.Annotations, func(key string) bool {
-			return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
-		})
 
-		//
 		workerSize := constants.DefaultWorkerMinSize
 		if sRuntime.WorkerSpec.Size > constants.DefaultWorkerMinSize {
 			workerSize = sRuntime.WorkerSpec.Size
