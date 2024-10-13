@@ -35,6 +35,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
 
+@pytest.mark.path_based_routing
 @pytest.mark.explainer
 @pytest.mark.asyncio(scope="session")
 async def test_tabular_explainer(rest_v1_client):
@@ -61,8 +62,8 @@ async def test_tabular_explainer(rest_v1_client):
                     type="SquareAttack",
                     name="explainer",
                     resources=V1ResourceRequirements(
-                        requests={"cpu": "10m", "memory": "128Mi"},
-                        limits={"cpu": "100m", "memory": "256Mi"},
+                        requests={"cpu": "10m", "memory": "256Mi"},
+                        limits={"cpu": "100m", "memory": "512Mi"},
                     ),
                     config={"nb_classes": "10"},
                 ),

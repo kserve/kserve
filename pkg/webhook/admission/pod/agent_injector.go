@@ -19,6 +19,7 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -39,6 +40,9 @@ const (
 	LoggerArgumentNamespace        = "--namespace"
 	LoggerArgumentEndpoint         = "--endpoint"
 	LoggerArgumentComponent        = "--component"
+	LoggerArgumentCaCertFile       = "--logger-ca-cert-file"
+	LoggerArgumentTlsSkipVerify    = "--logger-tls-skip-verify"
+	LoggerArgumentMetadataHeaders  = "--metadata-headers"
 )
 
 type AgentConfig struct {
@@ -56,6 +60,9 @@ type LoggerConfig struct {
 	MemoryRequest string `json:"memoryRequest"`
 	MemoryLimit   string `json:"memoryLimit"`
 	DefaultUrl    string `json:"defaultUrl"`
+	CaBundle      string `json:"caBundle"`
+	CaCertFile    string `json:"caCertFile"`
+	TlsSkipVerify bool   `json:"tlsSkipVerify"`
 }
 
 type AgentInjector struct {
@@ -111,7 +118,6 @@ func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
 			return loggerConfig, fmt.Errorf("Failed to parse resource configuration for %q: %q", LoggerConfigMapKeyName, err.Error())
 		}
 	}
-
 	return loggerConfig, nil
 }
 
@@ -195,7 +201,19 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			LoggerArgumentComponent,
 			component,
 		}
+		logHeaderMetadata, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataHeadersInternalAnnotationKey]
+		if ok {
+			loggerArgs = append(loggerArgs, LoggerArgumentMetadataHeaders)
+			loggerArgs = append(loggerArgs, logHeaderMetadata)
+		}
 		args = append(args, loggerArgs...)
+
+		// Add TLS cert name if specified. If not specified it will fall back to the arg's default.
+		if ag.loggerConfig.CaCertFile != "" {
+			args = append(args, LoggerArgumentCaCertFile, ag.loggerConfig.CaCertFile)
+		}
+		// Whether to skip TLS verification. If not present in the ConfigMap, this will default to `false`
+		args = append(args, LoggerArgumentTlsSkipVerify, strconv.FormatBool(ag.loggerConfig.TlsSkipVerify))
 	}
 
 	var queueProxyEnvs []v1.EnvVar
@@ -275,6 +293,31 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 				},
 			},
 		},
+	}
+
+	// If the Logger TLS bundle ConfigMap is specified, mount it
+	if injectLogger && ag.loggerConfig.CaBundle != "" {
+		// Optional. If the ConfigMap is not found, this will not make the Pod fail
+		optionalVolume := true
+		configMapVolume := v1.VolumeSource{
+			ConfigMap: &v1.ConfigMapVolumeSource{
+				LocalObjectReference: v1.LocalObjectReference{
+					Name: ag.loggerConfig.CaBundle,
+				},
+				Optional: &optionalVolume,
+			},
+		}
+
+		pod.Spec.Volumes = append(pod.Spec.Volumes, v1.Volume{
+			Name:         constants.LoggerCaBundleVolume,
+			VolumeSource: configMapVolume,
+		})
+
+		agentContainer.VolumeMounts = append(agentContainer.VolumeMounts, v1.VolumeMount{
+			Name:      constants.LoggerCaBundleVolume,
+			MountPath: constants.LoggerCaCertMountPath,
+			ReadOnly:  true,
+		})
 	}
 
 	// Inject credentials

@@ -2143,7 +2143,7 @@ psutil = "^5.9.0"
 pydantic = ">1.0,<3"
 python-dateutil = "^2.8.0"
 pyyaml = "^6.0.0"
-ray = {version = "~2.10.0", extras = ["serve"]}
+ray = {version = "^2.10.0", extras = ["serve"]}
 requests = {version = "^2.20.0", optional = true}
 six = "^1.16.0"
 tabulate = "^0.9.0"
@@ -2151,6 +2151,7 @@ timing-asgi = "^0.3.0"
 uvicorn = {version = "^0.21.1", extras = ["standard"]}
 
 [package.extras]
+hf-storage = ["torch (>=2.1.2,<3.0.0)", "transformers (>=4.37.0,<5.0.0)"]
 logging = ["asgi-logger (>=0.1.0,<0.2.0)"]
 storage = ["azure-identity (>=1.8.0,<2.0.0)", "azure-storage-blob (>=12.10.0,<13.0.0)", "azure-storage-file-share (>=12.7.0,<13.0.0)", "boto3 (>=1.21.0,<2.0.0)", "google-cloud-storage (>=2.3.0,<3.0.0)", "requests (>=2.20.0,<3.0.0)"]
 

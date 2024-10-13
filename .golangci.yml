@@ -1,6 +1,6 @@
 run:
   timeout: 6m
-  go: "1.21"
+  go: "1.22"
   tests: false
   skip-dirs: # skip auto gen folders
     - "client/"

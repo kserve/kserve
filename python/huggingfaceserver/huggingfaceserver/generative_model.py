@@ -58,6 +58,7 @@ from transformers import (
     set_seed,
 )
 from kserve.metrics import LLMStats
+from .request_logger import RequestLogger
 
 from .stop_sequence_stopping_criteria import StopSequenceStoppingCriteria
 from .task import (
@@ -151,6 +152,7 @@ class HuggingfaceGenerativeModel(
         tokenizer_revision: Optional[str] = None,
         trust_remote_code: bool = False,
         system_fingerprint: Optional[str] = None,
+        request_logger: Optional[RequestLogger] = None,
     ):
         super().__init__(name)
         self.model_config = model_config
@@ -164,11 +166,14 @@ class HuggingfaceGenerativeModel(
         self.trust_remote_code = trust_remote_code
         self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._request_queue = queue.Queue()
+        self.request_logger = request_logger
 
         if model_config:
             self.model_config = model_config
         else:
-            self.model_config = AutoConfig.from_pretrained(self.model_id_or_path)
+            self.model_config = AutoConfig.from_pretrained(
+                self.model_id_or_path, trust_remote_code=self.trust_remote_code
+            )
         if task:
             self.task = task
         else:
@@ -184,11 +189,13 @@ class HuggingfaceGenerativeModel(
         self.max_length = _get_and_verify_max_len(self.model_config, self.max_length)
         model_cls = get_model_class_for_task(self.task)
 
-        # device_map = "auto" enables model parallelism but all model architcture dont support it.
+        # device_map = "auto" enables model parallelism but all model architecture don't support it.
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
         # device_map = "auto" for models that support this else set to either cuda/cpu
         with init_empty_weights():
-            self._model = model_cls.from_config(self.model_config)
+            self._model = model_cls.from_config(
+                self.model_config, trust_remote_code=self.trust_remote_code
+            )
 
         device_map = self._device
 
@@ -396,6 +403,7 @@ class HuggingfaceGenerativeModel(
     async def create_completion(
         self, request: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
+        self._log_request(request)
         params = request.params
         if params.prompt is None:
             raise ValueError("prompt is required")
@@ -492,4 +500,18 @@ class HuggingfaceGenerativeModel(
                     completion_tokens=stats.num_generation_tokens,
                     total_tokens=stats.num_prompt_tokens + stats.num_generation_tokens,
                 ),
+            )
+
+    def _log_request(self, request: CompletionRequest) -> None:
+        is_prompt_token = isinstance(request.params.prompt, list) and (
+            isinstance(request.params.prompt[0], int)
+            or isinstance(request.params.prompt[0], list)
+            and isinstance(request.params.prompt[0][0], int)
+        )
+        if self.request_logger:
+            self.request_logger.log_inputs(
+                request_id=request.request_id,
+                prompt=request.params.prompt if not is_prompt_token else None,
+                prompt_token_ids=request.params.prompt if is_prompt_token else None,
+                params=request.params.model_dump(exclude={"prompt"}),
             )

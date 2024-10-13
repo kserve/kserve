@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -48,12 +49,27 @@ var (
 	StorageUriProtocols = strings.Join(storage.GetAllProtocol(), CommaSpaceSeparator)
 )
 
+// +kubebuilder:object:generate=false
+// +k8s:deepcopy-gen=false
+// +k8s:openapi-gen=false
+// TrainedModelValidator is responsible for setting default values on the TrainedModel resources
+// when created or updated.
+//
+// NOTE: The +kubebuilder:object:generate=false and +k8s:deepcopy-gen=false marker prevents controller-gen from generating DeepCopy methods,
+// as it is used only for temporary operations and does not need to be deeply copied.
+type TrainedModelValidator struct{}
+
 // +kubebuilder:webhook:verbs=create;update,path=/validate-trainedmodel,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=trainedmodels,versions=v1alpha1,name=trainedmodel.kserve-webhook-server.validator
 
-var _ webhook.Validator = &TrainedModel{}
+var _ webhook.CustomValidator = &TrainedModelValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (tm *TrainedModel) ValidateCreate() (admission.Warnings, error) {
+func (v *TrainedModelValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	tm, err := convertToTrainedModel(obj)
+	if err != nil {
+		tmLogger.Error(err, "Unable to convert object to TrainedModel")
+		return nil, err
+	}
 	tmLogger.Info("validate create", "name", tm.Name)
 	return nil, utils.FirstNonNilError([]error{
 		tm.validateTrainedModel(),
@@ -61,18 +77,32 @@ func (tm *TrainedModel) ValidateCreate() (admission.Warnings, error) {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (tm *TrainedModel) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	tmLogger.Info("validate update", "name", tm.Name)
-	oldTm := convertToTrainedModel(old)
+func (v *TrainedModelValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	newTm, err := convertToTrainedModel(newObj)
+	if err != nil {
+		tmLogger.Error(err, "Unable to convert object to TrainedModel")
+		return nil, err
+	}
+	oldTm, err := convertToTrainedModel(oldObj)
+	if err != nil {
+		tmLogger.Error(err, "Unable to convert object to TrainedModel")
+		return nil, err
+	}
+	tmLogger.Info("validate update", "name", newTm.Name)
 
 	return nil, utils.FirstNonNilError([]error{
-		tm.validateTrainedModel(),
-		tm.validateMemorySpecNotModified(oldTm),
+		newTm.validateTrainedModel(),
+		newTm.validateMemorySpecNotModified(oldTm),
 	})
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (tm *TrainedModel) ValidateDelete() (admission.Warnings, error) {
+func (v *TrainedModelValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	tm, err := convertToTrainedModel(obj)
+	if err != nil {
+		tmLogger.Error(err, "Unable to convert object to TrainedModel")
+		return nil, err
+	}
 	tmLogger.Info("validate delete", "name", tm.Name)
 	return nil, nil
 }
@@ -96,9 +126,12 @@ func (tm *TrainedModel) validateTrainedModel() error {
 }
 
 // Convert runtime.Object into TrainedModel
-func convertToTrainedModel(old runtime.Object) *TrainedModel {
-	tm := old.(*TrainedModel)
-	return tm
+func convertToTrainedModel(obj runtime.Object) (*TrainedModel, error) {
+	tm, ok := obj.(*TrainedModel)
+	if !ok {
+		return nil, fmt.Errorf("expected an TrainedModel object but got %T", obj)
+	}
+	return tm, nil
 }
 
 // Validates format for TrainedModel's name

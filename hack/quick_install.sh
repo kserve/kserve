@@ -1,9 +1,10 @@
+#!/bin/bash
+
 set -eo pipefail
 ############################################################
 # Help                                                     #
 ############################################################
-Help()
-{
+Help() {
    # Display Help
    echo "KServe quick install script."
    echo
@@ -11,144 +12,129 @@ Help()
    echo "options:"
    echo "s Serverless Mode."
    echo "r RawDeployment Mode."
+   echo "u Uninstall."
+   echo "d Install only dependencies."
    echo
 }
 
-deploymentMode=serverless
-while getopts ":hsr" option; do
+export ISTIO_VERSION=1.20.4
+export KNATIVE_OPERATOR_VERSION=v1.14.5
+export KNATIVE_SERVING_VERSION=1.13.1
+export KSERVE_VERSION=v0.14.0-rc1
+export CERT_MANAGER_VERSION=v1.15.1
+SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
+export SCRIPT_DIR
+
+uninstall() {
+   helm uninstall --ignore-not-found kserve -n kserve
+   helm uninstall --ignore-not-found kserve-crd -n kserve
+   echo "😀 Successfully uninstalled KServe"
+
+   kubectl delete --ignore-not-found=true KnativeServing knative-serving -n knative-serving --wait=True --timeout=300s
+   helm uninstall --ignore-not-found knative-operator -n knative-serving
+   echo "😀 Successfully uninstalled Knative"
+
+   helm uninstall --ignore-not-found istio-ingressgateway -n istio-system
+   helm uninstall --ignore-not-found istiod -n istio-system
+   helm uninstall --ignore-not-found istio-base -n istio-system
+   echo "😀 Successfully uninstalled Istio"
+
+   helm uninstall --ignore-not-found cert-manager -n cert-manager
+   echo "😀 Successfully uninstalled Cert Manager"
+
+   kubectl delete --ignore-not-found=true namespace istio-system
+   kubectl delete --ignore-not-found=true namespace cert-manager
+   kubectl delete --ignore-not-found=true namespace kserve
+}
+
+# Check if helm command is available
+if ! command -v helm &>/dev/null; then
+   echo "😱 Helm command not found. Please install Helm."
+   exit 1
+fi
+
+deploymentMode="Serverless"
+while getopts ":hsrud" option; do
    case $option in
-      h) # display Help
-         Help
-         exit;;
-      r) # skip knative install
-         deploymentMode=kubernetes;;
-      s) # install knative
-         deploymentMode=serverless;;
-     \?) # Invalid option
-         echo "Error: Invalid option"
-         exit;;
+   h) # display Help
+      Help
+      exit
+      ;;
+   r) # skip knative install
+      deploymentMode="RawDeployment" ;;
+   s) # install knative
+      deploymentMode="Serverless" ;;
+   u) # uninstall
+      uninstall
+      exit
+      ;;
+   d) # install only dependencies
+      installKserve=false ;;
+   \?) # Invalid option
+      echo "Error: Invalid option"
+      exit
+      ;;
    esac
 done
 
-export ISTIO_VERSION=1.20.4
-export ISTIO_DIR=istio-${ISTIO_VERSION}
-export KNATIVE_SERVING_VERSION=knative-v1.13.1
-export KNATIVE_ISTIO_VERSION=knative-v1.13.1
-export KSERVE_VERSION=v0.13.0
-export CERT_MANAGER_VERSION=v1.9.0
-export SCRIPT_DIR="$( dirname -- "${BASH_SOURCE[0]}" )"
-
-cleanup(){
-  rm -rf deploy-config-patch.yaml
-}
-trap cleanup EXIT
-
-get_kube_version(){
-    kubectl version --short=true 2>/dev/null || kubectl version | awk -F '.' '/Server Version/ {print $2}'
+get_kube_version() {
+   kubectl version --short=true 2>/dev/null || kubectl version | awk -F '.' '/Server Version/ {print $2}'
 }
 
-if [ $(get_kube_version) -lt 24 ];
-then
-   echo "😱 install requires at least Kubernetes 1.24";
-   exit 1;
+if [ "$(get_kube_version)" -lt 24 ]; then
+   echo "😱 install requires at least Kubernetes 1.24"
+   exit 1
 fi
 
-if [ -d ${ISTIO_DIR} ]; then
-  echo "Already downloaded ${ISTIO_DIR}"
-else
-  curl -L https://istio.io/downloadIstio | sh -
-fi
-pushd ${ISTIO_DIR} >> /dev/null
+helm repo add istio https://istio-release.storage.googleapis.com/charts --force-update
+helm install istio-base istio/base -n istio-system --wait --set defaultRevision=default --create-namespace --version ${ISTIO_VERSION}
+helm install istiod istio/istiod -n istio-system --wait --version ${ISTIO_VERSION} \
+   --set proxy.autoInject=disabled \
+   --set-string pilot.podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true
+helm install istio-ingressgateway istio/gateway -n istio-system --version ${ISTIO_VERSION} \
+   --set-string podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true
 
-# Create istio-system namespace
-cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
-  labels:
-    istio-injection: disabled
-EOF
-
-cat << EOF > ./istio-minimal-operator.yaml
-apiVersion: install.istio.io/v1beta1
-kind: IstioOperator
-spec:
-  values:
-    global:
-      proxy:
-        autoInject: disabled
-
-  meshConfig:
-    accessLogFile: /dev/stdout
-
-  components:
-    ingressGateways:
-      - name: istio-ingressgateway
-        enabled: true
-        k8s:
-          podAnnotations:
-            cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
-    pilot:
-      enabled: true
-      k8s:
-        resources:
-          requests:
-            cpu: 200m
-            memory: 200Mi
-        podAnnotations:
-          cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
-EOF
-
-bin/istioctl manifest apply -f istio-minimal-operator.yaml -y;
-
+# Wait for the istio ingressgateway pod to be created
+sleep 10
+# Wait for istio ingressgateway to be ready
+kubectl wait --for=condition=Ready pod -l app=istio-ingressgateway -n istio-system --timeout=600s
 echo "😀 Successfully installed Istio"
-popd >> /dev/null
-rm -rf ${ISTIO_DIR}
+
+# Install Cert Manager
+helm repo add jetstack https://charts.jetstack.io --force-update
+helm install \
+   cert-manager jetstack/cert-manager \
+   --namespace cert-manager \
+   --create-namespace \
+   --version ${CERT_MANAGER_VERSION} \
+   --set crds.enabled=true
+echo "😀 Successfully installed Cert Manager"
 
 # Install Knative
-if [ $deploymentMode = serverless ]; then
-   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_SERVING_VERSION}/serving-crds.yaml
-   kubectl apply --filename https://github.com/knative/serving/releases/download/${KNATIVE_SERVING_VERSION}/serving-core.yaml
-   kubectl apply --filename https://github.com/knative/net-istio/releases/download/${KNATIVE_ISTIO_VERSION}/release.yaml
-   # Patch the external domain as the default domain svc.cluster.local is not exposed on ingress
-   kubectl patch cm config-domain --patch '{"data":{"example.com":""}}' -n knative-serving
+if [ $deploymentMode = "Serverless" ]; then
+   helm install knative-operator --namespace knative-serving --create-namespace --wait \
+      https://github.com/knative/operator/releases/download/knative-${KNATIVE_OPERATOR_VERSION}/knative-operator-${KNATIVE_OPERATOR_VERSION}.tgz
+   kubectl apply -f - <<EOF
+   apiVersion: operator.knative.dev/v1beta1
+   kind: KnativeServing
+   metadata:
+     name: knative-serving
+     namespace: knative-serving
+   spec:
+     version: "${KNATIVE_SERVING_VERSION}"
+     config:
+       domain:
+         # Patch the external domain as the default domain svc.cluster.local is not exposed on ingress (from knative 1.8)
+         example.com: ""
+EOF
    echo "😀 Successfully installed Knative"
 fi
 
-# Install Cert Manager
-kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.yaml
-kubectl wait --for=condition=available --timeout=600s deployment/cert-manager-webhook -n cert-manager
-cd ..
-echo "😀 Successfully installed Cert Manager"
-
+if [ $installKserve = false ]; then
+   exit
+fi
 # Install KServe
-KSERVE_CONFIG=kserve.yaml
-MAJOR_VERSION=$(echo ${KSERVE_VERSION:1} | cut -d "." -f1)
-MINOR_VERSION=$(echo ${KSERVE_VERSION} | cut -d "." -f2)
-if [ ${MAJOR_VERSION} -eq 0 ] && [ ${MINOR_VERSION} -le 6 ]; then KSERVE_CONFIG=kfserving.yaml; fi
-
-# Retry inorder to handle that it may take a minute or so for the TLS assets required for the webhook to function to be provisioned
-kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/${KSERVE_CONFIG}
-
-# Install KServe built-in servingruntimes and storagecontainers
-kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-
-if [ ${MAJOR_VERSION} -eq 0 ] && [ ${MINOR_VERSION} -le 11 ]; then
-    kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-runtimes.yaml
-else
-    kubectl apply -f https://github.com/kserve/kserve/releases/download/${KSERVE_VERSION}/kserve-cluster-resources.yaml
-fi
-
-# Patch default deployment mode for raw deployment
-if [ $deploymentMode = kubernetes ]; then
-cat <<EOF > deploy-config-patch.yaml
-data:
-  deploy: |
-    {
-      "defaultDeploymentMode": "RawDeployment"
-    }
-EOF
-kubectl patch cm inferenceservice-config -n kserve --type=merge --patch-file=deploy-config-patch.yaml
-fi
+helm install kserve-crd oci://ghcr.io/kserve/charts/kserve-crd --version ${KSERVE_VERSION} --namespace kserve --create-namespace --wait
+helm install kserve oci://ghcr.io/kserve/charts/kserve --version ${KSERVE_VERSION} --namespace kserve --create-namespace --wait \
+   --set-string kserve.controller.deploymentMode="${deploymentMode}" --set kserve.modelmesh.enabled=false
 echo "😀 Successfully installed KServe"

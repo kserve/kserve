@@ -38,7 +38,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ## Tool Versions
-CONTROLLER_TOOLS_VERSION ?= v0.12.0
+CONTROLLER_TOOLS_VERSION ?= v0.16.2
 
 # CPU/Memory limits for controller-manager
 KSERVE_CONTROLLER_CPU_LIMIT ?= 100m
@@ -74,10 +74,10 @@ deploy: manifests
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	echo > ../certmanager/certificate.yaml; \
 	else git checkout HEAD -- ../certmanager/certificate.yaml; fi;
-	kubectl apply -k config/default
+	kubectl apply --server-side=true -k config/default
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kubectl apply -k config/clusterresources
+	kubectl apply  --server-side=true  -k config/clusterresources
 	git checkout HEAD -- config/certmanager/certificate.yaml
 
 
@@ -87,11 +87,11 @@ deploy-dev: manifests
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	echo > ../certmanager/certificate.yaml; \
 	else git checkout HEAD -- ../certmanager/certificate.yaml; fi;
-	kubectl apply -k config/overlays/development
+	kubectl apply --server-side=true -k config/overlays/development
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kubectl apply -k config/clusterresources
+	kubectl apply --server-side=true -k config/clusterresources
 	git checkout HEAD -- config/certmanager/certificate.yaml
 
 deploy-dev-sklearn: docker-push-sklearn
@@ -114,13 +114,13 @@ deploy-dev-huggingface: docker-push-huggingface
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
-	kubectl apply -k config/overlays/dev-image-config
+	kubectl apply --server-side=true -k config/overlays/dev-image-config
 
 deploy-ci: manifests
-	kubectl apply -k config/overlays/test
+	kubectl apply --server-side=true -k config/overlays/test
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kubectl apply -k config/overlays/test/clusterresources
+	kubectl apply --server-side=true -k config/overlays/test/clusterresources
 
 deploy-helm: manifests
 	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
@@ -135,20 +135,19 @@ undeploy-dev:
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full
-	$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
+	$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/...} output:rbac:artifacts:config=config/rbac
+	$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
+	# Copy the cluster role to the helm chart
+	cp config/rbac/auth_proxy_role.yaml charts/kserve-resources/templates/clusterrole.yaml
+	cat config/rbac/role.yaml >> charts/kserve-resources/templates/clusterrole.yaml
+	# Copy the local model role with Helm chart while keeping the Helm template condition
+	echo '{{- if .Values.kserve.localmodel.enabled }}' > charts/kserve-resources/templates/localmodel/role.yaml
+	cat config/rbac/localmodel/role.yaml >> charts/kserve-resources/templates/localmodel/role.yaml
+	echo '{{- end }}' >> charts/kserve-resources/templates/localmodel/role.yaml
+	
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
 
-	#TODO Remove this until new controller-tools is released
-	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/full/serving.kserve.io_inferenceservices.yaml
-	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/full/serving.kserve.io_inferenceservices.yaml
-	perl -pi -e 's/Any/string/g' config/crd/full/serving.kserve.io_inferenceservices.yaml
-	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/full/serving.kserve.io_trainedmodels.yaml
-	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/full/serving.kserve.io_trainedmodels.yaml
-	perl -pi -e 's/Any/string/g' config/crd/full/serving.kserve.io_trainedmodels.yaml
-	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/full/serving.kserve.io_inferencegraphs.yaml
-	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/full/serving.kserve.io_inferencegraphs.yaml
-	perl -pi -e 's/Any/string/g' config/crd/full/serving.kserve.io_inferencegraphs.yaml
 	#remove the required property on framework as name field needs to be optional
 	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
@@ -164,8 +163,15 @@ manifests: controller-gen
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
+	
+	# TODO: Commenting out the following as it produces differences in verify codegen during release process
+	# Copy the crds to the helm chart
+	# cp config/crd/full/* charts/kserve-crd/templates
+	# rm charts/kserve-crd/templates/kustomization.yaml
+	# Generate minimal crd
 	./hack/minimal-crdgen.sh
 	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_inferenceservices.yaml
+	# Copy the minimal crd to the helm chart
 	cp config/crd/minimal/* charts/kserve-crd-minimal/templates/
 	rm charts/kserve-crd-minimal/templates/kustomization.yaml
 

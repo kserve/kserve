@@ -32,16 +32,16 @@ import (
 // ConfigMap Keys
 const (
 	ExplainerConfigKeyName = "explainers"
+	IngressConfigKeyName   = "ingress"
+	DeployConfigName       = "deploy"
+	LocalModelConfigName   = "localModel"
+	SecurityConfigName     = "security"
 )
 
 const (
-	IngressConfigKeyName = "ingress"
-	DeployConfigName     = "deploy"
-
 	DefaultDomainTemplate = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
 	DefaultIngressDomain  = "example.com"
-
-	DefaultUrlScheme = "http"
+	DefaultUrlScheme      = "http"
 )
 
 // +kubebuilder:object:generate=false
@@ -65,23 +65,36 @@ type InferenceServicesConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
-	IngressGateway           string    `json:"ingressGateway,omitempty"`
-	IngressServiceName       string    `json:"ingressService,omitempty"`
-	LocalGateway             string    `json:"localGateway,omitempty"`
-	LocalGatewayServiceName  string    `json:"localGatewayService,omitempty"`
-	IngressDomain            string    `json:"ingressDomain,omitempty"`
-	IngressClassName         *string   `json:"ingressClassName,omitempty"`
-	AdditionalIngressDomains *[]string `json:"additionalIngressDomains,omitempty"`
-	DomainTemplate           string    `json:"domainTemplate,omitempty"`
-	UrlScheme                string    `json:"urlScheme,omitempty"`
-	DisableIstioVirtualHost  bool      `json:"disableIstioVirtualHost,omitempty"`
-	PathTemplate             string    `json:"pathTemplate,omitempty"`
-	DisableIngressCreation   bool      `json:"disableIngressCreation,omitempty"`
+	IngressGateway             string    `json:"ingressGateway,omitempty"`
+	KnativeLocalGatewayService string    `json:"knativeLocalGatewayService,omitempty"`
+	LocalGateway               string    `json:"localGateway,omitempty"`
+	LocalGatewayServiceName    string    `json:"localGatewayService,omitempty"`
+	IngressDomain              string    `json:"ingressDomain,omitempty"`
+	IngressClassName           *string   `json:"ingressClassName,omitempty"`
+	AdditionalIngressDomains   *[]string `json:"additionalIngressDomains,omitempty"`
+	DomainTemplate             string    `json:"domainTemplate,omitempty"`
+	UrlScheme                  string    `json:"urlScheme,omitempty"`
+	DisableIstioVirtualHost    bool      `json:"disableIstioVirtualHost,omitempty"`
+	PathTemplate               string    `json:"pathTemplate,omitempty"`
+	DisableIngressCreation     bool      `json:"disableIngressCreation,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
 type DeployConfig struct {
 	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type LocalModelConfig struct {
+	Enabled         bool   `json:"enabled"`
+	JobNamespace    string `json:"jobNamespace"`
+	DefaultJobImage string `json:"defaultJobImage,omitempty"`
+	FSGroup         *int64 `json:"fsGroup,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type SecurityConfig struct {
+	AutoMountServiceAccountToken bool `json:"autoMountServiceAccountToken"`
 }
 
 func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServicesConfig, error) {
@@ -112,8 +125,8 @@ func NewIngressConfig(clientset kubernetes.Interface) (*IngressConfig, error) {
 			return nil, fmt.Errorf("unable to parse ingress config json: %w", err)
 		}
 
-		if ingressConfig.IngressGateway == "" || ingressConfig.IngressServiceName == "" {
-			return nil, fmt.Errorf("invalid ingress config - ingressGateway and ingressService are required")
+		if ingressConfig.IngressGateway == "" {
+			return nil, fmt.Errorf("invalid ingress config - ingressGateway is required")
 		}
 		if ingressConfig.PathTemplate != "" {
 			// TODO: ensure that the generated path is valid, that is:
@@ -127,6 +140,10 @@ func NewIngressConfig(clientset kubernetes.Interface) (*IngressConfig, error) {
 			if ingressConfig.IngressDomain == "" {
 				return nil, fmt.Errorf("invalid ingress config - ingressDomain is required if pathTemplate is given")
 			}
+		}
+
+		if len(ingressConfig.KnativeLocalGatewayService) == 0 {
+			ingressConfig.KnativeLocalGatewayService = ingressConfig.LocalGatewayServiceName
 		}
 	}
 
@@ -179,4 +196,34 @@ func NewDeployConfig(clientset kubernetes.Interface) (*DeployConfig, error) {
 		}
 	}
 	return deployConfig, nil
+}
+
+func NewLocalModelConfig(clientset kubernetes.Interface) (*LocalModelConfig, error) {
+	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	localModelConfig := &LocalModelConfig{}
+	if localModel, ok := configMap.Data[LocalModelConfigName]; ok {
+		err := json.Unmarshal([]byte(localModel), &localModelConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return localModelConfig, nil
+}
+
+func NewSecurityConfig(clientset kubernetes.Interface) (*SecurityConfig, error) {
+	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	securityConfig := &SecurityConfig{}
+	if security, ok := configMap.Data[SecurityConfigName]; ok {
+		err := json.Unmarshal([]byte(security), &securityConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return securityConfig, nil
 }

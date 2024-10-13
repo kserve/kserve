@@ -85,7 +85,7 @@ def test_cleanup():
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
-@mock.patch(STORAGE_MODULE + ".BlobServiceClient")
+@mock.patch("azure.storage.blob.BlobServiceClient")
 def test_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -108,7 +108,7 @@ def test_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
-@mock.patch(STORAGE_MODULE + ".BlobServiceClient")
+@mock.patch("azure.storage.blob.BlobServiceClient")
 def test_blob_file_direct(
     mock_storage, mock_makedirs
 ):  # pylint: disable=unused-argument
@@ -131,7 +131,7 @@ def test_blob_file_direct(
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
 @mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_token")
-@mock.patch(STORAGE_MODULE + ".BlobServiceClient")
+@mock.patch("azure.storage.blob.BlobServiceClient")
 def test_secure_blob(
     mock_storage, mock_get_token, mock_makedirs
 ):  # pylint: disable=unused-argument
@@ -154,7 +154,7 @@ def test_secure_blob(
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
-@mock.patch(STORAGE_MODULE + ".BlobServiceClient")
+@mock.patch("azure.storage.blob.BlobServiceClient")
 def test_deep_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -178,7 +178,7 @@ def test_deep_blob(mock_storage, mock_makedirs):  # pylint: disable=unused-argum
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
-@mock.patch(STORAGE_MODULE + ".BlobServiceClient")
+@mock.patch("azure.storage.blob.BlobServiceClient")
 def test_blob_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -197,7 +197,7 @@ def test_blob_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argum
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
-@mock.patch(STORAGE_MODULE + ".BlobServiceClient")
+@mock.patch("azure.storage.blob.BlobServiceClient")
 def test_blob_fq_file(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -218,7 +218,7 @@ def test_blob_fq_file(mock_storage, mock_makedirs):  # pylint: disable=unused-ar
 
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
-@mock.patch(STORAGE_MODULE + ".BlobServiceClient")
+@mock.patch("azure.storage.blob.BlobServiceClient")
 def test_blob_no_prefix(mock_storage, mock_makedirs):  # pylint: disable=unused-argument
 
     # given
@@ -238,7 +238,7 @@ def test_blob_no_prefix(mock_storage, mock_makedirs):  # pylint: disable=unused-
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
 @mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_access_key")
-@mock.patch(STORAGE_MODULE + ".ShareServiceClient")
+@mock.patch("azure.storage.fileshare.ShareServiceClient")
 def test_file_share(
     mock_storage, mock_get_access_key, mock_makedirs
 ):  # pylint: disable=unused-argument
@@ -274,7 +274,7 @@ def test_file_share(
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
 @mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_access_key")
-@mock.patch(STORAGE_MODULE + ".ShareServiceClient")
+@mock.patch("azure.storage.fileshare.ShareServiceClient")
 def test_deep_file_share(
     mock_storage, mock_get_access_key, mock_makedirs
 ):  # pylint: disable=unused-argument
@@ -322,7 +322,7 @@ def test_deep_file_share(
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
 @mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_access_key")
-@mock.patch(STORAGE_MODULE + ".ShareServiceClient")
+@mock.patch("azure.storage.fileshare.ShareServiceClient")
 def test_file_share_fq_file(
     mock_storage, mock_get_access_key, mock_makedirs
 ):  # pylint: disable=unused-argument
@@ -353,7 +353,7 @@ def test_file_share_fq_file(
 
 @mock.patch(STORAGE_MODULE + ".os.makedirs")
 @mock.patch(STORAGE_MODULE + ".Storage._get_azure_storage_access_key")
-@mock.patch(STORAGE_MODULE + ".ShareServiceClient")
+@mock.patch("azure.storage.fileshare.ShareServiceClient")
 def test_file_share_no_prefix(
     mock_storage, mock_get_access_key, mock_makedirs
 ):  # pylint: disable=unused-argument

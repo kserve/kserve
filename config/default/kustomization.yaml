@@ -14,6 +14,7 @@ resources:
 - ../manager
 - ../webhook
 - ../certmanager
+- ../localmodels
 
 generatorOptions:
   disableNameSuffixHash: true
@@ -190,3 +191,4 @@ patches:
 - path: servingruntime_validationwebhook_cainjection_patch.yaml
 - path: manager_resources_patch.yaml
 - path: cainjection_conversion_webhook.yaml
+- path: localmodel_manager_image_patch.yaml

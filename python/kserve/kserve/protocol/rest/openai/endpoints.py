@@ -70,7 +70,7 @@ class OpenAIEndpoints:
             raise RequestValidationError(errors=e.errors())
         params = request_body
         model_name = params.model
-        model_ready = self.dataplane.model_ready(model_name)
+        model_ready = await self.dataplane.model_ready(model_name)
 
         if not model_ready:
             raise ModelNotReady(model_name)
@@ -114,7 +114,7 @@ class OpenAIEndpoints:
             raise RequestValidationError(errors=e.errors())
         params = request_body
         model_name = params.model
-        model_ready = self.dataplane.model_ready(model_name)
+        model_ready = await self.dataplane.model_ready(model_name)
 
         if not model_ready:
             raise ModelNotReady(model_name)
@@ -159,6 +159,9 @@ class OpenAIEndpoints:
             ],
         )
 
+    async def health(self, model_name: str):
+        await self.dataplane.model_ready(model_name)
+
 
 def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):
     endpoints = OpenAIEndpoints(dataplane)
@@ -181,6 +184,9 @@ def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):
         r"/v1/models",
         endpoints.models,
         methods=["GET"],
+    )
+    openai_router.add_api_route(
+        r"/v1/models/{model_name}", endpoints.health, methods=["GET"]
     )
     app.include_router(openai_router)
     app.add_exception_handler(OpenAIError, openai_error_handler)

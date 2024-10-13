@@ -29,6 +29,7 @@ from huggingfaceserver.encoder_model import HuggingfaceEncoderModel
 from huggingfaceserver.generative_model import HuggingfaceGenerativeModel
 from huggingfaceserver.task import MLTask
 from test_output import bert_token_classification_return_prob_expected_output
+import torch.nn.functional as F
 
 
 @pytest.fixture(scope="module")
@@ -138,6 +139,18 @@ def openai_gpt_model():
     model.stop()
 
 
+@pytest.fixture(scope="module")
+def text_embedding():
+    model = HuggingfaceEncoderModel(
+        "mxbai-embed-large-v1",
+        model_id_or_path="mixedbread-ai/mxbai-embed-large-v1",
+        task=MLTask.text_embedding,
+    )
+    model.load()
+    yield model
+    model.stop()
+
+
 def test_unsupported_model():
     config = AutoConfig.from_pretrained("google/tapas-base-finetuned-wtq")
     with pytest.raises(ValueError) as err_info:
@@ -187,7 +200,7 @@ async def test_t5_bad_params(t5_model: HuggingfaceGenerativeModel):
 
 @pytest.mark.asyncio
 async def test_bert(bert_base_model: HuggingfaceEncoderModel):
-    response = await bert_base_model(
+    response, _ = await bert_base_model(
         {
             "instances": [
                 "The capital of France is [MASK].",
@@ -213,7 +226,7 @@ async def test_model_revision(request: HuggingfaceEncoderModel):
     model.load()
     request.addfinalizer(model.stop)
 
-    response = await model(
+    response, _ = await model(
         {
             "instances": [
                 "The capital of France is [MASK].",
@@ -227,8 +240,10 @@ async def test_model_revision(request: HuggingfaceEncoderModel):
 
 @pytest.mark.asyncio
 async def test_bert_predictor_host(request, httpx_mock: HTTPXMock):
+    model_name = "bert"
     httpx_mock.add_response(
         json={
+            "model_name": model_name,
             "outputs": [
                 {
                     "name": "OUTPUT__0",
@@ -236,12 +251,12 @@ async def test_bert_predictor_host(request, httpx_mock: HTTPXMock):
                     "data": [1] * 9 * 758,
                     "datatype": "INT64",
                 }
-            ]
+            ],
         }
     )
 
     model = HuggingfaceEncoderModel(
-        "bert",
+        model_name,
         model_id_or_path="google-bert/bert-base-uncased",
         tensor_input_names="input_ids",
         predictor_config=PredictorConfig(
@@ -251,7 +266,7 @@ async def test_bert_predictor_host(request, httpx_mock: HTTPXMock):
     model.load()
     request.addfinalizer(model.stop)
 
-    response = await model(
+    response, _ = await model(
         {"instances": ["The capital of France is [MASK]."]}, headers={}
     )
     assert response == {"predictions": ["[PAD]"]}
@@ -260,7 +275,7 @@ async def test_bert_predictor_host(request, httpx_mock: HTTPXMock):
 @pytest.mark.asyncio
 async def test_bert_sequence_classification(bert_base_yelp_polarity):
     request = "Hello, my dog is cute."
-    response = await bert_base_yelp_polarity(
+    response, _ = await bert_base_yelp_polarity(
         {"instances": [request, request]}, headers={}
     )
     assert response == {"predictions": [1, 1]}
@@ -269,7 +284,7 @@ async def test_bert_sequence_classification(bert_base_yelp_polarity):
 @pytest.mark.asyncio
 async def test_bert_sequence_classification_return_probabilities(bert_base_return_prob):
     request = "Hello, my dog is cute."
-    response = await bert_base_return_prob(
+    response, _ = await bert_base_return_prob(
         {"instances": [request, request]}, headers={}
     )
 
@@ -286,7 +301,8 @@ async def test_bert_token_classification_return_prob(
     bert_token_classification_return_prob,
 ):
     request = "Hello, my dog is cute."
-    response = await bert_token_classification_return_prob(
+
+    response, _ = await bert_token_classification_return_prob(
         {"instances": [request, request]}, headers={}
     )
     assert response == bert_token_classification_return_prob_expected_output
@@ -295,7 +311,7 @@ async def test_bert_token_classification_return_prob(
 @pytest.mark.asyncio
 async def test_bert_token_classification(bert_token_classification):
     request = "HuggingFace is a company based in Paris and New York"
-    response = await bert_token_classification(
+    response, _ = await bert_token_classification(
         {"instances": [request, request]}, headers={}
     )
     assert response == {
@@ -413,12 +429,41 @@ async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativ
 
 
 @pytest.mark.asyncio
+async def test_text_embedding(text_embedding):
+    def cosine_similarity(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+        if len(a.shape) == 1:
+            a = a.unsqueeze(0)
+
+        if len(b.shape) == 1:
+            b = b.unsqueeze(0)
+
+        a_norm = F.normalize(a, p=2, dim=1)
+        b_norm = F.normalize(b, p=2, dim=1)
+        return torch.mm(a_norm, b_norm.transpose(0, 1))
+
+    requests = ["I'm happy", "I'm full of happiness", "They were at the park."]
+    response, _ = await text_embedding({"instances": requests}, headers={})
+    predictions = response["predictions"]
+
+    # The first two requests are semantically similar, so the cosine similarity should be high
+    assert (
+        cosine_similarity(torch.tensor(predictions[0]), torch.tensor(predictions[1]))[0]
+        > 0.9
+    )
+    # The third request is semantically different, so the cosine similarity should be low
+    assert (
+        cosine_similarity(torch.tensor(predictions[0]), torch.tensor(predictions[2]))[0]
+        < 0.55
+    )
+
+
+@pytest.mark.asyncio
 async def test_input_padding(bert_base_yelp_polarity: HuggingfaceEncoderModel):
     # inputs with different lengths will throw an error
     # unless we set padding=True in the tokenizer
     request_one = "Hello, my dog is cute."
     request_two = "Hello there, my dog is cute."
-    response = await bert_base_yelp_polarity(
+    response, _ = await bert_base_yelp_polarity(
         {"instances": [request_one, request_two]}, headers={}
     )
     assert response == {"predictions": [1, 1]}
@@ -430,7 +475,7 @@ async def test_input_truncation(bert_base_yelp_polarity: HuggingfaceEncoderModel
     # this request exceeds that, so it will throw an error
     # unless we set truncation=True in the tokenizer
     request = "good " * 600
-    response = await bert_base_yelp_polarity({"instances": [request]}, headers={})
+    response, _ = await bert_base_yelp_polarity({"instances": [request]}, headers={})
     assert response == {"predictions": [1]}
 
 

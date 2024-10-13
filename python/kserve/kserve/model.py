@@ -14,9 +14,9 @@
 
 import inspect
 import time
-from abc import ABC
+from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Awaitable, Dict, List, Optional, Union
 
 from cloudevents.http import CloudEvent
 
@@ -56,7 +56,7 @@ class BaseKServeModel(ABC):
         self.name = name
         self.ready = False
 
-    def healthy(self) -> bool:
+    async def healthy(self) -> bool:
         """
         Check the health of this model. By default returns `self.ready`.
 
@@ -65,15 +65,67 @@ class BaseKServeModel(ABC):
         """
         return self.ready
 
+    def load(self) -> bool:
+        """Load handler can be overridden to load the model from storage.
+        The `self.ready` should be set to True after the model is loaded. The flag is used for model health check.
+
+        Returns:
+            bool: True if model is ready, False otherwise
+        """
+        self.ready = True
+        return self.ready
+
+    def start(self):
+        """Start handler can be overridden to perform model setup"""
+        self.ready = True
+
     def stop(self):
         """Stop handler can be overridden to perform model teardown"""
-        pass
+        self.ready = False
 
 
 class InferenceVerb(Enum):
     EXPLAIN = 1
     PREDICT = 2
-    GENERATE = 3
+
+
+InferReturnValueTypes = Union[Dict, InferResponse, List[str]]
+InferReturnType = Union[InferReturnValueTypes, Awaitable[InferReturnValueTypes]]
+
+
+class InferenceModel(BaseKServeModel):
+    """
+    Abstract class representing a model that supports standard inference and prediction.
+    """
+
+    @abstractmethod
+    def __call__(
+        self,
+        body: Union[Dict, CloudEvent, InferRequest],
+        headers: Optional[Dict[str, str]] = None,
+        verb: InferenceVerb = InferenceVerb.PREDICT,
+    ) -> InferReturnType:
+        pass
+
+    def get_input_types(self) -> List[Dict]:
+        # Override this function to return appropriate input format expected by your model.
+        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
+
+        # Eg.
+        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
+        return []
+
+    def get_output_types(self) -> List[Dict]:
+        # Override this function to return appropriate output format returned by your model.
+        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
+
+        # Eg.
+        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
+        return []
+
+
+def is_v2(protocol: PredictorProtocol) -> bool:
+    return protocol != PredictorProtocol.REST_V1
 
 
 def get_latency_ms(start: float, end: float) -> float:
@@ -102,8 +154,13 @@ class PredictorConfig:
         self.predictor_request_timeout_seconds = predictor_request_timeout_seconds
 
 
-class Model(BaseKServeModel):
-    def __init__(self, name: str, predictor_config: Optional[PredictorConfig] = None):
+class Model(InferenceModel):
+    def __init__(
+        self,
+        name: str,
+        predictor_config: Optional[PredictorConfig] = None,
+        return_response_headers: bool = False,
+    ):
         """KServe Model Public Interface
 
         Model is intended to be subclassed to implement the model handlers.
@@ -136,13 +193,14 @@ class Model(BaseKServeModel):
         self._http_client_instance = None
         self._grpc_client_stub = None
         self.enable_latency_logging = False
+        self.required_response_headers = return_response_headers
 
     async def __call__(
         self,
         body: Union[Dict, CloudEvent, InferRequest],
+        headers: Optional[Dict[str, str]] = None,
         verb: InferenceVerb = InferenceVerb.PREDICT,
-        headers: Dict[str, str] = None,
-    ) -> Union[Dict, InferResponse, List[str]]:
+    ) -> InferReturnType:
         """Method to call predictor or explainer with the given input.
 
         Args:
@@ -161,6 +219,7 @@ class Model(BaseKServeModel):
         predict_ms = 0
         postprocess_ms = 0
         prom_labels = get_labels(self.name)
+        response_headers = {}
 
         with PRE_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
@@ -183,22 +242,36 @@ class Model(BaseKServeModel):
         elif verb == InferenceVerb.PREDICT:
             with PREDICT_HIST_TIME.labels(**prom_labels).time():
                 start = time.time()
-                response = (
-                    (await self.predict(payload, headers))
-                    if inspect.iscoroutinefunction(self.predict)
-                    else self.predict(payload, headers)
-                )
+                if self.required_response_headers:
+                    response = (
+                        (await self.predict(payload, headers, response_headers))
+                        if inspect.iscoroutinefunction(self.predict)
+                        else self.predict(payload, headers, response_headers)
+                    )
+                else:
+                    response = (
+                        (await self.predict(payload, headers))
+                        if inspect.iscoroutinefunction(self.predict)
+                        else self.predict(payload, headers)
+                    )
                 predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
 
         with POST_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
-            response = (
-                await self.postprocess(response, headers)
-                if inspect.iscoroutinefunction(self.postprocess)
-                else self.postprocess(response, headers)
-            )
+            if self.required_response_headers:
+                response = (
+                    await self.postprocess(response, headers, response_headers)
+                    if inspect.iscoroutinefunction(self.postprocess)
+                    else self.postprocess(response, headers, response_headers)
+                )
+            else:
+                response = (
+                    await self.postprocess(response, headers)
+                    if inspect.iscoroutinefunction(self.postprocess)
+                    else self.postprocess(response, headers)
+                )
             postprocess_ms = get_latency_ms(start, time.time())
 
         if self.enable_latency_logging is True:
@@ -208,18 +281,18 @@ class Model(BaseKServeModel):
                 f"postprocess_ms: {postprocess_ms}"
             )
 
-        return response
+        return response, response_headers
 
     @property
     def _http_client(self) -> InferenceRESTClient:
-        if self._http_client_instance is None:
+        if self._http_client_instance is None and self.predictor_host:
             config = RESTConfig(protocol=self.protocol, timeout=self.timeout, retries=3)
             self._http_client_instance = InferenceRESTClient(config=config)
         return self._http_client_instance
 
     @property
     def _grpc_client(self) -> InferenceGRPCClient:
-        if self._grpc_client_stub is None:
+        if self._grpc_client_stub is None and self.predictor_host:
             self._grpc_client_stub = InferenceGRPCClient(
                 url=self.predictor_host, use_ssl=self.use_ssl, timeout=self.timeout
             )
@@ -253,22 +326,6 @@ class Model(BaseKServeModel):
         self.ready = True
         return self.ready
 
-    def get_input_types(self) -> List[Dict]:
-        # Override this function to return appropriate input format expected by your model.
-        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
-
-        # Eg.
-        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
-        return []
-
-    def get_output_types(self) -> List[Dict]:
-        # Override this function to return appropriate output format returned by your model.
-        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
-
-        # Eg.
-        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
-        return []
-
     async def preprocess(
         self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
     ) -> Union[Dict, InferRequest]:
@@ -287,7 +344,10 @@ class Model(BaseKServeModel):
         return payload
 
     async def postprocess(
-        self, result: Union[Dict, InferResponse], headers: Dict[str, str] = None
+        self,
+        result: Union[Dict, InferResponse],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         """The `postprocess` handler can be overridden for inference result or response transformation.
         The predictor sends back the inference result in `Dict` for v1 endpoints and `InferResponse` for v2 endpoints.
@@ -302,7 +362,10 @@ class Model(BaseKServeModel):
         return result
 
     async def _http_predict(
-        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
+        self,
+        payload: Union[Dict, InferRequest],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
@@ -322,7 +385,9 @@ class Model(BaseKServeModel):
             model_name=self.name,
             data=payload,
             headers=predict_headers,
+            response_headers=response_headers,
         )
+
         return response
 
     async def _grpc_predict(
@@ -346,6 +411,7 @@ class Model(BaseKServeModel):
         self,
         payload: Union[Dict, InferRequest, ModelInferRequest],
         headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse, AsyncIterator[Any]]:
         """The `predict` handler can be overridden for performing the inference.
             By default, the predict handler makes call to predictor for the inference step.
@@ -365,7 +431,7 @@ class Model(BaseKServeModel):
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             return await self._grpc_predict(payload, headers)
         else:
-            return await self._http_predict(payload, headers)
+            return await self._http_predict(payload, headers, response_headers)
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.

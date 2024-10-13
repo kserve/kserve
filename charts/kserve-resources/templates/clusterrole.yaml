@@ -1,4 +1,3 @@
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -12,13 +11,49 @@ rules:
   resources:
   - subjectaccessreviews
   verbs: ["create"]
-
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: kserve-manager-role
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - events
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  verbs:
+  - get
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
@@ -57,84 +92,9 @@ rules:
   - update
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - create
-  - get
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - events
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - serviceaccounts
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - networking.istio.io
   resources:
   - virtualservices
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - networking.istio.io
-  resources:
   - virtualservices/finalizers
   verbs:
   - create
@@ -168,17 +128,6 @@ rules:
   - serving.knative.dev
   resources:
   - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - serving.knative.dev
-  resources:
   - services/finalizers
   verbs:
   - create
@@ -199,102 +148,22 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - clusterlocalmodels
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - clusterservingruntimes
   - clusterservingruntimes/finalizers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
   - clusterstoragecontainers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - clusterservingruntimes/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
   - inferencegraphs
   - inferencegraphs/finalizers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - inferencegraphs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
   - inferenceservices
   - inferenceservices/finalizers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - inferenceservices/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
   - servingruntimes
   - servingruntimes/finalizers
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - servingruntimes/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
   - trainedmodels
   verbs:
   - create
@@ -307,27 +176,12 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - clusterservingruntimes/status
+  - inferencegraphs/status
+  - inferenceservices/status
+  - servingruntimes/status
   - trainedmodels/status
   verbs:
   - get
   - patch
   - update
-
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kserve-addressable-resolver
-  labels:
-    contrib.eventing.knative.dev/release: devel
-    duck.knative.dev/addressable: "true"
-rules:
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - inferenceservices
-  - inferenceservices/status
-  verbs:
-  - get
-  - list
-  - watch

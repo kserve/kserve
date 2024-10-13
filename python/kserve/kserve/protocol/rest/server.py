@@ -52,7 +52,7 @@ async def metrics_handler(request: Request) -> Response:
 
 class PrintTimings(TimingClient):
     def timing(self, metric_name, timing, tags):
-        trace_logger.info(f"{metric_name}: {timing}")
+        trace_logger.info(f"{metric_name}: {timing} {tags}")
 
 
 class _NoSignalUvicornServer(uvicorn.Server):

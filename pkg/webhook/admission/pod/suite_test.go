@@ -18,6 +18,7 @@ package pod
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"k8s.io/client-go/kubernetes"
@@ -35,7 +36,10 @@ var c client.Client
 var clientset kubernetes.Interface
 
 func TestMain(m *testing.M) {
-	t := pkgtest.SetupEnvTest()
+	crdDirectoryPaths := []string{
+		filepath.Join("..", "..", "..", "..", "test", "crds"),
+	}
+	t := pkgtest.SetupEnvTest(crdDirectoryPaths)
 
 	err := v1alpha1.AddToScheme(scheme.Scheme)
 	if err != nil {
