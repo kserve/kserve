@@ -67,6 +67,7 @@ type CredentialBuilder struct {
 	client    client.Client
 	clientset kubernetes.Interface
 	config    CredentialConfig
+	keyToPath bool
 }
 
 var log = logf.Log.WithName("CredentialBuilder")
@@ -84,6 +85,7 @@ func NewCredentialBuilder(client client.Client, clientset kubernetes.Interface, 
 		client:    client,
 		clientset: clientset,
 		config:    credentialConfig,
+		keyToPath: false,
 	}
 }
 
@@ -170,6 +172,7 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 	if stype == "service_account" {
 		stype = "gs"
 		c.config.GCS.GCSCredentialFileName = storageKey
+		c.keyToPath = true
 		if err := c.mountSecretCredential(storageSecretName, namespace, container, volumes); err != nil {
 			return err
 		}
@@ -269,7 +272,7 @@ func (c *CredentialBuilder) mountSecretCredential(secretName string, namespace s
 		container.Env = utils.MergeEnvs(container.Env, envs)
 	} else if _, ok := secret.Data[gcsCredentialFileName]; ok {
 		log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
-		volume, volumeMount := gcs.BuildSecretVolume(secret, true, gcsCredentialFileName)
+		volume, volumeMount := gcs.BuildSecretVolume(secret, c.keyToPath, gcsCredentialFileName)
 		*volumes = utils.AppendVolumeIfNotExists(*volumes, volume)
 		container.VolumeMounts =
 			append(container.VolumeMounts, volumeMount)
