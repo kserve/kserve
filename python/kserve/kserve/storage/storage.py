@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import base64
-import binascii
 import glob
 import gzip
 import json
@@ -28,17 +27,7 @@ import zipfile
 from pathlib import Path
 from typing import Dict
 from urllib.parse import urlparse
-
-import boto3
 import requests
-from azure.storage.blob import BlobServiceClient
-from azure.storage.blob._list_blobs_helper import BlobPrefix
-from azure.storage.fileshare import ShareServiceClient
-from botocore import UNSIGNED
-from botocore.client import Config
-from google.auth import exceptions
-from google.oauth2 import service_account
-from google.cloud import storage
 
 from ..logging import logger
 
@@ -61,6 +50,7 @@ _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
+_HF_PREFIX = "hf://"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
@@ -107,6 +97,8 @@ class Storage(object):
                 model_dir = Storage._download_azure_file_share(uri, out_dir)
             elif re.search(_URI_RE, uri):
                 model_dir = Storage._download_from_uri(uri, out_dir)
+            elif uri.startswith(_HF_PREFIX):
+                model_dir = Storage._download_hf(uri, out_dir)
             else:
                 raise Exception(
                     "Cannot recognize storage type for "
@@ -160,26 +152,11 @@ class Storage(object):
                     f.write(value)
                     f.flush()
 
-        if storage_secret_json.get("type", "") == "gs":
-            if storage_secret_json.get("base64_service_account_key_file", "") != "":
-                try:
-                    base64_service_account_key_file = storage_secret_json.get(
-                        "base64_service_account_key_file", ""
-                    )
-                    service_account_str = base64.b64decode(
-                        base64_service_account_key_file
-                    ).decode("utf-8")
-                    service_account_dict = json.loads(service_account_str)
-                    os.environ["GOOGLE_SERVICE_ACCOUNT"] = json.dumps(
-                        service_account_dict
-                    )
-                except binascii.Error:
-                    raise RuntimeError("Error: Invalid base64 encoding.")
-                except UnicodeDecodeError:
-                    raise RuntimeError("Error: Cannot decode string.")
-
     @staticmethod
     def get_S3_config():
+        from botocore import UNSIGNED
+        from botocore.client import Config
+
         # default s3 config
         c = Config()
 
@@ -203,6 +180,8 @@ class Storage(object):
 
     @staticmethod
     def _download_s3(uri, temp_dir: str) -> str:
+        import boto3
+
         # Boto3 looks at various configuration locations until it finds configuration values.
         # lookup order:
         # 1. Config object passed in as the config parameter when creating S3 resource
@@ -253,10 +232,8 @@ class Storage(object):
             # Skip where boto3 lists the directory as an object
             if obj.key.endswith("/"):
                 continue
-            # In the case where bucket_path points to a single object,
-            # set the target key to bucket_path
-            # Otherwise, remove the bucket_path prefix, strip any extra slashes,
-            # then prepend the target_dir
+            # In the case where bucket_path points to a single object, set the target key to bucket_path
+            # Otherwise, remove the bucket_path prefix, strip any extra slashes, then prepend the target_dir
             # Example:
             # s3://test-bucket
             # Objects: /a/b/c/model.bin /a/model.bin /model.bin
@@ -291,8 +268,7 @@ class Storage(object):
             logger.info("Downloaded object %s to %s" % (obj.key, target))
             file_count += 1
 
-            # If the exact object is found, then it is sufficient to download that
-            # and break the loop
+            # If the exact object is found, then it is sufficient to download that and break the loop
             if exact_obj_found:
                 break
         if file_count == 0:
@@ -308,20 +284,46 @@ class Storage(object):
         return temp_dir
 
     @staticmethod
+    def _download_hf(uri, temp_dir: str) -> str:
+        from huggingface_hub import snapshot_download
+
+        components = uri[len(_HF_PREFIX) :].split("/")
+
+        # Validate that the URI has two parts: repo and model (optional hash)
+        if len(components) != 2:
+            raise ValueError(
+                "URI must contain exactly one '/' separating the repo and model name"
+            )
+
+        repo = components[0]
+        model_part = components[1]
+
+        if not repo:
+            raise ValueError("Repository name cannot be empty")
+        if not model_part:
+            raise ValueError("Model name cannot be empty")
+
+        model, _, hash_value = model_part.partition(":")
+        # Ensure model is non-empty
+        if not model:
+            raise ValueError("Model name cannot be empty")
+
+        revision = hash_value if hash_value else None
+
+        snapshot_download(
+            repo_id=f"{repo}/{model}", revision=revision, local_dir=temp_dir
+        )
+        return temp_dir
+
+    @staticmethod
     def _download_gcs(uri, temp_dir: str) -> str:
+        from google.auth import exceptions
+        from google.cloud import storage
+
         try:
-            credentials = None
-            if "GOOGLE_SERVICE_ACCOUNT" in os.environ:
-                google_service_account = json.loads(
-                    os.environ["GOOGLE_SERVICE_ACCOUNT"]
-                )
-                credentials = service_account.Credentials.from_service_account_info(
-                    google_service_account
-                )
-            storage_client = storage.Client(credentials=credentials)
+            storage_client = storage.Client()
         except exceptions.DefaultCredentialsError:
             storage_client = storage.Client.create_anonymous_client()
-
         bucket_args = uri.replace(_GCS_PREFIX, "", 1).split("/", 1)
         bucket_name = bucket_args[0]
         bucket_path = bucket_args[1] if len(bucket_args) > 1 else ""
@@ -404,9 +406,9 @@ class Storage(object):
         # Remove hdfs:// or webhdfs:// from the uri to get just the path
         # e.g. hdfs://user/me/model -> user/me/model
         if uri.startswith(_HDFS_PREFIX):
-            path = uri[len(_HDFS_PREFIX) :]  # noqa: E203
+            path = uri[len(_HDFS_PREFIX) :]
         else:
-            path = uri[len(_WEBHDFS_PREFIX) :]  # noqa: E203
+            path = uri[len(_WEBHDFS_PREFIX) :]
 
         if not config["HDFS_ROOTPATH"]:
             path = "/" + path
@@ -478,6 +480,9 @@ class Storage(object):
     def _download_azure_blob(
         uri, out_dir: str
     ) -> str:  # pylint: disable=too-many-locals
+        from azure.storage.blob import BlobServiceClient
+        from azure.storage.blob._list_blobs_helper import BlobPrefix
+
         account_name, account_url, container_name, prefix = Storage._parse_azure_uri(
             uri
         )
@@ -493,8 +498,7 @@ class Storage(object):
         )
         if token is None:
             logger.warning(
-                "Azure credentials or shared access signature token not found, \
-                retrying anonymous access"
+                "Azure credentials or shared access signature token not found, retrying anonymous access"
             )
 
         blob_service_client = BlobServiceClient(account_url, credential=token)
@@ -539,6 +543,8 @@ class Storage(object):
     def _download_azure_file_share(
         uri, out_dir: str
     ) -> str:  # pylint: disable=too-many-locals
+        from azure.storage.fileshare import ShareServiceClient
+
         account_name, account_url, share_name, prefix = Storage._parse_azure_uri(uri)
         logger.info(
             "Connecting to file share account: [%s], container: [%s], prefix: [%s]",
