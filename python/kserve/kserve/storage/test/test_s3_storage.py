@@ -14,13 +14,13 @@
 
 import os
 import json
+import pytest
+import botocore
 import unittest.mock as mock
 
 from botocore.client import Config
 from botocore import UNSIGNED
 from kserve.storage import Storage
-
-STORAGE_MODULE = "kserve.storage.storage"
 
 
 def create_mock_obj(path):
@@ -36,7 +36,7 @@ def create_mock_boto3_bucket(mock_storage, paths):
     mock_s3_bucket.objects.filter.return_value = [create_mock_obj(p) for p in paths]
 
     mock_s3_resource.Bucket.return_value = mock_s3_bucket
-    mock_storage.resource.return_value = mock_s3_resource
+    mock_storage.return_value = mock_s3_resource
 
     return mock_s3_bucket
 
@@ -60,7 +60,7 @@ def expected_call_args_list(parent_key, dest, paths):
 # pylint: disable=protected-access
 
 
-@mock.patch(STORAGE_MODULE + ".boto3")
+@mock.patch("boto3.resource")
 def test_parent_key(mock_storage):
     # given
     bucket_name = "foo"
@@ -78,7 +78,7 @@ def test_parent_key(mock_storage):
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="bar")
 
 
-@mock.patch(STORAGE_MODULE + ".boto3")
+@mock.patch("boto3.resource")
 def test_no_key(mock_storage):
     # given
     bucket_name = "foo"
@@ -95,7 +95,37 @@ def test_no_key(mock_storage):
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="")
 
 
-@mock.patch(STORAGE_MODULE + ".boto3")
+@mock.patch("boto3.resource")
+def test_storage_s3_exception(mock_resource):
+    path = "s3://foo/bar"
+    # Create mock client
+    mock_s3_resource = mock.MagicMock()
+    mock_s3_resource.Bucket.side_effect = Exception()
+    mock_resource.return_value = mock_s3_resource
+
+    with pytest.raises(Exception):
+        Storage.download(path)
+
+
+@mock.patch("boto3.resource")
+@mock.patch("urllib3.PoolManager")
+def test_no_permission_buckets(mock_connection, mock_resource):
+    bad_s3_path = "s3://random/path"
+    # Access private buckets without credentials
+    mock_s3_resource = mock.MagicMock()
+    mock_s3_bucket = mock.MagicMock()
+    mock_s3_bucket.objects.filter.return_value = [mock.MagicMock()]
+    mock_s3_bucket.objects.filter.side_effect = botocore.exceptions.ClientError(
+        {}, "GetObject"
+    )
+    mock_s3_resource.Bucket.return_value = mock_s3_bucket
+    mock_resource.return_value = mock_s3_resource
+
+    with pytest.raises(botocore.exceptions.ClientError):
+        Storage.download(bad_s3_path)
+
+
+@mock.patch("boto3.resource")
 def test_full_name_key(mock_storage):
     # given
     bucket_name = "foo"
@@ -112,14 +142,14 @@ def test_full_name_key(mock_storage):
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix=object_key)
 
 
-@mock.patch(STORAGE_MODULE + ".boto3")
-def test_full_name_key_root_bucket_dir(mock_storage):
+@mock.patch("boto3.resource")
+def test_full_name_key_root_bucket_dir(mock_resource):
     # given
     bucket_name = "foo"
     object_key = "name.pt"
 
     # when
-    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, [object_key])
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_resource, [object_key])
     Storage._download_s3(f"s3://{bucket_name}/{object_key}", "dest_path")
 
     # then
@@ -137,7 +167,7 @@ AWS_TEST_CREDENTIALS = {
 }
 
 
-@mock.patch(STORAGE_MODULE + ".boto3")
+@mock.patch("boto3.resource")
 def test_multikey(mock_storage):
     # given
     bucket_name = "foo"
@@ -155,8 +185,9 @@ def test_multikey(mock_storage):
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="test/a")
 
 
-@mock.patch(STORAGE_MODULE + ".boto3")
+@mock.patch("boto3.resource")
 def test_files_with_no_extension(mock_storage):
+
     # given
     bucket_name = "foo"
     paths = ["churn-pickle", "churn-pickle-logs", "churn-pickle-report"]
@@ -270,7 +301,7 @@ def test_update_with_storage_spec_s3(monkeypatch):
     os.environ = previous_env
 
 
-@mock.patch(STORAGE_MODULE + ".boto3")
+@mock.patch("boto3.resource")
 def test_target_startswith_parent_folder_name(mock_storage):
     bucket_name = "foo"
     paths = ["model.pkl", "a/model.pkl", "conda.yaml"]
