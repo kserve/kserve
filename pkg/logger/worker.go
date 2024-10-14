@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -90,7 +91,7 @@ type Worker struct {
 	CeCtx       context.Context
 }
 
-// prepareEvent creates a cloudevent from the LogRequest setting the extentions
+// prepareEvent creates a cloudevent from the LogRequest setting the extensions
 // body and metadata. Event defaulter functions should be applied here since
 // a cloudevent client is not used.
 func (w *Worker) prepareEvent(logReq LogRequest) (cloudevents.Event, error) {
@@ -184,11 +185,12 @@ func (w *Worker) sendBatchCloudEvent(logReqs []LogRequest) error {
 		if err != nil {
 			w.Log.Warnf("unable to read body of response: %w", err)
 		}
-		err = fmt.Errorf(string(body))
-	}
-	w.Log.Infof("Sent with status code %d, error: %v", res.StatusCode, err)
-	return nil
 
+		w.Log.Errorf("Sent with status code %d, error: %v", res.StatusCode, errors.New(string(body)))
+	} else {
+		w.Log.Infof("Sent with status code %d", res.StatusCode)
+	}
+	return nil
 }
 
 func (w *Worker) sendCloudEvent(logReq LogRequest) error {
@@ -222,8 +224,7 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 		if err != nil {
 			w.Log.Warnf("unable to read body of response: %w", err)
 		}
-
-		w.Log.Errorf("Sent with status code %d, error: %v", res.StatusCode, fmt.Errorf(string(body)))
+		w.Log.Errorf("Sent with status code %d, error: %v", res.StatusCode, errors.New(string(body)))
 	} else {
 		w.Log.Infof("Sent with status code %d", res.StatusCode)
 	}
@@ -241,7 +242,8 @@ func (w *Worker) Start() {
 
 			select {
 			case work := <-w.Work:
-				if len(work) == 1 {
+				switch len(work) {
+				case 1:
 					workItem := work[0]
 					// Receive a work request.
 					w.Log.Infof("Received work request %d, url: %s, requestId: %s", w.ID, workItem.Url.String(), workItem.Id)
@@ -249,15 +251,14 @@ func (w *Worker) Start() {
 					if err := w.sendCloudEvent(workItem); err != nil {
 						w.Log.Error(err, "Failed to send cloud event, url: %s", workItem.Url.String())
 					}
-				} else if len(work) == 2 {
+				case 2:
 					// Receive a work request.
 					w.Log.Infof("Received work request %d, url: %s, requestIds: %s %s", w.ID, work[0].Url.String(), work[0].Id, work[1].Id)
 
 					if err := w.sendBatchCloudEvent(work); err != nil {
 						w.Log.Error(err, "Failed to send cloud event, url: %s", work[0].Url.String())
 					}
-
-				} else {
+				default:
 					w.Log.Errorf("Invalid amount of work items, number of work items must be 1 or 2, not %d", len(work))
 				}
 

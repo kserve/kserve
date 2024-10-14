@@ -47,7 +47,7 @@ const (
 	LogRequest LoggerType = "request"
 	// LogResponse Logger mode to log only response
 	LogResponse LoggerType = "response"
-	// LogCombined Logger mode to log both request and repsonse in combined payload
+	// LogCombined Logger mode to log both request and response in combined payload
 	LogCombined LoggerType = "combined"
 )
 

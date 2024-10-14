@@ -146,7 +146,7 @@ async def test_kserve_logger_combined(rest_v1_client):
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
 
-    service_name = "isvc-logger"
+    service_name = "isvc-logger-combined"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         logger=V1beta1LoggerSpec(
