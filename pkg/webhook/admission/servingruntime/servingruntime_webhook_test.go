@@ -19,13 +19,15 @@ package servingruntime
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 
-	"google.golang.org/protobuf/proto"
 	"testing"
+
+	"google.golang.org/protobuf/proto"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1579,7 +1581,11 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(errors.New(InvalidParallelSizeValueError)),
+			expected: gomega.Equal(fmt.Errorf(InvalidParallelSizeValueError, &strconv.NumError{
+				Func: "Atoi",
+				Num:  "test",
+				Err:  errors.New("invalid syntax"),
+			})),
 		},
 		"When tensor-parallel-size set wrong value, then it should return error": {
 			newServingRuntime: &v1alpha1.ServingRuntime{
@@ -1620,7 +1626,11 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(errors.New(InvalidParallelSizeValueError)),
+			expected: gomega.Equal(fmt.Errorf(InvalidParallelSizeValueError, &strconv.NumError{
+				Func: "Atoi",
+				Num:  "test",
+				Err:  errors.New("invalid syntax"),
+			})),
 		},
 	}
 	for name, scenario := range scenarios {

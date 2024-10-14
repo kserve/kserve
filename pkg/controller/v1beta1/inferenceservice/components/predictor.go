@@ -403,7 +403,9 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// Autoscaler should be ignored when multiNodeEnabled is true
 	workerObjectMeta = metav1.ObjectMeta{}
 	if multiNodeEnabled {
-		annotations[constants.AutoscalerClass] = string(constants.AutoscalerClassExternal)
+		if annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+			return ctrl.Result{}, fmt.Errorf("in Multi Node mode, the autoscaler type must be 'external' only")
+		}
 		WorkerNodeName := constants.PredictorWorkerServiceName(isvc.Name)
 		// Labels and annotations priority: predictor component > isvc > ServingRuntimePodSpec
 		// Labels and annotations from high priority will overwrite that from low priority

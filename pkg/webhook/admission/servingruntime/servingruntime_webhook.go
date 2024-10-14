@@ -18,7 +18,6 @@ package servingruntime
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -45,7 +44,7 @@ const (
 	InvalidWorkerSpecSizeValueError            = "the WorkerSpec.Size cannot be less than 2(%d)"
 	InvalidPipelineParallelSizeValueError      = "the PIPELINE_PARALLEL_SIZE cannot be less than 2 (%s) because PipelineParallelSize should include at least 1 head node and 1 worker node"
 	InvalidTensorParallelSizeValueError        = "the TENSOR_PARALLEL_SIZE cannot be less than 1(%s)"
-	InvalidParallelSizeValueError              = "the value of PIPELINE_PARALLEL_SIZE or TENSOR_PARALLEL_SIZE is incorrect"
+	InvalidParallelSizeValueError              = "the value of PIPELINE_PARALLEL_SIZE or TENSOR_PARALLEL_SIZE is incorrect. Detail: %w"
 	InvalidMultiNodeEnvVariablesError          = "the %s %s is invalid: %s"
 )
 
@@ -198,7 +197,7 @@ func validateMultiNodeVariables(newSpec *v1alpha1.ServingRuntimeSpec) error {
 							return fmt.Errorf(InvalidPipelineParallelSizeValueError, envPipelineParallelSize)
 						}
 					} else {
-						return errors.New(InvalidParallelSizeValueError)
+						return fmt.Errorf(InvalidParallelSizeValueError, err)
 					}
 				}
 
@@ -209,7 +208,7 @@ func validateMultiNodeVariables(newSpec *v1alpha1.ServingRuntimeSpec) error {
 							return fmt.Errorf(InvalidTensorParallelSizeValueError, envTensorParallelSize)
 						}
 					} else {
-						return errors.New(InvalidParallelSizeValueError)
+						return fmt.Errorf(InvalidParallelSizeValueError, err)
 					}
 				}
 			}

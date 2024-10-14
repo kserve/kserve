@@ -35,12 +35,10 @@ spec:
           fi
 
           python3 -m huggingfaceserver --model_name=${MODEL_NAME}  --model_dir=${MODEL} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE}
-        
+
       env:
         - name: RAY_PORT
           value: "6379"
-        - name: HOME
-          value: "/tmp"
         - name: RAY_ADDRESS
           value: 127.0.0.1:6379
         - name: POD_NAMESPACE
@@ -52,15 +50,15 @@ spec:
         - name: HF_HUB_CACHE
           value: /tmp
       resources:
-        limits:
-          cpu: "16"
-          memory: 48Gi
-          nvidia.com/gpu: "1"
         requests:
-          cpu: "8"
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
       volumeMounts:
         - name: shm
-          mountPath: /dev/shm     
+          mountPath: /dev/shm
       livenessProbe:
         failureThreshold: 3
         periodSeconds: 30
@@ -70,19 +68,8 @@ spec:
           command:
             - bash
             - -c
-            - |            
-              # Check GPU usage (If worker node restarted, it becomes NOT ready)
-              gpu_status=$(ray status | grep GPU)
-              used_gpu=$(echo "$gpu_status" | awk '{print $1}' | cut -d'/' -f1)
-              reserved_gpu=$(echo "$gpu_status" | awk '{print $1}' | cut -d'/' -f2)
-
-              # Determine health status based on GPU usage
-              if [[ "$used_gpu" != "$reserved_gpu" ]]; then
-                  echo "Liveness Probe: Unhealthy - Used: $used_gpu, Reserved: $reserved_gpu"
-                  exit 1
-              else
-                  exit 0                  
-              fi 
+            - |
+              ./huggingfaceserver/health_check.sh check_gpu_usage
       readinessProbe:
         failureThreshold: 2
         periodSeconds: 10
@@ -94,25 +81,7 @@ spec:
             - bash
             - -c
             - |
-              # Check if the registered ray nodes count is the same as PIPELINE_PARALLEL_SIZE
-              if [[ $(ray status | grep -c node_) -ne ${PIPELINE_PARALLEL_SIZE} ]]; then
-                  exit 1
-              fi
-              
-              # Check if huggingface server health
-              curl --silent --max-time 5 http://localhost:8080               
-
-              # Check GPU usage (If worker node restarted, it becomes NOT ready)
-              gpu_status=$(ray status | grep GPU)
-              used_gpu=$(echo "$gpu_status" | awk '{print $1}' | cut -d'/' -f1)
-              reserved_gpu=$(echo "$gpu_status" | awk '{print $1}' | cut -d'/' -f2)
-
-              # Determine health status based on GPU usage
-              if [[ "$used_gpu" != "$reserved_gpu" ]]; then
-                  echo "Readiness Probe: Unhealthy - Used: $used_gpu, Reserved: $reserved_gpu"
-                  exit 1
-              fi
-
+              ./huggingfaceserver/health_check.sh readiness ${PIPELINE_PARALLEL_SIZE} http://localhost:8080
       startupProbe:
         failureThreshold: 40
         periodSeconds: 30
@@ -124,12 +93,12 @@ spec:
             - bash
             - -c
             - |
-              ray status
+              ./huggingfaceserver/health_check.sh startup
   volumes:
     - name: shm
       emptyDir:
         medium: Memory
-        sizeLimit: 12Gi
+        sizeLimit: 1Gi
   workerSpec:
     containers:
       - name: worker-container
@@ -168,13 +137,14 @@ spec:
           - name: POD_NAMESPACE
             valueFrom:
               fieldRef:
-                fieldPath: metadata.namespace              
+                fieldPath: metadata.namespace
         resources:
-          limits:
-            cpu: "16"
-            memory: 48Gi
           requests:
-            cpu: "8"
+            cpu: "1"
+            memory: 2Gi
+          limits:
+            cpu: "1"
+            memory: 2Gi
         volumeMounts:
           - name: shm
             mountPath: /dev/shm
@@ -188,9 +158,7 @@ spec:
               - bash
               - -c
               - |
-                if [[ $(ray status | grep -c node_) -ne ${PIPELINE_PARALLEL_SIZE} ]]; then
-                  exit 1
-                fi
+                ./huggingfaceserver/health_check.sh check_registered_nodes ${PIPELINE_PARALLEL_SIZE}
         startupProbe:
           failureThreshold: 12
           periodSeconds: 5
@@ -198,10 +166,12 @@ spec:
           timeoutSeconds: 5
           exec:
             command:
-              - ray
-              - status
+              - bash
+              - -c
+              - |
+                ./huggingfaceserver/health_check.sh startup
     volumes:
       - name: shm
         emptyDir:
           medium: Memory
-          sizeLimit: 12Gi
+          sizeLimit: 11Gi

@@ -156,7 +156,7 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 					return fmt.Errorf(InvalidPipelineParallelSizeValueError, isvc.Name, envPipelineParallelSize)
 				}
 			} else {
-				return fmt.Errorf(InvalidParallelSizeValueError, isvc.Name, envPipelineParallelSize)
+				return fmt.Errorf(InvalidParallelSizeValueError, isvc.Name, envPipelineParallelSize, err)
 			}
 		}
 		if envTensorParallelSize, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.TensorParallelSizeEnvName); exists {
@@ -166,7 +166,7 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 					return fmt.Errorf(InvalidTensorParallelSizeValueError, isvc.Name, envTensorParallelSize)
 				}
 			} else {
-				return fmt.Errorf(InvalidParallelSizeValueError, isvc.Name, envTensorParallelSize)
+				return fmt.Errorf(InvalidParallelSizeValueError, isvc.Name, envTensorParallelSize, err)
 			}
 		}
 	}

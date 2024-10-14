@@ -18,7 +18,9 @@ package v1beta1
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -590,7 +592,11 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidParallelSizeValueError, "foo-3", "test")),
+			expected: gomega.Equal(fmt.Errorf(InvalidParallelSizeValueError, "foo-3", "test", &strconv.NumError{
+				Func: "Atoi",
+				Num:  "test",
+				Err:  errors.New("invalid syntax"),
+			})),
 		},
 		"When tensor-parallel-size set wrong value, then it should return error": {
 			isvc: &InferenceService{
@@ -615,7 +621,11 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidParallelSizeValueError, "foo-4", "test")),
+			expected: gomega.Equal(fmt.Errorf(InvalidParallelSizeValueError, "foo-4", "test", &strconv.NumError{
+				Func: "Atoi",
+				Num:  "test",
+				Err:  errors.New("invalid syntax"),
+			})),
 		},
 		"When WorkerSpec.Size set less than 2, then it should return error": {
 			isvc: &InferenceService{

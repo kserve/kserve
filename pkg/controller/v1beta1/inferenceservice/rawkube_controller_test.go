@@ -19,9 +19,10 @@ package inferenceservice
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/utils"
-	"time"
 
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 
@@ -2249,7 +2250,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -2340,7 +2342,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -2396,7 +2399,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode": "RawDeployment",
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -2457,9 +2461,5 @@ func verifyDeployments(actualDefaultDeployment *appsv1.Deployment, actualWorkerD
 }
 
 func int32Ptr(i int32) *int32 {
-	return &i
-}
-
-func int64Ptr(i int64) *int64 {
 	return &i
 }

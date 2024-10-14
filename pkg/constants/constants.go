@@ -248,7 +248,7 @@ var (
 	IstioMeshGateway = "mesh"
 )
 
-const WorkerSuffix = "worker"
+const WorkerNodeSuffix = "worker"
 
 // InferenceService Component enums
 const (
@@ -484,7 +484,7 @@ func GetRawServiceLabel(service string) string {
 
 // GetRawWorkerServiceLabel generate native service label for worker
 func GetRawWorkerServiceLabel(service string) string {
-	return "isvc." + service + "-" + WorkerSuffix
+	return "isvc." + service + "-" + WorkerNodeSuffix
 }
 
 // GeHeadServiceName generate head service name
@@ -530,7 +530,7 @@ func PredictorServiceName(name string) string {
 }
 
 func PredictorWorkerServiceName(name string) string {
-	return name + "-" + string(Predictor) + "-" + WorkerSuffix
+	return name + "-" + string(Predictor) + "-" + WorkerNodeSuffix
 }
 
 func CanaryPredictorServiceName(name string) string {
