@@ -66,7 +66,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 			if err != nil {
 				return errors.Wrapf(createErr, "failed to encode model spec")
 			}
-			err = os.WriteFile(successFile, encodedJson, 0644) //#nosec
+			err = os.WriteFile(successFile, encodedJson, 0644) // #nosec G306
 			if err != nil {
 				return errors.Wrapf(createErr, "failed to write the success file")
 			}
