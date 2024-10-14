@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -34,6 +35,8 @@ const (
 	MinReplicasLowerBoundExceededError  = "'MinReplicas' cannot be less than 0"
 	MaxReplicasLowerBoundExceededError  = "'MaxReplicas' cannot be less than 0"
 	ParallelismLowerBoundExceededError  = "parallelism cannot be less than 0"
+	ReplicasLowerBoundExceededError     = "the Replicas field cannot be less than 0"
+	ReplicasNotAllowedError             = "the Replicas field must be unset when using an autoscaler"
 	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
 	UnsupportedStorageSpecFormatError   = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported"
 	InvalidLoggerType                   = "invalid logger type"
@@ -73,6 +76,12 @@ type ComponentExtensionSpec struct {
 	// Maximum number of replicas for autoscaling.
 	// +optional
 	MaxReplicas int `json:"maxReplicas,omitempty"`
+	// Replicas specifies the number of replicas that should be deployed. This field is only
+	// relevant when using RawDeployment mode, and it sets a hard replica count.
+	// If you are using an autoscaler, must leave this field unset and
+	// use the MinReplicas and MaxReplicas fields to set the replicas range.
+	// +optional
+	Replicas *int32 `json:"replicas,omitempty"`
 	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
 	// concurrency and rps targets are supported by Knative Pod Autoscaler
 	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
@@ -128,10 +137,10 @@ const (
 func (s *ComponentExtensionSpec) Default(config *InferenceServicesConfig) {}
 
 // Validate the ComponentExtensionSpec
-func (s *ComponentExtensionSpec) Validate() error {
+func (s *ComponentExtensionSpec) Validate(autoscaler constants.AutoscalerClassType) error {
 	return utils.FirstNonNilError([]error{
 		validateContainerConcurrency(s.ContainerConcurrency),
-		validateReplicas(s.MinReplicas, s.MaxReplicas),
+		validateReplicas(autoscaler, s.Replicas, s.MinReplicas, s.MaxReplicas),
 		validateLogger(s.Logger),
 	})
 }
@@ -161,7 +170,19 @@ func validateStorageSpec(storageSpec *StorageSpec, storageURI *string) error {
 	return nil
 }
 
-func validateReplicas(minReplicas *int, maxReplicas int) error {
+func validateReplicas(autoscaler constants.AutoscalerClassType, replicas *int32, minReplicas *int, maxReplicas int) error {
+	if autoscaler != constants.AutoscalerClassNone {
+		if replicas != nil {
+			return errors.New(ReplicasNotAllowedError)
+		}
+	} else {
+		if replicas != nil && *replicas < 0 {
+			return errors.New(ReplicasLowerBoundExceededError)
+		}
+		// minReplicas and maxReplicas don't need to be validated.
+		return nil
+	}
+
 	if minReplicas == nil {
 		minReplicas = &constants.DefaultMinReplicas
 	}

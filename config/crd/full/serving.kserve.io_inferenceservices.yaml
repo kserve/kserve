@@ -2693,6 +2693,9 @@ spec:
                           - conditionType
                         type: object
                       type: array
+                    replicas:
+                      format: int32
+                      type: integer
                     resourceClaims:
                       items:
                         properties:
@@ -10431,6 +10434,9 @@ spec:
                           - conditionType
                         type: object
                       type: array
+                    replicas:
+                      format: int32
+                      type: integer
                     resourceClaims:
                       items:
                         properties:
@@ -19651,6 +19657,9 @@ spec:
                           - conditionType
                         type: object
                       type: array
+                    replicas:
+                      format: int32
+                      type: integer
                     resourceClaims:
                       items:
                         properties:
