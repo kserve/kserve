@@ -389,6 +389,9 @@ async def test_bloom_chat_completion(bloom_model: HuggingfaceGenerativeModel):
         messages=messages,
         stream=False,
         max_tokens=20,
+        chat_template="{% for message in messages %}"
+        "{{ message.content }}{{ eos_token }}"
+        "{% endfor %}",
     )
     request = ChatCompletionRequest(params=params, context={})
     response = await bloom_model.create_chat_completion(request)
@@ -416,6 +419,9 @@ async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativ
         messages=messages,
         stream=True,
         max_tokens=20,
+        chat_template="{% for message in messages %}"
+        "{{ message.content }}{{ eos_token }}"
+        "{% endfor %}",
     )
     request = ChatCompletionRequest(params=params, context={})
     response = await bloom_model.create_chat_completion(request)
@@ -498,6 +504,6 @@ async def test_input_padding_with_pad_token_not_specified(
     response = await openai_gpt_model.create_completion(request)
     assert (
         response.choices[0].text
-        == "west, and the sun sets in the west. \n the sun rises in the"
+        == "west , and the sun sets in the west . \n the sun rises in the"
     )
-    assert "a member of the royal family." in response.choices[1].text
+    assert "a member of the royal family ." in response.choices[1].text
