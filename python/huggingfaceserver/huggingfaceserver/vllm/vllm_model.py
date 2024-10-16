@@ -69,12 +69,15 @@ class VLLMModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no
     def apply_chat_template(
         self,
         messages: Iterable[ChatCompletionRequestMessage,],
+        chat_template: Optional[str] = None,
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
         """
         return ChatPrompt(
-            prompt=self.openai_serving_completion.apply_chat_template(messages)
+            prompt=self.openai_serving_completion.apply_chat_template(
+                messages, chat_template
+            )
         )
 
     async def create_completion(
