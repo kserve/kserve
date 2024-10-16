@@ -22,7 +22,7 @@ from huggingfaceserver.request_logger import RequestLogger
 from kserve import logging
 from kserve.logging import logger
 from kserve.model import PredictorConfig
-from kserve.storage import Storage
+from storage import Storage
 
 from transformers import AutoConfig
 
