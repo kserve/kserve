@@ -15,7 +15,7 @@ kserve = { path = "../kserve", extras = ["storage"], develop = true }
 transformers = ">=4.45.0"
 accelerate = "~0.32.0"
 torch = "~2.4.0"
-vllm = { version = "^0.6.2", optional = true }
+vllm = { version = "^0.6.3", optional = true }
 setuptools = {version = ">=70.0.0", python = "3.12"} # setuptools is not part of python 3.12
 
 [tool.poetry.extras]
