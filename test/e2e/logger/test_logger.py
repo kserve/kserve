@@ -126,7 +126,7 @@ async def test_kserve_logger_combined(rest_v1_client):
         min_replicas=1,
         containers=[
             V1Container(
-                name="kserve-container-combined",
+                name="kserve-container",
                 image="gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display",
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
@@ -194,7 +194,7 @@ async def test_kserve_logger_combined(rest_v1_client):
         log += kserve_client.core_api.read_namespaced_pod_log(
             name=pod.metadata.name,
             namespace=pod.metadata.namespace,
-            container="kserve-container-combined",
+            container="kserve-container",
         )
         print(log)
     assert "org.kubeflow.serving.inference.request" in log
