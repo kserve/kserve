@@ -22,16 +22,23 @@ import (
 
 const (
 	HFTokenKey = "HF_TOKEN"
+	HFTransfer = "HF_HUB_ENABLE_HF_TRANSFER"
 )
 
 func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 	envs := make([]v1.EnvVar, 0)
 
 	if token, ok := secret.Data[HFTokenKey]; ok {
-		envs = append(envs, v1.EnvVar{
-			Name:  HFTokenKey,
-			Value: string(token),
-		})
+		envs = append(envs, []v1.EnvVar{
+			{
+				Name:  HFTokenKey,
+				Value: string(token),
+			},
+			{
+				Name:  HFTransfer,
+				Value: "1",
+			},
+		}...)
 	}
 	return envs
 }
