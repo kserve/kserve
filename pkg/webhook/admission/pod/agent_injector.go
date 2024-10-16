@@ -238,19 +238,34 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	}
 
 	if !queueProxyAvailable {
-		readinessProbeJson, err := json.Marshal(pod.Spec.Containers[0].ReadinessProbe)
-		if err != nil {
-			return err
+		readinessProbe := pod.Spec.Containers[0].ReadinessProbe
+	
+		// Check if the readiness probe exists and is of type HTTPGet
+		if readinessProbe != nil && readinessProbe.HTTPGet != nil {
+			// Marshal the HTTPGet readiness probe into JSON format for use by the agent container
+			readinessProbeJson, err := json.Marshal(readinessProbe)
+			if err != nil {
+				return fmt.Errorf("failed to marshal readiness probe: %w", err)
+			}
+			
+			// Append the marshaled readiness probe as an environment variable for the agent container
+			agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+		} else {
+			// This prevents unsupported probe types (like exec or TCP) from being passed to the agent container
+			fmt.Printf("INFO: Non-HTTPGet readiness probe skipped for pod %s/%s\n", pod.Namespace, pod.Name)
 		}
-		agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
 	} else {
+		// If the queue-proxy container is available, adjust its USER_PORT environment variable for the agent container
 		for i, envVar := range queueProxyEnvs {
+			// Locate the USER_PORT environment variable and set it to the agent container's default port
 			if envVar.Name == "USER_PORT" {
 				envVar.Value = constants.InferenceServiceDefaultAgentPortStr
-				queueProxyEnvs[i] = envVar
+				queueProxyEnvs[i] = envVar // Update the queueProxyEnvs list with the modified environment variable
 			}
 		}
 	}
+	
+
 
 	// Make sure securityContext is initialized and valid
 	securityContext := pod.Spec.Containers[0].SecurityContext.DeepCopy()
