@@ -95,11 +95,6 @@ func (in *ComponentExtensionSpec) DeepCopyInto(out *ComponentExtensionSpec) {
 		*out = new(ScaleMetric)
 		**out = **in
 	}
-	if in.ScaleMetricType != nil {
-		in, out := &in.ScaleMetricType, &out.ScaleMetricType
-		*out = new(v2.MetricTargetType)
-		**out = **in
-	}
 	if in.ContainerConcurrency != nil {
 		in, out := &in.ContainerConcurrency, &out.ContainerConcurrency
 		*out = new(int64)
