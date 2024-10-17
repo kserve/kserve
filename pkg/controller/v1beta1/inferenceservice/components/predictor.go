@@ -367,7 +367,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		storageProtocol := strings.Split(deploymentAnnotations, "://")[0]
 		if storageProtocol == "pvc" {
 			// Set the environment variable for "/mnt/models" to the MODEL_DIR when multiNodeEnabled is true.
-			if err := isvcutils.AddEnvVarToPodSpec(&podSpec, constants.InferenceServiceContainerName, "MODEL_DIR", isvc.Name); err != nil {
+			if err := isvcutils.AddEnvVarToPodSpec(&podSpec, constants.InferenceServiceContainerName, "MODEL_DIR", constants.DefaultModelLocalMountPath); err != nil {
 				return ctrl.Result{}, errors.Wrapf(err, "failed to add MODEL_DIR environment to the container(%s)", constants.DefaultModelLocalMountPath)
 			}
 		}

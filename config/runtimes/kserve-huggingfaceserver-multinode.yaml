@@ -4,7 +4,7 @@ metadata:
   name: kserve-huggingfaceserver-multinode
 spec:
   annotations:
-    prometheus.kserve.io/port: "3000"
+    prometheus.kserve.io/port: "8080"
     prometheus.kserve.io/path: "/metrics"
   supportedModelFormats:
     - name: huggingface
@@ -45,17 +45,17 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        - name: TENSOR_PARALLEL_SIZE
-          value: "1"
+        - name: VLLM_CONFIG_ROOT
+          value: /tmp      
         - name: HF_HUB_CACHE
           value: /tmp
       resources:
         requests:
-          cpu: "1"
-          memory: 2Gi
+          cpu: "2"
+          memory: 6Gi
         limits:
-          cpu: "1"
-          memory: 2Gi
+          cpu: "4"
+          memory: 12Gi
       volumeMounts:
         - name: shm
           mountPath: /dev/shm
@@ -98,8 +98,10 @@ spec:
     - name: shm
       emptyDir:
         medium: Memory
-        sizeLimit: 1Gi
+        sizeLimit: 3Gi
   workerSpec:
+    pipelineParallelSize: 2
+    tensorParallelSize: 1
     containers:
       - name: worker-container
         image: kserve/huggingfaceserver:latest
@@ -140,11 +142,11 @@ spec:
                 fieldPath: metadata.namespace
         resources:
           requests:
-            cpu: "1"
-            memory: 2Gi
+            cpu: "2"
+            memory: 6Gi
           limits:
-            cpu: "1"
-            memory: 2Gi
+            cpu: "4"
+            memory: 12Gi
         volumeMounts:
           - name: shm
             mountPath: /dev/shm
@@ -174,4 +176,4 @@ spec:
       - name: shm
         emptyDir:
           medium: Memory
-          sizeLimit: 1Gi
+          sizeLimit: 3Gi
