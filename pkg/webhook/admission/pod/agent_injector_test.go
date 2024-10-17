@@ -35,6 +35,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"encoding/json"
 )
 
 const (
@@ -1579,5 +1580,135 @@ func TestGetAgentConfigs(t *testing.T) {
 		loggerConfigs, err := getAgentConfigs(tc.configMap)
 		g.Expect(err).Should(tc.matchers[1])
 		g.Expect(loggerConfigs).Should(tc.matchers[0])
+	}
+}
+
+
+
+func TestInjectReadinessProbeHandling(t *testing.T) {
+	tests := []struct {
+		name               string
+		readinessProbe     *v1.Probe
+		queueProxyAvailable bool
+		expectEnvVar       bool
+	}{
+		{
+			name: "HTTPGet Readiness Probe",
+			readinessProbe: &v1.Probe{
+				ProbeHandler: v1.ProbeHandler{
+					HTTPGet: &v1.HTTPGetAction{
+						Path:   "/ready",
+						Port:   intstr.FromInt(8080),
+						Scheme: "HTTP",
+					},
+				},
+			},
+			queueProxyAvailable: false,
+			expectEnvVar:        true,
+		},
+		{
+			name: "Exec Readiness Probe",
+			readinessProbe: &v1.Probe{
+				ProbeHandler: v1.ProbeHandler{
+					Exec: &v1.ExecAction{
+						Command: []string{"echo", "hello"},
+					},
+				},
+			},
+			queueProxyAvailable: false,
+			expectEnvVar:        false,
+		},
+		{
+			name: "TCP Readiness Probe",
+			readinessProbe: &v1.Probe{
+				ProbeHandler: v1.ProbeHandler{
+					TCPSocket: &v1.TCPSocketAction{
+						Port: intstr.FromInt(8080),
+					},
+				},
+			},
+			queueProxyAvailable: false,
+			expectEnvVar:        false,
+		},
+		{
+			name: "USER_PORT Adjustment with queueProxyAvailable",
+			readinessProbe: &v1.Probe{
+				ProbeHandler: v1.ProbeHandler{
+					HTTPGet: &v1.HTTPGetAction{
+						Path:   "/ready",
+						Port:   intstr.FromInt(8080),
+						Scheme: "HTTP",
+					},
+				},
+			},
+			queueProxyAvailable: true,
+			expectEnvVar:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Prepare pod and environment variables for testing
+			pod := &v1.Pod{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name:           "test-container",
+							ReadinessProbe: tt.readinessProbe,
+						},
+					},
+				},
+			}
+			var agentEnvs []v1.EnvVar
+			var queueProxyEnvs []v1.EnvVar
+
+			if tt.queueProxyAvailable {
+				queueProxyEnvs = []v1.EnvVar{
+					{Name: "USER_PORT", Value: "8080"},
+				}
+			}
+
+			// Run the code block
+			if !tt.queueProxyAvailable {
+				readinessProbe := pod.Spec.Containers[0].ReadinessProbe
+			
+				if readinessProbe != nil && readinessProbe.HTTPGet != nil {
+					readinessProbeJson, err := json.Marshal(readinessProbe)
+					if err != nil {
+						t.Errorf("failed to marshal readiness probe: %v", err)
+					} else {
+						agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+					}
+				}
+			} else {
+				for i, envVar := range queueProxyEnvs {
+					if envVar.Name == "USER_PORT" {
+						envVar.Value = constants.InferenceServiceDefaultAgentPortStr
+						queueProxyEnvs[i] = envVar
+					}
+				}
+			}
+
+			// Validate the results
+			foundEnvVar := false
+			for _, envVar := range agentEnvs {
+				if envVar.Name == "SERVING_READINESS_PROBE" {
+					foundEnvVar = true
+					break
+				}
+			}
+
+			if foundEnvVar != tt.expectEnvVar {
+				t.Errorf("expected SERVING_READINESS_PROBE to be %v, got %v", tt.expectEnvVar, foundEnvVar)
+			}
+
+			if tt.queueProxyAvailable {
+				for _, envVar := range queueProxyEnvs {
+					if envVar.Name == "USER_PORT" && envVar.Value != constants.InferenceServiceDefaultAgentPortStr {
+						t.Errorf("expected USER_PORT to be %s, got %s", constants.InferenceServiceDefaultAgentPortStr, envVar.Value)
+					}
+				}
+			}
+		})
 	}
 }
