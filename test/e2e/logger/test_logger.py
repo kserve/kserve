@@ -24,6 +24,7 @@ from kserve import V1beta1InferenceService
 from kserve import V1beta1LoggerSpec
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
+from kubernetes.client import V1EnvVar
 import pytest
 from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
@@ -45,8 +46,8 @@ async def test_kserve_logger(rest_v1_client):
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "256Mi"},
-                ),
-            )
+                )
+            ),
         ],
     )
 
@@ -133,6 +134,10 @@ async def test_kserve_logger_combined(rest_v1_client):
                     requests={"cpu": "10m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "256Mi"},
                 ),
+                env=[V1EnvVar(
+                    name="REQUEST_LOGGING_ENABLED",
+                    value="true",
+                )]
             )
         ],
     )
@@ -201,7 +206,7 @@ async def test_kserve_logger_combined(rest_v1_client):
         log += kserve_client.core_api.read_namespaced_pod_log(
             name=pod.metadata.name,
             namespace=pod.metadata.namespace,
-            container=container_name,
+            container="kserve_container",
         )
         print(log)
 
