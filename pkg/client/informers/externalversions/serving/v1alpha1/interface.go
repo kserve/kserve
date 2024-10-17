@@ -32,6 +32,8 @@ type Interface interface {
 	ClusterStorageContainers() ClusterStorageContainerInformer
 	// InferenceGraphs returns a InferenceGraphInformer.
 	InferenceGraphs() InferenceGraphInformer
+	// LocalModelNodes returns a LocalModelNodeInformer.
+	LocalModelNodes() LocalModelNodeInformer
 	// LocalModelNodeGroups returns a LocalModelNodeGroupInformer.
 	LocalModelNodeGroups() LocalModelNodeGroupInformer
 	// ServingRuntimes returns a ServingRuntimeInformer.
@@ -69,6 +71,11 @@ func (v *version) ClusterStorageContainers() ClusterStorageContainerInformer {
 // InferenceGraphs returns a InferenceGraphInformer.
 func (v *version) InferenceGraphs() InferenceGraphInformer {
 	return &inferenceGraphInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// LocalModelNodes returns a LocalModelNodeInformer.
+func (v *version) LocalModelNodes() LocalModelNodeInformer {
+	return &localModelNodeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // LocalModelNodeGroups returns a LocalModelNodeGroupInformer.
