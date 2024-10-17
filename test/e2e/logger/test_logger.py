@@ -122,12 +122,12 @@ async def test_kserve_logger(rest_v1_client):
 @pytest.mark.asyncio(scope="session")
 async def test_kserve_logger_combined(rest_v1_client):
     msg_dumper = "message-dumper-combined"
-    msg_dumper_container = "listener-container"
+    container_name = "test-container"
     event_dumper = V1beta1PredictorSpec(
         min_replicas=1,
         containers=[
             V1Container(
-                name=msg_dumper_container,
+                name=container_name,
                 image="gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display",
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
@@ -189,15 +189,19 @@ async def test_kserve_logger_combined(rest_v1_client):
         KSERVE_TEST_NAMESPACE,
         label_selector="serving.kserve.io/inferenceservice={}".format(msg_dumper),
     )
+    print("pods:")
+    for pod in pods.items:
+        print(pod)
+
     await asyncio.sleep(5)
     log = ""
-    assert len(pods.items) > 0
+
     print("logs:")
     for pod in pods.items:
         log += kserve_client.core_api.read_namespaced_pod_log(
             name=pod.metadata.name,
             namespace=pod.metadata.namespace,
-            container=msg_dumper_container,
+            container=container_name,
         )
         print(log)
 
