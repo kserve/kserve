@@ -12,13 +12,13 @@ kind: Kustomization
 
 resources:
 - full/serving.kserve.io_inferenceservices.yaml
-#- full/serving.kserve.io_trainedmodels.yaml
-#- full/serving.kserve.io_clusterservingruntimes.yaml
+- full/serving.kserve.io_trainedmodels.yaml
+- full/serving.kserve.io_clusterservingruntimes.yaml
 - full/serving.kserve.io_servingruntimes.yaml
-#- full/serving.kserve.io_inferencegraphs.yaml
-#- full/serving.kserve.io_clusterstoragecontainers.yaml
-#- full/serving.kserve.io_clusterlocalmodels.yaml
-#- full/serving.kserve.io_localmodelnodegroups.yaml
+- full/serving.kserve.io_inferencegraphs.yaml
+- full/serving.kserve.io_clusterstoragecontainers.yaml
+- full/serving.kserve.io_clusterlocalmodels.yaml
+- full/serving.kserve.io_localmodelnodegroups.yaml
 
 patches:
 # Fix for https://github.com/kubernetes/kubernetes/issues/91395

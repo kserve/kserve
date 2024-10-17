@@ -245,38 +245,35 @@ func GetEnvVarValue(envVars []v1.EnvVar, key string) (string, bool) {
 }
 
 // IsUnknownGpuResourceType check if the provided gpu resource is unknown one
-func IsUnknownGpuResourceType(container v1.Container) bool {
-	unknownGPUResourceType := true
-	setBasicResourceType := false
-
-	if len(container.Resources.Limits) > 0 || len(container.Resources.Requests) > 0 {
-		for _, gpuType := range constants.GPUResourceTypeList {
-			resourceName := v1.ResourceName(gpuType)
-			if qty, exists := container.Resources.Limits[resourceName]; exists && !qty.IsZero() {
-				unknownGPUResourceType = false
-				break
-			}
-			if qty, exists := container.Resources.Requests[resourceName]; exists && !qty.IsZero() {
-				unknownGPUResourceType = false
-				break
-			}
-		}
-	} else {
-		return false
+func IsUnknownGpuResourceType(resources v1.ResourceRequirements) bool {
+	basicResourceTypes := map[v1.ResourceName]struct{}{
+		v1.ResourceCPU:              {},
+		v1.ResourceMemory:           {},
+		v1.ResourceStorage:          {},
+		v1.ResourceEphemeralStorage: {},
 	}
-	basicResourcesList := []v1.ResourceName{"memory", "cpu"}
 
-	if unknownGPUResourceType {
-		for _, resourceType := range basicResourcesList {
-			if qty, exists := container.Resources.Limits[resourceType]; exists && !qty.IsZero() {
-				setBasicResourceType = true
-				break
-			}
-			if qty, exists := container.Resources.Requests[resourceType]; exists && !qty.IsZero() {
-				setBasicResourceType = true
-				break
+	possibleGPUResourceType := map[v1.ResourceName]struct{}{}
+
+	// Helper function to add non-basic resources from the provided ResourceList
+	addNonBasicResources := func(resources v1.ResourceList) {
+		for resourceType := range resources {
+			if _, exists := basicResourceTypes[resourceType]; !exists {
+				possibleGPUResourceType[resourceType] = struct{}{}
 			}
 		}
 	}
-	return !setBasicResourceType && unknownGPUResourceType
+
+	// Add non-basic resources from both Limits and Requests
+	addNonBasicResources(resources.Limits)
+	addNonBasicResources(resources.Requests)
+
+	// Validate GPU resource types
+	for _, gpuType := range constants.GPUResourceTypeList {
+		allowedGPUResourceName := v1.ResourceName(gpuType)
+		delete(possibleGPUResourceType, allowedGPUResourceName) // Remove allowed GPU resource if exists
+	}
+
+	// Return true if there are unknown GPU resources
+	return len(possibleGPUResourceType) > 0
 }

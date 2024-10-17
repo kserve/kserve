@@ -36,7 +36,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 	}
 
 	testInput := map[string]args{
-		"deafult-service": {
+		"default-service": {
 			componentMeta: metav1.ObjectMeta{
 				Name:      "default-predictor",
 				Namespace: "default-predictor-namespace",
@@ -104,7 +104,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 	}
 
 	expectedServices := map[string][]*corev1.Service{
-		"deafult-service": {
+		"default-service": {
 			&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default-predictor",
@@ -193,12 +193,12 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		{
 			name: "default service",
 			args: args{
-				componentMeta:    testInput["deafult-service"].componentMeta,
-				componentExt:     testInput["deafult-service"].componentExt,
-				podSpec:          testInput["deafult-service"].podSpec,
-				multiNodeEnabled: testInput["deafult-service"].multiNodeEnabled,
+				componentMeta:    testInput["default-service"].componentMeta,
+				componentExt:     testInput["default-service"].componentExt,
+				podSpec:          testInput["default-service"].podSpec,
+				multiNodeEnabled: testInput["default-service"].multiNodeEnabled,
 			},
-			expected: expectedServices["deafult-service"],
+			expected: expectedServices["default-service"],
 		},
 		{
 			name: "multiNode service",

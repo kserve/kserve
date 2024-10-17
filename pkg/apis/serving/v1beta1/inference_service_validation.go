@@ -147,7 +147,7 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	return allWarnings, nil
 }
 
-// validateMultiNodeVariables validates one of the following: tensor-parallel-size, pipeline-parallel-size, or WorkerSpec.PipelineParallelSize
+// validateMultiNodeVariables validates when there is workerSpec set in isvc
 func validateMultiNodeVariables(isvc *InferenceService) error {
 	if isvc.Spec.Predictor.WorkerSpec != nil {
 		if isvc.Spec.Predictor.Model != nil {
@@ -157,7 +157,7 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.TensorParallelSizeEnvName); exists {
 				return fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, isvc.Name)
 			}
-			if utils.IsUnknownGpuResourceType(isvc.Spec.Predictor.Model.Container) {
+			if utils.IsUnknownGpuResourceType(isvc.Spec.Predictor.Model.Resources) {
 				return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
 			}
 			if isvc.Spec.Predictor.Model.StorageURI == nil {
@@ -189,7 +189,7 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 		}
 		if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
 			for _, container := range isvc.Spec.Predictor.WorkerSpec.Containers {
-				if utils.IsUnknownGpuResourceType(container) {
+				if utils.IsUnknownGpuResourceType(container.Resources) {
 					return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
 				}
 			}

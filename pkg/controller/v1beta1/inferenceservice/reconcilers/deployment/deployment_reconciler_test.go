@@ -63,7 +63,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				},
 				Containers: []corev1.Container{
 					{
-						Name:  "kserve-container",
+						Name:  constants.InferenceServiceContainerName,
 						Image: "default-predictor-example-image",
 						Env: []corev1.EnvVar{
 							{Name: "default-predictor-example-env", Value: "example-env"},
@@ -105,7 +105,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				},
 				Containers: []corev1.Container{
 					{
-						Name:  "kserve-container",
+						Name:  constants.InferenceServiceContainerName,
 						Image: "default-predictor-example-image",
 						Env: []corev1.EnvVar{
 							{Name: "TENSOR_PARALLEL_SIZE", Value: "1"},
@@ -191,7 +191,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							AutomountServiceAccountToken: BoolPtr(false),
 							Containers: []corev1.Container{
 								{
-									Name:  "kserve-container",
+									Name:  constants.InferenceServiceContainerName,
 									Image: "default-predictor-example-image",
 									Env: []corev1.EnvVar{
 										{Name: "default-predictor-example-env", Value: "example-env"},
@@ -257,7 +257,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							AutomountServiceAccountToken: BoolPtr(false),
 							Containers: []corev1.Container{
 								{
-									Name:  "kserve-container",
+									Name:  constants.InferenceServiceContainerName,
 									Image: "default-predictor-example-image",
 									Env: []corev1.EnvVar{
 										{Name: "TENSOR_PARALLEL_SIZE", Value: "1"},

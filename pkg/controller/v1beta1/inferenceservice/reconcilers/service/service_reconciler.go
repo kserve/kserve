@@ -37,11 +37,10 @@ var log = logf.Log.WithName("ServiceReconciler")
 
 // ServiceReconciler is the struct of Raw K8S Object
 type ServiceReconciler struct {
-	client           client.Client
-	scheme           *runtime.Scheme
-	ServiceList      []*corev1.Service
-	componentExt     *v1beta1.ComponentExtensionSpec
-	multiNodeEnabled bool
+	client       client.Client
+	scheme       *runtime.Scheme
+	ServiceList  []*corev1.Service
+	componentExt *v1beta1.ComponentExtensionSpec
 }
 
 func NewServiceReconciler(client client.Client,
@@ -175,7 +174,7 @@ func createHeadSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
 			Selector: map[string]string{
 				"app": constants.GetRawServiceLabel(predictorSvcName),
 			},
-			ClusterIP:                "None",
+			ClusterIP:                "None", // Without this, it requires a Port but this Service does not need it.
 			PublishNotReadyAddresses: true,
 		},
 	}
@@ -222,9 +221,7 @@ func (r *ServiceReconciler) Reconcile() ([]*corev1.Service, error) {
 		var opErr error
 		switch checkResult {
 		case constants.CheckResultCreate:
-			if !r.multiNodeEnabled {
-				opErr = r.client.Create(context.TODO(), svc)
-			}
+			opErr = r.client.Create(context.TODO(), svc)
 		case constants.CheckResultUpdate:
 			opErr = r.client.Update(context.TODO(), svc)
 		}

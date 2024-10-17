@@ -44,8 +44,8 @@ const (
 	ProrityIsNotSameClusterServingRuntimeError       = "%s under the clusterservingruntime %s"
 	InvalidUnknownGPUTypeError                       = "unknown GPU resource type in a container(%s)"
 	InvalidWorkerSpecSizeValueError                  = "the WorkerSpec.PipelineParallelSize cannot be less than 2(%d)"
-	MissingPipelineParallelSizeValueError            = "pipelineParallelSize must be set (%s) when WorkerSpec is set"
-	MissingTensorParallelSizeValueError              = "tensorParallelSize must be set (%s) when WorkerSpec is set"
+	MissingPipelineParallelSizeValueError            = "pipelineParallelSize must be set when WorkerSpec is set"
+	MissingTensorParallelSizeValueError              = "tensorParallelSize must be set when WorkerSpec is set"
 	InvalidWorkerSpecPipelineParallelSizeValueError  = "the WorkerSpec.PipelineParallelSize cannot be less than 2 (%s) because WorkerSpec.PipelineParallelSize should include at least 1 head node and 1 worker node"
 	InvalidWorkerSpecTensorParallelSizeValueError    = "the WorkerSpec.TensorParallelSize cannot be less than 1(%s)"
 	InvalidMultiNodeSpecError                        = "the %s %s is invalid: %s"
@@ -93,9 +93,10 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 		if err := validateServingRuntimePriority(&servingRuntime.Spec, &ExistingRuntimes.Items[i].Spec, servingRuntime.Name, ExistingRuntimes.Items[i].Name); err != nil {
 			return admission.Denied(fmt.Sprintf(InvalidPriorityServingRuntimeError, err.Error(), ExistingRuntimes.Items[i].Name, servingRuntime.Name, servingRuntime.Namespace))
 		}
-		if err := validateMultiNodeSpec(&servingRuntime.Spec); err != nil {
-			return admission.Denied(fmt.Sprintf(InvalidMultiNodeSpecError, servingRuntime.Kind, servingRuntime.Name, err.Error()))
-		}
+	}
+
+	if err := validateMultiNodeSpec(&servingRuntime.Spec); err != nil {
+		return admission.Denied(fmt.Sprintf(InvalidMultiNodeSpecError, servingRuntime.Kind, servingRuntime.Name, err.Error()))
 	}
 
 	return admission.Allowed("")
@@ -127,9 +128,9 @@ func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admis
 		if err := validateServingRuntimePriority(&clusterServingRuntime.Spec, &ExistingRuntimes.Items[i].Spec, clusterServingRuntime.Name, ExistingRuntimes.Items[i].Name); err != nil {
 			return admission.Denied(fmt.Sprintf(InvalidPriorityClusterServingRuntimeError, err.Error(), ExistingRuntimes.Items[i].Name, clusterServingRuntime.Name))
 		}
-		if err := validateMultiNodeSpec(&clusterServingRuntime.Spec); err != nil {
-			return admission.Denied(fmt.Sprintf(InvalidMultiNodeSpecError, clusterServingRuntime.Kind, clusterServingRuntime.Name, err.Error()))
-		}
+	}
+	if err := validateMultiNodeSpec(&clusterServingRuntime.Spec); err != nil {
+		return admission.Denied(fmt.Sprintf(InvalidMultiNodeSpecError, clusterServingRuntime.Kind, clusterServingRuntime.Name, err.Error()))
 	}
 	return admission.Allowed("")
 }
@@ -202,14 +203,14 @@ func validateMultiNodeSpec(newSpec *v1alpha1.ServingRuntimeSpec) error {
 				if _, exists := utils.GetEnvVarValue(newSpec.Containers[i].Env, constants.TensorParallelSizeEnvName); exists {
 					return errors.New(DisallowedWorkerSpecTensorParallelSizeEnvError)
 				}
-				if utils.IsUnknownGpuResourceType(container) {
+				if utils.IsUnknownGpuResourceType(container.Resources) {
 					return fmt.Errorf(InvalidUnknownGPUTypeError, constants.InferenceServiceContainerName)
 				}
 			}
 		}
 		for _, container := range newSpec.WorkerSpec.Containers {
 			if container.Name == constants.WorkerContainerName {
-				if utils.IsUnknownGpuResourceType(container) {
+				if utils.IsUnknownGpuResourceType(container.Resources) {
 					return fmt.Errorf(InvalidUnknownGPUTypeError, constants.WorkerContainerName)
 				}
 			}
