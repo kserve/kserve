@@ -288,6 +288,34 @@ func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error 
 	return json.Unmarshal(buf.Bytes(), container)
 }
 
+// ReplacePlaceholders Replace placeholders in runtime container by values from inferenceservice metadata
+func ReplacePlaceholdersForWorkerSpec(container *v1.Container, workerSpec *v1alpha1.WorkerSpec) error {
+	data, _ := json.Marshal(container)
+	tmpl, err := template.New("container-tmpl").Parse(string(data))
+	if err != nil {
+		return err
+	}
+	buf := &bytes.Buffer{}
+	err = tmpl.Execute(buf, workerSpec)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(buf.Bytes(), container)
+	if err != nil {
+		return err
+	}
+
+	if val, ok := container.Resources.Limits[constants.NvidiaGPUResourceType]; ok {
+		qty, err := resource.ParseQuantity(val.String())
+		if err != nil {
+			return err
+		}
+		container.Resources.Limits[constants.NvidiaGPUResourceType] = qty
+	}
+	return json.Unmarshal(buf.Bytes(), container)
+}
+
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
 func UpdateImageTag(container *v1.Container, runtimeVersion *string, servingRuntime *string) {
 	image := container.Image
@@ -365,4 +393,36 @@ func ValidateStorageURI(storageURI *string, client client.Client) error {
 	}
 
 	return fmt.Errorf(v1beta1.UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
+}
+
+// Function to add a new environment variable to a specific container in the PodSpec
+func AddEnvVarToPodSpec(podSpec *v1.PodSpec, containerName, envName, envValue string) error {
+	updatedResult := false
+	// Iterate over the containers in the PodTemplateSpec to find the specified container
+	for i, container := range podSpec.Containers {
+		if container.Name == containerName {
+			updatedResult = true
+			if _, exists := utils.GetEnvVarValue(container.Env, envName); exists {
+				// Overwrite the environment variable
+				for j, envVar := range container.Env {
+					if envVar.Name == envName {
+						podSpec.Containers[i].Env[j].Value = envValue
+						break
+					}
+				}
+			} else {
+				// Add the new environment variable to the Env field if it ooes not exist
+				container.Env = append(container.Env, v1.EnvVar{
+					Name:  envName,
+					Value: envValue,
+				})
+				podSpec.Containers[i].Env = container.Env
+			}
+		}
+	}
+
+	if !updatedResult {
+		return fmt.Errorf("target container(%s) does not exist", containerName)
+	}
+	return nil
 }

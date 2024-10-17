@@ -541,3 +541,120 @@ func TestIsPrefixSupported(t *testing.T) {
 		})
 	}
 }
+
+func TestGetEnvVarValue(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		envList          []v1.EnvVar
+		targetEnvName    string
+		expectedEnvValue string
+		expectedExist    bool
+	}{
+		"EnvExist": {
+			envList: []v1.EnvVar{
+				{Name: "test-name", Value: "test-value"},
+			},
+			targetEnvName:    "test-name",
+			expectedEnvValue: "test-value",
+			expectedExist:    true,
+		},
+		"EnvDoesNotExist": {
+			envList: []v1.EnvVar{
+				{Name: "test-name", Value: "test-value"},
+			},
+			targetEnvName:    "wrong",
+			expectedEnvValue: "",
+			expectedExist:    false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res, exists := GetEnvVarValue(scenario.envList, scenario.targetEnvName)
+			g.Expect(res).Should(gomega.Equal(scenario.expectedEnvValue))
+			g.Expect(exists).Should(gomega.Equal(scenario.expectedExist))
+		})
+	}
+}
+
+func TestIsUnknownGpuResourceType(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		resources       v1.ResourceRequirements
+		expectedUnknown bool
+	}{
+		"OnlyBasicResources": {
+			resources: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					v1.ResourceCPU:    resource.MustParse("1"),
+					v1.ResourceMemory: resource.MustParse("1Gi"),
+				},
+				Requests: v1.ResourceList{
+					v1.ResourceCPU:    resource.MustParse("1"),
+					v1.ResourceMemory: resource.MustParse("1Gi"),
+				},
+			},
+			expectedUnknown: false,
+		},
+		"ValidGpuResource": {
+			resources: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					v1.ResourceCPU:                    resource.MustParse("1"),
+					v1.ResourceMemory:                 resource.MustParse("1Gi"),
+					v1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+				},
+				Requests: v1.ResourceList{
+					v1.ResourceCPU:                    resource.MustParse("1"),
+					v1.ResourceMemory:                 resource.MustParse("1Gi"),
+					v1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+				},
+			},
+			expectedUnknown: false,
+		},
+		"UnknownGpuResource": {
+			resources: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					v1.ResourceCPU:                     resource.MustParse("1"),
+					v1.ResourceMemory:                  resource.MustParse("1Gi"),
+					v1.ResourceName("unknown.com/gpu"): resource.MustParse("1"),
+				},
+				Requests: v1.ResourceList{
+					v1.ResourceCPU:                     resource.MustParse("1"),
+					v1.ResourceMemory:                  resource.MustParse("1Gi"),
+					v1.ResourceName("unknown.com/gpu"): resource.MustParse("1"),
+				},
+			},
+			expectedUnknown: true,
+		},
+		"MixedResources": {
+			resources: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					v1.ResourceCPU:                    resource.MustParse("1"),
+					v1.ResourceMemory:                 resource.MustParse("1Gi"),
+					v1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+				},
+				Requests: v1.ResourceList{
+					v1.ResourceCPU:                     resource.MustParse("1"),
+					v1.ResourceMemory:                  resource.MustParse("1Gi"),
+					v1.ResourceName("unknown.com/gpu"): resource.MustParse("1"),
+				},
+			},
+			expectedUnknown: true,
+		},
+		"EmptyResources": {
+			resources: v1.ResourceRequirements{
+				Limits:   v1.ResourceList{},
+				Requests: v1.ResourceList{},
+			},
+			expectedUnknown: false,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			result := IsUnknownGpuResourceType(scenario.resources)
+			g.Expect(result).Should(gomega.Equal(scenario.expectedUnknown))
+		})
+	}
+}

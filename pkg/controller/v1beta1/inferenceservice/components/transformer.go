@@ -170,18 +170,22 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 
 	// Here we allow switch between knative and vanilla deployment
 	if p.deploymentMode == constants.RawDeployment {
-		r, err := raw.NewRawKubeReconciler(p.client, p.clientset, p.scheme, objectMeta,
-			&isvc.Spec.Transformer.ComponentExtensionSpec, &podSpec)
+		r, err := raw.NewRawKubeReconciler(p.client, p.clientset, p.scheme, objectMeta, metav1.ObjectMeta{},
+			&isvc.Spec.Transformer.ComponentExtensionSpec, &podSpec, nil)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for transformer")
 		}
 		// set Deployment Controller
-		if err := controllerutil.SetControllerReference(isvc, r.Deployment.Deployment, p.scheme); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for transformer")
+		for _, deployment := range r.Deployment.DeploymentList {
+			if err := controllerutil.SetControllerReference(isvc, deployment, p.scheme); err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "fails to set deployment owner reference for transformer")
+			}
 		}
 		// set Service Controller
-		if err := controllerutil.SetControllerReference(isvc, r.Service.Service, p.scheme); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for transformer")
+		for _, svc := range r.Service.ServiceList {
+			if err := controllerutil.SetControllerReference(isvc, svc, p.scheme); err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "fails to set service owner reference for transformer")
+			}
 		}
 		// set autoscaler Controller
 		if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {
