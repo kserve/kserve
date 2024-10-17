@@ -17,9 +17,9 @@ After poetry has installed dependencies you should see:
 You can check for successful installation by running the following command
 
 ```
-usage: __main__.py [-h] [--http_port HTTP_PORT] [--grpc_port GRPC_PORT]
-                   [--predict_url PREDICT_URL] [--method {ExplainerMethod.anchor_tabular}]
-__main__.py: error: the following arguments are required: --predict_url
+$ python alibiexplainer/__main__.py {AnchorTabular|AnchorText|AnchorImages}  
+...
+2024-10-17 15:48:59.751 51916 kserve INFO [explainer.py:__init__():54] Predict URL set to None
 ```
 
 ## Samples
@@ -44,7 +44,7 @@ The following indicates a successful install.
 To run static type checks:
 
 ```bash
-mypy --ignore-missing-imports sklearnserver
+mypy --ignore-missing-imports alibiexplainer
 ```
 An empty result will indicate success.
 
