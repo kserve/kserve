@@ -206,7 +206,7 @@ async def test_kserve_logger_combined(rest_v1_client):
         log += kserve_client.core_api.read_namespaced_pod_log(
             name=pod.metadata.name,
             namespace=pod.metadata.namespace,
-            container="kserve_container",
+            container="kserve-container",
         )
         print(log)
 
