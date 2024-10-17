@@ -122,11 +122,12 @@ async def test_kserve_logger(rest_v1_client):
 @pytest.mark.asyncio(scope="session")
 async def test_kserve_logger_combined(rest_v1_client):
     msg_dumper = "message-dumper-combined"
-    predictor = V1beta1PredictorSpec(
+    msg_dumper_container = "listener-container"
+    event_dumper = V1beta1PredictorSpec(
         min_replicas=1,
         containers=[
             V1Container(
-                name="kserve-container",
+                name=msg_dumper_container,
                 image="gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display",
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
@@ -136,14 +137,14 @@ async def test_kserve_logger_combined(rest_v1_client):
         ],
     )
 
-    isvc = V1beta1InferenceService(
+    dumper_svc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=client.V1ObjectMeta(name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+        spec=V1beta1InferenceServiceSpec(predictor=event_dumper),
     )
 
-    kserve_client.create(isvc)
+    kserve_client.create(dumper_svc)
     kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
 
     service_name = "isvc-logger-combined"
@@ -190,13 +191,16 @@ async def test_kserve_logger_combined(rest_v1_client):
     )
     await asyncio.sleep(5)
     log = ""
+    assert len(pods.items) > 0
+    print("logs:")
     for pod in pods.items:
         log += kserve_client.core_api.read_namespaced_pod_log(
             name=pod.metadata.name,
             namespace=pod.metadata.namespace,
-            container="kserve-container",
+            container=msg_dumper_container,
         )
         print(log)
+
     assert "org.kubeflow.serving.inference.request" in log
     assert "org.kubeflow.serving.inference.response" in log
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
