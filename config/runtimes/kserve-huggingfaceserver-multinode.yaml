@@ -1,5 +1,5 @@
 apiVersion: serving.kserve.io/v1alpha1
-kind: ServingRuntime
+kind: ClusterServingRuntime
 metadata:
   name: kserve-huggingfaceserver-multinode
 spec:
@@ -174,4 +174,4 @@ spec:
       - name: shm
         emptyDir:
           medium: Memory
-          sizeLimit: 11Gi
+          sizeLimit: 1Gi

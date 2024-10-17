@@ -243,3 +243,40 @@ func GetEnvVarValue(envVars []v1.EnvVar, key string) (string, bool) {
 	}
 	return "", false // if key does not exist, return "", false
 }
+
+// IsUnknownGpuResourceType check if the provided gpu resource is unknown one
+func IsUnknownGpuResourceType(container v1.Container) bool {
+	unknownGPUResourceType := true
+	setBasicResourceType := false
+
+	if len(container.Resources.Limits) > 0 || len(container.Resources.Requests) > 0 {
+		for _, gpuType := range constants.GPUResourceTypeList {
+			resourceName := v1.ResourceName(gpuType)
+			if qty, exists := container.Resources.Limits[resourceName]; exists && !qty.IsZero() {
+				unknownGPUResourceType = false
+				break
+			}
+			if qty, exists := container.Resources.Requests[resourceName]; exists && !qty.IsZero() {
+				unknownGPUResourceType = false
+				break
+			}
+		}
+	} else {
+		return false
+	}
+	basicResourcesList := []v1.ResourceName{"memory", "cpu"}
+
+	if unknownGPUResourceType {
+		for _, resourceType := range basicResourcesList {
+			if qty, exists := container.Resources.Limits[resourceType]; exists && !qty.IsZero() {
+				setBasicResourceType = true
+				break
+			}
+			if qty, exists := container.Resources.Requests[resourceType]; exists && !qty.IsZero() {
+				setBasicResourceType = true
+				break
+			}
+		}
+	}
+	return !setBasicResourceType && unknownGPUResourceType
+}

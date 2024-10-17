@@ -218,7 +218,17 @@ var (
 // GPU Constants
 const (
 	NvidiaGPUResourceType = "nvidia.com/gpu"
+	AmdGPUResourceType    = "amd.com/gpu"
+	IntelGPUResourceType  = "intel.com/gpu"
+	GaudiGPUResourceType  = "habana.ai/gaudi"
 )
+
+var GPUResourceTypeList = []string{
+	NvidiaGPUResourceType,
+	AmdGPUResourceType,
+	IntelGPUResourceType,
+	GaudiGPUResourceType,
+}
 
 // InferenceService Environment Variables
 const (

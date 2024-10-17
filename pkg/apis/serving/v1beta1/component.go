@@ -30,19 +30,23 @@ import (
 
 // Known error messages
 const (
-	MinReplicasShouldBeLessThanMaxError   = "'MinReplicas' cannot be greater than MaxReplicas"
-	MinReplicasLowerBoundExceededError    = "'MinReplicas' cannot be less than 0"
-	MaxReplicasLowerBoundExceededError    = "'MaxReplicas' cannot be less than 0"
-	ParallelismLowerBoundExceededError    = "parallelism cannot be less than 0"
-	UnsupportedStorageURIFormatError      = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
-	UnsupportedStorageSpecFormatError     = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported"
-	InvalidLoggerType                     = "invalid logger type"
-	InvalidISVCNameFormatError            = "the InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
-	InvalidProtocol                       = "invalid protocol %s. Must be one of [%s]"
-	InvalidWorkerSpecSizeValueError       = "the InferenceService %q is invalid: WorkerSpec.Size cannot be less than 1(%d)"
-	InvalidPipelineParallelSizeValueError = "the InferenceService %q is invalid: PIPELINE_PARALLEL_SIZE cannot be less than 2 (%s) because PipelineParallelSize should include at least 1 head node and 1 worker node"
-	InvalidTensorParallelSizeValueError   = "the InferenceService %q is invalid: TENSOR_PARALLEL_SIZE cannot be less than 1(%s)"
-	InvalidParallelSizeValueError         = "the InferenceService %q is invalid: the value(%s) of PIPELINE_PARALLEL_SIZE or TENSOR_PARALLEL_SIZE is incorrect. Details: %w"
+	MinReplicasShouldBeLessThanMaxError              = "'MinReplicas' cannot be greater than MaxReplicas"
+	MinReplicasLowerBoundExceededError               = "'MinReplicas' cannot be less than 0"
+	MaxReplicasLowerBoundExceededError               = "'MaxReplicas' cannot be less than 0"
+	ParallelismLowerBoundExceededError               = "parallelism cannot be less than 0"
+	UnsupportedStorageURIFormatError                 = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
+	UnsupportedStorageSpecFormatError                = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported"
+	InvalidLoggerType                                = "invalid logger type"
+	InvalidISVCNameFormatError                       = "the InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+	InvalidProtocol                                  = "invalid protocol %s. Must be one of [%s]"
+	MissingStorageURI                                = "the InferenceService %q is invalid: StorageURI must be set for multinode enabled"
+	InvalidAutoScalerError                           = "the InferenceService %q is invalid: Multinode only supports 'external' autoscaler(%s)"
+	InvalidNotSupportedStorageURIProtocolError       = "the InferenceService %q is invalid: Not Supported StorageURI Protocol(%s)"
+	InvalidUnknownGPUTypeError                       = "the InferenceService %q is invalid: Unknown GPU resource type"
+	InvalidWorkerSpecPipelineParallelSizeValueError  = "the InferenceService %q is invalid: WorkerSpec.PipelineParallelSize cannot be less than 2(%s)"
+	InvalidWorkerSpecTensorParallelSizeValueError    = "the InferenceService %q is invalid: WorkerSpec.TensorParallelSize cannot be less than 1(%s)"
+	DisallowedWorkerSpecPipelineParallelSizeEnvError = "the InferenceService %q is invalid: setting PIPELINE_PARALLEL_SIZE in environment variables is not allowed"
+	DisallowedWorkerSpecTensorParallelSizeEnvError   = "the InferenceService %q is invalid: setting TENSOR_PARALLEL_SIZE in environment variables is not allowed"
 )
 
 // Constants

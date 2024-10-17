@@ -19,7 +19,6 @@ package servingruntime
 import (
 	"errors"
 	"fmt"
-	"strconv"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -1460,6 +1459,84 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 		newServingRuntime *v1alpha1.ServingRuntime
 		expected          gomega.OmegaMatcher
 	}{
+		"When pipelineParallelSize is not set, then it should return error": {
+			newServingRuntime: &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "example-runtime-1",
+					Namespace: "test",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  constants.InferenceServiceContainerName,
+								Image: "kserve/sklearnserver:latest",
+								Args: []string{
+									"--model_name={{.Name}}",
+									"--model_dir=/mnt/models",
+									"--http_port=8080",
+								},
+							},
+						},
+					},
+					WorkerSpec: &v1alpha1.WorkerSpec{
+						TensorParallelSize: intPtr(1),
+						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:    "worker-container",
+									Image:   "kserve/huggingfaceserver:latest",
+									Command: []string{"bash", "-c"},
+									Args: []string{
+										"ray start --address=$RAY_HEAD_ADDRESS --block",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(errors.New(MissingPipelineParallelSizeValueError)),
+		},
+		"When tensorParallelSize is not set, then it should return error": {
+			newServingRuntime: &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "example-runtime-1",
+					Namespace: "test",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  constants.InferenceServiceContainerName,
+								Image: "kserve/sklearnserver:latest",
+								Args: []string{
+									"--model_name={{.Name}}",
+									"--model_dir=/mnt/models",
+									"--http_port=8080",
+								},
+							},
+						},
+					},
+					WorkerSpec: &v1alpha1.WorkerSpec{
+						PipelineParallelSize: intPtr(2),
+						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:    "worker-container",
+									Image:   "kserve/huggingfaceserver:latest",
+									Command: []string{"bash", "-c"},
+									Args: []string{
+										"ray start --address=$RAY_HEAD_ADDRESS --block",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(errors.New(MissingTensorParallelSizeValueError)),
+		},
 		"When pipeline-parallel-size set less than 2, then it should return error": {
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1477,13 +1554,12 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 									"--model_dir=/mnt/models",
 									"--http_port=8080",
 								},
-								Env: []corev1.EnvVar{
-									{Name: constants.PipelineParallelSizeEnvName, Value: "1"},
-								},
 							},
 						},
 					},
 					WorkerSpec: &v1alpha1.WorkerSpec{
+						PipelineParallelSize: intPtr(1),
+						TensorParallelSize:   intPtr(1),
 						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 							Containers: []corev1.Container{
 								{
@@ -1499,7 +1575,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidPipelineParallelSizeValueError, "1")),
+			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, "1")),
 		},
 		"When tensor-parallel-size set less than 1, then it should return error": {
 			newServingRuntime: &v1alpha1.ServingRuntime{
@@ -1518,13 +1594,12 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 									"--model_dir=/mnt/models",
 									"--http_port=8080",
 								},
-								Env: []corev1.EnvVar{
-									{Name: constants.TensorParallelSizeEnvName, Value: "0"},
-								},
 							},
 						},
 					},
 					WorkerSpec: &v1alpha1.WorkerSpec{
+						PipelineParallelSize: intPtr(2),
+						TensorParallelSize:   intPtr(0),
 						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 							Containers: []corev1.Container{
 								{
@@ -1540,9 +1615,9 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidTensorParallelSizeValueError, "0")),
+			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, "0")),
 		},
-		"When pipeline-parallel-size set wrong value, then it should return error": {
+		"When pipeline-parallel-size set in the environment, then it should return error": {
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "example-runtime-1",
@@ -1581,13 +1656,9 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidParallelSizeValueError, &strconv.NumError{
-				Func: "Atoi",
-				Num:  "test",
-				Err:  errors.New("invalid syntax"),
-			})),
+			expected: gomega.Equal(errors.New(DisallowedWorkerSpecPipelineParallelSizeEnvError)),
 		},
-		"When tensor-parallel-size set wrong value, then it should return error": {
+		"When tensor-parallel-size set in the environment, then it should return error": {
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "example-runtime-1",
@@ -1626,18 +1697,17 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidParallelSizeValueError, &strconv.NumError{
-				Func: "Atoi",
-				Num:  "test",
-				Err:  errors.New("invalid syntax"),
-			})),
+			expected: gomega.Equal(errors.New(DisallowedWorkerSpecTensorParallelSizeEnvError)),
 		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
-			err := validateMultiNodeVariables(&scenario.newServingRuntime.Spec)
+			err := validateMultiNodeSpec(&scenario.newServingRuntime.Spec)
 			g.Expect(err).To(scenario.expected)
 		})
 	}
+}
+func intPtr(i int) *int {
+	return &i
 }

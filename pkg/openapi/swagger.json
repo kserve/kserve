@@ -6043,6 +6043,11 @@
             "$ref": "#/definitions/resource.Quantity"
           }
         },
+        "pipelineParallelSize": {
+          "description": "PipelineParallelSize defines the number of parallel workers. It also represents the number of replicas in the worker set, where each worker set serves as a scaling unit.",
+          "type": "integer",
+          "format": "int32"
+        },
         "preemptionPolicy": {
           "description": "PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset. This field is beta-level, gated by the NonPreemptingPriority feature-gate.",
           "type": "string"
@@ -6124,14 +6129,14 @@
           "description": "Share a single process namespace between all of the containers in a pod. When this is set containers will be able to view and signal processes from other containers in the same pod, and the first process in each container will not be assigned PID 1. HostPID and ShareProcessNamespace cannot both be set. Optional: Default to false.",
           "type": "boolean"
         },
-        "size": {
-          "description": "Configure the number of replicas in the worker set, each worker set represents the unit of scaling",
-          "type": "integer",
-          "format": "int32"
-        },
         "subdomain": {
           "description": "If specified, the fully qualified Pod hostname will be \"\u003chostname\u003e.\u003csubdomain\u003e.\u003cpod namespace\u003e.svc.\u003ccluster domain\u003e\". If not specified, the pod will not have a domainname at all.",
           "type": "string"
+        },
+        "tensorParallelSize": {
+          "description": "TensorParallelSize specifies the number of GPUs to be used per node. It indicates the degree of parallelism for tensor computations across the available GPUs.",
+          "type": "integer",
+          "format": "int32"
         },
         "terminationGracePeriodSeconds": {
           "description": "Optional duration in seconds the pod needs to terminate gracefully. May be decreased in delete request. Value must be non-negative integer. The value zero indicates stop immediately via the kill signal (no opportunity to shut down). If this value is nil, the default grace period will be used instead. The grace period is the duration in seconds after the processes running in the pod are sent a termination signal and the time when the processes are forcibly halted with a kill signal. Set this value longer than the expected cleanup time for your process. Defaults to 30 seconds.",

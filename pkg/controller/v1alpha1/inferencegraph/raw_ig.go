@@ -170,14 +170,14 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 
 	// reconcile
 	deployment, err := reconciler.Reconcile()
-	logger.Info("Result of inference graph raw reconcile", "deployment", deployment)
+	logger.Info("Result of inference graph raw reconcile", "deployment", deployment[0]) // only 1 deployment exist (default deployment)
 	logger.Info("Result of reconcile", "err", err)
 
 	if err != nil {
-		return deployment, reconciler.URL, errors.Wrapf(err, "fails to reconcile inference graph raw")
+		return deployment[0], reconciler.URL, errors.Wrapf(err, "fails to reconcile inference graph raw")
 	}
 
-	return deployment, reconciler.URL, nil
+	return deployment[0], reconciler.URL, nil
 }
 
 /*

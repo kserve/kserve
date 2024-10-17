@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -146,35 +147,52 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	return allWarnings, nil
 }
 
-// validateMultiNodeVariables validates one of the following: tensor-parallel-size, pipeline-parallel-size, or WorkerSpec.Size
+// validateMultiNodeVariables validates one of the following: tensor-parallel-size, pipeline-parallel-size, or WorkerSpec.PipelineParallelSize
 func validateMultiNodeVariables(isvc *InferenceService) error {
-	if isvc.Spec.Predictor.Model != nil {
-		if envPipelineParallelSize, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.PipelineParallelSizeEnvName); exists {
-			// pipelineParallelSize should be bigger than 1 (head + worker)
-			if intPipelineParallelSize, err := strconv.Atoi(envPipelineParallelSize); err == nil {
-				if intPipelineParallelSize < 2 {
-					return fmt.Errorf(InvalidPipelineParallelSizeValueError, isvc.Name, envPipelineParallelSize)
-				}
-			} else {
-				return fmt.Errorf(InvalidParallelSizeValueError, isvc.Name, envPipelineParallelSize, err)
-			}
-		}
-		if envTensorParallelSize, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.TensorParallelSizeEnvName); exists {
-			// GPU resource should not be less than 1.
-			if intTensorParallelSize, err := strconv.Atoi(envTensorParallelSize); err == nil {
-				if intTensorParallelSize < 1 {
-					return fmt.Errorf(InvalidTensorParallelSizeValueError, isvc.Name, envTensorParallelSize)
-				}
-			} else {
-				return fmt.Errorf(InvalidParallelSizeValueError, isvc.Name, envTensorParallelSize, err)
-			}
-		}
-	}
 	if isvc.Spec.Predictor.WorkerSpec != nil {
-		// WorkerSpec.Size should be bigger than 0.
-		WorkerSpecSize := isvc.Spec.Predictor.WorkerSpec.Size
-		if WorkerSpecSize < 1 {
-			return fmt.Errorf(InvalidWorkerSpecSizeValueError, isvc.Name, WorkerSpecSize)
+		if isvc.Spec.Predictor.Model != nil {
+			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.PipelineParallelSizeEnvName); exists {
+				return fmt.Errorf(DisallowedWorkerSpecPipelineParallelSizeEnvError, isvc.Name)
+			}
+			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.TensorParallelSizeEnvName); exists {
+				return fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, isvc.Name)
+			}
+			if utils.IsUnknownGpuResourceType(isvc.Spec.Predictor.Model.Container) {
+				return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
+			}
+			if isvc.Spec.Predictor.Model.StorageURI == nil {
+				return fmt.Errorf(MissingStorageURI, isvc.Name)
+			} else {
+				storageProtocol := strings.Split(*isvc.Spec.Predictor.Model.StorageURI, "://")[0]
+				if storageProtocol != "pvc" {
+					return fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, isvc.Name, storageProtocol)
+				}
+			}
+			if isvc.GetAnnotations()[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+				return fmt.Errorf(InvalidAutoScalerError, isvc.Name, isvc.GetAnnotations()[constants.AutoscalerClass])
+			}
+		}
+
+		// WorkerSpec.PipelineParallelSize should not be less than 2 (head + worker)
+		if isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize != nil {
+			workerSpecPipelineParallelSize := *isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize
+			if workerSpecPipelineParallelSize < 2 {
+				return fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, isvc.Name, strconv.Itoa(workerSpecPipelineParallelSize))
+			}
+		}
+		if isvc.Spec.Predictor.WorkerSpec.TensorParallelSize != nil {
+			// WorkerSpec.TensorParallelSize should not be less than 1.
+			workerSpecTensorParallelSize := *isvc.Spec.Predictor.WorkerSpec.TensorParallelSize
+			if workerSpecTensorParallelSize < 1 {
+				return fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, isvc.Name, strconv.Itoa(workerSpecTensorParallelSize))
+			}
+		}
+		if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
+			for _, container := range isvc.Spec.Predictor.WorkerSpec.Containers {
+				if utils.IsUnknownGpuResourceType(container) {
+					return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
+				}
+			}
 		}
 	}
 	return nil

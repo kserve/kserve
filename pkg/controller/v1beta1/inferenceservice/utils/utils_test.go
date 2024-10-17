@@ -25,7 +25,6 @@ import (
 	knativeV1 "knative.dev/pkg/apis/duck/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
@@ -782,7 +781,7 @@ func TestMergePodSpec(t *testing.T) {
 
 	scenarios := map[string]struct {
 		podSpecBase     *v1alpha1.ServingRuntimePodSpec
-		podSpecOverride *v1beta1.PodSpec
+		podSpecOverride *PodSpec
 		expected        *v1.PodSpec
 	}{
 		"BasicMerge": {
@@ -816,7 +815,7 @@ func TestMergePodSpec(t *testing.T) {
 					{Name: "foo"},
 				},
 			},
-			podSpecOverride: &v1beta1.PodSpec{
+			podSpecOverride: &PodSpec{
 				NodeSelector: map[string]string{
 					"foo": "baz",
 					"xxx": "yyy",
@@ -1085,7 +1084,7 @@ func TestUpdateImageTag(t *testing.T) {
 		container      *v1.Container
 		runtimeVersion *string
 		servingRuntime string
-		isvcConfig     *v1beta1.InferenceServicesConfig
+		isvcConfig     *InferenceServicesConfig
 		expected       string
 	}{
 		"UpdateRuntimeVersion": {
@@ -1233,33 +1232,33 @@ func TestGetDeploymentMode(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		annotations  map[string]string
-		deployConfig *v1beta1.DeployConfig
+		deployConfig *DeployConfig
 		expected     constants.DeploymentModeType
 	}{
 		"RawDeployment": {
 			annotations: map[string]string{
 				constants.DeploymentMode: string(constants.RawDeployment),
 			},
-			deployConfig: &v1beta1.DeployConfig{},
+			deployConfig: &DeployConfig{},
 			expected:     constants.DeploymentModeType(constants.RawDeployment),
 		},
 		"ServerlessDeployment": {
 			annotations: map[string]string{
 				constants.DeploymentMode: string(constants.Serverless),
 			},
-			deployConfig: &v1beta1.DeployConfig{},
+			deployConfig: &DeployConfig{},
 			expected:     constants.DeploymentModeType(constants.Serverless),
 		},
 		"ModelMeshDeployment": {
 			annotations: map[string]string{
 				constants.DeploymentMode: string(constants.ModelMeshDeployment),
 			},
-			deployConfig: &v1beta1.DeployConfig{},
+			deployConfig: &DeployConfig{},
 			expected:     constants.DeploymentModeType(constants.ModelMeshDeployment),
 		},
 		"DefaultDeploymentMode": {
 			annotations: map[string]string{},
-			deployConfig: &v1beta1.DeployConfig{
+			deployConfig: &DeployConfig{
 				DefaultDeploymentMode: string(constants.Serverless),
 			},
 			expected: constants.DeploymentModeType(constants.Serverless),
@@ -1890,86 +1889,5 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 		if err := ValidateStorageURI(&uri, mockClient); err != nil {
 			t.Errorf("%q validation failed: %s", uri, err)
 		}
-	}
-}
-
-func TestMergeServingRuntimePodSpec(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	scenarios := map[string]struct {
-		servingRuntimePodSpecBase *v1alpha1.ServingRuntimePodSpec
-		podSpecOverride           *v1beta1.PodSpec
-		expected                  *v1alpha1.ServingRuntimePodSpec
-	}{
-		"BasicMerge": {
-			servingRuntimePodSpecBase: &v1alpha1.ServingRuntimePodSpec{},
-			podSpecOverride: &v1beta1.PodSpec{
-				NodeSelector: map[string]string{
-					"foo": "bar",
-					"aaa": "bbb",
-				},
-				Tolerations: []v1.Toleration{
-					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
-				},
-				Volumes: []v1.Volume{
-					{
-						Name: "foo",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "bar",
-							},
-						},
-					},
-					{
-						Name: "aaa",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "bbb",
-							},
-						},
-					},
-				},
-				ImagePullSecrets: []v1.LocalObjectReference{
-					{Name: "foo"},
-				},
-			},
-			expected: &v1alpha1.ServingRuntimePodSpec{
-				NodeSelector: map[string]string{
-					"foo": "bar",
-					"aaa": "bbb",
-				},
-				Tolerations: []v1.Toleration{
-					{Key: "key1", Operator: v1.TolerationOpExists, Effect: v1.TaintEffectNoSchedule},
-				},
-				Volumes: []v1.Volume{
-					{
-						Name: "foo",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "bar",
-							},
-						},
-					},
-					{
-						Name: "aaa",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-								ClaimName: "bbb",
-							},
-						},
-					},
-				},
-				ImagePullSecrets: []v1.LocalObjectReference{
-					{Name: "foo"},
-				},
-			},
-		},
-	}
-	for name, scenario := range scenarios {
-		t.Run(name, func(t *testing.T) {
-			res, _ := MergeServingRuntimePodSpec(scenario.servingRuntimePodSpecBase, scenario.podSpecOverride)
-			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %v, want %v", res, scenario.expected)
-			}
-		})
 	}
 }

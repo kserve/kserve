@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -75,12 +76,16 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	var podSpec v1.PodSpec
 	var workerPodSpec v1.PodSpec
 	var workerObjectMeta metav1.ObjectMeta
-	var multiNodeEnabled bool
 	var sRuntime v1alpha1.ServingRuntimeSpec
 	var sRuntimeLabels map[string]string
 	var sRuntimeAnnotations map[string]string
 	var sRuntimeWorkerLabels map[string]string
 	var sRuntimeWorkerAnnotations map[string]string
+	multiNodeEnabled := false
+
+	if isvc.Spec.Predictor.WorkerSpec != nil {
+		multiNodeEnabled = true
+	}
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
@@ -100,6 +105,19 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	}
 
 	predictor := isvc.Spec.Predictor.GetImplementation()
+
+	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
+	// StorageInitializer injector to mutate the underlying deployment to provision model data
+	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
+		if _, ok := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]; ok {
+			return ctrl.Result{}, errors.New("must provide only one of storageUri and storage.path")
+		}
+		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
+		err := isvcutils.ValidateStorageURI(sourceURI, p.client)
+		if err != nil {
+			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
+		}
+	}
 
 	// If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
 	if isvc.Spec.Predictor.Model != nil {
@@ -145,7 +163,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 
 			sRuntime = *r
 		} else {
-			runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(p.client, isvc.Namespace, false)
+			runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(p.client, isvc.Namespace, false, multiNodeEnabled)
 			if err != nil {
 				return ctrl.Result{}, err
 			}
@@ -247,26 +265,15 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 	}
 
-	if isvc.Spec.Predictor.WorkerSpec != nil {
-		mergedWorkerServingRuntimeSpec, err := isvcutils.MergeServingRuntimePodSpec(&sRuntime.WorkerSpec.ServingRuntimePodSpec, &isvc.Spec.Predictor.WorkerSpec.PodSpec)
-		if err != nil {
-			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
-				Reason:  v1beta1.InvalidPredictorSpec,
-				Message: "Failed to consolidate serving runtime WorkerSpec ServingRuntimePodSpec",
-			})
-			return ctrl.Result{}, errors.Wrapf(err, "failed to consolidate serving runtime WorkerSpec ServingRuntimePodSpec")
-		}
-
+	if multiNodeEnabled {
 		if sRuntime.WorkerSpec == nil {
-			sRuntime.WorkerSpec = &v1alpha1.WorkerSpec{}
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, "You cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec")
+			return ctrl.Result{}, errors.New("you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec")
 		}
-
-		sRuntime.WorkerSpec.ServingRuntimePodSpec = *mergedWorkerServingRuntimeSpec
-	}
-
-	if sRuntime.WorkerSpec != nil {
-		multiNodeEnabled = true
-		// Check if workerSpec does not have containers information, it should return errors
+		var workerContainer *v1.Container
+		var mergedWorkerPodSpec *v1.PodSpec
+		var err error
+		// Check if workerSpec in ServingRuntime does not have worker containers information, it should return errors
 		if len(sRuntime.WorkerSpec.Containers) == 0 {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.InvalidPredictorSpec,
@@ -274,39 +281,49 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			})
 			return ctrl.Result{}, errors.New("no workerSpec container configuration found in selected serving runtime")
 		}
-		workerContainerIdx := -1
-		for i := range sRuntime.Containers {
+		workerContainerInSRIdx := -1
+		for i := range sRuntime.WorkerSpec.Containers {
 			if sRuntime.WorkerSpec.Containers[i].Name == constants.WorkerContainerName {
-				workerContainerIdx = i
+				workerContainerInSRIdx = i
 				break
 			}
 		}
-		if workerContainerIdx == -1 {
-			return ctrl.Result{}, fmt.Errorf("failed to find %s in ServingRuntime workerSpec containers", constants.WorkerContainerName)
-		}
-
-		var workerSpecContainer *v1.Container
-		if isvc.Spec.Predictor.WorkerSpec != nil && isvc.Spec.Predictor.WorkerSpec.Containers != nil {
-			workerSpecContainer = &isvc.Spec.Predictor.WorkerSpec.Containers[0]
-		} else {
-			workerSpecContainer = &v1.Container{}
-		}
-
-		workerContainer, err := isvcutils.MergeRuntimeContainers(&sRuntime.WorkerSpec.Containers[workerContainerIdx], workerSpecContainer)
-		if err != nil {
+		if workerContainerInSRIdx == -1 {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.InvalidPredictorSpec,
-				Message: "Failed to get worker container",
+				Message: fmt.Sprintf("failed to find %s in ServingRuntime workerSpec containers", constants.WorkerContainerName),
 			})
-			return ctrl.Result{}, errors.Wrapf(err, "failed to get worker container")
+			return ctrl.Result{}, fmt.Errorf("failed to find %s in ServingRuntime workerSpec containers", constants.WorkerContainerName)
 		}
-		// This is for using isvcutils.MergePodSpec for workerSpec
-		if isvc.Spec.Predictor.WorkerSpec == nil {
-			isvc.Spec.Predictor.WorkerSpec = &v1beta1.WorkerSpec{
-				PodSpec: v1beta1.PodSpec{},
+		workerContainer = &sRuntime.WorkerSpec.Containers[workerContainerInSRIdx]
+		if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
+			// This is for patching from InferenceService WorkerSpec.Containers to ServingRuntime WorkerSpec.Containers.
+			// Check if workerSpec in ServingRuntime does not have worker containers information, it should return errors
+			workerContainerInIsvcIdx := -1
+			for i := range isvc.Spec.Predictor.WorkerSpec.Containers {
+				if isvc.Spec.Predictor.WorkerSpec.Containers[i].Name == constants.WorkerContainerName {
+					workerContainerInIsvcIdx = i
+					break
+				}
+			}
+			if workerContainerInIsvcIdx == -1 {
+				isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+					Reason:  v1beta1.InvalidPredictorSpec,
+					Message: fmt.Sprintf("failed to find %s in InferenceService workerSpec containers", constants.WorkerContainerName),
+				})
+				return ctrl.Result{}, fmt.Errorf("failed to find %s in InferenceService workerSpec containers", constants.WorkerContainerName)
+			}
+
+			workerContainer, err = isvcutils.MergeRuntimeContainers(&sRuntime.WorkerSpec.Containers[workerContainerInSRIdx], &isvc.Spec.Predictor.WorkerSpec.Containers[workerContainerInIsvcIdx])
+			if err != nil {
+				isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+					Reason:  v1beta1.InvalidPredictorSpec,
+					Message: fmt.Sprintf("Failed to merge worker container: Detail: %s", err),
+				})
+				return ctrl.Result{}, errors.Wrapf(err, "failed to merge worker container")
 			}
 		}
-		mergedWorkerPodSpec, err := isvcutils.MergePodSpec(&sRuntime.WorkerSpec.ServingRuntimePodSpec, &isvc.Spec.Predictor.WorkerSpec.PodSpec)
+		mergedWorkerPodSpec, err = isvcutils.MergePodSpec(&sRuntime.WorkerSpec.ServingRuntimePodSpec, &isvc.Spec.Predictor.WorkerSpec.PodSpec)
 		if err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.InvalidPredictorSpec,
@@ -315,18 +332,14 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			return ctrl.Result{}, errors.Wrapf(err, "failed to consolidate serving runtime WorkerSpec PodSpecs")
 		}
 
-		// Set the worker size from InferenceService to ServingRuntime worker size
-		if isvc.Spec.Predictor.WorkerSpec.Size != 0 {
-			sRuntime.WorkerSpec.Size = isvc.Spec.Predictor.WorkerSpec.Size
+		// Set the PipelineParallelSize from InferenceService to ServingRuntime workerSpec.PipelineParallelSize
+		if isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize != nil {
+			sRuntime.WorkerSpec.PipelineParallelSize = isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize
 		}
 
-		// Replace placeholders in runtime container by values from inferenceservice metadata
-		if err = isvcutils.ReplacePlaceholders(workerContainer, isvc.ObjectMeta); err != nil {
-			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
-				Reason:  v1beta1.InvalidPredictorSpec,
-				Message: "Failed to replace placeholders of worker container in serving runtime ",
-			})
-			return ctrl.Result{}, errors.Wrapf(err, "failed to replace placeholders of worker container in serving runtime")
+		// Set the TensorParallelSize from InferenceService to ServingRuntime workerSpec.TensorParallelSize
+		if isvc.Spec.Predictor.WorkerSpec.TensorParallelSize != nil {
+			sRuntime.WorkerSpec.TensorParallelSize = isvc.Spec.Predictor.WorkerSpec.TensorParallelSize
 		}
 
 		workerPodSpec = *mergedWorkerPodSpec
@@ -335,46 +348,37 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 		sRuntimeWorkerLabels = sRuntime.WorkerSpec.ServingRuntimePodSpec.Labels
 
-		workerSize := constants.DefaultWorkerMinSize
-		if sRuntime.WorkerSpec.Size > constants.DefaultWorkerMinSize {
-			workerSize = sRuntime.WorkerSpec.Size
+		// Add required environment variables: PipelineParallelSize, TensorParallelSize
+		// Deployment node deployement
+		if err := isvcutils.AddEnvVarToPodSpec(&podSpec, constants.InferenceServiceContainerName, constants.PipelineParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.PipelineParallelSize)); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to add PIPELINE_PARALLEL_SIZE environment to the container(%s)", constants.InferenceServiceContainerName)
 		}
-		// Check if the PIPELINE_PARALLEL_SIZE environment variable specified
-		// Priority for worker node count:
-		// 	1. PIPELINE_PARALLEL_SIZE environment variable
-		// 	2. WorkerSpec.Size
-		for _, container := range podSpec.Containers {
-			if container.Name == constants.InferenceServiceContainerName {
-				if envPipelineParallelSize, exists := utils.GetEnvVarValue(container.Env, constants.PipelineParallelSizeEnvName); exists {
-					// pipelineParallelSize should be bigger than 1 (head + worker)
-					if intPipelineParallelSize, err := strconv.Atoi(envPipelineParallelSize); err == nil {
-						// pipelineParallelSize value is higher priority than workerSpec.Size, so pipelineParallelSize - 1(head node) will be set to workerSize
-						if intPipelineParallelSize-1 != workerSize {
-							workerSize = intPipelineParallelSize - 1
-						}
-					} else {
-						p.Log.Info("Using the WorkerSpec.Size because the provided value for pipelineParallelSize is less than 1")
-					}
-				} else {
-					p.Log.Error(err, "Failed to convert pipelineParallelSize to int, using the WorkerSpec.Size")
-				}
-				break
+
+		if err := isvcutils.AddEnvVarToPodSpec(&podSpec, constants.InferenceServiceContainerName, constants.TensorParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.TensorParallelSize)); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to add Tensor_PARALLEL_SIZE environment to the container(%s)", constants.InferenceServiceContainerName)
+		}
+
+		// Set the environment variable for "isvc name" to the MODEL_NAME when multiNodeEnabled is true.
+		if err := isvcutils.AddEnvVarToPodSpec(&podSpec, constants.InferenceServiceContainerName, "MODEL_NAME", isvc.Name); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to add MODEL_NAME environment to the container(%s)", constants.InferenceServiceContainerName)
+		}
+
+		deploymentAnnotations := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
+		storageProtocol := strings.Split(deploymentAnnotations, "://")[0]
+		if storageProtocol == "pvc" {
+			// Set the environment variable for "/mnt/models" to the MODEL_DIR when multiNodeEnabled is true.
+			if err := isvcutils.AddEnvVarToPodSpec(&podSpec, constants.InferenceServiceContainerName, "MODEL_DIR", isvc.Name); err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "failed to add MODEL_DIR environment to the container(%s)", constants.DefaultModelLocalMountPath)
 			}
 		}
-		// Set workerNodeSize annotation to be used for worker deployment replicas
-		sRuntimeAnnotations[constants.WorkerNodeSize] = strconv.Itoa(workerSize)
-	}
-
-	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
-	// StorageInitializer injector to mutate the underlying deployment to provision model data
-	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
-		if _, ok := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]; ok {
-			return ctrl.Result{}, errors.New("must provide only one of storageUri and storage.path")
+		// Worker node deployement
+		if err := isvcutils.AddEnvVarToPodSpec(&workerPodSpec, constants.WorkerContainerName, constants.PipelineParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.PipelineParallelSize)); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to add PIPELINE_PARALLEL_SIZE environment to the container(%s)", constants.WorkerContainerName)
 		}
-		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
-		err := isvcutils.ValidateStorageURI(sourceURI, p.client)
-		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
+
+		// Set the environment variable for "isvc name" to the ISVC_NAME when multiNodeEnabled is true.
+		if err := isvcutils.AddEnvVarToPodSpec(&workerPodSpec, constants.WorkerContainerName, "ISVC_NAME", isvc.Name); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to add ISVC_NAME environment to the container(%s)", constants.InferenceServiceContainerName)
 		}
 	}
 
@@ -404,7 +408,11 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	workerObjectMeta = metav1.ObjectMeta{}
 	if multiNodeEnabled {
 		if annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
-			return ctrl.Result{}, fmt.Errorf("in Multi Node mode, the autoscaler type must be 'external' only")
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidPredictorSpec,
+				Message: "when Multi Node is enabled, the autoscaler type must be 'external' only.",
+			})
+			return ctrl.Result{}, fmt.Errorf("when Multi Node is enabled, the autoscaler type must be 'external' only")
 		}
 		WorkerNodeName := constants.PredictorWorkerServiceName(isvc.Name)
 		// Labels and annotations priority: predictor component > isvc > ServingRuntimePodSpec
@@ -483,11 +491,11 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set autoscaler owner references for predictor")
 		}
 
-		deployment, err := r.Reconcile()
+		deploymentList, err := r.Reconcile()
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile predictor")
 		}
-		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deployment, r.URL)
+		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
 	} else {
 		podLabelKey = constants.RevisionLabel
 		r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,

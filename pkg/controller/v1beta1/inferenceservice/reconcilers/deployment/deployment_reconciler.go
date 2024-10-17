@@ -19,8 +19,8 @@ package deployment
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -65,25 +65,30 @@ func NewDeploymentReconciler(client kclient.Client,
 	}
 }
 func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec, //nolint:unparam
+	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) []*appsv1.Deployment {
 	var deploymentList []*appsv1.Deployment
-	var workerNodeSize string
-	var pipelineParallelSize string
+	var workerNodeReplicas int32
 	var tensorParallelSize string
-
-	isvcName := componentMeta.GetLabels()[constants.InferenceServiceLabel]
 	multiNodeEnabled := false
 
 	if workerComponentMeta.Name != "" {
 		multiNodeEnabled = true
-		workerNodeSize = componentMeta.GetAnnotations()[constants.WorkerNodeSize]
-		pipelineParallelSize = constants.DefaultPipelineParallelSize
-		if parsedValue, err := strconv.Atoi(workerNodeSize); err == nil {
-			// Set pipelineParallelSize to workerNodeSize + 1 (head)
-			pipelineParallelSize = strconv.Itoa(parsedValue + 1)
-		} else {
-			log.Error(err, "Failed to convert pipelineParallelSize to int, using the WorkerSpec.Size)")
+
+		for _, container := range podSpec.Containers {
+			if container.Name == constants.InferenceServiceContainerName {
+				if value, exists := utils.GetEnvVarValue(container.Env, constants.PipelineParallelSizeEnvName); exists {
+					if parsedValue, err := strconv.Atoi(value); err == nil {
+						// Set pipelineParallelSize to workerNodeSize + 1 (head)
+						workerNodeReplicas = int32(parsedValue - 1) // nolint  #nosec G109
+					} else {
+						log.Error(err, "Failed to convert pipelineParallelSize to int")
+					}
+				} else {
+					log.Info(fmt.Sprintf("PIPELINE_PARALLEL_SIZE is not set in the container's environment(%s)", constants.InferenceServiceContainerName))
+				}
+				break
+			}
 		}
 	}
 
@@ -103,26 +108,14 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 		}
 		// Update GPU resource of default podSpec
 		addGPUResourceToDeployment(defaultDeployment, constants.InferenceServiceContainerName, tensorParallelSize)
-
-		// Set the environment variable for "isvc name" to the MODEL_NAME when multiNodeEnabled is true.
-		addEnvVarToDeploymentSpec(&defaultDeployment.Spec, constants.InferenceServiceContainerName, "MODEL_NAME", isvcName)
-
-		deploymentAnnotations := componentMeta.GetAnnotations()[constants.StorageInitializerSourceUriInternalAnnotationKey]
-		storageProtocol := strings.Split(deploymentAnnotations, "://")[0]
-		if storageProtocol == "pvc" {
-			// Set the environment variable for "/mnt/models" to the MODEL_DIR when multiNodeEnabled is true.
-			addEnvVarToDeploymentSpec(&defaultDeployment.Spec, constants.InferenceServiceContainerName, "MODEL_DIR", constants.DefaultModelLocalMountPath)
-		}
-		// Set the environment variable PIPELINE_PARALLEL_SIZE when multiNodeEnabled is true.
-		addEnvVarToDeploymentSpec(&defaultDeployment.Spec, constants.InferenceServiceContainerName, constants.PipelineParallelSizeEnvName, pipelineParallelSize)
 	}
 	deploymentList = append(deploymentList, defaultDeployment)
 
 	// Adds workerNode deployment
 	if multiNodeEnabled {
-		workerDeployment := createRawWorkerDeployment(workerComponentMeta, componentExt, workerPodSpec, componentMeta.Name, pipelineParallelSize, isvcName)
+		workerDeployment := createRawWorkerDeployment(workerComponentMeta, componentExt, workerPodSpec, componentMeta.Name, workerNodeReplicas)
 
-		// Update GPU resource of workerPodSpec based on tensor-parallelSize
+		// Update GPU resource of workerPodSpec
 		addGPUResourceToDeployment(workerDeployment, constants.WorkerContainerName, tensorParallelSize)
 		deploymentList = append(deploymentList, workerDeployment)
 	}
@@ -131,7 +124,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 }
 
 func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec, //nolint:unparam
+	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec) *appsv1.Deployment {
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
@@ -157,8 +150,8 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	return deployment
 }
 func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec, //nolint:unparam
-	podSpec *corev1.PodSpec, predictorName string, pipelineParallelSize string, isvcName string) *appsv1.Deployment {
+	componentExt *v1beta1.ComponentExtensionSpec,
+	podSpec *corev1.PodSpec, predictorName string, replicas int32) *appsv1.Deployment {
 	podMetadata := componentMeta
 	workerPredictorName := constants.GetRawWorkerServiceLabel(predictorName)
 	podMetadata.Labels["app"] = workerPredictorName
@@ -182,17 +175,7 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
 
-	// default workerNode deployment replicas
-	replicas := intstr.FromInt(constants.DefaultWorkerMinSize)
-	if parsedValue, err := strconv.Atoi(pipelineParallelSize); err == nil {
-		replicas = intstr.FromInt(parsedValue - 1)
-	} else {
-		log.Error(err, "Failed to convert pipelineParallelSize string to int, using the default value(1) for replicas.")
-	}
-
-	deployment.Spec.Replicas = &replicas.IntVal
-	addEnvVarToDeploymentSpec(&deployment.Spec, constants.WorkerContainerName, "ISVC_NAME", isvcName)
-	addEnvVarToDeploymentSpec(&deployment.Spec, constants.WorkerContainerName, constants.PipelineParallelSizeEnvName, pipelineParallelSize)
+	deployment.Spec.Replicas = &replicas
 	return deployment
 }
 
@@ -313,55 +296,38 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 	}
 }
 
-// Function to add a new environment variable to a specific container in the DeploymentSpec
-func addEnvVarToDeploymentSpec(deploymentSpec *appsv1.DeploymentSpec, containerName, envName, envValue string) {
-	// Iterate over the containers in the PodTemplateSpec to find the specified container
-	for i, container := range deploymentSpec.Template.Spec.Containers {
-		if container.Name == containerName {
-			if _, exists := utils.GetEnvVarValue(container.Env, envName); exists {
-				// Overwrite the environment variable
-				for j, envVar := range container.Env {
-					if envVar.Name == envName {
-						deploymentSpec.Template.Spec.Containers[i].Env[j].Value = envValue
-						break
-					}
-				}
-			} else {
-				// Add the new environment variable to the Env field if it ooes not exist
-				container.Env = append(container.Env, corev1.EnvVar{
-					Name:  envName,
-					Value: envValue,
-				})
-				deploymentSpec.Template.Spec.Containers[i].Env = container.Env
-			}
-			log.Info("Added env variable to container",
-				"envName", envName,
-				"envValue", envValue,
-				"containerName", containerName)
-			return
-		}
-	}
-	log.Info("Container not found in DeploymentSpec", "containerName", containerName)
-}
-
 func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerName string, tensorParallelSize string) {
+	// Default GPU type is "nvidia.com/gpu"
+	gpuResourceType := corev1.ResourceName(constants.NvidiaGPUResourceType)
 	for i, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == targetContainerName {
+			for _, gpuType := range constants.GPUResourceTypeList {
+				resourceName := corev1.ResourceName(gpuType)
+				if qty, exists := deployment.Spec.Template.Spec.Containers[i].Resources.Limits[resourceName]; exists && !qty.IsZero() {
+					gpuResourceType = resourceName
+					break
+				}
+				if qty, exists := deployment.Spec.Template.Spec.Containers[i].Resources.Requests[resourceName]; exists && !qty.IsZero() {
+					gpuResourceType = resourceName
+					break
+				}
+			}
+
 			// Initialize Limits map if it's nil
 			if container.Resources.Limits == nil {
 				deployment.Spec.Template.Spec.Containers[i].Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
 			}
 
-			// Assign the tensorParallelSize value to the GPU "nvidia.com/gpu" resource limits
-			deployment.Spec.Template.Spec.Containers[i].Resources.Limits[constants.NvidiaGPUResourceType] = resource.MustParse(tensorParallelSize)
+			// Assign the tensorParallelSize value to the GPU resource limits
+			deployment.Spec.Template.Spec.Containers[i].Resources.Limits[gpuResourceType] = resource.MustParse(tensorParallelSize)
 
 			// Initialize Requests map if it's nil
 			if container.Resources.Requests == nil {
 				deployment.Spec.Template.Spec.Containers[i].Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
 			}
 
-			// Assign the tensorParallelSize value to the GPU "nvidia.com/gpu" resource requests
-			deployment.Spec.Template.Spec.Containers[i].Resources.Requests[constants.NvidiaGPUResourceType] = resource.MustParse(tensorParallelSize)
+			// Assign the tensorParallelSize value to the GPU resource requests
+			deployment.Spec.Template.Spec.Containers[i].Resources.Requests[gpuResourceType] = resource.MustParse(tensorParallelSize)
 			break
 		}
 	}

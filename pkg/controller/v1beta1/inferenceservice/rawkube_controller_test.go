@@ -44,7 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -2147,7 +2146,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			isvc       *v1beta1.InferenceService
 		)
 
-		isvcNamespace := "default"
+		isvcNamespace := constants.KServeNamespace
 		actualDefaultDeployment := &appsv1.Deployment{}
 		actualWorkerDeployment := &appsv1.Deployment{}
 
@@ -2202,24 +2201,23 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 						Containers: []v1.Container{
 							{
-								Name:    "kserve-container",
+								Name:    constants.InferenceServiceContainerName,
 								Image:   "kserve/huggingfaceserver:latest",
 								Command: []string{"bash", "-c"},
 								Args: []string{
 									"python3 -m huggingfaceserver --model_name=${MODEL_NAME} --model_dir=${MODEL} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE}",
 								},
 								Resources: defaultResource,
-								Env: []v1.EnvVar{
-									{Name: "TENSOR_PARALLEL_SIZE", Value: "1"},
-								},
 							},
 						},
 					},
 					WorkerSpec: &v1alpha1.WorkerSpec{
+						PipelineParallelSize: intPtr(2),
+						TensorParallelSize:   intPtr(1),
 						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 							Containers: []v1.Container{
 								{
-									Name:    "worker-container",
+									Name:    constants.WorkerContainerName,
 									Image:   "kserve/huggingfaceserver:latest",
 									Command: []string{"bash", "-c"},
 									Args: []string{
@@ -2238,7 +2236,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				k8sClient.Delete(ctx, servingRuntime)
 			})
 		})
-		It("Should have services/deployments for head/worker without an autoscaler", func() {
+		It("Should have services/deployments for head/worker without an autoscaler when workerSpec is set in isvc", func() {
 			By("creating a new InferenceService")
 			isvcName := "raw-huggingface-multinode-1"
 			predictorDeploymentName := constants.PredictorServiceName(isvcName)
@@ -2264,6 +2262,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								StorageURI: &storageUri,
 							},
 						},
+						WorkerSpec: &v1beta1.WorkerSpec{},
 					},
 				},
 			}
@@ -2272,7 +2271,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				k8sClient.Delete(ctx, isvc)
 			})
 
-			// Verify inferenceService is created
+			// Verify inferenceService is createdi
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				return k8sClient.Get(ctx, serviceKey, inferenceService) == nil
@@ -2289,7 +2288,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// Verify deployments details
-			verifyDeployments(actualDefaultDeployment, actualWorkerDeployment, "2", int32Ptr(1))
+			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "2", int32Ptr(1))
 
 			// Check Services
 			actualService := &v1.Service{}
@@ -2330,7 +2329,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return fmt.Errorf("expected IsNotFound error, but got %v", err)
 			}, timeout).Should(Succeed())
 		})
-		It("Should use WorkerSpec.Size value when pipeline-parallel-size is not set", func() {
+		It("Should use WorkerSpec.PipelineParallelSize value in isvc when it is set", func() {
 			By("By creating a new InferenceService")
 			isvcName := "raw-huggingface-multinode-4"
 			predictorDeploymentName := constants.PredictorServiceName(isvcName)
@@ -2357,7 +2356,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						WorkerSpec: &v1beta1.WorkerSpec{
-							Size: 2,
+							PipelineParallelSize: intPtr(3),
 						},
 					},
 				},
@@ -2384,9 +2383,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// Verify deployments details
-			verifyDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", int32Ptr(2))
+			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", int32Ptr(2))
 		})
-		It("Should use pipeline-parallel-size value when pipeline-parallel-size is set", func() {
+		It("Should use WorkerSpec.TensorParallelSize value in isvc when it is set", func() {
 			By("creating a new InferenceService")
 			isvcName := "raw-huggingface-multinode-5"
 			predictorDeploymentName := constants.PredictorServiceName(isvcName)
@@ -2411,15 +2410,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI: &storageUri,
-								Container: v1.Container{
-									Env: []v1.EnvVar{
-										{Name: constants.PipelineParallelSizeEnvName, Value: "4"},
-									},
-								},
 							},
 						},
 						WorkerSpec: &v1beta1.WorkerSpec{
-							Size: 2,
+							TensorParallelSize: intPtr(3),
 						},
 					},
 				},
@@ -2440,26 +2434,47 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// Verify deployments details
-			verifyDeployments(actualDefaultDeployment, actualWorkerDeployment, "4", int32Ptr(3))
+			verifyTensorParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", constants.NvidiaGPUResourceType)
 		})
 	})
 })
 
-func verifyDeployments(actualDefaultDeployment *appsv1.Deployment, actualWorkerDeployment *appsv1.Deployment, pipelineParallelSize string, replicas *int32) {
+func verifyPipelineParallelSizeDeployments(actualDefaultDeployment *appsv1.Deployment, actualWorkerDeployment *appsv1.Deployment, pipelineParallelSize string, replicas *int32) {
+	// default deployment
 	if pipelineParallelSizeEnvValue, exists := utils.GetEnvVarValue(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Env, constants.PipelineParallelSizeEnvName); exists {
+		Expect(pipelineParallelSizeEnvValue).Should(Equal(pipelineParallelSize))
+	} else {
+		Fail("PIPELINE_PARALLEL_SIZE environment variable is not set")
+	}
+	// worker node deployment
+	if pipelineParallelSizeEnvValue, exists := utils.GetEnvVarValue(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Env, constants.PipelineParallelSizeEnvName); exists {
 		Expect(pipelineParallelSizeEnvValue).Should(Equal(pipelineParallelSize))
 	} else {
 		Fail("PIPELINE_PARALLEL_SIZE environment variable is not set")
 	}
 
 	Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(replicas))
-	if pipelineParallelSizeEnvValue, exists := utils.GetEnvVarValue(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Env, constants.PipelineParallelSizeEnvName); exists {
-		Expect(pipelineParallelSizeEnvValue).Should(Equal(pipelineParallelSize))
-	} else {
-		Fail("PIPELINE_PARALLEL_SIZE environment variable is not set")
-	}
 }
 
+func verifyTensorParallelSizeDeployments(actualDefaultDeployment *appsv1.Deployment, actualWorkerDeployment *appsv1.Deployment, tensorParallelSize string, gpuResourceType v1.ResourceName) {
+	gpuResourceQuantity := resource.MustParse(tensorParallelSize)
+	// default deployment
+	if tensorParallelSizeEnvValue, exists := utils.GetEnvVarValue(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Env, constants.TensorParallelSizeEnvName); exists {
+		Expect(tensorParallelSizeEnvValue).Should(Equal(tensorParallelSize))
+	} else {
+		Fail("TENSOR_PARALLEL_SIZE environment variable is not set")
+	}
+	Expect(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[gpuResourceType]).Should(Equal(gpuResourceQuantity))
+	Expect(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[gpuResourceType]).Should(Equal(gpuResourceQuantity))
+
+	//worker node deployment
+	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[gpuResourceType]).Should(Equal(gpuResourceQuantity))
+	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[gpuResourceType]).Should(Equal(gpuResourceQuantity))
+}
 func int32Ptr(i int32) *int32 {
+	return &i
+}
+
+func intPtr(i int) *int {
 	return &i
 }
