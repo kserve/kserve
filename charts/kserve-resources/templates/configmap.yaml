@@ -563,3 +563,7 @@ data:
       "defaultJobImage" : "kserve/storage-initializer:latest",
       "FSGroup": {{ .Values.kserve.localmodel.securityContext.FSGroup }}
     }
+  security: |-
+    {
+      "autoMountServiceAccountToken": {{ .Values.kserve.security.autoMountServiceAccountToken }}
+    }

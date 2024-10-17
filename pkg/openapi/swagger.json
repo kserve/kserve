@@ -1237,7 +1237,7 @@
       "type": "object",
       "properties": {
         "annotations": {
-          "description": "Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations",
+          "description": "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
           "type": "object",
           "additionalProperties": {
             "type": "string",
@@ -1263,7 +1263,7 @@
           "$ref": "#/definitions/k8s.io.api.apps.v1.DeploymentStrategy"
         },
         "labels": {
-          "description": "Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels",
+          "description": "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
           "type": "object",
           "additionalProperties": {
             "type": "string",
@@ -2403,7 +2403,7 @@
           "$ref": "#/definitions/v1.Affinity"
         },
         "annotations": {
-          "description": "Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations",
+          "description": "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
           "type": "object",
           "additionalProperties": {
             "type": "string",
@@ -2519,7 +2519,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "labels": {
-          "description": "Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels",
+          "description": "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
           "type": "object",
           "additionalProperties": {
             "type": "string",
@@ -4586,7 +4586,7 @@
           "$ref": "#/definitions/v1.Affinity"
         },
         "annotations": {
-          "description": "Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations",
+          "description": "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
           "type": "object",
           "additionalProperties": {
             "type": "string",
@@ -4702,7 +4702,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "labels": {
-          "description": "Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels",
+          "description": "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
           "type": "object",
           "additionalProperties": {
             "type": "string",
@@ -5111,6 +5111,18 @@
         }
       }
     },
+    "v1beta1.SecurityConfig": {
+      "type": "object",
+      "required": [
+        "autoMountServiceAccountToken"
+      ],
+      "properties": {
+        "autoMountServiceAccountToken": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
     "v1beta1.StorageSpec": {
       "type": "object",
       "properties": {
@@ -5512,7 +5524,7 @@
           "$ref": "#/definitions/v1.Affinity"
         },
         "annotations": {
-          "description": "Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations",
+          "description": "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
           "type": "object",
           "additionalProperties": {
             "type": "string",
@@ -5624,7 +5636,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "labels": {
-          "description": "Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels",
+          "description": "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
           "type": "object",
           "additionalProperties": {
             "type": "string",

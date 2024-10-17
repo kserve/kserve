@@ -35,6 +35,7 @@ const (
 	IngressConfigKeyName   = "ingress"
 	DeployConfigName       = "deploy"
 	LocalModelConfigName   = "localModel"
+	SecurityConfigName     = "security"
 )
 
 const (
@@ -89,6 +90,11 @@ type LocalModelConfig struct {
 	JobNamespace    string `json:"jobNamespace"`
 	DefaultJobImage string `json:"defaultJobImage,omitempty"`
 	FSGroup         *int64 `json:"fsGroup,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type SecurityConfig struct {
+	AutoMountServiceAccountToken bool `json:"autoMountServiceAccountToken"`
 }
 
 func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServicesConfig, error) {
@@ -205,4 +211,19 @@ func NewLocalModelConfig(clientset kubernetes.Interface) (*LocalModelConfig, err
 		}
 	}
 	return localModelConfig, nil
+}
+
+func NewSecurityConfig(clientset kubernetes.Interface) (*SecurityConfig, error) {
+	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	securityConfig := &SecurityConfig{}
+	if security, ok := configMap.Data[SecurityConfigName]; ok {
+		err := json.Unmarshal([]byte(security), &securityConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return securityConfig, nil
 }

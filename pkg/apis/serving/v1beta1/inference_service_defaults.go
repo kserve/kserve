@@ -99,6 +99,7 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 		mutatorLogger.Error(err, "unable to create clientSet")
 		return err
 	}
+	// Todo: call api server only once to get all configs
 	configMap, err := NewInferenceServicesConfig(clientSet)
 	if err != nil {
 		return err
@@ -108,6 +109,10 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 		return err
 	}
 	localModelConfig, err := NewLocalModelConfig(clientSet)
+	if err != nil {
+		return err
+	}
+	securityConfig, err := NewSecurityConfig(clientSet)
 	if err != nil {
 		return err
 	}
@@ -127,11 +132,11 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 	}
 
 	// Pass a list of ClusterLocalModel resources to set the local model label if there is a match
-	isvc.DefaultInferenceService(configMap, deployConfig, models)
+	isvc.DefaultInferenceService(configMap, deployConfig, securityConfig, models)
 	return nil
 }
 
-func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, models *v1alpha1.ClusterLocalModelList) {
+func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.ClusterLocalModelList) {
 	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
 
 	if !ok && deployConfig != nil {
@@ -167,13 +172,15 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 	}
 
 	isvc.setLocalModelLabel(models)
-	setautomountServiceAccountToken(isvc)
+	if securityConfig != nil && !securityConfig.AutoMountServiceAccountToken {
+		disableAutomountServiceAccountToken(isvc)
+	}
 }
 
-// setautomountServiceAccountToken sets the default value for AutomountServiceAccountToken
+// disableAutomountServiceAccountToken sets AutomountServiceAccountToken to be false
 // Usually serving runtimes do not need access to kubernetes apiserver, so we set it to false by default.
 // This can be overridden by setting AutomountServiceAccountToken to true in the InferenceService spec
-func setautomountServiceAccountToken(isvc *InferenceService) {
+func disableAutomountServiceAccountToken(isvc *InferenceService) {
 	if isvc.Spec.Predictor.AutomountServiceAccountToken == nil {
 		isvc.Spec.Predictor.AutomountServiceAccountToken = proto.Bool(false)
 	}
