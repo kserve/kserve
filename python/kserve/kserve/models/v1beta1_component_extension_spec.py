@@ -56,13 +56,9 @@ class V1beta1ComponentExtensionSpec(object):
         'logger': 'V1beta1LoggerSpec',
         'max_replicas': 'int',
         'min_replicas': 'int',
-        'query': 'str',
-        'query_parameters': 'str',
         'scale_metric': 'str',
-        'scale_metric_type': 'str',
         'scale_target': 'int',
         'scaler': 'V1beta1ScalerSpec',
-        'server_address': 'str',
         'timeout': 'int'
     }
 
@@ -76,17 +72,13 @@ class V1beta1ComponentExtensionSpec(object):
         'logger': 'logger',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
-        'query': 'query',
-        'query_parameters': 'queryParameters',
         'scale_metric': 'scaleMetric',
-        'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
         'scaler': 'scaler',
-        'server_address': 'serverAddress',
         'timeout': 'timeout'
     }
 
-    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, query=None, query_parameters=None, scale_metric=None, scale_metric_type=None, scale_target=None, scaler=None, server_address=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_target=None, scaler=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -101,13 +93,9 @@ class V1beta1ComponentExtensionSpec(object):
         self._logger = None
         self._max_replicas = None
         self._min_replicas = None
-        self._query = None
-        self._query_parameters = None
         self._scale_metric = None
-        self._scale_metric_type = None
         self._scale_target = None
         self._scaler = None
-        self._server_address = None
         self._timeout = None
         self.discriminator = None
 
@@ -129,20 +117,12 @@ class V1beta1ComponentExtensionSpec(object):
             self.max_replicas = max_replicas
         if min_replicas is not None:
             self.min_replicas = min_replicas
-        if query is not None:
-            self.query = query
-        if query_parameters is not None:
-            self.query_parameters = query_parameters
         if scale_metric is not None:
             self.scale_metric = scale_metric
-        if scale_metric_type is not None:
-            self.scale_metric_type = scale_metric_type
         if scale_target is not None:
             self.scale_target = scale_target
         if scaler is not None:
             self.scaler = scaler
-        if server_address is not None:
-            self.server_address = server_address
         if timeout is not None:
             self.timeout = timeout
 
@@ -348,52 +328,6 @@ class V1beta1ComponentExtensionSpec(object):
         self._min_replicas = min_replicas
 
     @property
-    def query(self):
-        """Gets the query of this V1beta1ComponentExtensionSpec.  # noqa: E501
-
-        Query to run to get metrics from Prometheus  # noqa: E501
-
-        :return: The query of this V1beta1ComponentExtensionSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._query
-
-    @query.setter
-    def query(self, query):
-        """Sets the query of this V1beta1ComponentExtensionSpec.
-
-        Query to run to get metrics from Prometheus  # noqa: E501
-
-        :param query: The query of this V1beta1ComponentExtensionSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._query = query
-
-    @property
-    def query_parameters(self):
-        """Gets the query_parameters of this V1beta1ComponentExtensionSpec.  # noqa: E501
-
-        A comma-separated list of query Parameters to include while querying the Prometheus endpoint.  # noqa: E501
-
-        :return: The query_parameters of this V1beta1ComponentExtensionSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._query_parameters
-
-    @query_parameters.setter
-    def query_parameters(self, query_parameters):
-        """Sets the query_parameters of this V1beta1ComponentExtensionSpec.
-
-        A comma-separated list of query Parameters to include while querying the Prometheus endpoint.  # noqa: E501
-
-        :param query_parameters: The query_parameters of this V1beta1ComponentExtensionSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._query_parameters = query_parameters
-
-    @property
     def scale_metric(self):
         """Gets the scale_metric of this V1beta1ComponentExtensionSpec.  # noqa: E501
 
@@ -415,29 +349,6 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._scale_metric = scale_metric
-
-    @property
-    def scale_metric_type(self):
-        """Gets the scale_metric_type of this V1beta1ComponentExtensionSpec.  # noqa: E501
-
-        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
-
-        :return: The scale_metric_type of this V1beta1ComponentExtensionSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._scale_metric_type
-
-    @scale_metric_type.setter
-    def scale_metric_type(self, scale_metric_type):
-        """Sets the scale_metric_type of this V1beta1ComponentExtensionSpec.
-
-        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
-
-        :param scale_metric_type: The scale_metric_type of this V1beta1ComponentExtensionSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._scale_metric_type = scale_metric_type
 
     @property
     def scale_target(self):
@@ -482,29 +393,6 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._scaler = scaler
-
-    @property
-    def server_address(self):
-        """Gets the server_address of this V1beta1ComponentExtensionSpec.  # noqa: E501
-
-        Address of Prometheus server.  # noqa: E501
-
-        :return: The server_address of this V1beta1ComponentExtensionSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._server_address
-
-    @server_address.setter
-    def server_address(self, server_address):
-        """Sets the server_address of this V1beta1ComponentExtensionSpec.
-
-        Address of Prometheus server.  # noqa: E501
-
-        :param server_address: The server_address of this V1beta1ComponentExtensionSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._server_address = server_address
 
     @property
     def timeout(self):

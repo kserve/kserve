@@ -92,7 +92,7 @@ type ScalerSpec struct {
 	ServerAddress string `json:"serverAddress,omitempty"`
 	// Query to run to get metrics from Prometheus
 	// +optional
-	Query string `json:"query,omitempty"`
+	MetricQuery string `json:"metricQuery,omitempty"`
 	//  A comma-separated list of query Parameters to include while querying the Prometheus endpoint.
 	// +optional
 	QueryParameters string `json:"queryParameters,omitempty"`

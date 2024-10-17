@@ -48,8 +48,8 @@ class V1beta1ScalerSpec(object):
     """
     openapi_types = {
         'max_replicas': 'int',
+        'metric_query': 'str',
         'min_replicas': 'int',
-        'query': 'str',
         'query_parameters': 'str',
         'scale_metric': 'str',
         'scale_metric_type': 'str',
@@ -59,8 +59,8 @@ class V1beta1ScalerSpec(object):
 
     attribute_map = {
         'max_replicas': 'maxReplicas',
+        'metric_query': 'metricQuery',
         'min_replicas': 'minReplicas',
-        'query': 'query',
         'query_parameters': 'queryParameters',
         'scale_metric': 'scaleMetric',
         'scale_metric_type': 'scaleMetricType',
@@ -68,15 +68,15 @@ class V1beta1ScalerSpec(object):
         'server_address': 'serverAddress'
     }
 
-    def __init__(self, max_replicas=None, min_replicas=None, query=None, query_parameters=None, scale_metric=None, scale_metric_type=None, scale_target=None, server_address=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, max_replicas=None, metric_query=None, min_replicas=None, query_parameters=None, scale_metric=None, scale_metric_type=None, scale_target=None, server_address=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ScalerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._max_replicas = None
+        self._metric_query = None
         self._min_replicas = None
-        self._query = None
         self._query_parameters = None
         self._scale_metric = None
         self._scale_metric_type = None
@@ -86,10 +86,10 @@ class V1beta1ScalerSpec(object):
 
         if max_replicas is not None:
             self.max_replicas = max_replicas
+        if metric_query is not None:
+            self.metric_query = metric_query
         if min_replicas is not None:
             self.min_replicas = min_replicas
-        if query is not None:
-            self.query = query
         if query_parameters is not None:
             self.query_parameters = query_parameters
         if scale_metric is not None:
@@ -125,6 +125,29 @@ class V1beta1ScalerSpec(object):
         self._max_replicas = max_replicas
 
     @property
+    def metric_query(self):
+        """Gets the metric_query of this V1beta1ScalerSpec.  # noqa: E501
+
+        Query to run to get metrics from Prometheus  # noqa: E501
+
+        :return: The metric_query of this V1beta1ScalerSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._metric_query
+
+    @metric_query.setter
+    def metric_query(self, metric_query):
+        """Sets the metric_query of this V1beta1ScalerSpec.
+
+        Query to run to get metrics from Prometheus  # noqa: E501
+
+        :param metric_query: The metric_query of this V1beta1ScalerSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._metric_query = metric_query
+
+    @property
     def min_replicas(self):
         """Gets the min_replicas of this V1beta1ScalerSpec.  # noqa: E501
 
@@ -146,29 +169,6 @@ class V1beta1ScalerSpec(object):
         """
 
         self._min_replicas = min_replicas
-
-    @property
-    def query(self):
-        """Gets the query of this V1beta1ScalerSpec.  # noqa: E501
-
-        Query to run to get metrics from Prometheus  # noqa: E501
-
-        :return: The query of this V1beta1ScalerSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._query
-
-    @query.setter
-    def query(self, query):
-        """Sets the query of this V1beta1ScalerSpec.
-
-        Query to run to get metrics from Prometheus  # noqa: E501
-
-        :param query: The query of this V1beta1ScalerSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._query = query
 
     @property
     def query_parameters(self):
