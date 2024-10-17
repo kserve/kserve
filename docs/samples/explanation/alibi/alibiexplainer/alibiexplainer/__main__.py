@@ -35,6 +35,8 @@ def main():
     args, extra = parse_args(sys.argv[1:])
     # Pretrained Alibi explainer
 
+    print(args.command)
+
     alibi_model = None
     if args.storage_uri is not None:
         alibi_model = os.path.join(
