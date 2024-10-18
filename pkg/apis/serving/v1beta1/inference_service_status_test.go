@@ -213,8 +213,24 @@ func TestPropagateRawStatus(t *testing.T) {
 	}
 	parsedUrl, _ := url.Parse("http://test-predictor-default.default.example.com")
 	url := (*apis.URL)(parsedUrl)
-	status.PropagateRawStatus(PredictorComponent, deployment, url)
+	deploymentList := []*appsv1.Deployment{deployment}
+	status.PropagateRawStatus(PredictorComponent, deploymentList, url)
 	if res := status.IsConditionReady(PredictorReady); !res {
+		t.Errorf("expected: %v got: %v conditions: %v", true, res, status.Conditions)
+	}
+}
+
+func TestPropagateRawStatusWithMessages(t *testing.T) {
+	errorMsg := "test message"
+	status := &InferenceServiceStatus{
+		Status:      duckv1.Status{},
+		Address:     nil,
+		URL:         nil,
+		ModelStatus: ModelStatus{},
+	}
+
+	status.PropagateRawStatusWithMessages(PredictorComponent, errorMsg)
+	if res := status.IsConditionFalse(PredictorReady) && status.Conditions[0].Message == errorMsg; !res {
 		t.Errorf("expected: %v got: %v conditions: %v", true, res, status.Conditions)
 	}
 }

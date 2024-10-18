@@ -67,6 +67,7 @@ class V1beta1WorkerSpec(object):
         'node_selector': 'dict(str, str)',
         'os': 'V1PodOS',
         'overhead': 'dict(str, ResourceQuantity)',
+        'pipeline_parallel_size': 'int',
         'preemption_policy': 'str',
         'priority': 'int',
         'priority_class_name': 'str',
@@ -81,8 +82,8 @@ class V1beta1WorkerSpec(object):
         'service_account_name': 'str',
         'set_hostname_as_fqdn': 'bool',
         'share_process_namespace': 'bool',
-        'size': 'int',
         'subdomain': 'str',
+        'tensor_parallel_size': 'int',
         'termination_grace_period_seconds': 'int',
         'tolerations': 'list[V1Toleration]',
         'topology_spread_constraints': 'list[V1TopologySpreadConstraint]',
@@ -110,6 +111,7 @@ class V1beta1WorkerSpec(object):
         'node_selector': 'nodeSelector',
         'os': 'os',
         'overhead': 'overhead',
+        'pipeline_parallel_size': 'pipelineParallelSize',
         'preemption_policy': 'preemptionPolicy',
         'priority': 'priority',
         'priority_class_name': 'priorityClassName',
@@ -124,15 +126,15 @@ class V1beta1WorkerSpec(object):
         'service_account_name': 'serviceAccountName',
         'set_hostname_as_fqdn': 'setHostnameAsFQDN',
         'share_process_namespace': 'shareProcessNamespace',
-        'size': 'size',
         'subdomain': 'subdomain',
+        'tensor_parallel_size': 'tensorParallelSize',
         'termination_grace_period_seconds': 'terminationGracePeriodSeconds',
         'tolerations': 'tolerations',
         'topology_spread_constraints': 'topologySpreadConstraints',
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, size=None, subdomain=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, pipeline_parallel_size=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, tensor_parallel_size=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1WorkerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -158,6 +160,7 @@ class V1beta1WorkerSpec(object):
         self._node_selector = None
         self._os = None
         self._overhead = None
+        self._pipeline_parallel_size = None
         self._preemption_policy = None
         self._priority = None
         self._priority_class_name = None
@@ -172,8 +175,8 @@ class V1beta1WorkerSpec(object):
         self._service_account_name = None
         self._set_hostname_as_fqdn = None
         self._share_process_namespace = None
-        self._size = None
         self._subdomain = None
+        self._tensor_parallel_size = None
         self._termination_grace_period_seconds = None
         self._tolerations = None
         self._topology_spread_constraints = None
@@ -220,6 +223,8 @@ class V1beta1WorkerSpec(object):
             self.os = os
         if overhead is not None:
             self.overhead = overhead
+        if pipeline_parallel_size is not None:
+            self.pipeline_parallel_size = pipeline_parallel_size
         if preemption_policy is not None:
             self.preemption_policy = preemption_policy
         if priority is not None:
@@ -248,10 +253,10 @@ class V1beta1WorkerSpec(object):
             self.set_hostname_as_fqdn = set_hostname_as_fqdn
         if share_process_namespace is not None:
             self.share_process_namespace = share_process_namespace
-        if size is not None:
-            self.size = size
         if subdomain is not None:
             self.subdomain = subdomain
+        if tensor_parallel_size is not None:
+            self.tensor_parallel_size = tensor_parallel_size
         if termination_grace_period_seconds is not None:
             self.termination_grace_period_seconds = termination_grace_period_seconds
         if tolerations is not None:
@@ -716,6 +721,29 @@ class V1beta1WorkerSpec(object):
         self._overhead = overhead
 
     @property
+    def pipeline_parallel_size(self):
+        """Gets the pipeline_parallel_size of this V1beta1WorkerSpec.  # noqa: E501
+
+        PipelineParallelSize defines the number of parallel workers. It also represents the number of replicas in the worker set, where each worker set serves as a scaling unit.  # noqa: E501
+
+        :return: The pipeline_parallel_size of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._pipeline_parallel_size
+
+    @pipeline_parallel_size.setter
+    def pipeline_parallel_size(self, pipeline_parallel_size):
+        """Sets the pipeline_parallel_size of this V1beta1WorkerSpec.
+
+        PipelineParallelSize defines the number of parallel workers. It also represents the number of replicas in the worker set, where each worker set serves as a scaling unit.  # noqa: E501
+
+        :param pipeline_parallel_size: The pipeline_parallel_size of this V1beta1WorkerSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._pipeline_parallel_size = pipeline_parallel_size
+
+    @property
     def preemption_policy(self):
         """Gets the preemption_policy of this V1beta1WorkerSpec.  # noqa: E501
 
@@ -1036,29 +1064,6 @@ class V1beta1WorkerSpec(object):
         self._share_process_namespace = share_process_namespace
 
     @property
-    def size(self):
-        """Gets the size of this V1beta1WorkerSpec.  # noqa: E501
-
-        Configure the number of replicas in the worker set, each worker set represents the unit of scaling  # noqa: E501
-
-        :return: The size of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._size
-
-    @size.setter
-    def size(self, size):
-        """Sets the size of this V1beta1WorkerSpec.
-
-        Configure the number of replicas in the worker set, each worker set represents the unit of scaling  # noqa: E501
-
-        :param size: The size of this V1beta1WorkerSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._size = size
-
-    @property
     def subdomain(self):
         """Gets the subdomain of this V1beta1WorkerSpec.  # noqa: E501
 
@@ -1080,6 +1085,29 @@ class V1beta1WorkerSpec(object):
         """
 
         self._subdomain = subdomain
+
+    @property
+    def tensor_parallel_size(self):
+        """Gets the tensor_parallel_size of this V1beta1WorkerSpec.  # noqa: E501
+
+        TensorParallelSize specifies the number of GPUs to be used per node. It indicates the degree of parallelism for tensor computations across the available GPUs.  # noqa: E501
+
+        :return: The tensor_parallel_size of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._tensor_parallel_size
+
+    @tensor_parallel_size.setter
+    def tensor_parallel_size(self, tensor_parallel_size):
+        """Sets the tensor_parallel_size of this V1beta1WorkerSpec.
+
+        TensorParallelSize specifies the number of GPUs to be used per node. It indicates the degree of parallelism for tensor computations across the available GPUs.  # noqa: E501
+
+        :param tensor_parallel_size: The tensor_parallel_size of this V1beta1WorkerSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._tensor_parallel_size = tensor_parallel_size
 
     @property
     def termination_grace_period_seconds(self):

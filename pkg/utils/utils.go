@@ -234,3 +234,46 @@ func SetAvailableResourcesForApi(groupVersion string, resources *metav1.APIResou
 
 	gvResourcesCache[groupVersion] = resources
 }
+
+func GetEnvVarValue(envVars []v1.EnvVar, key string) (string, bool) {
+	for _, envVar := range envVars {
+		if envVar.Name == key {
+			return envVar.Value, true // if key exist, return value, true
+		}
+	}
+	return "", false // if key does not exist, return "", false
+}
+
+// IsUnknownGpuResourceType check if the provided gpu resource is unknown one
+func IsUnknownGpuResourceType(resources v1.ResourceRequirements) bool {
+	basicResourceTypes := map[v1.ResourceName]struct{}{
+		v1.ResourceCPU:              {},
+		v1.ResourceMemory:           {},
+		v1.ResourceStorage:          {},
+		v1.ResourceEphemeralStorage: {},
+	}
+
+	possibleGPUResourceType := map[v1.ResourceName]struct{}{}
+
+	// Helper function to add non-basic resources from the provided ResourceList
+	addNonBasicResources := func(resources v1.ResourceList) {
+		for resourceType := range resources {
+			if _, exists := basicResourceTypes[resourceType]; !exists {
+				possibleGPUResourceType[resourceType] = struct{}{}
+			}
+		}
+	}
+
+	// Add non-basic resources from both Limits and Requests
+	addNonBasicResources(resources.Limits)
+	addNonBasicResources(resources.Requests)
+
+	// Validate GPU resource types
+	for _, gpuType := range constants.GPUResourceTypeList {
+		allowedGPUResourceName := v1.ResourceName(gpuType)
+		delete(possibleGPUResourceType, allowedGPUResourceName) // Remove allowed GPU resource if exists
+	}
+
+	// Return true if there are unknown GPU resources
+	return len(possibleGPUResourceType) > 0
+}
