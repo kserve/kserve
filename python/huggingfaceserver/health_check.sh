@@ -33,8 +33,9 @@ check_registered_nodes() {
 }
 
 # Function for readiness check
-readiness_check() {
+check_readiness() {
   local pipeline_parallel_size="$1"
+  local health_check_url="$2"
 
   # Check if the registered nodes count matches PIPELINE_PARALLEL_SIZE
   check_registered_nodes ${pipeline_parallel_size}
@@ -43,7 +44,7 @@ readiness_check() {
   check_gpu_usage "Readiness Probe"
 
   # Check if huggingface server health
-  if ! curl --silent --max-time 5 $2; then
+  if ! curl --silent --max-time 5 ${health_check_url}; then
     echo "Readiness Probe: Unhealthy - Hugging Face server is not reachable."
     exit 1
   fi
@@ -62,7 +63,7 @@ liveness_check() {
 }
 
 # Function for startup check
-startup_check() {
+check_startup() {
   # Check the status of Ray nodes
   ray_status=$(ray status 2>&1) # Capture both stdout and stderr
   if [[ $? -ne 0 ]]; then
@@ -82,15 +83,15 @@ readiness)
     echo "Error: Insufficient parameters. At least 2 parameters are required.[PIPELINE_PARALLEL_SIZE],[health check api]"
     exit 1
   fi
-  readiness "$2" "$3"
+  check_readiness "$2" "$3"
   ;;
-startup_check)
-  startup
+startup)
+  check_startup
   ;;
-check_gpu_usage)
+gpu_usage)
   check_gpu_usage
   ;;
-check_registered_nodes)
+registered_nodes)
   # Check parameter count
   if [ "$#" -lt 2 ]; then
     echo "Error: Insufficient parameters. At least 1 parameters are required.[PIPELINE_PARALLEL_SIZE]"
@@ -99,11 +100,11 @@ check_registered_nodes)
   check_registered_nodes "$2"
   ;;
 *)
-  echo "Usage: $0 {readiness_check|startup_check|check_gpu_usage|check_registered_nodes} [PIPELINE_PARALLEL_SIZE] [health check api]"
-  echo "       $0 readiness_check 2 http://localhost:8080"
-  echo "       $0 check_gpu_usage"
-  echo "       $0 startup_check"
-  echo "       $0 check_registered_nodes 2"
+  echo "Usage: $0 {readiness|startup|gpu_usage|registered_nodes} [PIPELINE_PARALLEL_SIZE] [health check url]"
+  echo "       $0 readiness 2 http://localhost:8080"
+  echo "       $0 gpu_usage"
+  echo "       $0 startup"
+  echo "       $0 registered_nodes 2"
   exit 1
   ;;
 esac

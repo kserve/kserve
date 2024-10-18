@@ -69,7 +69,7 @@ spec:
             - bash
             - -c
             - |
-              ./huggingfaceserver/health_check.sh check_gpu_usage
+              ./huggingfaceserver/health_check.sh gpu_usage
       readinessProbe:
         failureThreshold: 2
         periodSeconds: 10
@@ -160,7 +160,7 @@ spec:
               - bash
               - -c
               - |
-                ./huggingfaceserver/health_check.sh check_registered_nodes ${PIPELINE_PARALLEL_SIZE}
+                ./huggingfaceserver/health_check.sh registered_nodes ${PIPELINE_PARALLEL_SIZE}
         startupProbe:
           failureThreshold: 12
           periodSeconds: 5
