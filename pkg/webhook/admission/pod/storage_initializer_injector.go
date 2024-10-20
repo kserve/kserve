@@ -166,7 +166,6 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 			modelParentDir = getParentDirectory(envVar.Value)
 		}
 	}
-
 	addVolumeMountIfNotPresent(userContainer, StorageInitializerVolumeName, modelParentDir)
 	if transformerContainer != nil {
 		addVolumeMountIfNotPresent(transformerContainer, StorageInitializerVolumeName, modelParentDir)
@@ -183,8 +182,8 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 
 	// Create the modelcar that is used as a sidecar in Pod and add it to the end
 	// of the containers (but only if not already have been added)
-	modelContainer := mi.createModelContainer(image, constants.DefaultModelLocalMountPath)
 	if getContainerWithName(pod, ModelcarContainerName) == nil {
+		modelContainer := mi.createModelContainer(image, constants.DefaultModelLocalMountPath)
 		for _, envVar := range userContainer.Env {
 			if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
 				modelContainer = mi.createModelContainer(image, envVar.Value)
@@ -305,6 +304,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 				SubPath:  pvcPath,
 				ReadOnly: isvcReadonlyStringFlag,
 			}
+			
 			for _, envVar := range userContainer.Env {
 				if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
 					pvcSourceVolumeMount.MountPath = envVar.Value
@@ -401,8 +401,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 		storageInitializerImage = mi.config.Image
 	}
 
-	securityContext := userContainer.SecurityContext.DeepCopy()
-
 	args := []string{srcURI, constants.DefaultModelLocalMountPath}
 
 	for _, envVar := range userContainer.Env {
@@ -440,14 +438,14 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  isvcReadonlyStringFlag,
 	}
+	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
+	if transformerContainer != nil {
+		transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, sharedVolumeReadMount)
+	}
 	for _, envVar := range userContainer.Env {
 		if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
 			sharedVolumeReadMount.MountPath = envVar.Value
 		}
-	}
-	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
-	if transformerContainer != nil {
-		transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, sharedVolumeReadMount)
 	}
 	// Change the CustomSpecStorageUri env variable value to the default model path if present
 	for index, envVar := range userContainer.Env {

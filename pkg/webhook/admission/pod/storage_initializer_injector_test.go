@@ -557,6 +557,89 @@ func TestStorageInitializerInjector(t *testing.T) {
 	}
 }
 
+func TestCustomSpecStorageMountPathInjection(t *testing.T) {
+	scenarios := map[string]struct {
+		original                       *v1.Pod
+		expectedStorageMountPathEnvVar *v1.EnvVar
+		expectedMountPath              string
+	}{
+		"CustomSpecStorageMountPathSet": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageMountPathKey,
+									Value: "/custom/models",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedStorageMountPathEnvVar: &v1.EnvVar{
+				Name:  constants.CustomSpecStorageMountPathKey,
+				Value: "/custom/models",
+			},
+			expectedMountPath: "/custom/models",
+		},
+		"CustomSpecStorageMountPathNotSet": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  "SomeOtherEnv",
+									Value: "someValue",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedStorageMountPathEnvVar: nil,
+			expectedMountPath:              constants.DefaultModelLocalMountPath,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		injector := &StorageInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+			config: storageInitializerConfig,
+			client: c,
+		}
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+
+		var originalEnvVar *v1.EnvVar
+		for _, envVar := range scenario.original.Spec.Containers[0].Env {
+			if envVar.Name == constants.CustomSpecStorageMountPathKey {
+				originalEnvVar = &envVar
+			}
+		}
+		if diff, _ := kmp.SafeDiff(scenario.expectedStorageMountPathEnvVar, originalEnvVar); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+
+	}
+}
 func TestStorageInitializerFailureCases(t *testing.T) {
 	scenarios := map[string]struct {
 		original            *corev1.Pod
@@ -2275,6 +2358,106 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 							Name: "kserve-pvc-source",
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "mypvcname",
+									ReadOnly:  false,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"StorageInitializerNotInjectedAndMountsPvcViaVolumeMountReadOnlyFalse": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+						constants.StorageReadonlyAnnotationKey:                     "false",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/models",
+									SubPath:   "some/path/on/pvc",
+									ReadOnly:  false,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-pvc-source",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "mypvcname",
+									ReadOnly:  false,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		"StorageInitializerNotInjectedAndMountsPvcViaVolumeMountReadOnlyTrue": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+						constants.StorageReadonlyAnnotationKey:                     "true",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expected: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							VolumeMounts: []v1.VolumeMount{
+								{
+									Name:      "kserve-pvc-source",
+									MountPath: "/mnt/models",
+									SubPath:   "some/path/on/pvc",
+									ReadOnly:  true,
+								},
+							},
+						},
+					},
+					Volumes: []v1.Volume{
+						{
+							Name: "kserve-pvc-source",
+							VolumeSource: v1.VolumeSource{
+								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "mypvcname",
 									ReadOnly:  false,
 								},
@@ -4039,7 +4222,7 @@ func TestLocalModelPVC(t *testing.T) {
 	})
 
 	for name, scenario := range scenarios {
-		original := &corev1.Pod{
+		original := &v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageUri,
