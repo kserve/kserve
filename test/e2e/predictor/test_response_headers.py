@@ -30,7 +30,7 @@ def test_predictor_headers_v1():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
+                image=os.environ.get("CUSTOM_MODEL_GRPC_IMG_TAG"),
                 # Override the entrypoint to run the custom model rest server
                 command=["python", "-m", "custom_model.model"],
                 resources=V1ResourceRequirements(
@@ -80,13 +80,13 @@ def test_predictor_headers_v1():
         namespace=KSERVE_TEST_NAMESPACE,
         version=constants.KSERVE_V1BETA1_VERSION,
     )
-    cluster_ip, host, path = get_isvc_endpoint(isvc)
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
     headers = {"Host": host, "Content-Type": "application/json"}
 
     if model_name is None:
         model_name = service_name
 
-    url = f"http://{cluster_ip}{path}/v1/models/{model_name}:predict"
+    url = f"{scheme}://{cluster_ip}{path}/v1/models/{model_name}:predict"
 
     time.sleep(10)
     with open(input_json) as json_file:
@@ -116,7 +116,7 @@ def test_predictor_headers_v2():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
+                image=os.environ.get("CUSTOM_MODEL_GRPC_IMG_TAG"),
                 # Override the entrypoint to run the custom model rest server
                 command=["python", "-m", "custom_model.model"],
                 resources=V1ResourceRequirements(
@@ -165,13 +165,13 @@ def test_predictor_headers_v2():
         namespace=KSERVE_TEST_NAMESPACE,
         version=constants.KSERVE_V1BETA1_VERSION,
     )
-    cluster_ip, host, path = get_isvc_endpoint(isvc)
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
     headers = {"Host": host, "Content-Type": "application/json"}
 
     if model_name is None:
         model_name = service_name
 
-    url = f"http://{cluster_ip}{path}/v2/models/{model_name}/infer"
+    url = f"{scheme}://{cluster_ip}{path}/v2/models/{model_name}/infer"
 
     time.sleep(10)
     with open(input_json) as json_file:
