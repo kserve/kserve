@@ -26,6 +26,8 @@ type ClusterStorageContainerExpansion interface{}
 
 type InferenceGraphExpansion interface{}
 
+type LocalModelNodeExpansion interface{}
+
 type LocalModelNodeGroupExpansion interface{}
 
 type ServingRuntimeExpansion interface{}

@@ -50,6 +50,14 @@ type InferenceGraphListerExpansion interface{}
 // InferenceGraphNamespaceLister.
 type InferenceGraphNamespaceListerExpansion interface{}
 
+// LocalModelNodeListerExpansion allows custom methods to be added to
+// LocalModelNodeLister.
+type LocalModelNodeListerExpansion interface{}
+
+// LocalModelNodeNamespaceListerExpansion allows custom methods to be added to
+// LocalModelNodeNamespaceLister.
+type LocalModelNodeNamespaceListerExpansion interface{}
+
 // LocalModelNodeGroupListerExpansion allows custom methods to be added to
 // LocalModelNodeGroupLister.
 type LocalModelNodeGroupListerExpansion interface{}
