@@ -84,19 +84,36 @@ type ScalerSpec struct {
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
 	// +optional
 	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
+	// MetricsBackend defines the scaling metric type watched by autoscaler
+	// possible values are prometheus, graphite.
+	// +optional
+	MetricsBackend *MetricsBackend `json:"metricBackend,omitempty"`
 	// Type of metric to use. Options are Utilization, or AverageValue.
 	// +optional
 	ScaleMetricType *v2.MetricTargetType `json:"scaleMetricType,omitempty"`
-	// Address of Prometheus server.
+	// Address of MetricsBackend server.
 	// +optional
 	ServerAddress string `json:"serverAddress,omitempty"`
-	// Query to run to get metrics from Prometheus
+	// Query to run to get metrics from MetricsBackend
 	// +optional
 	MetricQuery string `json:"metricQuery,omitempty"`
-	//  A comma-separated list of query Parameters to include while querying the Prometheus endpoint.
+	// A comma-separated list of query Parameters to include while querying the MetricsBackend endpoint.
 	// +optional
 	QueryParameters string `json:"queryParameters,omitempty"`
+	// queryTime is relative time range to execute query against.
+	// specialized for graphite (https://graphite-api.readthedocs.io/en/latest/api.html#from-until)
+	// +optional
+	QueryTime string `json:"queryTime,omitempty"`
 }
+
+// ScaleMetric enum
+// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps;prometheus
+type MetricsBackend string
+
+const (
+	PrometheusBackend MetricsBackend = "prometheus"
+	GraphiteBackend   MetricsBackend = "graphite"
+)
 
 // Batcher specifies optional payload batching available for all components
 type Batcher struct {
