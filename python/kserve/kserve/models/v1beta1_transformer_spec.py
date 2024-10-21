@@ -85,6 +85,7 @@ class V1beta1TransformerSpec(object):
         'restart_policy': 'str',
         'runtime_class_name': 'str',
         'scale_metric': 'str',
+        'scale_metric_type': 'str',
         'scale_target': 'int',
         'scaler': 'V1beta1ScalerSpec',
         'scheduler_name': 'str',
@@ -141,6 +142,7 @@ class V1beta1TransformerSpec(object):
         'restart_policy': 'restartPolicy',
         'runtime_class_name': 'runtimeClassName',
         'scale_metric': 'scaleMetric',
+        'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
         'scaler': 'scaler',
         'scheduler_name': 'schedulerName',
@@ -202,6 +204,7 @@ class V1beta1TransformerSpec(object):
         self._restart_policy = None
         self._runtime_class_name = None
         self._scale_metric = None
+        self._scale_metric_type = None
         self._scale_target = None
         self._scaler = None
         self._scheduler_name = None
@@ -295,6 +298,8 @@ class V1beta1TransformerSpec(object):
             self.runtime_class_name = runtime_class_name
         if scale_metric is not None:
             self.scale_metric = scale_metric
+        if scale_metric_type is not None:
+            self.scale_metric_type = scale_metric_type
         if scale_target is not None:
             self.scale_target = scale_target
         if scaler is not None:
@@ -1185,6 +1190,29 @@ class V1beta1TransformerSpec(object):
         """
 
         self._scale_metric = scale_metric
+
+    @property
+    def scale_metric_type(self):
+        """Gets the scale_metric_type of this V1beta1TransformerSpec.  # noqa: E501
+
+        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
+
+        :return: The scale_metric_type of this V1beta1TransformerSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._scale_metric_type
+
+    @scale_metric_type.setter
+    def scale_metric_type(self, scale_metric_type):
+        """Sets the scale_metric_type of this V1beta1TransformerSpec.
+
+        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
+
+        :param scale_metric_type: The scale_metric_type of this V1beta1TransformerSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._scale_metric_type = scale_metric_type
 
     @property
     def scale_target(self):

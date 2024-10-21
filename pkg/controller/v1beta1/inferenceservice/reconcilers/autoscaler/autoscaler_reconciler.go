@@ -25,6 +25,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/keda"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -54,10 +55,11 @@ type AutoscalerReconciler struct {
 }
 
 func NewAutoscalerReconciler(client client.Client,
+	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec) (*AutoscalerReconciler, error) {
-	as, err := createAutoscaler(client, scheme, componentMeta, componentExt)
+	as, err := createAutoscaler(client, clientset, scheme, componentMeta, componentExt)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +81,7 @@ func getAutoscalerClass(metadata metav1.ObjectMeta) constants.AutoscalerClassTyp
 }
 
 func createAutoscaler(client client.Client,
+	clientset kubernetes.Interface,
 	scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec) (Autoscaler, error) {
 	ac := getAutoscalerClass(componentMeta)
@@ -86,7 +89,7 @@ func createAutoscaler(client client.Client,
 	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal:
 		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt), nil
 	case constants.AutoscalerClassKeda:
-		return keda.NewKedaReconciler(client, scheme, componentMeta, componentExt), nil
+		return keda.NewKedaReconciler(client, clientset, scheme, componentMeta, componentExt), nil
 	default:
 		return nil, fmt.Errorf("unknown autoscaler class type: %v", ac)
 	}

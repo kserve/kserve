@@ -57,6 +57,7 @@ class V1beta1ComponentExtensionSpec(object):
         'max_replicas': 'int',
         'min_replicas': 'int',
         'scale_metric': 'str',
+        'scale_metric_type': 'str',
         'scale_target': 'int',
         'scaler': 'V1beta1ScalerSpec',
         'timeout': 'int'
@@ -73,12 +74,13 @@ class V1beta1ComponentExtensionSpec(object):
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
         'scale_metric': 'scaleMetric',
+        'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
         'scaler': 'scaler',
         'timeout': 'timeout'
     }
 
-    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_target=None, scaler=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_metric_type=None, scale_target=None, scaler=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -94,6 +96,7 @@ class V1beta1ComponentExtensionSpec(object):
         self._max_replicas = None
         self._min_replicas = None
         self._scale_metric = None
+        self._scale_metric_type = None
         self._scale_target = None
         self._scaler = None
         self._timeout = None
@@ -119,6 +122,8 @@ class V1beta1ComponentExtensionSpec(object):
             self.min_replicas = min_replicas
         if scale_metric is not None:
             self.scale_metric = scale_metric
+        if scale_metric_type is not None:
+            self.scale_metric_type = scale_metric_type
         if scale_target is not None:
             self.scale_target = scale_target
         if scaler is not None:
@@ -349,6 +354,29 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._scale_metric = scale_metric
+
+    @property
+    def scale_metric_type(self):
+        """Gets the scale_metric_type of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
+
+        :return: The scale_metric_type of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._scale_metric_type
+
+    @scale_metric_type.setter
+    def scale_metric_type(self, scale_metric_type):
+        """Sets the scale_metric_type of this V1beta1ComponentExtensionSpec.
+
+        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
+
+        :param scale_metric_type: The scale_metric_type of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._scale_metric_type = scale_metric_type
 
     @property
     def scale_target(self):

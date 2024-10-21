@@ -85,6 +85,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                 schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":             schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                   schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsConfig":                schema_pkg_apis_serving_v1beta1_MetricsConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelCopies":                  schema_pkg_apis_serving_v1beta1_ModelCopies(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat":                  schema_pkg_apis_serving_v1beta1_ModelFormat(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelRevisionStates":          schema_pkg_apis_serving_v1beta1_ModelRevisionStates(ref),
@@ -2337,6 +2338,13 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 					"scaleMetric": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -4840,6 +4848,13 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"containerConcurrency": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
@@ -6134,6 +6149,30 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 									},
 								},
 							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_MetricsConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metricsBackend": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"serverAddress": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
@@ -8910,6 +8949,13 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"containerConcurrency": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).",
@@ -9391,6 +9437,13 @@ func schema_pkg_apis_serving_v1beta1_ScalerSpec(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
+					"metricBackend": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"scaleMetricType": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
@@ -9400,21 +9453,28 @@ func schema_pkg_apis_serving_v1beta1_ScalerSpec(ref common.ReferenceCallback) co
 					},
 					"serverAddress": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Address of Prometheus server.",
+							Description: "Address of MetricsBackend server.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"metricQuery": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Query to run to get metrics from Prometheus",
+							Description: "Query to run to get metrics from MetricsBackend",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"queryParameters": {
 						SchemaProps: spec.SchemaProps{
-							Description: "A comma-separated list of query Parameters to include while querying the Prometheus endpoint.",
+							Description: "A comma-separated list of query Parameters to include while querying the MetricsBackend endpoint.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"queryTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "queryTime is relative time range to execute query against. specialized for graphite (https://graphite-api.readthedocs.io/en/latest/api.html#from-until)",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -10636,6 +10696,13 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 					"scaleMetric": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"scaleMetricType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

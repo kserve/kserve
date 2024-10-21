@@ -95,6 +95,9 @@ rules:
   - gateway.networking.k8s.io
   resources:
   - httproutes
+  - keda.sh
+  - scaledobjects
+  - scaledobjects/finalizers
   verbs:
   - create
   - delete
@@ -103,6 +106,14 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - keda.sh
+  resources:
+  - scaledobjects/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - networking.istio.io
   resources:

@@ -48,9 +48,11 @@ class V1beta1ScalerSpec(object):
     """
     openapi_types = {
         'max_replicas': 'int',
+        'metric_backend': 'str',
         'metric_query': 'str',
         'min_replicas': 'int',
         'query_parameters': 'str',
+        'query_time': 'str',
         'scale_metric': 'str',
         'scale_metric_type': 'str',
         'scale_target': 'int',
@@ -59,25 +61,29 @@ class V1beta1ScalerSpec(object):
 
     attribute_map = {
         'max_replicas': 'maxReplicas',
+        'metric_backend': 'metricBackend',
         'metric_query': 'metricQuery',
         'min_replicas': 'minReplicas',
         'query_parameters': 'queryParameters',
+        'query_time': 'queryTime',
         'scale_metric': 'scaleMetric',
         'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
         'server_address': 'serverAddress'
     }
 
-    def __init__(self, max_replicas=None, metric_query=None, min_replicas=None, query_parameters=None, scale_metric=None, scale_metric_type=None, scale_target=None, server_address=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, max_replicas=None, metric_backend=None, metric_query=None, min_replicas=None, query_parameters=None, query_time=None, scale_metric=None, scale_metric_type=None, scale_target=None, server_address=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ScalerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._max_replicas = None
+        self._metric_backend = None
         self._metric_query = None
         self._min_replicas = None
         self._query_parameters = None
+        self._query_time = None
         self._scale_metric = None
         self._scale_metric_type = None
         self._scale_target = None
@@ -86,12 +92,16 @@ class V1beta1ScalerSpec(object):
 
         if max_replicas is not None:
             self.max_replicas = max_replicas
+        if metric_backend is not None:
+            self.metric_backend = metric_backend
         if metric_query is not None:
             self.metric_query = metric_query
         if min_replicas is not None:
             self.min_replicas = min_replicas
         if query_parameters is not None:
             self.query_parameters = query_parameters
+        if query_time is not None:
+            self.query_time = query_time
         if scale_metric is not None:
             self.scale_metric = scale_metric
         if scale_metric_type is not None:
@@ -125,10 +135,33 @@ class V1beta1ScalerSpec(object):
         self._max_replicas = max_replicas
 
     @property
+    def metric_backend(self):
+        """Gets the metric_backend of this V1beta1ScalerSpec.  # noqa: E501
+
+        MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.  # noqa: E501
+
+        :return: The metric_backend of this V1beta1ScalerSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._metric_backend
+
+    @metric_backend.setter
+    def metric_backend(self, metric_backend):
+        """Sets the metric_backend of this V1beta1ScalerSpec.
+
+        MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.  # noqa: E501
+
+        :param metric_backend: The metric_backend of this V1beta1ScalerSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._metric_backend = metric_backend
+
+    @property
     def metric_query(self):
         """Gets the metric_query of this V1beta1ScalerSpec.  # noqa: E501
 
-        Query to run to get metrics from Prometheus  # noqa: E501
+        Query to run to get metrics from MetricsBackend  # noqa: E501
 
         :return: The metric_query of this V1beta1ScalerSpec.  # noqa: E501
         :rtype: str
@@ -139,7 +172,7 @@ class V1beta1ScalerSpec(object):
     def metric_query(self, metric_query):
         """Sets the metric_query of this V1beta1ScalerSpec.
 
-        Query to run to get metrics from Prometheus  # noqa: E501
+        Query to run to get metrics from MetricsBackend  # noqa: E501
 
         :param metric_query: The metric_query of this V1beta1ScalerSpec.  # noqa: E501
         :type: str
@@ -174,7 +207,7 @@ class V1beta1ScalerSpec(object):
     def query_parameters(self):
         """Gets the query_parameters of this V1beta1ScalerSpec.  # noqa: E501
 
-        A comma-separated list of query Parameters to include while querying the Prometheus endpoint.  # noqa: E501
+        A comma-separated list of query Parameters to include while querying the MetricsBackend endpoint.  # noqa: E501
 
         :return: The query_parameters of this V1beta1ScalerSpec.  # noqa: E501
         :rtype: str
@@ -185,13 +218,36 @@ class V1beta1ScalerSpec(object):
     def query_parameters(self, query_parameters):
         """Sets the query_parameters of this V1beta1ScalerSpec.
 
-        A comma-separated list of query Parameters to include while querying the Prometheus endpoint.  # noqa: E501
+        A comma-separated list of query Parameters to include while querying the MetricsBackend endpoint.  # noqa: E501
 
         :param query_parameters: The query_parameters of this V1beta1ScalerSpec.  # noqa: E501
         :type: str
         """
 
         self._query_parameters = query_parameters
+
+    @property
+    def query_time(self):
+        """Gets the query_time of this V1beta1ScalerSpec.  # noqa: E501
+
+        queryTime is relative time range to execute query against. specialized for graphite (https://graphite-api.readthedocs.io/en/latest/api.html#from-until)  # noqa: E501
+
+        :return: The query_time of this V1beta1ScalerSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._query_time
+
+    @query_time.setter
+    def query_time(self, query_time):
+        """Sets the query_time of this V1beta1ScalerSpec.
+
+        queryTime is relative time range to execute query against. specialized for graphite (https://graphite-api.readthedocs.io/en/latest/api.html#from-until)  # noqa: E501
+
+        :param query_time: The query_time of this V1beta1ScalerSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._query_time = query_time
 
     @property
     def scale_metric(self):
@@ -266,7 +322,7 @@ class V1beta1ScalerSpec(object):
     def server_address(self):
         """Gets the server_address of this V1beta1ScalerSpec.  # noqa: E501
 
-        Address of Prometheus server.  # noqa: E501
+        Address of MetricsBackend server.  # noqa: E501
 
         :return: The server_address of this V1beta1ScalerSpec.  # noqa: E501
         :rtype: str
@@ -277,7 +333,7 @@ class V1beta1ScalerSpec(object):
     def server_address(self, server_address):
         """Sets the server_address of this V1beta1ScalerSpec.
 
-        Address of Prometheus server.  # noqa: E501
+        Address of MetricsBackend server.  # noqa: E501
 
         :param server_address: The server_address of this V1beta1ScalerSpec.  # noqa: E501
         :type: str
