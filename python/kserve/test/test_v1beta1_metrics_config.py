@@ -30,12 +30,12 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1beta1_scaler_spec import V1beta1ScalerSpec  # noqa: E501
+from kserve.models.v1beta1_metrics_config import V1beta1MetricsConfig  # noqa: E501
 from kserve.rest import ApiException
 
 
-class TestV1beta1ScalerSpec(unittest.TestCase):
-    """V1beta1ScalerSpec unit test stubs"""
+class TestV1beta1MetricsConfig(unittest.TestCase):
+    """V1beta1MetricsConfig unit test stubs"""
 
     def setUp(self):
         pass
@@ -44,27 +44,18 @@ class TestV1beta1ScalerSpec(unittest.TestCase):
         pass
 
     def make_instance(self, include_optional):
-        """Test V1beta1ScalerSpec
+        """Test V1beta1MetricsConfig
         include_option is a boolean, when False only required
         params are included, when True both required and
         optional params are included"""
-        # model = kserve.models.v1beta1_scaler_spec.V1beta1ScalerSpec()  # noqa: E501
+        # model = kserve.models.v1beta1_metrics_config.V1beta1MetricsConfig()  # noqa: E501
         if include_optional:
-            return V1beta1ScalerSpec(
-                max_replicas=56,
-                min_replicas=56,
-                query_time="0",
-                query_parameters="0",
-                scale_metric="0",
-                scale_metric_type="0",
-                scale_target=56,
-                server_address="0",
-            )
+            return V1beta1MetricsConfig(metrics_backend="0", server_address="0")
         else:
-            return V1beta1ScalerSpec()
+            return V1beta1MetricsConfig()
 
-    def testV1beta1ScalerSpec(self):
-        """Test V1beta1ScalerSpec"""
+    def testV1beta1MetricsConfig(self):
+        """Test V1beta1MetricsConfig"""
         inst_req_only = self.make_instance(include_optional=False)
         inst_req_and_optional = self.make_instance(include_optional=True)
 
