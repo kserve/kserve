@@ -55,7 +55,7 @@ func NewRawKubeReconciler(client client.Client,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) (*RawKubeReconciler, error) {
-	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt)
+	as, err := autoscaler.NewAutoscalerReconciler(client, clientset, scheme, componentMeta, componentExt)
 	if err != nil {
 		return nil, err
 	}

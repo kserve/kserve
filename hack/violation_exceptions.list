@@ -38,6 +38,7 @@ API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ExplainersConfig,ARTExplainer
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,IngressConfig,EnableGatewayAPI
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,IngressConfig,LocalGatewayServiceName
+API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,MetricsConfig,MetricBackend
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ModelStatus,ModelCopies
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ModelStatus,ModelRevisionStates
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,DeprecatedServiceAccount
@@ -47,4 +48,5 @@ API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,PyTorch
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,SKLearn
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,XGBoost
+API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ScalerSpec,MetricsBackend
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,StorageSpec,StorageKey

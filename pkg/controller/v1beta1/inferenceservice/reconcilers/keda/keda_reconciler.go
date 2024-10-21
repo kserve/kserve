@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -44,19 +45,29 @@ type KedaReconciler struct {
 }
 
 func NewKedaReconciler(client client.Client,
+	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec) *KedaReconciler {
 	return &KedaReconciler{
 		client:       client,
 		scheme:       scheme,
-		ScaledObject: createKedaScaledObject(componentMeta, componentExt),
+		ScaledObject: createKedaScaledObject(clientset, componentMeta, componentExt),
 		componentExt: componentExt,
 	}
 }
 
-func createKedaScaledObject(componentMeta metav1.ObjectMeta,
+func createKedaScaledObject(clientset kubernetes.Interface, componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec) *kedav1alpha1.ScaledObject {
+	metricConfig, err := v1beta1.NewMetricsConfig(clientset)
+	if err != nil {
+		return nil
+	}
+
+	// metrics configs from configmap (which can be overridden by ScalerSpec)
+	triggerType := metricConfig.MetricBackend
+	serverAddress := metricConfig.ServerAddress
+
 	annotations := componentMeta.GetAnnotations()
 
 	ScaleMetric := componentExtension.ScaleMetric
@@ -72,6 +83,11 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 		ScaleTarget = componentExtension.ScalerSpec.ScaleTarget
 	}
 
+	// overridding the trigger type if ScaleMetric is set in he ScalerSpec
+	if ScaleMetric != nil && *ScaleMetric != "" {
+		triggerType = string(*ScaleMetric)
+	}
+
 	scaledobject := &kedav1alpha1.ScaledObject{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        componentMeta.Name,
@@ -85,7 +101,7 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 			},
 			Triggers: []kedav1alpha1.ScaleTriggers{
 				{
-					Type:     string(*ScaleMetric),
+					Type:     triggerType,
 					Metadata: map[string]string{},
 				},
 			},
@@ -97,20 +113,32 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 		scaledobject.Spec.Triggers[0].MetricType = *ScaleMetricType
 	}
 
-	if *ScaleMetric == "prometheus" {
-		if componentExtension.ServerAddress != "" {
-			scaledobject.Spec.Triggers[0].Metadata["serverAddress"] = componentExtension.ServerAddress
+	// set queryTime for graphite trigger
+	if triggerType == "graphite" {
+		if componentExtension.ScalerSpec.QueryTime != "" {
+			scaledobject.Spec.Triggers[0].Metadata["queryTime"] = componentExtension.ScalerSpec.QueryTime
 		}
-		if componentExtension.Query != "" {
-			scaledobject.Spec.Triggers[0].Metadata["query"] = componentExtension.Query
+	}
+
+	// set trigger metadata for prometheus and graphite triggers
+	if triggerType == "prometheus" || triggerType == "graphite" {
+		if componentExtension.ScalerSpec.ServerAddress != "" {
+			serverAddress = componentExtension.ScalerSpec.ServerAddress
 		}
-		if componentExtension.QueryParameters != "" {
-			scaledobject.Spec.Triggers[0].Metadata["queryParameters"] = componentExtension.QueryParameters
+		if componentExtension.ScalerSpec.ServerAddress != "" {
+			scaledobject.Spec.Triggers[0].Metadata["serverAddress"] = serverAddress
 		}
-		if componentExtension.ServerAddress != "" {
+		if componentExtension.ScalerSpec.MetricQuery != "" {
+			scaledobject.Spec.Triggers[0].Metadata["query"] = componentExtension.ScalerSpec.MetricQuery
+		}
+		if componentExtension.ScalerSpec.QueryParameters != "" {
+			scaledobject.Spec.Triggers[0].Metadata["queryParameters"] = componentExtension.ScalerSpec.QueryParameters
+		}
+		if componentExtension.ScalerSpec.ServerAddress != "" {
 			scaledobject.Spec.Triggers[0].Metadata["threshold"] = strconv.Itoa((*ScaleTarget))
 		}
 	} else {
+		// set trigger metadata other ScaleMetric
 		scaledobject.Spec.Triggers[0].Metadata["value"] = strconv.Itoa((*ScaleTarget))
 	}
 
