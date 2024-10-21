@@ -32,10 +32,10 @@ import (
 
 	"knative.dev/pkg/kmp"
 
+	"encoding/json"
 	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"encoding/json"
 )
 
 const (
@@ -110,10 +110,10 @@ func TestAgentInjector(t *testing.T) {
 							Name: "sklearn",
 							ReadinessProbe: &v1.Probe{
 								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
-										Port: intstr.IntOrString{
-											IntVal: 8080,
-										},
+									HTTPGet: &v1.HTTPGetAction{
+										Path:   "/",
+										Port:   intstr.FromInt(8080),
+										Scheme: "HTTP",
 									},
 								},
 								InitialDelaySeconds: 0,
@@ -140,10 +140,10 @@ func TestAgentInjector(t *testing.T) {
 							Name: "sklearn",
 							ReadinessProbe: &v1.Probe{
 								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
-										Port: intstr.IntOrString{
-											IntVal: 8080,
-										},
+									HTTPGet: &v1.HTTPGetAction{
+										Path:   "/",
+										Port:   intstr.FromInt(8080),
+										Scheme: "HTTP",
 									},
 								},
 								InitialDelaySeconds: 0,
@@ -177,7 +177,12 @@ func TestAgentInjector(t *testing.T) {
 									Protocol:      "TCP",
 								},
 							},
-							Env: []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env: []v1.EnvVar{
+								{
+									Name:  "SERVING_READINESS_PROBE",
+									Value: "{\"httpGet\":{\"path\":\"/\",\"port\":8080,\"scheme\":\"HTTP\"},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}",
+								},
+							},
 							ReadinessProbe: &v1.Probe{
 								ProbeHandler: v1.ProbeHandler{
 									HTTPGet: &v1.HTTPGetAction{
@@ -1124,10 +1129,10 @@ func TestAgentInjector(t *testing.T) {
 							Name: "kserve-container",
 							ReadinessProbe: &v1.Probe{
 								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
-										Port: intstr.IntOrString{
-											IntVal: 8080,
-										},
+									HTTPGet: &v1.HTTPGetAction{
+										Path:   "/",
+										Port:   intstr.FromInt(8080),
+										Scheme: "HTTP",
 									},
 								},
 								InitialDelaySeconds: 0,
@@ -1160,10 +1165,10 @@ func TestAgentInjector(t *testing.T) {
 							Name: "kserve-container",
 							ReadinessProbe: &v1.Probe{
 								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
-										Port: intstr.IntOrString{
-											IntVal: 8080,
-										},
+									HTTPGet: &v1.HTTPGetAction{
+										Path:   "/",
+										Port:   intstr.FromInt(8080),
+										Scheme: "HTTP",
 									},
 								},
 								InitialDelaySeconds: 0,
@@ -1206,7 +1211,12 @@ func TestAgentInjector(t *testing.T) {
 									Protocol:      "TCP",
 								},
 							},
-							Env: []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env: []v1.EnvVar{
+								{
+									Name:  "SERVING_READINESS_PROBE",
+									Value: "{\"httpGet\":{\"path\":\"/\",\"port\":8080,\"scheme\":\"HTTP\"},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}",
+								},
+							},
 							ReadinessProbe: &v1.Probe{
 								ProbeHandler: v1.ProbeHandler{
 									HTTPGet: &v1.HTTPGetAction{
@@ -1583,14 +1593,12 @@ func TestGetAgentConfigs(t *testing.T) {
 	}
 }
 
-
-
 func TestInjectReadinessProbeHandling(t *testing.T) {
 	tests := []struct {
-		name               string
-		readinessProbe     *v1.Probe
+		name                string
+		readinessProbe      *v1.Probe
 		queueProxyAvailable bool
-		expectEnvVar       bool
+		expectEnvVar        bool
 	}{
 		{
 			name: "HTTPGet Readiness Probe",
@@ -1671,7 +1679,7 @@ func TestInjectReadinessProbeHandling(t *testing.T) {
 			// Run the code block
 			if !tt.queueProxyAvailable {
 				readinessProbe := pod.Spec.Containers[0].ReadinessProbe
-			
+
 				if readinessProbe != nil && readinessProbe.HTTPGet != nil {
 					readinessProbeJson, err := json.Marshal(readinessProbe)
 					if err != nil {

@@ -239,7 +239,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 
 	if !queueProxyAvailable {
 		readinessProbe := pod.Spec.Containers[0].ReadinessProbe
-	
+
 		// Check if the readiness probe exists and is of type HTTPGet
 		if readinessProbe != nil && readinessProbe.HTTPGet != nil {
 			// Marshal the HTTPGet readiness probe into JSON format for use by the agent container
@@ -247,7 +247,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			if err != nil {
 				return fmt.Errorf("failed to marshal readiness probe: %w", err)
 			}
-			
+
 			// Append the marshaled readiness probe as an environment variable for the agent container
 			agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
 		} else {
@@ -264,8 +264,6 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 			}
 		}
 	}
-	
-
 
 	// Make sure securityContext is initialized and valid
 	securityContext := pod.Spec.Containers[0].SecurityContext.DeepCopy()
