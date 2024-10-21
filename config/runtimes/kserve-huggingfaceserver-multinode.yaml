@@ -112,13 +112,13 @@ spec:
 
             while true; do              
               if (( SECONDS <= 120 )); then
-                if ray health-check --address "${ISVC_NAME}-head.${POD_NAMESPACE}.svc.cluster.local:6379" > /dev/null 2>&1; then
+                if ray health-check --address "${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379" > /dev/null 2>&1; then
                   echo "Global Control Service(GCS) is ready."
                   break
                 fi
                 echo "$SECONDS seconds elapsed: Waiting for Global Control Service(GCS) to be ready."
               else
-                if ray health-check --address "${ISVC_NAME}-head.${POD_NAMESPACE}.svc.cluster.local:6379"; then
+                if ray health-check --address "${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379"; then
                   echo "Global Control Service(GCS) is ready. Any error messages above can be safely ignored."
                   break
                 fi
@@ -128,8 +128,8 @@ spec:
               sleep 5
             done
 
+            RAY_HEAD_ADDRESS="${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379"
             echo "Attempting to connect to Ray cluster at $RAY_HEAD_ADDRESS ..."
-            RAY_HEAD_ADDRESS="${ISVC_NAME}-head.${POD_NAMESPACE}.svc.cluster.local:6379"
             ray start --address="$RAY_HEAD_ADDRESS" --block
         env:
           - name: POD_NAME

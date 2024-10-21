@@ -76,9 +76,10 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					"annotation": "annotation-value",
 				},
 				Labels: map[string]string{
-					constants.RawDeploymentAppLabel:       "isvc.default-predictor",
-					constants.InferenceServicePodLabelKey: "default-predictor",
-					constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+					constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
+					constants.InferenceServicePodLabelKey:           "default-predictor",
+					constants.KServiceComponentLabel:                string(v1beta1.PredictorComponent),
+					constants.InferenceServiceGenerationPodLabelKey: "1",
 				},
 			},
 
@@ -139,9 +140,10 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Name:      "default-predictor",
 					Namespace: "default-predictor-namespace",
 					Labels: map[string]string{
-						constants.RawDeploymentAppLabel:       "isvc.default-predictor",
-						constants.KServiceComponentLabel:      "predictor",
-						constants.InferenceServicePodLabelKey: "default-predictor",
+						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
+						constants.KServiceComponentLabel:                "predictor",
+						constants.InferenceServicePodLabelKey:           "default-predictor",
+						constants.InferenceServiceGenerationPodLabelKey: "1",
 					},
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
@@ -163,12 +165,14 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			},
 			&corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default-head",
+					Name:      "default-head-1",
 					Namespace: "default-predictor-namespace",
 					Labels: map[string]string{
-						constants.RawDeploymentAppLabel:       "isvc.default-predictor",
-						constants.KServiceComponentLabel:      "predictor",
-						constants.InferenceServicePodLabelKey: "default-predictor",
+						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
+						constants.KServiceComponentLabel:                "predictor",
+						constants.InferenceServicePodLabelKey:           "default-predictor",
+						constants.InferenceServiceGenerationPodLabelKey: "1",
+						constants.MultiNodeRoleLabelKey:                 constants.MultiNodeHead,
 					},
 					Annotations: map[string]string{
 						"annotation": "annotation-value",
@@ -176,7 +180,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				},
 				Spec: corev1.ServiceSpec{
 					Selector: map[string]string{
-						constants.RawDeploymentAppLabel: "isvc.default-predictor",
+						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
+						constants.InferenceServiceGenerationPodLabelKey: "1",
 					},
 					ClusterIP:                "None",
 					PublishNotReadyAddresses: true,

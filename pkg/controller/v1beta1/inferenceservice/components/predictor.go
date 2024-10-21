@@ -82,6 +82,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	var sRuntimeWorkerLabels map[string]string
 	var sRuntimeWorkerAnnotations map[string]string
 	multiNodeEnabled := false
+	isvcGeneration := strconv.FormatInt(isvc.Generation, 10)
 
 	if isvc.Spec.Predictor.WorkerSpec != nil {
 		multiNodeEnabled = true
@@ -380,6 +381,10 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		if err := isvcutils.AddEnvVarToPodSpec(&workerPodSpec, constants.WorkerContainerName, "ISVC_NAME", isvc.Name); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "failed to add ISVC_NAME environment to the container(%s)", constants.InferenceServiceContainerName)
 		}
+		// Set the environment variable for "isvc name" to the ISVC_NAME when multiNodeEnabled is true.
+		if err := isvcutils.AddEnvVarToPodSpec(&workerPodSpec, constants.WorkerContainerName, "HEAD_SVC", constants.GeHeadServiceName(isvc.Name, isvcGeneration)); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to add ISVC_NAME environment to the container(%s)", constants.InferenceServiceContainerName)
+		}
 	}
 
 	predictorName := constants.PredictorServiceName(isvc.Name)
@@ -424,8 +429,9 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 				isvc.Labels,
 				predictorLabels,
 				map[string]string{
-					constants.InferenceServicePodLabelKey: isvc.Name,
-					constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+					constants.InferenceServiceGenerationPodLabelKey: isvcGeneration,
+					constants.InferenceServicePodLabelKey:           isvc.Name,
+					constants.KServiceComponentLabel:                string(v1beta1.PredictorComponent),
 				},
 			),
 			Annotations: utils.Union(
@@ -455,6 +461,11 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 			annotations,
 			predictorAnnotations,
 		),
+	}
+
+	if multiNodeEnabled {
+		objectMeta.Labels[constants.InferenceServiceGenerationPodLabelKey] = isvcGeneration
+		workerObjectMeta.Labels[constants.InferenceServiceGenerationPodLabelKey] = isvcGeneration
 	}
 
 	p.Log.Info("Resolved container", "container", container, "podSpec", podSpec)

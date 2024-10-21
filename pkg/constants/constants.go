@@ -42,10 +42,11 @@ var (
 
 // InferenceService Constants
 var (
-	InferenceServiceName          = "inferenceservice"
-	InferenceServiceAPIName       = "inferenceservices"
-	InferenceServicePodLabelKey   = KServeAPIGroupName + "/" + InferenceServiceName
-	InferenceServiceConfigMapName = "inferenceservice-config"
+	InferenceServiceName                  = "inferenceservice"
+	InferenceServiceAPIName               = "inferenceservices"
+	InferenceServicePodLabelKey           = KServeAPIGroupName + "/" + InferenceServiceName
+	InferenceServiceGenerationPodLabelKey = "isvc.generation"
+	InferenceServiceConfigMapName         = "inferenceservice-config"
 )
 
 // InferenceGraph Constants
@@ -486,6 +487,12 @@ const (
 	DefaultPipelineParallelSize = "2"
 )
 
+// Multi Node Labels
+var (
+	MultiNodeRoleLabelKey = "multinode/role"
+	MultiNodeHead         = "head"
+)
+
 // GetRawServiceLabel generate native service label
 func GetRawServiceLabel(service string) string {
 	return "isvc." + service
@@ -497,9 +504,9 @@ func GetRawWorkerServiceLabel(service string) string {
 }
 
 // GeHeadServiceName generate head service name
-func GeHeadServiceName(service string) string {
+func GeHeadServiceName(service string, isvcGeneration string) string {
 	isvcName := strings.TrimSuffix(service, "-predictor")
-	return isvcName + "-" + "head"
+	return isvcName + "-" + MultiNodeHead + "-" + isvcGeneration
 }
 
 func (e InferenceServiceComponent) String() string {

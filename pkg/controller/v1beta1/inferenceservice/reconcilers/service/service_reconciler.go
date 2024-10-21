@@ -18,6 +18,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"strconv"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -165,20 +167,55 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 }
 
 func createHeadSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
-	predictorSvcName := componentMeta.Name
-	componentMeta.Name = constants.GeHeadServiceName(predictorSvcName)
+	workerComponentMeta := componentMeta.DeepCopy()
+	predictorSvcName := workerComponentMeta.Name
+	isvcGeneration := componentMeta.GetLabels()[constants.InferenceServiceGenerationPodLabelKey]
+	workerComponentMeta.Name = constants.GeHeadServiceName(predictorSvcName, isvcGeneration)
+	workerComponentMeta.Labels[constants.MultiNodeRoleLabelKey] = constants.MultiNodeHead
 
 	service := &corev1.Service{
-		ObjectMeta: componentMeta,
+		ObjectMeta: *workerComponentMeta,
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
 				"app": constants.GetRawServiceLabel(predictorSvcName),
+				constants.InferenceServiceGenerationPodLabelKey: isvcGeneration,
 			},
 			ClusterIP:                "None", // Without this, it requires a Port but this Service does not need it.
 			PublishNotReadyAddresses: true,
 		},
 	}
 	return service
+}
+
+func (r *ServiceReconciler) cleanHeadSvc() error {
+	svcList := &corev1.ServiceList{}
+	if err := r.client.List(context.TODO(), svcList, client.MatchingLabels{
+		constants.MultiNodeRoleLabelKey: constants.MultiNodeHead,
+	}); err != nil {
+		return err
+	}
+
+	sort.Slice(svcList.Items, func(i, j int) bool {
+		return svcList.Items[i].CreationTimestamp.Time.After(svcList.Items[j].CreationTimestamp.Time)
+	})
+
+	// Keep the 3 newest services and delete the rest
+	for i := 3; i < len(svcList.Items); i++ {
+		existingService := &corev1.Service{}
+		err := r.client.Get(context.TODO(), types.NamespacedName{
+			Namespace: svcList.Items[i].Namespace,
+			Name:      svcList.Items[i].Name,
+		}, existingService)
+		if err == nil {
+			err := r.client.Delete(context.TODO(), existingService)
+			if err != nil {
+				fmt.Printf("Failed to delete service %s: %v\n", existingService.Name, err)
+			} else {
+				fmt.Printf("Deleted service %s in namespace %s\n", existingService.Name, existingService.Namespace)
+			}
+		}
+	}
+	return nil
 }
 
 // checkServiceExist checks if the service exists?
@@ -230,6 +267,9 @@ func (r *ServiceReconciler) Reconcile() ([]*corev1.Service, error) {
 			return nil, opErr
 		}
 	}
-
+	// Clean up head svc when head sevices are more than 3.
+	if len(r.ServiceList) > 1 {
+		r.cleanHeadSvc()
+	}
 	return r.ServiceList, nil
 }

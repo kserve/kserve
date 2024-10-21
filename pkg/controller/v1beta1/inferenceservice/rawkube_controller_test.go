@@ -2292,7 +2292,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Check Services
 			actualService := &v1.Service{}
-			headServiceName := isvcName + "-head"
+			headServiceName := constants.GeHeadServiceName(isvcName+"-predictor", "1")
 			defaultServiceName := isvcName + "-predictor"
 			expectedHeadServiceName := types.NamespacedName{Name: headServiceName, Namespace: isvcNamespace}
 			expectedDefaultServiceName := types.NamespacedName{Name: defaultServiceName, Namespace: isvcNamespace}
