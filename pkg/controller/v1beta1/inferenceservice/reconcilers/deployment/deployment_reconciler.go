@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -84,7 +85,15 @@ func createRawDeployment(componentMeta metav1.ObjectMeta,
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
+	setDeploymentReplicas(componentMeta, componentExt, &deployment.Spec)
 	return deployment
+}
+
+func setDeploymentReplicas(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec, deploymentSpec *appsv1.DeploymentSpec) {
+	// Setting a hard number of replicas can be done only if there is no active autoscaler.
+	if value, ok := componentMeta.Annotations[constants.AutoscalerClass]; ok && value == string(constants.AutoscalerClassNone) {
+		deploymentSpec.Replicas = componentExt.Replicas
+	}
 }
 
 // checkDeploymentExist checks if the deployment exists?
@@ -102,15 +111,18 @@ func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client) (cons
 		return constants.CheckResultUnknown, nil, err
 	}
 	// existed, check equivalence
-	// for HPA scaling, we should ignore Replicas of Deployment
-	ignoreFields := cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
+	ignoreFieldsOpt := cmp.Options{}
+	if r.Deployment.Spec.Replicas == nil {
+		// for HPA scaling, we should ignore Replicas of Deployment
+		ignoreFieldsOpt = append(ignoreFieldsOpt, cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas"))
+	}
 	// Do a dry-run update. This will populate our local deployment object with any default values
 	// that are present on the remote version.
 	if err := client.Update(context.TODO(), r.Deployment, kclient.DryRunAll); err != nil {
 		log.Error(err, "Failed to perform dry-run update of deployment", "Deployment", r.Deployment.Name)
 		return constants.CheckResultUnknown, nil, err
 	}
-	if diff, err := kmp.SafeDiff(r.Deployment.Spec, existingDeployment.Spec, ignoreFields); err != nil {
+	if diff, err := kmp.SafeDiff(r.Deployment.Spec, existingDeployment.Spec, ignoreFieldsOpt...); err != nil {
 		return constants.CheckResultUnknown, nil, err
 	} else if diff != "" {
 		log.Info("Deployment Updated", "Diff", diff)
