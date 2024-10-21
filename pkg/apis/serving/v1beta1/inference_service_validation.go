@@ -150,6 +150,9 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 // validateMultiNodeVariables validates when there is workerSpec set in isvc
 func validateMultiNodeVariables(isvc *InferenceService) error {
 	if isvc.Spec.Predictor.WorkerSpec != nil {
+		if len(isvc.Spec.Predictor.WorkerSpec.Containers) > 1 {
+			return fmt.Errorf(DisallowedMultipleContainersInWorkerSpecError, isvc.Name)
+		}
 		if isvc.Spec.Predictor.Model != nil {
 			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.PipelineParallelSizeEnvName); exists {
 				return fmt.Errorf(DisallowedWorkerSpecPipelineParallelSizeEnvError, isvc.Name)
@@ -187,6 +190,7 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 				return fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, isvc.Name, strconv.Itoa(workerSpecTensorParallelSize))
 			}
 		}
+
 		if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
 			for _, container := range isvc.Spec.Predictor.WorkerSpec.Containers {
 				if utils.IsUnknownGpuResourceType(container.Resources) {

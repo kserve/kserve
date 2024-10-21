@@ -125,7 +125,6 @@ var (
 	PredictorProtocolAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/predictor-protocol"
 	LocalModelLabel                                  = InferenceServiceInternalAnnotationsPrefix + "/localmodel"
 	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
-	WorkerNodeSize                                   = KServeAPIGroupName + "/worker-node-size"
 )
 
 // kserve networking constants

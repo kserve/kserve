@@ -295,7 +295,7 @@ func (srSpec *ServingRuntimeSpec) IsMultiModelRuntime() bool {
 	return srSpec.MultiModel != nil && *srSpec.MultiModel
 }
 
-func (srSpec *ServingRuntimeSpec) IsMultiNodelRuntime() bool {
+func (srSpec *ServingRuntimeSpec) IsMultiNodeRuntime() bool {
 	return srSpec.WorkerSpec != nil
 }
 

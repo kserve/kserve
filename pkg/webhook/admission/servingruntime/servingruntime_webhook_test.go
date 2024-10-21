@@ -1455,11 +1455,13 @@ func TestValidateModelFormatPrioritySame(t *testing.T) {
 
 func TestValidateMultiNodeVariables(t *testing.T) {
 	scenarios := map[string]struct {
-		name              string
-		newServingRuntime *v1alpha1.ServingRuntime
-		expected          gomega.OmegaMatcher
+		name                   string
+		newServingRuntime      *v1alpha1.ServingRuntime
+		existingServingRuntime *v1alpha1.ServingRuntime
+		expected               gomega.OmegaMatcher
 	}{
 		"When pipelineParallelSize is not set, then it should return error": {
+			existingServingRuntime: &v1alpha1.ServingRuntime{},
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "example-runtime-1",
@@ -1499,9 +1501,10 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			expected: gomega.Equal(errors.New(MissingPipelineParallelSizeValueError)),
 		},
 		"When tensorParallelSize is not set, then it should return error": {
+			existingServingRuntime: &v1alpha1.ServingRuntime{},
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "example-runtime-1",
+					Name:      "example-runtime-2",
 					Namespace: "test",
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
@@ -1538,9 +1541,10 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			expected: gomega.Equal(errors.New(MissingTensorParallelSizeValueError)),
 		},
 		"When pipeline-parallel-size set less than 2, then it should return error": {
+			existingServingRuntime: &v1alpha1.ServingRuntime{},
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "example-runtime-1",
+					Name:      "example-runtime-3",
 					Namespace: "test",
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
@@ -1578,9 +1582,10 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, "1")),
 		},
 		"When tensor-parallel-size set less than 1, then it should return error": {
+			existingServingRuntime: &v1alpha1.ServingRuntime{},
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "example-runtime-1",
+					Name:      "example-runtime-4",
 					Namespace: "test",
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
@@ -1618,9 +1623,10 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, "0")),
 		},
 		"When pipeline-parallel-size set in the environment, then it should return error": {
+			existingServingRuntime: &v1alpha1.ServingRuntime{},
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "example-runtime-1",
+					Name:      "example-runtime-5",
 					Namespace: "test",
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
@@ -1659,9 +1665,10 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			expected: gomega.Equal(errors.New(DisallowedWorkerSpecPipelineParallelSizeEnvError)),
 		},
 		"When tensor-parallel-size set in the environment, then it should return error": {
+			existingServingRuntime: &v1alpha1.ServingRuntime{},
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "example-runtime-1",
+					Name:      "example-runtime-6",
 					Namespace: "test",
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
@@ -1699,11 +1706,106 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			},
 			expected: gomega.Equal(errors.New(DisallowedWorkerSpecTensorParallelSizeEnvError)),
 		},
+		"when the existing workerSpec is removed from the servingRuntime, then it should return error": {
+			existingServingRuntime: &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "example-runtime-7",
+					Namespace: "test",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  constants.InferenceServiceContainerName,
+								Image: "kserve/sklearnserver:latest",
+								Args: []string{
+									"--model_name={{.Name}}",
+									"--model_dir=/mnt/models",
+									"--http_port=8080",
+								},
+							},
+						},
+					},
+					WorkerSpec: &v1alpha1.WorkerSpec{
+						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:    "worker-container",
+									Image:   "kserve/huggingfaceserver:latest",
+									Command: []string{"bash", "-c"},
+									Args: []string{
+										"ray start --address=$RAY_HEAD_ADDRESS --block",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			newServingRuntime: &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "example-runtime-1",
+					Namespace: "test",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  constants.InferenceServiceContainerName,
+								Image: "kserve/sklearnserver:latest",
+								Args: []string{
+									"--model_name={{.Name}}",
+									"--model_dir=/mnt/models",
+									"--http_port=8080",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(errors.New(DisallowedRemovingWorkerSpecFromServingRuntimeError)),
+		},
+		"When multiple containers set in WorkerSpec, then it should return error": {
+			existingServingRuntime: &v1alpha1.ServingRuntime{},
+			newServingRuntime: &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "example-runtime-8",
+					Namespace: "test",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  constants.InferenceServiceContainerName,
+								Image: "kserve/sklearnserver:latest",
+								Args: []string{
+									"--model_name={{.Name}}",
+									"--model_dir=/mnt/models",
+									"--http_port=8080",
+								},
+								Env: []corev1.EnvVar{
+									{Name: constants.TensorParallelSizeEnvName, Value: "test"},
+								},
+							},
+						},
+					},
+					WorkerSpec: &v1alpha1.WorkerSpec{
+						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+							Containers: []corev1.Container{
+								{},
+								{},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(errors.New(DisallowedMultipleContainersInWorkerSpecError)),
+		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			g := gomega.NewGomegaWithT(t)
-			err := validateMultiNodeSpec(&scenario.newServingRuntime.Spec)
+			err := validateMultiNodeSpec(&scenario.newServingRuntime.Spec, &scenario.existingServingRuntime.Spec)
 			g.Expect(err).To(scenario.expected)
 		})
 	}

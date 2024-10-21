@@ -761,6 +761,38 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			},
 			expected: gomega.Equal(fmt.Errorf(InvalidAutoScalerError, "foo-8", constants.AutoscalerClassHPA)),
 		},
+		"When multiple containers set in WorkerSpec, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-9",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+							},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec: PodSpec{
+								Containers: []v1.Container{
+									{},
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(DisallowedMultipleContainersInWorkerSpecError, "foo-9")),
+		},
 	}
 
 	for name, scenario := range scenarios {
