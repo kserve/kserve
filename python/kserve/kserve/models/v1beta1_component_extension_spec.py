@@ -125,7 +125,7 @@ class V1beta1ComponentExtensionSpec(object):
     def annotations(self):
         """Gets the annotations of this V1beta1ComponentExtensionSpec.  # noqa: E501
 
-        Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations  # noqa: E501
+        Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/  # noqa: E501
 
         :return: The annotations of this V1beta1ComponentExtensionSpec.  # noqa: E501
         :rtype: dict(str, str)
@@ -136,7 +136,7 @@ class V1beta1ComponentExtensionSpec(object):
     def annotations(self, annotations):
         """Sets the annotations of this V1beta1ComponentExtensionSpec.
 
-        Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations  # noqa: E501
+        Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/  # noqa: E501
 
         :param annotations: The annotations of this V1beta1ComponentExtensionSpec.  # noqa: E501
         :type: dict(str, str)
@@ -236,7 +236,7 @@ class V1beta1ComponentExtensionSpec(object):
     def labels(self):
         """Gets the labels of this V1beta1ComponentExtensionSpec.  # noqa: E501
 
-        Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels  # noqa: E501
+        Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/  # noqa: E501
 
         :return: The labels of this V1beta1ComponentExtensionSpec.  # noqa: E501
         :rtype: dict(str, str)
@@ -247,7 +247,7 @@ class V1beta1ComponentExtensionSpec(object):
     def labels(self, labels):
         """Sets the labels of this V1beta1ComponentExtensionSpec.
 
-        Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels  # noqa: E501
+        Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/  # noqa: E501
 
         :param labels: The labels of this V1beta1ComponentExtensionSpec.  # noqa: E501
         :type: dict(str, str)

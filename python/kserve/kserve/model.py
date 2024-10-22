@@ -14,18 +14,20 @@
 
 import inspect
 import time
-from abc import ABC
+from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Awaitable, Dict, List, Optional, Union
 
-import grpc
-import httpx
-import orjson
 from cloudevents.http import CloudEvent
-from httpx import HTTPStatusError
 
+from .constants.constants import (
+    PredictorProtocol,
+    PREDICTOR_BASE_URL_FORMAT,
+    EXPLAINER_BASE_URL_FORMAT,
+)
 from .errors import InvalidInput
-from .logging import logger, trace_logger
+from .inference_client import RESTConfig, InferenceRESTClient, InferenceGRPCClient
+from .logging import trace_logger
 from .metrics import (
     EXPLAIN_HIST_TIME,
     POST_HIST_TIME,
@@ -33,14 +35,8 @@ from .metrics import (
     PREDICT_HIST_TIME,
     get_labels,
 )
-from .protocol.grpc import grpc_predict_v2_pb2_grpc
-from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest, ModelInferResponse
+from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest
 from .protocol.infer_type import InferRequest, InferResponse
-
-PREDICTOR_URL_FORMAT = "{0}://{1}/v1/models/{2}:predict"
-EXPLAINER_URL_FORMAT = "{0}://{1}/v1/models/{2}:explain"
-PREDICTOR_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/infer"
-EXPLAINER_V2_URL_FORMAT = "{0}://{1}/v2/models/{2}/explain"
 
 
 class BaseKServeModel(ABC):
@@ -60,7 +56,7 @@ class BaseKServeModel(ABC):
         self.name = name
         self.ready = False
 
-    def healthy(self) -> bool:
+    async def healthy(self) -> bool:
         """
         Check the health of this model. By default returns `self.ready`.
 
@@ -69,21 +65,63 @@ class BaseKServeModel(ABC):
         """
         return self.ready
 
+    def load(self) -> bool:
+        """Load handler can be overridden to load the model from storage.
+        The `self.ready` should be set to True after the model is loaded. The flag is used for model health check.
+
+        Returns:
+            bool: True if model is ready, False otherwise
+        """
+        self.ready = True
+        return self.ready
+
+    def start(self):
+        """Start handler can be overridden to perform model setup"""
+        self.ready = True
+
     def stop(self):
         """Stop handler can be overridden to perform model teardown"""
-        pass
+        self.ready = False
 
 
 class InferenceVerb(Enum):
     EXPLAIN = 1
     PREDICT = 2
-    GENERATE = 3
 
 
-class PredictorProtocol(Enum):
-    REST_V1 = "v1"
-    REST_V2 = "v2"
-    GRPC_V2 = "grpc-v2"
+InferReturnValueTypes = Union[Dict, InferResponse, List[str]]
+InferReturnType = Union[InferReturnValueTypes, Awaitable[InferReturnValueTypes]]
+
+
+class InferenceModel(BaseKServeModel):
+    """
+    Abstract class representing a model that supports standard inference and prediction.
+    """
+
+    @abstractmethod
+    def __call__(
+        self,
+        body: Union[Dict, CloudEvent, InferRequest],
+        headers: Optional[Dict[str, str]] = None,
+        verb: InferenceVerb = InferenceVerb.PREDICT,
+    ) -> InferReturnType:
+        pass
+
+    def get_input_types(self) -> List[Dict]:
+        # Override this function to return appropriate input format expected by your model.
+        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
+
+        # Eg.
+        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
+        return []
+
+    def get_output_types(self) -> List[Dict]:
+        # Override this function to return appropriate output format returned by your model.
+        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
+
+        # Eg.
+        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
+        return []
 
 
 def is_v2(protocol: PredictorProtocol) -> bool:
@@ -116,8 +154,13 @@ class PredictorConfig:
         self.predictor_request_timeout_seconds = predictor_request_timeout_seconds
 
 
-class Model(BaseKServeModel):
-    def __init__(self, name: str, predictor_config: Optional[PredictorConfig] = None):
+class Model(InferenceModel):
+    def __init__(
+        self,
+        name: str,
+        predictor_config: Optional[PredictorConfig] = None,
+        return_response_headers: bool = False,
+    ):
         """KServe Model Public Interface
 
         Model is intended to be subclassed to implement the model handlers.
@@ -150,13 +193,14 @@ class Model(BaseKServeModel):
         self._http_client_instance = None
         self._grpc_client_stub = None
         self.enable_latency_logging = False
+        self.required_response_headers = return_response_headers
 
     async def __call__(
         self,
         body: Union[Dict, CloudEvent, InferRequest],
+        headers: Optional[Dict[str, str]] = None,
         verb: InferenceVerb = InferenceVerb.PREDICT,
-        headers: Dict[str, str] = None,
-    ) -> Union[Dict, InferResponse, List[str]]:
+    ) -> InferReturnType:
         """Method to call predictor or explainer with the given input.
 
         Args:
@@ -175,6 +219,7 @@ class Model(BaseKServeModel):
         predict_ms = 0
         postprocess_ms = 0
         prom_labels = get_labels(self.name)
+        response_headers = {}
 
         with PRE_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
@@ -197,22 +242,36 @@ class Model(BaseKServeModel):
         elif verb == InferenceVerb.PREDICT:
             with PREDICT_HIST_TIME.labels(**prom_labels).time():
                 start = time.time()
-                response = (
-                    (await self.predict(payload, headers))
-                    if inspect.iscoroutinefunction(self.predict)
-                    else self.predict(payload, headers)
-                )
+                if self.required_response_headers:
+                    response = (
+                        (await self.predict(payload, headers, response_headers))
+                        if inspect.iscoroutinefunction(self.predict)
+                        else self.predict(payload, headers, response_headers)
+                    )
+                else:
+                    response = (
+                        (await self.predict(payload, headers))
+                        if inspect.iscoroutinefunction(self.predict)
+                        else self.predict(payload, headers)
+                    )
                 predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
 
         with POST_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
-            response = (
-                await self.postprocess(response, headers)
-                if inspect.iscoroutinefunction(self.postprocess)
-                else self.postprocess(response, headers)
-            )
+            if self.required_response_headers:
+                response = (
+                    await self.postprocess(response, headers, response_headers)
+                    if inspect.iscoroutinefunction(self.postprocess)
+                    else self.postprocess(response, headers, response_headers)
+                )
+            else:
+                response = (
+                    await self.postprocess(response, headers)
+                    if inspect.iscoroutinefunction(self.postprocess)
+                    else self.postprocess(response, headers)
+                )
             postprocess_ms = get_latency_ms(start, time.time())
 
         if self.enable_latency_logging is True:
@@ -222,29 +281,20 @@ class Model(BaseKServeModel):
                 f"postprocess_ms: {postprocess_ms}"
             )
 
-        return response
+        return response, response_headers
 
     @property
-    def _http_client(self):
-        if self._http_client_instance is None:
-            self._http_client_instance = httpx.AsyncClient()
+    def _http_client(self) -> InferenceRESTClient:
+        if self._http_client_instance is None and self.predictor_host:
+            config = RESTConfig(protocol=self.protocol, timeout=self.timeout, retries=3)
+            self._http_client_instance = InferenceRESTClient(config=config)
         return self._http_client_instance
 
     @property
-    def _grpc_client(self):
-        if self._grpc_client_stub is None:
-            # requires appending the port to the predictor host for gRPC to work
-            if ":" not in self.predictor_host:
-                port = 443 if self.use_ssl else 80
-                self.predictor_host = f"{self.predictor_host}:{port}"
-            if self.use_ssl:
-                _channel = grpc.aio.secure_channel(
-                    self.predictor_host, grpc.ssl_channel_credentials()
-                )
-            else:
-                _channel = grpc.aio.insecure_channel(self.predictor_host)
-            self._grpc_client_stub = grpc_predict_v2_pb2_grpc.GRPCInferenceServiceStub(
-                _channel
+    def _grpc_client(self) -> InferenceGRPCClient:
+        if self._grpc_client_stub is None and self.predictor_host:
+            self._grpc_client_stub = InferenceGRPCClient(
+                url=self.predictor_host, use_ssl=self.use_ssl, timeout=self.timeout
             )
         return self._grpc_client_stub
 
@@ -276,22 +326,6 @@ class Model(BaseKServeModel):
         self.ready = True
         return self.ready
 
-    def get_input_types(self) -> List[Dict]:
-        # Override this function to return appropriate input format expected by your model.
-        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
-
-        # Eg.
-        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
-        return []
-
-    def get_output_types(self) -> List[Dict]:
-        # Override this function to return appropriate output format returned by your model.
-        # Refer https://kserve.github.io/website/0.9/modelserving/inference_api/#model-metadata-response-json-object
-
-        # Eg.
-        # return [{ "name": "", "datatype": "INT32", "shape": [1,5], }]
-        return []
-
     async def preprocess(
         self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
     ) -> Union[Dict, InferRequest]:
@@ -310,7 +344,10 @@ class Model(BaseKServeModel):
         return payload
 
     async def postprocess(
-        self, result: Union[Dict, InferResponse], headers: Dict[str, str] = None
+        self,
+        result: Union[Dict, InferResponse],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         """The `postprocess` handler can be overridden for inference result or response transformation.
         The predictor sends back the inference result in `Dict` for v1 endpoints and `InferResponse` for v2 endpoints.
@@ -325,17 +362,11 @@ class Model(BaseKServeModel):
         return result
 
     async def _http_predict(
-        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
-    ) -> Dict:
-        protocol = "https" if self.use_ssl else "http"
-        predict_url = PREDICTOR_URL_FORMAT.format(
-            protocol, self.predictor_host, self.name
-        )
-        if self.protocol == PredictorProtocol.REST_V2.value:
-            predict_url = PREDICTOR_V2_URL_FORMAT.format(
-                protocol, self.predictor_host, self.name
-            )
-
+        self,
+        payload: Union[Dict, InferRequest],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
+    ) -> Union[Dict, InferResponse]:
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
         predict_headers = {"Content-Type": "application/json"}
@@ -344,50 +375,31 @@ class Model(BaseKServeModel):
                 predict_headers["x-request-id"] = headers["x-request-id"]
             if "x-b3-traceid" in headers:
                 predict_headers["x-b3-traceid"] = headers["x-b3-traceid"]
-        if isinstance(payload, InferRequest):
-            payload = payload.to_rest()
-        data = orjson.dumps(payload)
 
-        try:
-            response = await self._http_client.post(
-                predict_url, timeout=self.timeout, headers=predict_headers, content=data
-            )
-        except Exception as exc:
-            request_id = predict_headers.get("x-request-id", "N.A.")
-            logger.error(
-                f"Could not send a request to predictor at url {predict_url} "
-                f"for {request_id=} "
-                f"due to exception {exc}"
-            )
-            raise exc
+        protocol = "https" if self.use_ssl else "http"
+        predict_base_url = PREDICTOR_BASE_URL_FORMAT.format(
+            protocol, self.predictor_host
+        )
+        response = await self._http_client.infer(
+            predict_base_url,
+            model_name=self.name,
+            data=payload,
+            headers=predict_headers,
+            response_headers=response_headers,
+        )
 
-        if not response.is_success:
-            message = (
-                "{error_message}, '{0.status_code} {0.reason_phrase}' for url '{0.url}'"
-            )
-            error_message = ""
-            if (
-                "content-type" in response.headers
-                and response.headers["content-type"] == "application/json"
-            ):
-                error_message = response.json()
-                if "error" in error_message:
-                    error_message = error_message["error"]
-            message = message.format(response, error_message=error_message)
-            raise HTTPStatusError(message, request=response.request, response=response)
-        return orjson.loads(response.content)
+        return response
 
     async def _grpc_predict(
         self,
         payload: Union[ModelInferRequest, InferRequest],
         headers: Dict[str, str] = None,
-    ) -> ModelInferResponse:
-        if isinstance(payload, InferRequest):
-            payload = payload.to_grpc()
-        async_result = await self._grpc_client.ModelInfer(
-            request=payload,
-            timeout=self.timeout,
-            metadata=(
+    ) -> InferResponse:
+        if isinstance(payload, ModelInferRequest):
+            payload = InferRequest.from_grpc(payload)
+        async_result = await self._grpc_client.infer(
+            infer_request=payload,
+            headers=(
                 ("request_type", "grpc_v2"),
                 ("response_type", "grpc_v2"),
                 ("x-request-id", headers.get("x-request-id", "")),
@@ -399,6 +411,7 @@ class Model(BaseKServeModel):
         self,
         payload: Union[Dict, InferRequest, ModelInferRequest],
         headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse, AsyncIterator[Any]]:
         """The `predict` handler can be overridden for performing the inference.
             By default, the predict handler makes call to predictor for the inference step.
@@ -416,16 +429,9 @@ class Model(BaseKServeModel):
         if not self.predictor_host:
             raise NotImplementedError("Could not find predictor_host.")
         if self.protocol == PredictorProtocol.GRPC_V2.value:
-            res = await self._grpc_predict(payload, headers)
-            return InferResponse.from_grpc(res)
+            return await self._grpc_predict(payload, headers)
         else:
-            res = await self._http_predict(payload, headers)
-            # return an InferResponse if this is REST V2, otherwise just return the dictionary
-            return (
-                InferResponse.from_rest(self.name, res)
-                if is_v2(PredictorProtocol(self.protocol))
-                else res
-            )
+            return await self._http_predict(payload, headers, response_headers)
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.
@@ -444,14 +450,24 @@ class Model(BaseKServeModel):
         if self.explainer_host is None:
             raise NotImplementedError("Could not find explainer_host.")
 
+        explain_headers = {"content-type": "application/json"}
+        if headers is not None:
+            if "content-type" in headers:
+                explain_headers["content-type"] = headers["content-type"]
+            if "x-request-id" in headers:
+                explain_headers["x-request-id"] = headers["x-request-id"]
+            if "x-b3-traceid" in headers:
+                explain_headers["x-b3-traceid"] = headers["x-b3-traceid"]
+
         protocol = "https" if self.use_ssl else "http"
         # Currently explainer only supports the kserve v1 endpoints
-        explain_url = EXPLAINER_URL_FORMAT.format(
-            protocol, self.explainer_host, self.name
+        explain_base_url = EXPLAINER_BASE_URL_FORMAT.format(
+            protocol, self.explainer_host
         )
-        response = await self._http_client.post(
-            url=explain_url, timeout=self.timeout, content=orjson.dumps(payload)
+        response = await self._http_client.explain(
+            explain_base_url,
+            model_name=self.name,
+            data=payload,
+            headers=explain_headers,
         )
-
-        response.raise_for_status()
-        return orjson.loads(response.content)
+        return response

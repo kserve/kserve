@@ -1,7 +1,6 @@
-ARG PYTHON_VERSION=3.9
 ARG VENV_PATH=/prod_venv
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest as builder
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest AS builder
 
 # Install Python and dependencies
 RUN microdnf install -y --setopt=ubi-8-appstream-rpms.module_hotfixes=1 --disablerepo=* \
@@ -10,7 +9,7 @@ RUN microdnf install -y --setopt=ubi-8-appstream-rpms.module_hotfixes=1 --disabl
 
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.7.1
+ARG POETRY_VERSION=1.8.3
 
 RUN python -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
 ENV PATH="$PATH:${POETRY_HOME}/bin"
@@ -30,7 +29,7 @@ RUN pip install --no-cache-dir krbcontext==0.10 hdfs~=2.6.0 requests-kerberos==0
 # Fixes Quay alert GHSA-2jv5-9r88-3w3p https://github.com/Kludex/python-multipart/security/advisories/GHSA-2jv5-9r88-3w3p
 RUN pip install --no-cache-dir starlette==0.36.2
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest as prod
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest AS prod
 
 COPY third_party third_party
 
@@ -52,5 +51,7 @@ RUN chmod +x /storage-initializer/scripts/initializer-entrypoint
 RUN mkdir /work
 WORKDIR /work
 
+# Set a writable /mnt folder to avoid permission issue on Huggingface download. See https://huggingface.co/docs/hub/spaces-sdks-docker#permissions
+RUN chown -R kserve:kserve /mnt
 USER 1000
 ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint"]

@@ -23,4 +23,4 @@ set -o pipefail
 export SERVING_RUNTIME_FILE_NAME=$1
 export IMG=$2
 if [ -z "$IMG" ] || [ -z "$SERVING_RUNTIME_FILE_NAME" ]; then exit; fi
-yq eval '.spec.containers[0].image = env(IMG)' config/runtimes/"$SERVING_RUNTIME_FILE_NAME" | kubectl apply -f -
+yq eval '.spec.containers[0].image = env(IMG)' config/runtimes/"$SERVING_RUNTIME_FILE_NAME" | kubectl apply --server-side=true -f -

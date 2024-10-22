@@ -84,7 +84,8 @@ def test_model():
     )
     infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
     infer_response = model.predict(infer_request)
-    assert infer_response.to_rest()["outputs"] == [
+    infer_dict, _ = infer_response.to_rest()
+    assert infer_dict["outputs"] == [
         {
             "name": "output-0",
             "shape": [2, 3],

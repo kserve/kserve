@@ -1,4 +1,4 @@
-# Copyright 2021 The KServe Authors.
+# Copyright 2024 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import argparse
 
-from kserve import Model, ModelServer, logging, model_server
 from torchvision import models, transforms
 from typing import Dict
 import torch
@@ -21,10 +21,12 @@ from PIL import Image
 import base64
 import io
 from ray import serve
+from kserve import Model, ModelServer, logging, model_server
+from kserve.ray import RayModel
 
 
 # the model handle name should match the model endpoint name
-@serve.deployment(name="custom-model", num_replicas=2)
+@serve.deployment(name="custom-model", num_replicas=1)
 class AlexNetModel(Model):
     def __init__(self):
         self.name = "custom-model"
@@ -34,7 +36,7 @@ class AlexNetModel(Model):
         self.load()
 
     def load(self):
-        self.model = models.alexnet(pretrained=True)
+        self.model = models.alexnet(pretrained=True, progress=False)
         self.model.eval()
         self.ready = True
 
@@ -77,4 +79,8 @@ args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
-    ModelServer().start({"custom-model": AlexNetModel})
+    app = AlexNetModel.bind()
+    handle = serve.run(app)
+    model = RayModel(name="custom-model", handle=handle)
+    model.load()
+    ModelServer().start([model])

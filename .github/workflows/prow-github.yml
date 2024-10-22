@@ -1,0 +1,30 @@
+# Run specified actions or jobs for issue and PR comments
+
+name: "Prow github actions"
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  prow-execute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: jpmcb/prow-github-actions@v1.1.3
+        with:
+          prow-commands: '/assign 
+            /unassign 
+            /approve 
+            /retitle 
+            /area 
+            /kind 
+            /priority 
+            /remove 
+            /lgtm 
+            /close 
+            /reopen 
+            /lock 
+            /milestone 
+            /hold 
+            /cc 
+            /uncc'
+          github-token: "${{ secrets.GITHUB_TOKEN }}"

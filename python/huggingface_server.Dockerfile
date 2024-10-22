@@ -1,15 +1,15 @@
 ARG BASE_IMAGE=nvidia/cuda:12.4.1-devel-ubuntu22.04
 ARG VENV_PATH=/prod_venv
 
-FROM ${BASE_IMAGE} as builder
+FROM ${BASE_IMAGE} AS builder
 
 
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.7.1
+ARG POETRY_VERSION=1.8.3
 
 # Install vllm
-ARG VLLM_VERSION=0.4.3
+ARG VLLM_VERSION=0.6.1.post2
 
 RUN apt-get update -y && apt-get install gcc python3.10-venv python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -34,9 +34,9 @@ RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
 RUN pip3 install vllm==${VLLM_VERSION}
 
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 as prod
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS prod
 
-RUN apt-get update -y && apt-get install python3.10-venv -y && apt-get clean && \
+RUN apt-get update -y && apt-get install python3.10-venv build-essential gcc python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 COPY third_party third_party
@@ -60,6 +60,9 @@ ENV SAFETENSORS_FAST_GPU="1"
 ENV HF_HUB_DISABLE_TELEMETRY="1"
 # NCCL Lib path for vLLM. https://github.com/vllm-project/vllm/blob/ec784b2526219cd96159a52074ab8cd4e684410a/vllm/utils.py#L598-L602
 ENV VLLM_NCCL_SO_PATH="/lib/x86_64-linux-gnu/libnccl.so.2"
+# https://github.com/vllm-project/vllm/issues/6152
+# Set the multiprocess method to spawn to avoid issues with cuda initialization for `mp` executor backend.
+ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 USER 1000
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]

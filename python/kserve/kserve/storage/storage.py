@@ -27,16 +27,7 @@ import zipfile
 from pathlib import Path
 from typing import Dict
 from urllib.parse import urlparse
-
-import boto3
 import requests
-from azure.storage.blob import BlobServiceClient
-from azure.storage.blob._list_blobs_helper import BlobPrefix
-from azure.storage.fileshare import ShareServiceClient
-from botocore import UNSIGNED
-from botocore.client import Config
-from google.auth import exceptions
-from google.cloud import storage
 
 from ..logging import logger
 
@@ -46,13 +37,20 @@ _GCS_PREFIX = "gs://"
 _S3_PREFIX = "s3://"
 _HDFS_PREFIX = "hdfs://"
 _WEBHDFS_PREFIX = "webhdfs://"
-_AZURE_BLOB_RE = "https://(.+?).blob.core.windows.net/(.+)"
-_AZURE_FILE_RE = "https://(.+?).file.core.windows.net/(.+)"
+_AZURE_BLOB_RE = [
+    "https://(.+?).blob.core.windows.net/(.+)",
+    "https://(.+?).z[0-9]{2}.blob.storage.azure.net/(.+)",
+]
+_AZURE_FILE_RE = [
+    "https://(.+?).file.core.windows.net/(.+)",
+    "https://(.+?).z[0-9]{2}.file.storage.azure.net/(.+)",
+]
 _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
+_HF_PREFIX = "hf://"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
@@ -93,12 +91,14 @@ class Storage(object):
                 model_dir = Storage._download_s3(uri, out_dir)
             elif uri.startswith(_HDFS_PREFIX) or uri.startswith(_WEBHDFS_PREFIX):
                 model_dir = Storage._download_hdfs(uri, out_dir)
-            elif re.search(_AZURE_BLOB_RE, uri):
+            elif any(re.search(pattern, uri) for pattern in _AZURE_BLOB_RE):
                 model_dir = Storage._download_azure_blob(uri, out_dir)
-            elif re.search(_AZURE_FILE_RE, uri):
+            elif any(re.search(pattern, uri) for pattern in _AZURE_FILE_RE):
                 model_dir = Storage._download_azure_file_share(uri, out_dir)
             elif re.search(_URI_RE, uri):
                 model_dir = Storage._download_from_uri(uri, out_dir)
+            elif uri.startswith(_HF_PREFIX):
+                model_dir = Storage._download_hf(uri, out_dir)
             else:
                 raise Exception(
                     "Cannot recognize storage type for "
@@ -154,6 +154,9 @@ class Storage(object):
 
     @staticmethod
     def get_S3_config():
+        from botocore import UNSIGNED
+        from botocore.client import Config
+
         # default s3 config
         c = Config()
 
@@ -177,6 +180,8 @@ class Storage(object):
 
     @staticmethod
     def _download_s3(uri, temp_dir: str) -> str:
+        import boto3
+
         # Boto3 looks at various configuration locations until it finds configuration values.
         # lookup order:
         # 1. Config object passed in as the config parameter when creating S3 resource
@@ -279,7 +284,42 @@ class Storage(object):
         return temp_dir
 
     @staticmethod
+    def _download_hf(uri, temp_dir: str) -> str:
+        from huggingface_hub import snapshot_download
+
+        components = uri[len(_HF_PREFIX) :].split("/")
+
+        # Validate that the URI has two parts: repo and model (optional hash)
+        if len(components) != 2:
+            raise ValueError(
+                "URI must contain exactly one '/' separating the repo and model name"
+            )
+
+        repo = components[0]
+        model_part = components[1]
+
+        if not repo:
+            raise ValueError("Repository name cannot be empty")
+        if not model_part:
+            raise ValueError("Model name cannot be empty")
+
+        model, _, hash_value = model_part.partition(":")
+        # Ensure model is non-empty
+        if not model:
+            raise ValueError("Model name cannot be empty")
+
+        revision = hash_value if hash_value else None
+
+        snapshot_download(
+            repo_id=f"{repo}/{model}", revision=revision, local_dir=temp_dir
+        )
+        return temp_dir
+
+    @staticmethod
     def _download_gcs(uri, temp_dir: str) -> str:
+        from google.auth import exceptions
+        from google.cloud import storage
+
         try:
             storage_client = storage.Client()
         except exceptions.DefaultCredentialsError:
@@ -440,6 +480,9 @@ class Storage(object):
     def _download_azure_blob(
         uri, out_dir: str
     ) -> str:  # pylint: disable=too-many-locals
+        from azure.storage.blob import BlobServiceClient
+        from azure.storage.blob._list_blobs_helper import BlobPrefix
+
         account_name, account_url, container_name, prefix = Storage._parse_azure_uri(
             uri
         )
@@ -500,6 +543,8 @@ class Storage(object):
     def _download_azure_file_share(
         uri, out_dir: str
     ) -> str:  # pylint: disable=too-many-locals
+        from azure.storage.fileshare import ShareServiceClient
+
         account_name, account_url, share_name, prefix = Storage._parse_azure_uri(uri)
         logger.info(
             "Connecting to file share account: [%s], container: [%s], prefix: [%s]",

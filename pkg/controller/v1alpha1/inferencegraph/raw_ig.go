@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,9 +64,19 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 					string(bytes),
 				},
 				Resources: constructResourceRequirements(*graph, *config),
+				SecurityContext: &v1.SecurityContext{
+					Privileged:               proto.Bool(false),
+					RunAsNonRoot:             proto.Bool(true),
+					ReadOnlyRootFilesystem:   proto.Bool(true),
+					AllowPrivilegeEscalation: proto.Bool(false),
+					Capabilities: &v1.Capabilities{
+						Drop: []v1.Capability{v1.Capability("ALL")},
+					},
+				},
 			},
 		},
-		Affinity: graph.Spec.Affinity,
+		Affinity:                     graph.Spec.Affinity,
+		AutomountServiceAccountToken: proto.Bool(false), // Inference graph does not need access to api server
 	}
 
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"

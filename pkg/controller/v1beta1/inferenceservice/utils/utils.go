@@ -26,20 +26,19 @@ import (
 	"sort"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
-	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 	goerrors "github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
 // Constants
@@ -54,7 +53,7 @@ const (
 
 // IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and neither
 // storage uri nor storage spec is set
-func IsMMSPredictor(predictor *v1beta1api.PredictorSpec) bool {
+func IsMMSPredictor(predictor *v1beta1.PredictorSpec) bool {
 	if len(predictor.Containers) > 0 {
 		container := predictor.Containers[0]
 		for _, envVar := range container.Env {
@@ -74,7 +73,7 @@ func IsMMSPredictor(predictor *v1beta1api.PredictorSpec) bool {
 	}
 }
 
-func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory resource.Quantity) bool {
+func IsMemoryResourceAvailable(isvc *v1beta1.InferenceService, totalReqMemory resource.Quantity) bool {
 	if isvc.Spec.Predictor.GetExtensions() == nil || len(isvc.Spec.Predictor.GetImplementations()) == 0 {
 		return false
 	}
@@ -85,18 +84,31 @@ func IsMemoryResourceAvailable(isvc *v1beta1api.InferenceService, totalReqMemory
 	return predictorMemoryLimit.Cmp(totalReqMemory) >= 0
 }
 
+func getModelNameFromArgs(args []string) string {
+	modelName := ""
+	for i, arg := range args {
+		if strings.HasPrefix(arg, constants.ArgumentModelName) {
+			// Case 1: ["--model-name=<model-name>"]
+			modelNameValueArr := strings.Split(arg, "=")
+			if len(modelNameValueArr) == 2 {
+				modelName = modelNameValueArr[1]
+			}
+			// Case 2: ["--model-name", "<model-name>"]
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+				modelName = args[i+1]
+			}
+		}
+	}
+	return modelName
+}
+
 // GetModelName returns the model name for single model serving case
-func GetModelName(isvc *v1beta1api.InferenceService) string {
-	modelName := isvc.Name
+func GetModelName(isvc *v1beta1.InferenceService) string {
 	// Return model name from args for KServe custom model server if transformer presents
 	if isvc.Spec.Transformer != nil && len(isvc.Spec.Transformer.Containers) > 0 {
-		for _, arg := range isvc.Spec.Transformer.Containers[0].Args {
-			if strings.HasPrefix(arg, constants.ArgumentModelName) {
-				modelNameValueArr := strings.Split(arg, "=")
-				if len(modelNameValueArr) == 2 {
-					return modelNameValueArr[1]
-				}
-			}
+		modelName := getModelNameFromArgs(isvc.Spec.Transformer.Containers[0].Args)
+		if modelName != "" {
+			return modelName
 		}
 	}
 	if isvc.Spec.Predictor.Model != nil {
@@ -107,26 +119,19 @@ func GetModelName(isvc *v1beta1api.InferenceService) string {
 			}
 		}
 		// Return model name from args for tfserving or KServe model server
-		for _, arg := range isvc.Spec.Predictor.Model.Args {
-			if strings.HasPrefix(arg, constants.ArgumentModelName) {
-				modelNameValueArr := strings.Split(arg, "=")
-				if len(modelNameValueArr) == 2 {
-					return modelNameValueArr[1]
-				}
-			}
+		modelName := getModelNameFromArgs(isvc.Spec.Predictor.Model.Args)
+		if modelName != "" {
+			return modelName
 		}
 	} else if len(isvc.Spec.Predictor.Containers) > 0 {
 		// Return model name from args for KServe custom model server
-		for _, arg := range isvc.Spec.Predictor.Containers[0].Args {
-			if strings.HasPrefix(arg, constants.ArgumentModelName) {
-				modelNameValueArr := strings.Split(arg, "=")
-				if len(modelNameValueArr) == 2 {
-					return modelNameValueArr[1]
-				}
-			}
+		modelName := getModelNameFromArgs(isvc.Spec.Predictor.Containers[0].Args)
+		if modelName != "" {
+			return modelName
 		}
 	}
-	return modelName
+	// Return isvc name if model name is not found
+	return isvc.Name
 }
 
 // GetPredictorEndpoint returns the predictor endpoint if status.address.url is not nil else returns empty string with error.
@@ -167,7 +172,7 @@ case 2: serving.kserve.org/deploymentMode is set
 	        if the mode is "RawDeployment", "Serverless" or "ModelMesh", return it.
 			else return config.deploy.defaultDeploymentMode
 */
-func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1api.DeployConfig) constants.DeploymentModeType {
+func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1.DeployConfig) constants.DeploymentModeType {
 	deploymentMode, ok := annotations[constants.DeploymentMode]
 	if ok && (deploymentMode == string(constants.RawDeployment) || deploymentMode ==
 		string(constants.Serverless) || deploymentMode == string(constants.ModelMeshDeployment)) {

@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	gstorage "cloud.google.com/go/storage"
 	"github.com/aws/aws-sdk-go/aws"
@@ -53,6 +54,7 @@ var _ = Describe("Watcher", func() {
 		zapLogger, _ := zap.NewProduction()
 		sugar = zapLogger.Sugar()
 		logger.Printf("Creating temp dir %v\n", modelDir)
+		SetDefaultEventuallyTimeout(2 * time.Minute)
 	})
 	AfterEach(func() {
 		os.RemoveAll(modelDir)

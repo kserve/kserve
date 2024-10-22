@@ -18,6 +18,7 @@ package inferenceservice
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -64,7 +65,10 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	ctx, cancel = context.WithCancel(context.TODO())
 	By("bootstrapping test environment")
-	testEnv = pkgtest.SetupEnvTest()
+	crdDirectoryPaths := []string{
+		filepath.Join("..", "..", "..", "..", "test", "crds"),
+	}
+	testEnv = pkgtest.SetupEnvTest(crdDirectoryPaths)
 	cfg, err := testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
@@ -105,7 +109,6 @@ var _ = BeforeSuite(func() {
 	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Serverless"}
 	ingressConfig := &v1beta1.IngressConfig{
 		IngressGateway:          constants.KnativeIngressGateway,
-		IngressServiceName:      "someIngressServiceName",
 		LocalGateway:            constants.KnativeLocalGateway,
 		LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
 		DisableIstioVirtualHost: false,

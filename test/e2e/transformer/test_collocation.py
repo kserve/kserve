@@ -26,7 +26,7 @@ from kubernetes.client import V1Container
 from kubernetes.client import V1EnvVar
 from kubernetes.client import V1ContainerPort
 import pytest
-from ..common.utils import predict
+from ..common.utils import predict_isvc
 from ..common.utils import (
     KSERVE_TEST_NAMESPACE,
     INFERENCESERVICE_CONTAINER,
@@ -36,7 +36,8 @@ from ..common.utils import (
 
 
 @pytest.mark.collocation
-def test_transformer_collocation():
+@pytest.mark.asyncio(scope="session")
+async def test_transformer_collocation(rest_v1_client):
     service_name = "custom-model-transformer-collocation"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -113,16 +114,19 @@ def test_transformer_collocation():
         for pod in pods.items:
             print(pod)
         raise e
-    res = predict(service_name, "./data/transformer.json", model_name=model_name)
-    assert res.get("predictions")[0] == 2
+    res = await predict_isvc(
+        rest_v1_client, service_name, "./data/transformer.json", model_name=model_name
+    )
+    assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
 @pytest.mark.skip(
     "The torchserve container fails in OpenShift with permission denied errors"
 )
-def test_raw_transformer_collocation():
+async def test_raw_transformer_collocation(rest_v1_client):
     service_name = "raw-custom-model-collocation"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -204,6 +208,8 @@ def test_raw_transformer_collocation():
         for pod in pods.items:
             print(pod)
         raise e
-    res = predict(service_name, "./data/transformer.json", model_name=model_name)
-    assert res.get("predictions")[0] == 2
+    res = await predict_isvc(
+        rest_v1_client, service_name, "./data/transformer.json", model_name=model_name
+    )
+    assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

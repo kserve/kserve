@@ -18,6 +18,7 @@ package deployment
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -29,7 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"knative.dev/pkg/kmp"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -215,7 +218,29 @@ func (r *DeploymentReconciler) Reconcile() (*appsv1.Deployment, error) {
 	case constants.CheckResultCreate:
 		opErr = r.client.Create(context.TODO(), r.Deployment)
 	case constants.CheckResultUpdate:
-		opErr = r.client.Update(context.TODO(), r.Deployment)
+		curJson, err := json.Marshal(deployment)
+		if err != nil {
+			return nil, err
+		}
+
+		// To avoid the conflict between HPA and Deployment,
+		// we need to remove the Replicas field from the deployment spec
+		modDeployment := r.Deployment.DeepCopy()
+		modDeployment.Spec.Replicas = nil
+
+		modJson, err := json.Marshal(modDeployment)
+		if err != nil {
+			return nil, err
+		}
+		// Generate the strategic merge patch between the current and modified JSON
+		patchByte, err := strategicpatch.StrategicMergePatch(curJson, modJson, appsv1.Deployment{})
+		if err != nil {
+			return nil, err
+		}
+
+		// Patch the deployment object with the strategic merge patch
+		opErr = r.client.Patch(context.TODO(), deployment, client.RawPatch(types.StrategicMergePatchType, patchByte))
+
 	default:
 		return deployment, nil
 	}
