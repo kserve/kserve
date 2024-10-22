@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"reflect"
+	"fmt"
 
 	"github.com/kserve/kserve/pkg/constants"
 	appsv1 "k8s.io/api/apps/v1"
@@ -458,12 +459,19 @@ func (ss *InferenceServiceStatus) UpdateModelRevisionStates(modelState ModelStat
 	// Update transition status, failure info based on new model state
 	switch modelState {
 	case Pending, Loading:
+		fmt.Println("setting TransitionStatus to InProgress because the modelState was ", modelState)
+		fmt.Println("setting ModelCopies.TotalCopies to ", totalCopies)
 		ss.ModelStatus.TransitionStatus = InProgress
+		ss.ModelStatus.ModelCopies = &ModelCopies{TotalCopies: totalCopies}
 	case Loaded:
+		fmt.Println("setting TransitionStatus to UpToDate because the modelState was ", modelState)
+		fmt.Println("setting ActiveModelState to Loaded because the modelState was ", modelState)
+		fmt.Println("setting ModelCopies.TotalCopies to ", totalCopies)
 		ss.ModelStatus.TransitionStatus = UpToDate
 		ss.ModelStatus.ModelCopies = &ModelCopies{TotalCopies: totalCopies}
 		ss.ModelStatus.ModelRevisionStates.ActiveModelState = Loaded
 	case FailedToLoad:
+		fmt.Println("setting TransitionStatus to BloackedByFailedLoad because the modelState was ", modelState)
 		ss.ModelStatus.TransitionStatus = BlockedByFailedLoad
 	}
 	if info != nil {
@@ -497,7 +505,9 @@ func (ss *InferenceServiceStatus) SetModelFailureInfo(info *FailureInfo) bool {
 func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatusSpec, podList *v1.PodList, rawDeployment bool) {
 	// Check at least one pod is running for the latest revision of inferenceservice
 	totalCopies := len(podList.Items)
+	fmt.Println("totalCopies: ", totalCopies)
 	if totalCopies == 0 {
+		fmt.Println("setting lastModelStatus to Pending because there are no pods")
 		ss.UpdateModelRevisionStates(Pending, totalCopies, nil)
 		return
 	}
@@ -508,6 +518,7 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 			ss.UpdateModelRevisionStates(Loaded, totalCopies, nil)
 			return
 		} else if statusSpec.LatestCreatedRevision == statusSpec.LatestReadyRevision {
+			fmt.Println("setting lastModelStatus to Loaded because the inference service status is ready")
 			ss.UpdateModelRevisionStates(Loaded, totalCopies, nil)
 			return
 		}
@@ -515,13 +526,20 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 	// Update model state to 'Loading' if storage initializer is running.
 	// If the storage initializer is terminated due to error or crashloopbackoff, update model
 	// state to 'ModelLoadFailed' with failure info.
+	fmt.Println("storage-initializer")
 	for _, cs := range podList.Items[0].Status.InitContainerStatuses {
 		if cs.Name == constants.StorageInitializerContainerName {
+			fmt.Println("cs:", cs)
+			fmt.Println("cs running: ", cs.State.Running)
+			fmt.Println("cs terminated: ", cs.State.Terminated)
+			fmt.Println("cs waiting: ", cs.State.Waiting)
 			switch {
 			case cs.State.Running != nil:
+				fmt.Println("setting lastModelStatus to Loading because the container status is running")
 				ss.UpdateModelRevisionStates(Loading, totalCopies, nil)
 				return
 			case cs.State.Terminated != nil && cs.State.Terminated.Reason == constants.StateReasonError:
+				fmt.Println("setting lastModelStatus to FailedToLoad because the container status is terminated with reason Error")
 				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
 					Reason:   ModelLoadFailed,
 					Message:  cs.State.Terminated.Message,
@@ -529,6 +547,7 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 				})
 				return
 			case cs.State.Waiting != nil && cs.State.Waiting.Reason == constants.StateReasonCrashLoopBackOff:
+				fmt.Println("setting lastModelStatus to FailedToLoad because the container status is waiting with reason CrashLoopBackOff")
 				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
 					Reason:   ModelLoadFailed,
 					Message:  cs.LastTerminationState.Terminated.Message,
@@ -540,22 +559,30 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 	}
 	// If the kserve container is terminated due to error or crashloopbackoff, update model
 	// state to 'ModelLoadFailed' with failure info.
+	fmt.Println("kserve-container")
 	for _, cs := range podList.Items[0].Status.ContainerStatuses {
 		if cs.Name == constants.InferenceServiceContainerName {
+			fmt.Println("cs: ", cs)
+			fmt.Println("cs running: ", cs.State.Running)
+			fmt.Println("cs terminated: ", cs.State.Terminated)
+			fmt.Println("cs waiting: ", cs.State.Waiting)
 			switch {
 			case cs.State.Terminated != nil && cs.State.Terminated.Reason == constants.StateReasonError:
+				fmt.Println("setting lastModelStatus to FailedToLoad because the container status is terminated wuth reason Error")
 				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
 					Reason:   ModelLoadFailed,
 					Message:  cs.State.Terminated.Message,
 					ExitCode: cs.State.Terminated.ExitCode,
 				})
 			case cs.State.Waiting != nil && cs.State.Waiting.Reason == constants.StateReasonCrashLoopBackOff:
+				fmt.Println("setting lastModelStatus to FailedToLoad because the container status is waiting with reason CrashLoopBackOff")
 				ss.UpdateModelRevisionStates(FailedToLoad, totalCopies, &FailureInfo{
 					Reason:   ModelLoadFailed,
 					Message:  cs.LastTerminationState.Terminated.Message,
 					ExitCode: cs.LastTerminationState.Terminated.ExitCode,
 				})
 			default:
+				fmt.Println("setting lastModelStatus to Pending because it is the default value")
 				ss.UpdateModelRevisionStates(Pending, totalCopies, nil)
 			}
 		}
