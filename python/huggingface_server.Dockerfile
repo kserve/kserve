@@ -27,7 +27,7 @@ RUN cd kserve && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
 RUN cd kserve && poetry install --no-interaction --no-cache
 
-COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/health_check.sh huggingfaceserver/
+COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/health_check.py huggingfaceserver/
 RUN cd huggingfaceserver && poetry install --no-root --no-interaction 
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
@@ -36,7 +36,7 @@ RUN pip3 install vllm==${VLLM_VERSION}
 
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS prod
 
-RUN apt-get update -y && apt-get install python3.10-venv build-essential gcc python3-dev curl -y && apt-get clean && \
+RUN apt-get update -y && apt-get install python3.10-venv build-essential gcc python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 COPY third_party third_party
