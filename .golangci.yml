@@ -2,18 +2,22 @@ run:
   timeout: 6m
   go: "1.22"
   tests: false
-  skip-dirs: # skip auto gen folders
-    - "client/"
-    - "clientv1alpha1/"
-    - "tools/tf2openapi/generated/"
 
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0
+  exclude-dirs:  # skip auto gen folders
+    - "client/*"
+    - "tools/tf2openapi/generated/*"
+    - "openapi/"
+  exclude-files:
+    - "zz_generated.*.go"
+
 
 
 output:
-  format: "github-actions,line-number"
+  formats: 
+    - format: "colored-line-number"
   print-issued-lines: true
   print-linter-name: true
   uniq-by-line: true
@@ -27,7 +31,7 @@ linters:
     - errorlint
     - bodyclose
     - dogsled
-    - exportloopref
+    - copyloopvar
     - gocritic
     - goimports
     - gosec
@@ -43,13 +47,12 @@ linters:
     - unconvert
     - unused
     - whitespace
-
     # - prealloc
     - gofmt
 
 linters-settings:
   goimports:
-    local-prefixes: "bbgithub.dev.bloomberg.com/cncr-inference/inferno"
+    local-prefixes: "github.com/kserve/kserve"
   gosec:
     # specify configuration of gosec rules: https://github.com/securego/gosec#available-rules
     config:
