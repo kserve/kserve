@@ -199,6 +199,11 @@ var (
 	AutoScalerMetricsPrometheus AutoscalerMetricsType = "prometheus"
 )
 
+// Autoscaler Prometheus metrics
+var (
+	AutoScalerMetricsGraphite AutoscalerMetricsType = "graphite"
+)
+
 // Autoscaler Class Allowed List
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
@@ -223,6 +228,7 @@ var AutoscalerAllowedKEDAMetricsList = []AutoscalerMetricsType{
 	AutoScalerMetricsCPU,
 	AutoScalerMetricsMemory,
 	AutoScalerMetricsPrometheus,
+	AutoScalerMetricsGraphite,
 }
 
 // Autoscaler Default Metrics Value
