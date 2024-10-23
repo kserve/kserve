@@ -604,6 +604,5 @@ data:
 
   metrics: |-
     {
-      "metricsBackend": ""
-      "serverAddress": ""
+      "metricsBackend": "prometheus"
     }
