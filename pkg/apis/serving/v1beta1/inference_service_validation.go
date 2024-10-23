@@ -209,8 +209,11 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec *ComponentExtensionSpec) error {
 	deploymentMode := annotations["serving.kserve.io/deploymentMode"]
 	annotationClass := annotations[autoscaling.ClassAnnotationKey]
+	autoscalerClass := annotations[constants.AutoscalerClass]
 	if deploymentMode == string(constants.RawDeployment) || annotationClass == string(autoscaling.HPA) {
 		return validateScalingHPACompExtension(compExtSpec)
+	} else if autoscalerClass == string(constants.AutoscalerClassKeda) {
+		return validateScalingKedaCompExtension(compExtSpec)
 	}
 
 	return validateScalingKPACompExtension(compExtSpec)
@@ -316,6 +319,18 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 		}
 	}
 
+	return nil
+}
+
+func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error {
+	metric := *compExtSpec.ScaleMetric
+	if compExtSpec.ScalerSpec != nil && compExtSpec.ScalerSpec.ScaleMetric != nil {
+		metric = *compExtSpec.ScalerSpec.ScaleMetric
+	}
+	err := validateKEDAMetrics(metric)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
