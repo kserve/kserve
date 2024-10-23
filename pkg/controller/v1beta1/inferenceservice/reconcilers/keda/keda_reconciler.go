@@ -22,8 +22,11 @@ import (
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -57,6 +60,85 @@ func NewKedaReconciler(client client.Client,
 	}
 }
 
+func getKedaMetrics(metricConfig *v1beta1.MetricsConfig, metadata metav1.ObjectMeta,
+	componentExt *v1beta1.ComponentExtensionSpec) []kedav1alpha1.ScaleTriggers {
+	var triggers []kedav1alpha1.ScaleTriggers
+	var serverAddress string
+
+	// Default values
+	triggerType := string(corev1.ResourceCPU)
+	metricType := autoscalingv2.UtilizationMetricType
+	scaleTarget := int(constants.DefaultCPUUtilization)
+
+	// Get metric configuration from metricConfig (configmap)
+	if metricConfig != nil && metricConfig.MetricBackend != "" {
+		triggerType = metricConfig.MetricBackend
+		serverAddress = metricConfig.ServerAddress
+	}
+	// override metric configuration from componentExtension if it is set
+	if componentExt.ScaleMetric != nil {
+		triggerType = string(*componentExt.ScaleMetric)
+	}
+	if componentExt.ScaleMetricType != nil {
+		metricType = *componentExt.ScaleMetricType
+	}
+	if componentExt.ScaleTarget != nil {
+		scaleTarget = *componentExt.ScaleTarget
+	}
+	// override metric configuration from componentExtension.ScalerSpec if it is set
+	if componentExt.ScalerSpec != nil {
+		if componentExt.ScalerSpec.ScaleMetric != nil {
+			triggerType = string(*componentExt.ScalerSpec.ScaleMetric)
+		}
+		if componentExt.ScalerSpec.ServerAddress != "" {
+			serverAddress = componentExt.ScalerSpec.ServerAddress
+		}
+		if componentExt.ScalerSpec.ScaleMetricType != nil {
+			scaleTarget = *componentExt.ScalerSpec.ScaleTarget
+		}
+		if componentExt.ScalerSpec.ScaleMetricType != nil {
+			metricType = *componentExt.ScalerSpec.ScaleMetricType
+		}
+	}
+
+	trigger := kedav1alpha1.ScaleTriggers{
+		Type:     triggerType,
+		Metadata: map[string]string{},
+	}
+
+	// set trigger metadata for prometheus and graphite triggers
+	if triggerType == "prometheus" || triggerType == "graphite" {
+		if serverAddress != "" {
+			trigger.Metadata["serverAddress"] = serverAddress
+		}
+		if componentExt.ScalerSpec != nil {
+			if componentExt.ScalerSpec.MetricQuery != "" {
+				trigger.Metadata["query"] = componentExt.ScalerSpec.MetricQuery
+			}
+			if componentExt.ScalerSpec.QueryParameters != "" {
+				trigger.Metadata["queryParameters"] = componentExt.ScalerSpec.QueryParameters
+			}
+			if componentExt.ScalerSpec.ServerAddress != "" {
+				trigger.Metadata["threshold"] = strconv.Itoa((scaleTarget))
+			}
+		}
+	} else {
+		// set trigger metadata for other triggerTypes
+		trigger.Metadata["value"] = strconv.Itoa((scaleTarget))
+		trigger.MetricType = metricType
+	}
+
+	// set queryTime for graphite trigger (if set)
+	if triggerType == "graphite" {
+		if componentExt.ScalerSpec.QueryTime != "" {
+			trigger.Metadata["queryTime"] = componentExt.ScalerSpec.QueryTime
+		}
+	}
+
+	triggers = append(triggers, trigger)
+	return triggers
+}
+
 func createKedaScaledObject(clientset kubernetes.Interface, componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec) *kedav1alpha1.ScaledObject {
 	metricConfig, err := v1beta1.NewMetricsConfig(clientset)
@@ -64,28 +146,22 @@ func createKedaScaledObject(clientset kubernetes.Interface, componentMeta metav1
 		return nil
 	}
 
-	// metrics configs from configmap (which can be overridden by ScalerSpec)
-	triggerType := metricConfig.MetricBackend
-	serverAddress := metricConfig.ServerAddress
-
+	triggers := getKedaMetrics(metricConfig, componentMeta, componentExtension)
 	annotations := componentMeta.GetAnnotations()
 
-	ScaleMetric := componentExtension.ScaleMetric
 	MinReplicas := componentExtension.MinReplicas
 	MaxReplicas := componentExtension.MaxReplicas
-	ScaleMetricType := componentExtension.ScaleMetricType
-	ScaleTarget := componentExtension.ScaleTarget
 	if componentExtension.ScalerSpec != nil {
-		ScaleMetric = componentExtension.ScalerSpec.ScaleMetric
 		MinReplicas = componentExtension.ScalerSpec.MinReplicas
 		MaxReplicas = componentExtension.ScalerSpec.MaxReplicas
-		ScaleMetricType = componentExtension.ScalerSpec.ScaleMetricType
-		ScaleTarget = componentExtension.ScalerSpec.ScaleTarget
 	}
 
-	// overridding the trigger type if ScaleMetric is set in he ScalerSpec
-	if ScaleMetric != nil && *ScaleMetric != "" {
-		triggerType = string(*ScaleMetric)
+	if MinReplicas == nil {
+		MinReplicas = &constants.DefaultMinReplicas
+	}
+
+	if MaxReplicas < *MinReplicas {
+		MaxReplicas = *MinReplicas
 	}
 
 	scaledobject := &kedav1alpha1.ScaledObject{
@@ -99,47 +175,10 @@ func createKedaScaledObject(clientset kubernetes.Interface, componentMeta metav1
 			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
 				Name: componentMeta.Name,
 			},
-			Triggers: []kedav1alpha1.ScaleTriggers{
-				{
-					Type:     triggerType,
-					Metadata: map[string]string{},
-				},
-			},
+			Triggers:        triggers,
 			MinReplicaCount: proto.Int32(int32(*MinReplicas)),
 			MaxReplicaCount: proto.Int32(int32(MaxReplicas)),
 		},
-	}
-	if ScaleMetricType != nil {
-		scaledobject.Spec.Triggers[0].MetricType = *ScaleMetricType
-	}
-
-	// set queryTime for graphite trigger
-	if triggerType == "graphite" {
-		if componentExtension.ScalerSpec.QueryTime != "" {
-			scaledobject.Spec.Triggers[0].Metadata["queryTime"] = componentExtension.ScalerSpec.QueryTime
-		}
-	}
-
-	// set trigger metadata for prometheus and graphite triggers
-	if triggerType == "prometheus" || triggerType == "graphite" {
-		if componentExtension.ScalerSpec.ServerAddress != "" {
-			serverAddress = componentExtension.ScalerSpec.ServerAddress
-		}
-		if componentExtension.ScalerSpec.ServerAddress != "" {
-			scaledobject.Spec.Triggers[0].Metadata["serverAddress"] = serverAddress
-		}
-		if componentExtension.ScalerSpec.MetricQuery != "" {
-			scaledobject.Spec.Triggers[0].Metadata["query"] = componentExtension.ScalerSpec.MetricQuery
-		}
-		if componentExtension.ScalerSpec.QueryParameters != "" {
-			scaledobject.Spec.Triggers[0].Metadata["queryParameters"] = componentExtension.ScalerSpec.QueryParameters
-		}
-		if componentExtension.ScalerSpec.ServerAddress != "" {
-			scaledobject.Spec.Triggers[0].Metadata["threshold"] = strconv.Itoa((*ScaleTarget))
-		}
-	} else {
-		// set trigger metadata other ScaleMetric
-		scaledobject.Spec.Triggers[0].Metadata["value"] = strconv.Itoa((*ScaleTarget))
 	}
 
 	return scaledobject
