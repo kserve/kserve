@@ -300,7 +300,9 @@ func (ss *InferenceServiceStatus) IsConditionUnknown(t apis.ConditionType) bool 
 
 func (ss *InferenceServiceStatus) PropagateRawStatusWithMessages(
 	component ComponentType,
-	errorMsg string) {
+	reason string,
+	msg string,
+	targetStatus v1.ConditionStatus) {
 	if len(ss.Components) == 0 {
 		ss.Components = make(map[ComponentType]ComponentStatusSpec)
 	}
@@ -310,9 +312,9 @@ func (ss *InferenceServiceStatus) PropagateRawStatusWithMessages(
 	}
 
 	condition := &apis.Condition{
-		Reason:  InvalidWorkerSpecNotSet,
-		Message: errorMsg,
-		Status:  v1.ConditionFalse,
+		Reason:  reason,
+		Message: msg,
+		Status:  targetStatus,
 	}
 
 	readyCondition := readyConditionsMap[component]

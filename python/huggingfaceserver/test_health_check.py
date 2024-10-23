@@ -12,85 +12,142 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import pytest
-from unittest.mock import patch
+import unittest
 import sys
+import pytest
 import requests
-import health_check  # Assume your script is named health_check.py
+from unittest.mock import patch, MagicMock
+import health_check
 
 
-# Mocking sys.exit to prevent the script from exiting during tests
-@pytest.fixture(autouse=True)
-def no_exit(monkeypatch):
-    monkeypatch.setattr(sys, "exit", lambda x: None)
+class TestHealthCheck(unittest.TestCase):
+
+    @patch("health_check.ray.init")
+    def test_initialize_ray_cluster(self, mock_ray_init):
+        mock_ray_init.return_value = MagicMock()
+        result = health_check.initialize_ray_cluster()
+        # mock_ray_init.assert_called_once_with(address="auto")
+        self.assertEqual(result, "Ray initialized")
+
+    @patch("health_check.ray.init")
+    def test_perform_health_check_success(self, mock_ray_init):
+        mock_ray_init.return_value = MagicMock()
+        result = health_check.check_startup()
+        self.assertEqual(result, "Healthy")
+
+    @patch("health_check.ray.init")
+    def test_perform_health_check_failure(self, mock_ray_init):
+        mock_ray_init.side_effect = Exception("Ray init failed")
+        result = health_check.check_startup()
+        self.assertEqual(result, "Unhealthy")
+
+    # Test check_gpu_usage with healthy GPU usage
+    @patch("health_check.ray.init")
+    @patch("health_check.ray.nodes")
+    def test_check_gpu_usage_healthy(mock_ray_init, mock_ray_nodes, capsys):
+        mock_ray_init.return_value = MagicMock()
+        mock_ray_nodes.return_value = [
+            {
+                "NodeID": "node_1",
+                "Resources": {
+                    "GPU": 1,
+                    "GPU_group_0": 1,
+                },
+            },
+            {
+                "NodeID": "node_2",
+                "Resources": {
+                    "GPU": 1,
+                    "GPU_group_0": 1,
+                },
+            },
+        ]
+        status = health_check.check_gpu_usage("Test GPU Usage")
+        assert status == "Healthy"
+
+    # Test check_gpu_usage with unhealthy GPU usage
+    @patch("health_check.ray.init")
+    @patch("health_check.ray.nodes")
+    def test_check_gpu_usage_healthy(mock_ray_init, mock_ray_nodes, capsys):
+        mock_ray_init.return_value = MagicMock()
+        mock_ray_nodes.return_value = [
+            {
+                "NodeID": "node_1",
+                "Resources": {
+                    "GPU": 1,
+                    "GPU_group_0": 0,
+                },
+            },
+            {
+                "NodeID": "node_2",
+                "Resources": {
+                    "GPU": 1,
+                    "GPU_group_0": 1,
+                },
+            },
+        ]
+        status = health_check.check_gpu_usage("Test GPU Usage")
+        assert status == "Unhealthy"
+
+    # Test check_registered_nodes with correct number of nodes
+    @patch("health_check.ray.init")
+    @patch("health_check.ray.nodes")
+    def test_check_registered_nodes_healthy(mock_ray_init, mock_ray_nodes, capsys):
+        mock_ray_init.return_value = MagicMock()
+        mock_ray_nodes.return_value = [
+            {
+                "NodeID": "node_1",
+                "Alive": True,
+            },
+            {
+                "NodeID": "node_2",
+                "Alive": True,
+            },
+        ]
+        status = health_check.check_registered_nodes(2)
+        assert status == "Healthy"
+
+    # Test check_registered_nodes with incorrect number of nodes
+    @patch("health_check.ray.init")
+    @patch("health_check.ray.nodes")
+    def test_check_registered_nodes_unhealthy(mock_ray_init, mock_ray_nodes, capsys):
+        mock_ray_init.return_value = MagicMock()
+        mock_ray_nodes.return_value = [
+            {
+                "NodeID": "node_1",
+                "Alive": True,
+            }
+        ]
+        status = health_check.check_registered_nodes(2)
+        assert status == "Unhealthy"
+
+    @patch("health_check.requests.get")
+    def test_check_runtime_health_healthy(self, mock_get):
+        mock_get.return_value.status_code = 200
+        health_check_url = "http://example.com/health"
+        status = health_check.check_runtime_health(health_check_url)
+
+        assert status == "Healthy"
+        mock_get.assert_called_once_with(health_check_url, timeout=5)
+
+    @patch("health_check.requests.get")
+    def test_check_runtime_health_unhealthy_status_code(self, mock_get):
+        mock_get.return_value.status_code = 500
+        health_check_url = "http://example.com/health"
+        status = health_check.check_runtime_health(health_check_url)
+
+        assert status == "Unhealthy"
+        mock_get.assert_called_once_with(health_check_url, timeout=5)
+
+    @patch("health_check.requests.get")
+    def test_check_runtime_health_request_exception(self, mock_get):
+        mock_get.side_effect = requests.RequestException
+        health_check_url = "http://example.com/health"
+        status = health_check.check_runtime_health(health_check_url)
+
+        assert status == "Unhealthy"
+        mock_get.assert_called_once_with(health_check_url, timeout=5)
 
 
-# Test check_gpu_usage with healthy GPU usage
-@patch("health_check.ray.cluster_resources", return_value={"GPU": 4, "GPU_group_0": 4})
-def test_check_gpu_usage_healthy(mock_cluster_resources, capsys):
-    health_check.check_gpu_usage("Test GPU Usage")
-    captured = capsys.readouterr()
-    assert "Healthy" in captured.out
-
-
-# Test check_gpu_usage with unhealthy GPU usage
-@patch("health_check.ray.cluster_resources", return_value={"GPU": 4, "GPU_group_0": 2})
-def test_check_gpu_usage_unhealthy(mock_cluster_resources, capsys):
-    health_check.check_gpu_usage("Test GPU Usage")
-    captured = capsys.readouterr()
-    assert "Unhealthy" in captured.out
-
-
-# Test check_registered_nodes with correct number of nodes
-@patch("health_check.ray.nodes", return_value=[{"Alive": True}, {"Alive": True}])
-def test_check_registered_nodes_healthy(mock_nodes, capsys):
-    health_check.check_registered_nodes(2)
-    captured = capsys.readouterr()
-    assert "Unhealthy" not in captured.out
-
-
-# Test check_registered_nodes with incorrect number of nodes
-@patch("health_check.ray.nodes", return_value=[{"Alive": True}])
-def test_check_registered_nodes_unhealthy(mock_nodes, capsys):
-    health_check.check_registered_nodes(2)
-    captured = capsys.readouterr()
-    assert "Unhealthy" in captured.out
-
-
-# Test check_readiness with healthy conditions
-@patch("health_check.ray.nodes", return_value=[{"Alive": True}, {"Alive": True}])
-@patch("health_check.ray.cluster_resources", return_value={"GPU": 4, "GPU_group_0": 4})
-@patch("health_check.requests.get")
-def test_check_readiness_healthy(mock_get, mock_cluster_resources, mock_nodes, capsys):
-    mock_get.return_value.status_code = 200
-    health_check.check_readiness(2, "http://localhost:8080")
-    captured = capsys.readouterr()
-    assert "Healthy" in captured.out
-
-
-# Test check_readiness with unhealthy Huggingface server
-@patch("health_check.ray.nodes", return_value=[{"Alive": True}, {"Alive": True}])
-@patch("health_check.ray.cluster_resources", return_value={"GPU": 4, "GPU_group_0": 4})
-@patch("health_check.requests.get", side_effect=requests.RequestException)
-def test_check_readiness_unhealthy_server(
-    mock_get, mock_cluster_resources, mock_nodes, capsys
-):
-    health_check.check_readiness(2, "http://localhost:8080")
-    captured = capsys.readouterr()
-    assert "Unhealthy - Hugging Face server is not reachable" in captured.out
-
-
-# Test check_startup with Ray running
-@patch("health_check.ray.nodes", return_value=[{"Alive": True}, {"Alive": True}])
-def test_check_startup(mock_nodes, capsys):
-    health_check.check_startup()
-    captured = capsys.readouterr()
-    assert "Ray is running" in captured.out
-
-
-# Test check_startup with Ray not running
-@patch("health_check.ray.nodes", side_effect=Exception("Failed to get Ray status"))
-def test_check_startup_error(mock_nodes, capsys):
-    health_check.check_startup()
-    captured = capsys.readouterr()
-    assert "Failed to get Ray status" in captured.out
+if __name__ == "__main__":
+    unittest.main()

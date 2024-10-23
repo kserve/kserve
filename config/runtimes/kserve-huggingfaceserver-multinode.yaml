@@ -64,6 +64,7 @@ spec:
         periodSeconds: 30
         successThreshold: 1
         timeoutSeconds: 5
+        initialDelaySeconds: 10
         exec:
           command:
             - bash

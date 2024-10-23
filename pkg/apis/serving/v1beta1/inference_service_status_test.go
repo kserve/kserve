@@ -221,7 +221,12 @@ func TestPropagateRawStatus(t *testing.T) {
 }
 
 func TestPropagateRawStatusWithMessages(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
 	errorMsg := "test message"
+	reason := "test reason"
+	targetStatus := v1.ConditionFalse
+
 	status := &InferenceServiceStatus{
 		Status:      duckv1.Status{},
 		Address:     nil,
@@ -229,10 +234,10 @@ func TestPropagateRawStatusWithMessages(t *testing.T) {
 		ModelStatus: ModelStatus{},
 	}
 
-	status.PropagateRawStatusWithMessages(PredictorComponent, errorMsg)
-	if res := status.IsConditionFalse(PredictorReady) && status.Conditions[0].Message == errorMsg; !res {
-		t.Errorf("expected: %v got: %v conditions: %v", true, res, status.Conditions)
-	}
+	status.PropagateRawStatusWithMessages(PredictorComponent, reason, errorMsg, targetStatus)
+	g.Expect(status.IsConditionFalse(PredictorReady)).To(gomega.BeTrue())
+	g.Expect(status.Conditions[0].Message).To(gomega.Equal(errorMsg))
+	g.Expect(status.Conditions[0].Reason).To(gomega.Equal(reason))
 }
 
 func TestPropagateStatus(t *testing.T) {

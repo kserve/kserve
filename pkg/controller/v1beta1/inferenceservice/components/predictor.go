@@ -268,7 +268,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 
 	if multiNodeEnabled {
 		if sRuntime.WorkerSpec == nil {
-			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, "You cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec")
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidWorkerSpecNotSet, "You cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec", v1.ConditionFalse)
 			return ctrl.Result{}, errors.New("you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec")
 		}
 		var workerContainer *v1.Container
