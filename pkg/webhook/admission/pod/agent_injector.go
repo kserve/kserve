@@ -238,12 +238,35 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	}
 
 	if !queueProxyAvailable {
-		readinessProbeJson, err := json.Marshal(pod.Spec.Containers[0].ReadinessProbe)
-		if err != nil {
-			return err
+		readinessProbe := pod.Spec.Containers[0].ReadinessProbe
+	
+		// Check if the readiness probe exists
+		if readinessProbe != nil {
+			if readinessProbe.HTTPGet != nil {
+				// Marshal the HTTPGet readiness probe into JSON format
+				readinessProbeJson, err := json.Marshal(readinessProbe)
+				if err != nil {
+					return fmt.Errorf("failed to marshal readiness probe: %w", err)
+				}
+	
+				// Append the marshaled readiness probe as an environment variable for the agent container
+				agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+			} else if readinessProbe.TCPSocket != nil {
+				// Marshal the TCPSocket readiness probe into JSON format
+				readinessProbeJson, err := json.Marshal(readinessProbe)
+				if err != nil {
+					return fmt.Errorf("failed to marshal readiness probe: %w", err)
+				}
+	
+				// Append the marshaled readiness probe as an environment variable for the agent container
+				agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+			} else if readinessProbe.Exec != nil {
+				// Skip ExecAction probes; do not inherit them
+				fmt.Printf("INFO: Exec readiness probe skipped for pod %s/%s\n", pod.Namespace, pod.Name)
+			}
 		}
-		agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
 	} else {
+		// Adjust USER_PORT when queueProxy is available
 		for i, envVar := range queueProxyEnvs {
 			if envVar.Name == "USER_PORT" {
 				envVar.Value = constants.InferenceServiceDefaultAgentPortStr
