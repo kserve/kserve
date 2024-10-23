@@ -1,21 +1,21 @@
 approvers:
   - danielezonca
-  - davidesalerno
-  - dtrifiro
-  - heyselbi
+  - hdefazio
   - israel-hdez
   - Jooho
-  - rpancham
+  - mholder6
+  - mwaykole
+  - rnetser
   - spolti
   - terrytangyuan
-  - vaibhavjainwiz
   - VedantMahabaleshwarkar
-  - Xaenalt
-  - z103cb
 reviewers:
+  - hdefazio
   - israel-hdez
   - Jooho
+  - mholder6
+  - mwaykole
+  - rnetser
   - spolti
   - terrytangyuan
   - VedantMahabaleshwarkar
-
