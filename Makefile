@@ -198,8 +198,8 @@ generate: controller-gen
 	hack/update-helm-docs.sh
 
 bump-version:
-	# TBA
-	echo "bumping version numbers for this release"
+	@echo "bumping version numbers for this release"
+	@hack/prepare-for-release.sh $(PRIOR_VERSION) $(NEW_VERSION)
 
 # Build the docker image
 docker-build: test
