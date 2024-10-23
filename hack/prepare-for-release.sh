@@ -102,7 +102,7 @@ done
 echo -e "\033[32mUpdating hack/generate-install.sh...\033[0m"
 sed -i "/\"v${PRIOR_VERSION}\"/a \    \"v${NEW_VERSION}\"" hack/generate-install.sh
 
-# Update hack/quick-install.sh
+# Update hack/quick_install.sh
 echo -e "\033[32mUpdating hack/quick-install.sh...\033[0m"
 sed -i "s/KSERVE_VERSION=v${PRIOR_VERSION}/KSERVE_VERSION=v${NEW_VERSION}/g" hack/quick_install.sh
 
