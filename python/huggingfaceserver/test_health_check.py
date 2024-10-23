@@ -13,8 +13,6 @@
 # limitations under the License.
 
 import unittest
-import sys
-import pytest
 import requests
 from unittest.mock import patch, MagicMock
 import health_check
@@ -68,7 +66,7 @@ class TestHealthCheck(unittest.TestCase):
     # Test check_gpu_usage with unhealthy GPU usage
     @patch("health_check.ray.init")
     @patch("health_check.ray.nodes")
-    def test_check_gpu_usage_healthy(mock_ray_init, mock_ray_nodes, capsys):
+    def test_check_gpu_usage_ungihealthy(mock_ray_init, mock_ray_nodes, capsys):
         mock_ray_init.return_value = MagicMock()
         mock_ray_nodes.return_value = [
             {
