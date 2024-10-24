@@ -242,17 +242,8 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	
 		// Check if the readiness probe exists
 		if readinessProbe != nil {
-			if readinessProbe.HTTPGet != nil {
-				// Marshal the HTTPGet readiness probe into JSON format
-				readinessProbeJson, err := json.Marshal(readinessProbe)
-				if err != nil {
-					return fmt.Errorf("failed to marshal readiness probe: %w", err)
-				}
-	
-				// Append the marshaled readiness probe as an environment variable for the agent container
-				agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
-			} else if readinessProbe.TCPSocket != nil {
-				// Marshal the TCPSocket readiness probe into JSON format
+			if readinessProbe.HTTPGet != nil || readinessProbe.TCPSocket != nil {
+				// Marshal the readiness probe into JSON format
 				readinessProbeJson, err := json.Marshal(readinessProbe)
 				if err != nil {
 					return fmt.Errorf("failed to marshal readiness probe: %w", err)
