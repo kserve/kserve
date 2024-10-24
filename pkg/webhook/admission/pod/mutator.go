@@ -38,7 +38,7 @@ var log = logf.Log.WithName(constants.PodMutatorWebhookName)
 type Mutator struct {
 	Client    client.Client
 	Clientset kubernetes.Interface
-	Decoder   admission.Decoder
+	Decoder   *admission.Decoder
 }
 
 // Handle decodes the incoming Pod and executes mutation logic.
