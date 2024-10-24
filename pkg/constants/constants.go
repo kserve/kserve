@@ -156,11 +156,20 @@ var (
 
 type AutoscalerClassType string
 type AutoscalerMetricsType string
+type AutoscalerKedaMetricsType string
 type AutoScalerKPAMetricsType string
 
 var (
 	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
 	AutoScalerKPAMetricsConcurrency AutoScalerKPAMetricsType = "concurrency"
+)
+
+var (
+	AutoScalerMetricsAverageValue AutoscalerKedaMetricsType = "AverageValue"
+)
+
+var (
+	AutoScalerMetricsUtilization AutoscalerKedaMetricsType = "Utilization"
 )
 
 // Autoscaler Default Class
@@ -172,6 +181,7 @@ var (
 var (
 	AutoscalerClassHPA      AutoscalerClassType = "hpa"
 	AutoscalerClassExternal AutoscalerClassType = "external"
+	AutoscalerClassKeda     AutoscalerClassType = "keda"
 )
 
 // Autoscaler Metrics
@@ -184,22 +194,41 @@ var (
 	AutoScalerMetricsMemory AutoscalerMetricsType = "memory"
 )
 
+// Autoscaler Prometheus metrics
+var (
+	AutoScalerMetricsPrometheus AutoscalerMetricsType = "prometheus"
+)
+
+// Autoscaler Prometheus metrics
+var (
+	AutoScalerMetricsGraphite AutoscalerMetricsType = "graphite"
+)
+
 // Autoscaler Class Allowed List
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
 	AutoscalerClassExternal,
+	AutoscalerClassKeda,
 }
 
 // Autoscaler Metrics Allowed List
-var AutoscalerAllowedMetricsList = []AutoscalerMetricsType{
+var AutoscalerAllowedHPAMetricsList = []AutoscalerMetricsType{
 	AutoScalerMetricsCPU,
 	AutoScalerMetricsMemory,
+	AutoScalerMetricsPrometheus,
 }
 
 // Autoscaler KPA Metrics Allowed List
 var AutoScalerKPAMetricsAllowedList = []AutoScalerKPAMetricsType{
 	AutoScalerKPAMetricsConcurrency,
 	AutoScalerKPAMetricsRPS,
+}
+
+var AutoscalerAllowedKEDAMetricsList = []AutoscalerMetricsType{
+	AutoScalerMetricsCPU,
+	AutoScalerMetricsMemory,
+	AutoScalerMetricsPrometheus,
+	AutoScalerMetricsGraphite,
 }
 
 // Autoscaler Default Metrics Value
@@ -456,6 +485,7 @@ const (
 	IstioVirtualServiceKind = "VirtualService"
 	KnativeServiceKind      = "Service"
 	ClusterLocalModelKind   = "ClusterLocalModel"
+	KedaScaledObjectKind    = "ScaledObject"
 )
 
 // GetRawServiceLabel generate native service label
