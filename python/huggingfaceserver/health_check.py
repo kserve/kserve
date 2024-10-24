@@ -160,25 +160,24 @@ def main():
     # Parse the arguments
     args = parser.parse_args()
 
-    # Route to appropriate function based on command using match-case
-    match args.command:
-        case "readiness":
-            result = check_readiness(args.pipeline_parallel_size, args.health_check_url)
-            verify_status(result)
-        case "startup":
-            result = check_startup()
-            verify_status(result)
-        case "liveness":
-            result = check_gpu_usage("Liveness Probe")
-            verify_status(result)
-        case "gpu_usage":
-            result = check_gpu_usage("GPU Usage")
-            verify_status(result)
-        case "registered_nodes":
-            result = check_registered_nodes(args.pipeline_parallel_size)
-            verify_status(result)
-        case _:
-            parser.print_help()
+    # Route to appropriate function based on command using if-elif-else
+    if args.command == "readiness":
+        result = check_readiness(args.pipeline_parallel_size, args.health_check_url)
+        verify_status(result)
+    elif args.command == "startup":
+        result = check_startup()
+        verify_status(result)
+    elif args.command == "liveness":
+        result = check_gpu_usage("Liveness Probe")
+        verify_status(result)
+    elif args.command == "gpu_usage":
+        result = check_gpu_usage("GPU Usage")
+        verify_status(result)
+    elif args.command == "registered_nodes":
+        result = check_registered_nodes(args.pipeline_parallel_size)
+        verify_status(result)
+    else:
+        parser.print_help()
 
 
 if __name__ == "__main__":
