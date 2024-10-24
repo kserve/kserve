@@ -27,8 +27,8 @@ RUN cd kserve && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
 RUN cd kserve && poetry install --no-interaction --no-cache
 
-COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/
-RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
+COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/health_check.py huggingfaceserver/
+RUN cd huggingfaceserver && poetry install --no-root --no-interaction 
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
@@ -66,4 +66,3 @@ ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 USER 1000
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]
-

@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -27,6 +28,7 @@ import (
 	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -508,4 +510,299 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 		})
 	}
 
+}
+
+func TestValidateMultiNodeVariables(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	s3StorageUri := "s3://test"
+	pvcStorageUri := "pvc://test"
+	scenarios := map[string]struct {
+		isvc     *InferenceService
+		expected gomega.OmegaMatcher
+	}{
+		"When TENSOR_PARALLEL_SIZE set in the environment, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+								Container: v1.Container{
+									Env: []v1.EnvVar{
+										{Name: constants.TensorParallelSizeEnvName, Value: "2"},
+									},
+								},
+							},
+						},
+						WorkerSpec: &WorkerSpec{},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, "foo-1")),
+		},
+		"When PIPELINE_PARALLEL_SIZE set in the environment, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-2",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+								Container: v1.Container{
+									Env: []v1.EnvVar{
+										{Name: constants.PipelineParallelSizeEnvName, Value: "3"},
+									},
+								},
+							},
+						},
+						WorkerSpec: &WorkerSpec{},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(DisallowedWorkerSpecPipelineParallelSizeEnvError, "foo-2")),
+		},
+		"When workerSpec.TensorParallelSize set less than 1, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-3",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+							},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec:            PodSpec{},
+							TensorParallelSize: intPtr(0),
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, "foo-3", "0")),
+		},
+		"When WorkerSpec.PipelineParallelSize set less than 2, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-4",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+							},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec:              PodSpec{},
+							PipelineParallelSize: intPtr(1),
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, "foo-4", "1")),
+		},
+		"When unknownGPUResource set in Predictor.Model, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-5",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+								Container: v1.Container{
+									Resources: v1.ResourceRequirements{
+										Limits: v1.ResourceList{
+											"unknownGPU.com/gpu": resource.MustParse("1"),
+										},
+										Requests: v1.ResourceList{
+											"unknownGPU.com/gpu": resource.MustParse("1"),
+										},
+									},
+								},
+							},
+						},
+						WorkerSpec: &WorkerSpec{},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidUnknownGPUTypeError, "foo-5")),
+		},
+		"When unknownGPUResource set in Predictor.WorkerSpec, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-6",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+							},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec: PodSpec{
+								Containers: []v1.Container{
+									{
+										Resources: v1.ResourceRequirements{
+											Limits: v1.ResourceList{
+												"unknownGPU.com/gpu": resource.MustParse("1"),
+											},
+											Requests: v1.ResourceList{
+												"unknownGPU.com/gpu": resource.MustParse("1"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidUnknownGPUTypeError, "foo-6")),
+		},
+		"When unsupported storageURI set, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-7",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &s3StorageUri,
+							},
+						},
+						WorkerSpec: &WorkerSpec{},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, "foo-7", "s3")),
+		},
+		"When external autoscaler is not set, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-8",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+							},
+						},
+						WorkerSpec: &WorkerSpec{},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(InvalidAutoScalerError, "foo-8", constants.AutoscalerClassHPA)),
+		},
+		"When multiple containers set in WorkerSpec, then it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-9",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+							},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec: PodSpec{
+								Containers: []v1.Container{
+									{},
+									{},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.Equal(fmt.Errorf(DisallowedMultipleContainersInWorkerSpecError, "foo-9")),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateMultiNodeVariables(scenario.isvc)
+			g.Expect(err).To(scenario.expected)
+		})
+	}
+}
+
+func intPtr(i int) *int {
+	return &i
 }

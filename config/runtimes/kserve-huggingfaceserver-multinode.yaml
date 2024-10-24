@@ -1,0 +1,180 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-huggingfaceserver-multinode
+spec:
+  annotations:
+    prometheus.kserve.io/port: "8080"
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: huggingface
+      version: "1"
+      autoSelect: true
+      priority: 2
+  protocolVersions:
+    - v2
+    - v1
+  containers:
+    - name: kserve-container
+      image: kserve/huggingfaceserver:latest
+      command: ["bash", "-c"]
+      args:
+        - |
+          ray start --head --disable-usage-stats --include-dashboard false 
+          # wait for other node to join
+          until [[ $(ray status | grep -c node_) -eq ${PIPELINE_PARALLEL_SIZE} ]]; do
+            echo "Waiting..."
+            sleep 1
+          done
+          ray status
+
+          export MODEL=${MODEL_ID}
+          if [[ ! -z ${MODEL_DIR} ]]
+          then
+            MODEL=${MODEL_DIR}
+          fi
+
+          python3 -m huggingfaceserver --model_name=${MODEL_NAME}  --model_dir=${MODEL} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE}
+
+      env:
+        - name: RAY_PORT
+          value: "6379"
+        - name: RAY_ADDRESS
+          value: 127.0.0.1:6379
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: VLLM_CONFIG_ROOT
+          value: /tmp      
+        - name: HF_HUB_CACHE
+          value: /tmp
+      resources:
+        requests:
+          cpu: "2"
+          memory: 6Gi
+        limits:
+          cpu: "4"
+          memory: 12Gi
+      volumeMounts:
+        - name: shm
+          mountPath: /dev/shm
+      livenessProbe:
+        failureThreshold: 3
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 5
+        initialDelaySeconds: 10
+        exec:
+          command:
+            - bash
+            - -c
+            - |
+              ./huggingfaceserver/health_check.py liveness
+      readinessProbe:
+        failureThreshold: 2
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 5
+        initialDelaySeconds: 10
+        exec:
+          command:
+            - bash
+            - -c
+            - |
+              ./huggingfaceserver/health_check.py readiness ${PIPELINE_PARALLEL_SIZE} http://localhost:8080
+      startupProbe:
+        failureThreshold: 40
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 5
+        initialDelaySeconds: 5
+        exec:
+          command:
+            - bash
+            - -c
+            - |
+              ./huggingfaceserver/health_check.py startup
+  volumes:
+    - name: shm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 3Gi
+  workerSpec:
+    pipelineParallelSize: 2
+    tensorParallelSize: 1
+    containers:
+      - name: worker-container
+        image: kserve/huggingfaceserver:latest
+        command: ["bash", "-c"]
+        args:
+          - |
+            SECONDS=0
+
+            while true; do              
+              if (( SECONDS <= 120 )); then
+                if ray health-check --address "${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379" > /dev/null 2>&1; then
+                  echo "Global Control Service(GCS) is ready."
+                  break
+                fi
+                echo "$SECONDS seconds elapsed: Waiting for Global Control Service(GCS) to be ready."
+              else
+                if ray health-check --address "${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379"; then
+                  echo "Global Control Service(GCS) is ready. Any error messages above can be safely ignored."
+                  break
+                fi
+                echo "$SECONDS seconds elapsed: Still waiting for Global Control Service(GCS) to be ready."
+              fi
+              
+              sleep 5
+            done
+
+            RAY_HEAD_ADDRESS="${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379"
+            echo "Attempting to connect to Ray cluster at $RAY_HEAD_ADDRESS ..."
+            ray start --address="$RAY_HEAD_ADDRESS" --block
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: "2"
+            memory: 6Gi
+          limits:
+            cpu: "4"
+            memory: 12Gi
+        volumeMounts:
+          - name: shm
+            mountPath: /dev/shm
+        livenessProbe:
+          failureThreshold: 3
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 5
+          exec:
+            command:
+              - bash
+              - -c
+              - |
+                ./huggingfaceserver/health_check.py registered_nodes ${PIPELINE_PARALLEL_SIZE}
+        startupProbe:
+          failureThreshold: 12
+          periodSeconds: 5
+          successThreshold: 1
+          timeoutSeconds: 5
+          exec:
+            command:
+              - bash
+              - -c
+              - |
+                ./huggingfaceserver/health_check.py startup
+    volumes:
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 3Gi
