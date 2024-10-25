@@ -153,7 +153,10 @@ class OpenAIServingCompletion:
             )
 
             for i, prompt_inputs in enumerate(prompts):
-                sampling_params = to_sampling_params(request, default_max_tokens=self.max_model_len - len(prompt_inputs[0]))
+                sampling_params = to_sampling_params(
+                    request,
+                    default_max_tokens=self.max_model_len - len(prompt_inputs[0]),
+                )
                 self._log_inputs(request_id, prompt_inputs, sampling_params)
                 generators.append(
                     self.engine.generate(
