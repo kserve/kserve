@@ -309,8 +309,8 @@ class TestChatCompletions:
     ):
         opt_model, mock_vllm_engine = vllm_opt_model
         request_id = "cmpl-d771287a234c44498e345f0a429d6691"
-
         max_tokens_arg = None
+
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
             nonlocal max_tokens_arg
             # sampling_params is the second argument to generate()
