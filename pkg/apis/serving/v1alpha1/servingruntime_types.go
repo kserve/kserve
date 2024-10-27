@@ -272,6 +272,7 @@ type WorkerSpec struct {
 	ServingRuntimePodSpec `json:",inline"`
 
 	// PipelineParallelSize defines the number of parallel workers.
+	// It specifies the number of model partitions across multiple devices, allowing large models to be split and processed concurrently across these partitions
 	// It also represents the number of replicas in the worker set, where each worker set serves as a scaling unit.
 	// +optional
 	PipelineParallelSize *int `json:"pipelineParallelSize,omitempty"`

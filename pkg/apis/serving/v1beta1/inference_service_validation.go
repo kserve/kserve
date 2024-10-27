@@ -177,18 +177,13 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 		}
 
 		// WorkerSpec.PipelineParallelSize should not be less than 2 (head + worker)
-		if isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize != nil {
-			workerSpecPipelineParallelSize := *isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize
-			if workerSpecPipelineParallelSize < 2 {
-				return fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, isvc.Name, strconv.Itoa(workerSpecPipelineParallelSize))
-			}
+		if pps := isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize; pps != nil && *pps < 2 {
+			return fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, isvc.Name, strconv.Itoa(*pps))
 		}
-		if isvc.Spec.Predictor.WorkerSpec.TensorParallelSize != nil {
-			// WorkerSpec.TensorParallelSize should not be less than 1.
-			workerSpecTensorParallelSize := *isvc.Spec.Predictor.WorkerSpec.TensorParallelSize
-			if workerSpecTensorParallelSize < 1 {
-				return fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, isvc.Name, strconv.Itoa(workerSpecTensorParallelSize))
-			}
+
+		// WorkerSpec.TensorParallelSize should not be less than 1.
+		if tps := isvc.Spec.Predictor.WorkerSpec.TensorParallelSize; tps != nil && *tps < 1 {
+			return fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, isvc.Name, strconv.Itoa(*tps))
 		}
 
 		if isvc.Spec.Predictor.WorkerSpec.Containers != nil {

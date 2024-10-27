@@ -226,11 +226,10 @@ func validateMultiNodeSpec(newSpec *v1alpha1.ServingRuntimeSpec, existingSpec *v
 				}
 			}
 		}
-		for _, container := range newSpec.WorkerSpec.Containers {
-			if container.Name == constants.WorkerContainerName {
-				if utils.IsUnknownGpuResourceType(container.Resources) {
-					return fmt.Errorf(InvalidUnknownGPUTypeError, constants.WorkerContainerName)
-				}
+		workerContainer := newSpec.WorkerSpec.Containers[0]
+		if workerContainer.Name == constants.WorkerContainerName {
+			if utils.IsUnknownGpuResourceType(workerContainer.Resources) {
+				return fmt.Errorf(InvalidUnknownGPUTypeError, constants.WorkerContainerName)
 			}
 		}
 

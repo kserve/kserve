@@ -148,7 +148,6 @@ var (
 	ControllerLabelName             = KServeName + "-controller-manager"
 	DefaultIstioSidecarUID          = int64(1337)
 	DefaultMinReplicas              = 1
-	DefaultWorkerMinSize            = 1
 	IstioInitContainerName          = "istio-init"
 	IstioInterceptModeRedirect      = "REDIRECT"
 	IstioInterceptionModeAnnotation = "sidecar.istio.io/interceptionMode"

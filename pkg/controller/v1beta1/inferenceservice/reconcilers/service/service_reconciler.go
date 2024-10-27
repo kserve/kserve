@@ -90,6 +90,7 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec) *corev1.Service {
 	var servicePorts []corev1.ServicePort
+
 	if len(podSpec.Containers) != 0 {
 		container := podSpec.Containers[0]
 		for _, c := range podSpec.Containers {

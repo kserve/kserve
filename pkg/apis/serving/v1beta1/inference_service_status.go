@@ -306,6 +306,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatusWithMessages(
 	if len(ss.Components) == 0 {
 		ss.Components = make(map[ComponentType]ComponentStatusSpec)
 	}
+
 	statusSpec, ok := ss.Components[component]
 	if !ok {
 		ss.Components[component] = ComponentStatusSpec{}
