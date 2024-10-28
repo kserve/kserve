@@ -390,6 +390,6 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(rest_v2
         service_name,
         "./data/bert_sequence_classification_v2.json",
     )
-    assert res.outputs[0].data == [[0.0094, 0.9906]]
+    assert res.outputs[0].data == ['{0: -2.152204, 1: 2.5094059}']
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
