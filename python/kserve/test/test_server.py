@@ -23,20 +23,27 @@ from unittest import mock
 import avro.io
 import avro.schema
 import httpx
+import numpy as np
+import pandas as pd
 import pytest
+import pytest_asyncio
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from fastapi.testclient import TestClient
 from ray import serve
 
 from kserve import Model, ModelRepository, ModelServer
-from kserve.errors import InvalidInput
+from kserve.constants.constants import INFERENCE_CONTENT_LENGTH_HEADER
+from kserve.errors import InvalidInput, NoModelReady
 from kserve.model import PredictorProtocol
+from kserve.model_server import app as kserve_app
+from kserve.ray import RayModel
 from kserve.protocol.infer_type import (
     InferInput,
     InferOutput,
     InferRequest,
     InferResponse,
+    RequestedOutput,
 )
 from kserve.protocol.rest.server import RESTServer
 from kserve.protocol.rest.v2_datamodels import is_pydantic_2
@@ -102,13 +109,22 @@ class DummyStreamModel(Model):
 
 class TestStreamPredict:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def server(self):
+        server = ModelServer()
+        rest_server = RESTServer(
+            kserve_app, server.dataplane, server.model_repository_extension
+        )
+        rest_server.create_application()
+        yield server
+        kserve_app.routes.clear()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self, server):  # pylint: disable=no-self-use
         model = DummyStreamModel("TestModel")
         model.load()
-        server = ModelServer()
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -148,22 +164,20 @@ class DummyModel(Model):
                 infer_response.outputs[0].parameters = request.inputs[0].parameters
             return infer_response
         else:
-            return {"predictions": request["instances"]}
+            if "inputs" in request:
+                return {"predictions": request["inputs"]}
+            else:
+                return {"predictions": request["instances"]}
 
     async def explain(self, request, headers=None):
-        return {"predictions": request["instances"]}
+        if "inputs" in request:
+            return {"predictions": request["inputs"]}
+        else:
+            return {"predictions": request["instances"]}
 
 
 @serve.deployment
 class DummyServeModel(Model):
-    def __init__(self, name):
-        super().__init__(name)
-        self.name = name
-        self.ready = False
-
-    def load(self):
-        self.ready = True
-
     async def predict(self, request, headers=None):
         if isinstance(request, InferRequest):
             inputs = get_predict_input(request)
@@ -251,6 +265,79 @@ class DummyModelRepository(ModelRepository):
                 return False
 
 
+class DummyNeverReadyModel(Model):
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+        self.ready = False
+
+
+class DummyFP16OutputModel(Model):
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+        self.ready = False
+
+    def load(self):
+        self.ready = True
+
+    async def predict(self, request, headers=None):
+        outputs = pd.DataFrame(
+            {
+                "fp16_output": request.get_input_by_name("fp32_input")
+                .as_numpy()
+                .astype(np.float16)
+                .flatten(),
+                "fp32_output": request.get_input_by_name("fp32_input")
+                .as_numpy()
+                .flatten(),
+            }
+        )
+        # Fixme: Gets only the 1st element of the input
+        # inputs = get_predict_input(request)
+        infer_response = get_predict_response(request, outputs, self.name)
+        if request.parameters:
+            infer_response.parameters = request.parameters
+            infer_response.parameters.pop("binary_data_output", None)
+        if request.inputs[0].parameters:
+            infer_response.outputs[0].parameters = request.inputs[0].parameters
+            infer_response.outputs[0].parameters.pop("binary_data", None)
+        return infer_response
+
+
+class DummyFP16InputModel(Model):
+    def __init__(self, name):
+        super().__init__(name)
+        self.name = name
+        self.ready = False
+
+    def load(self):
+        self.ready = True
+
+    async def predict(self, request, headers=None):
+        outputs = pd.DataFrame(
+            {
+                "str_output": request.get_input_by_name("str_input")
+                .as_numpy()
+                .flatten(),
+                "fp32_output": request.get_input_by_name("fp16_input")
+                .as_numpy()
+                .astype(np.float32)
+                .flatten(),
+            }
+        )
+        # Fixme: Gets only the 1st element of the input
+        # inputs = get_predict_input(request)
+        infer_response = get_predict_response(request, outputs, self.name)
+        if request.parameters:
+            infer_response.parameters = request.parameters
+            infer_response.parameters.pop("binary_data_output", None)
+        if request.inputs[0].parameters:
+            infer_response.outputs[0].parameters = request.inputs[0].parameters
+            infer_response.outputs[0].parameters.pop("binary_data", None)
+        return infer_response
+
+
 @pytest.mark.asyncio
 class TestModel:
     async def test_validate(self):
@@ -276,14 +363,24 @@ class TestModel:
 
 
 class TestV1Endpoints:
+
     @pytest.fixture(scope="class")
-    def app(self):
+    def server(self):
+        server = ModelServer(registered_models=ModelRepository())
+        rest_server = RESTServer(
+            kserve_app, server.dataplane, server.model_repository_extension
+        )
+        rest_server.create_application()
+        yield server
+        kserve_app.routes.clear()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self, server):
         model = DummyModel("TestModel")
         model.load()
-        server = ModelServer()
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -337,13 +434,30 @@ class TestV1Endpoints:
 
 class TestV2Endpoints:
     @pytest.fixture(scope="class")
-    def app(self):
+    def server(self):
+        server = ModelServer()
+        rest_server = RESTServer(
+            kserve_app, server.dataplane, server.model_repository_extension
+        )
+        rest_server.create_application()
+        yield server
+        kserve_app.routes.clear()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self, server):
         model = DummyModel("TestModel")
         model.load()
-        server = ModelServer()
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        fp16_input_model = DummyFP16InputModel("FP16InputModel")
+        fp16_input_model.load()
+        server.register_model(fp16_input_model)
+        fp16_output_model = DummyFP16OutputModel("FP16OutputModel")
+        fp16_output_model.load()
+        server.register_model(fp16_output_model)
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
+        await server.model_repository_extension.unload("FP16InputModel")
+        await server.model_repository_extension.unload("FP16OutputModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -352,23 +466,21 @@ class TestV2Endpoints:
     def test_list_models_v2(self, http_server_client):
         resp = http_server_client.get("/v2/models")
         assert resp.status_code == 200
-        assert resp.json() == {"models": ["TestModel"]}
+        assert resp.json() == {
+            "models": ["TestModel", "FP16InputModel", "FP16OutputModel"]
+        }
 
     def test_infer_v2(self, http_server_client):
         input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
-        resp = http_server_client.post("/v2/models/TestModel/infer", content=input_data)
+        resp = http_server_client.post(
+            "/v2/models/TestModel/infer",
+            content=input_data,
+            headers={"content-type": "application/json"},
+        )
 
         result = json.loads(resp.content)
         assert resp.status_code == 200
         assert result["outputs"][0]["data"] == [1, 2]
-        assert resp.headers["content-type"] == "application/json"
-
-    def test_explain_v2(self, http_server_client):
-        resp = http_server_client.post(
-            "/v1/models/TestModel:explain", content=b'{"instances":[[1,2]]}'
-        )
-        assert resp.status_code == 200
-        assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers["content-type"] == "application/json"
 
     def test_infer_parameters_v2(self, http_server_client):
@@ -397,8 +509,8 @@ class TestV2Endpoints:
                 )
             ],
         )
-
-        input_data = json.dumps(req.to_rest()).encode("utf-8")
+        infer_dict, _ = req.to_rest()
+        input_data = json.dumps(infer_dict).encode("utf-8")
         expected_res = InferResponse(
             model_name=model_name,
             response_id="123",
@@ -426,27 +538,299 @@ class TestV2Endpoints:
         resp = http_server_client.post("/v2/models/TestModel/infer", content=input_data)
         assert resp.status_code == 200
         assert resp.headers["content-type"] == "application/json"
-        result = InferResponse.from_rest(
-            model_name=model_name, response=json.loads(resp.content)
-        )
+        result = InferResponse.from_rest(response=json.loads(resp.content))
         assert result == expected_res
+
+    def test_fp16_input_as_binary_data(self, http_server_client):
+        fp16_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float16
+        )
+        str_data = np.array(
+            [["cat", "dog", "cat", "dog"], ["cat", "dog", "cat", "dog"]],
+            dtype=np.object_,
+        )
+        fp16_input = InferInput(
+            name="fp16_input",
+            shape=[2, 4],
+            datatype="FP16",
+        )
+        fp16_input.set_data_from_numpy(fp16_data, binary_data=True)
+        request = InferRequest(
+            model_name="FP16InputModel",
+            request_id="123",
+            infer_inputs=[
+                fp16_input,
+                InferInput(
+                    name="str_input",
+                    shape=[2, 4],
+                    datatype="BYTES",
+                    data=str_data.tolist(),
+                ),
+            ],
+        )
+        req_bytes, json_length = request.to_rest()
+        assert isinstance(req_bytes, bytes)
+        resp = http_server_client.post(
+            "/v2/models/FP16InputModel/infer",
+            content=req_bytes,
+            headers={
+                INFERENCE_CONTENT_LENGTH_HEADER: str(json_length),
+                "Content-Type": "application/octet-stream",
+            },
+        )
+        assert resp.status_code == 200
+        assert (
+            resp.content
+            == b'{"model_name":"FP16InputModel","model_version":null,"id":"123","parameters":null,"outputs":[{"name":"str_output","shape":[8],"datatype":"BYTES","parameters":null,"data":["cat","dog","cat","dog","cat","dog","cat","dog"]},{"name":"fp32_output","shape":[8],"datatype":"FP32","parameters":null,"data":[6.80078125,2.80078125,4.80078125,1.400390625,6.0,3.400390625,4.5,1.599609375]}]}'
+        )
+
+    def test_fp16_input_not_binary_data(self, http_server_client):
+        fp16_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float16
+        )
+        str_data = np.array(
+            [["cat", "dog", "cat", "dog"], ["cat", "dog", "cat", "dog"]],
+            dtype=np.object_,
+        )
+        req_dict = {
+            "model_name": "FP16InputModel",
+            "request_id": "123",
+            "inputs": [
+                {
+                    "name": "fp16_input",
+                    "shape": [2, 4],
+                    "datatype": "FP16",
+                    "data": fp16_data.tolist(),
+                },
+                {
+                    "name": "str_input",
+                    "shape": [2, 4],
+                    "datatype": "BYTES",
+                    "data": str_data.tolist(),
+                },
+            ],
+        }
+        resp = http_server_client.post(
+            "/v2/models/FP16InputModel/infer",
+            json=req_dict,
+            headers={
+                "Content-Type": "application/json",
+            },
+        )
+        assert resp.status_code == 400
+
+    def test_fp16_output_as_binary_data(self, http_server_client):
+        fp32_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32
+        )
+        request = InferRequest(
+            model_name="FP16OutputModel",
+            request_id="123",
+            infer_inputs=[
+                InferInput(
+                    name="fp32_input",
+                    shape=[2, 4],
+                    datatype="FP32",
+                    data=fp32_data.tolist(),
+                )
+            ],
+            request_outputs=[
+                RequestedOutput(
+                    name="fp16_output",
+                    parameters={"binary_data": True},
+                ),
+                RequestedOutput(
+                    name="fp32_output",
+                    parameters={"binary_data": False},
+                ),
+            ],
+        )
+        req_dict, _ = request.to_rest()
+        resp = http_server_client.post(
+            "/v2/models/FP16OutputModel/infer",
+            json=req_dict,
+            headers={
+                "Content-Type": "application/json",
+            },
+        )
+        assert resp.status_code == 200
+        assert (
+            resp.content
+            == b'{"id":"123","model_name":"FP16OutputModel","model_version":null,"outputs":[{"name":"fp16_output","shape":[8],"datatype":"FP16","parameters":{"binary_data_size":16}},{"name":"fp32_output","shape":[8],"datatype":"FP32","data":[6.800000190734863,2.799999952316284,4.800000190734863,1.399999976158142,6.0,3.4000000953674316,4.5,1.600000023841858]}]}\xcdF\x9aA\xcdD\x9a=\x00F\xcdB\x80Df>'
+        )
+        assert resp.headers.get(INFERENCE_CONTENT_LENGTH_HEADER) == "345"
+
+    def test_fp16_output_not_binary_data(self, http_server_client):
+        fp32_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32
+        )
+        req_dict = {
+            "model_name": "FP16OutputModel",
+            "request_id": "123",
+            "inputs": [
+                {
+                    "name": "fp32_input",
+                    "shape": [2, 4],
+                    "datatype": "FP32",
+                    "data": fp32_data.tolist(),
+                }
+            ],
+            "outputs": [
+                {
+                    "name": "fp16_output",
+                },
+                {
+                    "name": "fp32_output",
+                    "parameters": {"binary_data": False},
+                },
+            ],
+        }
+        resp = http_server_client.post(
+            "/v2/models/FP16OutputModel/infer",
+            json=req_dict,
+            headers={
+                "Content-Type": "application/json",
+            },
+        )
+        assert resp.status_code == 400
+
+    def test_requested_output(self, http_server_client):
+        fp32_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32
+        )
+        request = InferRequest(
+            model_name="FP16OutputModel",
+            request_id="123",
+            infer_inputs=[
+                InferInput(
+                    name="fp32_input",
+                    shape=[2, 4],
+                    datatype="FP32",
+                    data=fp32_data.tolist(),
+                )
+            ],
+            request_outputs=[
+                RequestedOutput(
+                    name="fp32_output",
+                    parameters={"binary_data": False},
+                )
+            ],
+        )
+        req_dict, _ = request.to_rest()
+        resp = http_server_client.post(
+            "/v2/models/FP16OutputModel/infer",
+            json=req_dict,
+            headers={
+                "Content-Type": "application/json",
+            },
+        )
+        assert resp.status_code == 200
+        assert (
+            resp.content
+            == b'{"model_name":"FP16OutputModel","model_version":null,"id":"123","parameters":null,"outputs":[{"name":"fp32_output","shape":[8],"datatype":"FP32","parameters":null,"data":[6.800000190734863,2.799999952316284,4.800000190734863,1.399999976158142,6.0,3.4000000953674316,4.5,1.600000023841858]}]}'
+        )
+
+    def test_all_output_as_binary_data(self, http_server_client):
+        fp32_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32
+        )
+        request = InferRequest(
+            model_name="FP16OutputModel",
+            request_id="123",
+            infer_inputs=[
+                InferInput(
+                    name="fp32_input",
+                    shape=[2, 4],
+                    datatype="FP32",
+                    data=fp32_data.tolist(),
+                )
+            ],
+            parameters={"binary_data_output": True},
+        )
+        req_dict, _ = request.to_rest()
+        resp = http_server_client.post(
+            "/v2/models/FP16OutputModel/infer",
+            json=req_dict,
+            headers={
+                "Content-Type": "application/json",
+            },
+        )
+        assert resp.status_code == 200
+        assert (
+            resp.content
+            == b'{"id":"123","model_name":"FP16OutputModel","model_version":null,"outputs":[{"name":"fp16_output","shape":[8],"datatype":"FP16","parameters":{"binary_data_size":16}},{"name":"fp32_output","shape":[8],"datatype":"FP32","parameters":{"binary_data_size":32}}]}\xcdF\x9aA\xcdD\x9a=\x00F\xcdB\x80Df>\x9a\x99\xd9@333@\x9a\x99\x99@33\xb3?\x00\x00\xc0@\x9a\x99Y@\x00\x00\x90@\xcd\xcc\xcc?'
+        )
+        assert resp.headers.get(INFERENCE_CONTENT_LENGTH_HEADER) == "256"
+
+    def test_binary_data_parameter_precedence(self, http_server_client):
+        fp32_data = np.array(
+            [[6.8, 2.8, 4.8, 1.4], [6.0, 3.4, 4.5, 1.6]], dtype=np.float32
+        )
+        request = InferRequest(
+            model_name="FP16OutputModel",
+            request_id="123",
+            infer_inputs=[
+                InferInput(
+                    name="fp32_input",
+                    shape=[2, 4],
+                    datatype="FP32",
+                    data=fp32_data.tolist(),
+                )
+            ],
+            parameters={"binary_data_output": True},
+            request_outputs=[
+                RequestedOutput(
+                    name="fp16_output",
+                    parameters={"binary_data": True},
+                ),
+                RequestedOutput(
+                    name="fp32_output",
+                    parameters={"binary_data": False},
+                ),
+            ],
+        )
+        req_dict, _ = request.to_rest()
+        resp = http_server_client.post(
+            "/v2/models/FP16OutputModel/infer",
+            json=req_dict,
+            headers={
+                "Content-Type": "application/json",
+            },
+        )
+        assert resp.status_code == 200
+        assert (
+            resp.content
+            == b'{"id":"123","model_name":"FP16OutputModel","model_version":null,"outputs":[{"name":"fp16_output","shape":[8],"datatype":"FP16","parameters":{"binary_data_size":16}},{"name":"fp32_output","shape":[8],"datatype":"FP32","data":[6.800000190734863,2.799999952316284,4.800000190734863,1.399999976158142,6.0,3.4000000953674316,4.5,1.600000023841858]}]}\xcdF\x9aA\xcdD\x9a=\x00F\xcdB\x80Df>'
+        )
+        assert resp.headers.get(INFERENCE_CONTENT_LENGTH_HEADER) == "345"
 
 
 class TestRayServer:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def server(self):
+        server = ModelServer()
+        rest_server = RESTServer(
+            kserve_app, server.dataplane, server.model_repository_extension
+        )
+        rest_server.create_application()
+        yield server
+        kserve_app.routes.clear()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self, server):  # pylint: disable=no-self-use
         serve.start(http_options={"host": "0.0.0.0", "port": 9071})
 
         # https://github.com/ray-project/ray/blob/releases/2.8.0/python/ray/serve/deployment.py#L256
-        app = DummyServeModel.bind(name="TestModel")
-        handle = serve.run(app, name="TestModel", route_prefix="/")
+        model_name = "TestModel"
+        ray_app = DummyServeModel.bind(name=model_name)
+        handle = serve.run(ray_app, name=model_name, route_prefix="/")
 
-        handle.load.remote()
-
-        server = ModelServer()
-        server.register_model_handle("TestModel", handle)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        model = RayModel(model_name, handle=handle)
+        model.load()
+        server.register_model(model)
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
+        serve.shutdown()
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -502,12 +886,21 @@ class TestRayServer:
 
 class TestTFHttpServerModelNotLoaded:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
-        model = DummyModel("TestModel")
+    def server(self):
         server = ModelServer()
+        rest_server = RESTServer(
+            kserve_app, server.dataplane, server.model_repository_extension
+        )
+        rest_server.create_application()
+        yield server
+        kserve_app.routes.clear()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self, server):  # pylint: disable=no-self-use
+        model = DummyModel("TestModel")
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -520,13 +913,22 @@ class TestTFHttpServerModelNotLoaded:
 
 class TestTFHttpServerCloudEvent:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def server(self):
+        server = ModelServer()
+        rest_server = RESTServer(
+            kserve_app, server.dataplane, server.model_repository_extension
+        )
+        rest_server.create_application()
+        yield server
+        kserve_app.routes.clear()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self, server):  # pylint: disable=no-self-use
         model = DummyCEModel("TestModel")
         model.load()
-        server = ModelServer()
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -687,13 +1089,22 @@ class TestTFHttpServerCloudEvent:
 
 class TestTFHttpServerAvroCloudEvent:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def server(self):
+        server = ModelServer()
+        rest_server = RESTServer(
+            kserve_app, server.dataplane, server.model_repository_extension
+        )
+        rest_server.create_application()
+        yield server
+        kserve_app.routes.clear()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self, server):  # pylint: disable=no-self-use
         model = DummyAvroCEModel("TestModel")
         model.load()
-        server = ModelServer()
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -730,12 +1141,16 @@ class TestTFHttpServerAvroCloudEvent:
 
 class TestTFHttpServerLoadAndUnLoad:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def app(self):
         server = ModelServer(
             registered_models=DummyModelRepository(test_load_success=True)
         )
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        rest_server = RESTServer(
+            kserve_app, server.dataplane, server.model_repository_extension
+        )
+        rest_server.create_application()
+        yield kserve_app
+        kserve_app.routes.clear()
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -756,12 +1171,16 @@ class TestTFHttpServerLoadAndUnLoad:
 
 class TestTFHttpServerLoadAndUnLoadFailure:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
+    def app(self):
         server = ModelServer(
             registered_models=DummyModelRepository(test_load_success=False)
         )
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        rest_server = RESTServer(
+            kserve_app, server.dataplane, server.model_repository_extension
+        )
+        rest_server.create_application()
+        yield kserve_app
+        kserve_app.routes.clear()
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -780,12 +1199,21 @@ class TestTFHttpServerLoadAndUnLoadFailure:
 
 class TestTFHttpServerModelNotReady:
     @pytest.fixture(scope="class")
-    def app(self):  # pylint: disable=no-self-use
-        model = DummyModel("TestModel")
+    def server(self):
         server = ModelServer()
+        rest_server = RESTServer(
+            kserve_app, server.dataplane, server.model_repository_extension
+        )
+        rest_server.create_application()
+        yield server
+        kserve_app.routes.clear()
+
+    @pytest_asyncio.fixture(scope="class")
+    async def app(self, server):  # pylint: disable=no-self-use
+        model = DummyModel("TestModel")
         server.register_model(model)
-        rest_server = RESTServer(server.dataplane, server.model_repository_extension)
-        return rest_server.create_application()
+        yield kserve_app
+        await server.model_repository_extension.unload("TestModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -815,3 +1243,12 @@ class TestTFHttpServerModelNotReady:
             "/v1/models/TestModel:explain", content=b'{"instances":[[1,2]]}'
         )
         assert resp.status_code == 503
+
+
+class TestWithUnhealthyModel:
+    def test_with_not_ready_model(self):
+        model = DummyNeverReadyModel("Dummy")
+        server = ModelServer()
+        with pytest.raises(NoModelReady) as exc_info:
+            server.start([model])
+        assert exc_info.type == NoModelReady

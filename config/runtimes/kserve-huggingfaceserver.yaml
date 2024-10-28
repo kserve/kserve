@@ -19,6 +19,13 @@ spec:
       image: huggingfaceserver:replace
       args:
         - --model_name={{.Name}}
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
       resources:
         requests:
           cpu: "1"
@@ -26,3 +33,11 @@ spec:
         limits:
           cpu: "1"
           memory: 2Gi
+      volumeMounts:
+        - name: devshm
+          mountPath: /dev/shm
+  volumes:
+    - name: devshm
+      emptyDir:
+        medium: Memory
+  hostIPC: false

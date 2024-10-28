@@ -56,6 +56,9 @@ RELEASES=(
     "v0.12.1"
     "v0.13.0-rc0"
     "v0.13.0"
+    "v0.14.0-rc0"
+    "v0.14.0-rc1"
+    "v0.14.0"
 )
 
 TAG=$1
@@ -102,6 +105,8 @@ cp ${temp_dir}/serving.kserve.io_trainedmodels.yaml charts/kserve-crd/templates/
 cp ${temp_dir}/serving.kserve.io_inferencegraphs.yaml charts/kserve-crd/templates/serving.kserve.io_inferencegraphs.yaml
 cp ${temp_dir}/serving.kserve.io_servingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
 cp ${temp_dir}/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/templates/serving.kserve.io_clusterstoragecontainers.yaml
+cp ${temp_dir}/serving.kserve.io_localmodelnodegroups.yaml charts/kserve-crd/templates/serving.kserve.io_localmodelnodegroups.yaml
+cp ${temp_dir}/serving.kserve.io_clusterlocalmodels.yaml charts/kserve-crd/templates/serving.kserve.io_clusterlocalmodels.yaml
 
 # Clean temp directory
 rm -rf ${temp_dir}

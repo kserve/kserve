@@ -21,6 +21,13 @@ spec:
         - --model_name={{.Name}}
         - --model_dir=/mnt/models
         - --http_port=8080
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
       resources:
         requests:
           cpu: "1"

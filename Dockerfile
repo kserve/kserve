@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=mod go build -a -o manager ./cmd/manag
 # Use distroless as minimal base image to package the manager binary
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 RUN microdnf install -y --disablerepo=* --enablerepo=ubi-8-baseos-rpms shadow-utils && \
-    microdnf clean all && \ 
+    microdnf clean all && \
     useradd kserve -m -u 1000
 RUN microdnf remove -y shadow-utils
 COPY third_party/ /third_party/

@@ -1,8 +1,8 @@
 dev_install:
-	poetry install --with test
+	poetry install --with test -E vllm --no-interaction
 
 install_dependencies:
-	poetry install --with=test --no-interaction --no-root
+	poetry install --with=test -E vllm --no-interaction --no-root
 	
 test: type_check
 	pytest -W ignore

@@ -26,8 +26,6 @@ from . import grpc_predict_v2_pb2_grpc
 from .interceptors import LoggingInterceptor
 from .servicer import InferenceServicer
 
-MAX_GRPC_MESSAGE_LENGTH = 8388608
-
 
 class GRPCServer:
     def __init__(
@@ -35,11 +33,13 @@ class GRPCServer:
         port: int,
         data_plane: DataPlane,
         model_repository_extension: ModelRepositoryExtension,
+        kwargs: dict,
     ):
         self._port = port
         self._data_plane = data_plane
         self._model_repository_extension = model_repository_extension
         self._server = None
+        self._kwargs = kwargs
 
     async def start(self, max_workers):
         inference_servicer = InferenceServicer(
@@ -49,9 +49,14 @@ class GRPCServer:
             futures.ThreadPoolExecutor(max_workers=max_workers),
             interceptors=(LoggingInterceptor(),),
             options=[
-                ("grpc.max_message_length", MAX_GRPC_MESSAGE_LENGTH),
-                ("grpc.max_send_message_length", MAX_GRPC_MESSAGE_LENGTH),
-                ("grpc.max_receive_message_length", MAX_GRPC_MESSAGE_LENGTH),
+                (
+                    "grpc.max_send_message_length",
+                    self._kwargs.get("grpc_max_send_message_length"),
+                ),
+                (
+                    "grpc.max_receive_message_length",
+                    self._kwargs.get("grpc_max_receive_message_length"),
+                ),
             ],
         )
         grpc_predict_v2_pb2_grpc.add_GRPCInferenceServiceServicer_to_server(
@@ -65,9 +70,10 @@ class GRPCServer:
         await self._server.wait_for_termination()
 
     async def stop(self, sig: int = None):
-        logger.info("Waiting for gRPC server shutdown")
-        await self._server.stop(grace=10)
-        logger.info("gRPC server shutdown complete")
+        if self._server:
+            logger.info("Waiting for gRPC server shutdown")
+            await self._server.stop(grace=10)
+            logger.info("gRPC server shutdown complete")
 
 
 class GRPCProcess(multiprocessing.Process):

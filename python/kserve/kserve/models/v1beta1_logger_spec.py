@@ -47,29 +47,57 @@ class V1beta1LoggerSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'metadata_headers': 'list[str]',
         'mode': 'str',
         'url': 'str'
     }
 
     attribute_map = {
+        'metadata_headers': 'metadataHeaders',
         'mode': 'mode',
         'url': 'url'
     }
 
-    def __init__(self, mode=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, metadata_headers=None, mode=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LoggerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._metadata_headers = None
         self._mode = None
         self._url = None
         self.discriminator = None
 
+        if metadata_headers is not None:
+            self.metadata_headers = metadata_headers
         if mode is not None:
             self.mode = mode
         if url is not None:
             self.url = url
+
+    @property
+    def metadata_headers(self):
+        """Gets the metadata_headers of this V1beta1LoggerSpec.  # noqa: E501
+
+        Matched metadata HTTP headers for propagating to inference logger cloud events.  # noqa: E501
+
+        :return: The metadata_headers of this V1beta1LoggerSpec.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._metadata_headers
+
+    @metadata_headers.setter
+    def metadata_headers(self, metadata_headers):
+        """Sets the metadata_headers of this V1beta1LoggerSpec.
+
+        Matched metadata HTTP headers for propagating to inference logger cloud events.  # noqa: E501
+
+        :param metadata_headers: The metadata_headers of this V1beta1LoggerSpec.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._metadata_headers = metadata_headers
 
     @property
     def mode(self):

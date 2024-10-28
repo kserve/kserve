@@ -28,11 +28,12 @@ from kserve import (
     constants,
 )
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
 
 @pytest.mark.helm
-def test_sklearn_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_kserve(rest_v2_client):
     service_name = "isvc-sklearn-helm"
     protocol_version = "v2"
 
@@ -48,6 +49,12 @@ def test_sklearn_kserve():
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "100m", "memory": "512Mi"},
+            ),
+            readiness_probe=client.V1Probe(
+                http_get=client.V1HTTPGetAction(
+                    path=f"/v2/models/{service_name}/ready", port=8080
+                ),
+                initial_delay_seconds=30,
             ),
         ),
     )
@@ -67,7 +74,11 @@ def test_sklearn_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/iris_input_v2.json", protocol_version="v2")
-    assert res["outputs"][0]["data"] == [1, 1]
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
+    )
+    assert res.outputs[0].data == [1, 1]
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

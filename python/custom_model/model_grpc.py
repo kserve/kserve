@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 import argparse
 import io
 from typing import Dict
@@ -34,7 +35,7 @@ class AlexNetModel(Model):
         self.ready = False
 
     def load(self):
-        self.model = models.alexnet(pretrained=True)
+        self.model = models.alexnet(pretrained=True, progress=False)
         self.model.eval()
         self.ready = True
 

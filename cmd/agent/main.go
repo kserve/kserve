@@ -27,16 +27,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/go-logr/zapr"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/kserve/kserve/pkg/agent"
-	"github.com/kserve/kserve/pkg/agent/storage"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/batcher"
-	kfslogger "github.com/kserve/kserve/pkg/logger"
 	"github.com/pkg/errors"
 	flag "github.com/spf13/pflag"
 	"go.uber.org/zap"
-
 	"knative.dev/networking/pkg/http/header"
 	proxy "knative.dev/networking/pkg/http/proxy"
 	pkglogging "knative.dev/pkg/logging"
@@ -46,6 +41,13 @@ import (
 	"knative.dev/serving/pkg/queue"
 	"knative.dev/serving/pkg/queue/health"
 	"knative.dev/serving/pkg/queue/readiness"
+	ctrl "sigs.k8s.io/controller-runtime"
+
+	"github.com/kserve/kserve/pkg/agent"
+	"github.com/kserve/kserve/pkg/agent/storage"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/batcher"
+	kfslogger "github.com/kserve/kserve/pkg/logger"
 )
 
 var (
@@ -64,6 +66,7 @@ var (
 	namespace        = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint         = flag.String("endpoint", "", "The endpoint name to add as header to log events")
 	component        = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
+	metadataHeaders  = flag.StringArray("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
 	// batcher flags
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
@@ -72,6 +75,8 @@ var (
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout") //nolint: unused
 	// This creates an abstract socket instead of an actual file.
 	unixSocketPath = "@/kserve/agent.sock"
+	CaCertFile     = flag.String("logger-ca-cert-file", "service-ca.crt", "The logger CA certificate file")
+	TlsSkipVerify  = flag.Bool("logger-tls-skip-verify", false, "Skip verification of TLS certificate")
 )
 
 const (
@@ -85,12 +90,15 @@ const (
 )
 
 type config struct {
-	// Making the below fields optional since raw deployment wont have them
+	// Making the below fields optional since raw deployment won't have them
 	ContainerConcurrency   int    `split_words:"true"`
 	QueueServingPort       int    `split_words:"true"`
 	UserPort               int    `split_words:"true"`
 	RevisionTimeoutSeconds int    `split_words:"true"`
 	ServingReadinessProbe  string `split_words:"true" required:"true"`
+	// See https://github.com/knative/serving/issues/12387
+	EnableHTTP2AutoDetection   bool `envconfig:"ENABLE_HTTP2_AUTO_DETECTION"` // optional
+	EnableMultiContainerProbes bool `split_words:"true"`
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true"`
 	ServingLoggingLevel          string `split_words:"true"`
@@ -107,6 +115,9 @@ type loggerArgs struct {
 	namespace        string
 	endpoint         string
 	component        string
+	metadataHeaders  []string
+	certName         string
+	tlsSkipVerify    bool
 }
 
 type batcherArgs struct {
@@ -124,10 +135,11 @@ func main() {
 	}
 
 	logger, _ := pkglogging.NewLogger(env.ServingLoggingConfig, env.ServingLoggingLevel)
+	ctrl.SetLogger(zapr.NewLogger(logger.Desugar()))
 	// Setup probe to run for checking user container healthiness.
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
-		probe = buildProbe(logger, env.ServingReadinessProbe).ProbeContainer
+		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection, env.EnableMultiContainerProbes).ProbeContainer
 	}
 
 	if *enablePuller {
@@ -283,6 +295,9 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		endpoint:         *endpoint,
 		namespace:        *namespace,
 		component:        *component,
+		metadataHeaders:  *metadataHeaders,
+		certName:         *CaCertFile,
+		tlsSkipVerify:    *TlsSkipVerify,
 	}
 }
 
@@ -298,22 +313,30 @@ func startModelPuller(logger *zap.SugaredLogger) {
 	go watcher.Start()
 }
 
-func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
-	coreProbe, err := readiness.DecodeProbe(probeJSON)
+func buildProbe(logger *zap.SugaredLogger, probeJSON string, autodetectHTTP2 bool, _ bool) *readiness.Probe {
+	coreProbes, err := readiness.DecodeProbe(probeJSON)
 	if err != nil {
 		logger.Fatalw("Agent failed to parse readiness probe", zap.Error(err))
 		panic("Agent failed to parse readiness probe")
 	}
-	newProbe := readiness.NewProbe(coreProbe)
-	if newProbe.InitialDelaySeconds == 0 {
-		newProbe.InitialDelaySeconds = 10
+	// for _, probe := range coreProbes {
+	{
+		probe := coreProbes
+		if probe.InitialDelaySeconds == 0 {
+			probe.InitialDelaySeconds = 10
+		}
 	}
+	// }
+	if autodetectHTTP2 {
+		return readiness.NewProbeWithHTTP2AutoDetection(coreProbes)
+	}
+	newProbe := readiness.NewProbe(coreProbes)
 	return newProbe
 }
 
 func buildServer(ctx context.Context, port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs, // nolint unparam
 	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
-	logging.Infof("Building server user port %s port %s", userPort, port)
+	logging.Infof("Building server user port %d port %s", userPort, port)
 	target := &url.URL{
 		Scheme: "http",
 		Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(userPort)),
@@ -336,7 +359,8 @@ func buildServer(ctx context.Context, port string, userPort int, loggerArgs *log
 	}
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
-			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler)
+			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler,
+			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.tlsSkipVerify)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)

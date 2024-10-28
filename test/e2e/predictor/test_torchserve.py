@@ -29,13 +29,14 @@ from kserve import (
 )
 from kubernetes.client import V1ResourceRequirements, V1ContainerPort
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict, predict_grpc
+from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
 pytest.skip("ODH does not support torchserve at the moment", allow_module_level=True)
 
 
 @pytest.mark.predictor
-def test_torchserve_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_torchserve_kserve(rest_v1_client):
     service_name = "mnist"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -64,13 +65,16 @@ def test_torchserve_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/torchserve_input.json")
-    assert res.get("predictions")[0] == 2
+    res = await predict_isvc(
+        rest_v1_client, service_name, "./data/torchserve_input.json"
+    )
+    assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_torchserve_v2_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_torchserve_v2_kserve(rest_v2_client):
     service_name = "mnist-v2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -99,19 +103,20 @@ def test_torchserve_v2_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(
+    res = await predict_isvc(
+        rest_v2_client,
         service_name,
         "./data/torchserve_input_v2.json",
         model_name="mnist",
-        protocol_version="v2",
     )
-    assert res.get("outputs")[0]["data"] == [1]
+    assert res.outputs[0].data == [1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.grpc
 @pytest.mark.predictor
-def test_torchserve_grpc_v2():
+@pytest.mark.asyncio(scope="session")
+async def test_torchserve_grpc_v2():
     service_name = "mnist-grpc"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -153,16 +158,17 @@ def test_torchserve_grpc_v2():
             },
         }
     ]
-    response = predict_grpc(
+    response = await predict_grpc(
         service_name=service_name, payload=payload, model_name=model_name
     )
-    fields = response.outputs[0].contents.int64_contents
+    fields = response.outputs[0].data
     assert fields == [2]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.predictor
-def test_torchserve_runtime_kserve():
+@pytest.mark.asyncio(scope="session")
+async def test_torchserve_runtime_kserve(rest_v1_client):
     service_name = "mnist-runtime"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -194,6 +200,8 @@ def test_torchserve_runtime_kserve():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = predict(service_name, "./data/torchserve_input.json", model_name="mnist")
-    assert res.get("predictions")[0] == 2
+    res = await predict_isvc(
+        rest_v1_client, service_name, "./data/torchserve_input.json", model_name="mnist"
+    )
+    assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

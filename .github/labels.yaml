@@ -1,0 +1,31 @@
+# Labels for labeling issues and pull requests using GitHub prow action.
+kind:
+  - 'bug'
+  - 'discussion'
+  - 'feature'
+  - 'process'
+  - 'question'
+
+area:
+  - 'api'
+  - 'azure'
+  - 'docs'
+  - 'example'
+  - 'gcp'
+  - 'inference'
+  - 'infrastructure-feature'
+  - 'logging'
+  - 'operator'
+  - 'performance'
+  - 'testing'
+  - 'project-health'
+  - 'servingruntime'
+  - 'inferencegraph'
+  - 'storage'
+  - 'inferenceservice'
+  - 'control-plane'
+
+priority:
+  - 'p0'
+  - 'p1'
+  - 'p2'

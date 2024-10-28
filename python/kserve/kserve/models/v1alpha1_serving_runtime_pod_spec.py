@@ -50,6 +50,7 @@ class V1alpha1ServingRuntimePodSpec(object):
         'affinity': 'V1Affinity',
         'annotations': 'dict(str, str)',
         'containers': 'list[V1Container]',
+        'host_ipc': 'bool',
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'labels': 'dict(str, str)',
         'node_selector': 'dict(str, str)',
@@ -61,6 +62,7 @@ class V1alpha1ServingRuntimePodSpec(object):
         'affinity': 'affinity',
         'annotations': 'annotations',
         'containers': 'containers',
+        'host_ipc': 'hostIPC',
         'image_pull_secrets': 'imagePullSecrets',
         'labels': 'labels',
         'node_selector': 'nodeSelector',
@@ -68,7 +70,7 @@ class V1alpha1ServingRuntimePodSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, affinity=None, annotations=None, containers=None, image_pull_secrets=None, labels=None, node_selector=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, annotations=None, containers=None, host_ipc=None, image_pull_secrets=None, labels=None, node_selector=None, tolerations=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1ServingRuntimePodSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -77,6 +79,7 @@ class V1alpha1ServingRuntimePodSpec(object):
         self._affinity = None
         self._annotations = None
         self._containers = None
+        self._host_ipc = None
         self._image_pull_secrets = None
         self._labels = None
         self._node_selector = None
@@ -89,6 +92,8 @@ class V1alpha1ServingRuntimePodSpec(object):
         if annotations is not None:
             self.annotations = annotations
         self.containers = containers
+        if host_ipc is not None:
+            self.host_ipc = host_ipc
         if image_pull_secrets is not None:
             self.image_pull_secrets = image_pull_secrets
         if labels is not None:
@@ -168,6 +173,29 @@ class V1alpha1ServingRuntimePodSpec(object):
             raise ValueError("Invalid value for `containers`, must not be `None`")  # noqa: E501
 
         self._containers = containers
+
+    @property
+    def host_ipc(self):
+        """Gets the host_ipc of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+
+        Use the host's ipc namespace. Optional: Default to false.  # noqa: E501
+
+        :return: The host_ipc of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._host_ipc
+
+    @host_ipc.setter
+    def host_ipc(self, host_ipc):
+        """Sets the host_ipc of this V1alpha1ServingRuntimePodSpec.
+
+        Use the host's ipc namespace. Optional: Default to false.  # noqa: E501
+
+        :param host_ipc: The host_ipc of this V1alpha1ServingRuntimePodSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._host_ipc = host_ipc
 
     @property
     def image_pull_secrets(self):

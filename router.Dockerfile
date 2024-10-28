@@ -8,8 +8,8 @@ COPY go.sum  go.sum
 
 RUN go mod download
 
-COPY pkg/    pkg/
 COPY cmd/    cmd/
+COPY pkg/    pkg/
 
 # Build
 USER root
@@ -18,7 +18,7 @@ RUN CGO_ENABLED=0  go build -a -o router ./cmd/router
 # Copy the inference-router into a thin image
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 RUN microdnf install -y --disablerepo=* --enablerepo=ubi-8-baseos-rpms shadow-utils && \
-    microdnf clean all && \ 
+    microdnf clean all && \
     useradd kserve -m -u 1000
 RUN microdnf remove -y shadow-utils
 COPY third_party/ third_party/

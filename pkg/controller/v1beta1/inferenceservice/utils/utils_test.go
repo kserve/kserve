@@ -1432,6 +1432,81 @@ func TestModelName(t *testing.T) {
 			},
 			expected: "custom-model",
 		},
+		"multiple modelname arguments": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+									Args:      []string{"--model_name=sklearn", "--model_dir", "/mnt/models", "--model_name", "iris"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "iris",
+		},
+		"modelname argument and value in single string": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+									Args:      []string{"--model_dir", "/mnt/models", "--model_name iris"}, // This format is not recognized by the modelserver. So we ignore this format.
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "sklearn",
+		},
+		"modelname value in separate string": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "sklearn",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "sklearn",
+							},
+
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								Container: v1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+									Args:      []string{"--model_dir", "/mnt/models", "--model_name", "iris"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: "iris",
+		},
 	}
 
 	for name, scenario := range scenarios {
@@ -1795,6 +1870,7 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 				},
 			},
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+			WorkloadType:        v1alpha1.InitContainer,
 		},
 	}
 

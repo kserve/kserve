@@ -20,24 +20,23 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var log = logf.Log.WithName(constants.ServingRuntimeValidatorWebhookName)
 
 const (
-	InvalidPriorityError               = "Same priority assigned for the model format %s"
+	InvalidPriorityError               = "same priority assigned for the model format %s"
 	InvalidPriorityServingRuntimeError = "%s in the servingruntimes %s and %s in namespace %s"
 	// InvalidPriorityClusterServingRuntimeError  = "%s in the clusterservingruntimes %s and %s"
-	ProrityIsNotSameError                      = "Different priorities assigned for the model format %s"
+	ProrityIsNotSameError                      = "different priorities assigned for the model format %s"
 	ProrityIsNotSameServingRuntimeError        = "%s under the servingruntime %s"
 	ProrityIsNotSameClusterServingRuntimeError = "%s under the clusterservingruntime %s"
 )
@@ -46,7 +45,7 @@ const (
 //
 // type ClusterServingRuntimeValidator struct {
 //	 Client  client.Client
-//	 Decoder *admission.Decoder
+//	 Decoder admission.Decoder
 // }
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-servingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=servingruntimes,versions=v1alpha1,name=servingruntime.kserve-webhook-server.validator
@@ -152,7 +151,7 @@ func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existi
 	// Only validate for priority if both servingruntimes supports the same protocol version
 	isTheProtocolSame := false
 	for _, protocolVersion := range existingSpec.ProtocolVersions {
-		if contains(newSpec.ProtocolVersions, protocolVersion) {
+		if slices.Contains(newSpec.ProtocolVersions, protocolVersion) {
 			isTheProtocolSame = true
 			break
 		}
@@ -170,13 +169,4 @@ func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existi
 		}
 	}
 	return nil
-}
-
-func contains[T comparable](slice []T, element T) bool {
-	for _, v := range slice {
-		if v == element {
-			return true
-		}
-	}
-	return false
 }

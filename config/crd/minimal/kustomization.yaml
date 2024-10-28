@@ -8,3 +8,5 @@ resources:
   - serving.kserve.io_servingruntimes.yaml
   - serving.kserve.io_inferencegraphs.yaml
   - serving.kserve.io_clusterstoragecontainers.yaml
+  - serving.kserve.io_clusterlocalmodels.yaml
+  - serving.kserve.io_localmodelnodegroups.yaml

@@ -118,12 +118,12 @@ func TestTFTensorRowSchemaTypical(t *testing.T) {
 	tfTensor := expectedTFTensor()
 	schema := tfTensor.RowSchema()
 	expectedSchema := &openapi3.Schema{
-		Type:     "array",
+		Type:     &openapi3.Types{openapi3.TypeArray},
 		MaxItems: func(u uint64) *uint64 { return &u }(3),
 		MinItems: 3,
 		Items: &openapi3.SchemaRef{
 			Value: &openapi3.Schema{
-				Type: "number",
+				Type: &openapi3.Types{openapi3.TypeNumber},
 			},
 		},
 	}
@@ -140,7 +140,7 @@ func TestTFTensorRowSchemaScalarPerInstance(t *testing.T) {
 	}
 	schema := tfTensor.RowSchema()
 	expectedSchema := &openapi3.Schema{
-		Type: "number",
+		Type: &openapi3.Types{openapi3.TypeNumber},
 	}
 	g.Expect(schema).Should(gomega.Equal(expectedSchema))
 }
@@ -155,17 +155,17 @@ func TestTFTensorRowSchemaNested(t *testing.T) {
 	}
 	schema := tfTensor.RowSchema()
 	expectedSchema := &openapi3.Schema{
-		Type:     "array",
+		Type:     &openapi3.Types{openapi3.TypeArray},
 		MaxItems: func(u uint64) *uint64 { return &u }(1),
 		MinItems: 1,
 		Items: &openapi3.SchemaRef{
 			Value: &openapi3.Schema{
-				Type:     "array",
+				Type:     &openapi3.Types{openapi3.TypeArray},
 				MaxItems: func(u uint64) *uint64 { return &u }(2),
 				MinItems: 2,
 				Items: &openapi3.SchemaRef{
 					Value: &openapi3.Schema{
-						Type: "number",
+						Type: &openapi3.Types{openapi3.TypeNumber},
 					},
 				},
 			},
@@ -184,7 +184,7 @@ func TestTFTensorRowSchemaZeroDimSize(t *testing.T) {
 	}
 	schema := tfTensor.RowSchema()
 	expectedSchema := &openapi3.Schema{
-		Type:     "array",
+		Type:     &openapi3.Types{openapi3.TypeArray},
 		MaxItems: func(u uint64) *uint64 { return &u }(0),
 		MinItems: 0,
 	}
@@ -201,15 +201,15 @@ func TestTFTensorRowSchemaUnknownDimSize(t *testing.T) {
 	}
 	schema := tfTensor.RowSchema()
 	expectedSchema := &openapi3.Schema{
-		Type: "array",
+		Type: &openapi3.Types{openapi3.TypeArray},
 		Items: &openapi3.SchemaRef{
 			Value: &openapi3.Schema{
-				Type:     "array",
+				Type:     &openapi3.Types{openapi3.TypeArray},
 				MaxItems: func(u uint64) *uint64 { return &u }(2),
 				MinItems: 2,
 				Items: &openapi3.SchemaRef{
 					Value: &openapi3.Schema{
-						Type: "number",
+						Type: &openapi3.Types{openapi3.TypeNumber},
 					},
 				},
 			},
@@ -235,15 +235,15 @@ func TestTFTensorColSchemaTypicalRowEquiv(t *testing.T) {
 	tfTensor := expectedTFTensor()
 	schema := tfTensor.ColSchema()
 	expectedSchema := &openapi3.Schema{
-		Type: "array",
+		Type: &openapi3.Types{openapi3.TypeArray},
 		Items: &openapi3.SchemaRef{
 			Value: &openapi3.Schema{
-				Type:     "array",
+				Type:     &openapi3.Types{openapi3.TypeArray},
 				MaxItems: func(u uint64) *uint64 { return &u }(3),
 				MinItems: 3,
 				Items: &openapi3.SchemaRef{
 					Value: &openapi3.Schema{
-						Type: "number",
+						Type: &openapi3.Types{openapi3.TypeNumber},
 					},
 				},
 			},
@@ -262,17 +262,17 @@ func TestTFTensorColSchemaNonBatchable(t *testing.T) {
 	}
 	schema := tfTensor.ColSchema()
 	expectedSchema := &openapi3.Schema{
-		Type:     "array",
+		Type:     &openapi3.Types{openapi3.TypeArray},
 		MaxItems: func(u uint64) *uint64 { return &u }(1),
 		MinItems: 1,
 		Items: &openapi3.SchemaRef{
 			Value: &openapi3.Schema{
-				Type:     "array",
+				Type:     &openapi3.Types{openapi3.TypeArray},
 				MaxItems: func(u uint64) *uint64 { return &u }(2),
 				MinItems: 2,
 				Items: &openapi3.SchemaRef{
 					Value: &openapi3.Schema{
-						Type: "number",
+						Type: &openapi3.Types{openapi3.TypeNumber},
 					},
 				},
 			},
