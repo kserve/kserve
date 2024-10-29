@@ -33,7 +33,7 @@ from vllm.entrypoints.logger import RequestLogger
 from vllm.inputs.parse import parse_and_batch_prompt
 from vllm.lora.request import LoRARequest
 from vllm.prompt_adapter.request import PromptAdapterRequest
-from vllm.sampling_params import SamplingParams
+from vllm.sampling_params import SamplingParams, GuidedDecodingParams
 from vllm.utils import random_uuid
 
 from vllm.outputs import RequestOutput
@@ -48,6 +48,7 @@ from kserve.protocol.rest.openai.types.openapi import (
     Choice as CompletionChoice,
     CompletionUsage,
     CreateCompletionRequest,
+    CreateChatCompletionRequest,
     CreateCompletionResponse as Completion,
     Logprobs,
     ChatCompletionTool
@@ -56,7 +57,7 @@ from kserve.protocol.rest.openai.errors import OpenAIError, create_error_respons
 from kserve.protocol.rest.openai import ChatCompletionRequestMessage, CompletionRequest, ChatCompletionRequest
 
 
-def to_sampling_params(request: CreateCompletionRequest):
+def to_sampling_params(request: CreateChatCompletionRequest | CreateCompletionRequest):
     echo_without_generation = request.echo and request.max_tokens == 0
 
     logits_processors = None
@@ -86,6 +87,7 @@ def to_sampling_params(request: CreateCompletionRequest):
         max_tokens=request.max_tokens if not echo_without_generation else 1,
         logits_processors=logits_processors,
         prompt_logprobs=request.logprobs if request.echo else None,
+        guided_decoding=GuidedDecodingParams.from_optional(request.tools.function) if "tools" in request else None# https://github.com/vllm-project/vllm/blob/ab6f981671c4e5035575f5e5ef6172f4df52e121/vllm/sampling_params.py#L29-L64
     )
 
 
@@ -112,7 +114,7 @@ class OpenAIServingCompletion:
             loop.run_until_complete(self._post_init())
             loop.close()
 
-    async def create_completion(self, completion_request: CompletionRequest):
+    async def create_completion(self, completion_request: CompletionRequest | ChatCompletionRequest):
         """Completion API similar to OpenAI's API.
 
         See https://platform.openai.com/docs/api-reference/completions/create

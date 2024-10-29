@@ -24,6 +24,7 @@ from kserve.protocol.rest.openai import (
     ChatCompletionRequestMessage,
     ChatPrompt,
     CompletionRequest,
+    ChatCompletionRequest,
     OpenAIChatAdapterModel,
 )
 from kserve.protocol.rest.openai.types import Completion
@@ -83,6 +84,6 @@ class VLLMModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no
         )
 
     async def create_completion(
-        self, request: CompletionRequest
+        self, request: CompletionRequest | ChatCompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
         return await self.openai_serving_completion.create_completion(request)
