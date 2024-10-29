@@ -24,7 +24,6 @@ from kserve.protocol.rest.openai import (
     ChatCompletionRequestMessage,
     ChatPrompt,
     CompletionRequest,
-    ChatCompletionRequest,
     OpenAIChatAdapterModel,
 )
 from kserve.protocol.rest.openai.types import Completion
