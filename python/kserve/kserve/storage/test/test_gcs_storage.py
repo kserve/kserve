@@ -105,6 +105,22 @@ def test_download_model_from_gcs(mock_client):
     assert "/mock.object" in arg_list[0][0]
 
 
+@mock.patch("google.cloud.storage.Client")
+def test_download_model_from_gcs_as_single_file(mock_client):
+    gcs_path = "gs://foo/bar/mock.object"
+    mock_file = create_mock_dir_with_file("bar", "mock.object")
+
+    mock_bucket = mock.MagicMock()
+    mock_bucket.blob.return_value = mock_file
+    mock_file.exists.return_value = True
+    mock_client.return_value.bucket.return_value = mock_bucket
+
+    Storage.download(gcs_path)
+    arg_list = get_call_args(mock_file.download_to_filename.call_args_list)
+
+    assert "/mock.object" in arg_list[0][0]
+
+
 @mock.patch("os.remove")
 @mock.patch("os.mkdir")
 @mock.patch("zipfile.ZipFile")
