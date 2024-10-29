@@ -80,7 +80,7 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec)
 		svcList = append(svcList, defaultSvc)
 
-		headSvc := createHeadSvc(componentMeta)
+		headSvc := createHeadlessSvc(componentMeta)
 		svcList = append(svcList, headSvc)
 	}
 
@@ -167,7 +167,7 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 	return service
 }
 
-func createHeadSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
+func createHeadlessSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
 	workerComponentMeta := componentMeta.DeepCopy()
 	predictorSvcName := workerComponentMeta.Name
 	isvcGeneration := componentMeta.GetLabels()[constants.InferenceServiceGenerationPodLabelKey]

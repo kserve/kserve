@@ -16,6 +16,7 @@ limitations under the License.
 package deployment
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -480,14 +481,16 @@ func TestCreateDefaultDeployment(t *testing.T) {
 
 	// tensor-parallel-size test
 	podSpec_tests := []struct {
-		name           string
-		modifyArgs     func(args) args
-		modifyExpected func([]*appsv1.Deployment) []*appsv1.Deployment
+		name                       string
+		modifyPodSpecArgs          func(args) args
+		modifyWorkerPodSpecArgs    func(args) args
+		modifyObjectMetaArgs       func(args) args
+		modifyWorkerObjectMetaArgs func(args) args
+		modifyExpected             func([]*appsv1.Deployment) []*appsv1.Deployment
 	}{
 		{
-			name: "Use the value of TENSOR_PARALLEL_SIZE from the environment variables for GPU resources when it is set",
-			modifyArgs: func(updatedArgs args) args {
-
+			name: "Use the value of TENSOR_PARALLEL_SIZE from the environment variables of pod for GPU resources when it is set",
+			modifyPodSpecArgs: func(updatedArgs args) args {
 				if _, exists := utils.GetEnvVarValue(updatedArgs.podSpec.Containers[0].Env, constants.TensorParallelSizeEnvName); exists {
 					// Overwrite the environment variable
 					for j, envVar := range updatedArgs.podSpec.Containers[0].Env {
@@ -499,6 +502,9 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				}
 				return updatedArgs
 			},
+			modifyWorkerPodSpecArgs:    func(updatedArgs args) args { return updatedArgs },
+			modifyObjectMetaArgs:       func(updatedArgs args) args { return updatedArgs },
+			modifyWorkerObjectMetaArgs: func(updatedArgs args) args { return updatedArgs },
 			modifyExpected: func(updatedExpected []*appsv1.Deployment) []*appsv1.Deployment {
 				// Overwrite the environment variable
 				for j, envVar := range updatedExpected[0].Spec.Template.Spec.Containers[0].Env {
@@ -523,7 +529,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		},
 		{
 			name: "Use specified gpuResourceType if it is in gpuResourceTypeList",
-			modifyArgs: func(updatedArgs args) args {
+			modifyPodSpecArgs: func(updatedArgs args) args {
 				intelGPUResourceType := corev1.ResourceName(constants.IntelGPUResourceType)
 				updatedArgs.podSpec.Containers[0].Resources.Requests = corev1.ResourceList{
 					intelGPUResourceType: resource.MustParse("3"),
@@ -543,6 +549,9 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				}
 				return updatedArgs
 			},
+			modifyWorkerPodSpecArgs:    func(updatedArgs args) args { return updatedArgs },
+			modifyObjectMetaArgs:       func(updatedArgs args) args { return updatedArgs },
+			modifyWorkerObjectMetaArgs: func(updatedArgs args) args { return updatedArgs },
 			modifyExpected: func(updatedExpected []*appsv1.Deployment) []*appsv1.Deployment {
 				// Overwrite the environment variable
 				for j, envVar := range updatedExpected[0].Spec.Template.Spec.Containers[0].Env {
@@ -571,6 +580,177 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				return updatedExpected
 			},
 		},
+		{
+			name: "Use one custom gpuResourceTypes when it is set in annotations even though it is not in gpuResourceTypeList",
+			modifyPodSpecArgs: func(updatedArgs args) args {
+				updatedArgs.podSpec.Containers[0].Resources = corev1.ResourceRequirements{}
+				updatedArgs.podSpec.Containers[0].Resources.Requests = corev1.ResourceList{
+					"custom.com/gpu": resource.MustParse("3"),
+				}
+				updatedArgs.podSpec.Containers[0].Resources.Limits = corev1.ResourceList{
+					"custom.com/gpu": resource.MustParse("3"),
+				}
+
+				if _, exists := utils.GetEnvVarValue(updatedArgs.podSpec.Containers[0].Env, constants.TensorParallelSizeEnvName); exists {
+					// Overwrite the environment variable
+					for j, envVar := range updatedArgs.podSpec.Containers[0].Env {
+						if envVar.Name == constants.TensorParallelSizeEnvName {
+							updatedArgs.podSpec.Containers[0].Env[j].Value = "3"
+							break
+						}
+					}
+				}
+				return updatedArgs
+			},
+			modifyWorkerPodSpecArgs: func(updatedArgs args) args {
+				updatedArgs.workerPodSpec.Containers[0].Resources = corev1.ResourceRequirements{}
+				updatedArgs.workerPodSpec.Containers[0].Resources.Requests = corev1.ResourceList{
+					"custom.com/gpu": resource.MustParse("3"),
+				}
+				updatedArgs.workerPodSpec.Containers[0].Resources.Limits = corev1.ResourceList{
+					"custom.com/gpu": resource.MustParse("3"),
+				}
+
+				if _, exists := utils.GetEnvVarValue(updatedArgs.podSpec.Containers[0].Env, constants.TensorParallelSizeEnvName); exists {
+					// Overwrite the environment variable
+					for j, envVar := range updatedArgs.podSpec.Containers[0].Env {
+						if envVar.Name == constants.TensorParallelSizeEnvName {
+							updatedArgs.podSpec.Containers[0].Env[j].Value = "3"
+							break
+						}
+					}
+				}
+				return updatedArgs
+			},
+			modifyObjectMetaArgs: func(updatedArgs args) args {
+				updatedArgs.objectMeta.Annotations[constants.CustomGPUResourceTypesAnnotationKey] = "custom.com/gpu"
+				return updatedArgs
+			},
+			modifyWorkerObjectMetaArgs: func(updatedArgs args) args {
+				updatedArgs.workerObjectMeta.Annotations[constants.CustomGPUResourceTypesAnnotationKey] = "custom.com/gpu"
+				return updatedArgs
+			},
+			modifyExpected: func(updatedExpected []*appsv1.Deployment) []*appsv1.Deployment {
+				// Overwrite the environment variable
+
+				for _, deployment := range updatedExpected {
+					deployment.Annotations[constants.CustomGPUResourceTypesAnnotationKey] = "custom.com/gpu"
+					deployment.Spec.Template.Annotations[constants.CustomGPUResourceTypesAnnotationKey] = "custom.com/gpu"
+					deployment.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{}
+				}
+
+				for j, envVar := range updatedExpected[0].Spec.Template.Spec.Containers[0].Env {
+					if envVar.Name == constants.TensorParallelSizeEnvName {
+						updatedExpected[0].Spec.Template.Spec.Containers[0].Env[j].Value = "3"
+						break
+					}
+				}
+				updatedExpected[0].Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						"custom.com/gpu": resource.MustParse("3"),
+					},
+					Limits: corev1.ResourceList{
+						"custom.com/gpu": resource.MustParse("3"),
+					},
+				}
+				updatedExpected[1].Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						"custom.com/gpu": resource.MustParse("3"),
+					},
+					Limits: corev1.ResourceList{
+						"custom.com/gpu": resource.MustParse("3"),
+					},
+				}
+
+				return updatedExpected
+			},
+		},
+		{
+			name: "Use multiple custom gpuResourceTypes when it is set in annotations even though it is not in gpuResourceTypeList",
+			modifyPodSpecArgs: func(updatedArgs args) args {
+				updatedArgs.podSpec.Containers[0].Resources = corev1.ResourceRequirements{}
+				updatedArgs.podSpec.Containers[0].Resources.Requests = corev1.ResourceList{
+					"custom.com/gpu2": resource.MustParse("3"),
+				}
+				updatedArgs.podSpec.Containers[0].Resources.Limits = corev1.ResourceList{
+					"custom.com/gpu2": resource.MustParse("3"),
+				}
+
+				if _, exists := utils.GetEnvVarValue(updatedArgs.podSpec.Containers[0].Env, constants.TensorParallelSizeEnvName); exists {
+					// Overwrite the environment variable
+					for j, envVar := range updatedArgs.podSpec.Containers[0].Env {
+						if envVar.Name == constants.TensorParallelSizeEnvName {
+							updatedArgs.podSpec.Containers[0].Env[j].Value = "3"
+							break
+						}
+					}
+				}
+				return updatedArgs
+			},
+			modifyWorkerPodSpecArgs: func(updatedArgs args) args {
+				updatedArgs.workerPodSpec.Containers[0].Resources = corev1.ResourceRequirements{}
+				updatedArgs.workerPodSpec.Containers[0].Resources.Requests = corev1.ResourceList{
+					"custom.com/gpu2": resource.MustParse("3"),
+				}
+				updatedArgs.workerPodSpec.Containers[0].Resources.Limits = corev1.ResourceList{
+					"custom.com/gpu2": resource.MustParse("3"),
+				}
+
+				if _, exists := utils.GetEnvVarValue(updatedArgs.podSpec.Containers[0].Env, constants.TensorParallelSizeEnvName); exists {
+					// Overwrite the environment variable
+					for j, envVar := range updatedArgs.podSpec.Containers[0].Env {
+						if envVar.Name == constants.TensorParallelSizeEnvName {
+							updatedArgs.podSpec.Containers[0].Env[j].Value = "3"
+							break
+						}
+					}
+				}
+				return updatedArgs
+			},
+			modifyObjectMetaArgs: func(updatedArgs args) args {
+				updatedArgs.objectMeta.Annotations[constants.CustomGPUResourceTypesAnnotationKey] = strings.Join([]string{"custom.com/gpu", "custom.com/gpu2"}, ",")
+				return updatedArgs
+			},
+			modifyWorkerObjectMetaArgs: func(updatedArgs args) args {
+				updatedArgs.workerObjectMeta.Annotations[constants.CustomGPUResourceTypesAnnotationKey] = strings.Join([]string{"custom.com/gpu", "custom.com/gpu2"}, ",")
+				return updatedArgs
+			},
+			modifyExpected: func(updatedExpected []*appsv1.Deployment) []*appsv1.Deployment {
+				// Overwrite the environment variable
+
+				for _, deployment := range updatedExpected {
+					// serving.kserve.io/gpu-resource-types: '["gpu-type1", "gpu-type2", "gpu-type3"]'
+					deployment.Annotations[constants.CustomGPUResourceTypesAnnotationKey] = strings.Join([]string{"custom.com/gpu", "custom.com/gpu2"}, ",")
+					deployment.Spec.Template.Annotations[constants.CustomGPUResourceTypesAnnotationKey] = strings.Join([]string{"custom.com/gpu", "custom.com/gpu2"}, ",")
+					deployment.Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{}
+				}
+
+				for j, envVar := range updatedExpected[0].Spec.Template.Spec.Containers[0].Env {
+					if envVar.Name == constants.TensorParallelSizeEnvName {
+						updatedExpected[0].Spec.Template.Spec.Containers[0].Env[j].Value = "3"
+						break
+					}
+				}
+				updatedExpected[0].Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						"custom.com/gpu2": resource.MustParse("3"),
+					},
+					Limits: corev1.ResourceList{
+						"custom.com/gpu2": resource.MustParse("3"),
+					},
+				}
+				updatedExpected[1].Spec.Template.Spec.Containers[0].Resources = corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						"custom.com/gpu2": resource.MustParse("3"),
+					},
+					Limits: corev1.ResourceList{
+						"custom.com/gpu2": resource.MustParse("3"),
+					},
+				}
+
+				return updatedExpected
+			},
+		},
 	}
 
 	for _, tt := range podSpec_tests {
@@ -580,7 +760,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			ttExpected := getDefaultExpectedDeployment()
 
 			// update objectMeta using modify func
-			got := createRawDeployment(ttArgs.objectMeta, ttArgs.workerObjectMeta, ttArgs.componentExt, tt.modifyArgs(ttArgs).podSpec, ttArgs.workerPodSpec)
+			got := createRawDeployment(tt.modifyObjectMetaArgs(ttArgs).objectMeta, tt.modifyWorkerObjectMetaArgs(ttArgs).workerObjectMeta, ttArgs.componentExt, tt.modifyPodSpecArgs(ttArgs).podSpec, tt.modifyWorkerPodSpecArgs(ttArgs).workerPodSpec)
 
 			// update expected value using modifyExpected func
 			expected := tt.modifyExpected(ttExpected)

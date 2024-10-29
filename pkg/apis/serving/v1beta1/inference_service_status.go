@@ -353,9 +353,9 @@ func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType a
 	// Multi Node case
 	if len(deploymentList) > 1 {
 		for _, deployment := range deploymentList {
-			containerName := "[Predictor Deployment] "
+			containerName := "predictor-container: "
 			if strings.Contains(deployment.Name, constants.WorkerNodeSuffix) {
-				containerName = "[Worker Deployment] "
+				containerName = "worker-container: "
 			}
 			for _, con := range deployment.Status.Conditions {
 				if con.Type == conditionType {

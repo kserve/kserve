@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -72,7 +73,7 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 	var tensorParallelSize string
 	multiNodeEnabled := false
 
-	if workerComponentMeta.Name != "" {
+	if workerPodSpec != nil {
 		multiNodeEnabled = true
 
 		for _, container := range podSpec.Containers {
@@ -299,6 +300,11 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerName string, tensorParallelSize string) {
 	// Default GPU type is "nvidia.com/gpu"
 	gpuResourceType := corev1.ResourceName(constants.NvidiaGPUResourceType)
+	// If CustomGPUResourceTypeAnnotationKey is set, the specified custom GPU resource will be added to the available GPUResourceTypeList.
+	customGPUResourceTypes := deployment.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey]
+	if customGPUResourceTypes != "" {
+		constants.GPUResourceTypeList = append(constants.GPUResourceTypeList, strings.Split(customGPUResourceTypes, ",")...)
+	}
 	for i, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == targetContainerName {
 			for _, gpuType := range constants.GPUResourceTypeList {

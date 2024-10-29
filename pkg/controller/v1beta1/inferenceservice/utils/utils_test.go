@@ -2143,3 +2143,108 @@ func TestAddEnvVarToPodSpec(t *testing.T) {
 		})
 	}
 }
+
+func TestMergeServingRuntimeAndInferenceServiceSpecs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		srContainers        []v1.Container
+		isvcContainer       v1.Container
+		isvc                *InferenceService
+		targetContainerName string
+		srPodSpec           v1alpha1.ServingRuntimePodSpec
+		isvcPodSpec         PodSpec
+		expectedContainer   *v1.Container
+		expectedPodSpec     *v1.PodSpec
+		expectedErr         gomega.OmegaMatcher
+	}{
+		"Merge container when there is no target container": {
+			srContainers: []v1.Container{
+				{Name: "containerA"},
+			},
+			isvcContainer:       v1.Container{Name: "containerA"},
+			isvc:                &InferenceService{},
+			targetContainerName: "containerA",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{},
+			isvcPodSpec:         PodSpec{},
+			expectedContainer:   &v1.Container{Name: "containerA"},
+			expectedPodSpec:     &v1.PodSpec{},
+			expectedErr:         gomega.BeNil(),
+		},
+		"Merge container when there is target container": {
+			srContainers: []v1.Container{
+				{Name: "containerA"},
+			},
+			isvcContainer: v1.Container{Name: "containerA",
+				Env: []v1.EnvVar{{Name: "test", Value: "test"}}},
+			isvc:                &InferenceService{},
+			targetContainerName: "containerA",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{},
+			isvcPodSpec:         PodSpec{},
+			expectedContainer: &v1.Container{Name: "containerA",
+				Env: []v1.EnvVar{{Name: "test", Value: "test"}}},
+			expectedPodSpec: &v1.PodSpec{},
+			expectedErr:     gomega.BeNil(),
+		},
+		"Return error when invalid container name": {
+			srContainers:        []v1.Container{{Name: "containerA"}},
+			isvcContainer:       v1.Container{Name: "containerB"},
+			isvc:                &InferenceService{},
+			targetContainerName: "nonExistentContainer",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{},
+			isvcPodSpec:         PodSpec{},
+			expectedContainer:   nil,
+			expectedPodSpec:     nil,
+			expectedErr:         gomega.HaveOccurred(),
+		},
+		"Merge podSpec when there is target container": {
+			srContainers: []v1.Container{
+				{Name: "containerA"},
+			},
+			isvcContainer:       v1.Container{Name: "containerA"},
+			isvc:                &InferenceService{},
+			targetContainerName: "containerA",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{Containers: []v1.Container{{Name: "containerA", Env: []v1.EnvVar{{Name: "original", Value: "original"}}}}},
+			isvcPodSpec:         PodSpec{Containers: []v1.Container{{Name: "containerA", Env: []v1.EnvVar{{Name: "test", Value: "test"}}}}},
+			expectedContainer:   &v1.Container{Name: "containerA"},
+			expectedPodSpec:     &v1.PodSpec{Containers: []v1.Container{{Name: "containerA", Env: []v1.EnvVar{{Name: "original", Value: "original"}, {Name: "test", Value: "test"}}}}},
+			expectedErr:         gomega.BeNil(),
+		},
+		"Merge podSpec when there is no target container": {
+			srContainers: []v1.Container{
+				{Name: "containerA"},
+			},
+			isvcContainer:       v1.Container{Name: "containerA"},
+			isvc:                &InferenceService{},
+			targetContainerName: "containerA",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{Containers: []v1.Container{{Name: "containerA", Env: []v1.EnvVar{{Name: "original", Value: "original"}}}}},
+			isvcPodSpec:         PodSpec{Containers: []v1.Container{{Name: "containerB", Env: []v1.EnvVar{{Name: "test", Value: "test"}}}}},
+			expectedContainer:   &v1.Container{Name: "containerA"},
+			expectedPodSpec:     &v1.PodSpec{Containers: []v1.Container{{Name: "containerA", Env: []v1.EnvVar{{Name: "original", Value: "original"}}}}},
+			expectedErr:         gomega.BeNil(),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			index, mergedContainer, mergedPodSpec, err := MergeServingRuntimeAndInferenceServiceSpecs(
+				scenario.srContainers,
+				scenario.isvcContainer,
+				scenario.isvc,
+				scenario.targetContainerName,
+				scenario.srPodSpec,
+				scenario.isvcPodSpec,
+			)
+
+			if scenario.expectedErr == gomega.BeNil() {
+				g.Expect(index).To(gomega.Equal(0))
+				g.Expect(err).To(scenario.expectedErr)
+				g.Expect(mergedContainer).To(gomega.Equal(scenario.expectedContainer))
+				g.Expect(mergedPodSpec).To(gomega.Equal(scenario.expectedPodSpec))
+			} else {
+				g.Expect(index).NotTo(gomega.Equal(-1))
+				g.Expect(err).To(scenario.expectedErr)
+			}
+		})
+	}
+}

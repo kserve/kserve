@@ -221,14 +221,14 @@ func validateMultiNodeSpec(newSpec *v1alpha1.ServingRuntimeSpec, existingSpec *v
 				if _, exists := utils.GetEnvVarValue(newSpec.Containers[i].Env, constants.TensorParallelSizeEnvName); exists {
 					return errors.New(DisallowedWorkerSpecTensorParallelSizeEnvError)
 				}
-				if utils.IsUnknownGpuResourceType(container.Resources) {
+				if utils.IsUnknownGpuResourceType(container.Resources, "") {
 					return fmt.Errorf(InvalidUnknownGPUTypeError, constants.InferenceServiceContainerName)
 				}
 			}
 		}
 		workerContainer := newSpec.WorkerSpec.Containers[0]
 		if workerContainer.Name == constants.WorkerContainerName {
-			if utils.IsUnknownGpuResourceType(workerContainer.Resources) {
+			if utils.IsUnknownGpuResourceType(workerContainer.Resources, "") {
 				return fmt.Errorf(InvalidUnknownGPUTypeError, constants.WorkerContainerName)
 			}
 		}

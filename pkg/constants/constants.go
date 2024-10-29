@@ -222,6 +222,10 @@ const (
 	GaudiGPUResourceType  = "habana.ai/gaudi"
 )
 
+var (
+	CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
+)
+
 var GPUResourceTypeList = []string{
 	NvidiaGPUResourceType,
 	AmdGPUResourceType,

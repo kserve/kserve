@@ -16,6 +16,7 @@ import argparse
 import ray
 import requests
 import sys
+from kserve.logging import logger
 
 
 def initialize_ray_cluster():
@@ -37,10 +38,10 @@ def verify_status(result):
 def check_startup():
     try:
         initialize_ray_cluster()
-        print("Ray is accessible")
+        logger.info("Ray is accessible")
         return "Healthy"
     except Exception as e:
-        print(f"Ray is NOT accessible: {e}")
+        logger.error(f"Ray is NOT accessible: {e}")
         return "Unhealthy"
 
 
@@ -56,13 +57,17 @@ def check_gpu_usage(probe_type):
 
         # Determine health status based on GPU usage
         if total_gpus == 0 or total_gpus != used_gpus:
-            print(f"{probe_type}: Unhealthy - Used: {used_gpus}, Total: {total_gpus}")
+            logger.error(
+                f"{probe_type}: Unhealthy - Used: {used_gpus}, Total: {total_gpus}"
+            )
             return "Unhealthy"
         else:
-            print(f"{probe_type}: Healthy - Used: {used_gpus}, Total: {total_gpus}")
+            logger.info(
+                f"{probe_type}: Healthy - Used: {used_gpus}, Total: {total_gpus}"
+            )
             return "Healthy"
     except Exception as e:
-        print(f"{probe_type}: Error - Failed to get GPU status: {str(e)}")
+        logger.error(f"{probe_type}: Error - Failed to get GPU status: {str(e)}")
         return "Unhealthy"
 
 
@@ -75,17 +80,17 @@ def check_registered_nodes(pipeline_parallel_size):
 
         # Check if the registered nodes count matches PIPELINE_PARALLEL_SIZE
         if registered_node_count != int(pipeline_parallel_size):
-            print(
+            logger.error(
                 f"Unhealthy - Registered nodes count ({registered_node_count}) does not match PIPELINE_PARALLEL_SIZE ({pipeline_parallel_size})."
             )
             return "Unhealthy"
         else:
-            print(
+            logger.info(
                 f"Healthy - Registered nodes count ({registered_node_count}) match PIPELINE_PARALLEL_SIZE ({pipeline_parallel_size})."
             )
             return "Healthy"
     except Exception as e:
-        print(f"Error checking registered nodes: {str(e)}")
+        logger.error(f"Error checking registered nodes: {str(e)}")
         return "Unhealthy"
 
 
@@ -94,12 +99,13 @@ def check_runtime_health(health_check_url):
     try:
         response = requests.get(health_check_url, timeout=5)
         if response.status_code != 200:
-            print(f"Hugging Face server({health_check_url}) is not reachable.")
+            logger.error(f"Hugging Face server({health_check_url}) is not reachable.")
             return "Unhealthy"
         else:
+            logger.info(f"Hugging Face server({health_check_url}) is reachable.")
             return "Healthy"
     except requests.RequestException:
-        print(f"Hugging Face server({health_check_url}) is not reachable.")
+        logger.error(f"Hugging Face server({health_check_url}) is not reachable.")
         return "Unhealthy"
 
 
@@ -118,10 +124,10 @@ def check_readiness(pipeline_parallel_size, health_check_url):
         and check_gpu_usage_status == "Healthy"
         and check_runtime_health_status == "Healthy"
     ):
-        print("Readiness Probe: Healthy")
+        logger.info("Readiness Probe: Healthy")
         return "Healthy"
     else:
-        print("Readiness Probe: Unhealthy")
+        logger.error("Readiness Probe: Unhealthy")
         return "Unhealthy"
 
 

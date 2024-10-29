@@ -653,8 +653,39 @@ func TestIsUnknownGpuResourceType(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			result := IsUnknownGpuResourceType(scenario.resources)
+			result := IsUnknownGpuResourceType(scenario.resources, "")
 			g.Expect(result).Should(gomega.Equal(scenario.expectedUnknown))
+		})
+	}
+}
+
+func TestIsValidCustomGPUArray(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"[]", false},
+		{"[\"item1\", \"item2\"]", true},
+		{"[\"item1\", \"item2\", \"item3\"]", true},
+		{"[\"item1\", \"item2\", \"\"]", false},
+		{"[\"item1\", 42]", false},
+		{"[\"item1\", \"item2\",]", false},
+		{"[\"item1\", \"item2\", \"item3\"", false},
+		{"[item1, item2]", false},
+		{"[\"item1\", \"item2\" \"item3\"]", false},
+		{"[\"item1\", null]", false},
+		{"[\"item1\", true]", false},
+		{"[\"item1\", false]", false},
+		{"[\"item1\", \"item2\", 42]", false},
+		{"[\"item1\", \"item2\", \"item3\", \"\"]", false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			result := IsValidCustomGPUArray(test.input)
+			if result != test.expected {
+				t.Errorf("expected %v, got %v", test.expected, result)
+			}
 		})
 	}
 }
