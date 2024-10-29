@@ -1,0 +1,13 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kserve-localmodelnode-controller-manager
+  namespace: kserve
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          command:
+            - /ko-app/localmodelnode
+          image: kind.local/localmodelnode-fef2e276c81be6f82ccef85ba0d3aba4:acf54ceeb03a46c281050f55c85e2165c95e48507be2a7494440776f1ab51c38

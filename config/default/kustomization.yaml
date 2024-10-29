@@ -15,6 +15,7 @@ resources:
 - ../webhook
 - ../certmanager
 - ../localmodels
+- ../localmodelnodes
 
 generatorOptions:
   disableNameSuffixHash: true
@@ -192,3 +193,4 @@ patches:
 - path: manager_resources_patch.yaml
 - path: cainjection_conversion_webhook.yaml
 - path: localmodel_manager_image_patch.yaml
+- path: localmodelnode_manager_image_patch.yaml
