@@ -38,6 +38,7 @@ const (
 	LocalModelConfigName          = "localModel"
 	SecurityConfigName            = "security"
 	ServiceConfigName             = "service"
+	ResourceConfigName            = "resource"
 )
 
 const (
@@ -68,6 +69,8 @@ type InferenceServicesConfig struct {
 	ServiceAnnotationDisallowedList []string `json:"serviceAnnotationDisallowedList,omitempty"`
 	// ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions
 	ServiceLabelDisallowedList []string `json:"serviceLabelDisallowedList,omitempty"`
+	// Resource configurations
+	Resource ResourceConfig `json:"resource"`
 }
 
 // +kubebuilder:object:generate=false
@@ -102,6 +105,12 @@ type LocalModelConfig struct {
 }
 
 // +kubebuilder:object:generate=false
+type ResourceConfig struct {
+	CPULimit    string `json:"cpuLimit"`
+	MemoryLimit string `json:"memoryLimit"`
+}
+
+// +kubebuilder:object:generate=false
 type SecurityConfig struct {
 	AutoMountServiceAccountToken bool `json:"autoMountServiceAccountToken"`
 }
@@ -123,6 +132,7 @@ func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServi
 	icfg := &InferenceServicesConfig{}
 	for _, err := range []error{
 		getComponentConfig(ExplainerConfigKeyName, configMap, &icfg.Explainers),
+		getComponentConfig(ResourceConfigName, configMap, &icfg.Resource),
 	} {
 		if err != nil {
 			return nil, err

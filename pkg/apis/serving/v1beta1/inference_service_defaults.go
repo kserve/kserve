@@ -61,7 +61,15 @@ type InferenceServiceDefaulter struct {
 // +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kserve-webhook-server.defaulter
 var _ webhook.CustomDefaulter = &InferenceServiceDefaulter{}
 
-func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
+func setResourceRequirementDefaults(config *InferenceServicesConfig, requirements *v1.ResourceRequirements) {
+
+	if config != nil && config.Resource != (ResourceConfig{}) && config.Resource.CPULimit != "" {
+		defaultResource[v1.ResourceCPU] = resource.MustParse(config.Resource.CPULimit)
+	}
+	if config != nil && config.Resource != (ResourceConfig{}) && config.Resource.MemoryLimit != "" {
+		defaultResource[v1.ResourceMemory] = resource.MustParse(config.Resource.MemoryLimit)
+	}
+
 	if requirements.Requests == nil {
 		requirements.Requests = v1.ResourceList{}
 	}

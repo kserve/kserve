@@ -3059,7 +3059,8 @@
     "v1beta1.InferenceServicesConfig": {
       "type": "object",
       "required": [
-        "explainers"
+        "explainers",
+        "resource"
       ],
       "properties": {
         "explainers": {
@@ -4957,6 +4958,23 @@
         "xgboost": {
           "description": "Spec for XGBoost model server",
           "$ref": "#/definitions/v1beta1.XGBoostSpec"
+        }
+      }
+    },
+    "v1beta1.ResourceConfig": {
+      "type": "object",
+      "required": [
+        "cpuLimit",
+        "memoryLimit"
+      ],
+      "properties": {
+        "cpuLimit": {
+          "type": "string",
+          "default": ""
+        },
+        "memoryLimit": {
+          "type": "string",
+          "default": ""
         }
       }
     },

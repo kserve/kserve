@@ -633,3 +633,9 @@ data:
     {
       "autoMountServiceAccountToken": true
     }
+
+  resource: |-
+    {
+      "cpuLimit": "",
+      "memoryLimit": ""
+    }
