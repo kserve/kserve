@@ -96,6 +96,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodSpec":                      schema_pkg_apis_serving_v1beta1_PodSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":       schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig":               schema_pkg_apis_serving_v1beta1_ResourceConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec":                  schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SecurityConfig":               schema_pkg_apis_serving_v1beta1_SecurityConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ServiceConfig":                schema_pkg_apis_serving_v1beta1_ServiceConfig(ref),
@@ -1764,7 +1765,6 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -4325,7 +4325,6 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -5280,7 +5279,6 @@ func schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -5529,12 +5527,19 @@ func schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref common.Referenc
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig"),
 						},
 					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resource configurations",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig"),
+						},
+					},
 				},
-				Required: []string{"explainers"},
+				Required: []string{"explainers", "resource"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig"},
 	}
 }
 
@@ -5948,7 +5953,6 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -6099,7 +6103,6 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -6830,7 +6833,6 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -7156,7 +7158,6 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -7481,7 +7482,6 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -8256,7 +8256,6 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -8884,6 +8883,33 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_ResourceConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cpuLimit": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"memoryLimit": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"cpuLimit", "memoryLimit"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -9202,7 +9228,6 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -9616,7 +9641,6 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -9942,7 +9966,6 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -10816,7 +10839,6 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -11604,7 +11626,6 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
