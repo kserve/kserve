@@ -319,6 +319,57 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	}
 }
 
+func TestCustomPredictorDefaultsConfig(t *testing.T) {
+	expectedResource := v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("2"),
+		v1.ResourceMemory: resource.MustParse("4Gi"),
+	}
+	g := gomega.NewGomegaWithT(t)
+	config := &InferenceServicesConfig{
+		Explainers: ExplainersConfig{
+			ARTExplainer: ExplainerConfig{
+				ContainerImage:      "art",
+				DefaultImageVersion: "v0.4.0",
+			},
+		},
+		Resource: ResourceConfig{
+			CPULimit:      "2",
+			MemoryLimit:   "4Gi",
+			CPURequest:    "2",
+			MemoryRequest: "4Gi",
+		},
+	}
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://transformer",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	resources := v1.ResourceRequirements{Requests: expectedResource, Limits: expectedResource}
+	isvc.Spec.DeepCopy()
+	isvc.DefaultInferenceService(config, deployConfig, nil, nil)
+	g.Expect(isvc.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
+}
+
 func TestCustomPredictorDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := &InferenceServicesConfig{
