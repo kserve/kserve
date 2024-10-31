@@ -15,7 +15,7 @@
 from typing import AsyncIterator, Iterable, Optional, Union
 
 import torch
-from vllm.entrypoints.logger import RequestLogger
+from ogger import RequestLogger
 
 from kserve import Model
 from kserve.errors import ModelNotReady
@@ -28,6 +28,7 @@ from kserve.protocol.rest.openai import (
     OpenAIChatAdapterModel,
 )
 from kserve.protocol.rest.openai.types import Completion
+from kserve.protocol.rest.openai.types.openapi import ChatCompletionTool
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm import AsyncEngineArgs
 
@@ -71,7 +72,7 @@ class VLLMModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no
         self,
         messages: Iterable[ChatCompletionRequestMessage,],
         chat_template: Optional[str] = None,
-        tools: Optional[list[dict]] = None
+        tools: Optional[list[ChatCompletionTool]] = None
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
