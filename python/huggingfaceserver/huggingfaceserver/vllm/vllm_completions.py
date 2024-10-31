@@ -57,7 +57,7 @@ from kserve.protocol.rest.openai.errors import OpenAIError, create_error_respons
 from kserve.protocol.rest.openai import ChatCompletionRequestMessage, CompletionRequest, ChatCompletionRequest
 
 
-def to_sampling_params(request: CreateChatCompletionRequest | CreateCompletionRequest):
+def to_sampling_params(request: CreateCompletionRequest):
     echo_without_generation = request.echo and request.max_tokens == 0
 
     logits_processors = None
@@ -87,7 +87,6 @@ def to_sampling_params(request: CreateChatCompletionRequest | CreateCompletionRe
         max_tokens=request.max_tokens if not echo_without_generation else 1,
         logits_processors=logits_processors,
         prompt_logprobs=request.logprobs if request.echo else None,
-        guided_decoding=GuidedDecodingParams.from_optional(request.tools.function) if "tools" in request else None# https://github.com/vllm-project/vllm/blob/ab6f981671c4e5035575f5e5ef6172f4df52e121/vllm/sampling_params.py#L29-L64
     )
 
 
@@ -114,7 +113,7 @@ class OpenAIServingCompletion:
             loop.run_until_complete(self._post_init())
             loop.close()
 
-    async def create_completion(self, completion_request: CompletionRequest | ChatCompletionRequest):
+    async def create_completion(self, completion_request: CompletionRequest):
         """Completion API similar to OpenAI's API.
 
         See https://platform.openai.com/docs/api-reference/completions/create
