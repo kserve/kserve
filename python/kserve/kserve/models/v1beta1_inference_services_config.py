@@ -67,7 +67,8 @@ class V1beta1InferenceServicesConfig(object):
         self.discriminator = None
 
         self.explainers = explainers
-        self.resource = resource
+        if resource is not None:
+            self.resource = resource
 
     @property
     def explainers(self):
@@ -110,8 +111,6 @@ class V1beta1InferenceServicesConfig(object):
         :param resource: The resource of this V1beta1InferenceServicesConfig.  # noqa: E501
         :type: V1beta1ResourceConfig
         """
-        if self.local_vars_configuration.client_side_validation and resource is None:  # noqa: E501
-            raise ValueError("Invalid value for `resource`, must not be `None`")  # noqa: E501
 
         self._resource = resource
 
