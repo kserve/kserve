@@ -3059,8 +3059,7 @@
     "v1beta1.InferenceServicesConfig": {
       "type": "object",
       "required": [
-        "explainers",
-        "resource"
+        "explainers"
       ],
       "properties": {
         "explainers": {
@@ -4963,18 +4962,18 @@
     },
     "v1beta1.ResourceConfig": {
       "type": "object",
-      "required": [
-        "cpuLimit",
-        "memoryLimit"
-      ],
       "properties": {
         "cpuLimit": {
-          "type": "string",
-          "default": ""
+          "type": "string"
+        },
+        "cpuRequest": {
+          "type": "string"
         },
         "memoryLimit": {
-          "type": "string",
-          "default": ""
+          "type": "string"
+        },
+        "memoryRequest": {
+          "type": "string"
         }
       }
     },

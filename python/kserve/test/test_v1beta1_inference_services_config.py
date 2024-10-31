@@ -60,8 +60,8 @@ class TestV1beta1InferenceServicesConfig(unittest.TestCase):
                     ),
                 ),
                 resource=kserve.models.v1beta1_resource_config.V1beta1ResourceConfig(
-                    disable_limit_defaulting=True,
-                    disable_request_defaulting=True,
+                    cpu_limit="",
+                    memory_limit="",
                 ),
             )
         else:
@@ -73,8 +73,8 @@ class TestV1beta1InferenceServicesConfig(unittest.TestCase):
                     ),
                 ),
                 resource=kserve.models.v1beta1_resource_config.V1beta1ResourceConfig(
-                    disable_limit_defaulting=True,
-                    disable_request_defaulting=True,
+                    cpu_limit="",
+                    memory_limit="",
                 ),
             )
 

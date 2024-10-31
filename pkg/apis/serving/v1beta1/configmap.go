@@ -70,7 +70,7 @@ type InferenceServicesConfig struct {
 	// ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions
 	ServiceLabelDisallowedList []string `json:"serviceLabelDisallowedList,omitempty"`
 	// Resource configurations
-	Resource ResourceConfig `json:"resource"`
+	Resource ResourceConfig `json:"resource,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -106,8 +106,10 @@ type LocalModelConfig struct {
 
 // +kubebuilder:object:generate=false
 type ResourceConfig struct {
-	CPULimit    string `json:"cpuLimit"`
-	MemoryLimit string `json:"memoryLimit"`
+	CPULimit      string `json:"cpuLimit,omitempty"`
+	MemoryLimit   string `json:"memoryLimit,omitempty"`
+	CPURequest    string `json:"cpuRequest,omitempty"`
+	MemoryRequest string `json:"memoryRequest,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -132,7 +134,7 @@ func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServi
 	icfg := &InferenceServicesConfig{}
 	for _, err := range []error{
 		getComponentConfig(ExplainerConfigKeyName, configMap, &icfg.Explainers),
-		getComponentConfig(ResourceConfigName, configMap, &icfg.Resource),
+		getComponentConfig(InferenceServiceConfigKeyName, configMap, &icfg),
 	} {
 		if err != nil {
 			return nil, err

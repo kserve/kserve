@@ -50,13 +50,11 @@ class TestV1beta1ResourceConfig(unittest.TestCase):
         optional params are included"""
         # model = kserve.models.v1beta1_resource_config.V1beta1ResourceConfig()  # noqa: E501
         if include_optional:
-            return V1beta1ResourceConfig(
-                disable_limit_defaulting=True, disable_request_defaulting=True
-            )
+            return V1beta1ResourceConfig(cpu_limit="", memory_limit="")
         else:
             return V1beta1ResourceConfig(
-                disable_limit_defaulting=True,
-                disable_request_defaulting=True,
+                cpu_limit="",
+                memory_limit="",
             )
 
     def testV1beta1ResourceConfig(self):

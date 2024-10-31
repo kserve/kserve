@@ -48,26 +48,38 @@ class V1beta1ResourceConfig(object):
     """
     openapi_types = {
         'cpu_limit': 'str',
-        'memory_limit': 'str'
+        'cpu_request': 'str',
+        'memory_limit': 'str',
+        'memory_request': 'str'
     }
 
     attribute_map = {
         'cpu_limit': 'cpuLimit',
-        'memory_limit': 'memoryLimit'
+        'cpu_request': 'cpuRequest',
+        'memory_limit': 'memoryLimit',
+        'memory_request': 'memoryRequest'
     }
 
-    def __init__(self, cpu_limit='', memory_limit='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, cpu_limit=None, cpu_request=None, memory_limit=None, memory_request=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ResourceConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._cpu_limit = None
+        self._cpu_request = None
         self._memory_limit = None
+        self._memory_request = None
         self.discriminator = None
 
-        self.cpu_limit = cpu_limit
-        self.memory_limit = memory_limit
+        if cpu_limit is not None:
+            self.cpu_limit = cpu_limit
+        if cpu_request is not None:
+            self.cpu_request = cpu_request
+        if memory_limit is not None:
+            self.memory_limit = memory_limit
+        if memory_request is not None:
+            self.memory_request = memory_request
 
     @property
     def cpu_limit(self):
@@ -87,10 +99,29 @@ class V1beta1ResourceConfig(object):
         :param cpu_limit: The cpu_limit of this V1beta1ResourceConfig.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and cpu_limit is None:  # noqa: E501
-            raise ValueError("Invalid value for `cpu_limit`, must not be `None`")  # noqa: E501
 
         self._cpu_limit = cpu_limit
+
+    @property
+    def cpu_request(self):
+        """Gets the cpu_request of this V1beta1ResourceConfig.  # noqa: E501
+
+
+        :return: The cpu_request of this V1beta1ResourceConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._cpu_request
+
+    @cpu_request.setter
+    def cpu_request(self, cpu_request):
+        """Sets the cpu_request of this V1beta1ResourceConfig.
+
+
+        :param cpu_request: The cpu_request of this V1beta1ResourceConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._cpu_request = cpu_request
 
     @property
     def memory_limit(self):
@@ -110,10 +141,29 @@ class V1beta1ResourceConfig(object):
         :param memory_limit: The memory_limit of this V1beta1ResourceConfig.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and memory_limit is None:  # noqa: E501
-            raise ValueError("Invalid value for `memory_limit`, must not be `None`")  # noqa: E501
 
         self._memory_limit = memory_limit
+
+    @property
+    def memory_request(self):
+        """Gets the memory_request of this V1beta1ResourceConfig.  # noqa: E501
+
+
+        :return: The memory_request of this V1beta1ResourceConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._memory_request
+
+    @memory_request.setter
+    def memory_request(self, memory_request):
+        """Sets the memory_request of this V1beta1ResourceConfig.
+
+
+        :param memory_request: The memory_request of this V1beta1ResourceConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._memory_request = memory_request
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -633,9 +633,13 @@ data:
     {
       "autoMountServiceAccountToken": true
     }
-
-  resource: |-
+    
+  inferenceservice: |-
     {
-      "cpuLimit": "",
-      "memoryLimit": ""
+      "resource": {
+          "cpuLimit": "1",
+          "memoryLimit": "2Gi",
+          "cpuRequest": "1",
+          "memoryRequest": "2Gi"
+        }
     }
