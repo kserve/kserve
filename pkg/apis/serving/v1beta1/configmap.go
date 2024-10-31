@@ -31,13 +31,14 @@ import (
 
 // ConfigMap Keys
 const (
-	ExplainerConfigKeyName = "explainers"
-	IngressConfigKeyName   = "ingress"
-	DeployConfigName       = "deploy"
-	LocalModelConfigName   = "localModel"
-	SecurityConfigName     = "security"
-	ServiceConfigName      = "service"
-	ResourceConfigName     = "resource"
+	ExplainerConfigKeyName        = "explainers"
+	IngressConfigKeyName          = "ingress"
+	DeployConfigName              = "deploy"
+	LocalModelConfigName          = "localModel"
+	SecurityConfigName            = "security"
+	ServiceConfigName             = "service"
+	ResourceConfigName            = "resource"
+	InferenceServiceConfigKeyName = "inferenceservice"
 )
 
 const (
@@ -64,7 +65,7 @@ type InferenceServicesConfig struct {
 	// Explainer configurations
 	Explainers ExplainersConfig `json:"explainers"`
 	// Resource configurations
-	Resource ResourceConfig `json:"resource"`
+	Resource ResourceConfig `json:"resource,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -100,8 +101,10 @@ type LocalModelConfig struct {
 
 // +kubebuilder:object:generate=false
 type ResourceConfig struct {
-	CPULimit    string `json:"cpuLimit"`
-	MemoryLimit string `json:"memoryLimit"`
+	CPULimit      string `json:"cpuLimit,omitempty"`
+	MemoryLimit   string `json:"memoryLimit,omitempty"`
+	CPURequest    string `json:"cpuRequest,omitempty"`
+	MemoryRequest string `json:"memoryRequest,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -124,7 +127,7 @@ func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServi
 	icfg := &InferenceServicesConfig{}
 	for _, err := range []error{
 		getComponentConfig(ExplainerConfigKeyName, configMap, &icfg.Explainers),
-		getComponentConfig(ResourceConfigName, configMap, &icfg.Resource),
+		getComponentConfig(InferenceServiceConfigKeyName, configMap, &icfg),
 	} {
 		if err != nil {
 			return nil, err
