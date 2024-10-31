@@ -40,10 +40,7 @@ import (
 )
 
 var (
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
+	defaultResource = v1.ResourceList{}
 	// logger for the mutating webhook.
 	mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook")
 )
@@ -63,14 +60,20 @@ type InferenceServiceDefaulter struct {
 var _ webhook.CustomDefaulter = &InferenceServiceDefaulter{}
 
 func setResourceRequirementDefaults(config *InferenceServicesConfig, requirements *v1.ResourceRequirements) {
-
-	if config != nil && config.Resource != (ResourceConfig{}) && config.Resource.CPULimit != "" {
-		defaultResource[v1.ResourceCPU] = resource.MustParse(config.Resource.CPULimit)
+	if config != nil {
+		if config.Resource.CPURequest != "" {
+			defaultResource[v1.ResourceCPU] = resource.MustParse(config.Resource.CPURequest)
+		}
+		if config.Resource.MemoryRequest != "" {
+			defaultResource[v1.ResourceMemory] = resource.MustParse(config.Resource.MemoryRequest)
+		}
+		if config.Resource.CPULimit != "" {
+			defaultResource[v1.ResourceCPU] = resource.MustParse(config.Resource.CPULimit)
+		}
+		if config.Resource.MemoryLimit != "" {
+			defaultResource[v1.ResourceMemory] = resource.MustParse(config.Resource.MemoryLimit)
+		}
 	}
-	if config != nil && config.Resource != (ResourceConfig{}) && config.Resource.MemoryLimit != "" {
-		defaultResource[v1.ResourceMemory] = resource.MustParse(config.Resource.MemoryLimit)
-	}
-
 	if requirements.Requests == nil {
 		requirements.Requests = v1.ResourceList{}
 	}
