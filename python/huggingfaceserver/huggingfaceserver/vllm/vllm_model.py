@@ -15,7 +15,7 @@
 from typing import AsyncIterator, Iterable, Optional, Union
 
 import torch
-from ogger import RequestLogger
+from vllm.entrypoints.logger import RequestLogger
 
 from kserve import Model
 from kserve.errors import ModelNotReady
@@ -24,7 +24,6 @@ from kserve.protocol.rest.openai import (
     ChatCompletionRequestMessage,
     ChatPrompt,
     CompletionRequest,
-    ChatCompletionRequest,
     OpenAIChatAdapterModel,
 )
 from kserve.protocol.rest.openai.types import Completion
@@ -84,6 +83,6 @@ class VLLMModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no
         )
 
     async def create_completion(
-        self, request: CompletionRequest | ChatCompletionRequest
+        self, request: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
         return await self.openai_serving_completion.create_completion(request)

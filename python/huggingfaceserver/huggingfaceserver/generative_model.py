@@ -403,7 +403,6 @@ class HuggingfaceGenerativeModel(
                     tokenize=False,
                     add_generation_prompt=True,
                     tools=tools
-                    tools=tools
                 ),
             )
         )
