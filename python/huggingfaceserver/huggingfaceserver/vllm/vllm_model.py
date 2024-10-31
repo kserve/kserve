@@ -15,7 +15,7 @@
 from typing import AsyncIterator, Iterable, Optional, Union
 
 import torch
-from vllm.entrypoints.logger import RequestLogger
+from ogger import RequestLogger
 
 from kserve import Model
 from kserve.errors import ModelNotReady
