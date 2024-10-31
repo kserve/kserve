@@ -48,7 +48,6 @@ from kserve.protocol.rest.openai.types.openapi import (
     Choice as CompletionChoice,
     CompletionUsage,
     CreateCompletionRequest,
-    CreateChatCompletionRequest,
     CreateCompletionResponse as Completion,
     Logprobs,
     ChatCompletionTool
