@@ -44,6 +44,10 @@ func (c *FakeServingV1alpha1) InferenceGraphs(namespace string) v1alpha1.Inferen
 	return &FakeInferenceGraphs{c, namespace}
 }
 
+func (c *FakeServingV1alpha1) LocalModelNodes(namespace string) v1alpha1.LocalModelNodeInterface {
+	return &FakeLocalModelNodes{c, namespace}
+}
+
 func (c *FakeServingV1alpha1) LocalModelNodeGroups(namespace string) v1alpha1.LocalModelNodeGroupInterface {
 	return &FakeLocalModelNodeGroups{c, namespace}
 }
