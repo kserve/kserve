@@ -76,8 +76,11 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	var sRuntimeAnnotations map[string]string
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 	})
+
+	fmt.Printf("\n Predictor custom annotations %v\n", p.inferenceServiceConfig.ServiceAnnotationDisallowedList)
+	fmt.Printf("\n Predictor custom labels %v\n", p.inferenceServiceConfig.ServiceLabelDisallowedList)
 
 	addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
 	addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
@@ -226,7 +229,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		// Label filter will be handled in ksvc_reconciler
 		sRuntimeLabels = sRuntime.ServingRuntimePodSpec.Labels
 		sRuntimeAnnotations = utils.Filter(sRuntime.ServingRuntimePodSpec.Annotations, func(key string) bool {
-			return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+			return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 		})
 	} else {
 		container = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
@@ -273,7 +276,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// Label filter will be handled in ksvc_reconciler
 	predictorLabels := isvc.Spec.Predictor.Labels
 	predictorAnnotations := utils.Filter(isvc.Spec.Predictor.Annotations, func(key string) bool {
-		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 	})
 
 	// Labels and annotations priority: predictor component > isvc > ServingRuntimePodSpec
@@ -332,7 +335,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	} else {
 		podLabelKey = constants.RevisionLabel
 		r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
-			&podSpec, isvc.Status.Components[v1beta1.PredictorComponent])
+			&podSpec, isvc.Status.Components[v1beta1.PredictorComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList)
 		if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set owner reference for predictor")
 		}

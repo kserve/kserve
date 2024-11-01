@@ -41,7 +41,38 @@ data:
                "defaultImageVersion": "latest"
            }
        }
-     
+    # ====================================== ISVC CONFIGURATION ======================================
+    # Example   
+     inferenceservice: |-
+      {
+        "serviceAnnotationDisallowedList": [
+          "my.custom.annotation/1"  
+        ],
+        "serviceLabelDisallowedList": [
+          "my.custom.label.1"  
+        ]
+       }
+    # Example of isvc configuration
+    inferenceservice: |-
+      {
+        # ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative 
+        # revisions, which prevents the reconciliation loop to be triggered if the annotations is 
+        # configured here are used.
+        # Default values are:
+        #  "autoscaling.knative.dev/min-scale",
+        #  "autoscaling.knative.dev/max-scale",
+        #  "internal.serving.kserve.io/storage-initializer-sourceuri",
+        #  "kubectl.kubernetes.io/last-applied-configuration"
+        # Any new value will be appended to the list.
+        "serviceAnnotationDisallowedList": [
+          "my.custom.annotation/1"  
+        ],
+        # ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions
+        # which prevents the reconciliation loop to be triggered if the labels is configured here are used.
+        "serviceLabelDisallowedList": [
+          "my.custom.label.1"  
+        ]
+      }  
      # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
      # Example
      storageInitializer: |-
