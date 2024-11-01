@@ -49,11 +49,12 @@ var managedKsvcAnnotations = map[string]bool{
 }
 
 type KsvcReconciler struct {
-	client          client.Client
-	scheme          *runtime.Scheme
-	Service         *knservingv1.Service
-	componentExt    *v1beta1.ComponentExtensionSpec
-	componentStatus v1beta1.ComponentStatusSpec
+	client              client.Client
+	scheme              *runtime.Scheme
+	Service             *knservingv1.Service
+	componentExt        *v1beta1.ComponentExtensionSpec
+	componentStatus     v1beta1.ComponentStatusSpec
+	disallowedLabelList []string
 }
 
 func NewKsvcReconciler(client client.Client,
@@ -61,11 +62,12 @@ func NewKsvcReconciler(client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
-	componentStatus v1beta1.ComponentStatusSpec) *KsvcReconciler {
+	componentStatus v1beta1.ComponentStatusSpec,
+	disallowedLabelList []string) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:          client,
 		scheme:          scheme,
-		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus),
+		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList),
 		componentExt:    componentExt,
 		componentStatus: componentStatus,
 	}
@@ -74,7 +76,8 @@ func NewKsvcReconciler(client client.Client,
 func createKnativeService(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
-	componentStatus v1beta1.ComponentStatusSpec) *knservingv1.Service {
+	componentStatus v1beta1.ComponentStatusSpec,
+	disallowedLabelList []string) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
 	if componentExtension.MinReplicas == nil {
@@ -148,9 +151,13 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		}
 		trafficTargets = append(trafficTargets, latestTarget)
 	}
+
 	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
-		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
+		return !utils.Includes(disallowedLabelList, key)
+		// return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, keyz)
 	})
+
+	fmt.Printf(" \n#############################´#labels: %v\n", labels)
 
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
