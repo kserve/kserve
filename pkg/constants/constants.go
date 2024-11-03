@@ -499,6 +499,11 @@ var (
 	MultiNodeHead         = "head"
 )
 
+// OpenShift constants
+const (
+	OpenShiftServiceCaConfigMapName = "openshift-service-ca.crt"
+)
+
 // GetRawServiceLabel generate native service label
 func GetRawServiceLabel(service string) string {
 	return "isvc." + service

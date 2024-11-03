@@ -203,6 +203,30 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 											Drop: []v1.Capability{v1.Capability("ALL")},
 										},
 									},
+									VolumeMounts: []v1.VolumeMount{
+										{
+											Name:      "openshift-service-ca-bundle",
+											MountPath: "/etc/odh/openshift-service-ca-bundle",
+										},
+									},
+									Env: []v1.EnvVar{
+										{
+											Name:  "SSL_CERT_FILE",
+											Value: "/etc/odh/openshift-service-ca-bundle/service-ca.crt",
+										},
+									},
+								},
+							},
+							Volumes: []v1.Volume{
+								{
+									Name: "openshift-service-ca-bundle",
+									VolumeSource: v1.VolumeSource{
+										ConfigMap: &v1.ConfigMapVolumeSource{
+											LocalObjectReference: v1.LocalObjectReference{
+												Name: constants.OpenShiftServiceCaConfigMapName,
+											},
+										},
+									},
 								},
 							},
 							Affinity:                     graph.Spec.Affinity,
@@ -217,12 +241,12 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
 	value, exists := config.Headers["propagate"]
 	if exists {
-		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env = []v1.EnvVar{
-			{
-				Name:  constants.RouterHeadersPropagateEnvVar,
-				Value: strings.Join(value, ","),
-			},
+		propagateEnv := v1.EnvVar{
+			Name:  constants.RouterHeadersPropagateEnvVar,
+			Value: strings.Join(value, ","),
 		}
+
+		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env = append(service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env, propagateEnv)
 	}
 	return service
 }
