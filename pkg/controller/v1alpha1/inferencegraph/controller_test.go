@@ -148,6 +148,10 @@ var _ = Describe("Inference Graph controller test", func() {
 											Image: "kserve/router:v0.10.0",
 											Env: []v1.EnvVar{
 												{
+													Name:  "SSL_CERT_FILE",
+													Value: "/etc/odh/openshift-service-ca-bundle/service-ca.crt",
+												},
+												{
 													Name:  "PROPAGATE_HEADERS",
 													Value: "Authorization,Intuit_tid",
 												},
@@ -175,9 +179,27 @@ var _ = Describe("Inference Graph controller test", func() {
 													Drop: []v1.Capability{v1.Capability("ALL")},
 												},
 											},
+											VolumeMounts: []v1.VolumeMount{
+												{
+													Name:      "openshift-service-ca-bundle",
+													MountPath: "/etc/odh/openshift-service-ca-bundle",
+												},
+											},
 										},
 									},
 									AutomountServiceAccountToken: proto.Bool(false),
+									Volumes: []v1.Volume{
+										{
+											Name: "openshift-service-ca-bundle",
+											VolumeSource: v1.VolumeSource{
+												ConfigMap: &v1.ConfigMapVolumeSource{
+													LocalObjectReference: v1.LocalObjectReference{
+														Name: constants.OpenShiftServiceCaConfigMapName,
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -284,6 +306,10 @@ var _ = Describe("Inference Graph controller test", func() {
 											Image: "kserve/router:v0.10.0",
 											Env: []v1.EnvVar{
 												{
+													Name:  "SSL_CERT_FILE",
+													Value: "/etc/odh/openshift-service-ca-bundle/service-ca.crt",
+												},
+												{
 													Name:  "PROPAGATE_HEADERS",
 													Value: "Authorization,Intuit_tid",
 												},
@@ -311,9 +337,27 @@ var _ = Describe("Inference Graph controller test", func() {
 													Drop: []v1.Capability{v1.Capability("ALL")},
 												},
 											},
+											VolumeMounts: []v1.VolumeMount{
+												{
+													Name:      "openshift-service-ca-bundle",
+													MountPath: "/etc/odh/openshift-service-ca-bundle",
+												},
+											},
 										},
 									},
 									AutomountServiceAccountToken: proto.Bool(false),
+									Volumes: []v1.Volume{
+										{
+											Name: "openshift-service-ca-bundle",
+											VolumeSource: v1.VolumeSource{
+												ConfigMap: &v1.ConfigMapVolumeSource{
+													LocalObjectReference: v1.LocalObjectReference{
+														Name: constants.OpenShiftServiceCaConfigMapName,
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -434,6 +478,10 @@ var _ = Describe("Inference Graph controller test", func() {
 											Image: "kserve/router:v0.10.0",
 											Env: []v1.EnvVar{
 												{
+													Name:  "SSL_CERT_FILE",
+													Value: "/etc/odh/openshift-service-ca-bundle/service-ca.crt",
+												},
+												{
 													Name:  "PROPAGATE_HEADERS",
 													Value: "Authorization,Intuit_tid",
 												},
@@ -459,6 +507,12 @@ var _ = Describe("Inference Graph controller test", func() {
 												AllowPrivilegeEscalation: proto.Bool(false),
 												Capabilities: &v1.Capabilities{
 													Drop: []v1.Capability{v1.Capability("ALL")},
+												},
+											},
+											VolumeMounts: []v1.VolumeMount{
+												{
+													Name:      "openshift-service-ca-bundle",
+													MountPath: "/etc/odh/openshift-service-ca-bundle",
 												},
 											},
 										},
@@ -487,6 +541,18 @@ var _ = Describe("Inference Graph controller test", func() {
 										},
 									},
 									AutomountServiceAccountToken: proto.Bool(false),
+									Volumes: []v1.Volume{
+										{
+											Name: "openshift-service-ca-bundle",
+											VolumeSource: v1.VolumeSource{
+												ConfigMap: &v1.ConfigMapVolumeSource{
+													LocalObjectReference: v1.LocalObjectReference{
+														Name: constants.OpenShiftServiceCaConfigMapName,
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 						},
