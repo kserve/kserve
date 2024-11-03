@@ -23,10 +23,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -45,9 +47,82 @@ import (
 
 var log = logf.Log.WithName("InferenceGraphRouter")
 
+// _isInMesh is an auxiliary global variable for isInIstioMesh function.
+var _isInMesh *bool
+
+// isInIstioMesh checks if the InferenceGraph pod belongs to the mesh by
+// checking the presence of the sidecar. It is known that when the sidecar
+// is present, Envoy will be using port 15000 with standard HTTP. Thus, the
+// presence of the sidecar is assumed if this port responds with an HTTP 200 status
+// when doing a "GET /" request.
+//
+// The result of the check is cached in the _isInMesh global variable. Since a
+// pod cannot be modified, a single check is enough for the whole life of the pod.
+// The check cannot be done at start-up, because there is the possibility of
+// false negatives, since there is no guarantee that the Istio sidecar has already
+// started. So, the isInIstioMesh func should be used after the first inference
+// request is received when it is guaranteed that the Istio sidecar is in ready state.
+//
+// Reference:
+// - https://istio.io/latest/docs/ops/deployment/application-requirements/#ports-used-by-istio)
+func isInIstioMesh() (bool, error) {
+	if _isInMesh != nil {
+		return *_isInMesh, nil
+	}
+
+	isInMesh := false
+	client := http.Client{
+		Timeout: time.Second * 3,
+	}
+	response, err := client.Get("http://localhost:15000")
+	if err == nil {
+		if response.StatusCode == http.StatusOK {
+			isInMesh = true
+		}
+	} else if errors.Is(err, syscall.ECONNREFUSED) {
+		// Assume no Istio sidecar. Thus, this pod is not
+		// part of the mesh.
+		err = nil
+	}
+
+	if response != nil && response.Body != nil {
+		err = response.Body.Close()
+	}
+
+	_isInMesh = &isInMesh
+	return *_isInMesh, err
+}
+
 func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, int, error) {
 	defer timeTrack(time.Now(), "step", serviceUrl)
 	log.Info("Entering callService", "url", serviceUrl)
+
+	parsedServiceUrl, parseServiceUrlErr := url.Parse(serviceUrl)
+	if parseServiceUrlErr != nil {
+		return nil, 500, parseServiceUrlErr
+	}
+	if parsedServiceUrl.Scheme == "https" {
+		if isInMesh, isInMeshErr := isInIstioMesh(); isInMeshErr != nil {
+			return nil, 500, isInMeshErr
+		} else if isInMesh {
+			// In this branch, it has been resolved that the Inference Graph is
+			// part of the Istio mesh. In this case, even if the target service
+			// is using HTTPS, it is better to use plain-text HTTP:
+			// * If the target service is also part of the mesh, Istio will take
+			//   care of properly applying TLS policies (e.g. mutual TLS).
+			// * If the target service is _not_ part of the mesh, it still is better
+			//   to let Istio manage TLS by configuring the sidecar to do TLS
+			//   origination and prevent double TLS (see: https://istio.io/latest/docs/ops/common-problems/network-issues/#double-tls)
+			//
+			// If the Inference Graph is not part of the mesh, the indicated
+			// schema is used.
+			parsedServiceUrl.Scheme = "http"
+			serviceUrl = parsedServiceUrl.String()
+
+			log.Info("Using plain-text schema to let Istio manage TLS termination", "url", serviceUrl)
+		}
+	}
+
 	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
 	if err != nil {
 		log.Error(err, "An error occurred while preparing request object with serviceUrl.", "serviceUrl", serviceUrl)
