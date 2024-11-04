@@ -304,6 +304,65 @@ class TestChatCompletions:
         )
         assert compare_response_to_expected(response, expected) is True
 
+    async def test_vllm_chat_completion_facebook_opt_model_should_set_correct_max_tokens(
+        self, vllm_opt_model
+    ):
+        opt_model, mock_vllm_engine = vllm_opt_model
+        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
+        max_tokens_arg = None
+
+        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
+            nonlocal max_tokens_arg
+            # sampling_params is the second argument to generate()
+            max_tokens_arg = args[1].max_tokens
+            for cmpl_chunk in opt_chat_cmpl_chunks:
+                cmpl_chunk.request_id = args[2]
+                yield cmpl_chunk
+
+        mock_vllm_engine.generate = mock_generate
+
+        messages = [
+            {
+                "role": "system",
+                "content": "You are a friendly chatbot who always responds in the style of a pirate",
+            },
+            {
+                "role": "user",
+                "content": "How many helicopters can a human eat in one sitting?",
+            },
+        ]
+
+        # max_tokens unset
+        params = CreateChatCompletionRequest(
+            model="opt-125m",
+            messages=messages,
+            stream=False,
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
+        )
+        request = ChatCompletionRequest(
+            request_id=request_id, params=params, context={}
+        )
+        await opt_model.create_chat_completion(request)
+        assert max_tokens_arg is not None
+
+        # max_tokens set
+        params = CreateChatCompletionRequest(
+            model="opt-125m",
+            messages=messages,
+            stream=False,
+            max_tokens=15,
+            chat_template="{% for message in messages %}"
+            "{{ message.content }}{{ eos_token }}"
+            "{% endfor %}",
+        )
+        request = ChatCompletionRequest(
+            request_id=request_id, params=params, context={}
+        )
+        await opt_model.create_chat_completion(request)
+        assert max_tokens_arg == 15
+
     async def test_vllm_chat_completion_facebook_opt_model_with_max_token_stream(
         self, vllm_opt_model
     ):
