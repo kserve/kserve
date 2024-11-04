@@ -398,6 +398,7 @@ class HuggingfaceGenerativeModel(
                 str,
                 self._tokenizer.apply_chat_template(
                     [m.model_dump() for m in messages],
+                    chat_template=chat_template,
                     tokenize=False,
                     add_generation_prompt=True,
                     tools=[tool.model_dump() for tool in tools] if tools else None,
