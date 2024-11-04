@@ -34,6 +34,7 @@ env:
   PMML_IMG: "pmmlserver"
   PADDLE_IMG: "paddleserver"
   CUSTOM_MODEL_GRPC_IMG: "custom-model-grpc"
+  CUSTOM_MODEL_GRPC_IMG_TAG: "kserve/custom-model-grpc:${{ github.sha }}"
   HUGGINGFACE_IMG: "huggingfaceserver"
   # Explainer images
   ART_IMG: "art-explainer"

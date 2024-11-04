@@ -33,6 +33,7 @@ from kubernetes.client import V1Container, V1ContainerPort
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
 
 
+@pytest.mark.skip(reason="Not testable in ODH at the moment")
 @pytest.mark.grpc
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
@@ -44,7 +45,7 @@ async def test_custom_model_grpc():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
+                image=os.environ.get("CUSTOM_MODEL_GRPC_IMG_TAG"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
@@ -95,6 +96,7 @@ async def test_custom_model_grpc():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.skip(reason="Not testable in ODH at the moment")
 @pytest.mark.grpc
 @pytest.mark.transformer
 @pytest.mark.asyncio(scope="session")
@@ -106,7 +108,7 @@ async def test_predictor_grpc_with_transformer_grpc():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
+                image=os.environ.get("CUSTOM_MODEL_GRPC_IMG_TAG"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
@@ -175,6 +177,7 @@ async def test_predictor_grpc_with_transformer_grpc():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.skip(reason="Not testable in ODH at the moment")
 @pytest.mark.grpc
 @pytest.mark.transformer
 @pytest.mark.asyncio(scope="session")
@@ -186,7 +189,7 @@ async def test_predictor_grpc_with_transformer_http(rest_v2_client):
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
+                image=os.environ.get("CUSTOM_MODEL_GRPC_IMG_TAG"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},

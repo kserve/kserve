@@ -31,6 +31,8 @@ from kubernetes import client
 from kubernetes.client import V1Container, V1ContainerPort
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_grpc
 
+pytest.skip("Not testable in ODH at the moment", allow_module_level=True)
+
 
 @pytest.mark.grpc
 @pytest.mark.predictor
@@ -75,7 +77,7 @@ async def test_custom_model_grpc():
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
+                image=os.environ.get("CUSTOM_MODEL_GRPC_IMG_TAG"),
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},

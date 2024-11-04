@@ -27,6 +27,7 @@ from kserve.constants import constants
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
 
+@pytest.mark.skip(reason="Not testable in ODH at the moment")
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_custom_model_http_ray(rest_v1_client):
@@ -37,7 +38,7 @@ async def test_custom_model_http_ray(rest_v1_client):
         containers=[
             V1Container(
                 name="kserve-container",
-                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
+                image=os.environ.get("CUSTOM_MODEL_GRPC_IMG_TAG"),
                 # Override the entrypoint to run the model using ray
                 command=["python", "-m", "custom_model.model_remote"],
                 resources=V1ResourceRequirements(
