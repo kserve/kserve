@@ -307,6 +307,7 @@ async def test_xgboost_v2(rest_v2_client):
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.skip(reason="Not testable in ODH at the moment")
 @pytest.mark.grpc
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")

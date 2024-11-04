@@ -40,26 +40,25 @@ MY_PATH=$(dirname "$0")
 PROJECT_ROOT=$MY_PATH/../../../
 
 # If Kustomize is not installed, install it
-if ! command -v kustomize &> /dev/null; then
+if ! command -v kustomize &>/dev/null; then
   echo "Installing Kustomize"
-  curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"  | bash -s -- 5.0.1 $HOME/.local/bin
+  curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash -s -- 5.0.1 $HOME/.local/bin
 fi
 
 # If minio CLI is not installed, install it
-if ! command -v mc &> /dev/null; then
+if ! command -v mc &>/dev/null; then
   echo "Installing Minio CLI"
   curl https://dl.min.io/client/mc/release/linux-amd64/mc --create-dirs -o $HOME/.local/bin/mc
   chmod +x $HOME/.local/bin/mc
 fi
 
-#
 echo "Installing KServe Python SDK ..."
 pushd $PROJECT_ROOT >/dev/null
   ./test/scripts/gh-actions/setup-poetry.sh
   ./test/scripts/gh-actions/check-poetry-lockfile.sh
 popd
 pushd $PROJECT_ROOT/python/kserve >/dev/null
-    poetry install --with=test --no-interaction
+  poetry install --with=test --no-interaction
 popd
 
 # Install KServe stack
@@ -71,19 +70,24 @@ if [ "$1" != "raw" ]; then
 fi
 
 echo "Installing KServe with Minio"
-kustomize build $PROJECT_ROOT/config/overlays/test | \
-  sed "s|kserve/storage-initializer:latest|${STORAGE_INITIALIZER_IMAGE}|" | \
-  sed "s|kserve/agent:latest|${KSERVE_AGENT_IMAGE}|" | \
-  sed "s|kserve/router:latest|${KSERVE_ROUTER_IMAGE}|" | \
-  sed "s|kserve/kserve-controller:latest|${KSERVE_CONTROLLER_IMAGE}|" | \
-  oc apply -f -
+kustomize build $PROJECT_ROOT/config/overlays/test |
+  sed "s|kserve/storage-initializer:latest|${STORAGE_INITIALIZER_IMAGE}|" |
+  sed "s|kserve/agent:latest|${KSERVE_AGENT_IMAGE}|" |
+  sed "s|kserve/router:latest|${KSERVE_ROUTER_IMAGE}|" |
+  sed "s|kserve/kserve-controller:latest|${KSERVE_CONTROLLER_IMAGE}|" |
+  oc apply --server-side=true -f -
 
 # Patch the inferenceservice-config ConfigMap, when running RawDeployment tests
- if [ "$1" == "raw" ]; then
+if [ "$1" == "raw" ]; then
   export OPENSHIFT_INGRESS_DOMAIN=$(oc get ingresses.config cluster -o jsonpath='{.spec.domain}')
   oc patch configmap inferenceservice-config -n kserve --patch-file <(cat config/overlays/test/configmap/inferenceservice-openshift-ci-raw.yaml | envsubst)
   oc delete pod -n kserve -l control-plane=kserve-controller-manager
- fi
+
+  oc patch DataScienceCluster test-dsc --type='json' -p='[{"op": "replace", "path": "/spec/components/kserve/defaultDeploymentMode", "value": "RawDeployment"}]'
+else
+  export OPENSHIFT_INGRESS_DOMAIN=$(oc get ingresses.config cluster -o jsonpath='{.spec.domain}')
+  oc patch configmap inferenceservice-config -n kserve --patch-file <(cat config/overlays/test/configmap/inferenceservice-openshift-ci-serverless.yaml | envsubst)
+fi
 
 # Wait until KServe starts
 oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
@@ -94,15 +98,26 @@ if [ "$1" != "raw" ]; then
 fi
 
 echo "Add testing models to minio storage ..." # Reference: config/overlays/test/minio/minio-init-job.yaml
-curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o /tmp/sklearn-model.joblib
 oc expose service minio-service -n kserve && sleep 5
 MINIO_ROUTE=$(oc get routes -n kserve minio-service -o jsonpath="{.spec.host}")
 mc alias set storage http://$MINIO_ROUTE minio minio123
-mc mb storage/example-models
-mc cp /tmp/sklearn-model.joblib storage/example-models/sklearn/model.joblib
+
+if ! mc ls storage/example-models >/dev/null 2>&1; then
+  mc mb storage/example-models
+else
+  echo "Bucket 'example-models' already exists."
+fi
+
+if [[ $(mc ls storage/example-models/sklearn/model.joblib |wc -l) == "1" ]]; then
+  echo "Test model exists"
+else
+  echo "Copy test model"
+  curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o /tmp/sklearn-model.joblib
+  mc cp /tmp/sklearn-model.joblib storage/example-models/sklearn/model.joblib
+fi
+
 oc delete route -n kserve minio-service
 
-#
 echo "Prepare CI namespace and install ServingRuntimes"
 cat <<EOF | oc apply -f -
 apiVersion: v1
@@ -127,9 +142,10 @@ fi
 
 oc apply -f $PROJECT_ROOT/config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
 
-kustomize build $PROJECT_ROOT/config/overlays/test/clusterresources | \
-  sed 's/ClusterServingRuntime/ServingRuntime/' | \
-  sed "s|kserve/sklearnserver:latest|${SKLEARN_IMAGE}|" | \
+kustomize build $PROJECT_ROOT/config/overlays/test/clusterresources |
+  sed 's/ClusterServingRuntime/ServingRuntime/' |
+  sed "s|kserve/sklearnserver:latest|${SKLEARN_IMAGE}|" |
+  sed "s|kserve/storage-initializer:latest|${STORAGE_INITIALIZER_IMAGE}|" |
   oc apply -n kserve-ci-e2e-test -f -
 
 # Add the enablePassthrough annotation to the ServingRuntimes, to let Knative to
@@ -139,11 +155,11 @@ oc annotate servingruntimes -n kserve-ci-e2e-test --all serving.knative.openshif
 
 echo "Run E2E tests: $1"
 pushd $PROJECT_ROOT >/dev/null
-  # Note: The following images are set by openshift-ci. Uncomment if you are running on your own machine.
-  # export CUSTOM_MODEL_GRPC_IMG_TAG=kserve/custom-model-grpc:latest
-  # export IMAGE_TRANSFORMER_IMG_TAG=kserve/image-transformer:latest
+# Note: The following images are set by openshift-ci. Uncomment if you are running on your own machine.
+# export CUSTOM_MODEL_GRPC_IMG_TAG=kserve/custom-model-grpc:latest
+# export IMAGE_TRANSFORMER_IMG_TAG=kserve/image-transformer:latest
 
-  export GITHUB_SHA=$(git rev-parse HEAD)
-  export CI_USE_ISVC_HOST="1"
-  ./test/scripts/gh-actions/run-e2e-tests.sh "$1"
+export GITHUB_SHA=$(git rev-parse HEAD)
+export CI_USE_ISVC_HOST="1"
+./test/scripts/gh-actions/run-e2e-tests.sh "$1"
 popd

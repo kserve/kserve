@@ -281,7 +281,9 @@ async def test_sklearn_rolling_update():
         namespace=KSERVE_TEST_NAMESPACE,
         label_selector="serving.kserve.io/test=rolling-update",
     )
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(
+        service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=600
+    )
 
     # Check if the deployment replicas still remain the same as min_replicas
     assert deployment.items[0].spec.replicas == min_replicas

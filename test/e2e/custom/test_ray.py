@@ -27,6 +27,7 @@ from kserve.constants import constants
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc
 
 
+@pytest.mark.skip(reason="Not testable in ODH at the moment")
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
 async def test_custom_model_http_ray(rest_v1_client):

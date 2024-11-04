@@ -1,0 +1,42 @@
+kind: DataScienceCluster
+apiVersion: datasciencecluster.opendatahub.io/v1
+metadata:
+  name: test-dsc
+  labels:
+    app.kubernetes.io/name: datasciencecluster
+    app.kubernetes.io/instance: rhods
+    app.kubernetes.io/part-of: rhods-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: rhods-operator
+spec:
+  components:
+    codeflare:
+      managementState: Removed
+    dashboard:
+      managementState: Removed
+    datasciencepipelines:
+      managementState: Removed
+    kserve:
+      defaultDeploymentMode: Serverless
+      managementState: Managed
+      serving:
+        ingressGateway:
+          certificate:
+            type: OpenshiftDefaultIngress
+        managementState: Managed
+        name: knative-serving
+    modelmeshserving:
+      managementState: Removed
+    ray:
+      managementState: Removed
+    trustyai:
+      managementState: Removed
+    workbenches:
+      managementState: Removed
+    trainingoperator:
+      managementState: Removed
+    kueue:
+      managementState: Removed
+    modelregistry:
+      registriesNamespace: odh-model-registries
+      managementState: Removed

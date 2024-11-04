@@ -34,6 +34,8 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
 
+pytest.skip("ODH does not support art explainer at the moment", allow_module_level=True)
+
 
 @pytest.mark.path_based_routing
 @pytest.mark.explainer
