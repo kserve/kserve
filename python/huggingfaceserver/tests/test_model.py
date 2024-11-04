@@ -508,6 +508,7 @@ async def test_input_padding_with_pad_token_not_specified(
     )
     assert "a member of the royal family ." in response.choices[1].text
 
+
 @pytest.mark.asyncio
 async def test_tools_chat_completion(bloom_model: HuggingfaceGenerativeModel):
     messages = [
