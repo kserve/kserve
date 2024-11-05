@@ -19,10 +19,11 @@ package ingress
 import (
 	"context"
 	"fmt"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"os"
 	"strings"
+
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
