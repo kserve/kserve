@@ -50,6 +50,7 @@ from kserve.protocol.rest.openai.types.openapi import (
     CreateCompletionRequest,
     CreateCompletionResponse as Completion,
     Logprobs,
+    ChatCompletionTool,
 )
 from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
 from kserve.protocol.rest.openai import ChatCompletionRequestMessage, CompletionRequest
@@ -93,7 +94,6 @@ def to_sampling_params(request: CreateCompletionRequest, default_max_tokens: int
 
 
 class OpenAIServingCompletion:
-
     def __init__(self, engine: AsyncLLMEngine, request_logger: RequestLogger = None):
         self.engine = engine
 
@@ -365,14 +365,16 @@ class OpenAIServingCompletion:
 
     def apply_chat_template(
         self,
-        messages: Iterable[ChatCompletionRequestMessage,],
+        messages: Iterable[ChatCompletionRequestMessage],
         chat_template: Optional[str] = None,
+        tools: Optional[list[ChatCompletionTool]] = None,
     ):
         return self.tokenizer.apply_chat_template(
             conversation=messages,
             chat_template=chat_template,
             tokenize=False,
             add_generation_prompt=True,
+            tools=tools,
         )
 
     async def _post_init(self):
