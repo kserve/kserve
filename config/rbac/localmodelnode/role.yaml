@@ -29,7 +29,6 @@ rules:
   - ""
   resources:
   - persistentvolumeclaims
-  - persistentvolumes
   verbs:
   - create
   - delete
@@ -60,7 +59,6 @@ rules:
   - serving.kserve.io
   resources:
   - clusterstoragecontainers
-  - inferenceservices
   - localmodelnodegroups
   verbs:
   - get
