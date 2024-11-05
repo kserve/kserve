@@ -19,6 +19,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
@@ -216,7 +217,6 @@ func generateIngressHost(ingressConfig *v1beta1.IngressConfig,
 func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 	ingressConfig *v1beta1.IngressConfig, client client.Client,
 	isvcConfig *v1beta1.InferenceServicesConfig) (*netv1.Ingress, error) {
-
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 			Type:   v1beta1.IngressReady,

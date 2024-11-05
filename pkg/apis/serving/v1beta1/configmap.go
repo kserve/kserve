@@ -144,9 +144,10 @@ func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServi
 		if icfg.ServiceLabelDisallowedList == nil {
 			icfg.ServiceLabelDisallowedList = constants.RevisionTemplateLabelDisallowedList
 		} else {
-			icfg.ServiceLabelDisallowedList = append(constants.RevisionTemplateLabelDisallowedList, icfg.ServiceLabelDisallowedList...)
+			icfg.ServiceLabelDisallowedList = append(
+				constants.RevisionTemplateLabelDisallowedList,
+				icfg.ServiceLabelDisallowedList...)
 		}
-
 	}
 	return icfg, nil
 }
