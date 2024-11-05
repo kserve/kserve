@@ -374,7 +374,7 @@ class OpenAIServingCompletion:
             chat_template=chat_template,
             tokenize=False,
             add_generation_prompt=True,
-            tools=tools,
+            tools=[tool.model_dump() for tool in tools] if tools else None,
         )
 
     async def _post_init(self):
