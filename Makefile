@@ -146,7 +146,7 @@ manifests: controller-gen
 	cat config/rbac/localmodel/role.yaml >> charts/kserve-resources/templates/localmodel/role.yaml
 	echo '{{- end }}' >> charts/kserve-resources/templates/localmodel/role.yaml
 	# Copy the local model node role with Helm chart while keeping the Helm template condition
-	echo '{{- if .Values.kserve.localmodelnode.enabled }}' > charts/kserve-resources/templates/localmodelnode/role.yaml
+	echo '{{- if .Values.kserve.localmodel.enabled }}'> charts/kserve-resources/templates/localmodelnode/role.yaml
 	cat config/rbac/localmodelnode/role.yaml >> charts/kserve-resources/templates/localmodelnode/role.yaml
 	echo '{{- end }}' >> charts/kserve-resources/templates/localmodelnode/role.yaml
 	
