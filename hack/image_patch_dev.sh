@@ -45,7 +45,7 @@ IMG=$(ko resolve -f config/localmodelnodes/manager.yaml | grep 'image:' | head -
 if [ -z ${IMG} ]; then exit; fi
 cat > config/overlays/${OVERLAY}/localmodelnode_image_patch.yaml << EOF
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: kserve-localmodelnode-controller-manager
   namespace: kserve

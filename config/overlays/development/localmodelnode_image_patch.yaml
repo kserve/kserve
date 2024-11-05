@@ -1,5 +1,5 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
   name: kserve-localmodelnode-controller-manager
   namespace: kserve
@@ -10,4 +10,4 @@ spec:
         - name: manager
           command:
             - /ko-app/localmodelnode
-          image: kind.local/localmodelnode-fef2e276c81be6f82ccef85ba0d3aba4:acf54ceeb03a46c281050f55c85e2165c95e48507be2a7494440776f1ab51c38
+          image: kind.local/localmodelnode-fef2e276c81be6f82ccef85ba0d3aba4:6dadb10f1da6199292936075af3d77c114a05500ae1189d26bed5946cd99835a

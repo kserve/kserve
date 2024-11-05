@@ -48,7 +48,7 @@ type LocalModelNodeReconciler struct {
 }
 
 func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	c.Log.Info("Reconciling localmodelnode", "name", req.Name)
+	c.Log.Info("Daemonset controller reconciling localmodelnode", "name", req.Name)
 	return reconcile.Result{}, nil
 }
 
