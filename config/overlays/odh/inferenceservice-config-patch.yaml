@@ -18,6 +18,7 @@ data:
   ingress: |-
     {
         "ingressGateway" : "knative-serving/knative-ingress-gateway",
+        "knativeLocalGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
         "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
         "localGateway" : "istio-system/kserve-local-gateway",
         "localGatewayService" : "kserve-local-gateway.istio-system.svc.cluster.local",
