@@ -49,12 +49,11 @@ var managedKsvcAnnotations = map[string]bool{
 }
 
 type KsvcReconciler struct {
-	client              client.Client
-	scheme              *runtime.Scheme
-	Service             *knservingv1.Service
-	componentExt        *v1beta1.ComponentExtensionSpec
-	componentStatus     v1beta1.ComponentStatusSpec
-	disallowedLabelList []string
+	client          client.Client
+	scheme          *runtime.Scheme
+	Service         *knservingv1.Service
+	componentExt    *v1beta1.ComponentExtensionSpec
+	componentStatus v1beta1.ComponentStatusSpec
 }
 
 func NewKsvcReconciler(client client.Client,
