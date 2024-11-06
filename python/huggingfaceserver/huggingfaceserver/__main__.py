@@ -50,7 +50,12 @@ def list_of_strings(arg):
     return arg.split(",")
 
 
-parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
+try:
+    from vllm.utils import FlexibleArgumentParser
+
+    parser = FlexibleArgumentParser(parents=[kserve.model_server.parser])
+except ImportError:
+    parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 
 parser.add_argument(
     "--model_dir",

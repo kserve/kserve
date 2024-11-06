@@ -362,6 +362,7 @@ class DataPlane:
         .. _CloudEvent: https://cloudevents.io/
         """
         # call model locally or remote model workers
+        response_headers = {}
         model = await self.get_model(model_name)
         if isinstance(model, OpenAIModel):
             error_msg = f"Model {model_name} is of type OpenAIModel. It does not support the infer method."
@@ -371,8 +372,9 @@ class DataPlane:
                 f"Model of type {type(model).__name__} does not support inference"
             )
         model = cast(InferenceModel, model)
-        response = await model(request, headers=headers)
-        return response, headers
+        response, res_headers = await model(request, headers=headers)
+        response_headers.update(res_headers)
+        return response, response_headers
 
     async def explain(
         self,
@@ -394,6 +396,7 @@ class DataPlane:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         # call model locally or remote model workers
+        response_headers = headers if headers else {}
         model = await self.get_model(model_name)
         if isinstance(model, OpenAIModel):
             logger.warning(
@@ -404,5 +407,8 @@ class DataPlane:
             raise ValueError(
                 f"Model of type {type(model).__name__} does not support inference"
             )
-        response = await model(request, verb=InferenceVerb.EXPLAIN, headers=headers)
-        return response, headers
+        response, res_headers = await model(
+            request, verb=InferenceVerb.EXPLAIN, headers=headers
+        )
+        response_headers.update(res_headers)
+        return response, response_headers

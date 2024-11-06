@@ -43,9 +43,12 @@ from kserve.models.v1alpha1_inference_graph_status import V1alpha1InferenceGraph
 from kserve.models.v1alpha1_inference_router import V1alpha1InferenceRouter
 from kserve.models.v1alpha1_inference_step import V1alpha1InferenceStep
 from kserve.models.v1alpha1_inference_target import V1alpha1InferenceTarget
+from kserve.models.v1alpha1_local_model_node import V1alpha1LocalModelNode
 from kserve.models.v1alpha1_local_model_node_group import V1alpha1LocalModelNodeGroup
 from kserve.models.v1alpha1_local_model_node_group_list import V1alpha1LocalModelNodeGroupList
 from kserve.models.v1alpha1_local_model_node_group_spec import V1alpha1LocalModelNodeGroupSpec
+from kserve.models.v1alpha1_local_model_node_list import V1alpha1LocalModelNodeList
+from kserve.models.v1alpha1_local_model_node_spec import V1alpha1LocalModelNodeSpec
 from kserve.models.v1alpha1_model_spec import V1alpha1ModelSpec
 from kserve.models.v1alpha1_serving_runtime import V1alpha1ServingRuntime
 from kserve.models.v1alpha1_serving_runtime_list import V1alpha1ServingRuntimeList
@@ -93,6 +96,7 @@ from kserve.models.v1beta1_pod_spec import V1beta1PodSpec
 from kserve.models.v1beta1_predictor_extension_spec import V1beta1PredictorExtensionSpec
 from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kserve.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec
+from kserve.models.v1beta1_security_config import V1beta1SecurityConfig
 from kserve.models.v1beta1_storage_spec import V1beta1StorageSpec
 from kserve.models.v1beta1_tf_serving_spec import V1beta1TFServingSpec
 from kserve.models.v1beta1_torch_serve_spec import V1beta1TorchServeSpec

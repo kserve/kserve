@@ -14,7 +14,7 @@
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator, Callable, Iterable, List, Tuple, Union, cast
+from typing import AsyncIterator, Callable, Iterable, List, Tuple, Union, cast, Optional
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -30,6 +30,7 @@ from kserve.protocol.rest.openai import (
 )
 from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai.types.openapi import (
+    ChatCompletionTool,
     CreateChatCompletionRequest,
     Error,
     ErrorResponse,
@@ -86,6 +87,8 @@ class DummyModel(OpenAIChatAdapterModel):
     def apply_chat_template(
         self,
         messages: Iterable[ChatCompletionRequestMessage],
+        chat_template: Optional[str] = None,
+        tools: Optional[list[ChatCompletionTool]] = None,
     ) -> ChatPrompt:
         return ChatPrompt(prompt="hello")
 
