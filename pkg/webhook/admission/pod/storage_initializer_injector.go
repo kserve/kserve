@@ -228,12 +228,17 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
-	// Find the kserve-container (this is the model inference server) and transformer container
+	// Find the kserve-container (this is the model inference server) and transformer container and the worker-container
 	userContainer := getContainerWithName(pod, constants.InferenceServiceContainerName)
 	transformerContainer := getContainerWithName(pod, constants.TransformerContainerName)
+	workerContainer := getContainerWithName(pod, constants.WorkerContainerName)
 
 	if userContainer == nil {
-		return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
+		if workerContainer == nil {
+			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
+		} else {
+			userContainer = workerContainer
+		}
 	}
 
 	// Mount pvc directly if local model label exists

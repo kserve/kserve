@@ -30,6 +30,7 @@ from kserve.protocol.rest.openai import (
 )
 from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai.types.openapi import (
+    ChatCompletionTool,
     CreateChatCompletionRequest,
     Error,
     ErrorResponse,
@@ -87,6 +88,7 @@ class DummyModel(OpenAIChatAdapterModel):
         self,
         messages: Iterable[ChatCompletionRequestMessage],
         chat_template: Optional[str] = None,
+        tools: Optional[list[ChatCompletionTool]] = None,
     ) -> ChatPrompt:
         return ChatPrompt(prompt="hello")
 

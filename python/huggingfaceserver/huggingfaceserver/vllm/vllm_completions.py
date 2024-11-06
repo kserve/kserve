@@ -50,13 +50,18 @@ from kserve.protocol.rest.openai.types.openapi import (
     CreateCompletionRequest,
     CreateCompletionResponse as Completion,
     Logprobs,
+    ChatCompletionTool,
 )
 from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
 from kserve.protocol.rest.openai import ChatCompletionRequestMessage, CompletionRequest
 
 
-def to_sampling_params(request: CreateCompletionRequest):
-    echo_without_generation = request.echo and request.max_tokens == 0
+def to_sampling_params(request: CreateCompletionRequest, default_max_tokens: int):
+    # Based on the same fix as https://github.com/vllm-project/vllm/pull/6954
+    max_tokens = request.max_tokens
+    if max_tokens is None:
+        max_tokens = default_max_tokens
+    echo_without_generation = request.echo and max_tokens == 0
 
     logits_processors = None
     if request.logit_bias:
@@ -82,14 +87,13 @@ def to_sampling_params(request: CreateCompletionRequest):
         seed=request.seed,
         stop=request.stop,
         logprobs=request.logprobs,
-        max_tokens=request.max_tokens if not echo_without_generation else 1,
+        max_tokens=max_tokens if not echo_without_generation else 1,
         logits_processors=logits_processors,
         prompt_logprobs=request.logprobs if request.echo else None,
     )
 
 
 class OpenAIServingCompletion:
-
     def __init__(self, engine: AsyncLLMEngine, request_logger: RequestLogger = None):
         self.engine = engine
 
@@ -138,7 +142,6 @@ class OpenAIServingCompletion:
         # Schedule the request and get the result generator.
         generators = []
         try:
-            sampling_params = to_sampling_params(request)
             prompts = list(
                 self._tokenize_prompt_input_or_inputs(
                     request,
@@ -150,6 +153,10 @@ class OpenAIServingCompletion:
             )
 
             for i, prompt_inputs in enumerate(prompts):
+                sampling_params = to_sampling_params(
+                    request,
+                    default_max_tokens=self.max_model_len - len(prompt_inputs[0]),
+                )
                 self._log_inputs(request_id, prompt_inputs, sampling_params)
                 generators.append(
                     self.engine.generate(
@@ -358,14 +365,16 @@ class OpenAIServingCompletion:
 
     def apply_chat_template(
         self,
-        messages: Iterable[ChatCompletionRequestMessage,],
+        messages: Iterable[ChatCompletionRequestMessage],
         chat_template: Optional[str] = None,
+        tools: Optional[list[ChatCompletionTool]] = None,
     ):
         return self.tokenizer.apply_chat_template(
             conversation=messages,
             chat_template=chat_template,
             tokenize=False,
             add_generation_prompt=True,
+            tools=[tool.model_dump() for tool in tools] if tools else None,
         )
 
     async def _post_init(self):

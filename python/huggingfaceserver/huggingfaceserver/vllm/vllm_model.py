@@ -26,6 +26,7 @@ from kserve.protocol.rest.openai import (
     CompletionRequest,
     OpenAIChatAdapterModel,
 )
+from kserve.protocol.rest.openai.types.openapi import ChatCompletionTool
 from kserve.protocol.rest.openai.types import Completion
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm import AsyncEngineArgs
@@ -68,15 +69,16 @@ class VLLMModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no
 
     def apply_chat_template(
         self,
-        messages: Iterable[ChatCompletionRequestMessage,],
+        messages: Iterable[ChatCompletionRequestMessage],
         chat_template: Optional[str] = None,
+        tools: Optional[list[ChatCompletionTool]] = None,
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
         """
         return ChatPrompt(
             prompt=self.openai_serving_completion.apply_chat_template(
-                messages, chat_template
+                messages, chat_template, tools
             )
         )
 
