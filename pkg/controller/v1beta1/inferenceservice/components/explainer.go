@@ -52,19 +52,17 @@ type Explainer struct {
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
 	credentialBuilder      *credentials.CredentialBuilder //nolint: unused
 	deploymentMode         constants.DeploymentModeType
-	deployConfig           *v1beta1.DeployConfig
 	Log                    logr.Logger
 }
 
 func NewExplainer(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType, deployConfig *v1beta1.DeployConfig) Component {
+	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType) Component {
 	return &Explainer{
 		client:                 client,
 		clientset:              clientset,
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
 		deploymentMode:         deploymentMode,
-		deployConfig:           deployConfig,
 		Log:                    ctrl.Log.WithName("ExplainerReconciler"),
 	}
 }
@@ -74,11 +72,11 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	e.Log.Info("Reconciling Explainer", "ExplainerSpec", isvc.Spec.Explainer)
 	explainer := isvc.Spec.Explainer.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.IncludesRegex(e.deployConfig.AnnotationsPropagationDisallowList, key)
+		return !utils.IncludesRegex(e.inferenceServiceConfig.AnnotationsPropagationDisallowList, key)
 	})
 
 	lables := utils.Filter(isvc.Labels, func(key string) bool {
-		return !utils.IncludesRegex(e.deployConfig.LabelsPropagationDisallowList, key)
+		return !utils.IncludesRegex(e.inferenceServiceConfig.LabelsPropagationDisallowList, key)
 	})
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
@@ -113,11 +111,11 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// Label filter will be handled in ksvc_reconciler
 
 	explainerLabels := utils.Filter(isvc.Spec.Explainer.Labels, func(key string) bool {
-		return !utils.IncludesRegex(e.deployConfig.LabelsPropagationDisallowList, key)
+		return !utils.IncludesRegex(e.inferenceServiceConfig.LabelsPropagationDisallowList, key)
 	})
 
 	explainerAnnotations := utils.Filter(isvc.Spec.Explainer.Annotations, func(key string) bool {
-		return !utils.IncludesRegex(e.deployConfig.AnnotationsPropagationDisallowList, key)
+		return !utils.IncludesRegex(e.inferenceServiceConfig.AnnotationsPropagationDisallowList, key)
 	})
 
 	// Labels and annotations priority: explainer component > isvc

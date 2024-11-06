@@ -62,16 +62,16 @@ type IngressReconciler struct {
 	clientset     kubernetes.Interface
 	scheme        *runtime.Scheme
 	ingressConfig *v1beta1.IngressConfig
-	deployConfig  *v1beta1.DeployConfig
+	isvcConfig    *v1beta1.InferenceServicesConfig
 }
 
-func NewIngressReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme, ingressConfig *v1beta1.IngressConfig, deployConfig *v1beta1.DeployConfig) *IngressReconciler {
+func NewIngressReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme, ingressConfig *v1beta1.IngressConfig, isvcConfig *v1beta1.InferenceServicesConfig) *IngressReconciler {
 	return &IngressReconciler{
 		client:        client,
 		clientset:     clientset,
 		scheme:        scheme,
 		ingressConfig: ingressConfig,
-		deployConfig:  deployConfig,
+		isvcConfig:    isvcConfig,
 	}
 }
 
@@ -359,7 +359,7 @@ func gatewaysEqual(matchRequest, matchRequestDest *istiov1beta1.HTTPMatchRequest
 	return equality.Semantic.DeepEqual(matchRequest.Gateways, matchRequestDest.Gateways)
 }
 
-func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig, domainList *[]string, deployConfig *v1beta1.DeployConfig) *istioclientv1beta1.VirtualService {
+func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig, domainList *[]string, isvcConfig *v1beta1.InferenceServicesConfig) *istioclientv1beta1.VirtualService {
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		status := corev1.ConditionFalse
 		if isvc.Status.IsConditionUnknown(v1beta1.PredictorReady) {
@@ -588,7 +588,7 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		}
 	}
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.IncludesRegex(deployConfig.AnnotationsPropagationDisallowList, key)
+		return !utils.IncludesRegex(isvcConfig.AnnotationsPropagationDisallowList, key)
 	})
 	desiredIngress := &istioclientv1beta1.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -644,7 +644,7 @@ func (ir *IngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			useDefault = true
 		}
 		domainList := getDomainList(ir.clientset)
-		desiredIngress := createIngress(isvc, useDefault, ir.ingressConfig, domainList, ir.deployConfig)
+		desiredIngress := createIngress(isvc, useDefault, ir.ingressConfig, domainList, ir.isvcConfig)
 		if desiredIngress == nil {
 			return nil
 		}

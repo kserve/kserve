@@ -79,16 +79,3 @@ data:
     {
       "defaultDeploymentMode": "Serverless"
     }
-  
-  annotationsPropagationDisallowList: |-
-    [
-      "autoscaling.knative.dev/min-scale",
-      "autoscaling.knative.dev/max-scale",
-      "internal.serving.kserve.io/storage-initializer-sourceuri",
-      "kubectl.kubernetes.io/.*"
-    ]
-
-  labelsPropagationDisallowList: |-
-    [
-      "networking.knative.dev/visibility"
-    ]

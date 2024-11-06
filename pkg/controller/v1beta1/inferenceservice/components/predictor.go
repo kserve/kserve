@@ -53,19 +53,17 @@ type Predictor struct {
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
 	credentialBuilder      *credentials.CredentialBuilder //nolint: unused
 	deploymentMode         constants.DeploymentModeType
-	deployConfig           *v1beta1.DeployConfig
 	Log                    logr.Logger
 }
 
 func NewPredictor(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType, deployConfig *v1beta1.DeployConfig) Component {
+	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType) Component {
 	return &Predictor{
 		client:                 client,
 		clientset:              clientset,
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
 		deploymentMode:         deploymentMode,
-		deployConfig:           deployConfig,
 		Log:                    ctrl.Log.WithName("PredictorReconciler"),
 	}
 }
@@ -78,7 +76,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	var sRuntimeAnnotations map[string]string
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.IncludesRegex(p.deployConfig.AnnotationsPropagationDisallowList, key)
+		return !utils.IncludesRegex(p.inferenceServiceConfig.AnnotationsPropagationDisallowList, key)
 	})
 
 	addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
@@ -226,11 +224,11 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[kserveContainerIdx+1:]...)
 
 		sRuntimeLabels = utils.Filter(sRuntime.ServingRuntimePodSpec.Labels, func(key string) bool {
-			return !utils.IncludesRegex(p.deployConfig.LabelsPropagationDisallowList, key)
+			return !utils.IncludesRegex(p.inferenceServiceConfig.LabelsPropagationDisallowList, key)
 		})
 
 		sRuntimeAnnotations = utils.Filter(sRuntime.ServingRuntimePodSpec.Annotations, func(key string) bool {
-			return !utils.IncludesRegex(p.deployConfig.AnnotationsPropagationDisallowList, key)
+			return !utils.IncludesRegex(p.inferenceServiceConfig.AnnotationsPropagationDisallowList, key)
 		})
 	} else {
 		container = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
@@ -277,12 +275,12 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// Label filter will be handled in ksvc_reconciler
 
 	predictorLabels := utils.Filter(isvc.Spec.Predictor.Labels, func(key string) bool {
-		return !utils.IncludesRegex(p.deployConfig.LabelsPropagationDisallowList, key)
+		return !utils.IncludesRegex(p.inferenceServiceConfig.LabelsPropagationDisallowList, key)
 	})
 
 	// predictorLabels := isvc.Spec.Predictor.Labels
 	predictorAnnotations := utils.Filter(isvc.Spec.Predictor.Annotations, func(key string) bool {
-		return !utils.IncludesRegex(p.deployConfig.AnnotationsPropagationDisallowList, key)
+		return !utils.IncludesRegex(p.inferenceServiceConfig.AnnotationsPropagationDisallowList, key)
 	})
 
 	// Labels and annotations priority: predictor component > isvc > ServingRuntimePodSpec

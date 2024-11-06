@@ -2180,22 +2180,8 @@
     "v1beta1.DeployConfig": {
       "type": "object",
       "properties": {
-        "annotationsPropagationDisallowList": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "default": ""
-          }
-        },
         "defaultDeploymentMode": {
           "type": "string"
-        },
-        "labelsPropagationDisallowList": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "default": ""
-          }
         }
       }
     },
@@ -3070,10 +3056,26 @@
         "explainers"
       ],
       "properties": {
+        "annotationsPropagationDisallowList": {
+          "description": "AnnotationsPropagationDisallowList is a list of annotations that are not allowed to be propagated to the knative service",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
         "explainers": {
           "description": "Explainer configurations",
           "default": {},
           "$ref": "#/definitions/v1beta1.ExplainersConfig"
+        },
+        "labelsPropagationDisallowList": {
+          "description": "LabelsPropagationDisallowList is a list of labels that are not allowed to be propagated to the knative service",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
         }
       }
     },

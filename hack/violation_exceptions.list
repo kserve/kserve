@@ -11,9 +11,9 @@ API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,StorageContainerSpec,SupportedUriFormats
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,TrainedModelList,Items
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentStatusSpec,Traffic
-API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,DeployConfig,AnnotationsPropagationDisallowList
-API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,DeployConfig,LabelsPropagationDisallowList
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,InferenceServiceList,Items
+API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,InferenceServicesConfig,AnnotationsPropagationDisallowList
+API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,InferenceServicesConfig,LabelsPropagationDisallowList
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,LoggerSpec,MetadataHeaders
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,Containers
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,EphemeralContainers

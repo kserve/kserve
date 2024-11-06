@@ -47,23 +47,56 @@ class V1beta1InferenceServicesConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'explainers': 'V1beta1ExplainersConfig'
+        'annotations_propagation_disallow_list': 'list[str]',
+        'explainers': 'V1beta1ExplainersConfig',
+        'labels_propagation_disallow_list': 'list[str]'
     }
 
     attribute_map = {
-        'explainers': 'explainers'
+        'annotations_propagation_disallow_list': 'annotationsPropagationDisallowList',
+        'explainers': 'explainers',
+        'labels_propagation_disallow_list': 'labelsPropagationDisallowList'
     }
 
-    def __init__(self, explainers=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations_propagation_disallow_list=None, explainers=None, labels_propagation_disallow_list=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServicesConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._annotations_propagation_disallow_list = None
         self._explainers = None
+        self._labels_propagation_disallow_list = None
         self.discriminator = None
 
+        if annotations_propagation_disallow_list is not None:
+            self.annotations_propagation_disallow_list = annotations_propagation_disallow_list
         self.explainers = explainers
+        if labels_propagation_disallow_list is not None:
+            self.labels_propagation_disallow_list = labels_propagation_disallow_list
+
+    @property
+    def annotations_propagation_disallow_list(self):
+        """Gets the annotations_propagation_disallow_list of this V1beta1InferenceServicesConfig.  # noqa: E501
+
+        AnnotationsPropagationDisallowList is a list of annotations that are not allowed to be propagated to the knative service  # noqa: E501
+
+        :return: The annotations_propagation_disallow_list of this V1beta1InferenceServicesConfig.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._annotations_propagation_disallow_list
+
+    @annotations_propagation_disallow_list.setter
+    def annotations_propagation_disallow_list(self, annotations_propagation_disallow_list):
+        """Sets the annotations_propagation_disallow_list of this V1beta1InferenceServicesConfig.
+
+        AnnotationsPropagationDisallowList is a list of annotations that are not allowed to be propagated to the knative service  # noqa: E501
+
+        :param annotations_propagation_disallow_list: The annotations_propagation_disallow_list of this V1beta1InferenceServicesConfig.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._annotations_propagation_disallow_list = annotations_propagation_disallow_list
 
     @property
     def explainers(self):
@@ -87,6 +120,29 @@ class V1beta1InferenceServicesConfig(object):
             raise ValueError("Invalid value for `explainers`, must not be `None`")  # noqa: E501
 
         self._explainers = explainers
+
+    @property
+    def labels_propagation_disallow_list(self):
+        """Gets the labels_propagation_disallow_list of this V1beta1InferenceServicesConfig.  # noqa: E501
+
+        LabelsPropagationDisallowList is a list of labels that are not allowed to be propagated to the knative service  # noqa: E501
+
+        :return: The labels_propagation_disallow_list of this V1beta1InferenceServicesConfig.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._labels_propagation_disallow_list
+
+    @labels_propagation_disallow_list.setter
+    def labels_propagation_disallow_list(self, labels_propagation_disallow_list):
+        """Sets the labels_propagation_disallow_list of this V1beta1InferenceServicesConfig.
+
+        LabelsPropagationDisallowList is a list of labels that are not allowed to be propagated to the knative service  # noqa: E501
+
+        :param labels_propagation_disallow_list: The labels_propagation_disallow_list of this V1beta1InferenceServicesConfig.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._labels_propagation_disallow_list = labels_propagation_disallow_list
 
     def to_dict(self):
         """Returns the model properties as a dict"""
