@@ -47,7 +47,7 @@ cat > config/overlays/${OVERLAY}/localmodelnode_image_patch.yaml << EOF
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: kserve-localmodelnode-controller-manager
+  name: kserve-localmodelnode-agent
   namespace: kserve
 spec:
   template:

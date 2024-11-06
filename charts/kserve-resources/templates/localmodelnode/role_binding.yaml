@@ -1,15 +1,15 @@
-{{- if .Values.kserve.localmodelnode.enabled }}
+{{- if .Values.kserve.localmodel.enabled }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: kserve-localmodelnode-manager-rolebinding
+  name: kserve-localmodelnode-agent-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kserve-localmodelnode-manager-role
+  name: kserve-localmodelnode-agent-role
 subjects:
 - kind: ServiceAccount
-  name: kserve-localmodelnode-controller-manager
+  name: kserve-localmodelnode-agent
   namespace:  {{ .Release.Namespace }}
 {{- end }}

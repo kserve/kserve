@@ -1,35 +1,35 @@
 {{- if .Values.kserve.localmodel.enabled }}
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: DaemonSet
 metadata:
-  name: kserve-localmodelnode-controller-manager
+  name: kserve-localmodelnode-agent
   namespace:  {{ .Release.Namespace }}
   labels:
-    app.kubernetes.io/name: kserve-localmodelnode-controller-manager
-    control-plane: kserve-localmodelnode-controller-manager
+    app.kubernetes.io/name: kserve-localmodelnode-agent
+    control-plane: kserve-localmodelnode-agent
     controller-tools.k8s.io: "1.0"
 spec:
   selector:
     matchLabels:
-      control-plane: kserve-localmodelnode-controller-manager
+      control-plane: kserve-localmodelnode-agent
       controller-tools.k8s.io: "1.0"
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: kserve-localmodelnode-controller-manager
-        control-plane: kserve-localmodelnode-controller-manager
+        app.kubernetes.io/name: kserve-localmodelnode-agent
+        control-plane: kserve-localmodelnode-agent
         controller-tools.k8s.io: "1.0"
       annotations:
         kubectl.kubernetes.io/default-container: manager
     spec:
-      serviceAccountName: kserve-localmodelnode-controller-manager
+      serviceAccountName: kserve-localmodelnode-agent
       securityContext:
         runAsNonRoot: true
       containers:
       - command:
         - /manager
-        image: "{{ .Values.kserve.localmodelnode.controller.image }}:{{ .Values.kserve.localmodelnode.controller.tag }}"
+        image: "{{ .Values.kserve.localmodel.agent.image }}:{{ .Values.kserve.localmodel.agent.tag }}"
         imagePullPolicy: IfNotPresent
         name: manager
         securityContext:
