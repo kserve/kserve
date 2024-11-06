@@ -43,7 +43,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	clusterServingRuntimePrefix := "cluster-"
 	tritonRuntime := "triton-runtime"
 	testRuntime := "test-runtime"
-
+	huggingfaceMultinodeRuntime := "huggingface-multinode-runtime"
 	protocolV2 := constants.ProtocolV2
 	protocolV1 := constants.ProtocolV1
 
@@ -239,6 +239,28 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			Disabled:   proto.Bool(false),
 			MultiModel: proto.Bool(false),
 		},
+		huggingfaceMultinodeRuntime: {
+			SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+				{
+					Name:       "huggingface",
+					Version:    proto.String("1"),
+					AutoSelect: proto.Bool(true),
+					Priority:   proto.Int32(2),
+				},
+			},
+			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1, constants.ProtocolV2},
+			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+				Containers: []v1.Container{
+					{
+						Name:  "kserve-container",
+						Image: huggingfaceMultinodeRuntime + "-image:latest",
+					},
+				},
+			},
+			WorkerSpec: &v1alpha1.WorkerSpec{},
+			MultiModel: proto.Bool(false),
+			Disabled:   proto.Bool(false),
+		},
 	}
 
 	runtimes := &v1alpha1.ServingRuntimeList{
@@ -285,6 +307,13 @@ func TestGetSupportingRuntimes(t *testing.T) {
 				},
 				Spec: servingRuntimeSpecs[testRuntime],
 			},
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      huggingfaceMultinodeRuntime,
+					Namespace: namespace,
+				},
+				Spec: servingRuntimeSpecs[huggingfaceMultinodeRuntime],
+			},
 		},
 	}
 
@@ -313,9 +342,10 @@ func TestGetSupportingRuntimes(t *testing.T) {
 
 	var storageUri = "s3://test/model"
 	scenarios := map[string]struct {
-		spec     *ModelSpec
-		isMMS    bool
-		expected []v1alpha1.SupportedRuntime
+		spec        *ModelSpec
+		isMMS       bool
+		isMultinode bool
+		expected    []v1alpha1.SupportedRuntime
 	}{
 		"BothClusterAndNamespaceRuntimesSupportModel": {
 			spec: &ModelSpec{
@@ -326,8 +356,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					StorageURI: &storageUri,
 				},
 			},
-			isMMS:    false,
-			expected: []v1alpha1.SupportedRuntime{{Name: tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]}, {Name: clusterServingRuntimePrefix + tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]}},
+			isMMS:       false,
+			isMultinode: false,
+			expected:    []v1alpha1.SupportedRuntime{{Name: tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]}, {Name: clusterServingRuntimePrefix + tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]}},
 		},
 		"RuntimeNotFound": {
 			spec: &ModelSpec{
@@ -338,8 +369,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					StorageURI: &storageUri,
 				},
 			},
-			isMMS:    false,
-			expected: []v1alpha1.SupportedRuntime{},
+			isMMS:       false,
+			isMultinode: false,
+			expected:    []v1alpha1.SupportedRuntime{},
 		},
 		"ModelFormatWithDisabledRuntimeSpecified": {
 			spec: &ModelSpec{
@@ -350,8 +382,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					StorageURI: &storageUri,
 				},
 			},
-			isMMS:    false,
-			expected: []v1alpha1.SupportedRuntime{},
+			isMMS:       false,
+			isMultinode: false,
+			expected:    []v1alpha1.SupportedRuntime{},
 		},
 		"ModelMeshCompatibleRuntimeModelFormatSpecified": {
 			spec: &ModelSpec{
@@ -363,8 +396,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					StorageURI:      &storageUri,
 				},
 			},
-			isMMS:    true,
-			expected: []v1alpha1.SupportedRuntime{{Name: clusterServingRuntimePrefix + mlserverRuntimeMMS, Spec: servingRuntimeSpecs[mlserverRuntimeMMS]}},
+			isMMS:       true,
+			isMultinode: false,
+			expected:    []v1alpha1.SupportedRuntime{{Name: clusterServingRuntimePrefix + mlserverRuntimeMMS, Spec: servingRuntimeSpecs[mlserverRuntimeMMS]}},
 		},
 		"SMSRuntimeModelFormatSpecified": {
 			spec: &ModelSpec{
@@ -375,8 +409,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					StorageURI: &storageUri,
 				},
 			},
-			isMMS:    false,
-			expected: []v1alpha1.SupportedRuntime{{Name: sklearnRuntime, Spec: servingRuntimeSpecs[sklearnRuntime]}},
+			isMMS:       false,
+			isMultinode: false,
+			expected:    []v1alpha1.SupportedRuntime{{Name: sklearnRuntime, Spec: servingRuntimeSpecs[sklearnRuntime]}},
 		},
 		"RuntimeV2ProtocolSpecified": {
 			spec: &ModelSpec{
@@ -388,8 +423,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					StorageURI:      &storageUri,
 				},
 			},
-			isMMS:    false,
-			expected: []v1alpha1.SupportedRuntime{{Name: clusterServingRuntimePrefix + xgboostRuntime, Spec: servingRuntimeSpecs[xgboostRuntime]}},
+			isMMS:       false,
+			isMultinode: false,
+			expected:    []v1alpha1.SupportedRuntime{{Name: clusterServingRuntimePrefix + xgboostRuntime, Spec: servingRuntimeSpecs[xgboostRuntime]}},
 		},
 		"RuntimeV1ProtocolNotFound": {
 			spec: &ModelSpec{
@@ -401,8 +437,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					StorageURI:      &storageUri,
 				},
 			},
-			isMMS:    false,
-			expected: []v1alpha1.SupportedRuntime{},
+			isMMS:       false,
+			isMultinode: false,
+			expected:    []v1alpha1.SupportedRuntime{},
 		},
 		"MultipleRuntimeSupportsModelFormatSpecified": {
 			spec: &ModelSpec{
@@ -414,12 +451,29 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					StorageURI:      &storageUri,
 				},
 			},
-			isMMS: false,
+			isMMS:       false,
+			isMultinode: false,
 			expected: []v1alpha1.SupportedRuntime{
 				{Name: mlserverRuntime, Spec: servingRuntimeSpecs[mlserverRuntime]},
 				{Name: sklearnRuntime, Spec: servingRuntimeSpecs[sklearnRuntime]},
 				{Name: testRuntime, Spec: servingRuntimeSpecs[testRuntime]},
 				{Name: tritonRuntime, Spec: servingRuntimeSpecs[tritonRuntime]},
+			},
+		},
+		"MultiNodeWorkerSpecSpecified": {
+			spec: &ModelSpec{
+				ModelFormat: ModelFormat{
+					Name: "huggingface",
+				},
+				PredictorExtensionSpec: PredictorExtensionSpec{
+					ProtocolVersion: &protocolV2,
+					StorageURI:      &storageUri,
+				},
+			},
+			isMMS:       false,
+			isMultinode: true,
+			expected: []v1alpha1.SupportedRuntime{
+				{Name: huggingfaceMultinodeRuntime, Spec: servingRuntimeSpecs[huggingfaceMultinodeRuntime]},
 			},
 		},
 	}
@@ -433,7 +487,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _ := scenario.spec.GetSupportingRuntimes(mockClient, namespace, scenario.isMMS)
+			res, _ := scenario.spec.GetSupportingRuntimes(mockClient, namespace, scenario.isMMS, scenario.isMultinode)
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", res, scenario.expected)
 			}

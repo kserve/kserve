@@ -22,18 +22,24 @@ import (
 	"time"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/utils"
+
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
+
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
+
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
+
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1270,17 +1276,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	Context("When creating inference service with raw kube predictor and empty ingressClassName", func() {
 		configs := map[string]string{
 			"explainers": `{
-               "alibi": {
-                  "image": "kfserving/alibi-explainer",
+	             "alibi": {
+	                "image": "kfserving/alibi-explainer",
 			      "defaultImageVersion": "latest"
-               }
-            }`,
+	             }
+	          }`,
 			"ingress": `{
-               "ingressGateway": "knative-serving/knative-ingress-gateway",
-               "localGateway": "knative-serving/knative-local-gateway",
-               "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-               "ingressDomain": "example.com"
-            }`,
+	             "ingressGateway": "knative-serving/knative-ingress-gateway",
+	             "localGateway": "knative-serving/knative-local-gateway",
+	             "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
+	             "ingressDomain": "example.com"
+	          }`,
 		}
 
 		It("Should have ingress/service/deployment/hpa created", func() {
@@ -1702,18 +1708,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	Context("When creating inference service with raw kube predictor with domain template", func() {
 		configs := map[string]string{
 			"explainers": `{
-               "alibi": {
-                  "image": "kfserving/alibi-explainer",
+	             "alibi": {
+	                "image": "kfserving/alibi-explainer",
 			      "defaultImageVersion": "latest"
-               }
-            }`,
+	             }
+	          }`,
 			"ingress": `{
-               "ingressGateway": "knative-serving/knative-ingress-gateway",
-               "localGateway": "knative-serving/knative-local-gateway",
-               "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
-               "ingressDomain": "example.com",
-               "domainTemplate": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"
-            }`,
+	             "ingressGateway": "knative-serving/knative-ingress-gateway",
+	             "localGateway": "knative-serving/knative-local-gateway",
+	             "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
+	             "ingressDomain": "example.com",
+	             "domainTemplate": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"
+	          }`,
 		}
 
 		It("Should have ingress/service/deployment/hpa created", func() {
@@ -2132,4 +2138,343 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualHPA.Spec).To(gomega.Equal(expectedHPA.Spec))
 		})
 	})
+	Context("When creating inference service with raw kube predictor with workerSpec", func() {
+		var (
+			ctx        context.Context
+			serviceKey types.NamespacedName
+			storageUri string
+			isvc       *v1beta1.InferenceService
+		)
+
+		isvcNamespace := constants.KServeNamespace
+		actualDefaultDeployment := &appsv1.Deployment{}
+		actualWorkerDeployment := &appsv1.Deployment{}
+
+		BeforeEach(func() {
+			ctx = context.Background()
+			storageUri = "pvc://llama-3-8b-pvc/hf/8b_instruction_tuned"
+
+			// Create a ConfigMap
+			configs := map[string]string{
+				"ingress": `{
+            "ingressGateway": "knative-serving/knative-ingress-gateway",
+            "localGateway": "knative-serving/knative-local-gateway",
+            "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+        }`,
+				"storageInitializer": `{
+            "image" : "kserve/storage-initializer:latest",
+            "memoryRequest": "100Mi",
+            "memoryLimit": "1Gi",
+            "cpuRequest": "100m",
+            "cpuLimit": "1",
+            "CaBundleConfigMapName": "",
+            "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+            "enableDirectPvcVolumeMount": false
+        }`,
+			}
+			configMap := &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, configMap)
+			})
+
+			// Create a ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "huggingface-server-multinode",
+					Namespace: isvcNamespace,
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "huggingface",
+							Version:    proto.String("2"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    constants.InferenceServiceContainerName,
+								Image:   "kserve/huggingfaceserver:latest",
+								Command: []string{"bash", "-c"},
+								Args: []string{
+									"python3 -m huggingfaceserver --model_name=${MODEL_NAME} --model_dir=${MODEL} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE}",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					WorkerSpec: &v1alpha1.WorkerSpec{
+						PipelineParallelSize: intPtr(2),
+						TensorParallelSize:   intPtr(1),
+						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+							Containers: []v1.Container{
+								{
+									Name:    constants.WorkerContainerName,
+									Image:   "kserve/huggingfaceserver:latest",
+									Command: []string{"bash", "-c"},
+									Args: []string{
+										"ray start --address=$RAY_HEAD_ADDRESS --block",
+									},
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			Expect(k8sClient.Create(ctx, servingRuntime)).NotTo(HaveOccurred())
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, servingRuntime)
+			})
+		})
+		It("Should have services/deployments for head/worker without an autoscaler when workerSpec is set in isvc", func() {
+			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-1"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+
+			isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      isvcName,
+					Namespace: isvcNamespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: &storageUri,
+							},
+						},
+						WorkerSpec: &v1beta1.WorkerSpec{},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, isvc)
+			})
+
+			// Verify inferenceService is createdi
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, serviceKey, inferenceService) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if predictor deployment (default deployment) is created
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}, actualDefaultDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if worker node deployment is created.
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify deployments details
+			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "2", int32Ptr(1))
+
+			// Check Services
+			actualService := &v1.Service{}
+			headServiceName := constants.GeHeadServiceName(isvcName+"-predictor", "1")
+			defaultServiceName := isvcName + "-predictor"
+			expectedHeadServiceName := types.NamespacedName{Name: headServiceName, Namespace: isvcNamespace}
+			expectedDefaultServiceName := types.NamespacedName{Name: defaultServiceName, Namespace: isvcNamespace}
+
+			// Verify if head service is created
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, expectedHeadServiceName, actualService); err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			Expect(actualService.Spec.ClusterIP).Should(Equal("None"))
+			Expect(actualService.Spec.PublishNotReadyAddresses).Should(BeTrue())
+
+			// Verify if predictor service (default service) is created
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, expectedDefaultServiceName, actualService); err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify there if the default autoscaler(HPA) is not created.
+			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
+			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(isvcName),
+				Namespace: isvcNamespace}
+
+			Eventually(func() error {
+				err := k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA)
+				if err != nil && apierr.IsNotFound(err) {
+					return nil
+				}
+				return fmt.Errorf("expected IsNotFound error, but got %v", err)
+			}, timeout).Should(Succeed())
+		})
+		It("Should use WorkerSpec.PipelineParallelSize value in isvc when it is set", func() {
+			By("By creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-4"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+			// Create a infereceService
+			isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      isvcName,
+					Namespace: isvcNamespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: &storageUri,
+							},
+						},
+						WorkerSpec: &v1beta1.WorkerSpec{
+							PipelineParallelSize: intPtr(3),
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, isvc)
+			})
+
+			// Verify inferenceService is created
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, serviceKey, inferenceService) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if predictor deployment (default deployment) is created
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}, actualDefaultDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if worker node deployment is created.
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify deployments details
+			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", int32Ptr(2))
+		})
+		It("Should use WorkerSpec.TensorParallelSize value in isvc when it is set", func() {
+			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-5"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+
+			// Create a infereceService
+			isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      isvcName,
+					Namespace: isvcNamespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: &storageUri,
+							},
+						},
+						WorkerSpec: &v1beta1.WorkerSpec{
+							TensorParallelSize: intPtr(3),
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, isvc)
+			})
+
+			// Verify if predictor deployment (default deployment) is created
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}, actualDefaultDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if worker node deployment is created.
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify deployments details
+			verifyTensorParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", constants.NvidiaGPUResourceType)
+		})
+	})
 })
+
+func verifyPipelineParallelSizeDeployments(actualDefaultDeployment *appsv1.Deployment, actualWorkerDeployment *appsv1.Deployment, pipelineParallelSize string, replicas *int32) {
+	// default deployment
+	if pipelineParallelSizeEnvValue, exists := utils.GetEnvVarValue(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Env, constants.PipelineParallelSizeEnvName); exists {
+		Expect(pipelineParallelSizeEnvValue).Should(Equal(pipelineParallelSize))
+	} else {
+		Fail("PIPELINE_PARALLEL_SIZE environment variable is not set")
+	}
+	// worker node deployment
+	if pipelineParallelSizeEnvValue, exists := utils.GetEnvVarValue(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Env, constants.PipelineParallelSizeEnvName); exists {
+		Expect(pipelineParallelSizeEnvValue).Should(Equal(pipelineParallelSize))
+	} else {
+		Fail("PIPELINE_PARALLEL_SIZE environment variable is not set")
+	}
+
+	Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(replicas))
+}
+
+func verifyTensorParallelSizeDeployments(actualDefaultDeployment *appsv1.Deployment, actualWorkerDeployment *appsv1.Deployment, tensorParallelSize string, gpuResourceType v1.ResourceName) {
+	gpuResourceQuantity := resource.MustParse(tensorParallelSize)
+	// default deployment
+	if tensorParallelSizeEnvValue, exists := utils.GetEnvVarValue(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Env, constants.TensorParallelSizeEnvName); exists {
+		Expect(tensorParallelSizeEnvValue).Should(Equal(tensorParallelSize))
+	} else {
+		Fail("TENSOR_PARALLEL_SIZE environment variable is not set")
+	}
+	Expect(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[gpuResourceType]).Should(Equal(gpuResourceQuantity))
+	Expect(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[gpuResourceType]).Should(Equal(gpuResourceQuantity))
+
+	//worker node deployment
+	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[gpuResourceType]).Should(Equal(gpuResourceQuantity))
+	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[gpuResourceType]).Should(Equal(gpuResourceQuantity))
+}
+func int32Ptr(i int32) *int32 {
+	return &i
+}
+
+func intPtr(i int) *int {
+	return &i
+}

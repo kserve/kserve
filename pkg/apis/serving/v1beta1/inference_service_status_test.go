@@ -213,10 +213,31 @@ func TestPropagateRawStatus(t *testing.T) {
 	}
 	parsedUrl, _ := url.Parse("http://test-predictor-default.default.example.com")
 	url := (*apis.URL)(parsedUrl)
-	status.PropagateRawStatus(PredictorComponent, deployment, url)
+	deploymentList := []*appsv1.Deployment{deployment}
+	status.PropagateRawStatus(PredictorComponent, deploymentList, url)
 	if res := status.IsConditionReady(PredictorReady); !res {
 		t.Errorf("expected: %v got: %v conditions: %v", true, res, status.Conditions)
 	}
+}
+
+func TestPropagateRawStatusWithMessages(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	errorMsg := "test message"
+	reason := "test reason"
+	targetStatus := v1.ConditionFalse
+
+	status := &InferenceServiceStatus{
+		Status:      duckv1.Status{},
+		Address:     nil,
+		URL:         nil,
+		ModelStatus: ModelStatus{},
+	}
+
+	status.PropagateRawStatusWithMessages(PredictorComponent, reason, errorMsg, targetStatus)
+	g.Expect(status.IsConditionFalse(PredictorReady)).To(gomega.BeTrue())
+	g.Expect(status.Conditions[0].Message).To(gomega.Equal(errorMsg))
+	g.Expect(status.Conditions[0].Reason).To(gomega.Equal(reason))
 }
 
 func TestPropagateStatus(t *testing.T) {
