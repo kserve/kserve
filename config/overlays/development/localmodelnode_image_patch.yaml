@@ -10,4 +10,4 @@ spec:
         - name: manager
           command:
             - /ko-app/localmodelnode
-          image: kind.local/localmodelnode-fef2e276c81be6f82ccef85ba0d3aba4:50e322b3d447c1e8aa7c9d2cf0946f6a41f2845e5e8244490c6da2e326c7638d
+          image: kind.local/localmodelnode-fef2e276c81be6f82ccef85ba0d3aba4:406391a53eaa48c68644365a763637a721dd465775c0dcc814fce2a612ad336f
