@@ -36,11 +36,11 @@ import (
 var log = logf.Log.WithName(constants.ServingRuntimeValidatorWebhookName)
 
 const (
-	InvalidPriorityError                                = "same priority assigned for the model format %s"
-	InvalidPriorityServingRuntimeError                  = "%s in the servingruntimes %s and %s in namespace %s"
-	InvalidPriorityClusterServingRuntimeError           = "%s in the clusterservingruntimes %s and %s"
-	ProrityIsNotSameError                               = "different priorities assigned for the model format %s"
-	ProrityIsNotSameServingRuntimeError                 = "%s under the servingruntime %s"
+	InvalidPriorityError                      = "same priority assigned for the model format %s"
+	InvalidPriorityServingRuntimeError        = "%s in the servingruntimes %s and %s in namespace %s"
+	InvalidPriorityClusterServingRuntimeError = "%s in the clusterservingruntimes %s and %s"
+	ProrityIsNotSameError                     = "different priorities assigned for the model format %s"
+	ProrityIsNotSameServingRuntimeError       = "%s under the servingruntime %s"
 	// ProrityIsNotSameClusterServingRuntimeError          = "%s under the clusterservingruntime %s"
 	InvalidUnknownGPUTypeError                          = "unknown GPU resource type in a container(%s)"
 	InvalidWorkerSpecSizeValueError                     = "the WorkerSpec.PipelineParallelSize cannot be less than 2(%d)"

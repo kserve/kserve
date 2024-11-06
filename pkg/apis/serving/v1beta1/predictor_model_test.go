@@ -357,9 +357,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					StorageURI: &storageUri,
 				},
 			},
-			isMMS:    false,
+			isMMS:       false,
 			isMultinode: false,
-			expected: []v1alpha1.SupportedRuntime{{Name: tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]} /*, {Name: clusterServingRuntimePrefix + tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]}*/},
+			expected:    []v1alpha1.SupportedRuntime{{Name: tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]} /*, {Name: clusterServingRuntimePrefix + tfRuntime, Spec: servingRuntimeSpecs[tfRuntime]}*/},
 		},
 		"RuntimeNotFound": {
 			spec: &ModelSpec{
@@ -397,9 +397,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					StorageURI:      &storageUri,
 				},
 			},
-			isMMS:    true,
+			isMMS:       true,
 			isMultinode: false,
-			expected: []v1alpha1.SupportedRuntime{ /*{Name: clusterServingRuntimePrefix + mlserverRuntimeMMS, Spec: servingRuntimeSpecs[mlserverRuntimeMMS]}*/ },
+			expected:    []v1alpha1.SupportedRuntime{ /*{Name: clusterServingRuntimePrefix + mlserverRuntimeMMS, Spec: servingRuntimeSpecs[mlserverRuntimeMMS]}*/ },
 		},
 		"SMSRuntimeModelFormatSpecified": {
 			spec: &ModelSpec{
@@ -424,9 +424,9 @@ func TestGetSupportingRuntimes(t *testing.T) {
 					StorageURI:      &storageUri,
 				},
 			},
-			isMMS:    false,
+			isMMS:       false,
 			isMultinode: false,
-			expected: []v1alpha1.SupportedRuntime{ /*{Name: clusterServingRuntimePrefix + xgboostRuntime, Spec: servingRuntimeSpecs[xgboostRuntime]}*/ },
+			expected:    []v1alpha1.SupportedRuntime{ /*{Name: clusterServingRuntimePrefix + xgboostRuntime, Spec: servingRuntimeSpecs[xgboostRuntime]}*/ },
 		},
 		"RuntimeV1ProtocolNotFound": {
 			spec: &ModelSpec{

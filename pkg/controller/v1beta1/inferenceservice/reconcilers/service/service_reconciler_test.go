@@ -127,6 +127,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							TargetPort: intstr.IntOrString{IntVal: 8080},
 						},
 					},
+					ClusterIP: corev1.ClusterIPNone,
 					Selector: map[string]string{
 						constants.RawDeploymentAppLabel: "isvc.default-predictor",
 					},
@@ -158,6 +159,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							TargetPort: intstr.IntOrString{IntVal: 8080},
 						},
 					},
+					ClusterIP: corev1.ClusterIPNone,
 					Selector: map[string]string{
 						"app": "isvc.default-predictor",
 					},
