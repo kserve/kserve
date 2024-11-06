@@ -34,17 +34,6 @@ type Autoscaler interface {
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
 }
 
-// NoOpAutoscaler Autoscaler that does nothing. Can be used to disable creation of autoscaler resources.
-type NoOpAutoscaler struct{}
-
-func (*NoOpAutoscaler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error) {
-	return nil, nil
-}
-
-func (a *NoOpAutoscaler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
-	return nil
-}
-
 // AutoscalerReconciler is the struct of Raw K8S Object
 type AutoscalerReconciler struct {
 	client       client.Client
@@ -83,7 +72,7 @@ func createAutoscaler(client client.Client,
 	componentExt *v1beta1.ComponentExtensionSpec) (Autoscaler, error) {
 	ac := getAutoscalerClass(componentMeta)
 	switch ac {
-	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal:
+	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal, constants.AutoscalerClassNone:
 		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt), nil
 	default:
 		return nil, fmt.Errorf("unknown autoscaler class type: %v", ac)
