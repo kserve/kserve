@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import ast
 
 import pytest
 from kubernetes import client
@@ -394,6 +395,8 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(rest_v2
         service_name,
         "./data/bert_sequence_classification_v2.json",
     )
-    assert res.outputs[0].data == huggingface_sequence_classification_with_probabilities_expected_output
+
+    parsed_output = [ast.literal_eval(res.outputs[0].data[0])]
+    assert parsed_output == huggingface_sequence_classification_with_probabilities_expected_output
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
