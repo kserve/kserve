@@ -348,7 +348,7 @@ class ModelServer:
         """
         if "exception" in context:
             logger.error(f"Caught exception: {context.get('exception')}")
-        logger.error(f"message: { context.get('message')}")
+        logger.error(f"message: {context.get('message')}")
         loop.default_exception_handler(context)
 
     def register_model(self, model: BaseKServeModel):
