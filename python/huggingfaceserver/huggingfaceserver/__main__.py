@@ -45,6 +45,8 @@ from .vllm.utils import (
     vllm_available,
 )
 
+from vllm.engine.arg_utils import nullable_str
+
 
 def list_of_strings(arg):
     return arg.split(",")
@@ -158,6 +160,15 @@ parser.add_argument(
     help="Special the tool parser plugin write to parse the model-generated tool"
     " into OpenAI API format, the name register in this plugin can be used "
     "in --tool-call-parser.",
+)
+
+parser.add_argument(
+    "--chat-template",
+    type=nullable_str,
+    default=None,
+    help="The file path to the chat template, "
+    "or the template in single-line form "
+    "for the specified model",
 )
 
 parser = maybe_add_vllm_cli_parser(parser)
