@@ -131,7 +131,6 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 			}
 		} else {
 			port, _ := utils.StringToInt32(constants.InferenceServiceDefaultHttpPort)
-			portInt32 := int32(port) // nolint  #nosec G109
 			servicePorts = append(servicePorts, corev1.ServicePort{
 				Name: componentMeta.Name,
 				Port: constants.CommonDefaultHttpPort,
