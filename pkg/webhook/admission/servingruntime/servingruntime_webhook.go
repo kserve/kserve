@@ -66,7 +66,7 @@ const (
 
 type ServingRuntimeValidator struct {
 	Client  client.Client
-	Decoder *admission.Decoder
+	Decoder admission.Decoder
 }
 
 func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Request) admission.Response {
