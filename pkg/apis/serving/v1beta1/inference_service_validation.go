@@ -18,9 +18,11 @@ package v1beta1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -116,6 +118,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
+	if err := validateMultiNodeVariables(isvc); err != nil {
+		return allWarnings, err
+	}
+
 	if err := validateCollocationStorageURI(isvc.Spec.Predictor); err != nil {
 		return allWarnings, err
 	}
@@ -139,6 +145,65 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		}
 	}
 	return allWarnings, nil
+}
+
+// validateMultiNodeVariables validates when there is workerSpec set in isvc
+func validateMultiNodeVariables(isvc *InferenceService) error {
+	if isvc.Spec.Predictor.WorkerSpec != nil {
+		if len(isvc.Spec.Predictor.WorkerSpec.Containers) > 1 {
+			return fmt.Errorf(DisallowedMultipleContainersInWorkerSpecError, isvc.Name)
+		}
+		if isvc.Spec.Predictor.Model != nil {
+			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.PipelineParallelSizeEnvName); exists {
+				return fmt.Errorf(DisallowedWorkerSpecPipelineParallelSizeEnvError, isvc.Name)
+			}
+			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.TensorParallelSizeEnvName); exists {
+				return fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, isvc.Name)
+			}
+
+			customGPUResourceTypes := isvc.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey]
+			if customGPUResourceTypes != "" {
+				if !utils.IsValidCustomGPUArray(customGPUResourceTypes) {
+					return fmt.Errorf(InvalidCustomGPUTypesAnnotationFormatError, isvc.Name, constants.CustomGPUResourceTypesAnnotationKey)
+				}
+			}
+
+			if utils.IsUnknownGpuResourceType(isvc.Spec.Predictor.Model.Resources, customGPUResourceTypes) {
+				return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
+			}
+
+			if isvc.Spec.Predictor.Model.StorageURI == nil {
+				return fmt.Errorf(MissingStorageURI, isvc.Name)
+			} else {
+				storageProtocol := strings.Split(*isvc.Spec.Predictor.Model.StorageURI, "://")[0]
+				if storageProtocol != "pvc" {
+					return fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, isvc.Name, storageProtocol)
+				}
+			}
+			if isvc.GetAnnotations()[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+				return fmt.Errorf(InvalidAutoScalerError, isvc.Name, isvc.GetAnnotations()[constants.AutoscalerClass])
+			}
+		}
+
+		// WorkerSpec.PipelineParallelSize should not be less than 2 (head + worker)
+		if pps := isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize; pps != nil && *pps < 2 {
+			return fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, isvc.Name, strconv.Itoa(*pps))
+		}
+
+		// WorkerSpec.TensorParallelSize should not be less than 1.
+		if tps := isvc.Spec.Predictor.WorkerSpec.TensorParallelSize; tps != nil && *tps < 1 {
+			return fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, isvc.Name, strconv.Itoa(*tps))
+		}
+
+		if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
+			for _, container := range isvc.Spec.Predictor.WorkerSpec.Containers {
+				if utils.IsUnknownGpuResourceType(container.Resources, isvc.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey]) {
+					return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // Validate scaling options component extensions
@@ -280,7 +345,7 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 		if container.Name == constants.TransformerContainerName {
 			for _, env := range container.Env {
 				if env.Name == constants.CustomSpecStorageUriEnvVarKey {
-					return fmt.Errorf(StorageUriPresentInTransformerError)
+					return errors.New(StorageUriPresentInTransformerError)
 				}
 			}
 			break

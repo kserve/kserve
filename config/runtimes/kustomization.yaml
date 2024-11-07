@@ -12,6 +12,7 @@ resources:
 - kserve-lgbserver.yaml
 - kserve-torchserve.yaml
 - kserve-huggingfaceserver.yaml
+- kserve-huggingfaceserver-multinode.yaml
 
 images:
   # SMS Only Runtimes
