@@ -313,20 +313,18 @@ func startModelPuller(logger *zap.SugaredLogger) {
 	go watcher.Start()
 }
 
-func buildProbe(logger *zap.SugaredLogger, probeJSON string, autodetectHTTP2 bool, _ bool) *readiness.Probe {
-	coreProbes, err := readiness.DecodeProbe(probeJSON)
+func buildProbe(logger *zap.SugaredLogger, probeJSON string, autodetectHTTP2 bool, multiContainerProbes bool) *readiness.Probe {
+	coreProbes, err := readiness.DecodeProbes(probeJSON, multiContainerProbes)
 	if err != nil {
 		logger.Fatalw("Agent failed to parse readiness probe", zap.Error(err))
 		panic("Agent failed to parse readiness probe")
 	}
-	// for _, probe := range coreProbes {
-	{
-		probe := coreProbes
+	for _, probe := range coreProbes {
 		if probe.InitialDelaySeconds == 0 {
 			probe.InitialDelaySeconds = 10
 		}
 	}
-	// }
+
 	if autodetectHTTP2 {
 		return readiness.NewProbeWithHTTP2AutoDetection(coreProbes)
 	}

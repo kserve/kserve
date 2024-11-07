@@ -1,6 +1,6 @@
 module github.com/kserve/kserve
 
-go 1.21
+go 1.22.7
 
 require (
 	cloud.google.com/go/storage v1.43.0
@@ -17,7 +17,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/onsi/ginkgo/v2 v2.20.1
-	github.com/onsi/gomega v1.34.1
+	github.com/onsi/gomega v1.34.2
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
@@ -28,20 +28,20 @@ require (
 	google.golang.org/api v0.195.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/go-playground/validator.v9 v9.31.0
-	istio.io/api v1.21.6
-	istio.io/client-go v1.21.6
-	k8s.io/api v0.29.10
-	k8s.io/apimachinery v0.29.10
-	k8s.io/client-go v0.29.10
-	k8s.io/code-generator v0.30.0-alpha.3
-	k8s.io/component-helpers v0.29.10
+	istio.io/api v1.23.0
+	istio.io/client-go v1.23.0
+	k8s.io/api v0.30.4
+	k8s.io/apimachinery v0.30.4
+	k8s.io/client-go v0.30.4
+	k8s.io/code-generator v0.30.4
+	k8s.io/component-helpers v0.30.4
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20240827152857-f7e401e7b4c2
 	k8s.io/utils v0.0.0-20240821151609-f90d01438635
-	knative.dev/networking v0.0.0-20231012062757-a5958051caf8
-	knative.dev/pkg v0.0.0-20231023150739-56bfe0dd9626
-	knative.dev/serving v0.38.6
-	sigs.k8s.io/controller-runtime v0.17.6
+	knative.dev/networking v0.0.0-20240815142417-37fdbdd0854b
+	knative.dev/pkg v0.0.0-20240815051656-89743d9bbf7c
+	knative.dev/serving v0.42.2
+	sigs.k8s.io/controller-runtime v0.18.5
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -78,7 +78,7 @@ require (
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-containerregistry v0.20.2 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/pprof v0.0.0-20240727154555-813a5fbdbec8 // indirect
+	github.com/google/pprof v0.0.0-20240827171923-fa2c70bbbfe5 // indirect
 	github.com/google/s2a-go v0.1.8 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.3 // indirect
 	github.com/googleapis/gax-go/v2 v2.13.0 // indirect
@@ -134,9 +134,8 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.29.10 // indirect
-	k8s.io/component-base v0.29.10 // indirect
-	k8s.io/gengo v0.0.0-20240404160639-a0386bf69313 // indirect
+	k8s.io/apiextensions-apiserver v0.30.4 // indirect
+	k8s.io/gengo/v2 v2.0.0-20240826214909-a7b603a56eb7 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
