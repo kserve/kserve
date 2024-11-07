@@ -37,7 +37,7 @@ from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
 from .utils import utils
-from kserve.errors import NoModelReady
+from .errors import NoModelReady
 
 parser = argparse.ArgumentParser(
     add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter
