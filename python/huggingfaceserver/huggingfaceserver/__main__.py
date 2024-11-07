@@ -133,6 +133,33 @@ parser.add_argument(
     "ID numbers being printed in log."
     "\n\nDefault: Unlimited",
 )
+
+parser.add_argument(
+    "--enable-auto-tool-choice",
+    action="store_true",
+    default=False,
+    help="Enable auto tool choice for supported models. Use --tool-call-parser"
+    "to specify which parser to use",
+)
+
+parser.add_argument(
+    "--tool-call-parser",
+    type=str,
+    default=None,
+    help="Select the tool call parser depending on the model that you're using."
+    " This is used to parse the model-generated tool call into OpenAI API "
+    "format. Required for --enable-auto-tool-choice.",
+)
+
+parser.add_argument(
+    "--tool-parser-plugin",
+    type=str,
+    default="",
+    help="Special the tool parser plugin write to parse the model-generated tool"
+    " into OpenAI API format, the name register in this plugin can be used "
+    "in --tool-call-parser.",
+)
+
 parser = maybe_add_vllm_cli_parser(parser)
 
 default_dtype = "float16" if torch.cuda.is_available() else "float32"
