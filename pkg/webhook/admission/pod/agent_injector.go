@@ -19,10 +19,11 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/klog/v2"
 	"strconv"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/klog/v2"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
