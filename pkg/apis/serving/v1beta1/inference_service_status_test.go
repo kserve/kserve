@@ -22,9 +22,6 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-
-	"github.com/kserve/kserve/pkg/constants"
-
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -34,6 +31,8 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestInferenceServiceDuckType(t *testing.T) {
