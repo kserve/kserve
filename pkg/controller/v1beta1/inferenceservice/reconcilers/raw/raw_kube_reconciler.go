@@ -19,11 +19,6 @@ package raw
 import (
 	"fmt"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
-	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
-	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +26,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	knapis "knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
+	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
+	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
 )
 
 // RawKubeReconciler reconciles the Native K8S Resources
