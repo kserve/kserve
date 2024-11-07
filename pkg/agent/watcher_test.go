@@ -96,9 +96,9 @@ var _ = Describe("Watcher", func() {
 				}
 
 				file, _ := json.MarshalIndent(modelConfigs, "", " ")
-				tmpFile, err := os.Create("/tmp/configs" + constants.ModelConfigFileName) // #nosec G303
+				tmpFile, err := os.Create("/tmp/configs/" + constants.ModelConfigFileName) // #nosec G303
 				if err != nil {
-					logger.Fatal(err, "ioutil.TempFile failed")
+					logger.Fatal(err, "failed to create model config file")
 				}
 
 				if _, err := tmpFile.Write(file); err != nil {
