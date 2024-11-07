@@ -84,7 +84,8 @@ func (ss stringSet) contains(s string) bool {
 // GetSupportingRuntimes Get a list of ServingRuntimeSpecs that correspond to ServingRuntimes and ClusterServingRuntimes that
 // support the given model. If the `isMMS` argument is true, this function will only return ServingRuntimes that are
 // ModelMesh compatible, otherwise only single-model serving compatible runtimes will be returned.
-func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool) ([]v1alpha1.SupportedRuntime, error) {
+// If `isMultinode` is true, this function will only return ServingRuntimes configured with workers.
+func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool, isMultinode bool) ([]v1alpha1.SupportedRuntime, error) {
 	modelProtocolVersion := m.GetProtocol()
 
 	// List all namespace-scoped runtimes.
@@ -109,17 +110,18 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 	for i := range runtimes.Items {
 		rt := &runtimes.Items[i]
 		if !rt.Spec.IsDisabled() && rt.Spec.IsMultiModelRuntime() == isMMS &&
-			m.RuntimeSupportsModel(&rt.Spec) && rt.Spec.IsProtocolVersionSupported(modelProtocolVersion) {
+			m.RuntimeSupportsModel(&rt.Spec) && rt.Spec.IsProtocolVersionSupported(modelProtocolVersion) && rt.Spec.IsMultiNodeRuntime() == isMultinode {
 			srSpecs = append(srSpecs, v1alpha1.SupportedRuntime{Name: rt.GetName(), Spec: rt.Spec})
 		}
 	}
 	sortSupportedRuntimeByPriority(srSpecs, m.ModelFormat)
+
 	// for i := range clusterRuntimes.Items {
-	//	crt := &clusterRuntimes.Items[i]
-	//	if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS &&
-	//		m.RuntimeSupportsModel(&crt.Spec) && crt.Spec.IsProtocolVersionSupported(modelProtocolVersion) {
+	// 	crt := &clusterRuntimes.Items[i]
+	// 	if !crt.Spec.IsDisabled() && crt.Spec.IsMultiModelRuntime() == isMMS &&
+	// 		m.RuntimeSupportsModel(&crt.Spec) && crt.Spec.IsProtocolVersionSupported(modelProtocolVersion) && crt.Spec.IsMultiNodeRuntime() == isMultinode {
 	// 		clusterSrSpecs = append(clusterSrSpecs, v1alpha1.SupportedRuntime{Name: crt.GetName(), Spec: crt.Spec})
-	//	 }
+	// 	}
 	// }
 	// sortSupportedRuntimeByPriority(clusterSrSpecs, m.ModelFormat)
 	// srSpecs = append(srSpecs, clusterSrSpecs...)
