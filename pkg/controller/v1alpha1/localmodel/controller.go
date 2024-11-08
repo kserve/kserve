@@ -338,7 +338,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	if err := c.ReconcileLocalModelNode(ctx, localModel, nodeGroup, localModelConfig.JobNamespace); err != nil {
-		c.Log.Error(err, "ReconcileLocalModelNode")
+		c.Log.Error(err, "failed to reconcile LocalModelNode")
 	}
 
 	// Step 2 - Creates PV & PVC for model download
