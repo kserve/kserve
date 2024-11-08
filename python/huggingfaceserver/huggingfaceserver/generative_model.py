@@ -552,28 +552,6 @@ class HuggingfaceGenerativeModel(
                 params=request.model_dump(exclude={"prompt"}),
             )
 
-    @classmethod
-    def chat_completion_params_to_completion_params(
-        cls, request: ChatCompletionRequest, prompt: str
-    ) -> CompletionRequest:
-
-        return CompletionRequest(
-            prompt=prompt,
-            model=request.model,
-            frequency_penalty=request.frequency_penalty,
-            logit_bias=request.logit_bias,
-            max_tokens=request.max_tokens,
-            n=request.n,
-            presence_penalty=request.presence_penalty,
-            seed=request.seed,
-            stop=request.stop,
-            stream=request.stream,
-            temperature=request.temperature,
-            top_p=request.top_p,
-            user=request.user,
-            logprobs=request.top_logprobs,
-        )
-
     async def create_chat_completion(
         self,
         request: ChatCompletionRequest,
