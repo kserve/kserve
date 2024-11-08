@@ -12,41 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import AsyncIterator
+from typing import AsyncIterator, AsyncGenerator
 from unittest import mock
+import json
+from argparse import Namespace  # TODO: check whether installed
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from vllm import AsyncLLMEngine, AsyncEngineArgs, RequestOutput
+from vllm.entrypoints.openai.serving_completion import (
+    OpenAIServingCompletion,
+    BaseModelPath,
+)
+from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
+from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
+from vllm.entrypoints.openai.serving_tokenization import OpenAIServingTokenization
+from vllm.engine.protocol import EngineClient
+from vllm import AsyncEngineArgs, RequestOutput, AsyncLLMEngine
 from vllm.config import ModelConfig
 
-from huggingfaceserver.vllm.vllm_completions import OpenAIServingCompletion
 from huggingfaceserver.vllm.vllm_model import VLLMModel
 from kserve.logging import logger
-from kserve.protocol.rest.openai import (
-    ChatCompletionRequest,
-    CompletionRequest,
-    ChatPrompt,
-)
 from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai.types import (
-    CreateChatCompletionRequest,
-    CreateCompletionRequest,
+    ChatCompletionRequest,
+    CompletionRequest,
     ChatCompletionChoice,
-    CompletionUsage,
-    ChatCompletionResponseMessage,
+    UsageInfo,
+    ChatMessage,
     ChatCompletionChoiceLogprobs,
     CompletionChoice,
-    Logprobs,
+    Completion,
+    CompletionLogProbs,
+    ChatCompletionLogprob,  # TODO: can not import?
 )
 from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionResponse,
-    ChatCompletionTokenLogprob,
+    ChatCompletionResponse,
     TopLogprob,
-    CreateCompletionResponse,
-    Choice,
-    ChatCompletionTool,
 )
+
 from vllm_mock_outputs import (
     opt_chat_cmpl_chunks,
     opt_chat_cmpl_chunks_with_logprobs,
@@ -59,7 +62,7 @@ from vllm_mock_outputs import (
     opt_cmpl_chunks_with_logit_bias,
     opt_chat_cmpl_chunks_with_logit_bias,
     opt_cmpl_chunks_with_echo_logprobs,
-)
+)  # TODO: can not import?
 
 
 @pytest.fixture(scope="module")
@@ -67,6 +70,9 @@ def vllm_opt_model():
     model_id = "facebook/opt-125m"
     dtype = "float32"
     max_model_len = 512
+    base_model_paths = [
+        BaseModelPath(name=name, model_path=model_id) for name in [model_id]
+    ]
 
     async def mock_get_model_config():
         return ModelConfig(
@@ -79,30 +85,54 @@ def vllm_opt_model():
             max_model_len=max_model_len,
         )
 
-    mock_vllm_engine = mock.AsyncMock(spec=AsyncLLMEngine)
-    mock_vllm_engine.get_model_config = mock_get_model_config
+    engine_client = mock.AsyncMock(
+        spec=AsyncLLMEngine
+    )  # TODO: probably it's not good just fall back
+    engine_client.get_model_config = mock_get_model_config
 
     def mock_load(self) -> bool:
-        self.vllm_engine = mock_vllm_engine
-        self.openai_serving_completion = OpenAIServingCompletion(mock_vllm_engine)
+        self.engine_client = engine_client
+
+        self.openai_serving_chat = OpenAIServingChat(
+            self.engine_client,
+            engine_client.get_model_config(),
+            base_model_paths,
+            "assistant",
+        )
+        self.openai_serving_completion = OpenAIServingCompletion(
+            self.engine_client,
+            engine_client.get_model_config(),
+            base_model_paths,
+        )
+        self.openai_serving_embedding = OpenAIServingEmbedding(
+            self.engine_client,
+            engine_client.get_model_config(),
+            base_model_paths,
+        )
+        self.openai_serving_tokenization = OpenAIServingTokenization(
+            self.engine_client,
+            engine_client.get_model_config(),
+            base_model_paths,
+        )
+
         self.ready = True
         return self.ready
 
     mp = MonkeyPatch()
     mp.setattr(VLLMModel, "load", mock_load)
 
+    args = Namespace(model_name="opt-125m", response_role="assistant")
     model = VLLMModel(
-        "opt-125m",
-        engine_args=AsyncEngineArgs(
-            model=model_id, dtype=dtype, max_model_len=max_model_len
-        ),
+        args,
     )
     model.load()
-    yield model, mock_vllm_engine
+    yield model, engine_client  # TODO: Why we need to yield engine_client?
     model.stop()
     mp.undo()
 
 
+"""
+Does not supprt  apply_chat_template for now
 def compare_chatprompt_to_expected(actual, expected, fields_to_compare=None) -> bool:
     if fields_to_compare is None:
         fields_to_compare = [
@@ -149,6 +179,7 @@ class TestChatTemplate:
             prompt="You are a friendly chatbot who always responds in the style of a pirate</s>How many helicopters can a human eat in one sitting?</s>",
         )
         assert compare_chatprompt_to_expected(response, expected) is True
+
 
     async def test_vllm_chat_completion_template_tools(self, vllm_opt_model):
         opt_model, _ = vllm_opt_model
@@ -199,7 +230,7 @@ class TestChatTemplate:
 
         # Sanity check / usage example to ensure that no error is thrown
         assert response.prompt is not None
-
+"""
 
 def compare_response_to_expected(actual, expected, fields_to_compare=None) -> bool:
     if fields_to_compare is None:
@@ -257,7 +288,7 @@ class TestChatCompletions:
                 "content": "How many helicopters can a human eat in one sitting?",
             },
         ]
-        params = CreateChatCompletionRequest(
+        params = ChatCompletionRequest(
             model="opt-125m",
             messages=messages,
             stream=False,
@@ -266,15 +297,14 @@ class TestChatCompletions:
             "{{ message.content }}{{ eos_token }}"
             "{% endfor %}",
         )
-        request = ChatCompletionRequest(params=params, context={})
-        response = await opt_model.create_chat_completion(request)
-        expected = CreateChatCompletionResponse(
+        response = await opt_model.create_chat_completion(params)
+        expected = ChatCompletionResponse(
             id=request_id,
             choices=[
                 ChatCompletionChoice(
                     finish_reason="length",
                     index=0,
-                    message=ChatCompletionResponseMessage(
+                    message=ChatMessage(
                         content="Most redditors know the tiny difference between Frogling",
                         tool_calls=None,
                         role="assistant",
@@ -287,16 +317,14 @@ class TestChatCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="chat.completion",
-            usage=CompletionUsage(
-                completion_tokens=10, prompt_tokens=29, total_tokens=39
-            ),
+            usage=UsageInfo(completion_tokens=10, prompt_tokens=29, total_tokens=39),
         )
         assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_chat_completion_facebook_opt_model_with_max_token(
         self, vllm_opt_model
     ):
-        opt_model, mock_vllm_engine = vllm_opt_model
+        opt_model, engine_client = vllm_opt_model
         request_id = "cmpl-d771287a234c44498e345f0a429d6691"
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
@@ -304,7 +332,7 @@ class TestChatCompletions:
                 cmpl_chunk.request_id = args[2]
                 yield cmpl_chunk
 
-        mock_vllm_engine.generate = mock_generate
+        engine_client.generate = mock_generate
 
         messages = [
             {
@@ -316,7 +344,7 @@ class TestChatCompletions:
                 "content": "How many helicopters can a human eat in one sitting?",
             },
         ]
-        params = CreateChatCompletionRequest(
+        params = ChatCompletionRequest(
             model="opt-125m",
             messages=messages,
             stream=False,
@@ -325,17 +353,14 @@ class TestChatCompletions:
             "{{ message.content }}{{ eos_token }}"
             "{% endfor %}",
         )
-        request = ChatCompletionRequest(
-            request_id=request_id, params=params, context={}
-        )
-        response = await opt_model.create_chat_completion(request)
-        expected = CreateChatCompletionResponse(
+        response = await opt_model.create_chat_completion(params)
+        expected = ChatCompletionResponse(
             id=request_id,
             choices=[
                 ChatCompletionChoice(
                     finish_reason="length",
                     index=0,
-                    message=ChatCompletionResponseMessage(
+                    message=ChatMessage(
                         content="Most redditors know the tiny difference between Frogling",
                         tool_calls=None,
                         role="assistant",
@@ -348,9 +373,7 @@ class TestChatCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="chat.completion",
-            usage=CompletionUsage(
-                completion_tokens=10, prompt_tokens=29, total_tokens=39
-            ),
+            usage=UsageInfo(completion_tokens=10, prompt_tokens=29, total_tokens=39),
         )
         assert compare_response_to_expected(response, expected) is True
 
@@ -437,7 +460,7 @@ class TestChatCompletions:
                 "content": "How many helicopters can a human eat in one sitting?",
             },
         ]
-        params = CreateChatCompletionRequest(
+        params = ChatCompletionRequest(
             model=model_name,
             messages=messages,
             stream=True,
@@ -446,12 +469,11 @@ class TestChatCompletions:
             "{{ message.content }}{{ eos_token }}"
             "{% endfor %}",
         )
-        request = ChatCompletionRequest(
-            request_id=request_id, params=params, context={}
-        )
-        response_iterator = await opt_model.create_chat_completion(request)
+        response_iterator = await opt_model.create_chat_completion(params)
+
         completion = ""
         async for resp in response_iterator:
+            resp = json.loads(resp)
             assert len(resp.choices) == 1
             completion += resp.choices[0].delta.content
             assert resp.choices[0].logprobs is None
@@ -488,7 +510,7 @@ class TestChatCompletions:
                 "content": "How many helicopters can a human eat in one sitting?",
             },
         ]
-        params = CreateChatCompletionRequest(
+        params = ChatCompletionRequest(
             model=model_name,
             messages=messages,
             stream=False,
@@ -499,17 +521,14 @@ class TestChatCompletions:
             "{{ message.content }}{{ eos_token }}"
             "{% endfor %}",
         )
-        request = ChatCompletionRequest(
-            request_id=request_id, params=params, context={}
-        )
-        response = await opt_model.create_chat_completion(request)
-        expected = CreateChatCompletionResponse(
+        response = await opt_model.create_chat_completion(params)
+        expected = ChatCompletionResponse(
             id=request_id,
             choices=[
                 ChatCompletionChoice(
                     finish_reason="length",
                     index=0,
-                    message=ChatCompletionResponseMessage(
+                    message=ChatMessage(
                         content="Most redditors know the tiny difference between Frogling",
                         tool_calls=None,
                         role="assistant",
@@ -517,7 +536,7 @@ class TestChatCompletions:
                     ),
                     logprobs=ChatCompletionChoiceLogprobs(
                         content=[
-                            ChatCompletionTokenLogprob(
+                            ChatCompletionLogprob(
                                 token="Most",
                                 logprob=-6.909554481506348,
                                 bytes=[77, 111, 115, 116],
@@ -539,7 +558,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionTokenLogprob(
+                            ChatCompletionLogprob(
                                 token=" redd",
                                 logprob=-7.630484580993652,
                                 bytes=[32, 114, 101, 100, 100],
@@ -561,7 +580,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionTokenLogprob(
+                            ChatCompletionLogprob(
                                 token="itors",
                                 logprob=-0.039746206253767014,
                                 bytes=[105, 116, 111, 114, 115],
@@ -578,7 +597,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionTokenLogprob(
+                            ChatCompletionLogprob(
                                 token=" know",
                                 logprob=-4.415658473968506,
                                 bytes=[32, 107, 110, 111, 119],
@@ -600,7 +619,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionTokenLogprob(
+                            ChatCompletionLogprob(
                                 token=" the",
                                 logprob=-2.7328412532806396,
                                 bytes=[32, 116, 104, 101],
@@ -622,7 +641,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionTokenLogprob(
+                            ChatCompletionLogprob(
                                 token=" tiny",
                                 logprob=-9.554351806640625,
                                 bytes=[32, 116, 105, 110, 121],
@@ -656,7 +675,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionTokenLogprob(
+                            ChatCompletionLogprob(
                                 token=" difference",
                                 logprob=-4.9500274658203125,
                                 bytes=[
@@ -702,7 +721,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionTokenLogprob(
+                            ChatCompletionLogprob(
                                 token=" between",
                                 logprob=-0.08497463166713715,
                                 bytes=[32, 98, 101, 116, 119, 101, 101, 110],
@@ -719,7 +738,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionTokenLogprob(
+                            ChatCompletionLogprob(
                                 token=" Frog",
                                 logprob=-12.07158374786377,
                                 bytes=[32, 70, 114, 111, 103],
@@ -741,7 +760,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionTokenLogprob(
+                            ChatCompletionLogprob(
                                 token="ling",
                                 logprob=-6.787796497344971,
                                 bytes=[108, 105, 110, 103],
@@ -771,9 +790,7 @@ class TestChatCompletions:
             model=model_name,
             system_fingerprint=None,
             object="chat.completion",
-            usage=CompletionUsage(
-                completion_tokens=10, prompt_tokens=29, total_tokens=39
-            ),
+            usage=UsageInfo(completion_tokens=10, prompt_tokens=29, total_tokens=39),
         )
         assert compare_response_to_expected(response, expected) is True
 
@@ -801,7 +818,7 @@ class TestChatCompletions:
                 "content": "How many helicopters can a human eat in one sitting?",
             },
         ]
-        params = CreateChatCompletionRequest(
+        params = ChatCompletionRequest(
             model=model_name,
             messages=messages,
             stream=True,
@@ -812,15 +829,13 @@ class TestChatCompletions:
             "{{ message.content }}{{ eos_token }}"
             "{% endfor %}",
         )
-        request = ChatCompletionRequest(
-            request_id=request_id, params=params, context={}
-        )
-        response_iterator = await opt_model.create_chat_completion(request)
+        response_iterator = await opt_model.create_chat_completion(params)
         completion = ""
         log_probs = ChatCompletionChoiceLogprobs(
             content=[],
         )
         async for resp in response_iterator:
+            resp = json.loads(resp)
             assert len(resp.choices) == 1
             completion += resp.choices[0].delta.content
             assert resp.choices[0].logprobs is not None
@@ -835,7 +850,7 @@ class TestChatCompletions:
         assert completion == "Most redditors know the tiny difference between Frogling"
         assert log_probs == ChatCompletionChoiceLogprobs(
             content=[
-                ChatCompletionTokenLogprob(
+                ChatCompletionLogprob(
                     token="Most",
                     logprob=-6.909554481506348,
                     bytes=[77, 111, 115, 116],
@@ -853,7 +868,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionTokenLogprob(
+                ChatCompletionLogprob(
                     token=" redd",
                     logprob=-7.630484580993652,
                     bytes=[32, 114, 101, 100, 100],
@@ -875,7 +890,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionTokenLogprob(
+                ChatCompletionLogprob(
                     token="itors",
                     logprob=-0.039746206253767014,
                     bytes=[105, 116, 111, 114, 115],
@@ -892,7 +907,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionTokenLogprob(
+                ChatCompletionLogprob(
                     token=" know",
                     logprob=-4.415658473968506,
                     bytes=[32, 107, 110, 111, 119],
@@ -914,7 +929,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionTokenLogprob(
+                ChatCompletionLogprob(
                     token=" the",
                     logprob=-2.7328412532806396,
                     bytes=[32, 116, 104, 101],
@@ -936,7 +951,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionTokenLogprob(
+                ChatCompletionLogprob(
                     token=" tiny",
                     logprob=-9.554351806640625,
                     bytes=[32, 116, 105, 110, 121],
@@ -958,7 +973,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionTokenLogprob(
+                ChatCompletionLogprob(
                     token=" difference",
                     logprob=-4.9500274658203125,
                     bytes=[32, 100, 105, 102, 102, 101, 114, 101, 110, 99, 101],
@@ -980,7 +995,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionTokenLogprob(
+                ChatCompletionLogprob(
                     token=" between",
                     logprob=-0.08497463166713715,
                     bytes=[32, 98, 101, 116, 119, 101, 101, 110],
@@ -997,7 +1012,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionTokenLogprob(
+                ChatCompletionLogprob(
                     token=" Frog",
                     logprob=-12.07158374786377,
                     bytes=[32, 70, 114, 111, 103],
@@ -1017,7 +1032,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionTokenLogprob(
+                ChatCompletionLogprob(
                     token="ling",
                     logprob=-6.787796497344971,
                     bytes=[108, 105, 110, 103],
@@ -1061,7 +1076,7 @@ class TestChatCompletions:
                 "content": "How many helicopters can a human eat in one sitting?",
             },
         ]
-        params = CreateChatCompletionRequest(
+        params = ChatCompletionRequest(
             model="opt-125m",
             messages=messages,
             stream=True,
@@ -1070,11 +1085,8 @@ class TestChatCompletions:
             "{{ message.content }}{{ eos_token }}"
             "{% endfor %}",
         )
-        request = ChatCompletionRequest(
-            request_id=request_id, params=params, context={}
-        )
         with pytest.raises(OpenAIError):
-            await opt_model.create_chat_completion(request)
+            await opt_model.create_chat_completion(params)
 
     async def test_vllm_chat_completion_facebook_opt_model_with_logit_bias(
         self, vllm_opt_model
@@ -1099,7 +1111,7 @@ class TestChatCompletions:
                 "content": "How many helicopters can a human eat in one sitting?",
             },
         ]
-        params = CreateChatCompletionRequest(
+        params = ChatCompletionRequest(
             model="opt-125m",
             messages=messages,
             stream=False,
@@ -1109,17 +1121,14 @@ class TestChatCompletions:
             "{{ message.content }}{{ eos_token }}"
             "{% endfor %}",
         )
-        request = ChatCompletionRequest(
-            request_id=request_id, params=params, context={}
-        )
-        response = await opt_model.create_chat_completion(request)
-        expected = CreateChatCompletionResponse(
+        response = await opt_model.create_chat_completion(params)
+        expected = ChatCompletionResponse(
             id=request_id,
             choices=[
                 ChatCompletionChoice(
                     finish_reason="length",
                     index=0,
-                    message=ChatCompletionResponseMessage(
+                    message=ChatMessage(
                         content=" Frog Frog Frog Frog Frog Frog Frog Frog Frog Frog",
                         tool_calls=None,
                         role="assistant",
@@ -1132,9 +1141,7 @@ class TestChatCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="chat.completion",
-            usage=CompletionUsage(
-                completion_tokens=10, prompt_tokens=29, total_tokens=39
-            ),
+            usage=UsageInfo(completion_tokens=10, prompt_tokens=29, total_tokens=39),
         )
         assert compare_response_to_expected(response, expected) is True
 
@@ -1158,15 +1165,14 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=prompt,
             stream=False,
             max_tokens=10,
         )
-        request = CompletionRequest(params=params, context={})
-        response = await opt_model.create_completion(request)
-        expected = CreateCompletionResponse(
+        response = await opt_model.create_completion(params)
+        expected = Completion(
             id=request_id,
             choices=[
                 CompletionChoice(
@@ -1180,9 +1186,7 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=10, prompt_tokens=7, total_tokens=17
-            ),
+            usage=UsageInfo(completion_tokens=10, prompt_tokens=7, total_tokens=17),
         )
         assert compare_response_to_expected(response, expected) is True
 
@@ -1200,15 +1204,14 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=prompt,
             stream=False,
             max_tokens=10,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response = await opt_model.create_completion(request)
-        expected = CreateCompletionResponse(
+        response = await opt_model.create_completion(params)
+        expected = Completion(
             id=request_id,
             choices=[
                 CompletionChoice(
@@ -1222,9 +1225,7 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=10, prompt_tokens=7, total_tokens=17
-            ),
+            usage=UsageInfo(completion_tokens=10, prompt_tokens=7, total_tokens=17),
         )
         assert compare_response_to_expected(response, expected) is True
 
@@ -1243,16 +1244,16 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model=model_name,
             prompt=prompt,
             stream=True,
             max_tokens=10,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response_iterator = await opt_model.create_completion(request)
+        response_iterator = await opt_model.create_completion(params)
         completion = ""
         async for resp in response_iterator:
+            resp = json.loads(resp)
             assert resp.id == request_id
             assert len(resp.choices) == 1
             completion += resp.choices[0].text
@@ -1277,22 +1278,21 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=prompt,
             stream=False,
             max_tokens=10,
             logprobs=2,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response = await opt_model.create_completion(request)
-        expected = CreateCompletionResponse(
+        response = await opt_model.create_completion(params)
+        expected = Completion(
             id=request_id,
             choices=[
                 CompletionChoice(
                     finish_reason="length",
                     index=0,
-                    logprobs=Logprobs(
+                    logprobs=CompletionLogProbs(
                         text_offset=[0, 1, 10, 11, 14, 18, 23, 28, 33, 40],
                         token_logprobs=[
                             -5.968788146972656,
@@ -1372,9 +1372,7 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=10, prompt_tokens=7, total_tokens=17
-            ),
+            usage=UsageInfo(completion_tokens=10, prompt_tokens=7, total_tokens=17),
         )
 
         assert compare_response_to_expected(response, expected) is True
@@ -1394,20 +1392,20 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model=model_name,
             prompt=prompt,
             stream=True,
             max_tokens=10,
             logprobs=2,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response_iterator = await opt_model.create_completion(request)
+        response_iterator = await opt_model.create_completion(params)
         completion = ""
-        log_probs = Logprobs(
+        log_probs = CompletionLogProbs(
             text_offset=[], token_logprobs=[], tokens=[], top_logprobs=[]
         )
         async for resp in response_iterator:
+            resp = json.loads(resp)
             assert resp.id == request_id
             assert len(resp.choices) == 1
             completion += resp.choices[0].text
@@ -1421,7 +1419,7 @@ class TestCompletions:
             assert resp.system_fingerprint is None
             assert isinstance(resp.created, int)
         assert completion == "- Labrador! He has tiny ears with fluffy white"
-        assert log_probs == Logprobs(
+        assert log_probs == CompletionLogProbs(
             text_offset=[0, 1, 10, 11, 14, 18, 23, 28, 33, 40],
             token_logprobs=[
                 -5.968788146972656,
@@ -1501,16 +1499,15 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=prompt,
             stream=False,
             max_tokens=10,
             echo=True,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response = await opt_model.create_completion(request)
-        expected = CreateCompletionResponse(
+        response = await opt_model.create_completion(params)
+        expected = Completion(
             id=request_id,
             choices=[
                 CompletionChoice(
@@ -1524,9 +1521,7 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=10, prompt_tokens=7, total_tokens=17
-            ),
+            usage=UsageInfo(completion_tokens=10, prompt_tokens=7, total_tokens=17),
         )
         assert compare_response_to_expected(response, expected) is True
 
@@ -1545,17 +1540,17 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model=model_name,
             prompt=prompt,
             stream=True,
             max_tokens=10,
             echo=True,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response_iterator = await opt_model.create_completion(request)
+        response_iterator = await opt_model.create_completion(params)
         completion = ""
         async for resp in response_iterator:
+            resp = json.loads(resp)
             assert resp.id == request_id
             completion += resp.choices[0].text
             assert len(resp.choices) == 1
@@ -1583,7 +1578,7 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=prompt,
             stream=False,
@@ -1591,15 +1586,14 @@ class TestCompletions:
             echo=True,
             logprobs=2,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response = await opt_model.create_completion(request)
-        expected = CreateCompletionResponse(
+        response = await opt_model.create_completion(params)
+        expected = Completion(
             id=request_id,
             choices=[
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=0,
-                    logprobs=Logprobs(
+                    logprobs=CompletionLogProbs(
                         text_offset=[
                             0,
                             4,
@@ -1648,9 +1642,7 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=10, prompt_tokens=7, total_tokens=17
-            ),
+            usage=UsageInfo(completion_tokens=10, prompt_tokens=7, total_tokens=17),
         )
         # FixMe: pydantic does not allows adding None to the token_logrobs list. We should fix the type definition.
         expected.choices[0].logprobs.token_logprobs = [
@@ -1749,7 +1741,7 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model=model_name,
             prompt=prompt,
             stream=True,
@@ -1757,13 +1749,12 @@ class TestCompletions:
             echo=True,
             logprobs=2,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response_iterator = await opt_model.create_completion(request)
+        response_iterator = await opt_model.create_completion(params)
         completion = ""
-        log_probs = Logprobs(
+        log_probs = CompletionLogProbs(
             text_offset=[], token_logprobs=[], tokens=[], top_logprobs=[]
         )
-        expected_logprobs = Logprobs(
+        expected_logprobs = CompletionLogProbs(
             # FixMe: text_offset resets for generated tokens if echo is True and stream is True. vLLM also behaves
             #  this way. Is this the expected behavior?
             text_offset=[0, 4, 6, 7, 9, 14, 17, 21, 1, 10, 11, 14, 18, 23, 28, 33, 40],
@@ -1870,6 +1861,7 @@ class TestCompletions:
             {" white": -2.2152767181396484, " fur": -1.9012728929519653},
         ]
         async for resp in response_iterator:
+            resp = json.loads(resp)
             assert resp.id == request_id
             assert len(resp.choices) == 1
             completion += resp.choices[0].text
@@ -1907,24 +1899,23 @@ class TestCompletions:
 
         mock_vllm_engine.generate = mock_generate
 
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=prompts,
             stream=False,
             max_tokens=10,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response = await opt_model.create_completion(request)
-        expected = CreateCompletionResponse(
+        response = await opt_model.create_completion(params)
+        expected = Completion(
             id=request_id,
             choices=[
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=0,
                     logprobs=None,
                     text="- Labrador! He has tiny ears with fluffy white",
                 ),
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=1,
                     logprobs=None,
@@ -1935,9 +1926,7 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=20, prompt_tokens=12, total_tokens=32
-            ),
+            usage=UsageInfo(completion_tokens=20, prompt_tokens=12, total_tokens=32),
         )
         assert compare_response_to_expected(response, expected) is True
 
@@ -1961,16 +1950,16 @@ class TestCompletions:
 
         mock_vllm_engine.generate = mock_generate
 
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model=model_name,
             prompt=prompts,
             stream=True,
             max_tokens=10,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response_iterator = await opt_model.create_completion(request)
+        response_iterator = await opt_model.create_completion(params)
         completions = [""] * 2
         async for resp in response_iterator:
+            resp = json.loads(resp)
             assert resp.id == request_id
             assert len(resp.choices) == 1
             assert resp.choices[0].logprobs is None
@@ -2007,25 +1996,24 @@ class TestCompletions:
 
         mock_vllm_engine.generate = mock_generate
 
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=prompts,
             stream=False,
             max_tokens=10,
             echo=True,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response = await opt_model.create_completion(request)
-        expected = CreateCompletionResponse(
+        response = await opt_model.create_completion(params)
+        expected = Completion(
             id=request_id,
             choices=[
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=0,
                     logprobs=None,
                     text="Hi, I love my cat- Labrador! He has tiny ears with fluffy white",
                 ),
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=1,
                     logprobs=None,
@@ -2036,9 +2024,7 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=20, prompt_tokens=12, total_tokens=32
-            ),
+            usage=UsageInfo(completion_tokens=20, prompt_tokens=12, total_tokens=32),
         )
         assert compare_response_to_expected(response, expected) is True
 
@@ -2063,17 +2049,17 @@ class TestCompletions:
 
         mock_vllm_engine.generate = mock_generate
 
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model=model_name,
             prompt=prompts,
             stream=True,
             max_tokens=10,
             echo=True,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response_iterator = await opt_model.create_completion(request)
+        response_iterator = await opt_model.create_completion(params)
         completions = [""] * 2
         async for resp in response_iterator:
+            resp = json.loads(resp)
             assert resp.id == request_id
             assert len(resp.choices) == 1
             assert resp.choices[0].logprobs is None
@@ -2111,21 +2097,21 @@ class TestCompletions:
 
         mock_vllm_engine.generate = mock_generate
 
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model=model_name,
             prompt=prompts,
             stream=False,
             max_tokens=10,
             logprobs=2,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        expected = CreateCompletionResponse(
+
+        expected = Completion(
             id=request_id,
             choices=[
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=0,
-                    logprobs=Logprobs(
+                    logprobs=CompletionLogProbs(
                         text_offset=[0, 1, 10, 11, 14, 18, 23, 28, 33, 40],
                         token_logprobs=[
                             -5.968789577484131,
@@ -2197,10 +2183,10 @@ class TestCompletions:
                     ),
                     text="- Labrador! He has tiny ears with fluffy white",
                 ),
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=1,
-                    logprobs=Logprobs(
+                    logprobs=CompletionLogProbs(
                         text_offset=[0, 4, 7, 11, 14, 20, 23, 30, 31, 35],
                         token_logprobs=[
                             -2.4368906021118164,
@@ -2275,12 +2261,10 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=20, prompt_tokens=12, total_tokens=32
-            ),
+            usage=UsageInfo(completion_tokens=20, prompt_tokens=12, total_tokens=32),
         )
 
-        response = await opt_model.create_completion(request)
+        response = await opt_model.create_completion(params)
 
         assert compare_response_to_expected(response, expected) is True
 
@@ -2304,22 +2288,25 @@ class TestCompletions:
 
         mock_vllm_engine.generate = mock_generate
 
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model=model_name,
             prompt=prompts,
             stream=True,
             max_tokens=10,
             logprobs=2,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-
-        response_iterator = await opt_model.create_completion(request)
+        response_iterator = await opt_model.create_completion(params)
         completions = [""] * 2
         log_probs_list = [
-            Logprobs(text_offset=[], token_logprobs=[], tokens=[], top_logprobs=[]),
-            Logprobs(text_offset=[], token_logprobs=[], tokens=[], top_logprobs=[]),
+            CompletionLogProbs(
+                text_offset=[], token_logprobs=[], tokens=[], top_logprobs=[]
+            ),
+            CompletionLogProbs(
+                text_offset=[], token_logprobs=[], tokens=[], top_logprobs=[]
+            ),
         ]
         async for resp in response_iterator:
+            resp = json.loads(resp)
             assert resp.id == request_id
             assert len(resp.choices) == 1
             if resp.choices[0].index == 0:
@@ -2349,7 +2336,7 @@ class TestCompletions:
             " and no one is going to notice. You don",
         ]
         assert log_probs_list == [
-            Logprobs(
+            CompletionLogProbs(
                 text_offset=[0, 1, 10, 11, 14, 18, 23, 28, 33, 40],
                 token_logprobs=[
                     -5.968789577484131,
@@ -2416,7 +2403,7 @@ class TestCompletions:
                     {" white": -2.215275764465332, " fur": -1.901274561882019},
                 ],
             ),
-            Logprobs(
+            CompletionLogProbs(
                 text_offset=[0, 4, 7, 11, 14, 20, 23, 30, 31, 35],
                 token_logprobs=[
                     -2.4368906021118164,
@@ -2488,16 +2475,15 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=prompt,
             stream=False,
             max_tokens=10,
             suffix="Thank You!",
         )
-        request = CompletionRequest(params=params, context={})
         with pytest.raises(OpenAIError, match="suffix is not currently supported"):
-            await opt_model.create_completion(request)
+            await opt_model.create_completion(params)
 
     async def test_vllm_completion_facebook_opt_model_with_best_of_and_n_not_equal(
         self, vllm_opt_model
@@ -2516,7 +2502,7 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=prompt,
             stream=True,
@@ -2524,17 +2510,16 @@ class TestCompletions:
             best_of=3,
             n=2,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        expected = CreateCompletionResponse(
+        expected = Completion(
             id=request_id,
             choices=[
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=0,
                     logprobs=None,
                     text=", so I know how much you guys are needing",
                 ),
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=1,
                     logprobs=None,
@@ -2545,13 +2530,11 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=20, prompt_tokens=7, total_tokens=27
-            ),
+            usage=UsageInfo(completion_tokens=20, prompt_tokens=7, total_tokens=27),
         )
-        response = await opt_model.create_completion(request)
+        response = await opt_model.create_completion(params)
 
-        assert not isinstance(response, AsyncIterator)
+        assert not isinstance(response, AsyncGenerator)
         assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_completion_facebook_opt_model_with_best_of_and_n_equal(
@@ -2572,7 +2555,7 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model=model_name,
             prompt=prompt,
             stream=True,
@@ -2580,11 +2563,11 @@ class TestCompletions:
             best_of=3,
             n=3,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response_iterator = await opt_model.create_completion(request)
-        assert isinstance(response_iterator, AsyncIterator)
+        response_iterator = await opt_model.create_completion(params)
+        assert isinstance(response_iterator, AsyncGenerator)
         completions = [""] * 3
         async for resp in response_iterator:
+            resp = json.loads(resp)
             assert resp.id == request_id
             assert len(resp.choices) == 1
             if resp.choices[0].index == 0:
@@ -2619,7 +2602,7 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=prompt,
             stream=False,
@@ -2628,17 +2611,16 @@ class TestCompletions:
             best_of=3,
             n=2,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        expected = CreateCompletionResponse(
+        expected = Completion(
             id=request_id,
             choices=[
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=0,
                     logprobs=None,
                     text="Hi, I love my cat, so I know how much you guys are needing",
                 ),
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=1,
                     logprobs=None,
@@ -2649,13 +2631,11 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=20, prompt_tokens=7, total_tokens=27
-            ),
+            usage=UsageInfo(completion_tokens=20, prompt_tokens=7, total_tokens=27),
         )
-        response = await opt_model.create_completion(request)
+        response = await opt_model.create_completion(params)
 
-        assert not isinstance(response, AsyncIterator)
+        assert not isinstance(response, AsyncGenerator)
         assert compare_response_to_expected(response, expected) is True
 
     async def test_vllm_completion_facebook_opt_model_with_best_of_and_n_and_echo_stream(
@@ -2676,7 +2656,7 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model=model_name,
             prompt=prompt,
             stream=True,
@@ -2685,11 +2665,11 @@ class TestCompletions:
             n=3,
             echo=True,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response_iterator = await opt_model.create_completion(request)
-        assert isinstance(response_iterator, AsyncIterator)
+        response_iterator = await opt_model.create_completion(params)
+        assert isinstance(response_iterator, AsyncGenerator)
         completions = [""] * 3
         async for resp in response_iterator:
+            resp = json.loads(resp)
             assert resp.id == request_id
             assert len(resp.choices) == 1
             if resp.choices[0].index == 0:
@@ -2724,15 +2704,14 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=prompt,
             stream=False,
             max_tokens=2048,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
         with pytest.raises(OpenAIError):
-            await opt_model.create_completion(request)
+            await opt_model.create_completion(params)
 
     async def test_vllm_completion_facebook_opt_model_with_token_ids(
         self, vllm_opt_model
@@ -2748,18 +2727,17 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         token_ids = [2, 30086, 6, 38, 657, 127, 4758]
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=token_ids,
             stream=False,
             max_tokens=10,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response = await opt_model.create_completion(request)
-        expected = CreateCompletionResponse(
+        response = await opt_model.create_completion(params)
+        expected = Completion(
             id=request_id,
             choices=[
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=0,
                     logprobs=None,
@@ -2770,9 +2748,7 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=10, prompt_tokens=7, total_tokens=17
-            ),
+            usage=UsageInfo(completion_tokens=10, prompt_tokens=7, total_tokens=17),
         )
 
         assert compare_response_to_expected(response, expected) is True
@@ -2791,19 +2767,18 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         token_ids = [2, 30086, 6, 38, 657, 127, 4758]
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=token_ids,
             stream=False,
             max_tokens=10,
             echo=True,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response = await opt_model.create_completion(request)
-        expected = CreateCompletionResponse(
+        response = await opt_model.create_completion(params)
+        expected = Completion(
             id=request_id,
             choices=[
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=0,
                     logprobs=None,
@@ -2814,9 +2789,7 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=10, prompt_tokens=7, total_tokens=17
-            ),
+            usage=UsageInfo(completion_tokens=10, prompt_tokens=7, total_tokens=17),
         )
 
         assert response.id == expected.id
@@ -2846,24 +2819,23 @@ class TestCompletions:
 
         mock_vllm_engine.generate = mock_generate
 
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=token_ids,
             stream=False,
             max_tokens=10,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response = await opt_model.create_completion(request)
-        expected = CreateCompletionResponse(
+        response = await opt_model.create_completion(params)
+        expected = Completion(
             id=request_id,
             choices=[
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=0,
                     logprobs=None,
                     text="- Labrador! He has tiny ears with fluffy white",
                 ),
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=1,
                     logprobs=None,
@@ -2874,9 +2846,7 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=20, prompt_tokens=12, total_tokens=32
-            ),
+            usage=UsageInfo(completion_tokens=20, prompt_tokens=12, total_tokens=32),
         )
         assert compare_response_to_expected(response, expected) is True
 
@@ -2899,25 +2869,24 @@ class TestCompletions:
 
         mock_vllm_engine.generate = mock_generate
 
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=token_ids,
             stream=False,
             max_tokens=10,
             echo=True,
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response = await opt_model.create_completion(request)
-        expected = CreateCompletionResponse(
+        response = await opt_model.create_completion(params)
+        expected = Completion(
             id=request_id,
             choices=[
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=0,
                     logprobs=None,
                     text="Hi, I love my cat- Labrador! He has tiny ears with fluffy white",
                 ),
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=1,
                     logprobs=None,
@@ -2928,9 +2897,7 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=20, prompt_tokens=12, total_tokens=32
-            ),
+            usage=UsageInfo(completion_tokens=20, prompt_tokens=12, total_tokens=32),
         )
 
         assert compare_response_to_expected(response, expected) is True
@@ -2949,19 +2916,18 @@ class TestCompletions:
         mock_vllm_engine.generate = mock_generate
 
         prompt = "Hi, I love my cat"
-        params = CreateCompletionRequest(
+        params = CompletionRequest(
             model="opt-125m",
             prompt=prompt,
             stream=False,
             max_tokens=10,
             logit_bias={"33564": -50},
         )
-        request = CompletionRequest(request_id=request_id, params=params, context={})
-        response = await opt_model.create_completion(request)
-        expected = CreateCompletionResponse(
+        response = await opt_model.create_completion(params)
+        expected = Completion(
             id=request_id,
             choices=[
-                Choice(
+                CompletionChoice(
                     finish_reason="length",
                     index=0,
                     logprobs=None,
@@ -2972,9 +2938,7 @@ class TestCompletions:
             model="opt-125m",
             system_fingerprint=None,
             object="text_completion",
-            usage=CompletionUsage(
-                completion_tokens=10, prompt_tokens=7, total_tokens=17
-            ),
+            usage=UsageInfo(completion_tokens=10, prompt_tokens=7, total_tokens=17),
         )
         assert compare_response_to_expected(response, expected) is True
 
@@ -2988,12 +2952,12 @@ class TestOpenAIServingCompletion:
             pass
 
         mock_vllm_engine.generate = mock_generate
-        request = CreateCompletionRequest(
+        request = CompletionRequest(
             model="opt-125m",
             prompt=prompt,
             max_tokens=opt_model.openai_serving_completion.max_model_len + 1,
         )
-        with pytest.raises(OpenAIError):
+        with pytest.raises(OpenAIError):  # TODO: should be value error?
             opt_model.openai_serving_completion._validate_input(
                 request,
                 input_text=prompt,

@@ -12,25 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import AsyncIterator, Union, List
+from typing import Union, List, AsyncGenerator
 
-from fastapi import Response
+from fastapi import Response, Request
 from starlette.datastructures import Headers
 
-from kserve.protocol.rest.openai.types.openapi import CreateChatCompletionRequest
+from kserve.protocol.rest.openai.types import ErrorResponse
+
+from kserve.protocol.rest.openai.types.openapi import ChatCompletionRequest
 from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionResponse as ChatCompletion,
+    ChatCompletionResponse as ChatCompletion,
 )
+
+from kserve.protocol.rest.openai.types.openapi import CompletionRequest
 from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionStreamResponse as ChatCompletionChunk,
-)
-from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
-from kserve.protocol.rest.openai.types.openapi import (
-    CreateCompletionResponse as Completion,
+    CompletionResponse as Completion,
 )
 
 from ...dataplane import DataPlane
-from .openai_model import ChatCompletionRequest, CompletionRequest, OpenAIModel
+from .openai_model import OpenAIModel
 
 
 class OpenAIDataPlane(DataPlane):
@@ -39,15 +39,17 @@ class OpenAIDataPlane(DataPlane):
     async def create_completion(
         self,
         model_name: str,
-        request: CreateCompletionRequest,
+        request: CompletionRequest,
+        raw_request: Request,
         headers: Headers,
         response: Response,
-    ) -> Union[Completion, AsyncIterator[Completion]]:
+    ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
         """Generate the text with the provided text prompt.
 
         Args:
             model_name (str): Model name.
-            request (CreateCompletionRequest): Params to create a completion.
+            request (CompletionRequest): Params to create a completion.
+            raw_request (Request): fastapi request object.
             headers: (Headers): Request headers.
             response: (Response): FastAPI response object
         Returns:
@@ -59,26 +61,22 @@ class OpenAIDataPlane(DataPlane):
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support completion")
-
-        completion_request = CompletionRequest(
-            request_id=headers.get("x-request-id", None),
-            params=request,
-            context={"headers": dict(headers), "response": response},
-        )
-        return await model.create_completion(completion_request)
+        return await model.create_completion(request, raw_request)
 
     async def create_chat_completion(
         self,
         model_name: str,
-        request: CreateChatCompletionRequest,
+        request: ChatCompletionRequest,
+        raw_request: Request,
         headers: Headers,
         response: Response,
-    ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
+    ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
         """Generate the text with the provided text prompt.
 
         Args:
             model_name (str): Model name.
             request (CreateChatCompletionRequest): Params to create a chat completion.
+            raw_request (Request): fastapi request object.
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
@@ -90,14 +88,7 @@ class OpenAIDataPlane(DataPlane):
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support chat completion")
-
-        completion_request = ChatCompletionRequest(
-            request_id=headers.get("x-request-id", None),
-            params=request,
-            # We pass the response object in the context so it can be used to set response headers or a custom status code
-            context={"headers": dict(headers), "response": response},
-        )
-        return await model.create_chat_completion(completion_request)
+        return await model.create_chat_completion(request, raw_request)
 
     async def models(self) -> List[OpenAIModel]:
         """Retrieve a list of models

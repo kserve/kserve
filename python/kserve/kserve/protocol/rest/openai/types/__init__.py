@@ -12,72 +12,59 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Union
+from kserve.protocol.rest.openai.types.openapi import ChatMessage
 
 from kserve.protocol.rest.openai.types.openapi import (
-    ChatCompletionRequestAssistantMessage,
-    ChatCompletionRequestFunctionMessage,
-    ChatCompletionRequestSystemMessage,
-    ChatCompletionRequestToolMessage,
-    ChatCompletionRequestUserMessage,
-    ChatCompletionResponseMessage,
+    DeltaMessage as ChoiceDelta,
 )
 from kserve.protocol.rest.openai.types.openapi import (
-    ChatCompletionStreamResponseDelta as ChoiceDelta,
-)
-from kserve.protocol.rest.openai.types.openapi import ChatCompletionTokenLogprob
-from kserve.protocol.rest.openai.types.openapi import Choice as CompletionChoice
-from kserve.protocol.rest.openai.types.openapi import Choice1 as ChatCompletionChoice
-from kserve.protocol.rest.openai.types.openapi import Choice3 as ChunkChoice
-from kserve.protocol.rest.openai.types.openapi import CreateChatCompletionRequest
+    ChatCompletionLogprob,
+)  # TODO: can not import
 from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionResponse as ChatCompletion,
+    CompletionResponseChoice as CompletionChoice,
 )
 from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionStreamResponse as ChatCompletionChunk,
+    ChatCompletionResponseChoice as ChatCompletionChoice,
 )
-from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
 from kserve.protocol.rest.openai.types.openapi import (
-    CreateCompletionResponse as Completion,
+    ChatCompletionResponseStreamChoice as ChunkChoice,
 )
-from kserve.protocol.rest.openai.types.openapi import Logprobs
+from kserve.protocol.rest.openai.types.openapi import ChatCompletionRequest
+from kserve.protocol.rest.openai.types.openapi import ChatCompletionMessageParam
 from kserve.protocol.rest.openai.types.openapi import (
-    Logprobs2 as ChatCompletionChoiceLogprobs,
+    ChatCompletionResponse as ChatCompletion,
+)
+from kserve.protocol.rest.openai.types.openapi import (
+    ChatCompletionStreamResponse as ChatCompletionChunk,
+)
+from kserve.protocol.rest.openai.types.openapi import CompletionRequest
+from kserve.protocol.rest.openai.types.openapi import (
+    CompletionResponse as Completion,
+)
+from kserve.protocol.rest.openai.types.openapi import CompletionLogProbs
+from kserve.protocol.rest.openai.types.openapi import (
+    ChatCompletionLogProbs as ChatCompletionChoiceLogprobs,
 )
 from kserve.protocol.rest.openai.types.openapi import TopLogprob
 from kserve.protocol.rest.openai.types.openapi import ErrorResponse
-from kserve.protocol.rest.openai.types.openapi import CompletionUsage
-
-ChatCompletionRequestMessage = Union[
-    ChatCompletionRequestSystemMessage,
-    ChatCompletionRequestUserMessage,
-    ChatCompletionRequestAssistantMessage,
-    ChatCompletionRequestToolMessage,
-    ChatCompletionRequestFunctionMessage,
-]
+from kserve.protocol.rest.openai.types.openapi import UsageInfo
 
 __all__ = [
     "ChatCompletion",
     "ChatCompletionChoice",
     "ChatCompletionChoiceLogprobs",
-    "ChatCompletionChoiceLogprobs",
     "ChatCompletionChunk",
-    "ChatCompletionRequestAssistantMessage",
-    "ChatCompletionRequestFunctionMessage",
-    "ChatCompletionRequestMessage",
-    "ChatCompletionRequestSystemMessage",
-    "ChatCompletionRequestToolMessage",
-    "ChatCompletionRequestUserMessage",
-    "ChatCompletionResponseMessage",
-    "ChatCompletionTokenLogprob",
+    "ChatMessage",
+    "ChatCompletionLogprob",
     "ChoiceDelta",
     "ChunkChoice",
     "Completion",
     "CompletionChoice",
-    "CreateChatCompletionRequest",
-    "CreateCompletionRequest",
+    "ChatCompletionRequest",
+    "CompletionRequest",
     "ErrorResponse",
-    "Logprobs",
+    "CompletionLogProbs",
     "TopLogprob",
-    "CompletionUsage",
+    "UsageInfo",
+    "ChatCompletionMessageParam",
 ]

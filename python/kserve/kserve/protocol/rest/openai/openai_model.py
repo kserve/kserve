@@ -13,17 +13,18 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import Any, AsyncIterator, Callable, Dict, Optional, Union
+from typing import AsyncIterator, Callable, Optional, Union, AsyncGenerator
 import inspect
 
 from pydantic import BaseModel
+from fastapi import Request  # TODO: Double check whether fastapi is installed
 
 from kserve.protocol.rest.openai.types import (
     ChatCompletion,
-    ChatCompletionChunk,
     Completion,
-    CreateChatCompletionRequest,
-    CreateCompletionRequest,
+    ChatCompletionRequest,
+    CompletionRequest,
+    ErrorResponse,
 )
 
 from ....model import BaseKServeModel
@@ -32,20 +33,6 @@ from ....model import BaseKServeModel
 class ChatPrompt(BaseModel):
     response_role: str = "assistant"
     prompt: str
-
-
-class BaseCompletionRequest(BaseModel):
-    request_id: Optional[str] = None
-    context: Optional[Dict[str, Any]] = None  # headers can go in here
-    params: Union[CreateCompletionRequest, CreateChatCompletionRequest]
-
-
-class CompletionRequest(BaseCompletionRequest):
-    params: CreateCompletionRequest
-
-
-class ChatCompletionRequest(BaseCompletionRequest):
-    params: CreateChatCompletionRequest
 
 
 class OpenAIModel(BaseKServeModel):
@@ -66,14 +53,18 @@ class OpenAIModel(BaseKServeModel):
 
     @abstractmethod
     async def create_completion(
-        self, request: CompletionRequest
-    ) -> Union[Completion, AsyncIterator[Completion]]:
+        self,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
+    ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
         pass
 
     @abstractmethod
     async def create_chat_completion(
-        self, request: ChatCompletionRequest
-    ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
+        self,
+        request: ChatCompletionRequest,
+        raw_request: Optional[Request] = None,
+    ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
         pass
 
 

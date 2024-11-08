@@ -13,33 +13,27 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import AsyncIterator, Iterable, Union, cast, Optional
+from typing import Iterable, Optional
 
 from kserve.protocol.rest.openai.types import (
     ChatCompletion,
     ChatCompletionChoice,
     ChatCompletionChoiceLogprobs,
     ChatCompletionChunk,
-    ChatCompletionRequestMessage,
-    ChatCompletionResponseMessage,
-    ChatCompletionTokenLogprob,
+    ChatCompletionMessageParam,
+    ChatMessage,
+    ChatCompletionLogprob,  # TODO: Why can not import this?
     ChoiceDelta,
     ChunkChoice,
     Completion,
     CompletionChoice,
-    CreateChatCompletionRequest,
-    CreateCompletionRequest,
-    Logprobs,
+    CompletionLogProbs,
     TopLogprob,
 )
 
-from ....errors import InvalidInput
 from .openai_model import (
     OpenAIModel,
     ChatPrompt,
-    CompletionRequest,
-    ChatCompletionRequest,
-    AsyncMappingIterator,
 )
 
 
@@ -54,7 +48,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
     @abstractmethod
     def apply_chat_template(
         self,
-        messages: Iterable[ChatCompletionRequestMessage],
+        messages: Iterable[ChatCompletionMessageParam],
         chat_template: Optional[str] = None,
     ) -> ChatPrompt:
         """
@@ -63,29 +57,9 @@ class OpenAIChatAdapterModel(OpenAIModel):
         pass
 
     @classmethod
-    def chat_completion_params_to_completion_params(
-        cls, params: CreateChatCompletionRequest, prompt: str
-    ) -> CreateCompletionRequest:
-
-        return CreateCompletionRequest(
-            prompt=prompt,
-            model=params.model,
-            frequency_penalty=params.frequency_penalty,
-            logit_bias=params.logit_bias,
-            max_tokens=params.max_tokens,
-            n=params.n,
-            presence_penalty=params.presence_penalty,
-            seed=params.seed,
-            stop=params.stop,
-            stream=params.stream,
-            temperature=params.temperature,
-            top_p=params.top_p,
-            user=params.user,
-            logprobs=params.top_logprobs,
-        )
-
-    @classmethod
-    def to_choice_logprobs(cls, logprobs: Logprobs) -> ChatCompletionChoiceLogprobs:
+    def to_choice_logprobs(
+        cls, logprobs: CompletionLogProbs
+    ) -> ChatCompletionChoiceLogprobs:
         chat_completion_logprobs = []
         for i in range(len(logprobs.tokens)):
             token = logprobs.tokens[i]
@@ -100,11 +74,11 @@ class OpenAIChatAdapterModel(OpenAIModel):
                 for token, logprob in top_logprobs_dict.items()
             ]
             chat_completion_logprobs.append(
-                ChatCompletionTokenLogprob(
+                ChatCompletionLogprob(
                     token=token,
                     bytes=[int(b) for b in token.encode("utf8")],
                     logprob=token_logprob,
-                    top_logprobs=top_logprobs,
+                    top_logprobs=top_logprobs,  # vLLM does not have this, check this carefully
                 )
             )
 
@@ -124,9 +98,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
             index=0,
             finish_reason=completion_choice.finish_reason,
             logprobs=choice_logprobs,
-            message=ChatCompletionResponseMessage(
-                content=completion_choice.text, role=role
-            ),
+            message=ChatMessage(content=completion_choice.text, role=role),
         )
 
     @classmethod
@@ -193,47 +165,3 @@ class OpenAIChatAdapterModel(OpenAIModel):
             object="chat.completion.chunk",
             system_fingerprint=completion.system_fingerprint,
         )
-
-    async def create_chat_completion(
-        self,
-        request: ChatCompletionRequest,
-    ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
-        params = request.params
-
-        if params.n != 1:
-            raise InvalidInput("n != 1 is not supported")
-
-        # Convert the messages into a prompt
-        chat_prompt = self.apply_chat_template(
-            params.messages, params.chat_template, params.tools
-        )
-        # Translate the chat completion request to a completion request
-        completion_params = self.chat_completion_params_to_completion_params(
-            params, chat_prompt.prompt
-        )
-
-        completion_request = CompletionRequest(
-            request_id=request.request_id,
-            params=completion_params,
-            context=request.context,
-        )
-
-        if not params.stream:
-            completion = cast(
-                Completion, await self.create_completion(completion_request)
-            )
-            return self.completion_to_chat_completion(
-                completion, chat_prompt.response_role
-            )
-        else:
-            completion_iterator = cast(
-                AsyncIterator[Completion],
-                await self.create_completion(completion_request),
-            )
-
-            def mapper(completion: Completion) -> ChatCompletionChunk:
-                return self.completion_to_chat_completion_chunk(
-                    completion, chat_prompt.response_role
-                )
-
-            return AsyncMappingIterator(iterator=completion_iterator, mapper=mapper)
