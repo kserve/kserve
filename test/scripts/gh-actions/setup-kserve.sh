@@ -24,6 +24,9 @@ set -o pipefail
 DEPLOYMENT_MODE="${1:-'serverless'}"
 
 make deploy-ci
+# For debugging purpose: The KServe webhook is failing randomly in the GH Actions environment. This is to check if the webhook cert is ready at 
+# the time of failure. Once the issue is resolved, the following line can be removed.
+kubectl describe cert -n kserve serving-cert
 shopt -s nocasematch
 if [[ $DEPLOYMENT_MODE == "raw" ]];then
   echo "Patching default deployment mode to raw deployment"
