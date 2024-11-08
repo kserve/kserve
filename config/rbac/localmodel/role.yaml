@@ -73,7 +73,6 @@ rules:
   - serving.kserve.io
   resources:
   - clusterlocalmodels/status
-  - localmodelnodes/status
   verbs:
   - get
   - patch
@@ -87,4 +86,11 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelnodes/status
+  verbs:
+  - get
   - watch
