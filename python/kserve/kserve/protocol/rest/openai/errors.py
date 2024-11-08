@@ -16,7 +16,7 @@ from typing import Union
 from http import HTTPStatus
 from fastapi.responses import JSONResponse
 from kserve.logging import logger
-from .types.openapi import Error, ErrorResponse
+from .types.openapi import ErrorResponse
 
 
 class OpenAIError(Exception):
@@ -60,7 +60,10 @@ def create_error_response(
     param: str = "",
     status_code: HTTPStatus = HTTPStatus.BAD_REQUEST,
 ) -> ErrorResponse:
-    error = Error(
-        message=message, type=err_type, param=param, code=str(status_code.value)
-    )
-    return ErrorResponse(error=error)
+    return ErrorResponse(
+        object="error",
+        message=message,
+        type=err_type,
+        param=param,
+        code=str(status_code.value),
+    )  # TODO: double check
