@@ -12,12 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from kserve.protocol.rest.openai.types.openapi import ChatMessage
+from kserve.protocol.rest.openai.types.openapi import (
+    ChatMessage,
+    ChatCompletionLogProb,
+    CompletionLogProbs,
+    ChatCompletionRequest,
+    ChatCompletionMessageParam,
+    TopLogprob,
+    ErrorResponse,
+    UsageInfo,
+)
 
 from kserve.protocol.rest.openai.types.openapi import (
     DeltaMessage as ChoiceDelta,
 )
-from kserve.protocol.rest.openai.types.openapi import ChatCompletionLogprob
 from kserve.protocol.rest.openai.types.openapi import (
     CompletionResponseChoice as CompletionChoice,
 )
@@ -27,8 +35,6 @@ from kserve.protocol.rest.openai.types.openapi import (
 from kserve.protocol.rest.openai.types.openapi import (
     ChatCompletionResponseStreamChoice as ChunkChoice,
 )
-from kserve.protocol.rest.openai.types.openapi import ChatCompletionRequest
-from kserve.protocol.rest.openai.types.openapi import ChatCompletionMessageParam
 from kserve.protocol.rest.openai.types.openapi import (
     ChatCompletionResponse as ChatCompletion,
 )
@@ -39,13 +45,10 @@ from kserve.protocol.rest.openai.types.openapi import CompletionRequest
 from kserve.protocol.rest.openai.types.openapi import (
     CompletionResponse as Completion,
 )
-from kserve.protocol.rest.openai.types.openapi import CompletionLogProbs
 from kserve.protocol.rest.openai.types.openapi import (
     ChatCompletionLogProbs as ChatCompletionChoiceLogprobs,
 )
-from kserve.protocol.rest.openai.types.openapi import TopLogprob
-from kserve.protocol.rest.openai.types.openapi import ErrorResponse
-from kserve.protocol.rest.openai.types.openapi import UsageInfo
+
 
 __all__ = [
     "ChatCompletion",
@@ -53,7 +56,7 @@ __all__ = [
     "ChatCompletionChoiceLogprobs",
     "ChatCompletionChunk",
     "ChatMessage",
-    "ChatCompletionLogprob",
+    "ChatCompletionLogProb",
     "ChoiceDelta",
     "ChunkChoice",
     "Completion",
