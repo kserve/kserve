@@ -26,9 +26,7 @@ from kserve.protocol.rest.openai import (
     OpenAIProxyModel,
 )
 from kserve.protocol.rest.openai.errors import OpenAIError
-from kserve.protocol.rest.openai.types import (
-    Error,  # TODO: what is this?
-)
+from kserve.protocol.rest.openai.types.openapi import ChatCompletionTool
 from kserve.protocol.rest.openai.types import (
     CompletionRequest,
     ChatCompletionRequest,
@@ -151,9 +149,7 @@ async def mocked_openai_proxy_model(handler: Callable):
             OpenAIProxyModel, "postprocess_completion_chunk"
         ), patch.object(
             OpenAIProxyModel, "preprocess_chat_completion_request"
-        ), patch.object(
-            OpenAIProxyModel, "postprocess_chat_completion"
-        ), patch.object(
+        ), patch.object(OpenAIProxyModel, "postprocess_chat_completion"), patch.object(
             OpenAIProxyModel, "postprocess_chat_completion_chunk"
         ):
             yield OpenAIProxyModel(
@@ -297,7 +293,6 @@ class TestOpenAIParamsConversion:
 
 
 class TestOpenAIProxyModelCompletion:
-
     @pytest.mark.asyncio
     async def test_completion_upstream_connection_error(
         self,

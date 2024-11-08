@@ -26,8 +26,7 @@ from vllm.entrypoints.openai.serving_completion import (
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
 from vllm.entrypoints.openai.serving_tokenization import OpenAIServingTokenization
-from vllm.engine.protocol import EngineClient
-from vllm import AsyncEngineArgs, RequestOutput, AsyncLLMEngine
+from vllm import RequestOutput, AsyncLLMEngine
 from vllm.config import ModelConfig
 
 from huggingfaceserver.vllm.vllm_model import VLLMModel
@@ -232,10 +231,11 @@ class TestChatTemplate:
         assert response.prompt is not None
 """
 
+
 def compare_response_to_expected(actual, expected, fields_to_compare=None) -> bool:
     if fields_to_compare is None:
         fields_to_compare = [
-            "id",
+            # "id",
             "choices",
             "system_fingerprint",
             "object",
@@ -381,7 +381,6 @@ class TestChatCompletions:
         self, vllm_opt_model
     ):
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
         max_tokens_arg = None
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
@@ -406,7 +405,7 @@ class TestChatCompletions:
         ]
 
         # max_tokens unset
-        params = CreateChatCompletionRequest(
+        params = ChatCompletionRequest(
             model="opt-125m",
             messages=messages,
             stream=False,
@@ -414,14 +413,11 @@ class TestChatCompletions:
             "{{ message.content }}{{ eos_token }}"
             "{% endfor %}",
         )
-        request = ChatCompletionRequest(
-            request_id=request_id, params=params, context={}
-        )
-        await opt_model.create_chat_completion(request)
+        await opt_model.create_chat_completion(params)
         assert max_tokens_arg is not None
 
         # max_tokens set
-        params = CreateChatCompletionRequest(
+        params = ChatCompletionRequest(
             model="opt-125m",
             messages=messages,
             stream=False,
@@ -430,10 +426,7 @@ class TestChatCompletions:
             "{{ message.content }}{{ eos_token }}"
             "{% endfor %}",
         )
-        request = ChatCompletionRequest(
-            request_id=request_id, params=params, context={}
-        )
-        await opt_model.create_chat_completion(request)
+        await opt_model.create_chat_completion(params)
         assert max_tokens_arg == 15
 
     async def test_vllm_chat_completion_facebook_opt_model_with_max_token_stream(
@@ -441,7 +434,6 @@ class TestChatCompletions:
     ):
         model_name = "opt-125m"
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
             for cmpl_chunk in opt_chat_cmpl_chunks:
@@ -478,7 +470,6 @@ class TestChatCompletions:
             completion += resp.choices[0].delta.content
             assert resp.choices[0].logprobs is None
             assert resp.model == model_name
-            assert resp.id == request_id
             assert isinstance(resp.id, str)
             assert resp.object == "chat.completion.chunk"
             assert resp.system_fingerprint is None
@@ -798,7 +789,6 @@ class TestChatCompletions:
         self, vllm_opt_model
     ):
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
         model_name = "opt-125m"
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
@@ -841,7 +831,6 @@ class TestChatCompletions:
             assert resp.choices[0].logprobs is not None
             log_probs.content += resp.choices[0].logprobs.content
             assert resp.model == model_name
-            assert resp.id == request_id
             assert isinstance(resp.id, str)
             assert resp.object == "chat.completion.chunk"
             assert resp.system_fingerprint is None
@@ -1057,11 +1046,9 @@ class TestChatCompletions:
         self, vllm_opt_model
     ):
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
             for cmpl_chunk in opt_chat_cmpl_chunks:
-                cmpl_chunk.request_id = args[2]
                 yield cmpl_chunk
 
         mock_vllm_engine.generate = mock_generate
@@ -1233,7 +1220,6 @@ class TestCompletions:
         self, vllm_opt_model
     ):
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
         model_name = "opt-125m"
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
@@ -1254,7 +1240,6 @@ class TestCompletions:
         completion = ""
         async for resp in response_iterator:
             resp = json.loads(resp)
-            assert resp.id == request_id
             assert len(resp.choices) == 1
             completion += resp.choices[0].text
             assert resp.choices[0].logprobs is None
@@ -1381,7 +1366,6 @@ class TestCompletions:
         self, vllm_opt_model
     ):
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
         model_name = "opt-125m"
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
@@ -1406,7 +1390,6 @@ class TestCompletions:
         )
         async for resp in response_iterator:
             resp = json.loads(resp)
-            assert resp.id == request_id
             assert len(resp.choices) == 1
             completion += resp.choices[0].text
             assert resp.choices[0].logprobs is not None
@@ -1529,7 +1512,6 @@ class TestCompletions:
         self, vllm_opt_model
     ):
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
         model_name = "opt-125m"
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
@@ -1551,7 +1533,6 @@ class TestCompletions:
         completion = ""
         async for resp in response_iterator:
             resp = json.loads(resp)
-            assert resp.id == request_id
             completion += resp.choices[0].text
             assert len(resp.choices) == 1
             assert resp.choices[0].logprobs is None
@@ -1730,7 +1711,6 @@ class TestCompletions:
         self, vllm_opt_model
     ):
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
         model_name = "opt-125m"
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
@@ -1862,7 +1842,6 @@ class TestCompletions:
         ]
         async for resp in response_iterator:
             resp = json.loads(resp)
-            assert resp.id == request_id
             assert len(resp.choices) == 1
             completion += resp.choices[0].text
             assert resp.choices[0].logprobs is not None
@@ -1934,7 +1913,6 @@ class TestCompletions:
         self, vllm_opt_model
     ):
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
         model_name = "opt-125m"
         prompts = ["Hi, I love my cat", "The sky is blue"]
 
@@ -1960,7 +1938,6 @@ class TestCompletions:
         completions = [""] * 2
         async for resp in response_iterator:
             resp = json.loads(resp)
-            assert resp.id == request_id
             assert len(resp.choices) == 1
             assert resp.choices[0].logprobs is None
             if resp.choices[0].index == 0:
@@ -2033,7 +2010,6 @@ class TestCompletions:
         self, vllm_opt_model
     ):
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
         model_name = "opt-125m"
         prompts = ["Hi, I love my cat", "The sky is blue"]
 
@@ -2060,7 +2036,6 @@ class TestCompletions:
         completions = [""] * 2
         async for resp in response_iterator:
             resp = json.loads(resp)
-            assert resp.id == request_id
             assert len(resp.choices) == 1
             assert resp.choices[0].logprobs is None
             if resp.choices[0].index == 0:
@@ -2272,7 +2247,6 @@ class TestCompletions:
         self, vllm_opt_model
     ):
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
         model_name = "opt-125m"
         prompts = ["Hi, I love my cat", "The sky is blue"]
 
@@ -2307,7 +2281,6 @@ class TestCompletions:
         ]
         async for resp in response_iterator:
             resp = json.loads(resp)
-            assert resp.id == request_id
             assert len(resp.choices) == 1
             if resp.choices[0].index == 0:
                 completions[0] += resp.choices[0].text
@@ -2544,7 +2517,6 @@ class TestCompletions:
         When best_of == n, the result can be streamed when stream=True is set
         """
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
         model_name = "ot-125m"
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
@@ -2568,7 +2540,6 @@ class TestCompletions:
         completions = [""] * 3
         async for resp in response_iterator:
             resp = json.loads(resp)
-            assert resp.id == request_id
             assert len(resp.choices) == 1
             if resp.choices[0].index == 0:
                 completions[0] += resp.choices[0].text
@@ -2645,7 +2616,6 @@ class TestCompletions:
         When best_of == n, the result can be streamed when stream=True is set
         """
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
         model_name = "ot-125m"
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
@@ -2670,7 +2640,6 @@ class TestCompletions:
         completions = [""] * 3
         async for resp in response_iterator:
             resp = json.loads(resp)
-            assert resp.id == request_id
             assert len(resp.choices) == 1
             if resp.choices[0].index == 0:
                 completions[0] += resp.choices[0].text
@@ -2694,7 +2663,6 @@ class TestCompletions:
         self, vllm_opt_model
     ):
         opt_model, mock_vllm_engine = vllm_opt_model
-        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
 
         async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
             for cmpl_chunk in opt_cmpl_chunks:
@@ -2791,8 +2759,6 @@ class TestCompletions:
             object="text_completion",
             usage=UsageInfo(completion_tokens=10, prompt_tokens=7, total_tokens=17),
         )
-
-        assert response.id == expected.id
         assert response.choices == expected.choices
         assert response.system_fingerprint == expected.system_fingerprint
         assert response.object == expected.object
