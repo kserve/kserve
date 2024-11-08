@@ -149,7 +149,9 @@ async def mocked_openai_proxy_model(handler: Callable):
             OpenAIProxyModel, "postprocess_completion_chunk"
         ), patch.object(
             OpenAIProxyModel, "preprocess_chat_completion_request"
-        ), patch.object(OpenAIProxyModel, "postprocess_chat_completion"), patch.object(
+        ), patch.object(
+            OpenAIProxyModel, "postprocess_chat_completion"
+        ), patch.object(
             OpenAIProxyModel, "postprocess_chat_completion_chunk"
         ):
             yield OpenAIProxyModel(
@@ -337,9 +339,11 @@ class TestOpenAIProxyModelCompletion:
         completion: Completion,
     ):
         res = ErrorResponse(
-            error=Error(
-                code="400", message="Bad request", type="BadRequest", param=None
-            )
+            object="error",
+            code="400",
+            message="Bad request",
+            type="BadRequest",
+            param=None,
         )
 
         def handler(request):
