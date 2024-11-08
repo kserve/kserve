@@ -49,7 +49,7 @@ async def openai_error_handler(_, exc: OpenAIError):
     )
 
     return JSONResponse(
-        status_code=int(response.error.code),
+        status_code=int(response.code),
         content=response.model_dump(),
     )
 
