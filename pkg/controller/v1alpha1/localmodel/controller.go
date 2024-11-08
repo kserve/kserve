@@ -687,28 +687,34 @@ func (c *LocalModelReconciler) getContainerSpecForStorageUri(storageUri string) 
 	return defaultContainer, nil
 }
 
+// UpdateLocalModelNode updates the source model uri of the localmodelnode from the localmodel
 func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel, jobNamespace string) error {
-	patch := client.MergeFrom(localmodelNode.DeepCopy())
-	for _, modelInfo := range localmodelNode.Spec.LocalModels {
+	var patch client.Patch
+	updated := false
+	for i, modelInfo := range localmodelNode.Spec.LocalModels {
 		if modelInfo.ModelName == localModel.Name {
-			if modelInfo.SourceModelUri != localModel.Spec.SourceModelUri {
-				modelInfo.SourceModelUri = localModel.Spec.SourceModelUri
-				if err := c.Patch(context.Background(), localmodelNode, patch); err != nil {
-					c.Log.Error(err, "Update localmodelnode", "name", localmodelNode.Name)
-					return err
-				}
+			if modelInfo.SourceModelUri == localModel.Spec.SourceModelUri {
+				return nil
 			}
-			return nil
+			// Update the source model uri
+			updated = true
+			patch = client.MergeFrom(localmodelNode.DeepCopy())
+			localmodelNode.Spec.LocalModels[i].SourceModelUri = localModel.Spec.SourceModelUri
+			break
 		}
 	}
-	localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels, v1alpha1api.LocalModelInfo{ModelName: localModel.Name, SourceModelUri: localModel.Spec.SourceModelUri})
-	if err := c.Patch(context.Background(), localmodelNode, patch); err != nil {
+	if !updated {
+		patch = client.MergeFrom(localmodelNode.DeepCopy())
+		localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels, v1alpha1api.LocalModelInfo{ModelName: localModel.Name, SourceModelUri: localModel.Spec.SourceModelUri})
+	}
+	if err := c.Client.Patch(context.TODO(), localmodelNode, patch); err != nil {
 		c.Log.Error(err, "Update localmodelnode", "name", localmodelNode.Name)
 		return err
 	}
 	return nil
 }
 
+// ReconcileLocalModelNode creates updates localmodelnode for each node in the node group. It adds and removes localmodels from the localmodelnode and updates the status on the localmodel from the localmodelnode.
 func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, localModel *v1alpha1api.ClusterLocalModel, nodeGroup *v1alpha1api.LocalModelNodeGroup, jobNamespace string) error {
 	readyNodes, notReadyNodes, err := getNodesFromNodeGroup(nodeGroup, c.Client)
 	if err != nil {
@@ -721,7 +727,6 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 		}
 	}
 	for _, node := range readyNodes.Items {
-		jobName := localModel.Name + "-" + node.Name
 		localModelNode := &v1alpha1.LocalModelNode{}
 		err := c.Client.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
 		found := true
@@ -730,7 +735,7 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 				found = false
 				c.Log.Info("localmodelNode not found")
 			} else {
-				c.Log.Error(err, "Failed to get localmodelnode", "name", jobName)
+				c.Log.Error(err, "Failed to get localmodelnode", "name", node.Name)
 				return err
 			}
 		}
