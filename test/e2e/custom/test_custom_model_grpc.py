@@ -282,8 +282,8 @@ async def test_predictor_rest_with_transformer_rest(rest_v2_client):
                 image=os.environ.get("CUSTOM_MODEL_GRPC_IMG_TAG"),
                 command=["python", "-m", "custom_model.model"],
                 resources=V1ResourceRequirements(
-                    requests={"cpu": "50m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "1Gi"},
+                    requests={"cpu": "50m", "memory": "512Mi"},
+                    limits={"cpu": "100m", "memory": "2Gi"},
                 ),
                 args=["--model_name", model_name],
                 env=[V1EnvVar(name="PROTOCOL", value="v1")],
