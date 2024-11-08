@@ -17,9 +17,7 @@ from kserve.protocol.rest.openai.types.openapi import ChatMessage
 from kserve.protocol.rest.openai.types.openapi import (
     DeltaMessage as ChoiceDelta,
 )
-from kserve.protocol.rest.openai.types.openapi import (
-    ChatCompletionLogprob,
-)  # TODO: can not import
+from kserve.protocol.rest.openai.types.openapi import ChatCompletionLogprob
 from kserve.protocol.rest.openai.types.openapi import (
     CompletionResponseChoice as CompletionChoice,
 )
