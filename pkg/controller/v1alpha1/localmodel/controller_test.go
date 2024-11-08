@@ -182,12 +182,13 @@ var _ = Describe("CachedModel controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, node1)).Should(Succeed())
 			defer k8sClient.Delete(ctx, node1)
-			nodes := &v1.NodeList{}
+
+			localModelNode := &v1alpha1.LocalModelNode{}
 			Eventually(func() bool {
-				err := k8sClient.List(ctx, nodes)
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
-			Expect(len(nodes.Items)).Should(Equal(1))
+			Expect(localModelNode.Spec.LocalModels).Should(ContainElement(v1alpha1.LocalModelInfo{ModelName: cachedModel.Name, SourceModelUri: sourceModelUri}))
 
 			// Now that we have a node and a local model CR ready. It should create download jobs
 			jobs := &batchv1.JobList{}
@@ -395,6 +396,102 @@ var _ = Describe("CachedModel controller", func() {
 				}
 				return false
 			}, timeout, interval).Should(BeTrue())
+		})
+	})
+	Context("When creating multiple localModels", func() {
+		// With two nodes and two local models, each node should have both local models
+		It("Should create localModelNode correctly", func() {
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: clusterStorageContainerSpec,
+			}
+			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
+			defer k8sClient.Delete(ctx, clusterStorageContainer)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu",
+				},
+				Spec: localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			node1 := &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:   v1.NodeReady,
+							Status: v1.ConditionTrue,
+						},
+					},
+				},
+			}
+
+			node2 := &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node2",
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:   v1.NodeReady,
+							Status: v1.ConditionTrue,
+						},
+					},
+				},
+			}
+
+			nodes := []*v1.Node{node1, node2}
+			for _, node := range nodes {
+				Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+				defer k8sClient.Delete(ctx, node)
+			}
+
+			cachedModel1 := &v1alpha1.ClusterLocalModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "iris1",
+				},
+				Spec: localModelSpec,
+			}
+			Expect(k8sClient.Create(ctx, cachedModel1)).Should(Succeed())
+			cachedModel2 := &v1alpha1.ClusterLocalModel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "iris2",
+				},
+				Spec: localModelSpec,
+			}
+			Expect(k8sClient.Create(ctx, cachedModel2)).Should(Succeed())
+
+			for _, node := range nodes {
+				localModelNode := &v1alpha1.LocalModelNode{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+				Expect(localModelNode.Spec.LocalModels).Should(ConsistOf(v1alpha1.LocalModelInfo{ModelName: cachedModel1.Name, SourceModelUri: sourceModelUri}, v1alpha1.LocalModelInfo{ModelName: cachedModel2.Name, SourceModelUri: sourceModelUri}))
+			}
 		})
 	})
 })

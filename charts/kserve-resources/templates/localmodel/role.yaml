@@ -61,6 +61,7 @@ rules:
   - serving.kserve.io
   resources:
   - clusterlocalmodels
+  - localmodelnodes
   verbs:
   - create
   - delete
@@ -86,5 +87,12 @@ rules:
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelnodes/status
+  verbs:
+  - get
   - watch
 {{- end }}
