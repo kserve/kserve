@@ -341,3 +341,22 @@ def generate(
             return preds
         else:
             response.raise_for_status()
+
+
+def is_model_ready(
+    rest_client, service_name, model_name, version=constants.KSERVE_V1BETA1_VERSION
+):
+    kfs_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    isvc = kfs_client.get(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        version=version,
+    )
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+    if model_name is None:
+        model_name = service_name
+    base_url = f"{scheme}://{cluster_ip}{path}"
+    headers = {"Host": host}
+    return rest_client.is_model_ready(base_url, model_name, headers=headers)

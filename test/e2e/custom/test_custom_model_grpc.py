@@ -30,7 +30,12 @@ from kserve import (
 from kubernetes.client import V1ResourceRequirements
 from kubernetes import client
 from kubernetes.client import V1Container, V1ContainerPort, V1EnvVar
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
+from ..common.utils import (
+    KSERVE_TEST_NAMESPACE,
+    is_model_ready,
+    predict_isvc,
+    predict_grpc,
+)
 
 
 @pytest.mark.grpc
@@ -234,6 +239,8 @@ async def test_predictor_grpc_with_transformer_http(rest_v2_client):
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
+    is_ready = await is_model_ready(rest_v2_client, service_name, model_name) is True
+    assert is_ready is True
     res = await predict_isvc(
         rest_v2_client,
         service_name,
@@ -286,7 +293,7 @@ async def test_predictor_rest_with_transformer_rest(rest_v2_client):
                     limits={"cpu": "100m", "memory": "2Gi"},
                 ),
                 args=["--model_name", model_name],
-                env=[V1EnvVar(name="PROTOCOL", value="v1")],
+                env=[V1EnvVar(name="PROTOCOL", value="v2")],
             )
         ]
     )
@@ -304,7 +311,7 @@ async def test_predictor_rest_with_transformer_rest(rest_v2_client):
                     "--model_name",
                     model_name,
                     "--predictor_protocol",
-                    "v1",
+                    "v2",
                     "--enable_predictor_health_check",
                 ],
             )
@@ -326,6 +333,8 @@ async def test_predictor_rest_with_transformer_rest(rest_v2_client):
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
+    is_ready = await is_model_ready(rest_v2_client, service_name, model_name) is True
+    assert is_ready is True
     res = await predict_isvc(
         rest_v2_client,
         service_name,
