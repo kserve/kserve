@@ -42,11 +42,11 @@ from kserve.protocol.rest.openai.types import (
     CompletionChoice,
     Completion,
     CompletionLogProbs,
-    ChatCompletionLogprob,  # TODO: can not import?
 )
 from kserve.protocol.rest.openai.types.openapi import (
     ChatCompletionResponse,
     TopLogprob,
+    ChatCompletionLogProb,  # TODO: can not import?
 )
 
 from vllm_mock_outputs import (
@@ -527,7 +527,7 @@ class TestChatCompletions:
                     ),
                     logprobs=ChatCompletionChoiceLogprobs(
                         content=[
-                            ChatCompletionLogprob(
+                            ChatCompletionLogProb(
                                 token="Most",
                                 logprob=-6.909554481506348,
                                 bytes=[77, 111, 115, 116],
@@ -549,7 +549,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogprob(
+                            ChatCompletionLogProb(
                                 token=" redd",
                                 logprob=-7.630484580993652,
                                 bytes=[32, 114, 101, 100, 100],
@@ -571,7 +571,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogprob(
+                            ChatCompletionLogProb(
                                 token="itors",
                                 logprob=-0.039746206253767014,
                                 bytes=[105, 116, 111, 114, 115],
@@ -588,7 +588,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogprob(
+                            ChatCompletionLogProb(
                                 token=" know",
                                 logprob=-4.415658473968506,
                                 bytes=[32, 107, 110, 111, 119],
@@ -610,7 +610,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogprob(
+                            ChatCompletionLogProb(
                                 token=" the",
                                 logprob=-2.7328412532806396,
                                 bytes=[32, 116, 104, 101],
@@ -632,7 +632,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogprob(
+                            ChatCompletionLogProb(
                                 token=" tiny",
                                 logprob=-9.554351806640625,
                                 bytes=[32, 116, 105, 110, 121],
@@ -666,7 +666,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogprob(
+                            ChatCompletionLogProb(
                                 token=" difference",
                                 logprob=-4.9500274658203125,
                                 bytes=[
@@ -712,7 +712,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogprob(
+                            ChatCompletionLogProb(
                                 token=" between",
                                 logprob=-0.08497463166713715,
                                 bytes=[32, 98, 101, 116, 119, 101, 101, 110],
@@ -729,7 +729,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogprob(
+                            ChatCompletionLogProb(
                                 token=" Frog",
                                 logprob=-12.07158374786377,
                                 bytes=[32, 70, 114, 111, 103],
@@ -751,7 +751,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogprob(
+                            ChatCompletionLogProb(
                                 token="ling",
                                 logprob=-6.787796497344971,
                                 bytes=[108, 105, 110, 103],
@@ -839,7 +839,7 @@ class TestChatCompletions:
         assert completion == "Most redditors know the tiny difference between Frogling"
         assert log_probs == ChatCompletionChoiceLogprobs(
             content=[
-                ChatCompletionLogprob(
+                ChatCompletionLogProb(
                     token="Most",
                     logprob=-6.909554481506348,
                     bytes=[77, 111, 115, 116],
@@ -857,7 +857,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionLogprob(
+                ChatCompletionLogProb(
                     token=" redd",
                     logprob=-7.630484580993652,
                     bytes=[32, 114, 101, 100, 100],
@@ -879,7 +879,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionLogprob(
+                ChatCompletionLogProb(
                     token="itors",
                     logprob=-0.039746206253767014,
                     bytes=[105, 116, 111, 114, 115],
@@ -896,7 +896,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionLogprob(
+                ChatCompletionLogProb(
                     token=" know",
                     logprob=-4.415658473968506,
                     bytes=[32, 107, 110, 111, 119],
@@ -918,7 +918,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionLogprob(
+                ChatCompletionLogProb(
                     token=" the",
                     logprob=-2.7328412532806396,
                     bytes=[32, 116, 104, 101],
@@ -940,7 +940,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionLogprob(
+                ChatCompletionLogProb(
                     token=" tiny",
                     logprob=-9.554351806640625,
                     bytes=[32, 116, 105, 110, 121],
@@ -962,7 +962,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionLogprob(
+                ChatCompletionLogProb(
                     token=" difference",
                     logprob=-4.9500274658203125,
                     bytes=[32, 100, 105, 102, 102, 101, 114, 101, 110, 99, 101],
@@ -984,7 +984,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionLogprob(
+                ChatCompletionLogProb(
                     token=" between",
                     logprob=-0.08497463166713715,
                     bytes=[32, 98, 101, 116, 119, 101, 101, 110],
@@ -1001,7 +1001,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionLogprob(
+                ChatCompletionLogProb(
                     token=" Frog",
                     logprob=-12.07158374786377,
                     bytes=[32, 70, 114, 111, 103],
@@ -1021,7 +1021,7 @@ class TestChatCompletions:
                         ),
                     ],
                 ),
-                ChatCompletionLogprob(
+                ChatCompletionLogProb(
                     token="ling",
                     logprob=-6.787796497344971,
                     bytes=[108, 105, 110, 103],
