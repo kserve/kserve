@@ -269,13 +269,6 @@ class ModelServer:
         self.dataplane = DataPlane(
             model_registry=self.registered_models, predictor_config=predictor_config
         )
-        if self.enable_grpc:
-            self._grpc_server = GRPCServer(
-                grpc_port,
-                self.dataplane,
-                self.model_repository_extension,
-                kwargs=vars(args),
-            )
 
     async def _serve_rest(self):
         logger.info(f"Starting uvicorn with {self.workers} workers")
@@ -386,7 +379,7 @@ class ModelServer:
         """
         if "exception" in context:
             logger.error(f"Caught exception: {context.get('exception')}")
-        logger.error(f"message: { context.get('message')}")
+        logger.error(f"message: {context.get('message')}")
         loop.default_exception_handler(context)
 
     def register_model(self, model: BaseKServeModel):

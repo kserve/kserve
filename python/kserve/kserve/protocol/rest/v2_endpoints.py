@@ -31,7 +31,7 @@ from .v2_datamodels import (
 from ..dataplane import DataPlane
 from ..model_repository_extension import ModelRepositoryExtension
 from ...constants.constants import V2_ROUTE_PREFIX, PredictorProtocol
-from ...errors import ModelNotReady
+from ...errors import ModelNotReady, ServerNotLive, ServerNotReady
 
 
 class V2Endpoints:
@@ -60,8 +60,9 @@ class V2Endpoints:
             ServerLiveResponse: Server live message.
         """
         response = await self.dataplane.live()
-        # TODO: if server is not live send 5xx error response.
         is_live = response["status"] == "alive"
+        if not is_live:
+            raise ServerNotLive()
         return ServerLiveResponse(live=is_live)
 
     async def ready(self) -> ServerReadyResponse:
@@ -72,7 +73,7 @@ class V2Endpoints:
         """
         is_ready = await self.dataplane.ready()
         if not is_ready:
-            pass
+            raise ServerNotReady()
         return ServerReadyResponse(ready=is_ready)
 
     async def models(self) -> ListModelsResponse:
