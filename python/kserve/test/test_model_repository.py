@@ -14,25 +14,32 @@
 import pytest
 
 from kserve import ModelRepository, Model
-from kserve.protocol.rest.openai import CompletionRequest, OpenAIModel
-from unittest.mock import patch
-from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionResponse as ChatCompletion,
-    CreateChatCompletionStreamResponse as ChatCompletionChunk,
-    CreateCompletionResponse as Completion,
+from kserve.protocol.rest.openai.types import (
+    CompletionRequest,
+    ErrorResponse,
+    ChatCompletion,
+    Completion,
 )
-from typing import AsyncIterator, Union
+from kserve.protocol.rest.openai import OpenAIModel
+from unittest.mock import patch
+
+from typing import Union, Optional, AsyncGenerator
+from fastapi import Request
 
 
 class DummyOpenAIModel(OpenAIModel):
     async def create_completion(
-        self, params: CompletionRequest
-    ) -> Union[Completion, AsyncIterator[Completion]]:
+        self,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
+    ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
         pass
 
     async def create_chat_completion(
-        self, params: CompletionRequest
-    ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
+        self,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
+    ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
         pass
 
 

@@ -45,7 +45,7 @@ FIXTURES_PATH = Path(__file__).parent / "fixtures" / "openai"
 class ChunkIterator:
     """Yields chunks"""
 
-    def __init__(self, chunks: List[Completion]):  # is this correct?
+    def __init__(self, chunks: List[Completion]):
         self.chunks = chunks
         self.curr_chunk = 0
 
@@ -60,7 +60,7 @@ class ChunkIterator:
         return chunk
 
 
-class DummyModel(OpenAIChatAdapterModel):  # TODO:
+class DummyModel(OpenAIChatAdapterModel):
     data: Tuple[Completion, Completion]
     num_chunks: int
 
@@ -70,7 +70,9 @@ class DummyModel(OpenAIChatAdapterModel):  # TODO:
 
     async def create_completion(
         self, request: CompletionRequest
-    ) -> Union[Completion, AsyncIterator[Completion]]:
+    ) -> Union[
+        Completion, AsyncIterator[Completion]
+    ]:  # TODO: Leave it as it is, as it is mock test
         if request.stream:
             return ChunkIterator([self.data[1]] * self.num_chunks)
         else:
@@ -286,7 +288,7 @@ class TestOpenAIParamsConversion:
         completion_create_params: CompletionRequest,
     ):
         converted_params = (
-            OpenAIChatAdapterModel.chat_completion_params_to_completion_params(
+            OpenAIChatAdapterModel.chat_completion_params_to_completion_params(  # TODO
                 chat_completion_create_params,
                 prompt=chat_completion_create_params.messages[0].content,
             )

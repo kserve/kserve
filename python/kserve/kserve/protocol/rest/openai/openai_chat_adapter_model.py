@@ -16,13 +16,15 @@ from abc import abstractmethod
 from typing import Iterable, Optional
 
 from kserve.protocol.rest.openai.types import (
+    ChatCompletionRequest,
+    CompletionRequest,
     ChatCompletion,
     ChatCompletionChoice,
     ChatCompletionChoiceLogprobs,
     ChatCompletionChunk,
     ChatCompletionMessageParam,
     ChatMessage,
-    ChatCompletionLogprob,  # TODO: Why can not import this?
+    ChatCompletionLogProb,
     ChoiceDelta,
     ChunkChoice,
     Completion,
@@ -57,6 +59,28 @@ class OpenAIChatAdapterModel(OpenAIModel):
         pass
 
     @classmethod
+    def chat_completion_params_to_completion_params(
+        cls, request: ChatCompletionRequest, prompt: str
+    ) -> CompletionRequest:
+
+        return CompletionRequest(
+            prompt=prompt,
+            model=request.model,
+            frequency_penalty=request.frequency_penalty,
+            logit_bias=request.logit_bias,
+            max_tokens=request.max_tokens,
+            n=request.n,
+            presence_penalty=request.presence_penalty,
+            seed=request.seed,
+            stop=request.stop,
+            stream=request.stream,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            user=request.user,
+            logprobs=request.top_logprobs,
+        )
+
+    @classmethod
     def to_choice_logprobs(
         cls, logprobs: CompletionLogProbs
     ) -> ChatCompletionChoiceLogprobs:
@@ -74,7 +98,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
                 for token, logprob in top_logprobs_dict.items()
             ]
             chat_completion_logprobs.append(
-                ChatCompletionLogprob(
+                ChatCompletionLogProb(
                     token=token,
                     bytes=[int(b) for b in token.encode("utf8")],
                     logprob=token_logprob,

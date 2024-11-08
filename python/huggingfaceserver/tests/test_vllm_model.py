@@ -46,7 +46,7 @@ from kserve.protocol.rest.openai.types import (
 from kserve.protocol.rest.openai.types.openapi import (
     ChatCompletionResponse,
     TopLogprob,
-    ChatCompletionLogProb,  # TODO: can not import?
+    ChatCompletionLogProb,
 )
 
 from vllm_mock_outputs import (
