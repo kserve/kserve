@@ -286,7 +286,7 @@ async def test_predictor_rest_with_transformer_rest(rest_v2_client):
                     limits={"cpu": "100m", "memory": "1Gi"},
                 ),
                 args=["--model_name", model_name],
-                env=[V1EnvVar(name="PROTOCOL", value="V1")],
+                env=[V1EnvVar(name="PROTOCOL", value="v1")],
             )
         ]
     )
