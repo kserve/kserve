@@ -15,10 +15,9 @@
 import pytest
 import torch
 from kserve.model import PredictorConfig
-from kserve.protocol.rest.openai import ChatCompletionRequest, CompletionRequest
 from kserve.protocol.rest.openai.types import (
-    CreateChatCompletionRequest,
-    CreateCompletionRequest,
+    ChatCompletionRequest,
+    CompletionRequest,
 )
 from pytest_httpx import HTTPXMock
 from transformers import AutoConfig
@@ -160,12 +159,11 @@ def test_unsupported_model():
 
 @pytest.mark.asyncio
 async def test_t5(t5_model: HuggingfaceGenerativeModel):
-    params = CreateCompletionRequest(
+    request = CompletionRequest(
         model="t5-small",
         prompt="translate from English to German: we are making words",
         stream=False,
     )
-    request = CompletionRequest(params=params, context={})
     response = await t5_model.create_completion(request)
     assert response.choices[0].text == "wir setzen Worte"
     assert response.usage.completion_tokens == 7
@@ -173,28 +171,26 @@ async def test_t5(t5_model: HuggingfaceGenerativeModel):
 
 @pytest.mark.asyncio
 async def test_t5_stopping_criteria(t5_model: HuggingfaceGenerativeModel):
-    params = CreateCompletionRequest(
+    params = CompletionRequest(
         model="t5-small",
         prompt="translate from English to German: we are making words",
         stop=["setzen "],
         stream=False,
     )
-    request = CompletionRequest(params=params, context={})
-    response = await t5_model.create_completion(request)
+    response = await t5_model.create_completion(params)
     assert response.choices[0].text == "wir setzen"
 
 
 @pytest.mark.asyncio
 async def test_t5_bad_params(t5_model: HuggingfaceGenerativeModel):
-    params = CreateCompletionRequest(
+    params = CompletionRequest(
         model="t5-small",
         prompt="translate from English to German: we are making words",
         echo=True,
         stream=False,
     )
-    request = CompletionRequest(params=params, context={})
     with pytest.raises(ValueError) as err_info:
-        await t5_model.create_completion(request)
+        await t5_model.create_completion(params)
     assert err_info.value.args[0] == "'echo' is not supported by encoder-decoder models"
 
 
@@ -324,14 +320,13 @@ async def test_bert_token_classification(bert_token_classification):
 
 @pytest.mark.asyncio
 async def test_bloom_completion(bloom_model: HuggingfaceGenerativeModel):
-    params = CreateCompletionRequest(
+    params = CompletionRequest(
         model="bloom-560m",
         prompt="Hello, my dog is cute",
         stream=False,
         echo=True,
     )
-    request = CompletionRequest(params=params, context={})
-    response = await bloom_model.create_completion(request)
+    response = await bloom_model.create_completion(params)
     assert (
         response.choices[0].text
         == "Hello, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute"
@@ -340,7 +335,7 @@ async def test_bloom_completion(bloom_model: HuggingfaceGenerativeModel):
 
 @pytest.mark.asyncio
 async def test_bloom_completion_max_tokens(bloom_model: HuggingfaceGenerativeModel):
-    params = CreateCompletionRequest(
+    params = CompletionRequest(
         model="bloom-560m",
         prompt="Hello, my dog is cute",
         stream=False,
@@ -348,8 +343,7 @@ async def test_bloom_completion_max_tokens(bloom_model: HuggingfaceGenerativeMod
         max_tokens=100,
         # bloom doesn't have any field specifying context length. Our implementation would default to 2048. Testing with something longer than HF's default max_length of 20
     )
-    request = CompletionRequest(params=params, context={})
-    response = await bloom_model.create_completion(request)
+    response = await bloom_model.create_completion(params)
     assert (
         response.choices[0].text
         == "Hello, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey, my dog is cute.\n- Hey,"
@@ -358,14 +352,13 @@ async def test_bloom_completion_max_tokens(bloom_model: HuggingfaceGenerativeMod
 
 @pytest.mark.asyncio
 async def test_bloom_completion_streaming(bloom_model: HuggingfaceGenerativeModel):
-    params = CreateCompletionRequest(
+    params = CompletionRequest(
         model="bloom-560m",
         prompt="Hello, my dog is cute",
         stream=True,
         echo=False,
     )
-    request = CompletionRequest(params=params, context={})
-    response = await bloom_model.create_completion(request)
+    response = await bloom_model.create_completion(params)
     output = ""
     async for chunk in response:
         output += chunk.choices[0].text
@@ -384,7 +377,7 @@ async def test_bloom_chat_completion(bloom_model: HuggingfaceGenerativeModel):
             "content": "How many helicopters can a human eat in one sitting?",
         },
     ]
-    params = CreateChatCompletionRequest(
+    params = ChatCompletionRequest(
         model="bloom-560m",
         messages=messages,
         stream=False,
@@ -393,8 +386,7 @@ async def test_bloom_chat_completion(bloom_model: HuggingfaceGenerativeModel):
         "{{ message.content }}{{ eos_token }}"
         "{% endfor %}",
     )
-    request = ChatCompletionRequest(params=params, context={})
-    response = await bloom_model.create_chat_completion(request)
+    response = await bloom_model.create_chat_completion(params)
     assert (
         response.choices[0].message.content
         == "The first thing you need to do is to get a good idea of what you are looking for."
@@ -414,7 +406,7 @@ async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativ
             "content": "How many helicopters can a human eat in one sitting?",
         },
     ]
-    params = CreateChatCompletionRequest(
+    params = ChatCompletionRequest(
         model="bloom-560m",
         messages=messages,
         stream=True,
@@ -423,8 +415,7 @@ async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativ
         "{{ message.content }}{{ eos_token }}"
         "{% endfor %}",
     )
-    request = ChatCompletionRequest(params=params, context={})
-    response = await bloom_model.create_chat_completion(request)
+    response = await bloom_model.create_chat_completion(params)
     output = ""
     async for chunk in response:
         output += chunk.choices[0].delta.content
@@ -494,14 +485,13 @@ async def test_input_padding_with_pad_token_not_specified(
     # openai-gpt model does not specify the pad token, so the fallback pad token should be added.
     assert openai_gpt_model._tokenizer.pad_token == "[PAD]"
     assert openai_gpt_model._tokenizer.pad_token_id is not None
-    params = CreateCompletionRequest(
+    params = CompletionRequest(
         model="openai-gpt",
         prompt=["Sun rises in the east, sets in the", "My name is Teven and I am"],
         stream=False,
         temperature=0,
     )
-    request = CompletionRequest(params=params, context={})
-    response = await openai_gpt_model.create_completion(request)
+    response = await openai_gpt_model.create_completion(params)
     assert (
         response.choices[0].text
         == "west , and the sun sets in the west . \n the sun rises in the"

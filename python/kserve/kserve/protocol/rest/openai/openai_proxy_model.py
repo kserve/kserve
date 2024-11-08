@@ -22,7 +22,6 @@ from pydantic import ValidationError
 
 
 from .openai_model import (
-    BaseCompletionRequest,
     OpenAIModel,
     AsyncMappingIterator,
     CompletionRequest,
@@ -36,7 +35,7 @@ from .types import (
 )
 from .errors import OpenAIError, create_error_response
 from ....logging import logger
-
+from fastapi import Request  # TODO: check whether installed
 
 COMPLETIONS_ENDPOINT = "/v1/completions"
 CHAT_COMPLETIONS_ENDPOINT = "/v1/chat/completions"
@@ -144,43 +143,68 @@ class OpenAIProxyModel(OpenAIModel):
         self.skip_upstream_validation = skip_upstream_validation
         self.ready = True
 
-    def preprocess_completion_request(self, request: CompletionRequest):
+    def preprocess_completion_request(
+        self,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
+    ):
         """Preprocess a completion request."""
         pass
 
     def postprocess_completion(
-        self, completion: Completion, request: CompletionRequest
+        self,
+        completion: Completion,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
     ):
         """Postprocess a completion. Only called when response is not being streamed (i.e. stream=false)"""
         pass
 
     def postprocess_completion_chunk(
-        self, completion: Completion, request: CompletionRequest
+        self,
+        completion: Completion,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
     ):
         """Postprocess a completion chunk. Only called when response is being streamed (i.e. stream=true)
         This method will be called once for each chunk that is streamed back to the user.
         """
         pass
 
-    def preprocess_chat_completion_request(self, request: ChatCompletionRequest):
+    def preprocess_chat_completion_request(
+        self,
+        request: ChatCompletionRequest,
+        raw_request: Optional[Request] = None,
+    ):
         """Preprocess a chat completion request."""
         pass
 
     def postprocess_chat_completion(
-        self, chat_completion: ChatCompletion, request: ChatCompletionRequest
+        self,
+        chat_completion: ChatCompletion,
+        request: ChatCompletionRequest,
+        raw_request: Optional[Request] = None,
     ):
         """Postprocess a chat completion. Only called when response is not being streamed (i.e. stream=false)"""
         pass
 
     def postprocess_chat_completion_chunk(
-        self, chat_completion_chunk: ChatCompletionChunk, request: ChatCompletionRequest
+        self,
+        chat_completion_chunk: ChatCompletionChunk,
+        request: ChatCompletionRequest,
+        raw_request: Optional[Request] = None,
     ):
         """Postprocess a chat completion chunk. Only called when response is being streamed (i.e. stream=true)
         This method will be called once for each chunk that is streamed back to the user.
         """
         pass
 
-    def _handle_completion_chunk(self, raw_chunk: str, request: CompletionRequest):
+    def _handle_completion_chunk(
+        self,
+        raw_chunk: str,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
+    ):
         # Skip empty lines
         if len(raw_chunk) == 0:
             return None
@@ -194,11 +218,14 @@ class OpenAIProxyModel(OpenAIModel):
             completion_chunk = Completion.model_construct(**obj)
         else:
             completion_chunk = Completion.model_validate_json(data)
-        self.postprocess_completion_chunk(completion_chunk, request)
+        self.postprocess_completion_chunk(completion_chunk, request, raw_request)
         return completion_chunk
 
     def _handle_chat_completion_chunk(
-        self, raw_chunk: str, request: ChatCompletionRequest
+        self,
+        raw_chunk: str,
+        request: ChatCompletionRequest,
+        raw_request: Optional[Request] = None,
     ):
         # Skip empty lines
         if len(raw_chunk) == 0:
@@ -214,15 +241,20 @@ class OpenAIProxyModel(OpenAIModel):
             chat_completion_chunk = ChatCompletionChunk.model_construct(**obj)
         else:
             chat_completion_chunk = ChatCompletionChunk.model_validate_json(data)
-        self.postprocess_chat_completion_chunk(chat_completion_chunk, request)
+        self.postprocess_chat_completion_chunk(
+            chat_completion_chunk, request, raw_request
+        )
         return chat_completion_chunk
 
     def _build_request(
-        self, endpoint: str, request: BaseCompletionRequest
+        self,
+        endpoint: str,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
     ) -> httpx.Request:
 
-        if request.context and "upstream_headers" in request.context:
-            headers = httpx.Headers(request.context["upstream_headers"])
+        if raw_request and "upstream_headers" in raw_request:
+            headers = httpx.Headers(raw_request["upstream_headers"])
         else:
             headers = httpx.Headers()
 
@@ -231,35 +263,41 @@ class OpenAIProxyModel(OpenAIModel):
         req = self._http_client.build_request(
             "POST",
             endpoint,
-            content=request.params.model_dump_json(
-                exclude_unset=True, exclude_none=True
-            ),
+            content=request.model_dump_json(exclude_unset=True, exclude_none=True),
             headers=headers,
         )
         return req
 
     @error_handler
     async def create_completion(
-        self, request: CompletionRequest
+        self,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
     ) -> Union[Completion, AsyncIterator[Completion]]:
-        self.preprocess_completion_request(request)
-        if request.params.stream:
-            req = self._build_request(self._completions_endpoint, request)
+        self.preprocess_completion_request(request, raw_request)
+        if request.stream:
+            req = self._build_request(self._completions_endpoint, request, raw_request)
             r = await self._http_client.send(req, stream=True)
             r.raise_for_status()
             it = AsyncMappingIterator(
                 iterator=r.aiter_lines(),
-                mapper=partial(self._handle_completion_chunk, request=request),
+                mapper=partial(
+                    self._handle_completion_chunk,
+                    request=request,
+                    raw_request=raw_request,
+                ),
                 close=r.aclose,
             )
             return it
         else:
-            completion = await self.generate_completion(request)
-            self.postprocess_completion(completion, request)
+            completion = await self.generate_completion(request, raw_request)
+            self.postprocess_completion(completion, request, raw_request)
             return completion
 
-    async def generate_completion(self, request: CompletionRequest) -> Completion:
-        req = self._build_request(self._completions_endpoint, request)
+    async def generate_completion(
+        self, request: CompletionRequest, raw_request: Optional[Request] = None
+    ) -> Completion:
+        req = self._build_request(self._completions_endpoint, request, raw_request)
         response = await self._http_client.send(req)
         response.raise_for_status()
         if self.skip_upstream_validation:
@@ -271,28 +309,38 @@ class OpenAIProxyModel(OpenAIModel):
 
     @error_handler
     async def create_chat_completion(
-        self, request: ChatCompletionRequest
+        self,
+        request: ChatCompletionRequest,
+        raw_request: Optional[Request] = None,
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
-        self.preprocess_chat_completion_request(request)
-        if request.params.stream:
-            req = self._build_request(self._chat_completions_endpoint, request)
+        self.preprocess_chat_completion_request(request, raw_request)
+        if request.stream:
+            req = self._build_request(
+                self._chat_completions_endpoint, request, raw_request
+            )
             r = await self._http_client.send(req, stream=True)
             r.raise_for_status()
             it = AsyncMappingIterator(
                 iterator=r.aiter_lines(),
-                mapper=partial(self._handle_chat_completion_chunk, request=request),
+                mapper=partial(
+                    self._handle_chat_completion_chunk,
+                    request=request,
+                    raw_request=raw_request,
+                ),
                 close=r.aclose,
             )
             return it
         else:
-            chat_completion = await self.generate_chat_completion(request)
-            self.postprocess_chat_completion(chat_completion, request)
+            chat_completion = await self.generate_chat_completion(request, raw_request)
+            self.postprocess_chat_completion(chat_completion, request, raw_request)
             return chat_completion
 
     async def generate_chat_completion(
-        self, request: ChatCompletionRequest
+        self,
+        request: ChatCompletionRequest,
+        raw_request: Optional[Request] = None,
     ) -> ChatCompletion:
-        req = self._build_request(self._chat_completions_endpoint, request)
+        req = self._build_request(self._chat_completions_endpoint, request, raw_request)
         response = await self._http_client.send(req)
         response.raise_for_status()
         if self.skip_upstream_validation:

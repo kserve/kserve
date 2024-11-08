@@ -15,36 +15,31 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator, Callable, Iterable, List, Tuple, Union, cast, Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch  # TODO: not familiar with this
 
 import httpx
 import pytest
 
 from kserve.protocol.rest.openai import (
-    ChatCompletionRequestMessage,
     ChatPrompt,
-    CompletionRequest,
-    ChatCompletionRequest,
     OpenAIChatAdapterModel,
     OpenAIProxyModel,
 )
 from kserve.protocol.rest.openai.errors import OpenAIError
-from kserve.protocol.rest.openai.types.openapi import (
-    ChatCompletionTool,
-    CreateChatCompletionRequest,
-    Error,
+from kserve.protocol.rest.openai.types import (
+    Error,  # TODO: what is this?
+)
+from kserve.protocol.rest.openai.types import (
+    CompletionRequest,
+    ChatCompletionRequest,
+    Completion,
+    ChatCompletion,
+    ChatCompletionMessageParam,
     ErrorResponse,
+    ChatCompletionChunk,
 )
-from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionResponse as ChatCompletion,
-)
-from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionStreamResponse as ChatCompletionChunk,
-)
-from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
-from kserve.protocol.rest.openai.types.openapi import (
-    CreateCompletionResponse as Completion,
-)
+
+from fastapi import Request  # TODO: check installed or not
 
 FIXTURES_PATH = Path(__file__).parent / "fixtures" / "openai"
 
@@ -52,7 +47,7 @@ FIXTURES_PATH = Path(__file__).parent / "fixtures" / "openai"
 class ChunkIterator:
     """Yields chunks"""
 
-    def __init__(self, chunks: List[Completion]):
+    def __init__(self, chunks: List[Completion]):  # is this correct?
         self.chunks = chunks
         self.curr_chunk = 0
 
@@ -67,7 +62,7 @@ class ChunkIterator:
         return chunk
 
 
-class DummyModel(OpenAIChatAdapterModel):
+class DummyModel(OpenAIChatAdapterModel):  # TODO:
     data: Tuple[Completion, Completion]
     num_chunks: int
 
@@ -78,15 +73,14 @@ class DummyModel(OpenAIChatAdapterModel):
     async def create_completion(
         self, request: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
-        params = request.params
-        if params.stream:
+        if request.stream:
             return ChunkIterator([self.data[1]] * self.num_chunks)
         else:
             return self.data[0]
 
     def apply_chat_template(
         self,
-        messages: Iterable[ChatCompletionRequestMessage],
+        messages: Iterable[ChatCompletionMessageParam],
         chat_template: Optional[str] = None,
         tools: Optional[list[ChatCompletionTool]] = None,
     ) -> ChatPrompt:
@@ -132,25 +126,13 @@ def chat_completion_chunk_stream():
 @pytest.fixture
 def completion_create_params():
     with open(FIXTURES_PATH / "completion_create_params.json") as f:
-        return CreateCompletionRequest.model_validate_json(f.read())
+        return CompletionRequest.model_validate_json(f.read())
 
 
 @pytest.fixture
 def chat_completion_create_params():
     with open(FIXTURES_PATH / "chat_completion_create_params.json") as f:
-        return CreateChatCompletionRequest.model_validate_json(f.read())
-
-
-@pytest.fixture
-def completion_request(completion_create_params: CreateCompletionRequest):
-    return CompletionRequest(request_id="test-request", params=completion_create_params)
-
-
-@pytest.fixture
-def chat_completion_request(chat_completion_create_params: CreateChatCompletionRequest):
-    return ChatCompletionRequest(
-        request_id="test-request", params=chat_completion_create_params
-    )
+        return ChatCompletionRequest.model_validate_json(f.read())
 
 
 @pytest.fixture
@@ -160,7 +142,7 @@ def dummy_model(completion: Completion, completion_partial: Completion):
 
 @asynccontextmanager
 async def mocked_openai_proxy_model(handler: Callable):
-    transport = httpx.MockTransport(handler=handler)
+    transport = httpx.MockTransport(handler=handler)  # TODO: not clear on this
     http_client = httpx.AsyncClient(transport=transport)
     try:
         with patch.object(
@@ -202,9 +184,8 @@ class TestOpenAICreateCompletion:
         self,
         dummy_model: DummyModel,
         completion: Completion,
-        completion_create_params: CreateCompletionRequest,
+        request: CompletionRequest,
     ):
-        request = CompletionRequest(params=completion_create_params)
         c = await dummy_model.create_completion(request)
         assert isinstance(c, Completion)
         assert c.model_dump_json(indent=2) == completion.model_dump_json(indent=2)
@@ -214,10 +195,9 @@ class TestOpenAICreateCompletion:
         self,
         dummy_model: DummyModel,
         completion_partial: Completion,
-        completion_create_params: CreateCompletionRequest,
+        request: CompletionRequest,
     ):
-        completion_create_params.stream = True
-        request = CompletionRequest(params=completion_create_params)
+        request.stream = True
         c = await dummy_model.create_completion(request)
         assert isinstance(c, AsyncIterator)
         num_chunks_consumed = 0
@@ -248,7 +228,7 @@ class TestOpenAICreateChatCompletion:
         self,
         dummy_model: DummyModel,
         chat_completion: ChatCompletion,
-        chat_completion_create_params: CreateChatCompletionRequest,
+        chat_completion_create_params: ChatCompletionRequest,
     ):
         request = ChatCompletionRequest(params=chat_completion_create_params)
         c = await dummy_model.create_chat_completion(request)
@@ -260,10 +240,9 @@ class TestOpenAICreateChatCompletion:
         self,
         dummy_model: DummyModel,
         chat_completion_chunk: ChatCompletionChunk,
-        chat_completion_create_params: CreateChatCompletionRequest,
+        request: ChatCompletionRequest,
     ):
-        chat_completion_create_params.stream = True
-        request = ChatCompletionRequest(params=chat_completion_create_params)
+        request.stream = True
         c = await dummy_model.create_chat_completion(request)
         assert isinstance(c, AsyncIterator)
         num_chunks_consumed = 0
@@ -305,8 +284,8 @@ class TestOpenAICompletionConversion:
 class TestOpenAIParamsConversion:
     def test_convert_params(
         self,
-        chat_completion_create_params: CreateChatCompletionRequest,
-        completion_create_params: CreateCompletionRequest,
+        chat_completion_create_params: ChatCompletionRequest,
+        completion_create_params: CompletionRequest,
     ):
         converted_params = (
             OpenAIChatAdapterModel.chat_completion_params_to_completion_params(
@@ -444,8 +423,9 @@ class TestOpenAIProxyModelCompletion:
         self,
         completion_request: CompletionRequest,
         completion_chunk_stream: bytes,
+        raw_request: Optional[Request] = None,
     ):
-        completion_request.params.stream = True
+        completion_request.stream = True
 
         def handler(request):
             return httpx.Response(
@@ -456,7 +436,8 @@ class TestOpenAIProxyModelCompletion:
 
         async with mocked_openai_proxy_model(handler) as model:
             async for completion_chunk in await model.create_completion(
-                completion_request
+                completion_request,
+                raw_request,
             ):
                 cast(
                     MagicMock, OpenAIProxyModel.postprocess_completion_chunk
@@ -505,7 +486,7 @@ class TestOpenAIProxyModelCompletion:
         chat_completion_request: ChatCompletionRequest,
         chat_completion_chunk_stream: bytes,
     ):
-        chat_completion_request.params.stream = True
+        chat_completion_request.stream = True
 
         def handler(request):
             return httpx.Response(

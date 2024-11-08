@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-from collections.abc import AsyncIterable
 from typing import AsyncGenerator
 import time
 
@@ -23,10 +22,10 @@ from pydantic import TypeAdapter, ValidationError
 from starlette.responses import StreamingResponse
 
 from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionRequest,
-    CreateCompletionRequest,
-    ListModelsResponse,
-    Model,
+    ChatCompletionRequest,
+    CompletionRequest,
+    ListModelsResponse,  # TODO: Does vLLM support it?
+    Model,  # TODO: vLLM does not support
 )
 
 from ....errors import ModelNotReady
@@ -39,8 +38,8 @@ if len(OPENAI_ROUTE_PREFIX) > 0 and not OPENAI_ROUTE_PREFIX.startswith("/"):
     OPENAI_ROUTE_PREFIX = f"/{OPENAI_ROUTE_PREFIX}"
 
 
-CreateCompletionRequestAdapter = TypeAdapter(CreateCompletionRequest)
-ChatCompletionRequestAdapter = TypeAdapter(CreateChatCompletionRequest)
+CreateCompletionRequestAdapter = TypeAdapter(CompletionRequest)
+ChatCompletionRequestAdapter = TypeAdapter(ChatCompletionRequest)
 
 
 class OpenAIEndpoints:
@@ -51,7 +50,7 @@ class OpenAIEndpoints:
     async def create_completion(
         self,
         raw_request: Request,
-        request_body: CreateCompletionRequest,
+        request_body: CompletionRequest,
         response: Response,
     ) -> Response:
         """Create completion handler.
@@ -78,24 +77,19 @@ class OpenAIEndpoints:
         completion = await self.dataplane.create_completion(
             model_name=model_name,
             request=params,
+            raw_request=raw_request,
             headers=raw_request.headers,
             response=response,
         )
-        if isinstance(completion, AsyncIterable):
-
-            async def stream_results() -> AsyncGenerator[str, None]:
-                async for partial_completion in completion:
-                    yield f"data: {partial_completion.model_dump_json()}\n\n"
-                yield "data: [DONE]\n\n"
-
-            return StreamingResponse(stream_results(), media_type="text/event-stream")
+        if isinstance(completion, AsyncGenerator):
+            return StreamingResponse(completion, media_type="text/event-stream")
         else:
             return completion
 
     async def create_chat_completion(
         self,
         raw_request: Request,
-        request_body: CreateChatCompletionRequest,
+        request_body: ChatCompletionRequest,
         response: Response,
     ) -> Response:
         """Create chat completion handler.
@@ -123,17 +117,12 @@ class OpenAIEndpoints:
         completion = await self.dataplane.create_chat_completion(
             model_name=model_name,
             request=request_body,
+            raw_request=raw_request,
             headers=request_headers,
             response=response,
         )
-        if isinstance(completion, AsyncIterable):
-
-            async def stream_results() -> AsyncGenerator[str, None]:
-                async for chunk in completion:
-                    yield f"data: {chunk.model_dump_json()}\n\n"
-                yield "data: [DONE]\n\n"
-
-            return StreamingResponse(stream_results(), media_type="text/event-stream")
+        if isinstance(completion, AsyncGenerator):
+            return StreamingResponse(completion, media_type="text/event-stream")
         else:
             return completion
 

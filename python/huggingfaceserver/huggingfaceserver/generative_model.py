@@ -26,24 +26,32 @@ from typing import (
     TypedDict,
     Union,
     cast,
+    AsyncGenerator,
 )
 
 import torch
 from accelerate import init_empty_weights
 from kserve.logging import logger
+from kserve.errors import InvalidInput
 from kserve.protocol.rest.openai import (
     ChatPrompt,
-    CompletionRequest,
     OpenAIChatAdapterModel,
 )
 from kserve.protocol.rest.openai.types.openapi import ChatCompletionTool
+
 from kserve.protocol.rest.openai.types import (
-    ChatCompletionRequestMessage,
+    CompletionRequest,
+    ChatCompletionRequest,
+    ChatCompletionChunk,
+    UsageInfo,
+    ChatCompletionMessageParam,
     Completion,
+    ChatCompletion,
     CompletionChoice,
-    CompletionUsage,
-    CreateCompletionRequest,
+    ErrorResponse,
 )
+from kserve.protocol.rest.openai.openai_model import AsyncMappingIterator
+
 from kserve.utils.utils import generate_uuid
 from kserve.constants.constants import LLM_STATS_KEY
 from transformers import (
@@ -70,12 +78,15 @@ from .task import (
 )
 from .utils import _get_and_verify_max_len
 
+from fastapi import Request  # TODO: double check whether it is imported
+
 
 class _GenerateRequest(TypedDict):
     kwargs: Dict[str, Any]
     request: CompletionRequest
     response_queue: asyncio.Queue
     loop: asyncio.AbstractEventLoop
+    context: Dict[str, Any]
 
 
 class CompletionStreamer:
@@ -115,7 +126,7 @@ class CompletionStreamer:
         return Completion(
             id=self.id,
             created=int(time.time()),
-            model=self.request.params.model,
+            model=self.request.model,
             choices=choices,
             object="text_completion",
             system_fingerprint=self.system_fingerprint,
@@ -273,22 +284,23 @@ class HuggingfaceGenerativeModel(
         Handle a single generation request
         """
 
-        response_queue, kwargs, request, loop = (
+        response_queue, kwargs, request, loop, context = (
             req["response_queue"],
             req["kwargs"],
             req["request"],
             req["loop"],
+            req["context"],
         )
 
         def queue_put(outputs):
             loop.call_soon_threadsafe(response_queue.put_nowait, outputs)
 
-        if request.params.seed is not None:
-            set_seed(request.params.seed)
+        if request.seed is not None:
+            set_seed(request.seed)
 
-        echo = bool(request.params.echo)
+        echo = bool(request.echo)
 
-        if request.params.stream:
+        if request.stream:
             streamer = TextIteratorStreamer(
                 cast(AutoTokenizer, self._tokenizer),
                 skip_prompt=not echo,
@@ -309,7 +321,7 @@ class HuggingfaceGenerativeModel(
                 0 if echo or self.is_encoder_decoder else kwargs["input_ids"].shape[-1]
             )
             outputs = self._model.generate(**kwargs)
-            stats: LLMStats = request.context[LLM_STATS_KEY]
+            stats: LLMStats = context[LLM_STATS_KEY]
             stats.num_generation_tokens = (
                 outputs.shape[-1] * outputs.shape[0]
                 if self.is_encoder_decoder
@@ -337,7 +349,10 @@ class HuggingfaceGenerativeModel(
             self._handle_request(req)
 
     def _submit_request(
-        self, kwargs: Dict[str, Any], request: CompletionRequest
+        self,
+        kwargs: Dict[str, Any],
+        request: CompletionRequest,
+        context: Dict[str, Any],
     ) -> asyncio.Queue:
         """
         Add a request to the request queue to be processed. Results for this request
@@ -348,45 +363,44 @@ class HuggingfaceGenerativeModel(
             request=request,
             response_queue=asyncio.Queue(),
             loop=asyncio.get_running_loop(),
+            context=context,
         )
         self._request_queue.put(req)
         return req["response_queue"]
 
-    def validate_supported_completion_params(self, params: CreateCompletionRequest):
+    def validate_supported_completion_params(self, request: CompletionRequest):
         """
         Check that only support params have been provided
         """
-        if params.frequency_penalty is not None and params.frequency_penalty > 0:
+        if request.frequency_penalty is not None and request.frequency_penalty > 0:
             raise ValueError("'frequency_penalty' is not supported")
-        if params.best_of is not None and params.best_of > 1:
+        if request.best_of is not None and request.best_of > 1:
             raise ValueError("'best_of' > 1 is not supported")
-        if params.n is not None and params.n > 1:
+        if request.n is not None and request.n > 1:
             # TODO: support 'n' by using num
             raise ValueError("'n' > 1 is not supported")
-        if params.echo and self.is_encoder_decoder:
+        if request.echo and self.is_encoder_decoder:
             raise ValueError("'echo' is not supported by encoder-decoder models")
 
-    def build_generation_config(
-        self, params: CreateCompletionRequest
-    ) -> GenerationConfig:
+    def build_generation_config(self, request: CompletionRequest) -> GenerationConfig:
         kwargs = {
-            "max_new_tokens": params.max_tokens,
-            "top_p": params.top_p,
-            "temperature": params.temperature,
+            "max_new_tokens": request.max_tokens,
+            "top_p": request.top_p,
+            "temperature": request.temperature,
             "pad_token_id": self._tokenizer.pad_token_id,
         }
-        if params.presence_penalty and params.presence_penalty > 0:
-            kwargs["repetition_penalty"] = params.presence_penalty
-        if params.logit_bias is not None:
+        if request.presence_penalty and request.presence_penalty > 0:
+            kwargs["repetition_penalty"] = request.presence_penalty
+        if request.logit_bias is not None:
             # transformers accepts a dict of token tuple to bias (i.e. Dict[Tuple, float])
             kwargs["sequence_bias"] = {
-                tuple(token): bias for token, bias in params.logit_bias.items()
+                tuple(token): bias for token, bias in request.logit_bias.items()
             }
         return GenerationConfig(**kwargs)
 
     def apply_chat_template(
         self,
-        messages: Iterable[ChatCompletionRequestMessage],
+        messages: Iterable[ChatCompletionMessageParam],
         chat_template: Optional[str] = None,
         tools: Optional[list[ChatCompletionTool]] = None,
     ) -> ChatPrompt:
@@ -407,15 +421,16 @@ class HuggingfaceGenerativeModel(
         )
 
     async def create_completion(
-        self, request: CompletionRequest
-    ) -> Union[Completion, AsyncIterator[Completion]]:
-        self._log_request(request)
-        params = request.params
-        if params.prompt is None:
+        self,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
+    ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
+        self._log_request(request, raw_request)
+        if request.prompt is None:
             raise ValueError("prompt is required")
         stats = LLMStats()
-        request.context[LLM_STATS_KEY] = stats
-        prompt = params.prompt
+        context = {LLM_STATS_KEY: stats}
+        prompt = request.prompt
         prompts = (
             prompt
             if isinstance(prompt, list) and not isinstance(prompt[0], int)
@@ -432,23 +447,23 @@ class HuggingfaceGenerativeModel(
         num_input_tokens_per_prompt = inputs["input_ids"].shape[-1]
         num_input_tokens = num_input_tokens_per_prompt * inputs["input_ids"].shape[0]
         stats.num_prompt_tokens = num_input_tokens
-        if params.max_tokens is None:
-            params.max_tokens = self.max_length - num_input_tokens_per_prompt
-        if num_input_tokens_per_prompt + params.max_tokens > self.max_length:
+        if request.max_tokens is None:
+            request.max_tokens = self.max_length - num_input_tokens_per_prompt
+        if num_input_tokens_per_prompt + request.max_tokens > self.max_length:
             raise ValueError(
                 f"This model's maximum context length is {self.max_length} tokens. "
-                f"However, you requested {params.max_tokens + num_input_tokens_per_prompt} tokens "
+                f"However, you requested {request.max_tokens + num_input_tokens_per_prompt} tokens "
                 f"({num_input_tokens_per_prompt} in the messages, "
-                f"{params.max_tokens} in the completion). "
+                f"{request.max_tokens} in the completion). "
                 f"Please reduce the length of the messages or completion.",
             )
 
-        self.validate_supported_completion_params(params)
-        generation_config = self.build_generation_config(params)
+        self.validate_supported_completion_params(request)
+        generation_config = self.build_generation_config(request)
         stopping_criteria = None
         stop_sequence_stopping_criteria = None
-        if params.stop is not None:
-            stop = params.stop if isinstance(params.stop, list) else [params.stop]
+        if request.stop is not None:
+            stop = request.stop if isinstance(request.stop, list) else [request.stop]
             stop_sequences = [
                 self._tokenizer.encode(
                     seq, return_tensors=TensorType.PYTORCH, add_special_tokens=False
@@ -471,14 +486,23 @@ class HuggingfaceGenerativeModel(
                 "generation_config": generation_config,
             },
             request,
+            context,
         )
-        if params.stream:
-            return CompletionStreamer(
+        if request.stream:
+            completion = CompletionStreamer(
                 request=request,
                 generate_queue=response_queue,
                 system_fingerprint=self.system_fingerprint,
                 stop_sequence_stopping_criteria=stop_sequence_stopping_criteria,
             )
+
+            async def stream_results() -> AsyncGenerator[str, None]:
+                async for partial_completion in completion:
+                    yield f"data: {partial_completion.model_dump_json()}\n\n"
+                yield "data: [DONE]\n\n"
+
+            return stream_results()
+
         else:
             outputs = await response_queue.get()
             if (
@@ -499,25 +523,98 @@ class HuggingfaceGenerativeModel(
                 choices=choices,
                 created=int(time.time()),
                 object="text_completion",
-                model=params.model,
+                model=request.model,
                 system_fingerprint=self.system_fingerprint,
-                usage=CompletionUsage(
+                usage=UsageInfo(
                     prompt_tokens=stats.num_prompt_tokens,
                     completion_tokens=stats.num_generation_tokens,
                     total_tokens=stats.num_prompt_tokens + stats.num_generation_tokens,
                 ),
             )
 
-    def _log_request(self, request: CompletionRequest) -> None:
-        is_prompt_token = isinstance(request.params.prompt, list) and (
-            isinstance(request.params.prompt[0], int)
-            or isinstance(request.params.prompt[0], list)
-            and isinstance(request.params.prompt[0][0], int)
+    def _log_request(
+        self, request: CompletionRequest, raw_request: Optional[Request] = None
+    ) -> None:
+        is_prompt_token = isinstance(request.prompt, list) and (
+            isinstance(request.prompt[0], int)
+            or isinstance(request.prompt[0], list)
+            and isinstance(request.prompt[0][0], int)
         )
         if self.request_logger:
+            if not raw_request:
+                request_id = None
+            else:
+                request_id = raw_request.headers.get("x-request-id", None)
             self.request_logger.log_inputs(
-                request_id=request.request_id,
-                prompt=request.params.prompt if not is_prompt_token else None,
-                prompt_token_ids=request.params.prompt if is_prompt_token else None,
-                params=request.params.model_dump(exclude={"prompt"}),
+                request_id,
+                prompt=request.prompt if not is_prompt_token else None,
+                prompt_token_ids=request.prompt if is_prompt_token else None,
+                params=request.model_dump(exclude={"prompt"}),
             )
+
+    @classmethod
+    def chat_completion_params_to_completion_params(
+        cls, request: ChatCompletionRequest, prompt: str
+    ) -> CompletionRequest:
+
+        return CompletionRequest(
+            prompt=prompt,
+            model=request.model,
+            frequency_penalty=request.frequency_penalty,
+            logit_bias=request.logit_bias,
+            max_tokens=request.max_tokens,
+            n=request.n,
+            presence_penalty=request.presence_penalty,
+            seed=request.seed,
+            stop=request.stop,
+            stream=request.stream,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            user=request.user,
+            logprobs=request.top_logprobs,
+        )
+
+    async def create_chat_completion(
+        self,
+        request: ChatCompletionRequest,
+        raw_request: Optional[Request] = None,
+    ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
+
+        if request.n != 1:
+            raise InvalidInput("n != 1 is not supported")
+
+        # Convert the messages into a prompt
+        chat_prompt = self.apply_chat_template(request.messages, request.chat_template)
+        # Translate the chat completion request to a completion request
+        completion_params = self.chat_completion_params_to_completion_params(
+            request, chat_prompt.prompt
+        )
+
+        if not request.stream:
+            completion = cast(
+                Completion, await self.create_completion(completion_params, raw_request)
+            )
+            return self.completion_to_chat_completion(
+                completion, chat_prompt.response_role
+            )
+        else:
+            completion_iterator = cast(
+                AsyncIterator[Completion],
+                await self.create_completion(completion_params, raw_request),
+            )
+
+            def mapper(completion: Completion) -> ChatCompletionChunk:
+                return self.completion_to_chat_completion_chunk(
+                    completion, chat_prompt.response_role
+                )
+
+            completion = AsyncMappingIterator(
+                iterator=completion_iterator, mapper=mapper
+            )
+
+            async def stream_results() -> AsyncGenerator[str, None]:
+                async for chunk in completion:
+                    yield f"data: {chunk.model_dump_json()}\n\n"
+                yield "data: [DONE]\n\n"
+
+            return stream_results()

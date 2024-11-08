@@ -14,21 +14,17 @@
 
 from .openai_model import (
     ChatPrompt,
-    CompletionRequest,
-    ChatCompletionRequest,
     OpenAIModel,
 )
 
 from .openai_proxy_model import OpenAIProxyModel
 from .openai_chat_adapter_model import OpenAIChatAdapterModel
-from .types import ChatCompletionRequestMessage
+from .types import ChatCompletionMessageParam
 
 __all__ = [
     "OpenAIModel",
     "OpenAIChatAdapterModel",
     "OpenAIProxyModel",
     "ChatPrompt",
-    "CompletionRequest",
-    "ChatCompletionRequest",
-    "ChatCompletionRequestMessage",
+    "ChatCompletionMessageParam",
 ]
