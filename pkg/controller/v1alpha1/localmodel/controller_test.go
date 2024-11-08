@@ -189,6 +189,13 @@ var _ = Describe("CachedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 			Expect(len(nodes.Items)).Should(Equal(1))
 
+			localModelNode := &v1alpha1.LocalModelNode{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+			Expect(localModelNode.Spec.LocalModels).Should(ContainElement(v1alpha1.LocalModelInfo{ModelName: cachedModel.Name, SourceModelUri: sourceModelUri}))
+
 			// Now that we have a node and a local model CR ready. It should create download jobs
 			jobs := &batchv1.JobList{}
 			Eventually(func() bool {

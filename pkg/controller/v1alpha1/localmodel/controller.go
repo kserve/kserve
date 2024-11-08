@@ -18,6 +18,8 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodegroups,verbs=get;list;watch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterlocalmodels,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterlocalmodels/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterstoragecontainers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
@@ -333,6 +335,10 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	} else {
 		return c.deleteModelFromNodes(localModel, localModelConfig.JobNamespace)
+	}
+
+	if err := c.ReconcileLocalModelNode(ctx, localModel, nodeGroup, localModelConfig.JobNamespace); err != nil {
+		c.Log.Error(err, "ReconcileLocalModelNode")
 	}
 
 	// Step 2 - Creates PV & PVC for model download
@@ -679,4 +685,71 @@ func (c *LocalModelReconciler) getContainerSpecForStorageUri(storageUri string) 
 		TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
 	}
 	return defaultContainer, nil
+}
+
+func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel, jobNamespace string) error {
+	patch := client.MergeFrom(localmodelNode.DeepCopy())
+	for _, modelInfo := range localmodelNode.Spec.LocalModels {
+		if modelInfo.ModelName == localModel.Name {
+			if modelInfo.SourceModelUri != localModel.Spec.SourceModelUri {
+				modelInfo.SourceModelUri = localModel.Spec.SourceModelUri
+				if err := c.Patch(context.Background(), localmodelNode, patch); err != nil {
+					c.Log.Error(err, "Update localmodelnode", "name", localmodelNode.Name)
+					return err
+				}
+			}
+			return nil
+		}
+	}
+	localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels, v1alpha1api.LocalModelInfo{ModelName: localModel.Name, SourceModelUri: localModel.Spec.SourceModelUri})
+	if err := c.Patch(context.Background(), localmodelNode, patch); err != nil {
+		c.Log.Error(err, "Update localmodelnode", "name", localmodelNode.Name)
+		return err
+	}
+	return nil
+}
+
+func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, localModel *v1alpha1api.ClusterLocalModel, nodeGroup *v1alpha1api.LocalModelNodeGroup, jobNamespace string) error {
+	readyNodes, notReadyNodes, err := getNodesFromNodeGroup(nodeGroup, c.Client)
+	if err != nil {
+		c.Log.Error(err, "getNodesFromNodeGroup node error")
+		return err
+	}
+	for _, node := range notReadyNodes.Items {
+		if _, ok := localModel.Status.NodeStatus[node.Name]; !ok {
+			localModel.Status.NodeStatus[node.Name] = v1alpha1api.NodeNotReady
+		}
+	}
+	for _, node := range readyNodes.Items {
+		jobName := localModel.Name + "-" + node.Name
+		localModelNode := &v1alpha1.LocalModelNode{}
+		err := c.Client.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
+		found := true
+		if err != nil {
+			if apierr.IsNotFound(err) {
+				found = false
+				c.Log.Info("localmodelNode not found")
+			} else {
+				c.Log.Error(err, "Failed to get localmodelnode", "name", jobName)
+				return err
+			}
+		}
+		if !found {
+			localModelNode = &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: node.Name,
+				},
+				Spec: v1alpha1api.LocalModelNodeSpec{LocalModels: []v1alpha1api.LocalModelInfo{{ModelName: localModel.Name, SourceModelUri: localModel.Spec.SourceModelUri}}},
+			}
+			if err := c.Client.Create(ctx, localModelNode); err != nil {
+				c.Log.Error(err, "Create localmodelnode", "name", node.Name)
+				return err
+			}
+		} else {
+			if err := c.UpdateLocalModelNode(ctx, localModelNode, localModel, jobNamespace); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
