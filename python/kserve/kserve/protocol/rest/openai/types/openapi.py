@@ -582,24 +582,6 @@ class Logprob:
 def random_uuid() -> str:
     return str(uuid.uuid4().hex)
 
-# torch is mocked during docs generation,
-# so we have to provide the values as literals
-_MOCK_LONG_INFO = Namespace(min=-9223372036854775808, max=9223372036854775807)
-_LONG_INFO: Union["torch.iinfo", Namespace]
-
-try:
-    from sphinx.ext.autodoc.mock import _MockModule # TODO
-
-    if isinstance(torch, _MockModule):
-        _LONG_INFO = _MOCK_LONG_INFO
-    else:
-        _LONG_INFO = torch.iinfo(torch.long)
-except ModuleNotFoundError:
-    _LONG_INFO = torch.iinfo(torch.long)
-
-assert _LONG_INFO.min == _MOCK_LONG_INFO.min
-assert _LONG_INFO.max == _MOCK_LONG_INFO.max
-
 
 class CustomChatCompletionMessageParam(TypedDict, total=False):
     """Enables custom roles in the Chat Completion API."""
@@ -730,7 +712,7 @@ class ChatCompletionRequest(OpenAIBaseModel):
     n: Optional[int] = 1
     presence_penalty: Optional[float] = 0.0
     response_format: Optional[ResponseFormat] = None
-    seed: Optional[int] = Field(None, ge=_LONG_INFO.min, le=_LONG_INFO.max)
+    seed: Optional[int] = Field(None)
     stop: Optional[Union[str, List[str]]] = Field(default_factory=list)
     stream: Optional[bool] = False
     stream_options: Optional[StreamOptions] = None
@@ -1067,7 +1049,7 @@ class CompletionRequest(OpenAIBaseModel):
     max_tokens: Optional[int] = 16
     n: int = 1
     presence_penalty: Optional[float] = 0.0
-    seed: Optional[int] = Field(None, ge=_LONG_INFO.min, le=_LONG_INFO.max)
+    seed: Optional[int] = Field(None)
     stop: Optional[Union[str, List[str]]] = Field(default_factory=list)
     stream: Optional[bool] = False
     stream_options: Optional[StreamOptions] = None
