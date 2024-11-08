@@ -536,7 +536,7 @@ async def test_tools_chat_completion(bloom_model: HuggingfaceGenerativeModel):
             },
         }
     ]
-    params = CreateChatCompletionRequest(
+    params = ChatCompletionRequest(
         model="bloom-560m",
         messages=messages,
         stream=False,
@@ -547,7 +547,6 @@ async def test_tools_chat_completion(bloom_model: HuggingfaceGenerativeModel):
         "{{ message.content }} You have these tools: {% for tool in tools %} {{ eos_token }}"
         "{% endfor %}{% endfor %}",
     )
-    request = ChatCompletionRequest(params=params, context={})
-    response = await bloom_model.create_chat_completion(request)
+    response = await bloom_model.create_chat_completion(params)
 
     assert response.choices[0].message.content
