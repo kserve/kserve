@@ -52,6 +52,8 @@ tabulate = "^0.9.0"
 pandas =  "^2.2.0"
 pydantic = [{ version = "^2.5.0", python = "3.12" }, { version = ">1.0,<3", python = ">=3.9,<3.12" }]
 pyyaml = "^6.0.0"
+torch = "~2.4.0"
+msgspec = "~0.18.6"
 
 # Storage dependencies. They can be opted into by apps.
 requests = { version = "^2.32.2", optional = true }
