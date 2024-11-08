@@ -230,7 +230,7 @@ class TestOpenAICreateChatCompletion:
         chat_completion: ChatCompletion,
         chat_completion_create_params: ChatCompletionRequest,
     ):
-        request = ChatCompletionRequest(params=chat_completion_create_params)
+        request = chat_completion_create_params
         c = await dummy_model.create_chat_completion(request)
         assert isinstance(c, ChatCompletion)
         assert c.model_dump_json(indent=2) == chat_completion.model_dump_json(indent=2)
@@ -288,9 +288,11 @@ class TestOpenAIParamsConversion:
         completion_create_params: CompletionRequest,
     ):
         converted_params = (
-            OpenAIChatAdapterModel.chat_completion_params_to_completion_params(  # TODO
+            OpenAIChatAdapterModel.chat_completion_params_to_completion_params(
                 chat_completion_create_params,
-                prompt=chat_completion_create_params.messages[0].content,
+                prompt=chat_completion_create_params.messages[0][
+                    "content"
+                ],  # TODO: message is dict in vLLM
             )
         )
         assert converted_params == completion_create_params
