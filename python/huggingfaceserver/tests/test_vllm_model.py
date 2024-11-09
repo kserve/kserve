@@ -38,14 +38,14 @@ from kserve.protocol.rest.openai.types import (
     ChatCompletionChoice,
     UsageInfo,
     ChatMessage,
-    ChatCompletionChoiceLogprobs,
+    ChatCompletionChoiceLogProbs,
+    ChatCompletionLogProbsContent,
     CompletionChoice,
     Completion,
     CompletionLogProbs,
 )
 from kserve.protocol.rest.openai.types.openapi import (
     ChatCompletionResponse,
-    TopLogprob,
     ChatCompletionLogProb,
 )
 
@@ -525,129 +525,129 @@ class TestChatCompletions:
                         role="assistant",
                         function_call=None,
                     ),
-                    logprobs=ChatCompletionChoiceLogprobs(
+                    logprobs=ChatCompletionChoiceLogProbs(
                         content=[
-                            ChatCompletionLogProb(
+                            ChatCompletionLogProbsContent(
                                 token="Most",
                                 logprob=-6.909554481506348,
                                 bytes=[77, 111, 115, 116],
                                 top_logprobs=[
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token="Most",
                                         logprob=-6.909554481506348,
                                         bytes=[77, 111, 115, 116],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token="I",
                                         logprob=-2.197445869445801,
                                         bytes=[73],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token="The",
                                         logprob=-3.4867753982543945,
                                         bytes=[84, 104, 101],
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogProb(
+                            ChatCompletionLogProbsContent(
                                 token=" redd",
                                 logprob=-7.630484580993652,
                                 bytes=[32, 114, 101, 100, 100],
                                 top_logprobs=[
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" redd",
                                         logprob=-7.630484580993652,
                                         bytes=[32, 114, 101, 100, 100],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" of",
                                         logprob=-1.8084166049957275,
                                         bytes=[32, 111, 102],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" people",
                                         logprob=-2.3389289379119873,
                                         bytes=[32, 112, 101, 111, 112, 108, 101],
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogProb(
+                            ChatCompletionLogProbsContent(
                                 token="itors",
                                 logprob=-0.039746206253767014,
                                 bytes=[105, 116, 111, 114, 115],
                                 top_logprobs=[
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token="itors",
                                         logprob=-0.039746206253767014,
                                         bytes=[105, 116, 111, 114, 115],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token="itor",
                                         logprob=-4.065564155578613,
                                         bytes=[105, 116, 111, 114],
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogProb(
+                            ChatCompletionLogProbsContent(
                                 token=" know",
                                 logprob=-4.415658473968506,
                                 bytes=[32, 107, 110, 111, 119],
                                 top_logprobs=[
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" know",
                                         logprob=-4.415658473968506,
                                         bytes=[32, 107, 110, 111, 119],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" are",
                                         logprob=-1.5063375234603882,
                                         bytes=[32, 97, 114, 101],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" don",
                                         logprob=-2.7589268684387207,
                                         bytes=[32, 100, 111, 110],
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogProb(
+                            ChatCompletionLogProbsContent(
                                 token=" the",
                                 logprob=-2.7328412532806396,
                                 bytes=[32, 116, 104, 101],
                                 top_logprobs=[
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" the",
                                         logprob=-2.7328412532806396,
                                         bytes=[32, 116, 104, 101],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" that",
                                         logprob=-1.2675859928131104,
                                         bytes=[32, 116, 104, 97, 116],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" this",
                                         logprob=-2.295158624649048,
                                         bytes=[32, 116, 104, 105, 115],
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogProb(
+                            ChatCompletionLogProbsContent(
                                 token=" tiny",
                                 logprob=-9.554351806640625,
                                 bytes=[32, 116, 105, 110, 121],
                                 top_logprobs=[
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" tiny",
                                         logprob=-9.554351806640625,
                                         bytes=[32, 116, 105, 110, 121],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" answer",
                                         logprob=-1.7232582569122314,
                                         bytes=[32, 97, 110, 115, 119, 101, 114],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" difference",
                                         logprob=-3.347280740737915,
                                         bytes=[
@@ -666,7 +666,7 @@ class TestChatCompletions:
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogProb(
+                            ChatCompletionLogProbsContent(
                                 token=" difference",
                                 logprob=-4.9500274658203125,
                                 bytes=[
@@ -683,7 +683,7 @@ class TestChatCompletions:
                                     101,
                                 ],
                                 top_logprobs=[
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" difference",
                                         logprob=-4.9500274658203125,
                                         bytes=[
@@ -700,73 +700,73 @@ class TestChatCompletions:
                                             101,
                                         ],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" amount",
                                         logprob=-3.1549720764160156,
                                         bytes=[32, 97, 109, 111, 117, 110, 116],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" little",
                                         logprob=-3.626887798309326,
                                         bytes=[32, 108, 105, 116, 116, 108, 101],
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogProb(
+                            ChatCompletionLogProbsContent(
                                 token=" between",
                                 logprob=-0.08497463166713715,
                                 bytes=[32, 98, 101, 116, 119, 101, 101, 110],
                                 top_logprobs=[
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" between",
                                         logprob=-0.08497463166713715,
                                         bytes=[32, 98, 101, 116, 119, 101, 101, 110],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" in",
                                         logprob=-3.210397958755493,
                                         bytes=[32, 105, 110],
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogProb(
+                            ChatCompletionLogProbsContent(
                                 token=" Frog",
                                 logprob=-12.07158374786377,
                                 bytes=[32, 70, 114, 111, 103],
                                 top_logprobs=[
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" Frog",
                                         logprob=-12.07158374786377,
                                         bytes=[32, 70, 114, 111, 103],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" a",
                                         logprob=-1.4436050653457642,
                                         bytes=[32, 97],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" the",
                                         logprob=-2.731874942779541,
                                         bytes=[32, 116, 104, 101],
                                     ),
                                 ],
                             ),
-                            ChatCompletionLogProb(
+                            ChatCompletionLogProbsContent(
                                 token="ling",
                                 logprob=-6.787796497344971,
                                 bytes=[108, 105, 110, 103],
                                 top_logprobs=[
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token="ling",
                                         logprob=-6.787796497344971,
                                         bytes=[108, 105, 110, 103],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token=" and",
                                         logprob=-1.6513729095458984,
                                         bytes=[32, 97, 110, 100],
                                     ),
-                                    TopLogprob(
+                                    ChatCompletionLogProb(
                                         token="s",
                                         logprob=-1.7453670501708984,
                                         bytes=[115],
@@ -821,7 +821,7 @@ class TestChatCompletions:
         )
         response_iterator = await opt_model.create_chat_completion(params)
         completion = ""
-        log_probs = ChatCompletionChoiceLogprobs(
+        log_probs = ChatCompletionChoiceLogProbs(
             content=[],
         )
         async for resp in response_iterator:
@@ -837,206 +837,210 @@ class TestChatCompletions:
             assert isinstance(resp.created, int)
 
         assert completion == "Most redditors know the tiny difference between Frogling"
-        assert log_probs == ChatCompletionChoiceLogprobs(
+        assert log_probs == ChatCompletionChoiceLogProbs(
             content=[
-                ChatCompletionLogProb(
+                ChatCompletionLogProbsContent(
                     token="Most",
                     logprob=-6.909554481506348,
                     bytes=[77, 111, 115, 116],
                     top_logprobs=[
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token="Most",
                             logprob=-6.909554481506348,
                             bytes=[77, 111, 115, 116],
                         ),
-                        TopLogprob(token="I", logprob=-2.197445869445801, bytes=[73]),
-                        TopLogprob(
+                        ChatCompletionLogProb(
+                            token="I", logprob=-2.197445869445801, bytes=[73]
+                        ),
+                        ChatCompletionLogProb(
                             token="The",
                             logprob=-3.4867753982543945,
                             bytes=[84, 104, 101],
                         ),
                     ],
                 ),
-                ChatCompletionLogProb(
+                ChatCompletionLogProbsContent(
                     token=" redd",
                     logprob=-7.630484580993652,
                     bytes=[32, 114, 101, 100, 100],
                     top_logprobs=[
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" redd",
                             logprob=-7.630484580993652,
                             bytes=[32, 114, 101, 100, 100],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" of",
                             logprob=-1.8084166049957275,
                             bytes=[32, 111, 102],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" people",
                             logprob=-2.3389289379119873,
                             bytes=[32, 112, 101, 111, 112, 108, 101],
                         ),
                     ],
                 ),
-                ChatCompletionLogProb(
+                ChatCompletionLogProbsContent(
                     token="itors",
                     logprob=-0.039746206253767014,
                     bytes=[105, 116, 111, 114, 115],
                     top_logprobs=[
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token="itors",
                             logprob=-0.039746206253767014,
                             bytes=[105, 116, 111, 114, 115],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token="itor",
                             logprob=-4.065564155578613,
                             bytes=[105, 116, 111, 114],
                         ),
                     ],
                 ),
-                ChatCompletionLogProb(
+                ChatCompletionLogProbsContent(
                     token=" know",
                     logprob=-4.415658473968506,
                     bytes=[32, 107, 110, 111, 119],
                     top_logprobs=[
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" know",
                             logprob=-4.415658473968506,
                             bytes=[32, 107, 110, 111, 119],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" are",
                             logprob=-1.5063375234603882,
                             bytes=[32, 97, 114, 101],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" don",
                             logprob=-2.7589268684387207,
                             bytes=[32, 100, 111, 110],
                         ),
                     ],
                 ),
-                ChatCompletionLogProb(
+                ChatCompletionLogProbsContent(
                     token=" the",
                     logprob=-2.7328412532806396,
                     bytes=[32, 116, 104, 101],
                     top_logprobs=[
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" the",
                             logprob=-2.7328412532806396,
                             bytes=[32, 116, 104, 101],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" that",
                             logprob=-1.2675859928131104,
                             bytes=[32, 116, 104, 97, 116],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" this",
                             logprob=-2.295158624649048,
                             bytes=[32, 116, 104, 105, 115],
                         ),
                     ],
                 ),
-                ChatCompletionLogProb(
+                ChatCompletionLogProbsContent(
                     token=" tiny",
                     logprob=-9.554351806640625,
                     bytes=[32, 116, 105, 110, 121],
                     top_logprobs=[
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" tiny",
                             logprob=-9.554351806640625,
                             bytes=[32, 116, 105, 110, 121],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" answer",
                             logprob=-1.7232582569122314,
                             bytes=[32, 97, 110, 115, 119, 101, 114],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" difference",
                             logprob=-3.347280740737915,
                             bytes=[32, 100, 105, 102, 102, 101, 114, 101, 110, 99, 101],
                         ),
                     ],
                 ),
-                ChatCompletionLogProb(
+                ChatCompletionLogProbsContent(
                     token=" difference",
                     logprob=-4.9500274658203125,
                     bytes=[32, 100, 105, 102, 102, 101, 114, 101, 110, 99, 101],
                     top_logprobs=[
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" difference",
                             logprob=-4.9500274658203125,
                             bytes=[32, 100, 105, 102, 102, 101, 114, 101, 110, 99, 101],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" amount",
                             logprob=-3.1549720764160156,
                             bytes=[32, 97, 109, 111, 117, 110, 116],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" little",
                             logprob=-3.626887798309326,
                             bytes=[32, 108, 105, 116, 116, 108, 101],
                         ),
                     ],
                 ),
-                ChatCompletionLogProb(
+                ChatCompletionLogProbsContent(
                     token=" between",
                     logprob=-0.08497463166713715,
                     bytes=[32, 98, 101, 116, 119, 101, 101, 110],
                     top_logprobs=[
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" between",
                             logprob=-0.08497463166713715,
                             bytes=[32, 98, 101, 116, 119, 101, 101, 110],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" in",
                             logprob=-3.210397958755493,
                             bytes=[32, 105, 110],
                         ),
                     ],
                 ),
-                ChatCompletionLogProb(
+                ChatCompletionLogProbsContent(
                     token=" Frog",
                     logprob=-12.07158374786377,
                     bytes=[32, 70, 114, 111, 103],
                     top_logprobs=[
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" Frog",
                             logprob=-12.07158374786377,
                             bytes=[32, 70, 114, 111, 103],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" a", logprob=-1.4436050653457642, bytes=[32, 97]
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" the",
                             logprob=-2.731874942779541,
                             bytes=[32, 116, 104, 101],
                         ),
                     ],
                 ),
-                ChatCompletionLogProb(
+                ChatCompletionLogProbsContent(
                     token="ling",
                     logprob=-6.787796497344971,
                     bytes=[108, 105, 110, 103],
                     top_logprobs=[
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token="ling",
                             logprob=-6.787796497344971,
                             bytes=[108, 105, 110, 103],
                         ),
-                        TopLogprob(
+                        ChatCompletionLogProb(
                             token=" and",
                             logprob=-1.6513729095458984,
                             bytes=[32, 97, 110, 100],
                         ),
-                        TopLogprob(token="s", logprob=-1.7453670501708984, bytes=[115]),
+                        ChatCompletionLogProb(
+                            token="s", logprob=-1.7453670501708984, bytes=[115]
+                        ),
                     ],
                 ),
             ]

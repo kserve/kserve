@@ -19,7 +19,6 @@ import time
 from threading import Thread
 from typing import (
     Any,
-    AsyncIterator,
     Dict,
     Iterable,
     Optional,
@@ -32,7 +31,6 @@ from typing import (
 import torch
 from accelerate import init_empty_weights
 from kserve.logging import logger
-from kserve.errors import InvalidInput
 from kserve.protocol.rest.openai import (
     ChatPrompt,
     OpenAIChatAdapterModel,
@@ -41,16 +39,12 @@ from kserve.protocol.rest.openai.types.openapi import ChatCompletionTool
 
 from kserve.protocol.rest.openai.types import (
     CompletionRequest,
-    ChatCompletionRequest,
-    ChatCompletionChunk,
     UsageInfo,
     ChatCompletionMessageParam,
     Completion,
-    ChatCompletion,
     CompletionChoice,
     ErrorResponse,
 )
-from kserve.protocol.rest.openai.openai_model import AsyncMappingIterator
 
 from kserve.utils.utils import generate_uuid
 from kserve.constants.constants import LLM_STATS_KEY
@@ -551,48 +545,3 @@ class HuggingfaceGenerativeModel(
                 prompt_token_ids=request.prompt if is_prompt_token else None,
                 params=request.model_dump(exclude={"prompt"}),
             )
-
-    async def create_chat_completion(
-        self,
-        request: ChatCompletionRequest,
-        raw_request: Optional[Request] = None,
-    ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
-
-        if request.n != 1:
-            raise InvalidInput("n != 1 is not supported")
-
-        # Convert the messages into a prompt
-        chat_prompt = self.apply_chat_template(request.messages, request.chat_template)
-        # Translate the chat completion request to a completion request
-        completion_params = self.chat_completion_params_to_completion_params(
-            request, chat_prompt.prompt
-        )
-
-        if not request.stream:
-            completion = cast(
-                Completion, await self.create_completion(completion_params, raw_request)
-            )
-            return self.completion_to_chat_completion(
-                completion, chat_prompt.response_role
-            )
-        else:
-            completion_iterator = cast(
-                AsyncIterator[Completion],
-                await self.create_completion(completion_params, raw_request),
-            )
-
-            def mapper(completion: Completion) -> ChatCompletionChunk:
-                return self.completion_to_chat_completion_chunk(
-                    completion, chat_prompt.response_role
-                )
-
-            completion = AsyncMappingIterator(
-                iterator=completion_iterator, mapper=mapper
-            )
-
-            async def stream_results() -> AsyncGenerator[str, None]:
-                async for chunk in completion:
-                    yield f"data: {chunk.model_dump_json()}\n\n"
-                yield "data: [DONE]\n\n"
-
-            return stream_results()

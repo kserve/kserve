@@ -18,9 +18,9 @@ from kserve.protocol.rest.openai.types.openapi import (
     CompletionLogProbs,
     ChatCompletionRequest,
     ChatCompletionMessageParam,
-    TopLogprob,
     ErrorResponse,
     UsageInfo,
+    ChatCompletionLogProbsContent,
 )
 
 from kserve.protocol.rest.openai.types.openapi import (
@@ -46,14 +46,14 @@ from kserve.protocol.rest.openai.types.openapi import (
     CompletionResponse as Completion,
 )
 from kserve.protocol.rest.openai.types.openapi import (
-    ChatCompletionLogProbs as ChatCompletionChoiceLogprobs,
+    ChatCompletionLogProbs as ChatCompletionChoiceLogProbs,
 )
 
 
 __all__ = [
     "ChatCompletion",
     "ChatCompletionChoice",
-    "ChatCompletionChoiceLogprobs",
+    "ChatCompletionChoiceLogProbs",
     "ChatCompletionChunk",
     "ChatMessage",
     "ChatCompletionLogProb",
@@ -65,7 +65,7 @@ __all__ = [
     "CompletionRequest",
     "ErrorResponse",
     "CompletionLogProbs",
-    "TopLogprob",
     "UsageInfo",
     "ChatCompletionMessageParam",
+    "ChatCompletionLogProbsContent",
 ]
