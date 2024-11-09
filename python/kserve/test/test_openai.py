@@ -69,10 +69,12 @@ class DummyModel(OpenAIChatAdapterModel):
         self.num_chunks = num_chunks
 
     async def create_completion(
-        self, request: CompletionRequest
+        self,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
     ) -> Union[
         Completion, AsyncIterator[Completion]
-    ]:  # TODO: Leave it as it is, as it is mock test
+    ]:  # TODO: Leave the return type as it is, as it is just mock test
         if request.stream:
             return ChunkIterator([self.data[1]] * self.num_chunks)
         else:
@@ -82,7 +84,7 @@ class DummyModel(OpenAIChatAdapterModel):
         self,
         messages: Iterable[ChatCompletionMessageParam],
         chat_template: Optional[str] = None,
-        tools: Optional[list[ChatCompletionTool]] = None,
+        tools: Optional[List[ChatCompletionTool]] = None,
     ) -> ChatPrompt:
         return ChatPrompt(prompt="hello")
 
@@ -184,9 +186,9 @@ class TestOpenAICreateCompletion:
         self,
         dummy_model: DummyModel,
         completion: Completion,
-        request: CompletionRequest,
+        completion_create_params: CompletionRequest,
     ):
-        c = await dummy_model.create_completion(request)
+        c = await dummy_model.create_completion(completion_create_params)
         assert isinstance(c, Completion)
         assert c.model_dump_json(indent=2) == completion.model_dump_json(indent=2)
 
@@ -195,10 +197,10 @@ class TestOpenAICreateCompletion:
         self,
         dummy_model: DummyModel,
         completion_partial: Completion,
-        request: CompletionRequest,
+        completion_create_params: CompletionRequest,
     ):
-        request.stream = True
-        c = await dummy_model.create_completion(request)
+        completion_create_params.stream = True
+        c = await dummy_model.create_completion(completion_create_params)
         assert isinstance(c, AsyncIterator)
         num_chunks_consumed = 0
         async for chunk in c:
@@ -240,10 +242,10 @@ class TestOpenAICreateChatCompletion:
         self,
         dummy_model: DummyModel,
         chat_completion_chunk: ChatCompletionChunk,
-        request: ChatCompletionRequest,
+        chat_completion_create_params: ChatCompletionRequest,
     ):
-        request.stream = True
-        c = await dummy_model.create_chat_completion(request)
+        chat_completion_create_params.stream = True
+        c = await dummy_model.create_chat_completion(chat_completion_create_params)
         assert isinstance(c, AsyncIterator)
         num_chunks_consumed = 0
         async for chunk in c:
@@ -410,10 +412,10 @@ class TestOpenAIProxyModelCompletion:
             assert result == completion
             cast(
                 MagicMock, OpenAIProxyModel.preprocess_completion_request
-            ).assert_called_once_with(completion_create_params)
+            ).assert_called_once_with(completion_create_params, None)
             cast(
                 MagicMock, OpenAIProxyModel.postprocess_completion
-            ).assert_called_once_with(completion, completion_create_params)
+            ).assert_called_once_with(completion, completion_create_params, None)
             cast(
                 MagicMock, OpenAIProxyModel.preprocess_chat_completion_request
             ).assert_not_called()
@@ -444,7 +446,7 @@ class TestOpenAIProxyModelCompletion:
             ):
                 cast(
                     MagicMock, OpenAIProxyModel.postprocess_completion_chunk
-                ).assert_called_with(completion_chunk, completion_create_params)
+                ).assert_called_with(completion_chunk, completion_create_params, None)
             cast(
                 MagicMock, OpenAIProxyModel.preprocess_completion_request
             ).assert_called_once_with(completion_create_params)
@@ -474,10 +476,12 @@ class TestOpenAIProxyModelCompletion:
             assert result == chat_completion
             cast(
                 MagicMock, OpenAIProxyModel.preprocess_chat_completion_request
-            ).assert_called_once_with(chat_completion_create_params)
+            ).assert_called_once_with(chat_completion_create_params, None)
             cast(
                 MagicMock, OpenAIProxyModel.postprocess_chat_completion
-            ).assert_called_once_with(chat_completion, chat_completion_create_params)
+            ).assert_called_once_with(
+                chat_completion, chat_completion_create_params, None
+            )
             cast(
                 MagicMock, OpenAIProxyModel.preprocess_completion_request
             ).assert_not_called()
@@ -505,11 +509,11 @@ class TestOpenAIProxyModelCompletion:
                 cast(
                     MagicMock, OpenAIProxyModel.postprocess_chat_completion_chunk
                 ).assert_called_with(
-                    chat_completion_chunk, chat_completion_create_params
+                    chat_completion_chunk, chat_completion_create_params, None
                 )
             cast(
                 MagicMock, OpenAIProxyModel.preprocess_chat_completion_request
-            ).assert_called_once_with(chat_completion_create_params)
+            ).assert_called_once_with(chat_completion_create_params, None)
             cast(MagicMock, OpenAIProxyModel.postprocess_completion).assert_not_called()
             cast(
                 MagicMock, OpenAIProxyModel.preprocess_completion_request
