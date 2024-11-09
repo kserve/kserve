@@ -29,7 +29,7 @@ class OpenAIError(Exception):
 
     def __str__(self):
         return (
-            self.response.error.message
+            self.response.message
             if isinstance(self.response, ErrorResponse)
             else self.response
         )
@@ -66,4 +66,4 @@ def create_error_response(
         type=err_type,
         param=param,
         code=str(status_code.value),
-    )  # TODO: double check
+    )  # TODO: double check ErrorResponse

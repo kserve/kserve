@@ -26,6 +26,7 @@ from typing import (
     Union,
     cast,
     AsyncGenerator,
+    List,
 )
 
 import torch
@@ -396,7 +397,7 @@ class HuggingfaceGenerativeModel(
         self,
         messages: Iterable[ChatCompletionMessageParam],
         chat_template: Optional[str] = None,
-        tools: Optional[list[ChatCompletionTool]] = None,
+        tools: Optional[List[ChatCompletionTool]] = None,
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
