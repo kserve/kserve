@@ -13,9 +13,8 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import Iterable, Optional, AsyncIterator, cast, AsyncGenerator, Union, List
+from typing import Iterable, Optional, cast, AsyncGenerator, Union, List
 from fastapi import Request
-import json
 
 from kserve.protocol.rest.openai.types import (
     ChatCompletionRequest,
@@ -235,7 +234,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
 
             def mapper(completion_str: str) -> ChatCompletionChunk:
 
-                chunk = remove_prefix(completion_str.decode("utf-8"), "data: ")
+                chunk = remove_prefix(completion_str, "data: ")
                 if chunk == "[DONE]":
                     return
 
