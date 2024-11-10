@@ -18,6 +18,8 @@ from kserve.model import PredictorConfig
 from kserve.protocol.rest.openai.types import (
     ChatCompletionRequest,
     CompletionRequest,
+    Completion,
+    ChatCompletionChunk,
 )
 from pytest_httpx import HTTPXMock
 from transformers import AutoConfig
@@ -29,6 +31,14 @@ from huggingfaceserver.generative_model import HuggingfaceGenerativeModel
 from huggingfaceserver.task import MLTask
 from test_output import bert_token_classification_return_prob_expected_output
 import torch.nn.functional as F
+
+
+# Since vllm must support Python 3.8, we can't use str.removeprefix(prefix)
+# introduced in Python 3.9
+def remove_prefix(text: str, prefix: str) -> str:
+    if text.startswith(prefix):
+        return text[len(prefix) :]
+    return text
 
 
 @pytest.fixture(scope="module")
@@ -361,6 +371,10 @@ async def test_bloom_completion_streaming(bloom_model: HuggingfaceGenerativeMode
     response = await bloom_model.create_completion(params)
     output = ""
     async for chunk in response:
+        chunk = remove_prefix(chunk, "data: ")
+        if chunk == "[DONE]\n\n":
+            break
+        chunk = Completion.model_validate_json(chunk)
         output += chunk.choices[0].text
     assert output == ".\n- Hey, my dog is cute.\n- Hey, my dog is cute"
 
@@ -418,6 +432,10 @@ async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativ
     response = await bloom_model.create_chat_completion(params)
     output = ""
     async for chunk in response:
+        chunk = remove_prefix(chunk, "data: ")
+        if chunk == "[DONE]\n\n":
+            break
+        chunk = ChatCompletionChunk.model_validate_json(chunk)
         output += chunk.choices[0].delta.content
     assert (
         output
@@ -497,56 +515,3 @@ async def test_input_padding_with_pad_token_not_specified(
         == "west , and the sun sets in the west . \n the sun rises in the"
     )
     assert "a member of the royal family ." in response.choices[1].text
-
-
-@pytest.mark.asyncio
-async def test_tools_chat_completion(bloom_model: HuggingfaceGenerativeModel):
-    messages = [
-        {
-            "role": "system",
-            "content": "You are a friendly chatbot whose purpose is to tell me what the weather is.",
-        },
-        {
-            "role": "user",
-            "content": "weather in Ithaca, NY",
-        },
-    ]
-
-    tools = [
-        {
-            "type": "function",
-            "function": {
-                "name": "get_current_weather",
-                "description": "Get the current weather",
-                "parameters": {
-                    "type": "dict",
-                    "properties": {
-                        "location": {
-                            "type": "string",
-                            "description": "The city and state, e.g. San Francisco, CA",
-                        },
-                        "format": {
-                            "type": "string",
-                            "enum": ["celsius", "fahrenheit"],
-                            "description": "The temperature unit to use. Infer this from the users location.",
-                        },
-                    },
-                    "required": ["location", "format"],
-                },
-            },
-        }
-    ]
-    params = ChatCompletionRequest(
-        model="bloom-560m",
-        messages=messages,
-        stream=False,
-        max_tokens=100,
-        tools=tools,
-        tool_choice="auto",
-        chat_template="{% for message in messages %}"
-        "{{ message.content }} You have these tools: {% for tool in tools %} {{ eos_token }}"
-        "{% endfor %}{% endfor %}",
-    )
-    response = await bloom_model.create_chat_completion(params)
-
-    assert response.choices[0].message.content

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import Iterable, Optional, cast, AsyncGenerator, Union, List
+from typing import Iterable, Optional, cast, AsyncGenerator, Union
 from fastapi import Request
 
 from kserve.protocol.rest.openai.types import (
@@ -34,7 +34,6 @@ from kserve.protocol.rest.openai.types import (
     CompletionLogProbs,
     ErrorResponse,
 )
-from kserve.protocol.rest.openai.types.openapi import ChatCompletionTool
 
 from kserve.errors import InvalidInput
 from kserve.protocol.rest.openai.openai_model import AsyncMappingIterator
@@ -55,10 +54,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
 
     @abstractmethod
     def apply_chat_template(
-        self,
-        messages: Iterable[ChatCompletionMessageParam],
-        chat_template: Optional[str] = None,
-        tools: Optional[List[ChatCompletionTool]] = None,
+        self, messages: Iterable[ChatCompletionMessageParam]
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
@@ -207,7 +203,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
             raise InvalidInput("n != 1 is not supported")
 
         # Convert the messages into a prompt
-        chat_prompt = self.apply_chat_template(request.messages, request.chat_template)
+        chat_prompt = self.apply_chat_template(request)
         # Translate the chat completion request to a completion request
         completion_params = self.chat_completion_params_to_completion_params(
             request, chat_prompt.prompt
