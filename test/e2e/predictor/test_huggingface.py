@@ -347,7 +347,9 @@ async def test_huggingface_v2_text_embedding(rest_v2_client):
 
 @pytest.mark.llm
 @pytest.mark.asyncio(scope="session")
-async def test_huggingface_v2_sequence_classification_with_probabilities(rest_v2_client):
+async def test_huggingface_v2_sequence_classification_with_probabilities(
+    rest_v2_client,
+):
     service_name = "hf-bert-sequence-v2"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -397,6 +399,9 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(rest_v2
     )
 
     parsed_output = [ast.literal_eval(res.outputs[0].data[0])]
-    assert parsed_output == huggingface_sequence_classification_with_probabilities_expected_output
+    assert (
+        parsed_output
+        == huggingface_sequence_classification_with_probabilities_expected_output
+    )
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
