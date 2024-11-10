@@ -14,8 +14,19 @@
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator, Callable, Iterable, List, Tuple, Union, cast, Optional
-from unittest.mock import MagicMock, patch  # TODO: not familiar with this
+from typing import (
+    AsyncIterator,
+    Callable,
+    Iterable,
+    List,
+    Tuple,
+    Union,
+    cast,
+    Optional,
+    AsyncGenerator,
+)
+from unittest.mock import MagicMock, patch
+import json
 
 import httpx
 import pytest
@@ -40,6 +51,14 @@ from kserve.protocol.rest.openai.types import (
 from fastapi import Request  # TODO: check installed or not
 
 FIXTURES_PATH = Path(__file__).parent / "fixtures" / "openai"
+
+
+# Since vllm must support Python 3.8, we can't use str.removeprefix(prefix)
+# introduced in Python 3.9
+def remove_prefix(text: str, prefix: str) -> str:
+    if text.startswith(prefix):
+        return text[len(prefix) :]
+    return text
 
 
 class ChunkIterator:
@@ -72,11 +91,16 @@ class DummyModel(OpenAIChatAdapterModel):
         self,
         request: CompletionRequest,
         raw_request: Optional[Request] = None,
-    ) -> Union[
-        Completion, AsyncIterator[Completion]
-    ]:  # TODO: Leave the return type as it is, as it is just mock test
+    ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
         if request.stream:
-            return ChunkIterator([self.data[1]] * self.num_chunks)
+            completion = await ChunkIterator([self.data[1]] * self.num_chunks)
+
+            async def stream_results() -> AsyncGenerator[str, None]:
+                async for partial_completion in completion:
+                    yield f"data: {partial_completion.model_dump_json()}\n\n"
+                yield "data: [DONE]\n\n"
+
+            return stream_results()
         else:
             return self.data[0]
 
@@ -201,12 +225,13 @@ class TestOpenAICreateCompletion:
     ):
         completion_create_params.stream = True
         c = await dummy_model.create_completion(completion_create_params)
-        assert isinstance(c, AsyncIterator)
+        assert isinstance(c, AsyncGenerator)
         num_chunks_consumed = 0
         async for chunk in c:
-            assert chunk.model_dump_json(
-                indent=2
-            ) == completion_partial.model_dump_json(indent=2)
+            chunk = remove_prefix(chunk.decode("utf-8"), "data: ")
+            if chunk == "[DONE]":
+                return
+            assert chunk == chat_completion_chunk.model_dump_json()  # not using indent
             num_chunks_consumed += 1
         assert num_chunks_consumed == dummy_model.num_chunks
 
@@ -246,12 +271,13 @@ class TestOpenAICreateChatCompletion:
     ):
         chat_completion_create_params.stream = True
         c = await dummy_model.create_chat_completion(chat_completion_create_params)
-        assert isinstance(c, AsyncIterator)
+        assert isinstance(c, AsyncGenerator)
         num_chunks_consumed = 0
         async for chunk in c:
-            assert chunk.model_dump_json(
-                indent=2
-            ) == chat_completion_chunk.model_dump_json(indent=2)
+            chunk = remove_prefix(chunk.decode("utf-8"), "data: ")
+            if chunk == "[DONE]":
+                return
+            assert chunk == chat_completion_chunk.model_dump_json()  # not using indent
             num_chunks_consumed += 1
         assert num_chunks_consumed == dummy_model.num_chunks
 
@@ -449,7 +475,7 @@ class TestOpenAIProxyModelCompletion:
                 ).assert_called_with(completion_chunk, completion_create_params, None)
             cast(
                 MagicMock, OpenAIProxyModel.preprocess_completion_request
-            ).assert_called_once_with(completion_create_params)
+            ).assert_called_once_with(completion_create_params, None)
             cast(MagicMock, OpenAIProxyModel.postprocess_completion).assert_not_called()
             cast(
                 MagicMock, OpenAIProxyModel.preprocess_chat_completion_request

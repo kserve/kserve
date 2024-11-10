@@ -15,6 +15,7 @@
 from abc import abstractmethod
 from typing import Iterable, Optional, AsyncIterator, cast, AsyncGenerator, Union, List
 from fastapi import Request
+import json
 
 from kserve.protocol.rest.openai.types import (
     ChatCompletionRequest,
@@ -221,12 +222,25 @@ class OpenAIChatAdapterModel(OpenAIModel):
                 completion, chat_prompt.response_role
             )
         else:
-            completion_iterator = cast(
-                AsyncIterator[Completion],
-                await self.create_completion(completion_params, raw_request),
+            completion_iterator = await self.create_completion(
+                completion_params, raw_request
             )
 
-            def mapper(completion: Completion) -> ChatCompletionChunk:
+            # Since vllm must support Python 3.8, we can't use str.removeprefix(prefix)
+            # introduced in Python 3.9
+            def remove_prefix(text: str, prefix: str) -> str:
+                if text.startswith(prefix):
+                    return text[len(prefix) :]
+                return text
+
+            def mapper(completion_str: str) -> ChatCompletionChunk:
+
+                chunk = remove_prefix(completion_str.decode("utf-8"), "data: ")
+                if chunk == "[DONE]":
+                    return
+
+                completion = Completion.model_validate_json(chunk)
+
                 return self.completion_to_chat_completion_chunk(
                     completion, chat_prompt.response_role
                 )
