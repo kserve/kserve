@@ -15,7 +15,6 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import (
-    AsyncIterator,
     Callable,
     Iterable,
     List,
@@ -26,7 +25,6 @@ from typing import (
     AsyncGenerator,
 )
 from unittest.mock import MagicMock, patch
-import json
 
 import httpx
 import pytest
@@ -93,10 +91,11 @@ class DummyModel(OpenAIChatAdapterModel):
         raw_request: Optional[Request] = None,
     ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
         if request.stream:
-            completion = await ChunkIterator([self.data[1]] * self.num_chunks)
 
             async def stream_results() -> AsyncGenerator[str, None]:
-                async for partial_completion in completion:
+                async for partial_completion in ChunkIterator(
+                    [self.data[1]] * self.num_chunks
+                ):
                     yield f"data: {partial_completion.model_dump_json()}\n\n"
                 yield "data: [DONE]\n\n"
 
@@ -228,10 +227,12 @@ class TestOpenAICreateCompletion:
         assert isinstance(c, AsyncGenerator)
         num_chunks_consumed = 0
         async for chunk in c:
-            chunk = remove_prefix(chunk.decode("utf-8"), "data: ")
-            if chunk == "[DONE]":
+            chunk = remove_prefix(chunk, "data: ")
+            if chunk == "[DONE]\n\n":
                 return
-            assert chunk == chat_completion_chunk.model_dump_json()  # not using indent
+            assert (
+                chunk == completion_partial.model_dump_json() + "\n\n"
+            )  # not using indent but using two new lines
             num_chunks_consumed += 1
         assert num_chunks_consumed == dummy_model.num_chunks
 
@@ -274,10 +275,12 @@ class TestOpenAICreateChatCompletion:
         assert isinstance(c, AsyncGenerator)
         num_chunks_consumed = 0
         async for chunk in c:
-            chunk = remove_prefix(chunk.decode("utf-8"), "data: ")
-            if chunk == "[DONE]":
+            chunk = remove_prefix(chunk, "data: ")
+            if chunk == "[DONE]\n\n":
                 return
-            assert chunk == chat_completion_chunk.model_dump_json()  # not using indent
+            assert (
+                chunk == chat_completion_chunk.model_dump_json() + "\n\n"
+            )  # not using indent but using two new lines
             num_chunks_consumed += 1
         assert num_chunks_consumed == dummy_model.num_chunks
 
