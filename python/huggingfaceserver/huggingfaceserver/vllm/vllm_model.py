@@ -31,7 +31,6 @@ from kserve.protocol.rest.openai.types import (
 from vllm import AsyncEngineArgs
 from vllm.entrypoints.logger import RequestLogger
 from vllm.engine.protocol import EngineClient
-from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
 from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
@@ -39,7 +38,7 @@ from vllm.entrypoints.openai.serving_tokenization import OpenAIServingTokenizati
 from vllm.entrypoints.openai.protocol import ErrorResponse
 from vllm.entrypoints.openai.serving_engine import BaseModelPath
 from vllm.entrypoints.openai.api_server import build_async_engine_client
-
+from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
 from .utils import build_vllm_engine_args
 
 
@@ -55,12 +54,12 @@ class VLLMModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
         predictor_config: Optional[PredictorConfig] = None,
         request_logger: Optional[RequestLogger] = None,
     ):
-        validate_parsed_serve_args(args)
         super().__init__(
             args.model_name, predictor_config
         )  # TODO: where is model_name?
         self.args = args
-        engine_args = build_vllm_engine_args(args)  # TODO: should be enough
+        validate_parsed_serve_args(args)
+        engine_args = build_vllm_engine_args(args)  # Only for easy to write tests
         self.vllm_engine_args = engine_args
         self.request_logger = request_logger
 
@@ -102,7 +101,7 @@ class VLLMModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
                 request_logger=self.request_logger,
                 return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
             )
-            # TODO: how to use embedding and tokenization
+            # TODO: add embedding and tokenization
             self.openai_serving_embedding = OpenAIServingEmbedding(
                 self.engine_client,
                 self.model_config,

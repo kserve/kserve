@@ -18,6 +18,8 @@ from kserve.model import PredictorConfig
 from kserve.protocol.rest.openai.types import (
     ChatCompletionRequest,
     CompletionRequest,
+    Completion,
+    ChatCompletionChunk,
 )
 from pytest_httpx import HTTPXMock
 from transformers import AutoConfig
@@ -29,6 +31,14 @@ from huggingfaceserver.generative_model import HuggingfaceGenerativeModel
 from huggingfaceserver.task import MLTask
 from test_output import bert_token_classification_return_prob_expected_output
 import torch.nn.functional as F
+
+
+# Since vllm must support Python 3.8, we can't use str.removeprefix(prefix)
+# introduced in Python 3.9
+def remove_prefix(text: str, prefix: str) -> str:
+    if text.startswith(prefix):
+        return text[len(prefix) :]
+    return text
 
 
 @pytest.fixture(scope="module")
@@ -361,6 +371,10 @@ async def test_bloom_completion_streaming(bloom_model: HuggingfaceGenerativeMode
     response = await bloom_model.create_completion(params)
     output = ""
     async for chunk in response:
+        chunk = remove_prefix(chunk, "data: ")
+        if chunk == "[DONE]\n\n":
+            break
+        chunk = Completion.model_validate_json(chunk)
         output += chunk.choices[0].text
     assert output == ".\n- Hey, my dog is cute.\n- Hey, my dog is cute"
 
@@ -418,6 +432,10 @@ async def test_bloom_chat_completion_streaming(bloom_model: HuggingfaceGenerativ
     response = await bloom_model.create_chat_completion(params)
     output = ""
     async for chunk in response:
+        chunk = remove_prefix(chunk, "data: ")
+        if chunk == "[DONE]\n\n":
+            break
+        chunk = ChatCompletionChunk.model_validate_json(chunk)
         output += chunk.choices[0].delta.content
     assert (
         output
