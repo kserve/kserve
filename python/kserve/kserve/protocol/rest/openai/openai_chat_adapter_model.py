@@ -235,7 +235,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
             def mapper(completion_str: str) -> ChatCompletionChunk:
 
                 chunk = remove_prefix(completion_str, "data: ")
-                if chunk == "[DONE]":
+                if chunk == "[DONE]\n\n":
                     return
 
                 completion = Completion.model_validate_json(chunk)
