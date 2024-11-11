@@ -78,7 +78,7 @@ def vllm_opt_model():
     args = parser.parse_args([*args])
 
     def mock_load(self) -> bool:
-        asyncio.run(self.setup_engine()) #
+        asyncio.run(self.setup_engine())
         self.ready = True
         return self.ready
 
