@@ -54,9 +54,7 @@ class VLLMModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
         predictor_config: Optional[PredictorConfig] = None,
         request_logger: Optional[RequestLogger] = None,
     ):
-        super().__init__(
-            args.model_name, predictor_config
-        )  # TODO: where is model_name?
+        super().__init__(args.model, predictor_config)  # TODO: where is model_name?
         self.args = args
         validate_parsed_serve_args(args)
         engine_args = build_vllm_engine_args(args)  # Only for easy to write tests
@@ -73,7 +71,7 @@ class VLLMModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
             BaseModelPath(name=name, model_path=self.args.model)
             for name in served_model_names
         ]
-        async with build_async_engine_client(self.vllm_engine_args) as engine_client:
+        async with build_async_engine_client(self.args) as engine_client:
             self.engine_client = engine_client
             self.log_stats = not self.vllm_engine_args.disable_log_stats
             self.model_config = await engine_client.get_model_config()
