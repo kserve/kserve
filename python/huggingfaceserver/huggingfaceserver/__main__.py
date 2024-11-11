@@ -110,7 +110,7 @@ parser.add_argument(
     default=None,
     help="the tensor input names passed to the model",
 )
-parser.add_argument("--task", required=False, help="The ML task name")
+
 available_backends = ", ".join(f"'{b.name}'" for b in Backend)
 parser.add_argument(
     "--backend",
