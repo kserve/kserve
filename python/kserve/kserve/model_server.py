@@ -167,9 +167,9 @@ parser.add_argument(
 )
 parser.add_argument(
     "--predictor_request_retries",
-    default=3,
+    default=0,
     type=int,
-    help="The number of retries if predictor request fails.",
+    help="The number of retries if predictor request fails. Defaults to 0.",
 )
 parser.add_argument(
     "--enable_predictor_health_check",
@@ -260,12 +260,6 @@ class ModelServer:
             predictor_request_retries=args.predictor_request_retries,
             predictor_health_check=args.enable_predictor_health_check,
         )
-
-        # Enable predictor health check if transformer and predictor is collocated
-        if args.predictor_host is not None and any(
-            val in args.predictor_host.lower() for val in ["localhost", "127.0.0.1"]
-        ):
-            predictor_config.predictor_health_check = True
         self.dataplane = DataPlane(
             model_registry=self.registered_models, predictor_config=predictor_config
         )

@@ -63,23 +63,11 @@ class ImageTransformer(Model):
     def __init__(
         self,
         name: str,
-        predictor_host: str,
-        predictor_protocol: str,
-        predictor_use_ssl: bool,
-        predictor_request_timeout_seconds: int,
-        predictor_request_retries: int,
-        predictor_health_check: bool,
+        predictor_config: PredictorConfig,
     ):
         super().__init__(
             name,
-            PredictorConfig(
-                predictor_host,
-                predictor_protocol,
-                predictor_use_ssl,
-                predictor_request_timeout_seconds,
-                predictor_request_retries,
-                predictor_health_check,
-            ),
+            predictor_config,
             return_response_headers=True,
         )
         self.ready = True
@@ -143,11 +131,13 @@ if __name__ == "__main__":
         logging.configure_logging(args.log_config_file)
     model = ImageTransformer(
         args.model_name,
-        predictor_host=args.predictor_host,
-        predictor_protocol=args.predictor_protocol,
-        predictor_use_ssl=args.predictor_use_ssl,
-        predictor_request_timeout_seconds=args.predictor_request_timeout_seconds,
-        predictor_request_retries=args.predictor_request_retries,
-        predictor_health_check=args.enable_predictor_health_check,
+        PredictorConfig(
+            args.predictor_host,
+            args.predictor_protocol,
+            args.predictor_use_ssl,
+            args.predictor_request_timeout_seconds,
+            args.predictor_request_retries,
+            args.enable_predictor_health_check,
+        ),
     )
     ModelServer().start([model])

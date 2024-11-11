@@ -139,7 +139,7 @@ class PredictorConfig:
         predictor_protocol: str = PredictorProtocol.REST_V1.value,
         predictor_use_ssl: bool = False,
         predictor_request_timeout_seconds: int = 600,
-        predictor_request_retries: int = 3,
+        predictor_request_retries: int = 0,
         predictor_health_check: bool = False,
     ):
         """The configuration for the http call to the predictor
@@ -149,7 +149,7 @@ class PredictorConfig:
             predictor_protocol: The inference protocol used for predictor http call
             predictor_use_ssl: Enable using ssl for http connection to the predictor
             predictor_request_timeout_seconds: The request timeout seconds for the predictor http call. Default is 600 seconds.
-            predictor_request_retries: The number of retries if the predictor request fails. Default is 3.
+            predictor_request_retries: The number of retries if the predictor request fails. Default is 0.
             predictor_health_check: Enable predictor health check
         """
         self.predictor_host = predictor_host
