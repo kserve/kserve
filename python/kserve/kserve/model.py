@@ -207,7 +207,7 @@ class Model(InferenceModel):
         )
         self.use_ssl = predictor_config.predictor_use_ssl if predictor_config else False
         self.retries = (
-            predictor_config.predictor_request_retries if predictor_config else 3
+            predictor_config.predictor_request_retries if predictor_config else 0
         )
         self.explainer_host = None
         self._predictor_base_url = (

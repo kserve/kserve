@@ -145,16 +145,17 @@ class InferenceGRPCClient:
                         break
                 if ("grpc.enable_retries", 1) not in channel_opt:
                     channel_opt.append(("grpc.enable_retries", 1))
-                if not is_exist:
+                if not is_exist and retries > 0:
                     channel_opt.append(("grpc.service_config", service_config_json))
         else:
             # To specify custom channel_opt, see the channel_args parameter.
             channel_opt = [
                 ("grpc.max_send_message_length", -1),
                 ("grpc.max_receive_message_length", -1),
-                ("grpc.enable_retries", 1),
-                ("grpc.service_config", service_config_json),
             ]
+            if retries > 0:
+                channel_opt.append(("grpc.enable_retries", 1))
+                channel_opt.append(("grpc.service_config", service_config_json))
 
         if creds:
             self._channel = grpc.aio.secure_channel(url, creds, options=channel_opt)
