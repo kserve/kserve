@@ -37,7 +37,6 @@ from typing import Any, Dict, List, Literal, Optional, Union, Iterable, Callable
 from enum import Enum, IntEnum
 from functools import cached_property
 
-import torch  # TODO: install torch here?
 import msgspec  # TODO: install msgspec here?
 from dataclasses import dataclass
 from openai.types.chat import (
@@ -78,18 +77,6 @@ class SamplingType(IntEnum):
     GREEDY = 0
     RANDOM = 1
     RANDOM_SEED = 2
-
-
-LogitsProcessor = Union[
-    Callable[[List[int], torch.Tensor], torch.Tensor],
-    Callable[[List[int], List[int], torch.Tensor], torch.Tensor],
-]
-"""LogitsProcessor is a function that takes a list
-of previously generated tokens, the logits tensor
-for the next token and, optionally, prompt tokens as a
-first argument, and returns a modified tensor of logits
-to sample from."""
-
 
 # maybe make msgspec?
 @dataclass
@@ -299,7 +286,7 @@ class SamplingParams(
         detokenize: bool = True,
         skip_special_tokens: bool = True,
         spaces_between_special_tokens: bool = True,
-        logits_processors: Optional[List[LogitsProcessor]] = None,
+        logits_processors: Optional[List[Any]] = None,
         truncate_prompt_tokens: Optional[Annotated[int, msgspec.Meta(ge=1)]] = None,
         output_kind: RequestOutputKind = RequestOutputKind.CUMULATIVE,
         guided_decoding: Optional[GuidedDecodingParams] = None,
