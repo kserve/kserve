@@ -22,7 +22,6 @@ from cloudevents.http import CloudEvent
 
 from .constants.constants import (
     PredictorProtocol,
-    PREDICTOR_BASE_URL_FORMAT,
     EXPLAINER_BASE_URL_FORMAT,
 )
 from .errors import InvalidInput
@@ -37,6 +36,7 @@ from .metrics import (
 )
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest
 from .protocol.infer_type import InferRequest, InferResponse
+from .utils.inference_client_factory import InferenceClientFactory
 
 
 class BaseKServeModel(ABC):
@@ -139,6 +139,8 @@ class PredictorConfig:
         predictor_protocol: str = PredictorProtocol.REST_V1.value,
         predictor_use_ssl: bool = False,
         predictor_request_timeout_seconds: int = 600,
+        predictor_request_retries: int = 0,
+        predictor_health_check: bool = False,
     ):
         """The configuration for the http call to the predictor
 
@@ -146,12 +148,27 @@ class PredictorConfig:
             predictor_host: The host name of the predictor
             predictor_protocol: The inference protocol used for predictor http call
             predictor_use_ssl: Enable using ssl for http connection to the predictor
-            predictor_request_timeout_seconds: The request timeout seconds for the predictor http call
+            predictor_request_timeout_seconds: The request timeout seconds for the predictor http call. Default is 600 seconds.
+            predictor_request_retries: The number of retries if the predictor request fails. Default is 0.
+            predictor_health_check: Enable predictor health check
         """
         self.predictor_host = predictor_host
         self.predictor_protocol = predictor_protocol
         self.predictor_use_ssl = predictor_use_ssl
         self.predictor_request_timeout_seconds = predictor_request_timeout_seconds
+        self.predictor_request_retries = predictor_request_retries
+        self.predictor_health_check = predictor_health_check
+
+    @property
+    def predictor_base_url(self) -> str:
+        """
+        Get the base url for the predictor.
+
+        Returns:
+            str: The base url for the predictor
+        """
+        protocol = "https" if self.predictor_use_ssl else "http"
+        return f"{protocol}://{self.predictor_host}"
 
 
 class Model(InferenceModel):
@@ -189,7 +206,13 @@ class Model(InferenceModel):
             else 600
         )
         self.use_ssl = predictor_config.predictor_use_ssl if predictor_config else False
+        self.retries = (
+            predictor_config.predictor_request_retries if predictor_config else 0
+        )
         self.explainer_host = None
+        self._predictor_base_url = (
+            predictor_config.predictor_base_url if predictor_config else None
+        )
         self._http_client_instance = None
         self._grpc_client_stub = None
         self.enable_latency_logging = False
@@ -286,15 +309,22 @@ class Model(InferenceModel):
     @property
     def _http_client(self) -> InferenceRESTClient:
         if self._http_client_instance is None and self.predictor_host:
-            config = RESTConfig(protocol=self.protocol, timeout=self.timeout, retries=3)
-            self._http_client_instance = InferenceRESTClient(config=config)
+            config = RESTConfig(
+                protocol=self.protocol, timeout=self.timeout, retries=self.retries
+            )
+            self._http_client_instance = InferenceClientFactory().get_rest_client(
+                config=config
+            )
         return self._http_client_instance
 
     @property
     def _grpc_client(self) -> InferenceGRPCClient:
         if self._grpc_client_stub is None and self.predictor_host:
-            self._grpc_client_stub = InferenceGRPCClient(
-                url=self.predictor_host, use_ssl=self.use_ssl, timeout=self.timeout
+            self._grpc_client_stub = InferenceClientFactory().get_grpc_client(
+                url=self.predictor_host,
+                use_ssl=self.use_ssl,
+                timeout=self.timeout,
+                retries=self.retries,
             )
         return self._grpc_client_stub
 
@@ -376,12 +406,8 @@ class Model(InferenceModel):
             if "x-b3-traceid" in headers:
                 predict_headers["x-b3-traceid"] = headers["x-b3-traceid"]
 
-        protocol = "https" if self.use_ssl else "http"
-        predict_base_url = PREDICTOR_BASE_URL_FORMAT.format(
-            protocol, self.predictor_host
-        )
         response = await self._http_client.infer(
-            predict_base_url,
+            self._predictor_base_url,
             model_name=self.name,
             data=payload,
             headers=predict_headers,

@@ -27,13 +27,17 @@ from kserve.errors import (
     InvalidInput,
     ModelNotFound,
     ModelNotReady,
+    ServerNotLive,
+    ServerNotReady,
+    UnsupportedProtocol,
     generic_exception_handler,
     inference_error_handler,
     invalid_input_handler,
     model_not_found_handler,
     model_not_ready_handler,
     not_implemented_error_handler,
-    UnsupportedProtocol,
+    server_not_live_handler,
+    server_not_ready_handler,
     unsupported_protocol_error_handler,
 )
 from kserve.logging import trace_logger
@@ -95,6 +99,8 @@ class RESTServer:
         self.app.add_exception_handler(
             UnsupportedProtocol, unsupported_protocol_error_handler
         )
+        self.app.add_exception_handler(ServerNotLive, server_not_live_handler)
+        self.app.add_exception_handler(ServerNotReady, server_not_ready_handler)
         self.app.add_exception_handler(Exception, generic_exception_handler)
 
 
