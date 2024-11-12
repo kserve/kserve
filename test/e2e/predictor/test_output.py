@@ -400,3 +400,10 @@ huggingface_text_embedding_expected_output = [
     approx(0.049627237021923065, abs=1e-6),
     approx(-0.029213037341833115, abs=1e-6),
 ]
+
+huggingface_sequence_classification_with_probabilities_expected_output = [
+    {
+        0: approx(-2.152204, abs=0.000009),
+        1: approx(2.5094059, abs=0.000009),
+    }
+]
