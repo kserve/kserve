@@ -112,14 +112,14 @@ ksvc_count=${#ksvc_names[@]}
     log INFO "deploying inference services on kserve"
     for (( i=0; i<${isvc_count}; i++ ));
     do
-        yq 'del(.metadata.annotations[kubectl.kubernetes.io/last-applied-configuration])' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
-        yq 'del(.metadata.creationTimestamp)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
-        yq 'del(.metadata.finalizers)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
-        yq 'del(.metadata.generation)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
-        yq 'del(.metadata.resourceVersion)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
-        yq 'del(.metadata.uid)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
-        yq 'del(.metadata.managedFields)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
-        yq 'del(.status)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
+        yq e 'del(.metadata.annotations[kubectl.kubernetes.io/last-applied-configuration])' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
+        yq e 'del(.metadata.creationTimestamp)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
+        yq e 'del(.metadata.finalizers)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
+        yq e 'del(.metadata.generation)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
+        yq e 'del(.metadata.resourceVersion)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
+        yq e 'del(.metadata.uid)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
+        yq e 'del(.metadata.managedFields)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
+        yq e 'del(.status)' -i "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
         sed -i -- 's/kubeflow.org/kserve.io/g' ${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml
         kubectl apply --server-side=true -f "${ISVC_CONFIG_DIR}/${isvc_names[$i]}.yaml"
     done
