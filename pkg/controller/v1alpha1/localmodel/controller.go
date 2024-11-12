@@ -363,9 +363,9 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Step 3 - Creates Jobs on all nodes to download models
-	if err := c.DownloadModel(ctx, localModel, nodeGroup, pvc, localModelConfig.JobNamespace); err != nil {
-		c.Log.Error(err, "Model download err", "model", localModel.Name)
-	}
+	//if err := c.DownloadModel(ctx, localModel, nodeGroup, pvc, localModelConfig.JobNamespace); err != nil {
+	//	c.Log.Error(err, "Model download err", "model", localModel.Name)
+	//}
 
 	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
 	err = c.ReconcileForIsvcs(ctx, localModel, nodeGroup, localModelConfig.JobNamespace)
