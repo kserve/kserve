@@ -175,7 +175,7 @@ parser.add_argument(
     "--enable_predictor_health_check",
     action="store_true",
     help="The Transformer will perform readiness check for the predictor in addition to "
-    "its health check. By default it is enabled if transformer and predictor is collocated.",
+    "its health check. By default it is disabled.",
 )
 args, _ = parser.parse_known_args()
 
