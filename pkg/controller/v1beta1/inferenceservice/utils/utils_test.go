@@ -1116,7 +1116,7 @@ func TestUpdateImageTag(t *testing.T) {
 			servingRuntime: constants.TFServing,
 			expected:       "tfserving:2.6.2",
 		},
-		"UpdateGPUImageTag": {
+		"UpdateTFServingGPUImageTag": {
 			container: &v1.Container{
 				Name:  "kserve-container",
 				Image: "tfserving:1.14.0",
@@ -1138,6 +1138,29 @@ func TestUpdateImageTag(t *testing.T) {
 			runtimeVersion: nil,
 			servingRuntime: constants.TFServing,
 			expected:       "tfserving:1.14.0-gpu",
+		},
+		"UpdateHuggingFaceServerGPUImageTag": {
+			container: &v1.Container{
+				Name:  "kserve-container",
+				Image: "huggingfaceserver:1.14.0",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						"nvidia.com/gpu": resource.MustParse("1"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.HuggingFaceServer,
+			expected:       "huggingfaceserver:1.14.0-gpu",
 		},
 		"UpdateGPUImageTagWithProxy": {
 			container: &v1.Container{
