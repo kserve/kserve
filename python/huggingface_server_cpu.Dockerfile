@@ -9,17 +9,18 @@ ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.8.3
 
 # Install vllm
-ARG VLLM_VERSION=0.6.3
+ARG VLLM_VERSION=v0.6.3.post1
 
 RUN apt-get update -y && apt-get install -y \
     gcc python3.10-venv python3-dev python3-pip \
-    gcc-12 g++-12 libnuma-dev libnuma1 libtcmalloc-minimal4 numactl git \
+    gcc-12 g++-12 libnuma-dev libnuma1 libtcmalloc-minimal4 \
+    ffmpeg libsm6 libxext6 libgl1 numactl git \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
     
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
 
 # Set up Poetry for dependency management
-RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
+RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip3 install poetry==${POETRY_VERSION}
 ENV PATH="$PATH:${POETRY_HOME}/bin"
 
 # Activate virtual env
@@ -35,11 +36,11 @@ RUN pip install intel-openmp
 
 ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4:$VIRTUAL_ENV/lib/libiomp5.so"
 
-RUN pip install intel_extension_for_pytorch==2.5.0
+RUN pip install intel_extension_for_pytorch==2.4.0
 
 # Install Python build tools and other dependencies
 RUN pip install --upgrade pip && \
-    pip install "cmake>=3.26" ninja packaging "setuptools>=61" "setuptools-scm>=8" numpy "torch==2.5.1" wheel jinja2
+    pip install "cmake>=3.26" ninja packaging "setuptools>=61" "setuptools-scm>=8" numpy "torch==2.4.0" wheel jinja2
 
 # Install KServe and Hugging Face Server dependencies
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
@@ -47,8 +48,8 @@ RUN cd kserve && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
 RUN cd kserve && poetry install --no-interaction --no-cache
 
-COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/
-RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
+COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/health_check.py huggingfaceserver/
+RUN cd huggingfaceserver && poetry install --no-root --no-interaction 
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
@@ -58,7 +59,7 @@ ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 
 # Clone and build vllm from source
 WORKDIR /vllm
-RUN git clone https://github.com/vllm-project/vllm.git . && \
+RUN git clone --branch $VLLM_VERSION --depth 1 https://github.com/vllm-project/vllm.git . && \
     pip install -v -r requirements-cpu.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
     VLLM_TARGET_DEVICE=cpu python3 setup.py bdist_wheel && \
     pip install dist/*.whl && \
@@ -94,7 +95,6 @@ ENV VLLM_NCCL_SO_PATH="/lib/x86_64-linux-gnu/libnccl.so.2"
 # Set the multiprocess method to spawn to avoid issues with cuda initialization for `mp` executor backend.
 ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
 ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4:$VIRTUAL_ENV/lib/libiomp5.so"
-ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 
 USER 1000
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]

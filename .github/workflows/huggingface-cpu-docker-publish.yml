@@ -86,9 +86,6 @@ jobs:
           # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latest
 
-          # Add "-gpu" suffix to the version
-          VERSION="${VERSION}-gpu"
-
           echo VERSION=$VERSION >> $GITHUB_ENV
           echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
 
@@ -97,7 +94,7 @@ jobs:
         with:
           platforms: linux/amd64
           context: python
-          file: python/huggingface_server.Dockerfile
+          file: python/huggingface_server_cpu.Dockerfile
           push: true
           tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
           # https://github.com/docker/buildx/issues/1533

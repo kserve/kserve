@@ -110,7 +110,7 @@ parser.add_argument(
     default=None,
     help="the tensor input names passed to the model",
 )
-
+parser.add_argument("--task", required=False, help="The ML task name")
 available_backends = ", ".join(f"'{b.name}'" for b in Backend)
 parser.add_argument(
     "--backend",
@@ -226,7 +226,9 @@ def load_model():
         else:
             task = infer_task_from_model_architecture(model_config)
 
+        print(task)
         if is_generative_task(task):
+            print(task)
             # Convert dtype from string to torch dtype. Default to float16
             dtype = kwargs.get("dtype", default_dtype)
             dtype = hf_dtype_map[dtype]

@@ -401,15 +401,16 @@ const (
 
 // built-in runtime servers
 const (
-	SKLearnServer = "kserve-sklearnserver"
-	MLServer      = "kserve-mlserver"
-	TFServing     = "kserve-tensorflow-serving"
-	XGBServer     = "kserve-xgbserver"
-	TorchServe    = "kserve-torchserve"
-	TritonServer  = "kserve-tritonserver"
-	PMMLServer    = "kserve-pmmlserver"
-	LGBServer     = "kserve-lgbserver"
-	PaddleServer  = "kserve-paddleserver"
+	SKLearnServer     = "kserve-sklearnserver"
+	MLServer          = "kserve-mlserver"
+	TFServing         = "kserve-tensorflow-serving"
+	XGBServer         = "kserve-xgbserver"
+	TorchServe        = "kserve-torchserve"
+	TritonServer      = "kserve-tritonserver"
+	PMMLServer        = "kserve-pmmlserver"
+	LGBServer         = "kserve-lgbserver"
+	PaddleServer      = "kserve-paddleserver"
+	HuggingFaceServer = "kserve-huggingfaceserver"
 )
 
 const (
