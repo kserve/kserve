@@ -31,7 +31,7 @@ from .v2_datamodels import (
 from ..dataplane import DataPlane
 from ..model_repository_extension import ModelRepositoryExtension
 from ...constants.constants import V2_ROUTE_PREFIX, PredictorProtocol
-from ...errors import ModelNotReady
+from ...errors import ModelNotReady, ServerNotLive, ServerNotReady
 
 
 class V2Endpoints:
@@ -53,23 +53,28 @@ class V2Endpoints:
         """
         return ServerMetadataResponse.parse_obj(self.dataplane.metadata())
 
-    @staticmethod
-    async def live() -> ServerLiveResponse:
+    async def live(self) -> ServerLiveResponse:
         """Server live endpoint.
 
         Returns:
             ServerLiveResponse: Server live message.
         """
-        return ServerLiveResponse(live=True)
+        response = await self.dataplane.live()
+        is_live = response["status"] == "alive"
+        if not is_live:
+            raise ServerNotLive()
+        return ServerLiveResponse(live=is_live)
 
-    @staticmethod
-    async def ready() -> ServerReadyResponse:
+    async def ready(self) -> ServerReadyResponse:
         """Server ready endpoint.
 
         Returns:
             ServerReadyResponse: Server ready message.
         """
-        return ServerReadyResponse(ready=True)
+        is_ready = await self.dataplane.ready()
+        if not is_ready:
+            raise ServerNotReady()
+        return ServerReadyResponse(ready=is_ready)
 
     async def models(self) -> ListModelsResponse:
         """Get a list of models in the model registry.

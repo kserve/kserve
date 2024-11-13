@@ -53,7 +53,6 @@ class V1Endpoints:
             Dict[str, Union[str, bool]]: Name of the model and whether it's ready.
         """
         model_ready = await self.dataplane.model_ready(model_name)
-
         if not model_ready:
             raise ModelNotReady(model_name)
 
