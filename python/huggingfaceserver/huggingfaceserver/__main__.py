@@ -226,9 +226,7 @@ def load_model():
         else:
             task = infer_task_from_model_architecture(model_config)
 
-        print(task)
         if is_generative_task(task):
-            print(task)
             # Convert dtype from string to torch dtype. Default to float16
             dtype = kwargs.get("dtype", default_dtype)
             dtype = hf_dtype_map[dtype]
