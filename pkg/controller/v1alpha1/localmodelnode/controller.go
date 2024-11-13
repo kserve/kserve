@@ -35,6 +35,7 @@ import (
 	"github.com/go-logr/logr"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"golang.org/x/exp/maps"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -55,9 +56,11 @@ type LocalModelNodeReconciler struct {
 }
 
 var (
-	defaultJobImage = "kserve/storage-initializer:latest" // Could be overwritten by the value in the configmap
-	FSGroup         *int64                                // Could be overwritten by the value in the configmap
-	nodeName        = os.Getenv("NODE_NAME")              // Name of current node
+	defaultJobImage        = "kserve/storage-initializer:latest" // Could be overwritten by the value in the configmap
+	FSGroup                *int64                                // Could be overwritten by the value in the configmap
+	nodeName               = os.Getenv("NODE_NAME")              // Name of current node
+	localModelHostPath     = "/mnt/models"                       // Host node directory to store local models
+	localModelContainerVol = "/models"                           // Container directory to store local models
 )
 
 func (c *LocalModelNodeReconciler) launchDeletionJob(jobName string, namespace string, localModelNode *v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo, claimName string, node string) (*batchv1.Job, error) {
@@ -98,10 +101,10 @@ func (c *LocalModelNodeReconciler) launchJob(jobName string, container v1.Contai
 	}
 
 	container.Name = jobName
-	container.Args = []string{modelInfo.SourceModelUri, "/mnt/models"}
+	container.Args = []string{modelInfo.SourceModelUri, localModelHostPath}
 	container.VolumeMounts = []v1.VolumeMount{
 		{
-			MountPath: "/mnt/models",
+			MountPath: localModelHostPath,
 			Name:      "kserve-pvc-source",
 			ReadOnly:  false,
 			SubPath:   "models/" + modelInfo.ModelName,
@@ -240,20 +243,19 @@ func (c *LocalModelNodeReconciler) getPVC(claimName string, namespace string) (*
 
 func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Agent reconciling LocalModelNode", "name", req.Name, "node", nodeName)
-
 	// Create Jobs to download models if the model is not present locally.
-	// 1. Get list of models and their status from LocalModelNode CR
+	// 1. Check if LocalModelNode CR is for current node
 	localModelNode := &v1alpha1api.LocalModelNode{}
 	if err := c.Get(ctx, req.NamespacedName, localModelNode); err != nil {
 		c.Log.Error(err, "Error getting LocalModelNode", "name", req.Name)
 		return reconcile.Result{}, err
 	}
-	// Only reconcile LocalModelNode for current node
 	if nodeName != localModelNode.ObjectMeta.Name {
-		c.Log.Info("Skipping LocalModelNode because  it is not for current node", "name", req.Name, "current node", nodeName, "intended node", localModelNode.ObjectMeta.Name)
+		c.Log.Info("Skipping LocalModelNode because it is not for current node", "name", req.Name, "current node", nodeName, "intended node", localModelNode.ObjectMeta.Name)
 		return reconcile.Result{}, nil
 	}
-	c.Log.Info("Agent reconciling LocalModelNode", "name", req.Name)
+
+	// 2. Kick off download jobs for all models in spec
 	localModelConfig, err := v1beta1.NewLocalModelConfig(c.Clientset)
 	if err != nil {
 		c.Log.Error(err, "Failed to get local model config")
@@ -261,15 +263,41 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	defaultJobImage = localModelConfig.DefaultJobImage
 	FSGroup = localModelConfig.FSGroup
-	// 2. Kick off download jobs for all models in spec
 	if err := c.DownloadModel(ctx, localModelNode, localModelConfig.JobNamespace); err != nil {
 		c.Log.Error(err, "Model download err")
 	}
 	// Delete models from disk if they are not on the CR.
 	// 1. Scan model dir and get a list of downloaded models
+	entries, err := os.ReadDir(localModelContainerVol + "/models")
+	if err != nil {
+		c.Log.Error(err, "Failed to list model directory", "dir", localModelContainerVol+"/models")
+	}
+	localModels := map[string]struct{}{}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			localModels[entry.Name()] = struct{}{}
+		}
+	}
+	c.Log.Info("Found existing local models", "models", maps.Keys(localModels))
+
 	// 2. Compare with list of models from LocalModelNode CR
-	// 3. Kick off delete job for the ones not in LocalModelNode CR
-	// Update status on the local model node CR
+	for _, localModelInfo := range localModelNode.Spec.LocalModels {
+		if _, exists := localModels[localModelInfo.ModelName]; exists {
+			// Remove expected models from local model set
+			delete(localModels, localModelInfo.ModelName)
+		}
+	}
+	// 3. Models not in LocalModelNode CR spec should be deleted
+	if len(localModels) != 0 {
+		c.Log.Info("Removing models", "models", maps.Keys(localModels))
+		for localModelName, _ := range localModels {
+			modelDir := localModelContainerVol + "/models/" + localModelName
+			if err := os.RemoveAll(modelDir); err != nil {
+				c.Log.Error(err, "Failed to remove model directory", "dir", modelDir)
+			}
+		}
+	}
+
 	return reconcile.Result{}, nil
 }
 

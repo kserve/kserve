@@ -47,6 +47,10 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+        volumeMounts:
+          - mountPath: /models
+            name: local-models
+            readOnly: false
         resources:
           limits:
             cpu: 100m
@@ -54,4 +58,9 @@ spec:
           requests:
             cpu: 100m
             memory: 200Mi
+      volumes:
+        - name: local-models
+          hostPath:
+            path: /mnt/models
+            type: Directory
       terminationGracePeriodSeconds: 10
