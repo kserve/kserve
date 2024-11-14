@@ -74,7 +74,6 @@ var (
 	finalizerName    = "localmodel.kserve.io/finalizer"
 	defaultJobImage  = "kserve/storage-initializer:latest" // Could be overwritten by the value in the configmap
 	FSGroup          *int64                                // Could be overwritten by the value in the configmap
-	jobNamespace     string
 )
 
 // The localmodel is being deleted
@@ -92,8 +91,7 @@ func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localMo
 		c.Log.Error(err, "getNodesFromNodeGroup node error")
 		return ctrl.Result{}, err
 	}
-	nodes := append(readyNodes.Items, notReadyNodes.Items...)
-	for _, node := range nodes {
+	for _, node := range append(readyNodes.Items, notReadyNodes.Items...) {
 		localModelNode := &v1alpha1.LocalModelNode{}
 		err := c.Client.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
 		if err != nil {
@@ -306,7 +304,6 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		c.Log.Error(err, "Failed to get local model config")
 		return reconcile.Result{}, err
 	}
-	jobNamespace = localModelConfig.JobNamespace
 	defaultJobImage = localModelConfig.DefaultJobImage
 	FSGroup = localModelConfig.FSGroup
 
@@ -502,16 +499,6 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(c)
 }
 
-func (c *LocalModelReconciler) launchDeletionJob(jobName string, namespace string, localModel *v1alpha1api.ClusterLocalModel, storageUri string, claimName string, node string) (*batchv1.Job, error) {
-	container, err := c.getContainerSpecForStorageUri(storageUri)
-	if err != nil {
-		return nil, err
-	}
-	container.Command = []string{"/bin/sh", "-c", "rm -rf /mnt/models/*"}
-	container.Args = nil
-	return c.launchJob(jobName, *container, namespace, localModel, storageUri, claimName, node)
-}
-
 // Launches a job if not exist, or return the existing job
 func (c *LocalModelReconciler) launchDownloadJob(jobName string, namespace string, localModel *v1alpha1api.ClusterLocalModel, storageUri string, claimName string, node string) (*batchv1.Job, error) {
 	container, err := c.getContainerSpecForStorageUri(storageUri)
@@ -698,6 +685,7 @@ func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmod
 				c.Log.Error(err, "Update localmodelnode", "name", localmodelNode.Name)
 				return err
 			}
+			break
 		}
 	}
 	return nil
