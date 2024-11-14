@@ -106,7 +106,7 @@ func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localMo
 			}
 		}
 
-		if err := c.UpdateLocalModelNode(ctx, localModelNode, localModel, true); err != nil {
+		if err := c.DeleteModelFromNode(ctx, localModelNode, localModel); err != nil {
 			c.Log.Error(err, "UpdateLocalModelNode error", "node", node.Name)
 			return ctrl.Result{}, err
 		}
@@ -688,17 +688,27 @@ func (c *LocalModelReconciler) getContainerSpecForStorageUri(storageUri string) 
 }
 
 // UpdateLocalModelNode updates the source model uri of the localmodelnode from the localmodel
-func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel, remove bool) error {
+func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel) error {
+	var patch client.Patch
+	for i, modelInfo := range localmodelNode.Spec.LocalModels {
+		if modelInfo.ModelName == localModel.Name {
+			patch = client.MergeFrom(localmodelNode.DeepCopy())
+			localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels[:i], localmodelNode.Spec.LocalModels[i+1:]...)
+			if err := c.Client.Patch(context.TODO(), localmodelNode, patch); err != nil {
+				c.Log.Error(err, "Update localmodelnode", "name", localmodelNode.Name)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// UpdateLocalModelNode updates the source model uri of the localmodelnode from the localmodel
+func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel) error {
 	var patch client.Patch
 	updated := false
 	for i, modelInfo := range localmodelNode.Spec.LocalModels {
 		if modelInfo.ModelName == localModel.Name {
-			if remove {
-				updated = true
-				patch = client.MergeFrom(localmodelNode.DeepCopy())
-				localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels[:i], localmodelNode.Spec.LocalModels[i+1:]...)
-				break
-			}
 			if modelInfo.SourceModelUri == localModel.Spec.SourceModelUri {
 				return nil
 			}
@@ -758,7 +768,7 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 				return err
 			}
 		} else {
-			if err := c.UpdateLocalModelNode(ctx, localModelNode, localModel, false); err != nil {
+			if err := c.UpdateLocalModelNode(ctx, localModelNode, localModel); err != nil {
 				return err
 			}
 		}
