@@ -63,16 +63,6 @@ var (
 	localModelContainerVol = "/models"                           // Container directory to store local models
 )
 
-func (c *LocalModelNodeReconciler) launchDeletionJob(jobName string, namespace string, localModelNode *v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo, claimName string, node string) (*batchv1.Job, error) {
-	container, err := c.getContainerSpecForStorageUri(modelInfo.SourceModelUri)
-	if err != nil {
-		return nil, err
-	}
-	container.Command = []string{"/bin/sh", "-c", "rm -rf /mnt/models/*"}
-	container.Args = nil
-	return c.launchJob(jobName, *container, namespace, localModelNode, modelInfo, claimName, node)
-}
-
 // Launches a job if not exist, or return the existing job
 func (c *LocalModelNodeReconciler) launchDownloadJob(jobName string, namespace string, localModelNode *v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo, claimName string, node string) (*batchv1.Job, error) {
 	container, err := c.getContainerSpecForStorageUri(modelInfo.SourceModelUri)
@@ -213,7 +203,6 @@ func (c *LocalModelNodeReconciler) DownloadModel(ctx context.Context, localModel
 			return err
 		}
 
-		//modelStatus := map[string]v1alpha1api.ModelStatus{}
 		localModelNode.Status.ModelStatus = map[string]v1alpha1api.ModelStatus{}
 		switch {
 		case job.Status.Succeeded > 0:
@@ -227,18 +216,12 @@ func (c *LocalModelNodeReconciler) DownloadModel(ctx context.Context, localModel
 		}
 	}
 
-	return nil
-}
-
-// Get a PVC by name and namespace
-func (c *LocalModelNodeReconciler) getPVC(claimName string, namespace string) (*v1.PersistentVolumeClaim, error) {
-	persistentVolumeClaims := c.Clientset.CoreV1().PersistentVolumeClaims(namespace)
-	pvc := &v1.PersistentVolumeClaim{}
-	if pvc, err := persistentVolumeClaims.Get(context.TODO(), claimName, metav1.GetOptions{}); err != nil {
-		c.Log.Error(err, "Failed to get PVC")
-		return pvc, err
+	if err := c.Status().Update(context.Background(), localModelNode); err != nil {
+		c.Log.Error(err, "Update local model cache status error", "name", localModelNode.Name)
+		return err
 	}
-	return pvc, nil
+
+	return nil
 }
 
 func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -274,6 +257,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	localModels := map[string]struct{}{}
 	for _, entry := range entries {
+		// Models could only exist in sub dir
 		if entry.IsDir() {
 			localModels[entry.Name()] = struct{}{}
 		}
@@ -304,5 +288,6 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1api.LocalModelNode{}).
+		Owns(&batchv1.Job{}).
 		Complete(c)
 }
