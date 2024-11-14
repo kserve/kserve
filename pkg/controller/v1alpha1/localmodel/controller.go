@@ -32,7 +32,6 @@ package localmodel
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -69,9 +68,6 @@ var (
 	localModelKey    = ".localmodel"
 	apiGVStr         = v1alpha1api.SchemeGroupVersion.String()
 	modelCacheCRName = "ClusterLocalModel"
-	finalizerName    = "localmodel.kserve.io/finalizer"
-	defaultJobImage  = "kserve/storage-initializer:latest" // Could be overwritten by the value in the configmap
-	FSGroup          *int64                                // Could be overwritten by the value in the configmap
 )
 
 // Creates a PV and set the localModel as its controller
@@ -198,8 +194,6 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		c.Log.Error(err, "Failed to get local model config")
 		return reconcile.Result{}, err
 	}
-	defaultJobImage = localModelConfig.DefaultJobImage
-	FSGroup = localModelConfig.FSGroup
 
 	localModel := &v1alpha1api.ClusterLocalModel{}
 	if err := c.Get(ctx, req.NamespacedName, localModel); err != nil {
@@ -417,36 +411,6 @@ func getNodesFromNodeGroup(nodeGroup *v1alpha1api.LocalModelNodeGroup, c client.
 		}
 	}
 	return readyNodes, notReadyNodes, nil
-}
-
-// Fetches container spec for model download container, use the default KServe image if not found
-func (c *LocalModelReconciler) getContainerSpecForStorageUri(storageUri string) (*v1.Container, error) {
-	storageContainers := &v1alpha1.ClusterStorageContainerList{}
-	if err := c.Client.List(context.TODO(), storageContainers); err != nil {
-		return nil, err
-	}
-
-	for _, sc := range storageContainers.Items {
-		if sc.IsDisabled() {
-			continue
-		}
-		if sc.Spec.WorkloadType != v1alpha1.LocalModelDownloadJob {
-			continue
-		}
-		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
-		if err != nil {
-			return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
-		}
-		if supported {
-			return &sc.Spec.Container, nil
-		}
-	}
-
-	defaultContainer := &v1.Container{
-		Image:                    defaultJobImage,
-		TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
-	}
-	return defaultContainer, nil
 }
 
 // UpdateLocalModelNode updates the source model uri of the localmodelnode from the localmodel

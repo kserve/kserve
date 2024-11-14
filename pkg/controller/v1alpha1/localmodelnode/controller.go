@@ -266,15 +266,13 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// 2. Compare with list of models from LocalModelNode CR
 	for _, localModelInfo := range localModelNode.Spec.LocalModels {
-		if _, exists := localModels[localModelInfo.ModelName]; exists {
-			// Remove expected models from local model set
-			delete(localModels, localModelInfo.ModelName)
-		}
+		// Remove expected models from local model set
+		delete(localModels, localModelInfo.ModelName)
 	}
 	// 3. Models not in LocalModelNode CR spec should be deleted
 	if len(localModels) != 0 {
 		c.Log.Info("Removing models", "models", maps.Keys(localModels))
-		for localModelName, _ := range localModels {
+		for localModelName := range localModels {
 			modelDir := localModelContainerVol + "/models/" + localModelName
 			if err := os.RemoveAll(modelDir); err != nil {
 				c.Log.Error(err, "Failed to remove model directory", "dir", modelDir)
