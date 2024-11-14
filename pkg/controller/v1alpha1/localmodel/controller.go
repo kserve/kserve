@@ -687,7 +687,7 @@ func (c *LocalModelReconciler) getContainerSpecForStorageUri(storageUri string) 
 	return defaultContainer, nil
 }
 
-// UpdateLocalModelNode updates the source model uri of the localmodelnode from the localmodel
+// DeleteModelFromNode deletes the source model from the localmodelnode
 func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel) error {
 	var patch client.Patch
 	for i, modelInfo := range localmodelNode.Spec.LocalModels {
@@ -703,7 +703,7 @@ func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmod
 	return nil
 }
 
-// UpdateLocalModelNode updates the source model uri of the localmodelnode from the localmodel
+// UpdateLocalModelNode adds the source model to the localmodelnode
 func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel) error {
 	var patch client.Patch
 	updated := false
