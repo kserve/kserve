@@ -74,10 +74,11 @@ var (
 	finalizerName    = "localmodel.kserve.io/finalizer"
 	defaultJobImage  = "kserve/storage-initializer:latest" // Could be overwritten by the value in the configmap
 	FSGroup          *int64                                // Could be overwritten by the value in the configmap
+	jobNamespace     string
 )
 
 // The localmodel is being deleted
-func (c *LocalModelReconciler) deleteModelFromNodes(localModel *v1alpha1.ClusterLocalModel, jobNamespace string) (ctrl.Result, error) {
+func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localModel *v1alpha1.ClusterLocalModel, nodeGroup *v1alpha1.LocalModelNodeGroup) (ctrl.Result, error) {
 	// finalizer does not exists, nothing to do here!
 	if !utils.Includes(localModel.ObjectMeta.Finalizers, finalizerName) {
 		return ctrl.Result{}, nil
@@ -86,37 +87,35 @@ func (c *LocalModelReconciler) deleteModelFromNodes(localModel *v1alpha1.Cluster
 
 	// Todo: Prevent deletion if there are isvcs using this localmodel
 
-	allDone := true
-	for node := range localModel.Status.NodeStatus {
-		jobName := localModel.Name + "-" + node + "-delete"
-
-		job, err := c.launchDeletionJob(jobName, jobNamespace, localModel, localModel.Spec.SourceModelUri, localModel.Name, node)
+	readyNodes, notReadyNodes, err := getNodesFromNodeGroup(nodeGroup, c.Client)
+	if err != nil {
+		c.Log.Error(err, "getNodesFromNodeGroup node error")
+		return ctrl.Result{}, err
+	}
+	nodes := append(readyNodes.Items, notReadyNodes.Items...)
+	for _, node := range nodes {
+		localModelNode := &v1alpha1.LocalModelNode{}
+		err := c.Client.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
 		if err != nil {
-			c.Log.Error(err, "Deletion Job err", "name", jobName)
-			return ctrl.Result{}, err
+			if apierr.IsNotFound(err) {
+				c.Log.Info("localmodelNode not found", "node", node.Name)
+				continue
+			} else {
+				c.Log.Error(err, "Failed to get localmodelnode", "name", node.Name)
+				return ctrl.Result{}, err
+			}
 		}
-		switch {
-		case job.Status.Succeeded > 0:
-			c.Log.Info("Deletion Job succeeded", "name", jobName)
-			localModel.Status.NodeStatus[node] = v1alpha1api.NodeDeleted
-		case job.Status.Failed > 0:
-			allDone = false
-			localModel.Status.NodeStatus[node] = v1alpha1api.NodeDeletionError
-		default:
-			allDone = false
-			localModel.Status.NodeStatus[node] = v1alpha1api.NodeDeleting
-		}
-	}
-	if allDone {
-		patch := client.MergeFrom(localModel.DeepCopy())
-		// remove our finalizer from the list and update it.
-		localModel.ObjectMeta.Finalizers = utils.RemoveString(localModel.ObjectMeta.Finalizers, finalizerName)
-		if err := c.Patch(context.Background(), localModel, patch); err != nil {
-			c.Log.Error(err, "Cannot remove finalizer", "model name", localModel.Name)
+
+		if err := c.UpdateLocalModelNode(ctx, localModelNode, localModel, true); err != nil {
+			c.Log.Error(err, "UpdateLocalModelNode error", "node", node.Name)
 			return ctrl.Result{}, err
 		}
 	}
-	if err := c.Status().Update(context.Background(), localModel); err != nil {
+
+	patch := client.MergeFrom(localModel.DeepCopy())
+	localModel.ObjectMeta.Finalizers = utils.RemoveString(localModel.ObjectMeta.Finalizers, finalizerName)
+	if err := c.Patch(context.TODO(), localModel, patch); err != nil {
+		c.Log.Error(err, "Cannot remove finalizer", "model name", localModel.Name)
 		return ctrl.Result{}, err
 	}
 
@@ -307,6 +306,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		c.Log.Error(err, "Failed to get local model config")
 		return reconcile.Result{}, err
 	}
+	jobNamespace = localModelConfig.JobNamespace
 	defaultJobImage = localModelConfig.DefaultJobImage
 	FSGroup = localModelConfig.FSGroup
 
@@ -321,7 +321,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
-	// Step 1 - Checks if the CR is in the deletion process, if so, creates deletion jobs to delete models on all nodes.
+	// Step 1 - Checks if the CR is in the deletion process
 	if localModel.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
@@ -334,10 +334,10 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			}
 		}
 	} else {
-		return c.deleteModelFromNodes(localModel, localModelConfig.JobNamespace)
+		return c.deleteModelFromNodes(ctx, localModel, nodeGroup)
 	}
 
-	if err := c.ReconcileLocalModelNode(ctx, localModel, nodeGroup, localModelConfig.JobNamespace); err != nil {
+	if err := c.ReconcileLocalModelNode(ctx, localModel, nodeGroup); err != nil {
 		c.Log.Error(err, "failed to reconcile LocalModelNode")
 	}
 
@@ -688,15 +688,22 @@ func (c *LocalModelReconciler) getContainerSpecForStorageUri(storageUri string) 
 }
 
 // UpdateLocalModelNode updates the source model uri of the localmodelnode from the localmodel
-func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel, jobNamespace string) error {
+func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel, remove bool) error {
 	var patch client.Patch
 	updated := false
 	for i, modelInfo := range localmodelNode.Spec.LocalModels {
 		if modelInfo.ModelName == localModel.Name {
+			if remove {
+				updated = true
+				patch = client.MergeFrom(localmodelNode.DeepCopy())
+				localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels[:i], localmodelNode.Spec.LocalModels[i+1:]...)
+				break
+			}
 			if modelInfo.SourceModelUri == localModel.Spec.SourceModelUri {
 				return nil
 			}
 			// Update the source model uri
+			c.Log.Info("Unexpected update to sourceModelURI", "node", localmodelNode.Name, "model", localModel.Name)
 			updated = true
 			patch = client.MergeFrom(localmodelNode.DeepCopy())
 			localmodelNode.Spec.LocalModels[i].SourceModelUri = localModel.Spec.SourceModelUri
@@ -715,7 +722,7 @@ func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmo
 }
 
 // ReconcileLocalModelNode creates updates localmodelnode for each node in the node group. It adds and removes localmodels from the localmodelnode and updates the status on the localmodel from the localmodelnode.
-func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, localModel *v1alpha1api.ClusterLocalModel, nodeGroup *v1alpha1api.LocalModelNodeGroup, jobNamespace string) error {
+func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, localModel *v1alpha1api.ClusterLocalModel, nodeGroup *v1alpha1api.LocalModelNodeGroup) error {
 	readyNodes, notReadyNodes, err := getNodesFromNodeGroup(nodeGroup, c.Client)
 	if err != nil {
 		c.Log.Error(err, "getNodesFromNodeGroup node error")
@@ -751,7 +758,7 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 				return err
 			}
 		} else {
-			if err := c.UpdateLocalModelNode(ctx, localModelNode, localModel, jobNamespace); err != nil {
+			if err := c.UpdateLocalModelNode(ctx, localModelNode, localModel, false); err != nil {
 				return err
 			}
 		}
