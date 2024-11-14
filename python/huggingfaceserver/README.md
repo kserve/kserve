@@ -191,7 +191,7 @@ curl -H "content-type:application/json" -v localhost:8080/openai/v1/chat/complet
 ### KServe HuggingFace vLLM Runtime Support for CPU
 vLLM currently supports basic model inferencing and serving on x86 CPU platforms, using data types FP32 and BF16. You can find more information [here](https://docs.vllm.ai/en/v0.6.1/getting_started/cpu-installation.html). To run the vLLM engine on a CPU, a separate vLLM package is required, which entails creating a different Hugging Face server Docker image. The Docker image supporting the vLLM runtime on GPUs has a '-gpu' suffix in its tag (e.g., kserve-huggingfaceserver:v0.14.0-gpu), while the image for CPU support does not include the suffix (e.g., kserve-huggingfaceserver:v0.14.0). The runtime image to be used will be determined based on whether the InferenceService specifies nvidia.com/gpu in its resource requirements.
 
-Serve the llama2 model using KServe HuggingFace vLLM runtime on CPU. For the llama2 model, vLLM is supported and used as the default backend.
+Serve the llama3.1 model using KServe HuggingFace vLLM runtime on CPU. For the llama3.1 model, vLLM is supported and used as the default backend.
 If available for a model, vLLM is set as the default backend, otherwise KServe HuggingFace runtime is used as a failsafe.
 You can find vLLM supported models [here](https://docs.vllm.ai/en/latest/models/supported_models.html).
 
@@ -199,15 +199,15 @@ You can find vLLM supported models [here](https://docs.vllm.ai/en/latest/models/
 apiVersion: serving.kserve.io/v1beta1
 kind: InferenceService
 metadata:
-  name: huggingface-llama2
+  name: huggingface-llama3.1
 spec:
   predictor:
     model:
       modelFormat:
         name: huggingface
       args:
-      - --model_name=llama2
-      - --model_id=meta-llama/Llama-2-7b-chat-hf
+      - --model_name=llama3.1
+      - --model_id=meta-llama/Meta-Llama-3.1-8B-Instruct
       resources:
         limits:
           cpu: "16"
