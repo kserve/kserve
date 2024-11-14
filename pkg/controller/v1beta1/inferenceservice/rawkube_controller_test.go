@@ -31,8 +31,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
-
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
@@ -291,7 +289,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ProgressDeadlineSeconds: &progressDeadlineSeconds,
 				},
 			}
-			Expect(actualDeployment.Spec).To(gomega.Equal(expectedDeployment.Spec))
+			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
 			//check service
 			actualService := &v1.Service{}
@@ -326,7 +324,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.IPFamilies = nil
 			actualService.Spec.IPFamilyPolicy = nil
 			actualService.Spec.InternalTrafficPolicy = nil
-			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
+			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
 			//check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
@@ -336,7 +334,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			//check ingress
 			pathType := netv1.PathTypePrefix
@@ -393,7 +391,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(gomega.Equal(expectedIngress.Spec))
+			Expect(actualIngress.Spec).To(Equal(expectedIngress.Spec))
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
@@ -442,7 +440,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return err.Error()
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, timeout).Should(gomega.BeEmpty())
+			}, timeout).Should(BeEmpty())
 
 			//check HPA
 			var minReplicas int32 = 1
@@ -507,7 +505,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(actualHPA.Spec).To(gomega.Equal(expectedHPA.Spec))
+			Expect(actualHPA.Spec).To(Equal(expectedHPA.Spec))
 		})
 		It("Should have ingress/service/deployment/hpa created with DeploymentStrategy", func() {
 			By("By creating a new InferenceService with DeploymentStrategy in PredictorSpec")
@@ -706,7 +704,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ProgressDeadlineSeconds: &progressDeadlineSeconds,
 				},
 			}
-			Expect(actualDeployment.Spec).To(gomega.Equal(expectedDeployment.Spec))
+			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
 			//check service
 			actualService := &v1.Service{}
@@ -741,7 +739,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.IPFamilies = nil
 			actualService.Spec.IPFamilyPolicy = nil
 			actualService.Spec.InternalTrafficPolicy = nil
-			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
+			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
 			//check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
@@ -751,7 +749,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			//check ingress
 			pathType := netv1.PathTypePrefix
@@ -808,7 +806,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(gomega.Equal(expectedIngress.Spec))
+			Expect(actualIngress.Spec).To(Equal(expectedIngress.Spec))
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
@@ -857,7 +855,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return err.Error()
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, timeout).Should(gomega.BeEmpty())
+			}, timeout).Should(BeEmpty())
 
 			//check HPA
 			var minReplicas int32 = 1
@@ -922,7 +920,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(actualHPA.Spec).To(gomega.Equal(expectedHPA.Spec))
+			Expect(actualHPA.Spec).To(Equal(expectedHPA.Spec))
 		})
 		It("Should have ingress/service/deployment created", func() {
 			By("By creating a new InferenceService with AutoscalerClassExternal")
@@ -1112,7 +1110,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ProgressDeadlineSeconds: &progressDeadlineSeconds,
 				},
 			}
-			Expect(actualDeployment.Spec).To(gomega.Equal(expectedDeployment.Spec))
+			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
 			//check service
 			actualService := &v1.Service{}
@@ -1147,7 +1145,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.IPFamilies = nil
 			actualService.Spec.IPFamilyPolicy = nil
 			actualService.Spec.InternalTrafficPolicy = nil
-			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
+			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
 			//check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
@@ -1157,7 +1155,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			//check ingress
 			pathType := netv1.PathTypePrefix
@@ -1214,7 +1212,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(gomega.Equal(expectedIngress.Spec))
+			Expect(actualIngress.Spec).To(Equal(expectedIngress.Spec))
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
@@ -1263,7 +1261,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return err.Error()
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, timeout).Should(gomega.BeEmpty())
+			}, timeout).Should(BeEmpty())
 
 			//check HPA is not created
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
@@ -1486,7 +1484,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ProgressDeadlineSeconds: &progressDeadlineSeconds,
 				},
 			}
-			Expect(actualDeployment.Spec).To(gomega.Equal(expectedDeployment.Spec))
+			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
 			//check service
 			actualService := &v1.Service{}
@@ -1521,7 +1519,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.IPFamilies = nil
 			actualService.Spec.IPFamilyPolicy = nil
 			actualService.Spec.InternalTrafficPolicy = nil
-			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
+			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
 			//check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
@@ -1531,7 +1529,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			//check ingress
 			pathType := netv1.PathTypePrefix
@@ -1588,7 +1586,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(gomega.Equal(expectedIngress.Spec))
+			Expect(actualIngress.Spec).To(Equal(expectedIngress.Spec))
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
@@ -1637,7 +1635,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return err.Error()
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, timeout).Should(gomega.BeEmpty())
+			}, timeout).Should(BeEmpty())
 
 			//check HPA
 			var minReplicas int32 = 1
@@ -1702,7 +1700,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(actualHPA.Spec).To(gomega.Equal(expectedHPA.Spec))
+			Expect(actualHPA.Spec).To(Equal(expectedHPA.Spec))
 		})
 	})
 	Context("When creating inference service with raw kube predictor with domain template", func() {
@@ -1919,7 +1917,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ProgressDeadlineSeconds: &progressDeadlineSeconds,
 				},
 			}
-			Expect(actualDeployment.Spec).To(gomega.Equal(expectedDeployment.Spec))
+			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
 			//check service
 			actualService := &v1.Service{}
@@ -1954,7 +1952,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.IPFamilies = nil
 			actualService.Spec.IPFamilyPolicy = nil
 			actualService.Spec.InternalTrafficPolicy = nil
-			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
+			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
 			//check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
@@ -1964,7 +1962,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			//check ingress
 			pathType := netv1.PathTypePrefix
@@ -2021,7 +2019,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(gomega.Equal(expectedIngress.Spec))
+			Expect(actualIngress.Spec).To(Equal(expectedIngress.Spec))
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
 				Status: duckv1.Status{
@@ -2070,7 +2068,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return err.Error()
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, timeout).Should(gomega.BeEmpty())
+			}, timeout).Should(BeEmpty())
 
 			//check HPA
 			var minReplicas int32 = 1
@@ -2135,7 +2133,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(actualHPA.Spec).To(gomega.Equal(expectedHPA.Spec))
+			Expect(actualHPA.Spec).To(Equal(expectedHPA.Spec))
 		})
 	})
 	Context("When creating inference service with raw kube predictor with workerSpec", func() {
