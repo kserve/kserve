@@ -30,6 +30,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
@@ -104,7 +105,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -139,7 +140,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			k8sClient.Create(context.TODO(), servingRuntime)
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 			serviceName := "raw-foo"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -518,7 +519,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -552,8 +553,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: proto.Bool(false),
 				},
 			}
-			k8sClient.Create(context.TODO(), servingRuntime)
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 			serviceName := "raw-foo-customized"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -933,7 +934,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -968,7 +969,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			k8sClient.Create(context.TODO(), servingRuntime)
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 			serviceName := "raw-foo-2"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -1298,7 +1299,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1333,7 +1334,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			k8sClient.Create(context.TODO(), servingRuntime)
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 			// Create InferenceService
 			serviceName := "raw-foo-no-ingress-class"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
@@ -1731,7 +1732,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1766,7 +1767,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			k8sClient.Create(context.TODO(), servingRuntime)
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 			// Create InferenceService
 			serviceName := "model"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
@@ -2230,9 +2231,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, servingRuntime)).NotTo(HaveOccurred())
-			DeferCleanup(func() {
-				k8sClient.Delete(ctx, servingRuntime)
-			})
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 		})
 		It("Should have services/deployments for head/worker without an autoscaler when workerSpec is set in isvc", func() {
 			By("creating a new InferenceService")
@@ -2265,9 +2264,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
-			})
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			// Verify inferenceService is createdi
 			inferenceService := &v1beta1.InferenceService{}
@@ -2360,9 +2357,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
-			})
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			// Verify inferenceService is created
 			inferenceService := &v1beta1.InferenceService{}
@@ -2417,9 +2412,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			DeferCleanup(func() {
-				k8sClient.Delete(ctx, isvc)
-			})
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			// Verify if predictor deployment (default deployment) is created
 			Eventually(func() bool {
