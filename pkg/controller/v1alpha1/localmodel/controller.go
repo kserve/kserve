@@ -726,6 +726,9 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 		c.Log.Error(err, "getNodesFromNodeGroup node error")
 		return err
 	}
+	if localModel.Status.NodeStatus == nil {
+		localModel.Status.NodeStatus = make(map[string]v1alpha1api.NodeStatus)
+	}
 	for _, node := range notReadyNodes.Items {
 		if _, ok := localModel.Status.NodeStatus[node.Name]; !ok {
 			localModel.Status.NodeStatus[node.Name] = v1alpha1api.NodeNotReady
