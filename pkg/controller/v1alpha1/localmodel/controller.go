@@ -358,12 +358,6 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 func (c *LocalModelReconciler) localmodelNodeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
 	localmodelNode := obj.(*v1alpha1.LocalModelNode)
 	requests := []reconcile.Request{}
-	models := &v1alpha1.ClusterLocalModelList{}
-	if err := c.Client.List(context.TODO(), models); err != nil {
-		c.Log.Error(err, "list models error when reconciling localmodelNodes")
-		return []reconcile.Request{}
-	}
-
 	for _, modelInfo := range localmodelNode.Spec.LocalModels {
 		requests = append(requests, reconcile.Request{
 			NamespacedName: types.NamespacedName{
