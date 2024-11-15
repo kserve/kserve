@@ -34,13 +34,10 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # tcmalloc provides better memory allocation efficiency, e.g, holding memory in caches to speed up access of commonly-used objects.
 RUN pip install intel-openmp
 
+# Preload tcmalloc (for efficient memory allocation) and Intel OpenMP runtime library (for optimized multithreading performance).
 ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4:$VIRTUAL_ENV/lib/libiomp5.so"
 
 RUN pip install intel_extension_for_pytorch==2.4.0
-
-# Install Python build tools and other dependencies
-RUN pip install --upgrade pip && \
-    pip install "cmake>=3.26" ninja packaging "setuptools>=61" "setuptools-scm>=8" numpy "torch==2.4.0" wheel jinja2
 
 # Install KServe and Hugging Face Server dependencies
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
@@ -57,9 +54,12 @@ RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 ARG VLLM_CPU_DISABLE_AVX512
 ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 
-# Clone and build vllm from source
+# Clone vllm
+# Install Python build tools and other dependencies then build vllm from source
 WORKDIR /vllm
 RUN git clone --branch $VLLM_VERSION --depth 1 https://github.com/vllm-project/vllm.git . && \
+    pip install --upgrade pip && \
+    pip install -r requirements-build.txt && \
     pip install -v -r requirements-cpu.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
     VLLM_TARGET_DEVICE=cpu python3 setup.py bdist_wheel && \
     pip install dist/*.whl && \
@@ -94,6 +94,7 @@ ENV VLLM_NCCL_SO_PATH="/lib/x86_64-linux-gnu/libnccl.so.2"
 # https://github.com/vllm-project/vllm/issues/6152
 # Set the multiprocess method to spawn to avoid issues with cuda initialization for `mp` executor backend.
 ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
+# Preload tcmalloc (for efficient memory allocation) and Intel OpenMP runtime library (for optimized multithreading performance).
 ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4:$VIRTUAL_ENV/lib/libiomp5.so"
 
 USER 1000
