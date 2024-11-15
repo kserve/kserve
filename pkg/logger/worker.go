@@ -29,6 +29,8 @@ import (
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
 	"go.uber.org/zap"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 const (
@@ -45,7 +47,6 @@ const (
 	EndpointAttr = "endpoint"
 
 	LoggerWorkerQueueSize = 100
-	LoggerCaCertMountPath = "/etc/tls/logger"
 	CloudEventsIdHeader   = "Ce-Id"
 )
 
@@ -91,7 +92,7 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	}
 
 	if logReq.Url.Scheme == "https" {
-		caCertFilePath := filepath.Join(LoggerCaCertMountPath, logReq.CertName)
+		caCertFilePath := filepath.Join(constants.LoggerCaCertMountPath, logReq.CertName)
 		caCertFile, err := os.ReadFile(caCertFilePath)
 		// Do not fail if certificates not found, for backwards compatibility
 		if err == nil {
