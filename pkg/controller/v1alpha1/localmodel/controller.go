@@ -400,6 +400,7 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 	requests := []reconcile.Request{}
 	models := &v1alpha1.ClusterLocalModelList{}
 	if err := c.Client.List(context.TODO(), models); err != nil {
+		c.Log.Error(err, "list models error when reconciling nodes")
 		return []reconcile.Request{}
 	}
 
@@ -421,6 +422,25 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 					Name: model.Name,
 				}})
 		}
+	}
+	return requests
+}
+
+// Given a node object, checks if it matches any node group CR, then reconcile all local models that has this node group to create download jobs.
+func (c *LocalModelReconciler) localmodelNodeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	localmodelNode := obj.(*v1alpha1.LocalModelNode)
+	requests := []reconcile.Request{}
+	models := &v1alpha1.ClusterLocalModelList{}
+	if err := c.Client.List(context.TODO(), models); err != nil {
+		c.Log.Error(err, "list models error when reconciling localmodelNodes")
+		return []reconcile.Request{}
+	}
+
+	for _, modelInfo := range localmodelNode.Spec.LocalModels {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name: modelInfo.ModelName,
+			}})
 	}
 	return requests
 }
@@ -486,6 +506,27 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}
 
+	// Define predicates to filter events based on changes to the status field
+	localModelNodePredicates := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldNode := e.ObjectOld.(*v1alpha1.LocalModelNode)
+			newNode := e.ObjectNew.(*v1alpha1.LocalModelNode)
+			return !reflect.DeepEqual(oldNode.Status, newNode.Status)
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			// Do nothing on create
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			// Do nothing on delete
+			return false
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			// Do nothing on generic events
+			return false
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1api.ClusterLocalModel{}).
 		// Ownes Jobs, PersistentVolumes and PersistentVolumeClaims that is created by this local model controller
@@ -496,6 +537,7 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates)).
 		// Downloads models to new nodes
 		Watches(&v1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc), builder.WithPredicates(nodePredicates)).
+		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFunc), builder.WithPredicates(localModelNodePredicates)).
 		Complete(c)
 }
 
@@ -719,6 +761,20 @@ func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmo
 	return nil
 }
 
+func nodeStatusFromLocalModelStatus(modelStatus v1alpha1.ModelStatus) v1alpha1api.NodeStatus {
+	switch modelStatus {
+	case v1alpha1api.ModelDownloadPending:
+		return v1alpha1api.NodeDownloadPending
+	case v1alpha1api.ModelDownloading:
+		return v1alpha1api.NodeDownloading
+	case v1alpha1api.ModelDownloadError:
+		return v1alpha1api.NodeDownloadError
+	case v1alpha1api.ModelDownloaded:
+		return v1alpha1api.NodeDownloaded
+	}
+	return v1alpha1api.NodeDownloadPending
+}
+
 // ReconcileLocalModelNode creates updates localmodelnode for each node in the node group. It adds and removes localmodels from the localmodelnode and updates the status on the localmodel from the localmodelnode.
 func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, localModel *v1alpha1api.ClusterLocalModel, nodeGroup *v1alpha1api.LocalModelNodeGroup) error {
 	readyNodes, notReadyNodes, err := getNodesFromNodeGroup(nodeGroup, c.Client)
@@ -762,6 +818,11 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 			if err := c.UpdateLocalModelNode(ctx, localModelNode, localModel); err != nil {
 				return err
 			}
+		}
+		modelStatus := localModelNode.Status.ModelStatus[localModel.Name]
+		localModel.Status.NodeStatus[node.Name] = nodeStatusFromLocalModelStatus(modelStatus)
+		if err := c.Status().Update(context.TODO(), localModel); err != nil {
+			c.Log.Error(err, "cannot update model status from node", "name", localModel.Name)
 		}
 	}
 	return nil
