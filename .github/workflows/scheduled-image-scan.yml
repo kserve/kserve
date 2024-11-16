@@ -24,7 +24,7 @@ jobs:
               file: python/storage-initializer.Dockerfile,
             },
             { name: router, file: router.Dockerfile },
-            { name: localmodel-controller, file: localmodel.Dockerfile },
+            { name: kserve-localmodel-controller, file: localmodel.Dockerfile },
           ]
 
     steps:
