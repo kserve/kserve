@@ -231,34 +231,6 @@ var _ = Describe("CachedModel controller", func() {
 			// Now let's test deletion
 			k8sClient.Delete(ctx, cachedModel)
 
-			// Eventually(func() bool {
-			// 	err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
-			// 	if err != nil {
-			// 		return false
-			// 	}
-			// 	if cachedModel.Status.ModelCopies == nil {
-			// 		return false
-			// 	}
-			// 	if cachedModel.Status.NodeStatus[nodeName] != v1alpha1.NodeDeleting {
-			// 		return false
-			// 	}
-			// 	return true
-			// }, timeout, interval).Should(BeTrue(), "Node status should be deleting")
-
-			// // Deletion job should be created
-			// deletionJob := &batchv1.Job{}
-			// Eventually(func() bool {
-			// 	err := k8sClient.Get(ctx, types.NamespacedName{Name: "iris-node-1-delete", Namespace: modelCacheNamespace}, deletionJob)
-			// 	if err != nil {
-			// 		return false
-			// 	}
-			// 	return true
-			// }, timeout, interval).Should(BeTrue())
-
-			// Let's we update deletion job status to be successful and check if the cr is deleted.
-			// deletionJob.Status.Succeeded = 1
-			// Expect(k8sClient.Status().Update(ctx, deletionJob)).Should(Succeed())
-
 			newLocalModel := &v1alpha1.ClusterLocalModel{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, newLocalModel)
@@ -493,7 +465,7 @@ var _ = Describe("CachedModel controller", func() {
 				Expect(localModelNode.Spec.LocalModels).Should(ConsistOf(v1alpha1.LocalModelInfo{ModelName: cachedModel1.Name, SourceModelUri: sourceModelUri}, v1alpha1.LocalModelInfo{ModelName: cachedModel2.Name, SourceModelUri: sourceModelUri}))
 			}
 
-			// Now let's test deletion
+			// Now let's test deletion - delete one model and expect one model exists
 			Expect(k8sClient.Delete(ctx, cachedModel1)).Should(Succeed())
 			for _, node := range nodes {
 				localModelNode := &v1alpha1.LocalModelNode{}
@@ -501,6 +473,16 @@ var _ = Describe("CachedModel controller", func() {
 					err := k8sClient.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
 					// Only one model exists
 					return err == nil && len(localModelNode.Spec.LocalModels) == 1
+				}, timeout, interval).Should(BeTrue())
+			}
+
+			// Delete the last model and expect the spec to be empty
+			Expect(k8sClient.Delete(ctx, cachedModel2)).Should(Succeed())
+			for _, node := range nodes {
+				localModelNode := &v1alpha1.LocalModelNode{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
+					return err == nil && len(localModelNode.Spec.LocalModels) == 0
 				}, timeout, interval).Should(BeTrue())
 			}
 		})

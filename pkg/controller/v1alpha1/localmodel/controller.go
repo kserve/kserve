@@ -105,7 +105,7 @@ func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localMo
 		}
 
 		if err := c.DeleteModelFromNode(ctx, localModelNode, localModel); err != nil {
-			c.Log.Error(err, "UpdateLocalModelNode error", "node", node.Name)
+			c.Log.Error(err, "failed to delete model from localModelNode", "node", node.Name)
 			return ctrl.Result{}, err
 		}
 	}
