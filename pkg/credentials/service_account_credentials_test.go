@@ -811,7 +811,7 @@ func TestAzureCredentialBuilder(t *testing.T) {
 			"AZURE_TENANT_ID":          {},
 			"AZURE_CLIENT_ID":          {},
 			"AZURE_CLIENT_SECRET":      {},
-      "AZURE_STORAGE_ACCESS_KEY": {},
+			"AZURE_STORAGE_ACCESS_KEY": {},
 		},
 	}
 
