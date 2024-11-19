@@ -77,7 +77,7 @@ var (
 )
 
 // The localmodel is being deleted
-func (c *LocalModelReconciler) deleteModelFromNodes(localModel *v1alpha1.ClusterLocalModel, jobNamespace string) (ctrl.Result, error) {
+func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localModel *v1alpha1.ClusterLocalModel, nodeGroup *v1alpha1.LocalModelNodeGroup) (ctrl.Result, error) {
 	// finalizer does not exists, nothing to do here!
 	if !utils.Includes(localModel.ObjectMeta.Finalizers, finalizerName) {
 		return ctrl.Result{}, nil
@@ -86,37 +86,34 @@ func (c *LocalModelReconciler) deleteModelFromNodes(localModel *v1alpha1.Cluster
 
 	// Todo: Prevent deletion if there are isvcs using this localmodel
 
-	allDone := true
-	for node := range localModel.Status.NodeStatus {
-		jobName := localModel.Name + "-" + node + "-delete"
-
-		job, err := c.launchDeletionJob(jobName, jobNamespace, localModel, localModel.Spec.SourceModelUri, localModel.Name, node)
+	readyNodes, notReadyNodes, err := getNodesFromNodeGroup(nodeGroup, c.Client)
+	if err != nil {
+		c.Log.Error(err, "getNodesFromNodeGroup node error")
+		return ctrl.Result{}, err
+	}
+	for _, node := range append(readyNodes.Items, notReadyNodes.Items...) {
+		localModelNode := &v1alpha1.LocalModelNode{}
+		err := c.Client.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
 		if err != nil {
-			c.Log.Error(err, "Deletion Job err", "name", jobName)
-			return ctrl.Result{}, err
+			if apierr.IsNotFound(err) {
+				c.Log.Info("localmodelNode not found", "node", node.Name)
+				continue
+			} else {
+				c.Log.Error(err, "Failed to get localmodelnode", "name", node.Name)
+				return ctrl.Result{}, err
+			}
 		}
-		switch {
-		case job.Status.Succeeded > 0:
-			c.Log.Info("Deletion Job succeeded", "name", jobName)
-			localModel.Status.NodeStatus[node] = v1alpha1api.NodeDeleted
-		case job.Status.Failed > 0:
-			allDone = false
-			localModel.Status.NodeStatus[node] = v1alpha1api.NodeDeletionError
-		default:
-			allDone = false
-			localModel.Status.NodeStatus[node] = v1alpha1api.NodeDeleting
-		}
-	}
-	if allDone {
-		patch := client.MergeFrom(localModel.DeepCopy())
-		// remove our finalizer from the list and update it.
-		localModel.ObjectMeta.Finalizers = utils.RemoveString(localModel.ObjectMeta.Finalizers, finalizerName)
-		if err := c.Patch(context.Background(), localModel, patch); err != nil {
-			c.Log.Error(err, "Cannot remove finalizer", "model name", localModel.Name)
+
+		if err := c.DeleteModelFromNode(ctx, localModelNode, localModel); err != nil {
+			c.Log.Error(err, "failed to delete model from localModelNode", "node", node.Name)
 			return ctrl.Result{}, err
 		}
 	}
-	if err := c.Status().Update(context.Background(), localModel); err != nil {
+
+	patch := client.MergeFrom(localModel.DeepCopy())
+	localModel.ObjectMeta.Finalizers = utils.RemoveString(localModel.ObjectMeta.Finalizers, finalizerName)
+	if err := c.Patch(context.TODO(), localModel, patch); err != nil {
+		c.Log.Error(err, "Cannot remove finalizer", "model name", localModel.Name)
 		return ctrl.Result{}, err
 	}
 
@@ -321,7 +318,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
-	// Step 1 - Checks if the CR is in the deletion process, if so, creates deletion jobs to delete models on all nodes.
+	// Step 1 - Checks if the CR is in the deletion process
 	if localModel.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
@@ -334,10 +331,10 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			}
 		}
 	} else {
-		return c.deleteModelFromNodes(localModel, localModelConfig.JobNamespace)
+		return c.deleteModelFromNodes(ctx, localModel, nodeGroup)
 	}
 
-	if err := c.ReconcileLocalModelNode(ctx, localModel, nodeGroup, localModelConfig.JobNamespace); err != nil {
+	if err := c.ReconcileLocalModelNode(ctx, localModel, nodeGroup); err != nil {
 		c.Log.Error(err, "failed to reconcile LocalModelNode")
 	}
 
@@ -500,16 +497,6 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Downloads models to new nodes
 		Watches(&v1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc), builder.WithPredicates(nodePredicates)).
 		Complete(c)
-}
-
-func (c *LocalModelReconciler) launchDeletionJob(jobName string, namespace string, localModel *v1alpha1api.ClusterLocalModel, storageUri string, claimName string, node string) (*batchv1.Job, error) {
-	container, err := c.getContainerSpecForStorageUri(storageUri)
-	if err != nil {
-		return nil, err
-	}
-	container.Command = []string{"/bin/sh", "-c", "rm -rf /mnt/models/*"}
-	container.Args = nil
-	return c.launchJob(jobName, *container, namespace, localModel, storageUri, claimName, node)
 }
 
 // Launches a job if not exist, or return the existing job
@@ -687,8 +674,25 @@ func (c *LocalModelReconciler) getContainerSpecForStorageUri(storageUri string) 
 	return defaultContainer, nil
 }
 
-// UpdateLocalModelNode updates the source model uri of the localmodelnode from the localmodel
-func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel, jobNamespace string) error {
+// DeleteModelFromNode deletes the source model from the localmodelnode
+func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel) error {
+	var patch client.Patch
+	for i, modelInfo := range localmodelNode.Spec.LocalModels {
+		if modelInfo.ModelName == localModel.Name {
+			patch = client.MergeFrom(localmodelNode.DeepCopy())
+			localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels[:i], localmodelNode.Spec.LocalModels[i+1:]...)
+			if err := c.Client.Patch(context.TODO(), localmodelNode, patch); err != nil {
+				c.Log.Error(err, "Update localmodelnode", "name", localmodelNode.Name)
+				return err
+			}
+			break
+		}
+	}
+	return nil
+}
+
+// UpdateLocalModelNode adds the source model to the localmodelnode
+func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel) error {
 	var patch client.Patch
 	updated := false
 	for i, modelInfo := range localmodelNode.Spec.LocalModels {
@@ -697,6 +701,7 @@ func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmo
 				return nil
 			}
 			// Update the source model uri
+			c.Log.Info("Unexpected update to sourceModelURI", "node", localmodelNode.Name, "model", localModel.Name)
 			updated = true
 			patch = client.MergeFrom(localmodelNode.DeepCopy())
 			localmodelNode.Spec.LocalModels[i].SourceModelUri = localModel.Spec.SourceModelUri
@@ -715,11 +720,14 @@ func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmo
 }
 
 // ReconcileLocalModelNode creates updates localmodelnode for each node in the node group. It adds and removes localmodels from the localmodelnode and updates the status on the localmodel from the localmodelnode.
-func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, localModel *v1alpha1api.ClusterLocalModel, nodeGroup *v1alpha1api.LocalModelNodeGroup, jobNamespace string) error {
+func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, localModel *v1alpha1api.ClusterLocalModel, nodeGroup *v1alpha1api.LocalModelNodeGroup) error {
 	readyNodes, notReadyNodes, err := getNodesFromNodeGroup(nodeGroup, c.Client)
 	if err != nil {
 		c.Log.Error(err, "getNodesFromNodeGroup node error")
 		return err
+	}
+	if localModel.Status.NodeStatus == nil {
+		localModel.Status.NodeStatus = make(map[string]v1alpha1api.NodeStatus)
 	}
 	for _, node := range notReadyNodes.Items {
 		if _, ok := localModel.Status.NodeStatus[node.Name]; !ok {
@@ -751,7 +759,7 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 				return err
 			}
 		} else {
-			if err := c.UpdateLocalModelNode(ctx, localModelNode, localModel, jobNamespace); err != nil {
+			if err := c.UpdateLocalModelNode(ctx, localModelNode, localModel); err != nil {
 				return err
 			}
 		}
