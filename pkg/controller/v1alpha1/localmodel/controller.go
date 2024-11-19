@@ -526,7 +526,7 @@ func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmod
 	return nil
 }
 
-// UpdateLocalModelNode adds the source model to the localmodelnode
+// UpdateLocalModelNode updates the source model uri of the localmodelnode from the localmodel
 func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel) error {
 	var patch client.Patch
 	updated := false
