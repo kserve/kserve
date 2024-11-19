@@ -39,11 +39,11 @@ _HDFS_PREFIX = "hdfs://"
 _WEBHDFS_PREFIX = "webhdfs://"
 _AZURE_BLOB_RE = [
     "https://(.+?).blob.core.windows.net/(.+)",
-    "https://(.+?).z[0-9]{2}.blob.storage.azure.net/(.+)",
+    "https://(.+?).z[0-9]{1,2}.blob.storage.azure.net/(.+)",
 ]
 _AZURE_FILE_RE = [
     "https://(.+?).file.core.windows.net/(.+)",
-    "https://(.+?).z[0-9]{2}.file.storage.azure.net/(.+)",
+    "https://(.+?).z[0-9]{1,2}.file.storage.azure.net/(.+)",
 ]
 _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
