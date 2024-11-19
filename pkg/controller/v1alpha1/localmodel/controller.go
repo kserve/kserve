@@ -99,7 +99,7 @@ func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localMo
 		}
 
 		if err := c.DeleteModelFromNode(ctx, localModelNode, localModel); err != nil {
-			c.Log.Error(err, "UpdateLocalModelNode error", "node", node.Name)
+			c.Log.Error(err, "failed to delete model from localModelNode", "localModelNode", localModelNode.Name)
 			return ctrl.Result{}, err
 		}
 	}
@@ -227,9 +227,9 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	return nil
 }
 
-// Step 1 - Checks if the CR is in the deletion process, if so, it creates deletion jobs to delete models on all nodes.
-// Step 2 - Creates PV & PVC for model download
-// Step 3 - Creates Jobs on all nodes to download models
+// Step 1 - Checks if the CR is in the deletion process. Deletion completes when all LocalModelNodes have been updated
+// Step 2 - Adds this model to LocalModelNode resources in the node group
+// Step 3 - Creates PV & PVC for model download
 // Step 4 - Creates PV & PVCs for namespaces with isvcs using this cached model
 func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconciling localmodel", "name", req.Name)
@@ -267,11 +267,12 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return c.deleteModelFromNodes(ctx, localModel, nodeGroup)
 	}
 
+	// Step 2 - Adds this model to LocalModelNode resources in the node group
 	if err := c.ReconcileLocalModelNode(ctx, localModel, nodeGroup); err != nil {
 		c.Log.Error(err, "failed to reconcile LocalModelNode")
 	}
 
-	// Step 2 - Creates PV & PVC for model download
+	// Step 3 - Creates PV & PVC for model download
 	pvSpec := nodeGroup.Spec.PersistentVolumeSpec
 	pv := v1.PersistentVolume{Spec: pvSpec, ObjectMeta: metav1.ObjectMeta{
 		Name: localModel.Name + "-download",
@@ -458,6 +459,7 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates)).
 		// Downloads models to new nodes
 		Watches(&v1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc), builder.WithPredicates(nodePredicates)).
+		// Updates model status when localmodelnode status changes
 		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFunc), builder.WithPredicates(localModelNodePredicates)).
 		Complete(c)
 }
@@ -578,7 +580,6 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 	if localModel.Status.NodeStatus == nil {
 		localModel.Status.NodeStatus = make(map[string]v1alpha1api.NodeStatus)
 	}
-
 	for _, node := range notReadyNodes.Items {
 		if _, ok := localModel.Status.NodeStatus[node.Name]; !ok {
 			localModel.Status.NodeStatus[node.Name] = v1alpha1api.NodeNotReady
