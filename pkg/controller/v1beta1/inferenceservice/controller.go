@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
@@ -38,7 +39,9 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/yaml"
 
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -139,15 +142,17 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
-		if !utils.Includes(isvc.ObjectMeta.Finalizers, finalizerName) {
-			isvc.ObjectMeta.Finalizers = append(isvc.ObjectMeta.Finalizers, finalizerName)
-			if err := r.Update(context.Background(), isvc); err != nil {
+		if !controllerutil.ContainsFinalizer(isvc, finalizerName) {
+			controllerutil.AddFinalizer(isvc, finalizerName)
+			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.ObjectMeta.Finalizers, ",") + "]"
+			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
+			if err := r.Patch(ctx, isvc, client.RawPatch(types.MergePatchType, []byte(patchJson))); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 	} else {
 		// The object is being deleted
-		if utils.Includes(isvc.ObjectMeta.Finalizers, finalizerName) {
+		if controllerutil.ContainsFinalizer(isvc, finalizerName) {
 			// our finalizer is present, so lets handle any external dependency
 			if err := r.deleteExternalResources(isvc); err != nil {
 				// if fail to delete the external dependency here, return with error
@@ -156,8 +161,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 
 			// remove our finalizer from the list and update it.
-			isvc.ObjectMeta.Finalizers = utils.RemoveString(isvc.ObjectMeta.Finalizers, finalizerName)
-			if err := r.Update(context.Background(), isvc); err != nil {
+			controllerutil.RemoveFinalizer(isvc, finalizerName)
+			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.ObjectMeta.Finalizers, ",") + "]"
+			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
+			if err := r.Patch(ctx, isvc, client.RawPatch(types.MergePatchType, []byte(patchJson))); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
