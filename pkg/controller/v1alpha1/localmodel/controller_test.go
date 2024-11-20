@@ -25,7 +25,6 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -190,43 +189,24 @@ var _ = Describe("CachedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 			Expect(localModelNode.Spec.LocalModels).Should(ContainElement(v1alpha1.LocalModelInfo{ModelName: cachedModel.Name, SourceModelUri: sourceModelUri}))
 
-			// Now that we have a node and a local model CR ready. It should create download jobs
-			jobs := &batchv1.JobList{}
-			Eventually(func() bool {
-				err := k8sClient.List(ctx, jobs)
-				return err == nil && len(jobs.Items) > 0
-			}, timeout, interval).Should(BeTrue())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
-				if err != nil {
-					return false
-				}
-				if cachedModel.Status.ModelCopies == nil {
-					return false
-				}
-				if cachedModel.Status.NodeStatus[nodeName] != v1alpha1.NodeDownloadPending {
-					return false
-				}
-				return true
-			}, timeout, interval).Should(BeTrue(), "should create a job to download the model")
+			// Todo: Test agent download
+			// Update the LocalModelNode status to be successful
+			localModelNode.Status.ModelStatus = map[string]v1alpha1.ModelStatus{cachedModel.Name: v1alpha1.ModelDownloaded}
+			Expect(k8sClient.Status().Update(ctx, localModelNode)).Should(Succeed())
 
-			// Now let's update the job status to be successful
-			job := jobs.Items[0]
-			job.Status.Succeeded = 1
-			Expect(k8sClient.Status().Update(ctx, &job)).Should(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
 				if err != nil {
 					return false
 				}
-				if cachedModel.Status.ModelCopies == nil {
+				if !(cachedModel.Status.ModelCopies.Available == 1 && cachedModel.Status.ModelCopies.Total == 1 && cachedModel.Status.ModelCopies.Failed == 0) {
 					return false
 				}
 				if cachedModel.Status.NodeStatus[nodeName] != v1alpha1.NodeDownloaded {
 					return false
 				}
 				return true
-			}, timeout, interval).Should(BeTrue(), "Node status should be downloaded once the job succeeded")
+			}, timeout, interval).Should(BeTrue(), "Node status should be downloaded")
 
 			// Now let's test deletion
 			k8sClient.Delete(ctx, cachedModel)

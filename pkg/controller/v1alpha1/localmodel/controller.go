@@ -24,15 +24,12 @@ limitations under the License.
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;watch
-// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
 // +kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
 package localmodel
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -41,7 +38,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,8 +68,6 @@ var (
 	apiGVStr         = v1alpha1api.SchemeGroupVersion.String()
 	modelCacheCRName = "ClusterLocalModel"
 	finalizerName    = "localmodel.kserve.io/finalizer"
-	defaultJobImage  = "kserve/storage-initializer:latest" // Could be overwritten by the value in the configmap
-	FSGroup          *int64                                // Could be overwritten by the value in the configmap
 )
 
 // The localmodel is being deleted
@@ -105,7 +99,7 @@ func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localMo
 		}
 
 		if err := c.DeleteModelFromNode(ctx, localModelNode, localModel); err != nil {
-			c.Log.Error(err, "failed to delete model from localModelNode", "node", node.Name)
+			c.Log.Error(err, "failed to delete model from localModelNode", "localModelNode", localModelNode.Name)
 			return ctrl.Result{}, err
 		}
 	}
@@ -159,65 +153,6 @@ func (c *LocalModelReconciler) createPVC(spec v1.PersistentVolumeClaim, namespac
 			c.Log.Error(err, "Failed to create PVC", "name", spec.Name)
 			return err
 		}
-	}
-	return nil
-}
-
-func (c *LocalModelReconciler) DownloadModel(ctx context.Context, localModel *v1alpha1api.ClusterLocalModel, nodeGroup *v1alpha1api.LocalModelNodeGroup, pvc v1.PersistentVolumeClaim, jobNamespace string) error {
-	readyNodes, notReadyNodes, err := getNodesFromNodeGroup(nodeGroup, c.Client)
-	if err != nil {
-		return err
-	}
-	c.Log.Info("Downloading to nodes", "node count", len(readyNodes.Items))
-
-	if localModel.Status.NodeStatus == nil {
-		localModel.Status.NodeStatus = make(map[string]v1alpha1api.NodeStatus)
-	}
-	for _, node := range notReadyNodes.Items {
-		if _, ok := localModel.Status.NodeStatus[node.Name]; !ok {
-			localModel.Status.NodeStatus[node.Name] = v1alpha1api.NodeNotReady
-		}
-	}
-	for _, node := range readyNodes.Items {
-		if status, ok := localModel.Status.NodeStatus[node.Name]; ok {
-			if status == v1alpha1api.NodeDownloaded {
-				continue
-			}
-		}
-		jobName := localModel.Name + "-" + node.Name
-		c.Log.Info("Launch download job", "name", jobName)
-		job, err := c.launchDownloadJob(jobName, jobNamespace, localModel, localModel.Spec.SourceModelUri, pvc.Name, node.Name)
-		if err != nil {
-			c.Log.Error(err, "Job error", "name", jobName)
-			return err
-		}
-		switch {
-		case job.Status.Succeeded > 0:
-			localModel.Status.NodeStatus[node.Name] = v1alpha1api.NodeDownloaded
-		case job.Status.Failed > 0:
-			localModel.Status.NodeStatus[node.Name] = v1alpha1api.NodeDownloadError
-		case job.Status.Ready != nil && *job.Status.Ready > 0:
-			localModel.Status.NodeStatus[node.Name] = v1alpha1api.NodeDownloading
-		default:
-			localModel.Status.NodeStatus[node.Name] = v1alpha1api.NodeDownloadPending
-		}
-	}
-
-	successfulNodes := 0
-	failedNodes := 0
-	for _, status := range localModel.Status.NodeStatus {
-		switch status {
-		case v1alpha1api.NodeDownloaded:
-			successfulNodes += 1
-		case v1alpha1api.NodeDownloadError:
-			failedNodes += 1
-		}
-	}
-	localModel.Status.ModelCopies = &v1alpha1api.ModelCopies{Total: len(localModel.Status.NodeStatus), Available: successfulNodes, Failed: failedNodes}
-	c.Log.Info("Update model cache status", "name", localModel.Name)
-	if err := c.Status().Update(context.Background(), localModel); err != nil {
-		c.Log.Error(err, "Update model cache status error", "name", localModel.Name)
-		return err
 	}
 	return nil
 }
@@ -292,9 +227,9 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	return nil
 }
 
-// Step 1 - Checks if the CR is in the deletion process, if so, it creates deletion jobs to delete models on all nodes.
-// Step 2 - Creates PV & PVC for model download
-// Step 3 - Creates Jobs on all nodes to download models
+// Step 1 - Checks if the CR is in the deletion process. Deletion completes when all LocalModelNodes have been updated
+// Step 2 - Adds this model to LocalModelNode resources in the node group
+// Step 3 - Creates PV & PVC for model download
 // Step 4 - Creates PV & PVCs for namespaces with isvcs using this cached model
 func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconciling localmodel", "name", req.Name)
@@ -304,8 +239,6 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		c.Log.Error(err, "Failed to get local model config")
 		return reconcile.Result{}, err
 	}
-	defaultJobImage = localModelConfig.DefaultJobImage
-	FSGroup = localModelConfig.FSGroup
 
 	localModel := &v1alpha1api.ClusterLocalModel{}
 	if err := c.Get(ctx, req.NamespacedName, localModel); err != nil {
@@ -334,11 +267,12 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return c.deleteModelFromNodes(ctx, localModel, nodeGroup)
 	}
 
+	// Step 2 - Adds this model to LocalModelNode resources in the node group
 	if err := c.ReconcileLocalModelNode(ctx, localModel, nodeGroup); err != nil {
 		c.Log.Error(err, "failed to reconcile LocalModelNode")
 	}
 
-	// Step 2 - Creates PV & PVC for model download
+	// Step 3 - Creates PV & PVC for model download
 	pvSpec := nodeGroup.Spec.PersistentVolumeSpec
 	pv := v1.PersistentVolume{Spec: pvSpec, ObjectMeta: metav1.ObjectMeta{
 		Name: localModel.Name + "-download",
@@ -357,11 +291,6 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	if err := c.createPVC(pvc, localModelConfig.JobNamespace, localModel); err != nil {
 		c.Log.Error(err, "Create PVC err", "name", pv.Name)
-	}
-
-	// Step 3 - Creates Jobs on all nodes to download models
-	if err := c.DownloadModel(ctx, localModel, nodeGroup, pvc, localModelConfig.JobNamespace); err != nil {
-		c.Log.Error(err, "Model download err", "model", localModel.Name)
 	}
 
 	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
@@ -400,6 +329,7 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 	requests := []reconcile.Request{}
 	models := &v1alpha1.ClusterLocalModelList{}
 	if err := c.Client.List(context.TODO(), models); err != nil {
+		c.Log.Error(err, "list models error when reconciling nodes")
 		return []reconcile.Request{}
 	}
 
@@ -421,6 +351,19 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 					Name: model.Name,
 				}})
 		}
+	}
+	return requests
+}
+
+// Given a node object, checks if it matches any node group CR, then reconcile all local models that has this node group to create download jobs.
+func (c *LocalModelReconciler) localmodelNodeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	localmodelNode := obj.(*v1alpha1.LocalModelNode)
+	requests := []reconcile.Request{}
+	for _, modelInfo := range localmodelNode.Spec.LocalModels {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name: modelInfo.ModelName,
+			}})
 	}
 	return requests
 }
@@ -486,115 +429,39 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}
 
+	// Define predicates to filter events based on changes to the status field
+	localModelNodePredicates := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldNode := e.ObjectOld.(*v1alpha1.LocalModelNode)
+			newNode := e.ObjectNew.(*v1alpha1.LocalModelNode)
+			return !reflect.DeepEqual(oldNode.Status, newNode.Status)
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			// Do nothing on create
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			// Do nothing on delete
+			return false
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			// Do nothing on generic events
+			return false
+		},
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1api.ClusterLocalModel{}).
-		// Ownes Jobs, PersistentVolumes and PersistentVolumeClaims that is created by this local model controller
-		Owns(&batchv1.Job{}).
+		// Ownes PersistentVolumes and PersistentVolumeClaims that is created by this local model controller
 		Owns(&v1.PersistentVolume{}).
 		Owns(&v1.PersistentVolumeClaim{}).
 		// Creates or deletes pv/pvcs when isvcs got created or deleted
 		Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates)).
 		// Downloads models to new nodes
 		Watches(&v1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc), builder.WithPredicates(nodePredicates)).
+		// Updates model status when localmodelnode status changes
+		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFunc), builder.WithPredicates(localModelNodePredicates)).
 		Complete(c)
-}
-
-// Launches a job if not exist, or return the existing job
-func (c *LocalModelReconciler) launchDownloadJob(jobName string, namespace string, localModel *v1alpha1api.ClusterLocalModel, storageUri string, claimName string, node string) (*batchv1.Job, error) {
-	container, err := c.getContainerSpecForStorageUri(storageUri)
-	if err != nil {
-		return nil, err
-	}
-
-	return c.launchJob(jobName, *container, namespace, localModel, storageUri, claimName, node)
-}
-
-// Launches a job if not exist, or return the existing job
-func (c *LocalModelReconciler) launchJob(jobName string, container v1.Container, namespace string, localModel *v1alpha1api.ClusterLocalModel, storageUri string, claimName string, node string) (*batchv1.Job, error) {
-	jobs := c.Clientset.BatchV1().Jobs(namespace)
-
-	job, err := jobs.Get(context.TODO(), jobName, metav1.GetOptions{})
-
-	// In tests, job is an empty struct, using this bool is easier than checking for empty struct
-	jobFound := true
-	if err != nil {
-		if apierr.IsNotFound(err) {
-			jobFound = false
-		} else {
-			c.Log.Error(err, "Failed to get job", "name", jobName)
-			return job, err
-		}
-	}
-
-	container.Name = jobName
-	container.Args = []string{storageUri, "/mnt/models"}
-	container.VolumeMounts = []v1.VolumeMount{
-		{
-			MountPath: "/mnt/models",
-			Name:      "kserve-pvc-source",
-			ReadOnly:  false,
-			SubPath:   "models/" + localModel.Name,
-		},
-	}
-	expectedJob := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName + "dryrun",
-			Namespace: namespace,
-		},
-		Spec: batchv1.JobSpec{
-			Template: v1.PodTemplateSpec{
-				Spec: v1.PodSpec{
-					NodeName:      node,
-					Containers:    []v1.Container{container},
-					RestartPolicy: v1.RestartPolicyNever,
-					Volumes: []v1.Volume{
-						{
-							Name: "kserve-pvc-source",
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-									ClaimName: claimName,
-								},
-							},
-						},
-					},
-					SecurityContext: &v1.PodSecurityContext{
-						FSGroup: FSGroup,
-					},
-				},
-			},
-		},
-	}
-	dryrunJob, err := jobs.Create(context.TODO(), expectedJob, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
-	if err != nil {
-		return nil, err
-	}
-	if job != nil && reflect.DeepEqual(job.Spec.Template.Spec, dryrunJob.Spec.Template.Spec) {
-		return job, nil
-	}
-
-	if jobFound {
-		bg := metav1.DeletePropagationBackground
-		err = jobs.Delete(context.TODO(), job.Name, metav1.DeleteOptions{
-			PropagationPolicy: &bg,
-		})
-		if err != nil {
-			c.Log.Error(err, "Failed to delete job.", "name", job.Name)
-			return nil, err
-		}
-	}
-
-	if err := controllerutil.SetControllerReference(localModel, expectedJob, c.Scheme); err != nil {
-		c.Log.Error(err, "Failed to set controller reference", "name", localModel.Name)
-		return nil, err
-	}
-	expectedJob.Name = jobName
-	job, err = jobs.Create(context.TODO(), expectedJob, metav1.CreateOptions{})
-	c.Log.Info("Creating job", "name", job.Name, "namespace", namespace)
-	if err != nil {
-		c.Log.Error(err, "Failed to create job.", "name", expectedJob.Name)
-		return nil, err
-	}
-	return job, err
 }
 
 func isNodeReady(node v1.Node) bool {
@@ -644,36 +511,6 @@ func getNodesFromNodeGroup(nodeGroup *v1alpha1api.LocalModelNodeGroup, c client.
 	return readyNodes, notReadyNodes, nil
 }
 
-// Fetches container spec for model download container, use the default KServe image if not found
-func (c *LocalModelReconciler) getContainerSpecForStorageUri(storageUri string) (*v1.Container, error) {
-	storageContainers := &v1alpha1.ClusterStorageContainerList{}
-	if err := c.Client.List(context.TODO(), storageContainers); err != nil {
-		return nil, err
-	}
-
-	for _, sc := range storageContainers.Items {
-		if sc.IsDisabled() {
-			continue
-		}
-		if sc.Spec.WorkloadType != v1alpha1.LocalModelDownloadJob {
-			continue
-		}
-		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
-		if err != nil {
-			return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
-		}
-		if supported {
-			return &sc.Spec.Container, nil
-		}
-	}
-
-	defaultContainer := &v1.Container{
-		Image:                    defaultJobImage,
-		TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
-	}
-	return defaultContainer, nil
-}
-
 // DeleteModelFromNode deletes the source model from the localmodelnode
 func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel) error {
 	var patch client.Patch
@@ -691,7 +528,7 @@ func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmod
 	return nil
 }
 
-// UpdateLocalModelNode adds the source model to the localmodelnode
+// UpdateLocalModelNode updates the source model uri of the localmodelnode from the localmodel
 func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel) error {
 	var patch client.Patch
 	updated := false
@@ -717,6 +554,20 @@ func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmo
 		return err
 	}
 	return nil
+}
+
+func nodeStatusFromLocalModelStatus(modelStatus v1alpha1.ModelStatus) v1alpha1api.NodeStatus {
+	switch modelStatus {
+	case v1alpha1api.ModelDownloadPending:
+		return v1alpha1api.NodeDownloadPending
+	case v1alpha1api.ModelDownloading:
+		return v1alpha1api.NodeDownloading
+	case v1alpha1api.ModelDownloadError:
+		return v1alpha1api.NodeDownloadError
+	case v1alpha1api.ModelDownloaded:
+		return v1alpha1api.NodeDownloaded
+	}
+	return v1alpha1api.NodeDownloadPending
 }
 
 // ReconcileLocalModelNode creates updates localmodelnode for each node in the node group. It adds and removes localmodels from the localmodelnode and updates the status on the localmodel from the localmodelnode.
@@ -763,6 +614,23 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 				return err
 			}
 		}
+		modelStatus := localModelNode.Status.ModelStatus[localModel.Name]
+		localModel.Status.NodeStatus[node.Name] = nodeStatusFromLocalModelStatus(modelStatus)
+	}
+
+	successfulNodes := 0
+	failedNodes := 0
+	for _, status := range localModel.Status.NodeStatus {
+		switch status {
+		case v1alpha1api.NodeDownloaded:
+			successfulNodes += 1
+		case v1alpha1api.NodeDownloadError:
+			failedNodes += 1
+		}
+	}
+	localModel.Status.ModelCopies = &v1alpha1api.ModelCopies{Total: len(localModel.Status.NodeStatus), Available: successfulNodes, Failed: failedNodes}
+	if err := c.Status().Update(context.TODO(), localModel); err != nil {
+		c.Log.Error(err, "cannot update model status from node", "name", localModel.Name)
 	}
 	return nil
 }
