@@ -8082,6 +8082,7 @@ spec:
                         - all
                         - request
                         - response
+                        - combined
                         type: string
                       url:
                         type: string
@@ -12384,6 +12385,7 @@ spec:
                         - all
                         - request
                         - response
+                        - combined
                         type: string
                       url:
                         type: string
@@ -25042,6 +25044,7 @@ spec:
                         - all
                         - request
                         - response
+                        - combined
                         type: string
                       url:
                         type: string
