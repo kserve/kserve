@@ -16,6 +16,7 @@ import pytest
 import torch
 from kserve.model import PredictorConfig
 from kserve.protocol.rest.openai import ChatCompletionRequest, CompletionRequest
+from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai.types import (
     CreateChatCompletionRequest,
     CreateCompletionRequest,
@@ -193,9 +194,12 @@ async def test_t5_bad_params(t5_model: HuggingfaceGenerativeModel):
         stream=False,
     )
     request = CompletionRequest(params=params, context={})
-    with pytest.raises(ValueError) as err_info:
+    with pytest.raises(OpenAIError) as err_info:
         await t5_model.create_completion(request)
-    assert err_info.value.args[0] == "'echo' is not supported by encoder-decoder models"
+    assert (
+        err_info.value.response.error.message
+        == "'echo' is not supported by encoder-decoder models"
+    )
 
 
 @pytest.mark.asyncio
