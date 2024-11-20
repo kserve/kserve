@@ -101,7 +101,7 @@ var _ = Describe("CachedModel controller", func() {
 		}
 	)
 	Context("When creating a local model", func() {
-		It("Should create pv, pvc, and download jobs", func() {
+		It("Should create pv, pvc, localmodelnode, and update status from localmodelnode", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
