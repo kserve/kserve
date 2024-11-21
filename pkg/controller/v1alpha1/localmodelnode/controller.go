@@ -188,12 +188,18 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(storageUri stri
 	return defaultContainer, nil
 }
 
-func (c *LocalModelNodeReconciler) DownloadModel(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode, jobNamespace string) error {
+func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode, jobNamespace string) error {
 	c.Log.Info("Downloading models to", "node", localModelNode.ObjectMeta.Name)
 
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
+		if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
+			if status == v1alpha1api.ModelDownloaded {
+				continue
+			}
+		}
 		jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
 		c.Log.Info("Launch download job", "name", jobName)
+
 		job, err := c.launchDownloadJob(jobName, jobNamespace, localModelNode, modelInfo, modelInfo.ModelName, localModelNode.ObjectMeta.Name)
 		if err != nil {
 			c.Log.Error(err, "Job error", "name", jobName)
@@ -213,7 +219,7 @@ func (c *LocalModelNodeReconciler) DownloadModel(ctx context.Context, localModel
 		}
 	}
 
-	if err := c.Status().Update(context.Background(), localModelNode); err != nil {
+	if err := c.Status().Update(ctx, localModelNode); err != nil {
 		c.Log.Error(err, "Update local model cache status error", "name", localModelNode.Name)
 		return err
 	}
@@ -222,6 +228,11 @@ func (c *LocalModelNodeReconciler) DownloadModel(ctx context.Context, localModel
 }
 
 func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if req.Name != nodeName {
+		c.Log.Info("Skipping LocalModelNode because it is not for current node", "name", req.Name, "current node", nodeName)
+		return reconcile.Result{}, nil
+	}
+
 	c.Log.Info("Agent reconciling LocalModelNode", "name", req.Name, "node", nodeName)
 	// Create Jobs to download models if the model is not present locally.
 	// 1. Check if LocalModelNode CR is for current node
@@ -229,10 +240,6 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err := c.Get(ctx, req.NamespacedName, localModelNode); err != nil {
 		c.Log.Error(err, "Error getting LocalModelNode", "name", req.Name)
 		return reconcile.Result{}, err
-	}
-	if nodeName != localModelNode.ObjectMeta.Name {
-		c.Log.Info("Skipping LocalModelNode because it is not for current node", "name", req.Name, "current node", nodeName, "intended node", localModelNode.ObjectMeta.Name)
-		return reconcile.Result{}, nil
 	}
 
 	// 2. Kick off download jobs for all models in spec
@@ -243,7 +250,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	defaultJobImage = localModelConfig.DefaultJobImage
 	FSGroup = localModelConfig.FSGroup
-	if err := c.DownloadModel(ctx, localModelNode, localModelConfig.JobNamespace); err != nil {
+	if err := c.downloadModels(ctx, localModelNode, localModelConfig.JobNamespace); err != nil {
 		c.Log.Error(err, "Model download err")
 		return reconcile.Result{}, err
 	}
