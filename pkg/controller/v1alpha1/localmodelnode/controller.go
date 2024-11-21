@@ -132,7 +132,6 @@ func (c *LocalModelNodeReconciler) launchJob(jobName string, container v1.Contai
 	if job != nil && reflect.DeepEqual(job.Spec.Template.Spec, dryrunJob.Spec.Template.Spec) {
 		return job, nil
 	}
-
 	if jobFound {
 		bg := metav1.DeletePropagationBackground
 		err = jobs.Delete(context.TODO(), job.Name, metav1.DeleteOptions{
@@ -198,7 +197,6 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			}
 		}
 		jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
-		c.Log.Info("Launch download job", "name", jobName)
 
 		job, err := c.launchDownloadJob(jobName, jobNamespace, localModelNode, modelInfo, modelInfo.ModelName, localModelNode.ObjectMeta.Name)
 		if err != nil {
