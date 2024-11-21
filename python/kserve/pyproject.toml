@@ -58,7 +58,7 @@ pyyaml = "^6.0.0"
 # Storage dependencies. They can be opted into by apps.
 # KServe Storage module. They can be opted into by apps.
 # storage = { version = "0.14.0rc1", optional = true }
-
+storage = { path = "../storage", optional = true, develop = true }
 # Logging dependencies. They can be opted into by apps.
 asgi-logger = { version = "^0.1.0", optional = true }
 
@@ -71,9 +71,9 @@ vllm = { version = "^0.7.3", optional = true }
 [tool.poetry.extras]
 # The storage module will be migrated to its own model and removed from here on new releses,
 # please update it accordingly.
-#storage = [
-#    "storage"
-#]
+storage = [
+    "storage"
+]
 logging = [
     "asgi-logger"
 ]
