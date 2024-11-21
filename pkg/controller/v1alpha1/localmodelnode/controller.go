@@ -54,27 +54,22 @@ type LocalModelNodeReconciler struct {
 }
 
 var (
-	defaultJobImage    = "kserve/storage-initializer:latest" // Could be overwritten by the value in the configmap
-	FSGroup            *int64                                // Could be overwritten by the value in the configmap
-	nodeName           = os.Getenv("NODE_NAME")              // Name of current node
-	localModelHostPath = "/mnt/models"                       // Host node directory to store local models
+	defaultJobImage = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
+	FSGroup         *int64                                // Can be overwritten by the value in the configmap
+	jobNamespace    string
+	nodeName        = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
+	mountPath       = "/mnt/models"          // Volume mount path for models, must be the same as the value in the DaemonSet spec
 )
 
-// Launches a job if not exist, or return the existing job
-func (c *LocalModelNodeReconciler) launchDownloadJob(jobName string, namespace string, localModelNode *v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo, claimName string, node string) (*batchv1.Job, error) {
-	container, err := c.getContainerSpecForStorageUri(modelInfo.SourceModelUri)
+// Launch a new job or return an existing job
+func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, jobName string, localModelNode *v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo, claimName string) (*batchv1.Job, error) {
+	container, err := c.getContainerSpecForStorageUri(ctx, modelInfo.SourceModelUri)
 	if err != nil {
 		return nil, err
 	}
+	jobs := c.Clientset.BatchV1().Jobs(jobNamespace)
 
-	return c.launchJob(jobName, *container, namespace, localModelNode, modelInfo, claimName, node)
-}
-
-// Launches a job if not exist, or return the existing job
-func (c *LocalModelNodeReconciler) launchJob(jobName string, container v1.Container, namespace string, localModelNode *v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo, claimName string, node string) (*batchv1.Job, error) {
-	jobs := c.Clientset.BatchV1().Jobs(namespace)
-
-	job, err := jobs.Get(context.TODO(), jobName, metav1.GetOptions{})
+	job, err := jobs.Get(ctx, jobName, metav1.GetOptions{})
 
 	// In tests, job is an empty struct, using this bool is easier than checking for empty struct
 	jobFound := true
@@ -88,10 +83,10 @@ func (c *LocalModelNodeReconciler) launchJob(jobName string, container v1.Contai
 	}
 
 	container.Name = jobName
-	container.Args = []string{modelInfo.SourceModelUri, localModelHostPath}
+	container.Args = []string{modelInfo.SourceModelUri, mountPath}
 	container.VolumeMounts = []v1.VolumeMount{
 		{
-			MountPath: localModelHostPath,
+			MountPath: mountPath,
 			Name:      "kserve-pvc-source",
 			ReadOnly:  false,
 			SubPath:   "models/" + modelInfo.ModelName,
@@ -100,13 +95,13 @@ func (c *LocalModelNodeReconciler) launchJob(jobName string, container v1.Contai
 	expectedJob := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      jobName + "dryrun",
-			Namespace: namespace,
+			Namespace: jobNamespace,
 		},
 		Spec: batchv1.JobSpec{
 			Template: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
-					NodeName:      node,
-					Containers:    []v1.Container{container},
+					NodeName:      nodeName,
+					Containers:    []v1.Container{*container},
 					RestartPolicy: v1.RestartPolicyNever,
 					Volumes: []v1.Volume{
 						{
@@ -125,7 +120,7 @@ func (c *LocalModelNodeReconciler) launchJob(jobName string, container v1.Contai
 			},
 		},
 	}
-	dryrunJob, err := jobs.Create(context.TODO(), expectedJob, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
+	dryrunJob, err := jobs.Create(ctx, expectedJob, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +129,7 @@ func (c *LocalModelNodeReconciler) launchJob(jobName string, container v1.Contai
 	}
 	if jobFound {
 		bg := metav1.DeletePropagationBackground
-		err = jobs.Delete(context.TODO(), job.Name, metav1.DeleteOptions{
+		err = jobs.Delete(ctx, job.Name, metav1.DeleteOptions{
 			PropagationPolicy: &bg,
 		})
 		if err != nil {
@@ -148,8 +143,8 @@ func (c *LocalModelNodeReconciler) launchJob(jobName string, container v1.Contai
 		return nil, err
 	}
 	expectedJob.Name = jobName
-	job, err = jobs.Create(context.TODO(), expectedJob, metav1.CreateOptions{})
-	c.Log.Info("Creating job", "name", job.Name, "namespace", namespace)
+	job, err = jobs.Create(ctx, expectedJob, metav1.CreateOptions{})
+	c.Log.Info("Creating job", "name", job.Name, "namespace", job.Namespace)
 	if err != nil {
 		c.Log.Error(err, "Failed to create job.", "name", expectedJob.Name)
 		return nil, err
@@ -158,9 +153,9 @@ func (c *LocalModelNodeReconciler) launchJob(jobName string, container v1.Contai
 }
 
 // Fetches container spec for model download container, use the default KServe image if not found
-func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(storageUri string) (*v1.Container, error) {
+func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*v1.Container, error) {
 	storageContainers := &v1alpha1api.ClusterStorageContainerList{}
-	if err := c.Client.List(context.TODO(), storageContainers); err != nil {
+	if err := c.Client.List(ctx, storageContainers); err != nil {
 		return nil, err
 	}
 
@@ -187,7 +182,7 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(storageUri stri
 	return defaultContainer, nil
 }
 
-func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode, jobNamespace string) error {
+func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode) error {
 	c.Log.Info("Downloading models to", "node", localModelNode.ObjectMeta.Name)
 
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
@@ -198,7 +193,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 		}
 		jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
 
-		job, err := c.launchDownloadJob(jobName, jobNamespace, localModelNode, modelInfo, modelInfo.ModelName, localModelNode.ObjectMeta.Name)
+		job, err := c.launchJob(ctx, jobName, localModelNode, modelInfo, modelInfo.ModelName)
 		if err != nil {
 			c.Log.Error(err, "Job error", "name", jobName)
 			return err
@@ -247,13 +242,14 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 	defaultJobImage = localModelConfig.DefaultJobImage
+	jobNamespace = localModelConfig.JobNamespace
 	FSGroup = localModelConfig.FSGroup
-	if err := c.downloadModels(ctx, localModelNode, localModelConfig.JobNamespace); err != nil {
+	if err := c.downloadModels(ctx, localModelNode); err != nil {
 		c.Log.Error(err, "Model download err")
 		return reconcile.Result{}, err
 	}
 
-	// Todo: Add logic to delete models
+	// Todo: Delete models that are not in the spec
 	return reconcile.Result{}, nil
 }
 
