@@ -182,7 +182,7 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 	return defaultContainer, nil
 }
 
-func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode) error {
+func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode v1alpha1api.LocalModelNode) error {
 	c.Log.Info("Downloading models to", "node", localModelNode.ObjectMeta.Name)
 
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
@@ -193,7 +193,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 		}
 		jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
 
-		job, err := c.launchJob(ctx, jobName, localModelNode, modelInfo, modelInfo.ModelName)
+		job, err := c.launchJob(ctx, jobName, &localModelNode, modelInfo, modelInfo.ModelName)
 		if err != nil {
 			c.Log.Error(err, "Job error", "name", jobName)
 			return err
@@ -212,9 +212,44 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 		}
 	}
 
-	if err := c.Status().Update(ctx, localModelNode); err != nil {
+	if err := c.Status().Update(ctx, &localModelNode); err != nil {
 		c.Log.Error(err, "Update local model cache status error", "name", localModelNode.Name)
 		return err
+	}
+
+	return nil
+}
+
+// Delete models that are not in the spec
+func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.LocalModelNode) error {
+	// 1. Scan model dir and get a list of downloaded models
+	entries, err := os.ReadDir(mountPath + "/models")
+	if err != nil {
+		c.Log.Error(err, "Failed to list model directory", "dir", mountPath+"/models")
+	}
+	localModels := map[string]struct{}{}
+	for _, entry := range entries {
+		// Models could only exist in sub dir
+		if entry.IsDir() {
+			localModels[entry.Name()] = struct{}{}
+		}
+	}
+	// c.Log.Info("Found existing local models", "models", maps.Keys(localModels))
+
+	// 2. Compare with list of models from LocalModelNode CR
+	for _, localModelInfo := range localModelNode.Spec.LocalModels {
+		// Remove expected models from local model set
+		delete(localModels, localModelInfo.ModelName)
+	}
+	// 3. Models not in LocalModelNode CR spec should be deleted
+	if len(localModels) != 0 {
+		// c.Log.Info("Removing models", "models", maps.Keys(localModels))
+		for localModelName := range localModels {
+			modelDir := mountPath + "/models/" + localModelName
+			if err := os.RemoveAll(modelDir); err != nil {
+				c.Log.Error(err, "Failed to remove model directory", "dir", modelDir)
+			}
+		}
 	}
 
 	return nil
@@ -229,8 +264,8 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	c.Log.Info("Agent reconciling LocalModelNode", "name", req.Name, "node", nodeName)
 	// Create Jobs to download models if the model is not present locally.
 	// 1. Check if LocalModelNode CR is for current node
-	localModelNode := &v1alpha1api.LocalModelNode{}
-	if err := c.Get(ctx, req.NamespacedName, localModelNode); err != nil {
+	localModelNode := v1alpha1api.LocalModelNode{}
+	if err := c.Get(ctx, req.NamespacedName, &localModelNode); err != nil {
 		c.Log.Error(err, "Error getting LocalModelNode", "name", req.Name)
 		return reconcile.Result{}, err
 	}
@@ -249,7 +284,11 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 
-	// Todo: Delete models that are not in the spec
+	// 3. Delete models that are not in the spec
+	if err := c.deleteModels(localModelNode); err != nil {
+		c.Log.Error(err, "Model deletion err")
+		return reconcile.Result{}, err
+	}
 	return reconcile.Result{}, nil
 }
 
