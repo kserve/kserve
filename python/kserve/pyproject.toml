@@ -54,10 +54,7 @@ pandas =  "^2.2.0"
 pydantic = [{ version = "^2.5.0", python = "3.12" }, { version = ">1.0,<3", python = ">=3.9,<3.12" }]
 pyyaml = "^6.0.0"
 
-#TODO
-# Storage dependencies. They can be opted into by apps.
 # KServe Storage module. They can be opted into by apps.
-# storage = { version = "0.14.0rc1", optional = true }
 storage = { path = "../storage", optional = true, develop = true }
 # Logging dependencies. They can be opted into by apps.
 asgi-logger = { version = "^0.1.0", optional = true }
