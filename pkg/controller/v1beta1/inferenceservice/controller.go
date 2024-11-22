@@ -146,7 +146,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			controllerutil.AddFinalizer(isvc, finalizerName)
 			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.ObjectMeta.Finalizers, ",") + "]"
 			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
-			if err := r.Patch(ctx, isvc, client.RawPatch(types.MergePatchType, []byte(patchJson))); err != nil {
+			if err := r.Patch(ctx, isvc, client.RawPatch(types.MergePatchType, patchJson)); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -164,7 +164,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			controllerutil.RemoveFinalizer(isvc, finalizerName)
 			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.ObjectMeta.Finalizers, ",") + "]"
 			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
-			if err := r.Patch(ctx, isvc, client.RawPatch(types.MergePatchType, []byte(patchJson))); err != nil {
+			if err := r.Patch(ctx, isvc, client.RawPatch(types.MergePatchType, patchJson)); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
