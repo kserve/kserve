@@ -29,6 +29,7 @@ from .constants.constants import (
     DEFAULT_GRPC_PORT,
     MAX_GRPC_MESSAGE_LENGTH,
 )
+from .errors import NoModelReady
 from .logging import logger
 from .model import BaseKServeModel, PredictorConfig
 from .model_repository import ModelRepository
@@ -37,8 +38,8 @@ from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
 from .utils import utils
-from kserve.errors import NoModelReady
 from .utils.inference_client_factory import InferenceClientFactory
+
 
 parser = argparse.ArgumentParser(
     add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter
