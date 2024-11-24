@@ -23,6 +23,10 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
     spec:
+      {{- with .Values.kserve.localmodel.agent.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       serviceAccountName: kserve-localmodelnode-agent
       securityContext:
         runAsNonRoot: true
@@ -50,8 +54,8 @@ spec:
               fieldRef:
                 fieldPath: spec.nodeName
         volumeMounts:
-          - mountPath: /models
-            name: local-models
+          - mountPath: /mnt/models
+            name: models
             readOnly: false
         resources:
           limits:
@@ -61,9 +65,9 @@ spec:
             cpu: 100m
             memory: 200Mi
       volumes:
-        - name: local-models
+        - name: models
           hostPath:
-            path: /mnt/models
-            type: Directory
+            path: {{ .Values.kserve.localmodel.agent.hostPath }}
+            type: DirectoryOrCreate
       terminationGracePeriodSeconds: 10
 {{- end }}

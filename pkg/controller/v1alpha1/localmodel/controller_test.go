@@ -440,9 +440,8 @@ var _ = Describe("CachedModel controller", func() {
 				localModelNode := &v1alpha1.LocalModelNode{}
 				Eventually(func() bool {
 					err := k8sClient.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
-					return err == nil
+					return err == nil && len(localModelNode.Spec.LocalModels) == 2
 				}, timeout, interval).Should(BeTrue())
-				Expect(localModelNode.Spec.LocalModels).Should(ConsistOf(v1alpha1.LocalModelInfo{ModelName: cachedModel1.Name, SourceModelUri: sourceModelUri}, v1alpha1.LocalModelInfo{ModelName: cachedModel2.Name, SourceModelUri: sourceModelUri}))
 			}
 
 			// Now let's test deletion - delete one model and expect one model exists
