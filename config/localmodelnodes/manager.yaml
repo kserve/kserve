@@ -64,5 +64,5 @@ spec:
         - name: models
           hostPath:
             path: /models
-            type: Directory
+            type: DirectoryOrCreate
       terminationGracePeriodSeconds: 10
