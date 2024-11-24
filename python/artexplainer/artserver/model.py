@@ -22,6 +22,7 @@ import nest_asyncio
 
 import kserve
 from kserve.logging import logger
+from kserve.model import PredictorConfig
 
 
 nest_asyncio.apply()
@@ -31,14 +32,12 @@ class ARTModel(kserve.Model):  # pylint:disable=c-extension-no-member
     def __init__(
         self,
         name: str,
-        predictor_host: str,
+        predictor_config: PredictorConfig,
         adversary_type: str,
         nb_classes: str,
         max_iter: str,
     ):
-        super().__init__(name)
-        self.name = name
-        self.predictor_host = predictor_host
+        super().__init__(name, predictor_config)
         if str.lower(adversary_type) != "squareattack":
             raise Exception("Invalid adversary type: %s" % adversary_type)
         self.adversary_type = adversary_type

@@ -36,6 +36,7 @@ from kserve.protocol.rest.openai import (
     CompletionRequest,
     OpenAIChatAdapterModel,
 )
+from kserve.protocol.rest.openai.types.openapi import ChatCompletionTool
 from kserve.protocol.rest.openai.types import (
     ChatCompletionRequestMessage,
     Completion,
@@ -384,7 +385,10 @@ class HuggingfaceGenerativeModel(
         return GenerationConfig(**kwargs)
 
     def apply_chat_template(
-        self, messages: Iterable[ChatCompletionRequestMessage]
+        self,
+        messages: Iterable[ChatCompletionRequestMessage],
+        chat_template: Optional[str] = None,
+        tools: Optional[list[ChatCompletionTool]] = None,
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
@@ -394,8 +398,10 @@ class HuggingfaceGenerativeModel(
                 str,
                 self._tokenizer.apply_chat_template(
                     [m.model_dump() for m in messages],
+                    chat_template=chat_template,
                     tokenize=False,
                     add_generation_prompt=True,
+                    tools=[tool.model_dump() for tool in tools] if tools else None,
                 ),
             )
         )

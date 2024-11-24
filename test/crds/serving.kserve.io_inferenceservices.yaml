@@ -3303,7 +3303,9 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
-                  size:
+                  pipelineParallelSize:
+                    type: integer
+                  tensorParallelSize:
                     type: integer
                   tolerations:
                     items:
@@ -21458,6 +21460,8 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
+                      pipelineParallelSize:
+                        type: integer
                       preemptionPolicy:
                         type: string
                       priority:
@@ -21594,10 +21598,10 @@ spec:
                         type: boolean
                       shareProcessNamespace:
                         type: boolean
-                      size:
-                        type: integer
                       subdomain:
                         type: string
+                      tensorParallelSize:
+                        type: integer
                       terminationGracePeriodSeconds:
                         format: int64
                         type: integer
@@ -30137,7 +30141,9 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
-                  size:
+                  pipelineParallelSize:
+                    type: integer
+                  tensorParallelSize:
                     type: integer
                   tolerations:
                     items:

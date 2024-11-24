@@ -18,13 +18,16 @@ package servingruntime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -33,12 +36,23 @@ import (
 var log = logf.Log.WithName(constants.ServingRuntimeValidatorWebhookName)
 
 const (
-	InvalidPriorityError                       = "same priority assigned for the model format %s"
-	InvalidPriorityServingRuntimeError         = "%s in the servingruntimes %s and %s in namespace %s"
-	InvalidPriorityClusterServingRuntimeError  = "%s in the clusterservingruntimes %s and %s"
-	ProrityIsNotSameError                      = "different priorities assigned for the model format %s"
-	ProrityIsNotSameServingRuntimeError        = "%s under the servingruntime %s"
-	ProrityIsNotSameClusterServingRuntimeError = "%s under the clusterservingruntime %s"
+	InvalidPriorityError                                = "same priority assigned for the model format %s"
+	InvalidPriorityServingRuntimeError                  = "%s in the servingruntimes %s and %s in namespace %s"
+	InvalidPriorityClusterServingRuntimeError           = "%s in the clusterservingruntimes %s and %s"
+	ProrityIsNotSameError                               = "different priorities assigned for the model format %s"
+	ProrityIsNotSameServingRuntimeError                 = "%s under the servingruntime %s"
+	ProrityIsNotSameClusterServingRuntimeError          = "%s under the clusterservingruntime %s"
+	InvalidUnknownGPUTypeError                          = "unknown GPU resource type in a container(%s)"
+	InvalidWorkerSpecSizeValueError                     = "the WorkerSpec.PipelineParallelSize cannot be less than 2(%d)"
+	MissingPipelineParallelSizeValueError               = "pipelineParallelSize must be set when WorkerSpec is set"
+	MissingTensorParallelSizeValueError                 = "tensorParallelSize must be set when WorkerSpec is set"
+	InvalidWorkerSpecPipelineParallelSizeValueError     = "the WorkerSpec.PipelineParallelSize cannot be less than 2 (%s) because WorkerSpec.PipelineParallelSize should include at least 1 head node and 1 worker node"
+	InvalidWorkerSpecTensorParallelSizeValueError       = "the WorkerSpec.TensorParallelSize cannot be less than 1(%s)"
+	InvalidMultiNodeSpecError                           = "the %s %s is invalid: %s"
+	DisallowedMultipleContainersInWorkerSpecError       = "setting multiple containers in workerSpec is not allowed"
+	DisallowedRemovingWorkerSpecFromServingRuntimeError = "removing workerSpec where it already exists is not allowed"
+	DisallowedWorkerSpecPipelineParallelSizeEnvError    = "setting PIPELINE_PARALLEL_SIZE in environment variables is not allowed"
+	DisallowedWorkerSpecTensorParallelSizeEnvError      = "setting TENSOR_PARALLEL_SIZE in environment variables is not allowed"
 )
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-serving-kserve-io-v1alpha1-clusterservingruntime,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=clusterservingruntimes,versions=v1alpha1,name=clusterservingruntime.kserve-webhook-server.validator
@@ -72,7 +86,7 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 	if servingRuntime.Spec.IsDisabled() {
 		return admission.Allowed("")
 	}
-
+	existingRuntimeSpec := v1alpha1.ServingRuntimeSpec{}
 	for i := range ExistingRuntimes.Items {
 		if err := validateModelFormatPrioritySame(&servingRuntime.Spec); err != nil {
 			return admission.Denied(fmt.Sprintf(ProrityIsNotSameServingRuntimeError, err.Error(), servingRuntime.Name))
@@ -81,7 +95,15 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 		if err := validateServingRuntimePriority(&servingRuntime.Spec, &ExistingRuntimes.Items[i].Spec, servingRuntime.Name, ExistingRuntimes.Items[i].Name); err != nil {
 			return admission.Denied(fmt.Sprintf(InvalidPriorityServingRuntimeError, err.Error(), ExistingRuntimes.Items[i].Name, servingRuntime.Name, servingRuntime.Namespace))
 		}
+
+		if servingRuntime.Name == ExistingRuntimes.Items[i].Name {
+			existingRuntimeSpec = ExistingRuntimes.Items[i].Spec
+		}
 	}
+	if err := validateMultiNodeSpec(&servingRuntime.Spec, &existingRuntimeSpec); err != nil {
+		return admission.Denied(fmt.Sprintf(InvalidMultiNodeSpecError, servingRuntime.Kind, servingRuntime.Name, err.Error()))
+	}
+
 	return admission.Allowed("")
 }
 
@@ -103,7 +125,7 @@ func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admis
 	if clusterServingRuntime.Spec.IsDisabled() {
 		return admission.Allowed("")
 	}
-
+	existingRuntimeSpec := v1alpha1.ServingRuntimeSpec{}
 	for i := range ExistingRuntimes.Items {
 		if err := validateModelFormatPrioritySame(&clusterServingRuntime.Spec); err != nil {
 			return admission.Denied(fmt.Sprintf(ProrityIsNotSameClusterServingRuntimeError, err.Error(), clusterServingRuntime.Name))
@@ -111,6 +133,13 @@ func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admis
 		if err := validateServingRuntimePriority(&clusterServingRuntime.Spec, &ExistingRuntimes.Items[i].Spec, clusterServingRuntime.Name, ExistingRuntimes.Items[i].Name); err != nil {
 			return admission.Denied(fmt.Sprintf(InvalidPriorityClusterServingRuntimeError, err.Error(), ExistingRuntimes.Items[i].Name, clusterServingRuntime.Name))
 		}
+		if clusterServingRuntime.Name == ExistingRuntimes.Items[i].Name {
+			existingRuntimeSpec = ExistingRuntimes.Items[i].Spec
+		}
+	}
+
+	if err := validateMultiNodeSpec(&clusterServingRuntime.Spec, &existingRuntimeSpec); err != nil {
+		return admission.Denied(fmt.Sprintf(InvalidMultiNodeSpecError, clusterServingRuntime.Kind, clusterServingRuntime.Name, err.Error()))
 	}
 	return admission.Allowed("")
 }
@@ -166,6 +195,62 @@ func validateServingRuntimePriority(newSpec *v1alpha1.ServingRuntimeSpec, existi
 					}
 				}
 			}
+		}
+	}
+	return nil
+}
+
+// validateMultiNodeSpec validates one of the following: tensor-parallel-size, pipeline-parallel-size, or WorkerSpec.PipelineParallelSize
+func validateMultiNodeSpec(newSpec *v1alpha1.ServingRuntimeSpec, existingSpec *v1alpha1.ServingRuntimeSpec) error {
+	// new sr,csr can not remove workerSpec in existing one
+	if existingSpec.WorkerSpec != nil && newSpec.WorkerSpec == nil {
+		return errors.New(DisallowedRemovingWorkerSpecFromServingRuntimeError)
+	}
+
+	if newSpec.WorkerSpec != nil {
+		if len(newSpec.WorkerSpec.Containers) > 1 {
+			return errors.New(DisallowedMultipleContainersInWorkerSpecError)
+		}
+
+		for i, container := range newSpec.Containers {
+			if container.Name == constants.InferenceServiceContainerName {
+				if _, exists := utils.GetEnvVarValue(newSpec.Containers[i].Env, constants.PipelineParallelSizeEnvName); exists {
+					return errors.New(DisallowedWorkerSpecPipelineParallelSizeEnvError)
+				}
+
+				if _, exists := utils.GetEnvVarValue(newSpec.Containers[i].Env, constants.TensorParallelSizeEnvName); exists {
+					return errors.New(DisallowedWorkerSpecTensorParallelSizeEnvError)
+				}
+				if utils.IsUnknownGpuResourceType(container.Resources, "") {
+					return fmt.Errorf(InvalidUnknownGPUTypeError, constants.InferenceServiceContainerName)
+				}
+			}
+		}
+		workerContainer := newSpec.WorkerSpec.Containers[0]
+		if workerContainer.Name == constants.WorkerContainerName {
+			if utils.IsUnknownGpuResourceType(workerContainer.Resources, "") {
+				return fmt.Errorf(InvalidUnknownGPUTypeError, constants.WorkerContainerName)
+			}
+		}
+
+		if newSpec.WorkerSpec.PipelineParallelSize == nil {
+			return errors.New(MissingPipelineParallelSizeValueError)
+		}
+
+		if newSpec.WorkerSpec.TensorParallelSize == nil {
+			return errors.New(MissingTensorParallelSizeValueError)
+		}
+
+		// WorkerSpec.PipelineParallelSize should not be less than 2.
+		pipelineParallelSize := *newSpec.WorkerSpec.PipelineParallelSize
+		if pipelineParallelSize < 2 {
+			return fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, strconv.Itoa(pipelineParallelSize))
+		}
+
+		// WorkerSpec.TensorParallelSize should not be less than 1
+		tensorParallelSize := *newSpec.WorkerSpec.TensorParallelSize
+		if tensorParallelSize < 1 {
+			return fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, strconv.Itoa(tensorParallelSize))
 		}
 	}
 	return nil

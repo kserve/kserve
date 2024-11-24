@@ -557,3 +557,15 @@ class TestInferenceRESTClient:
                     headers={"Host": "test-server.com"},
                     timeout=2,
                 )
+
+    @pytest.mark.parametrize("rest_client", ["v2"], indirect=["rest_client"])
+    async def test_base_url_with_no_scheme(self, rest_client):
+        with pytest.raises(
+            httpx.InvalidURL,
+            match="Base url should have 'http://' or 'https://' protocol",
+        ):
+            await rest_client.is_server_ready(
+                "test-server.com",
+                headers={"Host": "test-server.com"},
+                timeout=1.3,
+            )
