@@ -18,12 +18,14 @@ package localmodelnode
 
 import (
 	"context"
+	"io/fs"
 	"time"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/mock"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -31,6 +33,17 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 )
+
+type MockFileInfo struct {
+	mock.Mock
+	name  string
+	isDir bool
+}
+
+func (m *MockFileInfo) Name() string               { return m.name }
+func (m *MockFileInfo) IsDir() bool                { return m.isDir }
+func (m *MockFileInfo) Type() fs.FileMode          { return 0 }
+func (m *MockFileInfo) Info() (fs.FileInfo, error) { return nil, nil }
 
 var _ = Describe("CachedModel controller", func() {
 	const (
@@ -104,6 +117,7 @@ var _ = Describe("CachedModel controller", func() {
             }`,
 		}
 	)
+
 	Context("When creating a local model", func() {
 		It("Should create download jobs and update model status from jobs", func() {
 			var configMap = &v1.ConfigMap{
@@ -164,9 +178,52 @@ var _ = Describe("CachedModel controller", func() {
 				if modelStatus, ok := localModelNode.Status.ModelStatus[modelName]; ok {
 					return modelStatus == v1alpha1.ModelDownloaded
 				}
-				return true
+				// If the model does not exist in the status, return false
+				return false
 			}, timeout, interval).Should(BeTrue(), "LocaModelNode status should be downloaded")
 			Expect(localModelNode.Spec).Should(Equal(localModelNodeSpec), "spec should not be changed")
+		})
+		It("Should delete models from local disk if the model is not in the spec", func() {
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			readDir = func(_ string) ([]fs.DirEntry, error) {
+				return []fs.DirEntry{
+					&MockFileInfo{name: modelName, isDir: true},
+				}, nil
+			}
+
+			removeAllCalled := bool(false)
+			var pathRemoved string
+			removeAll = func(path string) error {
+				pathRemoved = path
+				removeAllCalled = true
+				return nil
+			}
+
+			nodeName = "worker2"
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: v1alpha1.LocalModelNodeSpec{
+					LocalModels: []v1alpha1.LocalModelInfo{},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			Eventually(func() bool {
+				return removeAllCalled
+			}, timeout, interval).Should(BeTrue())
+			Expect(pathRemoved).Should(Equal("/mnt/models/models/iris"))
 		})
 	})
 })

@@ -29,6 +29,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -54,11 +55,14 @@ type LocalModelNodeReconciler struct {
 }
 
 var (
-	defaultJobImage = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
-	FSGroup         *int64                                // Can be overwritten by the value in the configmap
-	jobNamespace    string
-	nodeName        = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
-	mountPath       = "/mnt/models"          // Volume mount path for models, must be the same as the value in the DaemonSet spec
+	defaultJobImage  = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
+	FSGroup          *int64                                // Can be overwritten by the value in the configmap
+	jobNamespace     string
+	nodeName         = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
+	mountPath        = "/mnt/models"          // Volume mount path for models, must be the same as the value in the DaemonSet spec
+	modelsRootFolder = filepath.Join(mountPath, `models`)
+	removeAll        = os.RemoveAll // For patching os.RemoveAll in controller tests
+	readDir          = os.ReadDir   // For patching os.ReadDir in controller tests
 )
 
 // Launch a new job or return an existing job
@@ -89,7 +93,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, jobName string
 			MountPath: mountPath,
 			Name:      "kserve-pvc-source",
 			ReadOnly:  false,
-			SubPath:   "models/" + modelInfo.ModelName,
+			SubPath:   filepath.Join("models", modelInfo.ModelName),
 		},
 	}
 	expectedJob := &batchv1.Job{
@@ -222,36 +226,35 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 
 // Delete models that are not in the spec
 func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.LocalModelNode) error {
-	// 1. Scan model dir and get a list of downloaded models
-	entries, err := os.ReadDir(mountPath + "/models")
+	// 1. Scan model dir and get a list of existing folders representing downloaded models
+	foldersToRemove := map[string]struct{}{}
+	entries, err := readDir(modelsRootFolder)
 	if err != nil {
-		c.Log.Error(err, "Failed to list model directory", "dir", mountPath+"/models")
+		c.Log.Error(err, "Failed to list model folder", "folder", modelsRootFolder)
 	}
-	localModels := map[string]struct{}{}
 	for _, entry := range entries {
 		// Models could only exist in sub dir
-		if entry.IsDir() {
-			localModels[entry.Name()] = struct{}{}
+		if entry.IsDir() && entry.Name()[0] != '.' {
+			foldersToRemove[entry.Name()] = struct{}{}
 		}
 	}
-	// c.Log.Info("Found existing local models", "models", maps.Keys(localModels))
 
 	// 2. Compare with list of models from LocalModelNode CR
 	for _, localModelInfo := range localModelNode.Spec.LocalModels {
 		// Remove expected models from local model set
-		delete(localModels, localModelInfo.ModelName)
+		delete(foldersToRemove, localModelInfo.ModelName)
 	}
 	// 3. Models not in LocalModelNode CR spec should be deleted
-	if len(localModels) != 0 {
-		// c.Log.Info("Removing models", "models", maps.Keys(localModels))
-		for localModelName := range localModels {
-			modelDir := mountPath + "/models/" + localModelName
-			if err := os.RemoveAll(modelDir); err != nil {
-				c.Log.Error(err, "Failed to remove model directory", "dir", modelDir)
+	if len(foldersToRemove) != 0 {
+		c.Log.Info("Found model(s) to remove", "num of models", len(foldersToRemove))
+		for modelName := range foldersToRemove {
+			c.Log.Info("Removing model", "model", modelName)
+			modelFolder := filepath.Join(modelsRootFolder, modelName)
+			if err := removeAll(modelFolder); err != nil {
+				c.Log.Error(err, "Failed to remove model directory", "dir", modelFolder)
 			}
 		}
 	}
-
 	return nil
 }
 
