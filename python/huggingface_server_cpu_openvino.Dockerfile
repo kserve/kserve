@@ -9,15 +9,12 @@ ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.8.3
 
 # Install vllm
-ARG VLLM_VERSION=v0.6.3.post1
+ARG VLLM_VERSION=v0.6.4.post1
 
 RUN apt-get update -y && apt-get install -y \
     gcc python3.10-venv python3-dev python3-pip \
-    gcc-12 g++-12 libnuma-dev libnuma1 libtcmalloc-minimal4 \
-    ffmpeg libsm6 libxext6 libgl1 numactl git \
+    ffmpeg libsm6 libxext6 libgl1 libnuma1 git \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
-    
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
 
 # Set up Poetry for dependency management
 RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip3 install poetry==${POETRY_VERSION}
@@ -28,16 +25,6 @@ ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
-# https://intel.github.io/intel-extension-for-pytorch/cpu/latest/tutorials/performance_tuning/tuning_guide.html
-# intel-openmp provides additional performance improvement vs. openmp
-# tcmalloc provides better memory allocation efficiency, e.g, holding memory in caches to speed up access of commonly-used objects.
-RUN pip install intel-openmp
-
-# Preload tcmalloc (for efficient memory allocation) and Intel OpenMP runtime library (for optimized multithreading performance).
-ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4:$VIRTUAL_ENV/lib/libiomp5.so"
-
-RUN pip install intel_extension_for_pytorch==2.4.0
 
 # Install KServe and Hugging Face Server dependencies
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
@@ -50,24 +37,17 @@ RUN cd huggingfaceserver && poetry install --no-root --no-interaction
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
-# Support for building with non-AVX512 vLLM: docker build --build-arg VLLM_CPU_DISABLE_AVX512="true" ...
-ARG VLLM_CPU_DISABLE_AVX512
-ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
-
 # Clone vllm
 # Install Python build tools and other dependencies then build vllm from source
 WORKDIR /vllm
 RUN git clone --branch $VLLM_VERSION --depth 1 https://github.com/vllm-project/vllm.git . && \
     pip install --upgrade pip && \
-    pip install -r requirements-build.txt && \
-    pip install -v -r requirements-cpu.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
-    VLLM_TARGET_DEVICE=cpu python3 setup.py bdist_wheel && \
-    pip install dist/*.whl && \
-    rm -rf dist
+    pip install -r requirements-build.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
+    PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu" VLLM_TARGET_DEVICE="openvino" python -m pip install -v .
 
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS prod
 
-RUN apt-get update && apt-get upgrade -y && apt-get install python3.10-venv libnuma1 build-essential gcc python3-dev libtcmalloc-minimal4 -y && apt-get clean && \
+RUN apt-get update && apt-get upgrade -y && apt-get install python3.10-venv libnuma1 build-essential gcc python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 COPY third_party third_party
@@ -94,8 +74,6 @@ ENV VLLM_NCCL_SO_PATH="/lib/x86_64-linux-gnu/libnccl.so.2"
 # https://github.com/vllm-project/vllm/issues/6152
 # Set the multiprocess method to spawn to avoid issues with cuda initialization for `mp` executor backend.
 ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
-# Preload tcmalloc (for efficient memory allocation) and Intel OpenMP runtime library (for optimized multithreading performance).
-ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4:$VIRTUAL_ENV/lib/libiomp5.so"
 
 USER 1000
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]

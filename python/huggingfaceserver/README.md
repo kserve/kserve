@@ -189,7 +189,7 @@ curl -H "content-type:application/json" -v localhost:8080/openai/v1/chat/complet
 ```
 
 ### KServe HuggingFace vLLM Runtime Support for CPU
-vLLM currently supports basic model inferencing and serving on x86 CPU platforms, using data types FP32 and BF16. You can find more information [here](https://docs.vllm.ai/en/v0.6.1/getting_started/cpu-installation.html). To run the vLLM engine on a CPU, a separate vLLM package is required, which entails creating a different Hugging Face server Docker image. The Docker image supporting the vLLM runtime on GPUs has a '-gpu' suffix in its tag (e.g., kserve-huggingfaceserver:v0.14.0-gpu), while the image for CPU support does not include the suffix (e.g., kserve-huggingfaceserver:v0.14.0). The runtime image to be used will be determined based on whether the InferenceService specifies nvidia.com/gpu in its resource requirements.
+vLLM powered by OpenVINO supports all LLM models from vLLM supported models list and can perform optimal model serving on all x86-64 CPUs with, at least, AVX2 support. You can find more information [here](https://docs.vllm.ai/en/v0.6.1/getting_started/openvino-installation.html). To run the vLLM engine on a CPU, a separate vLLM package is required, which entails creating a different Hugging Face server Docker image. The Docker image supporting the vLLM runtime on GPUs has a '-gpu' suffix in its tag (e.g., kserve-huggingfaceserver:v0.14.0-gpu), while the image for CPU support does not include the suffix (e.g., kserve-huggingfaceserver:v0.14.0). The runtime image to be used will be determined based on whether the InferenceService specifies nvidia.com/gpu in its resource requirements.
 
 Serve the llama3.1 model using KServe HuggingFace vLLM runtime on CPU. For the llama3.1 model, vLLM is supported and used as the default backend.
 If available for a model, vLLM is set as the default backend, otherwise KServe HuggingFace runtime is used as a failsafe.
@@ -219,6 +219,5 @@ spec:
 
 **Points to note**:
 
-- The Hugging Face vLLM Runtime CPU image is compatible only with x86 CPU platforms that support the AVX512 instruction set architecture (ISA). On CPUs without AVX512 support, model loading will fail.
-- The vLLM CPU engine uses TORCH SDPA as the backend for attention computation, which does not support logit soft-capping. As a result, models like Gemma 2, which rely on logit soft-capping, fail to load due to this limitation in TORCH SDPA used by vLLM.
+- The Hugging Face vLLM Runtime CPU image is compatible with all x86-64 CPUs that support at least the AVX2 instruction set architecture (ISA). On CPUs lacking atleast AVX2 support, model loading will fail.
 

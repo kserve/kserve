@@ -110,7 +110,10 @@ parser.add_argument(
     default=None,
     help="the tensor input names passed to the model",
 )
-parser.add_argument("--task", required=False, help="The ML task name")
+# Updated to use hf_task for the HuggingFace backend. Starting from vLLM version 0.6.4, 
+# the task flag was added to the vLLM CLI parser, supporting different task values specific to the vLLM framework. 
+# To avoid conflicts and maintain compatibility with the HuggingFace backend, a separate argument (hf_task) is now used.
+parser.add_argument("--hf_task", required=False, help="The ML task name for huggingface backend")
 available_backends = ", ".join(f"'{b.name}'" for b in Backend)
 parser.add_argument(
     "--backend",
@@ -212,15 +215,15 @@ def load_model():
             revision=kwargs.get("model_revision", None),
             trust_remote_code=kwargs.get("trust_remote_code", False),
         )
-        if kwargs.get("task", None):
+        if kwargs.get("hf_task", None):
             try:
-                task = MLTask[kwargs["task"]]
+                task = MLTask[kwargs["hf_task"]]
                 if task not in SUPPORTED_TASKS:
                     raise ValueError(f"Task not supported: {task.name}")
             except (KeyError, ValueError):
                 tasks_str = ", ".join(t.name for t in SUPPORTED_TASKS)
                 raise ValueError(
-                    f"Unsupported task: {kwargs['task']}. "
+                    f"Unsupported task: {kwargs['hf_task']}. "
                     f"Currently supported tasks are: {tasks_str}"
                 )
         else:
