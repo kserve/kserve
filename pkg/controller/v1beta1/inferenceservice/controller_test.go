@@ -29,6 +29,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -103,7 +104,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -151,7 +152,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			k8sClient.Create(context.TODO(), servingRuntime)
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 			// Create InferenceService
 			serviceName := "foo"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
@@ -199,7 +200,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
@@ -400,7 +401,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Simulate Knative Serving is absent by setting to false the relevant item in utils.gvResourcesCache variable
 			servingResources, getServingResourcesErr := utils.GetAvailableResourcesForApi(cfg, knservingv1.SchemeGroupVersion.String())
 			Expect(getServingResourcesErr).To(BeNil())
-			defer utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), servingResources)
+			DeferCleanup(utils.SetAvailableResourcesForApi, knservingv1.SchemeGroupVersion.String(), servingResources)
 			utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), nil)
 
 			// Create configmap
@@ -412,7 +413,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			// Create InferenceService
 			serviceName := "serverless-isvc"
@@ -450,7 +451,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			Eventually(func() bool {
 				events := &v1.EventList{}
@@ -558,7 +559,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -593,12 +594,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			k8sClient.Create(context.TODO(), servingRuntime)
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
 			transformer.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			instance := transformer.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), instance)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), instance)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), instance)
 
 			predictorService := &knservingv1.Service{}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, predictorService) }, timeout).
@@ -816,7 +817,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -851,7 +852,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			k8sClient.Create(context.TODO(), servingRuntime)
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 			// Create Canary InferenceService
 			serviceName := "foo-canary"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
@@ -1086,7 +1087,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		It("Should have model config created and mounted", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			By("By creating a new InferenceService")
 			Expect(k8sClient.Create(ctx, instance)).Should(Succeed())
 
@@ -1167,7 +1168,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 
 			var isvc = &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1219,12 +1220,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
 			instance := isvc.DeepCopy()
 			Expect(k8sClient.Create(context.TODO(), instance)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), instance)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), instance)
 
 			predictorService := &knservingv1.Service{}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, predictorService) }, timeout).
@@ -1338,11 +1339,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
 			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
@@ -1408,7 +1409,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 
 			var isvc = &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1443,11 +1444,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
 			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
@@ -1488,7 +1489,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			var servingRuntime = &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1524,7 +1525,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 
 			var isvc = &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1552,7 +1553,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
 			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
@@ -1666,7 +1667,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		It("should have the readonly annotation set to true in the knative serving pod spec", func() {
 			configMap := createInferenceServiceConfigMap()
-			defer k8sClient.Delete(ctx, configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			serviceName := "readonly-true-isvc"
 			serviceNamespace := "default"
@@ -1675,14 +1676,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var storageUri = "s3://test/mnist/export"
 
 			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
-			defer k8sClient.Delete(ctx, servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 
 			// Define InferenceService
 			isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
 			isvc.Annotations = map[string]string{}
 			isvc.Annotations[constants.StorageReadonlyAnnotationKey] = "true"
 			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			// Knative service
 			actualService := &knservingv1.Service{}
@@ -1698,7 +1699,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 		It("should have the readonly annotation set to false in the knative serving pod spec", func() {
 			configMap := createInferenceServiceConfigMap()
-			defer k8sClient.Delete(ctx, configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			serviceName := "readonly-false-isvc"
 			serviceNamespace := "default"
@@ -1707,14 +1708,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var storageUri = "s3://test/mnist/export"
 
 			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
-			defer k8sClient.Delete(ctx, servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 
 			// Define InferenceService
 			isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
 			isvc.Annotations = map[string]string{}
 			isvc.Annotations[constants.StorageReadonlyAnnotationKey] = "false"
 			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(ctx, isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			// Knative service
 			actualService := &knservingv1.Service{}
@@ -1745,7 +1746,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			var servingRuntime = &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1781,7 +1782,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 
 			var isvc = &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1809,7 +1810,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
 			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			pod := &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1871,7 +1872,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				return true
 			}, timeout).Should(BeTrue())
-			defer k8sClient.Delete(context.TODO(), pod)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), pod)
 
 			podStatusPatch := []byte(`{"status":{"containerStatuses":[{"image":"tensorflow/serving:1.14.0","name":"kserve-container","lastState":{},"state":{"waiting":{"reason":"PodInitializing"}}}],"initContainerStatuses":[{"image":"kserve/storage-initializer:latest","name":"storage-initializer","lastState":{"terminated":{"exitCode":1,"message":"Invalid Storage URI provided","reason":"Error"}},"state":{"waiting":{"reason":"CrashLoopBackOff"}}}]}}`)
 			Eventually(func() bool {
@@ -1949,7 +1950,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: copiedConfigs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			serviceName := "foo-disable-istio"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -1980,7 +1981,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 			inferenceService := &v1beta1.InferenceService{}
 
 			Eventually(func() bool {
@@ -2043,7 +2044,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			By("By creating a new InferenceService")
 			serviceName := "sample-isvc"
@@ -2118,7 +2119,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			By("By creating a new InferenceService")
 			serviceName := "sample-isvc-2"
@@ -2151,7 +2152,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			caBundleConfigMap := &v1.ConfigMap{}
 			Consistently(func() bool {
@@ -2193,7 +2194,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			// Create original cabundle configmap with wrong file name
 			cabundleConfigMapData := make(map[string]string)
@@ -2207,7 +2208,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), originalCabundleConfigMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), originalCabundleConfigMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), originalCabundleConfigMap)
 
 			By("By creating a new InferenceService")
 			serviceName := "sample-isvc-3"
@@ -2240,7 +2241,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			caBundleConfigMap := &v1.ConfigMap{}
 			Consistently(func() bool {
@@ -2282,7 +2283,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			//Create original cabundle configmap with right file name
 			cabundleConfigMapData := make(map[string]string)
@@ -2297,7 +2298,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), originalCabundleConfigMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), originalCabundleConfigMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), originalCabundleConfigMap)
 
 			By("By creating a new InferenceService")
 			serviceName := "sample-isvc-4"
@@ -2330,7 +2331,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 
 			caBundleConfigMap := &v1.ConfigMap{}
 			Eventually(func() bool {
@@ -2355,7 +2356,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2390,7 +2391,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			k8sClient.Create(context.TODO(), servingRuntime)
-			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), servingRuntime)
 			serviceName := "test-err-msg"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -2421,7 +2422,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			defer k8sClient.Delete(ctx, isvc)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), isvc)
 			inferenceService := &v1beta1.InferenceService{}
 
 			updatedService := &knservingv1.Service{}

@@ -23,6 +23,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -76,7 +77,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			graphName := "singlenode1"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -105,7 +106,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
-			defer k8sClient.Delete(ctx, ig)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), ig)
 			inferenceGraphSubmitted := &v1alpha1.InferenceGraph{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
@@ -205,7 +206,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			graphName := "singlenode2"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -244,7 +245,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
-			defer k8sClient.Delete(ctx, ig)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), ig)
 			inferenceGraphSubmitted := &v1alpha1.InferenceGraph{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
@@ -341,7 +342,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			graphName := "singlenode3"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -394,7 +395,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
-			defer k8sClient.Delete(ctx, ig)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), ig)
 			inferenceGraphSubmitted := &v1alpha1.InferenceGraph{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
@@ -515,7 +516,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 			graphName := "igraw1"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
 			var serviceKey = expectedRequest.NamespacedName
@@ -544,7 +545,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
-			defer k8sClient.Delete(ctx, ig)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), ig)
 			inferenceGraphSubmitted := &v1alpha1.InferenceGraph{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
@@ -609,6 +610,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			// Simulate Knative Serving is absent by setting to false the relevant item in utils.gvResourcesCache variable
 			servingResources, getServingResourcesErr := utils.GetAvailableResourcesForApi(cfg, knservingv1.SchemeGroupVersion.String())
 			Expect(getServingResourcesErr).To(BeNil())
+			DeferCleanup(utils.SetAvailableResourcesForApi, knservingv1.SchemeGroupVersion.String(), servingResources)
 			defer utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), servingResources)
 			utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), nil)
 
@@ -621,7 +623,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			graphName := "singlenode1"
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
@@ -651,7 +653,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
-			defer k8sClient.Delete(ctx, ig)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), ig)
 
 			Eventually(func() bool {
 				events := &v1.EventList{}

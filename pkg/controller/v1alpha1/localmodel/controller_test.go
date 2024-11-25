@@ -23,6 +23,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	batchv1 "k8s.io/api/batch/v1"
@@ -111,7 +112,7 @@ var _ = Describe("CachedModel controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
 				ObjectMeta: metav1.ObjectMeta{
@@ -120,7 +121,7 @@ var _ = Describe("CachedModel controller", func() {
 				Spec: clusterStorageContainerSpec,
 			}
 			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
-			defer k8sClient.Delete(ctx, clusterStorageContainer)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), clusterStorageContainer)
 
 			nodeGroup := &v1alpha1.LocalModelNodeGroup{
 				ObjectMeta: metav1.ObjectMeta{
@@ -129,7 +130,7 @@ var _ = Describe("CachedModel controller", func() {
 				Spec: localModelNodeGroupSpec,
 			}
 			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
-			defer k8sClient.Delete(ctx, nodeGroup)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), nodeGroup)
 
 			cachedModel := &v1alpha1.ClusterLocalModel{
 				ObjectMeta: metav1.ObjectMeta{
@@ -181,7 +182,7 @@ var _ = Describe("CachedModel controller", func() {
 				},
 			}
 			Expect(k8sClient.Create(ctx, node1)).Should(Succeed())
-			defer k8sClient.Delete(ctx, node1)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), node1)
 			nodes := &v1.NodeList{}
 			Eventually(func() bool {
 				err := k8sClient.List(ctx, nodes)
@@ -274,7 +275,7 @@ var _ = Describe("CachedModel controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
 				ObjectMeta: metav1.ObjectMeta{
@@ -283,7 +284,7 @@ var _ = Describe("CachedModel controller", func() {
 				Spec: clusterStorageContainerSpec,
 			}
 			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
-			defer k8sClient.Delete(ctx, clusterStorageContainer)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), clusterStorageContainer)
 
 			nodeGroup := &v1alpha1.LocalModelNodeGroup{
 				ObjectMeta: metav1.ObjectMeta{
@@ -292,7 +293,7 @@ var _ = Describe("CachedModel controller", func() {
 				Spec: localModelNodeGroupSpec,
 			}
 			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
-			defer k8sClient.Delete(ctx, nodeGroup)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), nodeGroup)
 
 			modelName := "iris2"
 			isvcNamespace := "default"
@@ -304,7 +305,7 @@ var _ = Describe("CachedModel controller", func() {
 				Spec: localModelSpec,
 			}
 			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
-			defer k8sClient.Delete(ctx, cachedModel)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), cachedModel)
 
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{

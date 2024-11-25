@@ -23,6 +23,7 @@ import (
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
@@ -116,7 +117,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			// Create the parent InferenceService
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
@@ -146,7 +147,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), tmInstance)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), tmInstance)
 
 			Eventually(func() bool {
 				tmInstanceUpdate := &v1alpha1api.TrainedModel{}
@@ -186,7 +187,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			// Create the parent InferenceService
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
@@ -255,9 +256,9 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), modelConfig)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), modelConfig)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), modelConfig)
 			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), tmInstance)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), tmInstance)
 
 			// Verify that the model configmap is updated with the TrainedModel
 			configmapActual := &v1.ConfigMap{}
@@ -295,7 +296,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			// Create the parent InferenceService
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
@@ -370,9 +371,9 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), modelConfig)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), modelConfig)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), modelConfig)
 			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), tmInstance)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), tmInstance)
 			tmInstanceUpdate := &v1alpha1api.TrainedModel{}
 			Eventually(func() bool {
 				if err := k8sClient.Get(context.TODO(), tmKey, tmInstanceUpdate); err != nil {
@@ -405,7 +406,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			updatedModelUri := "s3//model2"
 			tmInstanceUpdate.Spec.Model.StorageURI = updatedModelUri
 			Expect(k8sClient.Update(context.TODO(), tmInstanceUpdate)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), tmInstanceUpdate)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), tmInstanceUpdate)
 
 			// Verify that the model configmap is updated with the TrainedModel
 			configmapActual := &v1.ConfigMap{}
@@ -445,7 +446,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			// Create the parent InferenceService
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
@@ -513,9 +514,9 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), modelConfig)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), modelConfig)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), modelConfig)
 			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), tmInstance)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), tmInstance)
 			//tmInstanceUpdate := &v1beta1.TrainedModel{}
 			//Verify that the model configmap is updated with the new TrainedModel
 			configmapActual := &v1.ConfigMap{}
@@ -536,7 +537,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}, timeout, interval).Should(Equal(expected.Data))
 
 			Expect(k8sClient.Delete(context.TODO(), tmActual)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), tmActual)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), tmActual)
 
 			// Verify that the model is removed from the configmap
 			configmapActual = &v1.ConfigMap{}
@@ -574,7 +575,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			// Create the parent InferenceService
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
@@ -643,9 +644,9 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), modelConfig)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), modelConfig)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), modelConfig)
 			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), tmInstance)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), tmInstance)
 
 			Eventually(func() bool {
 				tmInstanceUpdate := &v1alpha1api.TrainedModel{}
@@ -704,7 +705,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				Data: configs,
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), configMap)
 
 			// Create the parent InferenceService
 			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
@@ -774,9 +775,9 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 
 			Expect(k8sClient.Create(context.TODO(), modelConfig)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), modelConfig)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), modelConfig)
 			Expect(k8sClient.Create(context.TODO(), tmInstance)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), tmInstance)
+			DeferCleanup(pkgtest.IgnoreNotFound(k8sClient.Delete), tmInstance)
 
 			Eventually(func() bool {
 				tmInstanceUpdate := &v1alpha1api.TrainedModel{}
