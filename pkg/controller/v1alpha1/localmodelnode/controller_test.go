@@ -161,10 +161,11 @@ var _ = Describe("CachedModel controller", func() {
 				if err != nil {
 					return false
 				}
-				if modelStatus, ok := localModelNode.Status.ModelStatus[modelName]; ok {
-					return modelStatus == v1alpha1.ModelDownloaded
+				modelStatus, ok := localModelNode.Status.ModelStatus[modelName]
+				if !ok {
+					return false
 				}
-				return true
+				return modelStatus == v1alpha1.ModelDownloaded
 			}, timeout, interval).Should(BeTrue(), "LocaModelNode status should be downloaded")
 			Expect(localModelNode.Spec).Should(Equal(localModelNodeSpec), "spec should not be changed")
 		})
