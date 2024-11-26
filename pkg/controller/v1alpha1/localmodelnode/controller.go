@@ -54,13 +54,18 @@ type LocalModelNodeReconciler struct {
 	Scheme    *runtime.Scheme
 }
 
+const (
+	MountPath             = "/mnt/models" // Volume mount path for models, must be the same as the value in the DaemonSet spec
+	DownloadContainerName = "kserve-localmodel-download"
+	PvcSourceMountName    = "kserve-pvc-source"
+)
+
 var (
 	defaultJobImage  = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
 	FSGroup          *int64                                // Can be overwritten by the value in the configmap
 	jobNamespace     string
 	nodeName         = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
-	mountPath        = "/mnt/models"          // Volume mount path for models, must be the same as the value in the DaemonSet spec
-	modelsRootFolder = filepath.Join(mountPath, `models`)
+	modelsRootFolder = filepath.Join(MountPath, `models`)
 	removeAll        = os.RemoveAll // For patching os.RemoveAll in controller tests
 	readDir          = os.ReadDir   // For patching os.ReadDir in controller tests
 )
@@ -86,12 +91,11 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, jobName string
 		}
 	}
 
-	container.Name = jobName
-	container.Args = []string{modelInfo.SourceModelUri, mountPath}
+	container.Args = []string{modelInfo.SourceModelUri, MountPath}
 	container.VolumeMounts = []v1.VolumeMount{
 		{
-			MountPath: mountPath,
-			Name:      "kserve-pvc-source",
+			MountPath: MountPath,
+			Name:      PvcSourceMountName,
 			ReadOnly:  false,
 			SubPath:   filepath.Join("models", modelInfo.ModelName),
 		},
@@ -109,7 +113,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, jobName string
 					RestartPolicy: v1.RestartPolicyNever,
 					Volumes: []v1.Volume{
 						{
-							Name: "kserve-pvc-source",
+							Name: PvcSourceMountName,
 							VolumeSource: v1.VolumeSource{
 								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
 									ClaimName: claimName,
@@ -180,6 +184,7 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 	}
 
 	defaultContainer := &v1.Container{
+		Name:                     DownloadContainerName,
 		Image:                    defaultJobImage,
 		TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
 	}
