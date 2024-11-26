@@ -191,7 +191,7 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 	return defaultContainer, nil
 }
 
-func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode v1alpha1api.LocalModelNode) error {
+func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode) error {
 	c.Log.Info("Downloading models to", "node", localModelNode.ObjectMeta.Name)
 
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
@@ -202,7 +202,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 		}
 		jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
 
-		job, err := c.launchJob(ctx, jobName, &localModelNode, modelInfo, modelInfo.ModelName)
+		job, err := c.launchJob(ctx, jobName, localModelNode, modelInfo, modelInfo.ModelName)
 		if err != nil {
 			c.Log.Error(err, "Job error", "name", jobName)
 			return err
@@ -221,7 +221,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 		}
 	}
 
-	if err := c.Status().Update(ctx, &localModelNode); err != nil {
+	if err := c.Status().Update(ctx, localModelNode); err != nil {
 		c.Log.Error(err, "Update local model cache status error", "name", localModelNode.Name)
 		return err
 	}
@@ -287,7 +287,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	defaultJobImage = localModelConfig.DefaultJobImage
 	jobNamespace = localModelConfig.JobNamespace
 	FSGroup = localModelConfig.FSGroup
-	if err := c.downloadModels(ctx, localModelNode); err != nil {
+	if err := c.downloadModels(ctx, &localModelNode); err != nil {
 		c.Log.Error(err, "Model download err")
 		return reconcile.Result{}, err
 	}
