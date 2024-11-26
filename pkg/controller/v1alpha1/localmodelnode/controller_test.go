@@ -19,6 +19,7 @@ package localmodelnode
 import (
 	"context"
 	"io/fs"
+	"path/filepath"
 	"time"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -194,6 +195,7 @@ var _ = Describe("CachedModel controller", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 
+			// Mock readDir to return a fake model folder
 			readDir = func(_ string) ([]fs.DirEntry, error) {
 				return []fs.DirEntry{
 					&MockFileInfo{name: modelName, isDir: true},
@@ -208,7 +210,8 @@ var _ = Describe("CachedModel controller", func() {
 				return nil
 			}
 
-			nodeName = "worker2"
+			nodeName = "worker" // Definied in controller.go, representing the name of the curent node
+			// Creates a LocalModelNode with no models but the controller should find a model from local disk and delete it
 			localModelNode := &v1alpha1.LocalModelNode{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nodeName,
@@ -223,7 +226,7 @@ var _ = Describe("CachedModel controller", func() {
 			Eventually(func() bool {
 				return removeAllCalled
 			}, timeout, interval).Should(BeTrue())
-			Expect(pathRemoved).Should(Equal("/mnt/models/models/iris"))
+			Expect(pathRemoved).Should(Equal(filepath.Join(modelsRootFolder, modelName)), "Should remove the model folder")
 		})
 	})
 })
