@@ -62,7 +62,6 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - clusterstoragecontainers
   - inferenceservices
   - localmodelnodegroups
   verbs:
