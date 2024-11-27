@@ -121,6 +121,12 @@ var _ = Describe("CachedModel controller", func() {
 
 	Context("When creating a local model", func() {
 		It("Should create download jobs and update model status from jobs", func() {
+			// Mock readDir to return no models in the local disk
+			// Todo: fix this mock when we trigger re-download jobs when models don't exist in the local disk
+			readDir = func(_ string) ([]fs.DirEntry, error) {
+				return []fs.DirEntry{}, nil
+			}
+
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
