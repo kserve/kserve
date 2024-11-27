@@ -62,7 +62,7 @@ const (
 
 var (
 	defaultJobImage  = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
-	FSGroup          *int64                                // Can be overwritten by the value in the configmap
+	FSGroup          *int64
 	jobNamespace     string
 	nodeName         = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
 	modelsRootFolder = filepath.Join(MountPath, `models`)
@@ -292,7 +292,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 
-	// 3. Delete models that are not in the spec
+	// 3. Delete models that are not in the spec. This function does not modify the resource.
 	if err := c.deleteModels(localModelNode); err != nil {
 		c.Log.Error(err, "Model deletion err")
 		return reconcile.Result{}, err
