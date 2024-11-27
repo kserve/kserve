@@ -28,9 +28,11 @@ package localmodelnode
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -191,9 +193,12 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 	return defaultContainer, nil
 }
 
+// Create jobs to download models if the model is not present locally
+// Update the status of the LocalModelNode CR
 func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode) error {
 	c.Log.Info("Downloading models to", "node", localModelNode.ObjectMeta.Name)
 
+	newStatus := map[string]v1alpha1api.ModelStatus{}
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
 		if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
 			if status == v1alpha1api.ModelDownloaded {
@@ -208,19 +213,24 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			return err
 		}
 
-		localModelNode.Status.ModelStatus = map[string]v1alpha1api.ModelStatus{}
 		switch {
 		case job.Status.Succeeded > 0:
-			localModelNode.Status.ModelStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloaded
+			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloaded
 		case job.Status.Failed > 0:
-			localModelNode.Status.ModelStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloadError
+			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloadError
 		case job.Status.Ready != nil && *job.Status.Ready > 0:
-			localModelNode.Status.ModelStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloading
+			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloading
 		default:
-			localModelNode.Status.ModelStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloadPending
+			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloadPending
 		}
 	}
 
+	// Skip update if no changes to status
+	if maps.Equal(localModelNode.Status.ModelStatus, newStatus) {
+		return nil
+	}
+
+	localModelNode.Status.ModelStatus = newStatus
 	if err := c.Status().Update(ctx, localModelNode); err != nil {
 		c.Log.Error(err, "Update local model cache status error", "name", localModelNode.Name)
 		return err
@@ -270,6 +280,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	c.Log.Info("Agent reconciling LocalModelNode", "name", req.Name, "node", nodeName)
+
 	// Create Jobs to download models if the model is not present locally.
 	// 1. Check if LocalModelNode CR is for current node
 	localModelNode := v1alpha1api.LocalModelNode{}
@@ -297,7 +308,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		c.Log.Error(err, "Model deletion err")
 		return reconcile.Result{}, err
 	}
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: 1 * time.Minute}, nil
 }
 
 func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {

@@ -182,7 +182,20 @@ var _ = Describe("CachedModel controller", func() {
 				}
 				return modelStatus == v1alpha1.ModelDownloaded
 			}, timeout, interval).Should(BeTrue(), "LocaModelNode status should be downloaded")
-			Expect(localModelNode.Spec).Should(Equal(localModelNodeSpec), "spec should not be changed")
+
+			// Delete the model and checks the status field is updated
+			localModelNode.Spec = v1alpha1.LocalModelNodeSpec{
+				LocalModels: []v1alpha1.LocalModelInfo{},
+			}
+			Expect(k8sClient.Update(ctx, localModelNode)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode)
+				if err != nil {
+					return false
+				}
+				_, ok := localModelNode.Status.ModelStatus[modelName]
+				return !ok
+			}, timeout, interval).Should(BeTrue(), "Model should be removed from the status field")
 		})
 		It("Should delete models from local disk if the model is not in the spec", func() {
 			var configMap = &v1.ConfigMap{
