@@ -126,7 +126,7 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 					Type:   intstr.Int,
 					IntVal: container.Ports[0].ContainerPort,
 				},
-				Protocol: container.Ports[0].Protocol,
+				Protocol:    container.Ports[0].Protocol,
 				AppProtocol: getAppProtocol(container.Ports[0]),
 			}
 			servicePorts = append(servicePorts, servicePort)
@@ -143,7 +143,7 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 						Type:   intstr.Int,
 						IntVal: port.ContainerPort,
 					},
-					Protocol: port.Protocol,
+					Protocol:    port.Protocol,
 					AppProtocol: getAppProtocol(port),
 				}
 				servicePorts = append(servicePorts, servicePort)
