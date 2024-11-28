@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"text/template"
@@ -76,6 +77,7 @@ type InferenceServicesConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
+	EnableGatewayAPI           bool      `json:"enableGatewayApi,omitempty"`
 	KserveIngressGateway       string    `json:"kserveIngressGateway,omitempty"`
 	IngressGateway             string    `json:"ingressGateway,omitempty"`
 	KnativeLocalGatewayService string    `json:"knativeLocalGatewayService,omitempty"`
@@ -136,19 +138,19 @@ func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServi
 
 func validateIngressGateway(ingressConfig *IngressConfig) error {
 	if ingressConfig.KserveIngressGateway == "" {
-		return fmt.Errorf(ErrKserveIngressGatewayRequired)
+		return errors.New(ErrKserveIngressGatewayRequired)
 	}
 	splits := strings.Split(ingressConfig.KserveIngressGateway, "/")
 	if len(splits) != 2 {
-		return fmt.Errorf(ErrInvalidKserveIngressGatewayFormat)
+		return errors.New(ErrInvalidKserveIngressGatewayFormat)
 	}
 	errs := validation.IsDNS1123Label(splits[0])
 	if len(errs) != 0 {
-		return fmt.Errorf(ErrInvalidKserveIngressGatewayNamespace)
+		return errors.New(ErrInvalidKserveIngressGatewayNamespace)
 	}
 	errs = validation.IsDNS1123Label(splits[1])
 	if len(errs) != 0 {
-		return fmt.Errorf(ErrInvalidKserveIngressGatewayName)
+		return errors.New(ErrInvalidKserveIngressGatewayName)
 	}
 	return nil
 }
@@ -164,13 +166,14 @@ func NewIngressConfig(clientset kubernetes.Interface) (*IngressConfig, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse ingress config json: %w", err)
 		}
-		if ingressConfig.KserveIngressGateway == "" {
-			return nil, fmt.Errorf("invalid ingress config - kserveIngressGateway is required")
+		if ingressConfig.EnableGatewayAPI {
+			if ingressConfig.KserveIngressGateway == "" {
+				return nil, fmt.Errorf("invalid ingress config - kserveIngressGateway is required")
+			}
+			if err := validateIngressGateway(ingressConfig); err != nil {
+				return nil, err
+			}
 		}
-		if err := validateIngressGateway(ingressConfig); err != nil {
-			return nil, err
-		}
-
 		if ingressConfig.IngressGateway == "" {
 			return nil, fmt.Errorf("invalid ingress config - ingressGateway is required")
 		}

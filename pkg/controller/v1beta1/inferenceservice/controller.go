@@ -27,6 +27,7 @@ import (
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -247,10 +248,20 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// check raw deployment
 	if deploymentMode == constants.RawDeployment {
-		reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig)
+		if ingressConfig.EnableGatewayAPI {
+			reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig)
 
-		if err := reconciler.Reconcile(ctx, isvc); err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+			if err := reconciler.Reconcile(ctx, isvc); err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+			}
+		} else {
+			reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig)
+			if err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+			}
+			if err := reconciler.Reconcile(isvc); err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+			}
 		}
 	} else {
 		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig)
@@ -343,11 +354,6 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return err
 	}
 
-	gatewayapiFound, err := utils.IsCrdAvailable(r.ClientConfig, gatewayapiv1.GroupVersion.String(), constants.HTTPRouteKind)
-	if err != nil {
-		return err
-	}
-
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1api.InferenceService{}).
 		Owns(&appsv1.Deployment{})
@@ -364,10 +370,19 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		r.Log.Info("The InferenceService controller won't watch networking.istio.io/v1beta1/VirtualService resources because the CRD is not available.")
 	}
 
-	if gatewayapiFound {
-		ctrlBuilder = ctrlBuilder.Owns(&gatewayapiv1.HTTPRoute{})
+	if ingressConfig.EnableGatewayAPI {
+		gatewayapiFound, err := utils.IsCrdAvailable(r.ClientConfig, gatewayapiv1.GroupVersion.String(), constants.HTTPRouteKind)
+		if err != nil {
+			return err
+		}
+
+		if gatewayapiFound {
+			ctrlBuilder = ctrlBuilder.Owns(&gatewayapiv1.HTTPRoute{})
+		} else {
+			r.Log.Info("The InferenceService controller won't watch gateway.networking.k8s.io/v1/HTTPRoute resources because the CRD is not available.")
+		}
 	} else {
-		r.Log.Info("The InferenceService controller won't watch gateway.networking.k8s.io/v1/HTTPRoute resources because the CRD is not available.")
+		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
 	}
 
 	return ctrlBuilder.Complete(r)

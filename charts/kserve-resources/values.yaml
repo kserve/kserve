@@ -177,6 +177,7 @@ kserve:
         knativeGatewayService: ""
       ingressGateway:
         # -- ingressGateway specifies the gateway which handles the network traffic from outside the cluster.
+        enableGatewayApi: false
         kserveGateway: kserve/kserve-ingress-gateway
         gateway: knative-serving/knative-ingress-gateway
         className: istio

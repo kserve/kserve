@@ -190,7 +190,8 @@ data:
      # ====================================== INGRESS CONFIGURATION ======================================
      # Example
      ingress: |-
-       {
+       {    
+           "enableGatewayApi": false,
            "kserveIngressGateway": "kserve/kserve-ingress-gateway",
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
            "localGateway" : "knative-serving/knative-local-gateway",
@@ -204,7 +205,10 @@ data:
            "disableIngressCreation": false
        }
      ingress: |-
-       {    
+       {   
+           # enableGatewayApi specifies whether to use Gateway API instead of Ingress to serve external traffic.
+           "enableGatewayApi": false,
+
            # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/) to serve external traffic. 
            # By default, KServe configures a default gateway to serve external traffic.
            # But, KServe can be configured to use a custom gateway by modifying this configuration.
@@ -536,7 +540,8 @@ data:
     }
 
   ingress: |-
-    {
+    {   
+        "enableGatewayApi": false,
         "kserveIngressGateway": "kserve/kserve-ingress-gateway",
         "ingressGateway" : "knative-serving/knative-ingress-gateway",
         "localGateway" : "knative-serving/knative-local-gateway",
