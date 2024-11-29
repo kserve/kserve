@@ -372,7 +372,7 @@ async def test_predictor_rest_with_transformer_rest(rest_v2_client):
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_predictor_grpc_with_transformer_grpc_raw():
+async def test_predictor_grpc_with_transformer_grpc_raw(network_layer):
     service_name = "model-grpc-trans-grpc-raw"
     model_name = "custom-model"
 
@@ -447,7 +447,10 @@ async def test_predictor_grpc_with_transformer_grpc_raw():
         }
     ]
     response = await predict_grpc(
-        service_name=service_name, payload=payload, model_name=model_name, is_raw=True
+        service_name=service_name,
+        payload=payload,
+        model_name=model_name,
+        network_layer=network_layer,
     )
     fields = response.outputs[0].data
     points = ["%.3f" % (point) for point in list(fields)]

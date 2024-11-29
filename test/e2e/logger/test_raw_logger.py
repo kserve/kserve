@@ -34,7 +34,7 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_kserve_logger(rest_v1_client):
+async def test_kserve_logger(rest_v1_client, network_layer):
     msg_dumper = "message-dumper-raw"
     annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 
@@ -106,7 +106,10 @@ async def test_kserve_logger(rest_v1_client):
             print(pod)
 
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/iris_input.json", is_raw=True
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
     )
     assert res["predictions"] == [1, 1]
     pods = kserve_client.core_api.list_namespaced_pod(
