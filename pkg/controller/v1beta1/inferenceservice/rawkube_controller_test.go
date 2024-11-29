@@ -21,14 +21,12 @@ import (
 	"fmt"
 	"time"
 
-	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
-
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -49,7 +47,7 @@ import (
 var _ = Describe("v1beta1 inference service controller", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
-		timeout  = time.Second * 10
+		timeout  = time.Second * 20
 		interval = time.Millisecond * 250
 		domain   = "example.com"
 	)
@@ -76,6 +74,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 			}`,
 			"ingress": `{
+				"enableGatewayApi": true,
 				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 				"ingressGateway": "knative-serving/knative-ingress-gateway",
 				"localGateway": "knative-serving/knative-local-gateway",
@@ -94,7 +93,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}`,
 		}
 
-		It("Should have ingress/service/deployment/hpa created", func() {
+		It("Should have httproute/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -338,17 +337,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
-			actualIngress := &gatewayapiv1.HTTPRoute{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
-				Should(Succeed())
+			//check http route
+			actualTopLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
+					Namespace: serviceKey.Namespace}, actualTopLevelHttpRoute)
+			}, timeout).Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedIngress := gatewayapiv1.HTTPRoute{
+			expectedTopLevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", gatewayapiv1.Hostname(predictorHost)},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -411,6 +409,31 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+						},
+					},
+				},
+			}
+			Expect(actualTopLevelHttpRoute.Spec).To(BeComparableTo(expectedTopLevelHttpRoute.Spec))
+
+			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: predictorServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualPredictorHttpRoute)
+			}, timeout).Should(Succeed())
+			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
@@ -467,36 +490,42 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-								Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
 							},
 						},
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(BeComparableTo(expectedIngress.Spec))
-			actualIngress.Status.Parents = []gatewayapiv1.RouteParentStatus{
-				{
-					ParentRef: gatewayapiv1.ParentReference{
-						Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-						Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-					},
-					ControllerName: "istio.io/gateway-controller",
-					Conditions: []metav1.Condition{
+			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
+
+			// Mark the Ingress as accepted to make isvc ready
+			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
+				RouteStatus: gatewayapiv1.RouteStatus{
+					Parents: []gatewayapiv1.RouteParentStatus{
 						{
-							Type:               string(gatewayapiv1.ListenerConditionAccepted),
-							Status:             metav1.ConditionTrue,
-							Reason:             "Accepted",
-							Message:            "Route was valid",
-							LastTransitionTime: metav1.Now(),
+							ParentRef: gatewayapiv1.ParentReference{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+							ControllerName: "istio.io/gateway-controller",
+							Conditions: []metav1.Condition{
+								{
+									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Status:             metav1.ConditionTrue,
+									Reason:             "Accepted",
+									Message:            "Route was valid",
+									LastTransitionTime: metav1.Now(),
+								},
+							},
 						},
 					},
 				},
 			}
-
-			// Mark the Ingress as accepted to make isvc ready
-			Expect(k8sClient.Status().Update(context.Background(), actualIngress)).NotTo(HaveOccurred())
+			actualPredictorHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualPredictorHttpRoute)).NotTo(HaveOccurred())
+			actualTopLevelHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualTopLevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -613,7 +642,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualHPA.Spec).To(BeComparableTo(expectedHPA.Spec))
 		})
-		It("Should have ingress/service/deployment/hpa created with DeploymentStrategy", func() {
+		It("Should have httproute/service/deployment/hpa created with DeploymentStrategy", func() {
 			By("By creating a new InferenceService with DeploymentStrategy in PredictorSpec")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -858,17 +887,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
-			actualIngress := &gatewayapiv1.HTTPRoute{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
+			//check http route
+			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
+					Namespace: serviceKey.Namespace}, actualToplevelHttpRoute)
+			}, timeout).
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedIngress := gatewayapiv1.HTTPRoute{
+			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", gatewayapiv1.Hostname(predictorHost)},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -931,6 +960,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+						},
+					},
+				},
+			}
+			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
+
+			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: predictorServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualPredictorHttpRoute)
+			}, timeout).
+				Should(Succeed())
+			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
@@ -987,36 +1042,42 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-								Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
 							},
 						},
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(BeComparableTo(expectedIngress.Spec))
-			actualIngress.Status.Parents = []gatewayapiv1.RouteParentStatus{
-				{
-					ParentRef: gatewayapiv1.ParentReference{
-						Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-						Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-					},
-					ControllerName: "istio.io/gateway-controller",
-					Conditions: []metav1.Condition{
+			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
+
+			// Mark the Ingress as accepted to make isvc ready
+			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
+				RouteStatus: gatewayapiv1.RouteStatus{
+					Parents: []gatewayapiv1.RouteParentStatus{
 						{
-							Type:               string(gatewayapiv1.ListenerConditionAccepted),
-							Status:             metav1.ConditionTrue,
-							Reason:             "Accepted",
-							Message:            "Route was valid",
-							LastTransitionTime: metav1.Now(),
+							ParentRef: gatewayapiv1.ParentReference{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+							ControllerName: "istio.io/gateway-controller",
+							Conditions: []metav1.Condition{
+								{
+									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Status:             metav1.ConditionTrue,
+									Reason:             "Accepted",
+									Message:            "Route was valid",
+									LastTransitionTime: metav1.Now(),
+								},
+							},
 						},
 					},
 				},
 			}
-
-			// Mark the Ingress as accepted to make isvc ready
-			Expect(k8sClient.Status().Update(context.Background(), actualIngress)).NotTo(HaveOccurred())
+			actualPredictorHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualPredictorHttpRoute)).NotTo(HaveOccurred())
+			actualToplevelHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualToplevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -1133,7 +1194,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualHPA.Spec).To(BeComparableTo(expectedHPA.Spec))
 		})
-		It("Should have ingress/service/deployment created", func() {
+		It("Should have httproute/service/deployment created", func() {
 			By("By creating a new InferenceService with AutoscalerClassExternal")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -1369,17 +1430,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
-			actualIngress := &gatewayapiv1.HTTPRoute{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
+			//check http Route
+			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
+					Namespace: serviceKey.Namespace}, actualToplevelHttpRoute)
+			}, timeout).
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedIngress := gatewayapiv1.HTTPRoute{
+			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", gatewayapiv1.Hostname(predictorHost)},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -1442,6 +1503,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+						},
+					},
+				},
+			}
+			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
+
+			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: predictorServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualPredictorHttpRoute)
+			}, timeout).
+				Should(Succeed())
+			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
@@ -1498,36 +1585,42 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-								Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
 							},
 						},
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(gomega.BeComparableTo(expectedIngress.Spec))
-			actualIngress.Status.Parents = []gatewayapiv1.RouteParentStatus{
-				{
-					ParentRef: gatewayapiv1.ParentReference{
-						Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-						Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-					},
-					ControllerName: "istio.io/gateway-controller",
-					Conditions: []metav1.Condition{
+			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
+
+			// Mark the Ingress as accepted to make isvc ready
+			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
+				RouteStatus: gatewayapiv1.RouteStatus{
+					Parents: []gatewayapiv1.RouteParentStatus{
 						{
-							Type:               string(gatewayapiv1.ListenerConditionAccepted),
-							Status:             metav1.ConditionTrue,
-							Reason:             "Accepted",
-							Message:            "Route was valid",
-							LastTransitionTime: metav1.Now(),
+							ParentRef: gatewayapiv1.ParentReference{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+							ControllerName: "istio.io/gateway-controller",
+							Conditions: []metav1.Condition{
+								{
+									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Status:             metav1.ConditionTrue,
+									Reason:             "Accepted",
+									Message:            "Route was valid",
+									LastTransitionTime: metav1.Now(),
+								},
+							},
 						},
 					},
 				},
 			}
-
-			// Mark the Ingress as accepted to make isvc ready
-			Expect(k8sClient.Status().Update(context.Background(), actualIngress)).NotTo(HaveOccurred())
+			actualPredictorHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualPredictorHttpRoute)).NotTo(HaveOccurred())
+			actualToplevelHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualToplevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -1606,7 +1699,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
             }`,
 		}
 
-		It("Should have service/deployment/hpa created and ingress should not be created", func() {
+		It("Should have service/deployment/hpa created and http route should not be created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -1849,13 +1942,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			//check ingress not created
-			actualIngress := &gatewayapiv1.HTTPRoute{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
-			Consistently(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
+			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Consistently(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
+					Namespace: serviceKey.Namespace}, actualToplevelHttpRoute)
+			}, timeout).
+				Should(Not(Succeed()))
+			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Consistently(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: predictorServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualPredictorHttpRoute)
+			}, timeout).
 				Should(Not(Succeed()))
 
 			// verify if InferenceService status is updated
@@ -1906,7 +2006,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return err.Error()
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, timeout).Should(gomega.BeEmpty())
+			}, timeout).Should(BeEmpty())
 
 			//check HPA
 			var minReplicas int32 = 1
@@ -1983,6 +2083,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
                }
             }`,
 			"ingress": `{
+			   "enableGatewayApi": true,
 			   "kserveIngressGateway": "kserve/kserve-ingress-gateway",
                "ingressGateway": "knative-serving/knative-ingress-gateway",
                "localGateway": "knative-serving/knative-local-gateway",
@@ -1993,7 +2094,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
             }`,
 		}
 
-		It("Should have ingress/service/deployment/hpa created", func() {
+		It("Should have httproute/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -2076,7 +2177,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -2238,17 +2339,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
-			actualIngress := &gatewayapiv1.HTTPRoute{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
+			//check http route
+			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
+					Namespace: serviceKey.Namespace}, actualToplevelHttpRoute)
+			}, timeout).
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s.%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			predictorHost := fmt.Sprintf("%s.%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedIngress := gatewayapiv1.HTTPRoute{
+			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", gatewayapiv1.Hostname(predictorHost)},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -2311,6 +2412,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+						},
+					},
+				},
+			}
+			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
+
+			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: predictorServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualPredictorHttpRoute)
+			}, timeout).
+				Should(Succeed())
+			predictorHost := fmt.Sprintf("%s.%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
@@ -2367,36 +2494,42 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-								Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
 							},
 						},
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(gomega.BeComparableTo(expectedIngress.Spec))
-			actualIngress.Status.Parents = []gatewayapiv1.RouteParentStatus{
-				{
-					ParentRef: gatewayapiv1.ParentReference{
-						Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-						Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-					},
-					ControllerName: "istio.io/gateway-controller",
-					Conditions: []metav1.Condition{
+			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
+
+			// Mark the Ingress as accepted to make isvc ready
+			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
+				RouteStatus: gatewayapiv1.RouteStatus{
+					Parents: []gatewayapiv1.RouteParentStatus{
 						{
-							Type:               string(gatewayapiv1.ListenerConditionAccepted),
-							Status:             metav1.ConditionTrue,
-							Reason:             "Accepted",
-							Message:            "Route was valid",
-							LastTransitionTime: metav1.Now(),
+							ParentRef: gatewayapiv1.ParentReference{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+							ControllerName: "istio.io/gateway-controller",
+							Conditions: []metav1.Condition{
+								{
+									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Status:             metav1.ConditionTrue,
+									Reason:             "Accepted",
+									Message:            "Route was valid",
+									LastTransitionTime: metav1.Now(),
+								},
+							},
 						},
 					},
 				},
 			}
-
-			// Mark the Ingress as accepted to make isvc ready
-			Expect(k8sClient.Status().Update(context.Background(), actualIngress)).NotTo(HaveOccurred())
+			actualPredictorHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualPredictorHttpRoute)).NotTo(HaveOccurred())
+			actualToplevelHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualToplevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -2523,6 +2656,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 			}`,
 			"ingress": `{
+				"enableGatewayApi": true,
 				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 				"ingressGateway": "knative-serving/knative-ingress-gateway",
 				"localGateway": "knative-serving/knative-local-gateway",
@@ -2541,7 +2675,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}`,
 		}
 
-		It("Should have ingress/service/deployment/hpa created for transformer and predictor", func() {
+		It("Should have httproute/service/deployment/hpa created for transformer and predictor", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -2653,7 +2787,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -2945,7 +3079,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorDeployment)).NotTo(HaveOccurred())
 			updatedTransformerDeployment := actualTransformerDeployment.DeepCopy()
 			updatedTransformerDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
@@ -2953,21 +3087,19 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
-			actualIngress := &gatewayapiv1.HTTPRoute{}
-			ingressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), ingressKey, actualIngress) }, timeout).
+			//check http route
+			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
+					Namespace: serviceKey.Namespace}, actualToplevelHttpRoute)
+			}, timeout).
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			transformerHost := fmt.Sprintf("%s-%s.%s", transformerServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedIngress := gatewayapiv1.HTTPRoute{
+			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com",
-						gatewayapiv1.Hostname(transformerHost), gatewayapiv1.Hostname(predictorHost)},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -2981,19 +3113,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
 											Name:  gatewayapiv1.HTTPHeaderName("Host"),
 											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(transformerHost),
 										},
 									},
 								},
@@ -3043,6 +3162,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+						},
+					},
+				},
+			}
+			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
+
+			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: predictorServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualPredictorHttpRoute)
+			}, timeout).
+				Should(Succeed())
+			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
@@ -3099,37 +3244,118 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-								Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
 							},
 						},
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(BeComparableTo(expectedIngress.Spec))
+			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
 
-			actualIngress.Status.Parents = []gatewayapiv1.RouteParentStatus{
-				{
-					ParentRef: gatewayapiv1.ParentReference{
-						Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-						Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-					},
-					ControllerName: "istio.io/gateway-controller",
-					Conditions: []metav1.Condition{
+			actualTransformerHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: transformerServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualTransformerHttpRoute)
+			}, timeout).
+				Should(Succeed())
+			transformerHost := fmt.Sprintf("%s-%s.%s", transformerServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedTransformerHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(transformerHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
-							Type:               string(gatewayapiv1.ListenerConditionAccepted),
-							Status:             metav1.ConditionTrue,
-							Reason:             "Accepted",
-							Message:            "Route was valid",
-							LastTransitionTime: metav1.Now(),
+							Matches: []gatewayapiv1.HTTPRouteMatch{
+								{
+									Path: &gatewayapiv1.HTTPPathMatch{
+										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
+										Value: utils.ToPointer(constants.FallbackPrefix()),
+									},
+									Headers: []gatewayapiv1.HTTPHeaderMatch{
+										{
+											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
+											Name:  gatewayapiv1.HTTPHeaderName("Host"),
+											Value: constants.HostRegExp(transformerHost),
+										},
+									},
+								},
+							},
+							Filters: []gatewayapiv1.HTTPRouteFilter{
+								{
+									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
+										Set: []gatewayapiv1.HTTPHeader{
+											{
+												Name:  constants.IsvcNameHeader,
+												Value: serviceKey.Name,
+											},
+											{
+												Name:  constants.IsvcNamespaceHeader,
+												Value: serviceKey.Namespace,
+											},
+										},
+									},
+								},
+							},
+							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+								{
+									BackendRef: gatewayapiv1.BackendRef{
+										BackendObjectReference: gatewayapiv1.BackendObjectReference{
+											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
+											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
+											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
+											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+										},
+										Weight: utils.ToPointer(int32(1)),
+									},
+								},
+							},
+						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
 						},
 					},
 				},
 			}
+			Expect(actualTransformerHttpRoute.Spec).To(BeComparableTo(expectedTransformerHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			Expect(k8sClient.Status().Update(context.Background(), actualIngress)).NotTo(HaveOccurred())
+			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
+				RouteStatus: gatewayapiv1.RouteStatus{
+					Parents: []gatewayapiv1.RouteParentStatus{
+						{
+							ParentRef: gatewayapiv1.ParentReference{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+							ControllerName: "istio.io/gateway-controller",
+							Conditions: []metav1.Condition{
+								{
+									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Status:             metav1.ConditionTrue,
+									Reason:             "Accepted",
+									Message:            "Route was valid",
+									LastTransitionTime: metav1.Now(),
+								},
+							},
+						},
+					},
+				},
+			}
+			actualPredictorHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualPredictorHttpRoute)).NotTo(HaveOccurred())
+			actualTransformerHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualTransformerHttpRoute)).NotTo(HaveOccurred())
+			actualToplevelHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualToplevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -3191,7 +3417,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return err.Error()
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, 20*time.Second).Should(gomega.BeEmpty())
+			}, timeout).Should(BeEmpty())
 
 			//check predictor HPA
 			var cpuUtilization int32 = 75
@@ -3326,6 +3552,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 			}`,
 			"ingress": `{
+				"enableGatewayApi": true,
 				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 				"ingressGateway": "knative-serving/knative-ingress-gateway",
 				"localGateway": "knative-serving/knative-local-gateway",
@@ -3344,7 +3571,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}`,
 		}
 
-		It("Should have ingress/service/deployment/hpa created for explainer and predictor", func() {
+		It("Should have httproute/service/deployment/hpa created for explainer and predictor", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -3457,7 +3684,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			isvcConfig, err := v1beta1.NewInferenceServicesConfig(clientset)
 			Expect(err).NotTo(HaveOccurred())
-			isvc.DefaultInferenceService(isvcConfig, nil)
+			isvc.DefaultInferenceService(isvcConfig, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -3752,7 +3979,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorDeployment)).NotTo(HaveOccurred())
 			updatedExplainerDeployment := actualExplainerDeployment.DeepCopy()
 			updatedExplainerDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
@@ -3760,21 +3987,19 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
-			actualIngress := &gatewayapiv1.HTTPRoute{}
-			ingressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), ingressKey, actualIngress) }, timeout).
+			//check httproute
+			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
+					Namespace: serviceKey.Namespace}, actualToplevelHttpRoute)
+			}, timeout).
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			explainerHost := fmt.Sprintf("%s-%s.%s", explainerServiceKey.Name, serviceKey.Namespace, "example.com")
-			expectedIngress := gatewayapiv1.HTTPRoute{
+			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com",
-						gatewayapiv1.Hostname(explainerHost), gatewayapiv1.Hostname(predictorHost)},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -3848,54 +4073,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										{
 											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
 											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(explainerHost),
-										},
-									},
-								},
-							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
-								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
-											{
-												Name:  constants.IsvcNameHeader,
-												Value: serviceKey.Name,
-											},
-											{
-												Name:  constants.IsvcNamespaceHeader,
-												Value: serviceKey.Namespace,
-											},
-										},
-									},
-								},
-							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
-								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
-										},
-										Weight: utils.ToPointer(int32(1)),
-									},
-								},
-							},
-						},
-						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
 											Value: constants.HostRegExp(topLevelHost),
 										},
 									},
@@ -3946,6 +4123,32 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+						},
+					},
+				},
+			}
+			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
+
+			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: predictorServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualPredictorHttpRoute)
+			}, timeout).
+				Should(Succeed())
+			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
@@ -4002,37 +4205,118 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-								Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
 							},
 						},
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(BeComparableTo(expectedIngress.Spec))
+			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
 
-			actualIngress.Status.Parents = []gatewayapiv1.RouteParentStatus{
-				{
-					ParentRef: gatewayapiv1.ParentReference{
-						Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-						Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-					},
-					ControllerName: "istio.io/gateway-controller",
-					Conditions: []metav1.Condition{
+			actualExplainerHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: explainerServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualExplainerHttpRoute)
+			}, timeout).
+				Should(Succeed())
+			explainerHost := fmt.Sprintf("%s-%s.%s", explainerServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedExplainerHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(explainerHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
-							Type:               string(gatewayapiv1.ListenerConditionAccepted),
-							Status:             metav1.ConditionTrue,
-							Reason:             "Accepted",
-							Message:            "Route was valid",
-							LastTransitionTime: metav1.Now(),
+							Matches: []gatewayapiv1.HTTPRouteMatch{
+								{
+									Path: &gatewayapiv1.HTTPPathMatch{
+										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
+										Value: utils.ToPointer(constants.FallbackPrefix()),
+									},
+									Headers: []gatewayapiv1.HTTPHeaderMatch{
+										{
+											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
+											Name:  gatewayapiv1.HTTPHeaderName("Host"),
+											Value: constants.HostRegExp(explainerHost),
+										},
+									},
+								},
+							},
+							Filters: []gatewayapiv1.HTTPRouteFilter{
+								{
+									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
+										Set: []gatewayapiv1.HTTPHeader{
+											{
+												Name:  constants.IsvcNameHeader,
+												Value: serviceKey.Name,
+											},
+											{
+												Name:  constants.IsvcNamespaceHeader,
+												Value: serviceKey.Namespace,
+											},
+										},
+									},
+								},
+							},
+							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+								{
+									BackendRef: gatewayapiv1.BackendRef{
+										BackendObjectReference: gatewayapiv1.BackendObjectReference{
+											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
+											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
+											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
+											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+										},
+										Weight: utils.ToPointer(int32(1)),
+									},
+								},
+							},
+						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
 						},
 					},
 				},
 			}
+			Expect(actualExplainerHttpRoute.Spec).To(BeComparableTo(expectedExplainerHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			Expect(k8sClient.Status().Update(context.Background(), actualIngress)).NotTo(HaveOccurred())
+			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
+				RouteStatus: gatewayapiv1.RouteStatus{
+					Parents: []gatewayapiv1.RouteParentStatus{
+						{
+							ParentRef: gatewayapiv1.ParentReference{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+							ControllerName: "istio.io/gateway-controller",
+							Conditions: []metav1.Condition{
+								{
+									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Status:             metav1.ConditionTrue,
+									Reason:             "Accepted",
+									Message:            "Route was valid",
+									LastTransitionTime: metav1.Now(),
+								},
+							},
+						},
+					},
+				},
+			}
+			actualPredictorHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualPredictorHttpRoute)).NotTo(HaveOccurred())
+			actualExplainerHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualExplainerHttpRoute)).NotTo(HaveOccurred())
+			actualToplevelHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualToplevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -4094,7 +4378,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return err.Error()
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, 20*time.Second).Should(gomega.BeEmpty())
+			}, timeout).Should(BeEmpty())
 
 			//check predictor HPA
 			var cpuUtilization int32 = 75
@@ -4229,6 +4513,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 			}`,
 			"ingress": `{
+				"enableGatewayApi": true,
 				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 				"ingressGateway": "knative-serving/knative-ingress-gateway",
 				"localGateway": "knative-serving/knative-local-gateway",
@@ -4249,7 +4534,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}`,
 		}
 
-		It("Should have ingress/service/deployment/hpa created", func() {
+		It("Should have httproute/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -4331,7 +4616,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -4493,18 +4778,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
-			actualIngress := &gatewayapiv1.HTTPRoute{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
+			//check http route
+			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
+					Namespace: serviceKey.Namespace}, actualToplevelHttpRoute)
+			}, timeout).
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
 			prefixUrlPath := fmt.Sprintf("/serving/%s/%s", serviceKey.Namespace, serviceKey.Name)
-			expectedIngress := gatewayapiv1.HTTPRoute{
+			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", gatewayapiv1.Hostname(predictorHost), "example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", "example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -4531,54 +4816,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
 											Name:  gatewayapiv1.HTTPHeaderName("Host"),
 											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
-								},
-							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
-								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
-											{
-												Name:  constants.IsvcNameHeader,
-												Value: serviceKey.Name,
-											},
-											{
-												Name:  constants.IsvcNamespaceHeader,
-												Value: serviceKey.Namespace,
-											},
-										},
-									},
-								},
-							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
-								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
-										},
-										Weight: utils.ToPointer(int32(1)),
-									},
-								},
-							},
-						},
-						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(predictorHost),
 										},
 									},
 								},
@@ -4671,36 +4908,116 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-								Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
 							},
 						},
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(BeComparableTo(expectedIngress.Spec))
-			actualIngress.Status.Parents = []gatewayapiv1.RouteParentStatus{
-				{
-					ParentRef: gatewayapiv1.ParentReference{
-						Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-						Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-					},
-					ControllerName: "istio.io/gateway-controller",
-					Conditions: []metav1.Condition{
+			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
+
+			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: predictorServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualPredictorHttpRoute)
+			}, timeout).
+				Should(Succeed())
+			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
-							Type:               string(gatewayapiv1.ListenerConditionAccepted),
-							Status:             metav1.ConditionTrue,
-							Reason:             "Accepted",
-							Message:            "Route was valid",
-							LastTransitionTime: metav1.Now(),
+							Matches: []gatewayapiv1.HTTPRouteMatch{
+								{
+									Path: &gatewayapiv1.HTTPPathMatch{
+										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
+										Value: utils.ToPointer(constants.FallbackPrefix()),
+									},
+									Headers: []gatewayapiv1.HTTPHeaderMatch{
+										{
+											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
+											Name:  gatewayapiv1.HTTPHeaderName("Host"),
+											Value: constants.HostRegExp(predictorHost),
+										},
+									},
+								},
+							},
+							Filters: []gatewayapiv1.HTTPRouteFilter{
+								{
+									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
+										Set: []gatewayapiv1.HTTPHeader{
+											{
+												Name:  constants.IsvcNameHeader,
+												Value: serviceKey.Name,
+											},
+											{
+												Name:  constants.IsvcNamespaceHeader,
+												Value: serviceKey.Namespace,
+											},
+										},
+									},
+								},
+							},
+							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+								{
+									BackendRef: gatewayapiv1.BackendRef{
+										BackendObjectReference: gatewayapiv1.BackendObjectReference{
+											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
+											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
+											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+										},
+										Weight: utils.ToPointer(int32(1)),
+									},
+								},
+							},
+						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
 						},
 					},
 				},
 			}
+			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			Expect(k8sClient.Status().Update(context.Background(), actualIngress)).NotTo(HaveOccurred())
+			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
+				RouteStatus: gatewayapiv1.RouteStatus{
+					Parents: []gatewayapiv1.RouteParentStatus{
+						{
+							ParentRef: gatewayapiv1.ParentReference{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+							ControllerName: "istio.io/gateway-controller",
+							Conditions: []metav1.Condition{
+								{
+									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Status:             metav1.ConditionTrue,
+									Reason:             "Accepted",
+									Message:            "Route was valid",
+									LastTransitionTime: metav1.Now(),
+								},
+							},
+						},
+					},
+				},
+			}
+			actualPredictorHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualPredictorHttpRoute)).NotTo(HaveOccurred())
+			actualToplevelHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualToplevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -4827,6 +5144,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 			}`,
 			"ingress": `{
+				"enableGatewayApi": true,
 				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 				"ingressGateway": "knative-serving/knative-ingress-gateway",
 				"localGateway": "knative-serving/knative-local-gateway",
@@ -4961,7 +5279,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			isvcConfig, err := v1beta1.NewInferenceServicesConfig(clientset)
 			Expect(err).NotTo(HaveOccurred())
-			isvc.DefaultInferenceService(isvcConfig, nil)
+			isvc.DefaultInferenceService(isvcConfig, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -5253,7 +5571,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorDeployment)).NotTo(HaveOccurred())
 			updatedTransformerDeployment := actualTransformerDeployment.DeepCopy()
 			updatedTransformerDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
@@ -5261,22 +5579,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
-			actualIngress := &gatewayapiv1.HTTPRoute{}
-			ingressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), ingressKey, actualIngress) }, timeout).
+			//check http route
+			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
+					Namespace: serviceKey.Namespace}, actualToplevelHttpRoute)
+			}, timeout).
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			transformerHost := fmt.Sprintf("%s-%s.%s", transformerServiceKey.Name, serviceKey.Namespace, "example.com")
 			prefixUrlPath := fmt.Sprintf("/serving/%s/%s", serviceKey.Namespace, serviceKey.Name)
-			expectedIngress := gatewayapiv1.HTTPRoute{
+			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com",
-						gatewayapiv1.Hostname(transformerHost), gatewayapiv1.Hostname(predictorHost), "example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", "example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -5290,19 +5606,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
 											Name:  gatewayapiv1.HTTPHeaderName("Host"),
 											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(transformerHost),
 										},
 									},
 								},
@@ -5344,54 +5647,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
 											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
-										},
-										Weight: utils.ToPointer(int32(1)),
-									},
-								},
-							},
-						},
-						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(predictorHost),
-										},
-									},
-								},
-							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
-								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
-											{
-												Name:  constants.IsvcNameHeader,
-												Value: serviceKey.Name,
-											},
-											{
-												Name:  constants.IsvcNamespaceHeader,
-												Value: serviceKey.Namespace,
-											},
-										},
-									},
-								},
-							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
-								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
 										},
@@ -5456,37 +5711,192 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-								Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
 							},
 						},
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(BeComparableTo(expectedIngress.Spec))
+			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
 
-			actualIngress.Status.Parents = []gatewayapiv1.RouteParentStatus{
-				{
-					ParentRef: gatewayapiv1.ParentReference{
-						Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-						Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-					},
-					ControllerName: "istio.io/gateway-controller",
-					Conditions: []metav1.Condition{
+			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: predictorServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualPredictorHttpRoute)
+			}, timeout).
+				Should(Succeed())
+			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
-							Type:               string(gatewayapiv1.ListenerConditionAccepted),
-							Status:             metav1.ConditionTrue,
-							Reason:             "Accepted",
-							Message:            "Route was valid",
-							LastTransitionTime: metav1.Now(),
+							Matches: []gatewayapiv1.HTTPRouteMatch{
+								{
+									Path: &gatewayapiv1.HTTPPathMatch{
+										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
+										Value: utils.ToPointer(constants.FallbackPrefix()),
+									},
+									Headers: []gatewayapiv1.HTTPHeaderMatch{
+										{
+											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
+											Name:  gatewayapiv1.HTTPHeaderName("Host"),
+											Value: constants.HostRegExp(predictorHost),
+										},
+									},
+								},
+							},
+							Filters: []gatewayapiv1.HTTPRouteFilter{
+								{
+									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
+										Set: []gatewayapiv1.HTTPHeader{
+											{
+												Name:  constants.IsvcNameHeader,
+												Value: serviceKey.Name,
+											},
+											{
+												Name:  constants.IsvcNamespaceHeader,
+												Value: serviceKey.Namespace,
+											},
+										},
+									},
+								},
+							},
+							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+								{
+									BackendRef: gatewayapiv1.BackendRef{
+										BackendObjectReference: gatewayapiv1.BackendObjectReference{
+											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
+											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
+											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+										},
+										Weight: utils.ToPointer(int32(1)),
+									},
+								},
+							},
+						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
 						},
 					},
 				},
 			}
+			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
+
+			actualTransformerHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: transformerServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualTransformerHttpRoute)
+			}, timeout).
+				Should(Succeed())
+			transformerHost := fmt.Sprintf("%s-%s.%s", transformerServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedTransformerHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(transformerHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
+						{
+							Matches: []gatewayapiv1.HTTPRouteMatch{
+								{
+									Path: &gatewayapiv1.HTTPPathMatch{
+										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
+										Value: utils.ToPointer(constants.FallbackPrefix()),
+									},
+									Headers: []gatewayapiv1.HTTPHeaderMatch{
+										{
+											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
+											Name:  gatewayapiv1.HTTPHeaderName("Host"),
+											Value: constants.HostRegExp(transformerHost),
+										},
+									},
+								},
+							},
+							Filters: []gatewayapiv1.HTTPRouteFilter{
+								{
+									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
+										Set: []gatewayapiv1.HTTPHeader{
+											{
+												Name:  constants.IsvcNameHeader,
+												Value: serviceKey.Name,
+											},
+											{
+												Name:  constants.IsvcNamespaceHeader,
+												Value: serviceKey.Namespace,
+											},
+										},
+									},
+								},
+							},
+							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+								{
+									BackendRef: gatewayapiv1.BackendRef{
+										BackendObjectReference: gatewayapiv1.BackendObjectReference{
+											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
+											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
+											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
+											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+										},
+										Weight: utils.ToPointer(int32(1)),
+									},
+								},
+							},
+						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+						},
+					},
+				},
+			}
+			Expect(actualTransformerHttpRoute.Spec).To(BeComparableTo(expectedTransformerHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			Expect(k8sClient.Status().Update(context.Background(), actualIngress)).NotTo(HaveOccurred())
+			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
+				RouteStatus: gatewayapiv1.RouteStatus{
+					Parents: []gatewayapiv1.RouteParentStatus{
+						{
+							ParentRef: gatewayapiv1.ParentReference{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+							ControllerName: "istio.io/gateway-controller",
+							Conditions: []metav1.Condition{
+								{
+									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Status:             metav1.ConditionTrue,
+									Reason:             "Accepted",
+									Message:            "Route was valid",
+									LastTransitionTime: metav1.Now(),
+								},
+							},
+						},
+					},
+				},
+			}
+			actualPredictorHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualPredictorHttpRoute)).NotTo(HaveOccurred())
+			actualTransformerHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualTransformerHttpRoute)).NotTo(HaveOccurred())
+			actualToplevelHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualToplevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -5548,7 +5958,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return err.Error()
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, 20*time.Second).Should(gomega.BeEmpty())
+			}, timeout).Should(BeEmpty())
 
 			//check predictor HPA
 			var cpuUtilization int32 = 75
@@ -5683,6 +6093,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 			}`,
 			"ingress": `{
+				"enableGatewayApi": true,
 				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 				"ingressGateway": "knative-serving/knative-ingress-gateway",
 				"localGateway": "knative-serving/knative-local-gateway",
@@ -5703,7 +6114,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}`,
 		}
 
-		It("Should have ingress/service/deployment/hpa created for explainer and predictor", func() {
+		It("Should have httproute/service/deployment/hpa created for explainer and predictor", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -5816,7 +6227,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			isvcConfig, err := v1beta1.NewInferenceServicesConfig(clientset)
 			Expect(err).NotTo(HaveOccurred())
-			isvc.DefaultInferenceService(isvcConfig, nil)
+			isvc.DefaultInferenceService(isvcConfig, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -6111,7 +6522,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorDeployment)).NotTo(HaveOccurred())
 			updatedExplainerDeployment := actualExplainerDeployment.DeepCopy()
 			updatedExplainerDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
@@ -6119,22 +6530,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
-			actualIngress := &gatewayapiv1.HTTPRoute{}
-			ingressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), ingressKey, actualIngress) }, timeout).
+			//check http route
+			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
+					Namespace: serviceKey.Namespace}, actualToplevelHttpRoute)
+			}, timeout).
 				Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
-			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
-			explainerHost := fmt.Sprintf("%s-%s.%s", explainerServiceKey.Name, serviceKey.Namespace, "example.com")
 			prefixUrlPath := fmt.Sprintf("/serving/%s/%s", serviceKey.Namespace, serviceKey.Name)
-			expectedIngress := gatewayapiv1.HTTPRoute{
+			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com",
-						gatewayapiv1.Hostname(explainerHost), gatewayapiv1.Hostname(predictorHost), "example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", "example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -6208,54 +6617,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										{
 											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
 											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(explainerHost),
-										},
-									},
-								},
-							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
-								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
-											{
-												Name:  constants.IsvcNameHeader,
-												Value: serviceKey.Name,
-											},
-											{
-												Name:  constants.IsvcNamespaceHeader,
-												Value: serviceKey.Namespace,
-											},
-										},
-									},
-								},
-							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
-								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
-										},
-										Weight: utils.ToPointer(int32(1)),
-									},
-								},
-							},
-						},
-						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
 											Value: constants.HostRegExp(topLevelHost),
 										},
 									},
@@ -6270,54 +6631,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
 											Name:  gatewayapiv1.HTTPHeaderName("Host"),
 											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
-								},
-							},
-							Filters: []gatewayapiv1.HTTPRouteFilter{
-								{
-									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
-									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
-										Set: []gatewayapiv1.HTTPHeader{
-											{
-												Name:  constants.IsvcNameHeader,
-												Value: serviceKey.Name,
-											},
-											{
-												Name:  constants.IsvcNamespaceHeader,
-												Value: serviceKey.Namespace,
-											},
-										},
-									},
-								},
-							},
-							BackendRefs: []gatewayapiv1.HTTPBackendRef{
-								{
-									BackendRef: gatewayapiv1.BackendRef{
-										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
-											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
-										},
-										Weight: utils.ToPointer(int32(1)),
-									},
-								},
-							},
-						},
-						{
-							Matches: []gatewayapiv1.HTTPRouteMatch{
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(predictorHost),
 										},
 									},
 								},
@@ -6458,37 +6771,192 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-								Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
 							},
 						},
 					},
 				},
 			}
-			Expect(actualIngress.Spec).To(BeComparableTo(expectedIngress.Spec))
+			Expect(actualToplevelHttpRoute.Spec).To(BeComparableTo(expectedToplevelHttpRoute.Spec))
 
-			actualIngress.Status.Parents = []gatewayapiv1.RouteParentStatus{
-				{
-					ParentRef: gatewayapiv1.ParentReference{
-						Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-						Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
-						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
-					},
-					ControllerName: "istio.io/gateway-controller",
-					Conditions: []metav1.Condition{
+			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: predictorServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualPredictorHttpRoute)
+			}, timeout).
+				Should(Succeed())
+			predictorHost := fmt.Sprintf("%s-%s.%s", predictorServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedPredictorHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(predictorHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
-							Type:               string(gatewayapiv1.ListenerConditionAccepted),
-							Status:             metav1.ConditionTrue,
-							Reason:             "Accepted",
-							Message:            "Route was valid",
-							LastTransitionTime: metav1.Now(),
+							Matches: []gatewayapiv1.HTTPRouteMatch{
+								{
+									Path: &gatewayapiv1.HTTPPathMatch{
+										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
+										Value: utils.ToPointer(constants.FallbackPrefix()),
+									},
+									Headers: []gatewayapiv1.HTTPHeaderMatch{
+										{
+											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
+											Name:  gatewayapiv1.HTTPHeaderName("Host"),
+											Value: constants.HostRegExp(predictorHost),
+										},
+									},
+								},
+							},
+							Filters: []gatewayapiv1.HTTPRouteFilter{
+								{
+									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
+										Set: []gatewayapiv1.HTTPHeader{
+											{
+												Name:  constants.IsvcNameHeader,
+												Value: serviceKey.Name,
+											},
+											{
+												Name:  constants.IsvcNamespaceHeader,
+												Value: serviceKey.Namespace,
+											},
+										},
+									},
+								},
+							},
+							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+								{
+									BackendRef: gatewayapiv1.BackendRef{
+										BackendObjectReference: gatewayapiv1.BackendObjectReference{
+											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
+											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
+											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
+											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+										},
+										Weight: utils.ToPointer(int32(1)),
+									},
+								},
+							},
+						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
 						},
 					},
 				},
 			}
+			Expect(actualPredictorHttpRoute.Spec).To(BeComparableTo(expectedPredictorHttpRoute.Spec))
+
+			actualExplainerHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: explainerServiceKey.Name,
+					Namespace: serviceKey.Namespace}, actualExplainerHttpRoute)
+			}, timeout).
+				Should(Succeed())
+			explainerHost := fmt.Sprintf("%s-%s.%s", explainerServiceKey.Name, serviceKey.Namespace, "example.com")
+			expectedExplainerHttpRoute := gatewayapiv1.HTTPRoute{
+				Spec: gatewayapiv1.HTTPRouteSpec{
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(explainerHost)},
+					Rules: []gatewayapiv1.HTTPRouteRule{
+						{
+							Matches: []gatewayapiv1.HTTPRouteMatch{
+								{
+									Path: &gatewayapiv1.HTTPPathMatch{
+										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
+										Value: utils.ToPointer(constants.FallbackPrefix()),
+									},
+									Headers: []gatewayapiv1.HTTPHeaderMatch{
+										{
+											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
+											Name:  gatewayapiv1.HTTPHeaderName("Host"),
+											Value: constants.HostRegExp(explainerHost),
+										},
+									},
+								},
+							},
+							Filters: []gatewayapiv1.HTTPRouteFilter{
+								{
+									Type: gatewayapiv1.HTTPRouteFilterRequestHeaderModifier,
+									RequestHeaderModifier: &gatewayapiv1.HTTPHeaderFilter{
+										Set: []gatewayapiv1.HTTPHeader{
+											{
+												Name:  constants.IsvcNameHeader,
+												Value: serviceKey.Name,
+											},
+											{
+												Name:  constants.IsvcNamespaceHeader,
+												Value: serviceKey.Namespace,
+											},
+										},
+									},
+								},
+							},
+							BackendRefs: []gatewayapiv1.HTTPBackendRef{
+								{
+									BackendRef: gatewayapiv1.BackendRef{
+										BackendObjectReference: gatewayapiv1.BackendObjectReference{
+											Group:     (*gatewayapiv1.Group)(utils.ToPointer("")),
+											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
+											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer(serviceKey.Namespace)),
+											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+										},
+										Weight: utils.ToPointer(int32(1)),
+									},
+								},
+							},
+						},
+					},
+					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
+						ParentRefs: []gatewayapiv1.ParentReference{
+							{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+						},
+					},
+				},
+			}
+			Expect(actualExplainerHttpRoute.Spec).To(BeComparableTo(expectedExplainerHttpRoute.Spec))
 
 			// Mark the Ingress as accepted to make isvc ready
-			Expect(k8sClient.Status().Update(context.Background(), actualIngress)).NotTo(HaveOccurred())
+			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
+				RouteStatus: gatewayapiv1.RouteStatus{
+					Parents: []gatewayapiv1.RouteParentStatus{
+						{
+							ParentRef: gatewayapiv1.ParentReference{
+								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
+								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
+								Namespace: utils.ToPointer(gatewayapiv1.Namespace(kserveGateway.Namespace)),
+							},
+							ControllerName: "istio.io/gateway-controller",
+							Conditions: []metav1.Condition{
+								{
+									Type:               string(gatewayapiv1.ListenerConditionAccepted),
+									Status:             metav1.ConditionTrue,
+									Reason:             "Accepted",
+									Message:            "Route was valid",
+									LastTransitionTime: metav1.Now(),
+								},
+							},
+						},
+					},
+				},
+			}
+			actualPredictorHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualPredictorHttpRoute)).NotTo(HaveOccurred())
+			actualExplainerHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualExplainerHttpRoute)).NotTo(HaveOccurred())
+			actualToplevelHttpRoute.Status = httpRouteStatus
+			Expect(k8sClient.Status().Update(context.Background(), actualToplevelHttpRoute)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -6550,7 +7018,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return err.Error()
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, 20*time.Second).Should(gomega.BeEmpty())
+			}, timeout).Should(BeEmpty())
 
 			//check predictor HPA
 			var cpuUtilization int32 = 75

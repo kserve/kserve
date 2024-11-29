@@ -765,17 +765,19 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 			return err
 		}
 		if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
+			log.Info("Predictor HTTPRoute not ready", "reason", *reason, "message", *message)
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 				Type:    v1beta1.IngressReady,
 				Status:  corev1.ConditionFalse,
 				Reason:  *reason,
-				Message: *message,
+				Message: fmt.Sprintf("%s %s", "Predictor", *message),
 			})
 			return nil
 		}
+		log.Info("Predictor HTTPRoute is ready")
 		// Check Transformer HTTPRoute stauts
 		if isvc.Spec.Transformer != nil {
-			httpRoute := &gatewayapiv1.HTTPRoute{}
+			httpRoute = &gatewayapiv1.HTTPRoute{}
 			if err := r.client.Get(ctx, types.NamespacedName{
 				Name:      constants.TransformerServiceName(isvc.Name),
 				Namespace: isvc.Namespace}, httpRoute); err != nil {
@@ -786,7 +788,7 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 					Type:    v1beta1.IngressReady,
 					Status:  corev1.ConditionFalse,
 					Reason:  *reason,
-					Message: *message,
+					Message: fmt.Sprintf("%s %s", "Transformer", *message),
 				})
 				return nil
 			}
@@ -804,7 +806,7 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 					Type:    v1beta1.IngressReady,
 					Status:  corev1.ConditionFalse,
 					Reason:  *reason,
-					Message: *message,
+					Message: fmt.Sprintf("%s %s", "Explainer", *message),
 				})
 				return nil
 			}
@@ -817,14 +819,16 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 			return err
 		}
 		if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
+			log.Info("Top level HTTPRoute not ready", "reason", *reason, "message", *message)
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 				Type:    v1beta1.IngressReady,
 				Status:  corev1.ConditionFalse,
 				Reason:  *reason,
-				Message: *message,
+				Message: fmt.Sprintf("%s %s", "TopLevel", *message),
 			})
 			return nil
 		}
+		log.Info("Top level HTTPRoute is ready")
 		// If we are here, then all the HTTPRoutes are ready, Mark ingress as ready
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 			Type:   v1beta1.IngressReady,
