@@ -52,8 +52,11 @@ from kserve.protocol.rest.openai.types.openapi import (
     ChatCompletionTool,
 )
 from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
-from kserve.protocol.rest.openai.openai_model import CreateCompletionRequest
-from kserve.protocol.rest.openai import ChatCompletionRequestMessage, CompletionRequest
+from kserve.protocol.rest.openai import (
+    ChatCompletionRequestMessage,
+    CompletionRequest,
+    CreateCompletionRequest,
+)
 
 
 def to_sampling_params(request: CreateCompletionRequest, default_max_tokens: int):

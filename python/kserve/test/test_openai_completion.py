@@ -25,13 +25,14 @@ from kserve.protocol.rest.openai import (
     ChatPrompt,
     CompletionRequest,
     ChatCompletionRequest,
+    CreateCompletionRequest,
+    CreateChatCompletionRequest,
     OpenAIChatAdapterModel,
     OpenAIProxyModel,
 )
 from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai.types.openapi import (
     ChatCompletionTool,
-    CreateChatCompletionRequest,
     Error,
     ErrorResponse,
 )
@@ -41,7 +42,6 @@ from kserve.protocol.rest.openai.types.openapi import (
 from kserve.protocol.rest.openai.types.openapi import (
     CreateChatCompletionStreamResponse as ChatCompletionChunk,
 )
-from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
 from kserve.protocol.rest.openai.types.openapi import (
     CreateCompletionResponse as Completion,
 )

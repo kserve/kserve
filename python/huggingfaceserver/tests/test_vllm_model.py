@@ -30,8 +30,6 @@ from kserve.protocol.rest.openai import (
 )
 from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai.types import (
-    CreateChatCompletionRequest,
-    CreateCompletionRequest,
     ChatCompletionChoice,
     CompletionUsage,
     ChatCompletionResponseMessage,
@@ -46,6 +44,10 @@ from kserve.protocol.rest.openai.types.openapi import (
     CreateCompletionResponse,
     Choice,
     ChatCompletionTool,
+)
+from kserve.protocol.rest.openai import (
+    CreateChatCompletionRequest,
+    CreateCompletionRequest,
 )
 from vllm_mock_outputs import (
     opt_chat_cmpl_chunks,
