@@ -174,7 +174,7 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_scale_raw(rest_v1_client):
+async def test_sklearn_scale_raw(rest_v1_client, network_layer):
     service_name = "isvc-sklearn-scale-raw"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -216,7 +216,9 @@ async def test_sklearn_scale_raw(rest_v1_client):
     )
 
     assert hpa_resp["items"][0]["spec"]["targetCPUUtilizationPercentage"] == 50
-    res = await predict_isvc(rest_v1_client, service_name, INPUT, is_raw=True)
+    res = await predict_isvc(
+        rest_v1_client, service_name, INPUT, network_layer=network_layer
+    )
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
