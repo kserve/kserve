@@ -3085,6 +3085,9 @@
         "domainTemplate": {
           "type": "string"
         },
+        "enableGatewayApi": {
+          "type": "boolean"
+        },
         "ingressClassName": {
           "type": "string"
         },
