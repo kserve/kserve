@@ -5533,6 +5533,12 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"enableGatewayApi": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 					"kserveIngressGateway": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
