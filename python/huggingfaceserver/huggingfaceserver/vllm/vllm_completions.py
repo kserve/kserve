@@ -33,7 +33,7 @@ from vllm.entrypoints.logger import RequestLogger
 from vllm.inputs.parse import parse_and_batch_prompt
 from vllm.lora.request import LoRARequest
 from vllm.prompt_adapter.request import PromptAdapterRequest
-from vllm.sampling_params import SamplingParams
+from vllm.sampling_params import SamplingParams, GuidedDecodingParams
 from vllm.utils import random_uuid
 
 from vllm.outputs import RequestOutput
@@ -47,12 +47,12 @@ from vllm.sequence import Logprob
 from kserve.protocol.rest.openai.types.openapi import (
     Choice as CompletionChoice,
     CompletionUsage,
-    CreateCompletionRequest,
     CreateCompletionResponse as Completion,
     Logprobs,
     ChatCompletionTool,
 )
 from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
+from kserve.protocol.rest.openai.openai_model import CreateCompletionRequest
 from kserve.protocol.rest.openai import ChatCompletionRequestMessage, CompletionRequest
 
 
@@ -77,6 +77,16 @@ def to_sampling_params(request: CreateCompletionRequest, default_max_tokens: int
 
         logits_processors = [logit_bias_logits_processor]
 
+    # vllm API extra guided params: https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html#extra-parameters-for-completions-api
+    guided_decoding = GuidedDecodingParams(
+        json=request.guided_json,
+        regex=request.guided_regex,
+        choice=request.guided_choice,
+        grammar=request.guided_grammar,
+        backend=request.guided_decoding_backend,
+        whitespace_pattern=request.guided_whitespace_pattern,
+    )
+
     return SamplingParams(
         n=request.n,
         best_of=request.best_of,
@@ -90,6 +100,8 @@ def to_sampling_params(request: CreateCompletionRequest, default_max_tokens: int
         max_tokens=max_tokens if not echo_without_generation else 1,
         logits_processors=logits_processors,
         prompt_logprobs=request.logprobs if request.echo else None,
+        # https://github.com/vllm-project/vllm/blob/772a66732d0ff58a43dbd1ae79c0d165659aa96d/tests/entrypoints/llm/test_guided_generate.py#L80
+        guided_decoding=guided_decoding,
     )
 
 
