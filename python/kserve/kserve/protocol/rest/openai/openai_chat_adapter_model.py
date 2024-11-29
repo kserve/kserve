@@ -28,8 +28,6 @@ from kserve.protocol.rest.openai.types import (
     ChunkChoice,
     Completion,
     CompletionChoice,
-    CreateChatCompletionRequest,
-    CreateCompletionRequest,
     Logprobs,
     TopLogprob,
 )
@@ -40,6 +38,8 @@ from .openai_model import (
     ChatPrompt,
     CompletionRequest,
     ChatCompletionRequest,
+    CreateCompletionRequest,
+    CreateChatCompletionRequest,
     AsyncMappingIterator,
 )
 
@@ -84,6 +84,12 @@ class OpenAIChatAdapterModel(OpenAICompletionModel):
             top_p=params.top_p,
             user=params.user,
             logprobs=params.top_logprobs,
+            guided_json=params.guided_json,
+            guided_regex=params.guided_regex,
+            guided_choice=params.guided_choice,
+            guided_grammar=params.guided_grammar,
+            guided_decoding_backend=params.guided_decoding_backend,
+            guided_whitespace_pattern=params.guided_whitespace_pattern,
         )
 
     @classmethod
