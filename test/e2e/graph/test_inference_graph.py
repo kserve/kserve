@@ -924,7 +924,7 @@ async def test_ig_scenario10(rest_v1_client):
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_inference_graph_raw_mode(rest_v1_client):
+async def test_inference_graph_raw_mode(rest_v1_client, network_layer):
     logger.info("Starting test test_inference_graph_raw_mode")
     sklearn_name = "isvc-sklearn-graph-raw"
     xgb_name = "isvc-xgboost-graph-raw"
@@ -1068,7 +1068,7 @@ async def test_inference_graph_raw_mode(rest_v1_client):
     #    rest_v1_client,
     #     graph_name,
     #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
-    #     is_raw=True,
+    #     network_layer=network_layer,
     # )
     # assert res["predictions"] == [1, 1]
 
@@ -1079,7 +1079,7 @@ async def test_inference_graph_raw_mode(rest_v1_client):
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_inference_graph_raw_mode_with_hpa(rest_v1_client):
+async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer):
     logger.info("Starting test test_inference_graph_raw_mode_with_hpa")
     sklearn_name = "isvc-sklearn-graph-raw-hpa"
     xgb_name = "isvc-xgboost-graph-raw-hpa"
@@ -1232,7 +1232,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client):
     #     rest_v1_client,
     #     graph_name,
     #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
-    #     is_raw=True,
+    #     network_layer=network_layer,
     # )
     # assert res["predictions"] == [1, 1]
 
