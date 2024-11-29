@@ -108,7 +108,7 @@ async def test_tabular_explainer(rest_v1_client):
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_raw_tabular_explainer(rest_v1_client):
+async def test_raw_tabular_explainer(rest_v1_client, network_layer):
     service_name = "art-explainer-raw"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -167,12 +167,18 @@ async def test_raw_tabular_explainer(rest_v1_client):
         raise e
 
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/mnist_input_bw_flat.json", is_raw=True
+        rest_v1_client,
+        service_name,
+        "./data/mnist_input_bw_flat.json",
+        network_layer=network_layer,
     )
     assert res["predictions"] == [3]
 
     adv_prediction = await explain_art(
-        rest_v1_client, service_name, "./data/mnist_input_bw.json", is_raw=True
+        rest_v1_client,
+        service_name,
+        "./data/mnist_input_bw.json",
+        network_layer=network_layer,
     )
     assert adv_prediction != 3
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

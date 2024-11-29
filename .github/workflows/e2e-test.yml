@@ -598,7 +598,7 @@ jobs:
 
       - name: Patch inferenceservice config
         run: |
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-ingress.yaml
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-path-template.yaml
           kubectl describe configmaps -n kserve inferenceservice-config
 
       - name: Run E2E tests with path-based routing
@@ -729,6 +729,9 @@ jobs:
 
   test-raw:
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        network-layer: ["istio", "envoy"] # Test with Ingress and Gateway API
     needs:
       [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
@@ -742,6 +745,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.22"
+      
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -754,7 +758,7 @@ jobs:
         uses: ./.github/actions/kserve-dep-setup
         with:
           deployment-mode: "raw"
-          network-layer: "envoy"
+          network-layer: ${{ matrix.network-layer }}
 
       - name: Download base images
         uses: ./.github/actions/base-download
@@ -794,7 +798,7 @@ jobs:
 
       - name: Install KServe
         run: |
-          ./test/scripts/gh-actions/setup-kserve.sh "raw"
+          ./test/scripts/gh-actions/setup-kserve.sh "raw" ${{ matrix.network-layer }}
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
@@ -803,22 +807,26 @@ jobs:
         run: |
           kubectl describe configmaps -n kserve inferenceservice-config
 
+      - name: Enable Gateway API
+        if: ${{ matrix.network-layer }} == 'envoy'
+        run: |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-gateway-api.yaml
+
       - name: Run E2E tests
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
       
       - name: Patch inferenceservice config for path based routing
         run: |
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-ingress.yaml
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-path-template.yaml
           kubectl describe configmaps -n kserve inferenceservice-config
       
       - name: Run E2E tests with path based routing
+        if: ${{ matrix.network-layer }} == 'envoy'
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6"
-
-  
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
 
       - name: Patch inferenceservice config for cluster ip none
         run: |

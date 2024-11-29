@@ -31,7 +31,7 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_batcher_raw(rest_v1_client):
+async def test_batcher_raw(rest_v1_client, network_layer):
     service_name = "isvc-raw-sklearn-batcher"
 
     annotations = dict()
@@ -87,7 +87,7 @@ async def test_batcher_raw(rest_v1_client):
         service_name,
         "./data/iris_batch_input.json",
         is_batch=True,
-        is_raw=True,
+        network_layer=network_layer,
     )
     assert all(x == results[0] for x in results)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

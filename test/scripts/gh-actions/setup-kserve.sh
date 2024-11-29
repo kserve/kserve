@@ -16,12 +16,13 @@
 
 # The script will install KServe dependencies in the GH Actions environment.
 # (Istio, Knative, cert-manager, kustomize, yq)
-# Usage: setup-kserve.sh $DEPLOYMENT_MODE
+# Usage: setup-kserve.sh $DEPLOYMENT_MODE $NETWORK_LAYER
 
 set -o errexit
 set -o nounset
 set -o pipefail
 DEPLOYMENT_MODE="${1:-'serverless'}"
+NETWORK_LAYER="${2:-'istio'}"
 
 make deploy-ci
 
@@ -30,8 +31,10 @@ if [[ $DEPLOYMENT_MODE == "raw" ]];then
   echo "Patching default deployment mode to raw deployment"
   kubectl patch cm -n kserve inferenceservice-config --patch='{"data": {"deploy": "{\"defaultDeploymentMode\": \"RawDeployment\"}"}}'
 
-  echo "Waiting for envoy gateway to be ready ..."
-  kubectl wait --timeout=5m -n envoy-gateway-system pod -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gateway --for=condition=Ready
+  if [[ $NETWORK_LAYER == "envoy" ]]; then
+    echo "Waiting for envoy gateway to be ready ..."
+    kubectl wait --timeout=5m -n envoy-gateway-system pod -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gateway --for=condition=Ready
+  fi
 fi
 shopt -u nocasematch
 
