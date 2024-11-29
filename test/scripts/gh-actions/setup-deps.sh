@@ -16,6 +16,7 @@
 
 # The script will install KServe dependencies in the GH Actions environment.
 # (Istio, Knative, cert-manager, kustomize, yq)
+# Usage: setup-deps.sh $DEPLOYMENT_MODE $NETWORK_LAYER
 
 set -o errexit
 set -o nounset
@@ -23,6 +24,7 @@ set -o pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
 DEPLOYMENT_MODE="${1:-'serverless'}"
+NETWORK_LAYER="${2:-'istio'}"
 
 ISTIO_VERSION="1.20.4"
 CERT_MANAGER_VERSION="v1.15.1"
@@ -36,10 +38,31 @@ wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_am
 echo "Installing Gateway CRDs ..."
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 
-shopt -s nocasematch
-if [[ $DEPLOYMENT_MODE == "raw" ]]; then
-  # Raw mode
+if [[ $NETWORK_LAYER == "istio" ]]; then
+  echo "Installing Istio ..."
+  mkdir istio_tmp
+  pushd istio_tmp >/dev/null
+  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
+  cd istio-${ISTIO_VERSION}
+  export PATH=$PWD/bin:$PATH
+  istioctl manifest generate --set meshConfig.accessLogFile=/dev/stdout >${SCRIPT_DIR}/../../overlays/istio/generated-manifest.yaml
+  popd
+  kubectl create ns istio-system
+  for i in 1 2 3; do kubectl apply -k test/overlays/istio && break || sleep 15; done
 
+  echo "Creating istio ingress class"
+  cat <<EOF | kubectl apply -f -
+  apiVersion: networking.k8s.io/v1
+  kind: IngressClass
+  metadata:
+    name: istio
+  spec:
+    controller: istio.io/ingress-controller
+EOF
+
+  echo "Waiting for Istio to be ready ..."
+  kubectl wait --for=condition=Ready pods --all --timeout=240s -n istio-system
+elif [[ $NETWORK_LAYER == "envoy" ]]; then
   echo "Installing Envoy Gateway ..."
   helm install eg oci://docker.io/envoyproxy/gateway-helm --version ${ENVOY_GATEWAY_VERSION} -n envoy-gateway-system --create-namespace --wait
   kubectl wait --timeout=5m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
@@ -53,22 +76,11 @@ if [[ $DEPLOYMENT_MODE == "raw" ]]; then
   spec:
     controllerName: gateway.envoyproxy.io/gatewayclass-controller  
 EOF
-else
+fi
+
+shopt -s nocasematch
+if [[ $DEPLOYMENT_MODE == "serverless" ]]; then
   # Serverless mode
-  echo "Installing Istio ..."
-  mkdir istio_tmp
-  pushd istio_tmp >/dev/null
-  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
-  cd istio-${ISTIO_VERSION}
-  export PATH=$PWD/bin:$PATH
-  istioctl manifest generate --set meshConfig.accessLogFile=/dev/stdout >${SCRIPT_DIR}/../../overlays/istio/generated-manifest.yaml
-  popd
-  kubectl create ns istio-system
-  for i in 1 2 3; do kubectl apply -k test/overlays/istio && break || sleep 15; done
-
-  echo "Waiting for Istio to be ready ..."
-  kubectl wait --for=condition=Ready pods --all --timeout=240s -n istio-system
-
   source ./test/scripts/gh-actions/install-knative-operator.sh
   echo "Installing Knative serving ..."
   kubectl apply -f ./test/overlays/knative/knative-serving-istio.yaml
