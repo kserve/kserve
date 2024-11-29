@@ -23,6 +23,7 @@ from kserve.protocol.rest.openai.types import (
     ChatCompletionRequestMessage,
     ChatCompletionResponseMessage,
     ChatCompletionTokenLogprob,
+    ChatCompletionTool,
     ChoiceDelta,
     ChunkChoice,
     Completion,
@@ -56,6 +57,7 @@ class OpenAIChatAdapterModel(OpenAICompletionModel):
         self,
         messages: Iterable[ChatCompletionRequestMessage],
         chat_template: Optional[str] = None,
+        tools: Optional[list[ChatCompletionTool]] = None,
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
