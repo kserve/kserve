@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodegroups,verbs=get;list
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterstoragecontainers,verbs=get;list
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterstoragecontainers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
@@ -248,7 +248,7 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.Local
 	}
 	for _, entry := range entries {
 		// Models could only exist in sub dir
-		if entry.IsDir() && entry.Name()[0] != '.' {
+		if entry.IsDir() {
 			foldersToRemove[entry.Name()] = struct{}{}
 		}
 	}
