@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 **disable_ingress_creation** | **bool** |  | [optional] 
 **disable_istio_virtual_host** | **bool** |  | [optional] 
 **domain_template** | **str** |  | [optional] 
+**enable_gateway_api** | **bool** |  | [optional] 
 **ingress_class_name** | **str** |  | [optional] 
 **ingress_domain** | **str** |  | [optional] 
 **ingress_gateway** | **str** |  | [optional] 
