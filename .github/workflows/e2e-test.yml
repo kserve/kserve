@@ -808,7 +808,7 @@ jobs:
           kubectl describe configmaps -n kserve inferenceservice-config
 
       - name: Enable Gateway API
-        if: ${{ matrix.network-layer }} == 'envoy'
+        if: matrix.network-layer == 'envoy'
         run: |
           kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-gateway-api.yaml
 
@@ -823,7 +823,7 @@ jobs:
           kubectl describe configmaps -n kserve inferenceservice-config
       
       - name: Run E2E tests with path based routing
-        if: ${{ matrix.network-layer }} == 'envoy'
+        if: matrix.network-layer == 'envoy'
         timeout-minutes: 30
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
