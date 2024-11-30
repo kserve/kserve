@@ -193,6 +193,12 @@ func createHTTPRouteRule(routeMatches []gatewayapiv1.HTTPRouteMatch, filters []g
 		Matches:     routeMatches,
 		Filters:     filters,
 		BackendRefs: backendRefs,
+		// TODO: What should be the default timeout? Should it be disabled ?
+		// The default value is implementation specific. For example, Envoy has a default timeout of 15s which
+		// makes some of our tests flaky. We should set a default value that is reasonable for most use cases.
+		Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+			Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+		},
 	}
 }
 

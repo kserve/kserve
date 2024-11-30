@@ -610,6 +610,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									},
 								},
 							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+							},
 						},
 					},
 					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
@@ -754,6 +757,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 										},
 									},
 								},
+							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
 							},
 						},
 					},
@@ -905,6 +911,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									},
 								},
 							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+							},
 						},
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -963,6 +972,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 										},
 									},
 								},
+							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
 							},
 						},
 					},
@@ -1115,6 +1127,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									},
 								},
 							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+							},
 						},
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -1174,6 +1189,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									},
 								},
 							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+							},
 						},
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -1220,6 +1238,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									},
 								},
 							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+							},
 						},
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -1265,6 +1286,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 										},
 									},
 								},
+							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
 							},
 						},
 					},
@@ -1382,6 +1406,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									},
 								},
 							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+							},
 						},
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -1427,6 +1454,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 										},
 									},
 								},
+							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
 							},
 						},
 					},
@@ -1537,6 +1567,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 										},
 									},
 								},
+							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
 							},
 						},
 					},
@@ -1672,6 +1705,9 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 									},
 								},
 							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+							},
 						},
 					},
 					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
@@ -1796,6 +1832,9 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 										},
 									},
 								},
+							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
 							},
 						},
 					},
@@ -1932,6 +1971,9 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 									},
 								},
 							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+							},
 						},
 					},
 					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
@@ -2059,6 +2101,9 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 									},
 								},
 							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+							},
 						},
 					},
 					CommonRouteSpec: gatewayapiv1.CommonRouteSpec{
@@ -2103,6 +2148,7 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 		})
 	}
 }
+
 func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 	format.MaxLength = 0
 	g := NewGomegaWithT(t)
@@ -2192,6 +2238,9 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 										},
 									},
 								},
+							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
 							},
 						},
 					},
@@ -2319,6 +2368,9 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 										},
 									},
 								},
+							},
+							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
 							},
 						},
 					},
