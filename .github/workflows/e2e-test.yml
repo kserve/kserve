@@ -720,6 +720,7 @@ jobs:
   test-raw:
     runs-on: ubuntu-22.04
     strategy:
+      fail-fast: false
       matrix:
         network-layer: ["istio", "envoy"] # Test with Ingress and Gateway API
     needs:
@@ -804,6 +805,7 @@ jobs:
           ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
       
       - name: Patch inferenceservice config for path based routing
+        if: matrix.network-layer == 'envoy'
         run: |
           kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-path-template.yaml
           kubectl describe configmaps -n kserve inferenceservice-config
