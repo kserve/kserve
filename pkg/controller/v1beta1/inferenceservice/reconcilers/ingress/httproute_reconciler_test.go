@@ -172,145 +172,14 @@ func TestCreateHTTPRouteMatch(t *testing.T) {
 	g := NewGomegaWithT(t)
 	testCases := map[string]struct {
 		prefix             string
-		targetHosts        []string
-		internalHosts      []string
-		additionalHosts    *[]string
-		expectedHTTPRoutes []gatewayapiv1.HTTPRouteMatch
+		expectedHTTPRoutes gatewayapiv1.HTTPRouteMatch
 	}{
 		"basic case": {
-			prefix:          "^.*$",
-			targetHosts:     []string{"example.com"},
-			internalHosts:   []string{"internal.example.com"},
-			additionalHosts: &[]string{"additional.example.com"},
-			expectedHTTPRoutes: []gatewayapiv1.HTTPRouteMatch{
-				{
-					Path: &gatewayapiv1.HTTPPathMatch{
-						Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-						Value: utils.ToPointer("^.*$"),
-					},
-					Headers: []gatewayapiv1.HTTPHeaderMatch{
-						{
-							Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-							Name:  gatewayapiv1.HTTPHeaderName("Host"),
-							Value: constants.HostRegExp("internal.example.com"),
-						},
-					},
-				},
-				{
-					Path: &gatewayapiv1.HTTPPathMatch{
-						Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-						Value: utils.ToPointer("^.*$"),
-					},
-					Headers: []gatewayapiv1.HTTPHeaderMatch{
-						{
-							Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-							Name:  gatewayapiv1.HTTPHeaderName("Host"),
-							Value: constants.HostRegExp("example.com"),
-						},
-					},
-				},
-				{
-					Path: &gatewayapiv1.HTTPPathMatch{
-						Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-						Value: utils.ToPointer("^.*$"),
-					},
-					Headers: []gatewayapiv1.HTTPHeaderMatch{
-						{
-							Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-							Name:  gatewayapiv1.HTTPHeaderName("Host"),
-							Value: constants.HostRegExp("additional.example.com"),
-						},
-					},
-				},
-			},
-		},
-		"no additional hosts": {
-			prefix:          "^.*$",
-			targetHosts:     []string{"example.com"},
-			internalHosts:   []string{"internal.example.com"},
-			additionalHosts: nil,
-			expectedHTTPRoutes: []gatewayapiv1.HTTPRouteMatch{
-				{
-					Path: &gatewayapiv1.HTTPPathMatch{
-						Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-						Value: utils.ToPointer("^.*$"),
-					},
-					Headers: []gatewayapiv1.HTTPHeaderMatch{
-						{
-							Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-							Name:  gatewayapiv1.HTTPHeaderName("Host"),
-							Value: constants.HostRegExp("internal.example.com"),
-						},
-					},
-				},
-				{
-					Path: &gatewayapiv1.HTTPPathMatch{
-						Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-						Value: utils.ToPointer("^.*$"),
-					},
-					Headers: []gatewayapiv1.HTTPHeaderMatch{
-						{
-							Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-							Name:  gatewayapiv1.HTTPHeaderName("Host"),
-							Value: constants.HostRegExp("example.com"),
-						},
-					},
-				},
-			},
-		},
-		"no internal hosts": {
-			prefix:          "^.*$",
-			targetHosts:     []string{"example.com"},
-			internalHosts:   nil,
-			additionalHosts: nil,
-			expectedHTTPRoutes: []gatewayapiv1.HTTPRouteMatch{
-				{
-					Path: &gatewayapiv1.HTTPPathMatch{
-						Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-						Value: utils.ToPointer("^.*$"),
-					},
-					Headers: []gatewayapiv1.HTTPHeaderMatch{
-						{
-							Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-							Name:  gatewayapiv1.HTTPHeaderName("Host"),
-							Value: constants.HostRegExp("example.com"),
-						},
-					},
-				},
-			},
-		},
-		"empty prefix": {
-			prefix:          "",
-			targetHosts:     []string{"example.com"},
-			internalHosts:   []string{"internal.example.com"},
-			additionalHosts: &[]string{"additional.example.com"},
-			expectedHTTPRoutes: []gatewayapiv1.HTTPRouteMatch{
-				{
-					Headers: []gatewayapiv1.HTTPHeaderMatch{
-						{
-							Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-							Name:  gatewayapiv1.HTTPHeaderName("Host"),
-							Value: constants.HostRegExp("internal.example.com"),
-						},
-					},
-				},
-				{
-					Headers: []gatewayapiv1.HTTPHeaderMatch{
-						{
-							Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-							Name:  gatewayapiv1.HTTPHeaderName("Host"),
-							Value: constants.HostRegExp("example.com"),
-						},
-					},
-				},
-				{
-					Headers: []gatewayapiv1.HTTPHeaderMatch{
-						{
-							Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-							Name:  gatewayapiv1.HTTPHeaderName("Host"),
-							Value: constants.HostRegExp("additional.example.com"),
-						},
-					},
+			prefix: "^.*$",
+			expectedHTTPRoutes: gatewayapiv1.HTTPRouteMatch{
+				Path: &gatewayapiv1.HTTPPathMatch{
+					Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
+					Value: utils.ToPointer("^.*$"),
 				},
 			},
 		},
@@ -318,7 +187,7 @@ func TestCreateHTTPRouteMatch(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			matches := createHTTPRouteMatch(tc.prefix, tc.targetHosts, tc.internalHosts, tc.additionalHosts, false)
+			matches := createHTTPRouteMatch(tc.prefix)
 			g.Expect(matches).To(BeComparableTo(tc.expectedHTTPRoutes))
 		})
 	}
@@ -559,26 +428,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("^/.*$"),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-default.example.com"),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -706,26 +555,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-default.example.com"),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
 									},
 								},
 							},
@@ -860,26 +689,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.ExplainPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-default.example.com"),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.ExplainPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -921,26 +730,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-default.example.com"),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
 									},
 								},
 							},
@@ -1076,26 +865,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.ExplainPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-default.example.com"),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.ExplainPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -1137,26 +906,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-default.example.com"),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
 									},
 								},
 							},
@@ -1200,13 +949,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("/serving/default/test-isvc" + constants.PathBasedExplainPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -1248,13 +990,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("/serving/default/test-isvc/"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("example.com"),
-										},
 									},
 								},
 							},
@@ -1355,26 +1090,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("^/.*$"),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-default.example.com"),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -1416,13 +1131,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("/serving/default/test-isvc/"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("example.com"),
-										},
 									},
 								},
 							},
@@ -1516,26 +1224,6 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-default-default.example.com"),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
 									},
 								},
 							},
@@ -1667,13 +1355,6 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("^/.*$"),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-predictor-default.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -1794,13 +1475,6 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-default-predictor-default-default.example.com"),
-										},
 									},
 								},
 							},
@@ -1933,13 +1607,6 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("^/.*$"),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-transformer-default.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -2062,13 +1729,6 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-default-transformer-default-default.example.com"),
-										},
 									},
 								},
 							},
@@ -2201,13 +1861,6 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("^/.*$"),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-explainer-default.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -2330,13 +1983,6 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer("^/.*$"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("test-isvc-default-explainer-default-default.example.com"),
-										},
 									},
 								},
 							},
