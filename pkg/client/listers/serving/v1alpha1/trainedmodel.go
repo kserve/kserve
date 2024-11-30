@@ -20,8 +20,8 @@ package v1alpha1
 
 import (
 	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,25 +38,17 @@ type TrainedModelLister interface {
 
 // trainedModelLister implements the TrainedModelLister interface.
 type trainedModelLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1alpha1.TrainedModel]
 }
 
 // NewTrainedModelLister returns a new TrainedModelLister.
 func NewTrainedModelLister(indexer cache.Indexer) TrainedModelLister {
-	return &trainedModelLister{indexer: indexer}
-}
-
-// List lists all TrainedModels in the indexer.
-func (s *trainedModelLister) List(selector labels.Selector) (ret []*v1alpha1.TrainedModel, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.TrainedModel))
-	})
-	return ret, err
+	return &trainedModelLister{listers.New[*v1alpha1.TrainedModel](indexer, v1alpha1.Resource("trainedmodel"))}
 }
 
 // TrainedModels returns an object that can list and get TrainedModels.
 func (s *trainedModelLister) TrainedModels(namespace string) TrainedModelNamespaceLister {
-	return trainedModelNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return trainedModelNamespaceLister{listers.NewNamespaced[*v1alpha1.TrainedModel](s.ResourceIndexer, namespace)}
 }
 
 // TrainedModelNamespaceLister helps list and get TrainedModels.
@@ -74,26 +66,5 @@ type TrainedModelNamespaceLister interface {
 // trainedModelNamespaceLister implements the TrainedModelNamespaceLister
 // interface.
 type trainedModelNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all TrainedModels in the indexer for a given namespace.
-func (s trainedModelNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.TrainedModel, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.TrainedModel))
-	})
-	return ret, err
-}
-
-// Get retrieves the TrainedModel from the indexer for a given namespace and name.
-func (s trainedModelNamespaceLister) Get(name string) (*v1alpha1.TrainedModel, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("trainedmodel"), name)
-	}
-	return obj.(*v1alpha1.TrainedModel), nil
+	listers.ResourceIndexer[*v1alpha1.TrainedModel]
 }
