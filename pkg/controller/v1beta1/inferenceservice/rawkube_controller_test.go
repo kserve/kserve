@@ -357,26 +357,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -445,13 +425,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(predictorHost),
-										},
 									},
 								},
 							},
@@ -914,26 +887,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -1003,13 +956,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(predictorHost),
-										},
 									},
 								},
 							},
@@ -1463,26 +1409,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -1552,13 +1478,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(predictorHost),
-										},
 									},
 								},
 							},
@@ -2378,26 +2297,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -2467,13 +2366,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(predictorHost),
-										},
 									},
 								},
 							},
@@ -3134,26 +3026,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -3224,13 +3096,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(predictorHost),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -3300,13 +3165,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(transformerHost),
-										},
 									},
 								},
 							},
@@ -4024,7 +3882,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedExplainerDeployment)).NotTo(HaveOccurred())
 
-			//check httproute
+			//check http route
 			actualToplevelHttpRoute := &gatewayapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
@@ -4042,26 +3900,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.ExplainPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.ExplainPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
 									},
 								},
 							},
@@ -4106,26 +3944,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
 									},
 								},
 							},
@@ -4197,13 +4015,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(predictorHost),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -4273,13 +4084,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(explainerHost),
-										},
 									},
 								},
 							},
@@ -4845,26 +4649,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -4908,13 +4692,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(prefixUrlPath + "/"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("example.com"),
-										},
 									},
 								},
 							},
@@ -4985,13 +4762,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(predictorHost),
-										},
 									},
 								},
 							},
@@ -5657,26 +5427,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -5720,13 +5470,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(prefixUrlPath + "/"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("example.com"),
-										},
 									},
 								},
 							},
@@ -5798,13 +5541,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(predictorHost),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -5874,13 +5610,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(transformerHost),
-										},
 									},
 								},
 							},
@@ -6620,26 +6349,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.ExplainPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.ExplainPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -6683,26 +6392,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(topLevelHost),
-										},
-									},
-								},
-								{
-									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("additional.example.com"),
-										},
 									},
 								},
 							},
@@ -6748,13 +6437,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(prefixUrlPath + constants.PathBasedExplainPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("example.com"),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -6798,13 +6480,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(prefixUrlPath + "/"),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp("example.com"),
-										},
 									},
 								},
 							},
@@ -6876,13 +6551,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
 									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(predictorHost),
-										},
-									},
 								},
 							},
 							Filters: []gatewayapiv1.HTTPRouteFilter{
@@ -6952,13 +6620,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Path: &gatewayapiv1.HTTPPathMatch{
 										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
 										Value: utils.ToPointer(constants.FallbackPrefix()),
-									},
-									Headers: []gatewayapiv1.HTTPHeaderMatch{
-										{
-											Type:  utils.ToPointer(gatewayapiv1.HeaderMatchRegularExpression),
-											Name:  gatewayapiv1.HTTPHeaderName("Host"),
-											Value: constants.HostRegExp(explainerHost),
-										},
 									},
 								},
 							},
