@@ -235,7 +235,7 @@ def get_cluster_ip(namespace="istio-system", labels: dict = None):
         api_instance = k8s_client.CoreV1Api(k8s_client.ApiClient())
         if labels is None:
             labels = {
-                "app.kubernetes.io/name": "istio-ingressgateway",
+                "app": "istio-ingressgateway",
                 "istio": "ingressgateway",
             }
         label_selector = ",".join([f"{key}={value}" for key, value in labels.items()])

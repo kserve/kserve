@@ -71,7 +71,6 @@ kubectl get pods -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gat
 kubectl get svc -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gateway -n envoy-gateway-system
 echo "::endgroup::"
 
-
 shopt -s nocasematch
 if [[ $# -eq 1 && "$1" == "kourier" ]]; then
   echo "::group::Kourier Gateway Pod logs"
