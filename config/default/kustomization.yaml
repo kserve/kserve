@@ -16,6 +16,7 @@ resources:
 - ../certmanager
 - ../localmodels
 - ../localmodelnodes
+- ../storagecontainers
 
 generatorOptions:
   disableNameSuffixHash: true
