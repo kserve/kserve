@@ -1,4 +1,4 @@
-name: Huggingface Docker Publisher
+name: Huggingface CPU Docker Publisher
 
 on:
   push:
@@ -40,7 +40,7 @@ jobs:
         with:
           platforms: linux/amd64
           context: python
-          file: python/huggingface_server.Dockerfile
+          file: python/huggingface_server_cpu_openvino.Dockerfile
           push: false
           # https://github.com/docker/buildx/issues/1533
           provenance: false
