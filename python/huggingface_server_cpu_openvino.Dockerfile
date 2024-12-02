@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=nvidia/cuda:12.4.1-devel-ubuntu22.04
+ARG BASE_IMAGE=ubuntu:22.04
 ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
@@ -45,7 +45,7 @@ RUN git clone --branch $VLLM_VERSION --depth 1 https://github.com/vllm-project/v
     pip install -r requirements-build.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
     PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu" VLLM_TARGET_DEVICE="openvino" python -m pip install -v .
 
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS prod
+FROM ubuntu:22.04 AS prod
 
 RUN apt-get update && apt-get upgrade -y && apt-get install python3.10-venv libnuma1 build-essential gcc python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -65,8 +65,6 @@ COPY --from=builder huggingfaceserver huggingfaceserver
 
 # Set a writable Hugging Face home folder to avoid permission issue. See https://github.com/kserve/kserve/issues/3562
 ENV HF_HOME="/tmp/huggingface"
-# https://huggingface.co/docs/safetensors/en/speed#gpu-benchmark
-ENV SAFETENSORS_FAST_GPU="1"
 # https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables#hfhubdisabletelemetry
 ENV HF_HUB_DISABLE_TELEMETRY="1"
 # NCCL Lib path for vLLM. https://github.com/vllm-project/vllm/blob/ec784b2526219cd96159a52074ab8cd4e684410a/vllm/utils.py#L598-L602
