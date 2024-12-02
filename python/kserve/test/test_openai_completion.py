@@ -14,7 +14,17 @@
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator, Callable, Iterable, List, Tuple, Union, cast, Optional
+from typing import (
+    AsyncIterator,
+    Callable,
+    Iterable,
+    List,
+    Tuple,
+    Union,
+    cast,
+    Optional,
+    Dict,
+)
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -153,6 +163,20 @@ def chat_completion_request(chat_completion_create_params: CreateChatCompletionR
     )
 
 
+@pytest.fixture(
+    params=[
+        {"guided_json": {"schema": {"type": "string"}}},
+        {"guided_regex": r"\w+"},
+        {"guided_choice": ["option1", "option2"]},
+        {"guided_decoding_backend": "outlines"},
+        {"guided_grammar": "S -> 'hello' 'world'"},
+        {"guided_whitespace_pattern": r"\s+"},
+    ]
+)
+def vllm_param_matrix(request):
+    return request.param
+
+
 @pytest.fixture
 def dummy_model(completion: Completion, completion_partial: Completion):
     return DummyModel((completion, completion_partial))
@@ -227,6 +251,26 @@ class TestOpenAICreateCompletion:
             ) == completion_partial.model_dump_json(indent=2)
             num_chunks_consumed += 1
         assert num_chunks_consumed == dummy_model.num_chunks
+
+
+class TestOpenAIVLLMCreateCompletion:
+    """Testing VLLM extra completion args"""
+
+    @pytest.mark.asyncio
+    async def test_create_completion_guided_decoding(
+        self,
+        dummy_model: DummyModel,
+        completion: Completion,
+        completion_create_params: CreateCompletionRequest,
+        vllm_param_matrix: Dict,
+    ):
+        param, value = next(iter(vllm_param_matrix.items()))
+        print(param, value)
+        setattr(completion_create_params, param, value)
+        request = CompletionRequest(params=completion_create_params)
+        c = await dummy_model.create_completion(request)
+        assert isinstance(c, Completion)
+        assert c.model_dump_json(indent=2) == completion.model_dump_json(indent=2)
 
 
 class TestOpenAICreateChatCompletion:
