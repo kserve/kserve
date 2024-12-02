@@ -460,7 +460,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -588,7 +588,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -721,7 +721,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
@@ -763,7 +763,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -897,7 +897,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
@@ -939,7 +939,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
@@ -981,7 +981,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
@@ -1023,7 +1023,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1122,7 +1122,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
@@ -1164,7 +1164,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1257,7 +1257,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1387,7 +1387,7 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1508,7 +1508,7 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1639,7 +1639,7 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1762,7 +1762,7 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1893,7 +1893,7 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -2016,7 +2016,7 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
