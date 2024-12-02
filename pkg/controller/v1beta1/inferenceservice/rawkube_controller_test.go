@@ -391,7 +391,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -460,7 +460,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -921,7 +921,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -991,7 +991,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1443,7 +1443,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1513,7 +1513,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -2331,7 +2331,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -2401,7 +2401,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -3060,7 +3060,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -3130,7 +3130,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -3200,7 +3200,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -3935,7 +3935,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
@@ -3979,7 +3979,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -4049,7 +4049,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -4119,7 +4119,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -4683,7 +4683,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
@@ -4727,7 +4727,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -4797,7 +4797,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -5461,7 +5461,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
@@ -5505,7 +5505,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -5575,7 +5575,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -5645,7 +5645,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -6383,7 +6383,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
@@ -6427,7 +6427,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
@@ -6471,7 +6471,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
@@ -6515,7 +6515,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -6585,7 +6585,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -6655,7 +6655,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("0s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
