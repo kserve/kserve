@@ -1,0 +1,6 @@
+{
+  "model": "hf-opt-125m-chat",
+  "prompt": "Explain transformers?",
+  "temperature": 0,
+  "max_tokens": 10
+}
