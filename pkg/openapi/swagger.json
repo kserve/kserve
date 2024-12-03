@@ -244,6 +244,14 @@
           "description": "TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.",
           "type": "integer",
           "format": "int64"
+        },
+        "tolerations": {
+          "description": "Toleration specifies the toleration for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Toleration"
+          }
         }
       }
     },
