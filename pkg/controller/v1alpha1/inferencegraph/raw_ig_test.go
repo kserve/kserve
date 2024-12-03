@@ -25,7 +25,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
@@ -105,14 +105,14 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 						},
 					},
 				},
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("100m"),
-						v1.ResourceMemory: resource.MustParse("500Mi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+						corev1.ResourceMemory: resource.MustParse("500Mi"),
 					},
-					Requests: v1.ResourceList{
-						v1.ResourceCPU:    resource.MustParse("100m"),
-						v1.ResourceMemory: resource.MustParse("100Mi"),
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+						corev1.ResourceMemory: resource.MustParse("100Mi"),
 					},
 				},
 			},
@@ -142,11 +142,54 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				},
 			},
 		},
+
+		"with tolerations": {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "resource-ig",
+				Namespace: "resource-ig-namespace",
+				Annotations: map[string]string{
+					"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
+				},
+			},
+
+			Spec: InferenceGraphSpec{
+				Nodes: map[string]InferenceRouter{
+					GraphRootNodeName: {
+						RouterType: Sequence,
+						Steps: []InferenceStep{
+							{
+								InferenceTarget: InferenceTarget{
+									ServiceURL: "http://someservice.exmaple.com",
+								},
+							},
+						},
+					},
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+						corev1.ResourceMemory: resource.MustParse("500Mi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+						corev1.ResourceMemory: resource.MustParse("100Mi"),
+					},
+				},
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "key1",
+						Operator: corev1.TolerationOpEqual,
+						Value:    "value1",
+						Effect:   corev1.TaintEffectNoSchedule,
+					},
+				},
+			},
+		},
 	}
 
-	expectedPodSpecs := map[string]*v1.PodSpec{
+	expectedPodSpecs := map[string]*corev1.PodSpec{
 		"basicgraph": {
-			Containers: []v1.Container{
+			Containers: []corev1.Container{
 				{
 					Image: "kserve/router:v0.10.0",
 					Name:  "basic-ig",
@@ -154,24 +197,24 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 						"--graph-json",
 						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{}}",
 					},
-					Resources: v1.ResourceRequirements{
-						Limits: v1.ResourceList{
-							v1.ResourceCPU:    resource.MustParse("100m"),
-							v1.ResourceMemory: resource.MustParse("500Mi"),
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("500Mi"),
 						},
-						Requests: v1.ResourceList{
-							v1.ResourceCPU:    resource.MustParse("100m"),
-							v1.ResourceMemory: resource.MustParse("100Mi"),
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
 						},
 					},
 					ReadinessProbe: expectedReadinessProbe,
-					SecurityContext: &v1.SecurityContext{
+					SecurityContext: &corev1.SecurityContext{
 						Privileged:               proto.Bool(false),
 						RunAsNonRoot:             proto.Bool(true),
 						ReadOnlyRootFilesystem:   proto.Bool(true),
 						AllowPrivilegeEscalation: proto.Bool(false),
-						Capabilities: &v1.Capabilities{
-							Drop: []v1.Capability{v1.Capability("ALL")},
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{corev1.Capability("ALL")},
 						},
 					},
 				},
@@ -179,7 +222,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 			AutomountServiceAccountToken: proto.Bool(false),
 		},
 		"basicgraphwithheaders": {
-			Containers: []v1.Container{
+			Containers: []corev1.Container{
 				{
 					Image: "kserve/router:v0.10.0",
 					Name:  "basic-ig",
@@ -187,30 +230,30 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 						"--graph-json",
 						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{}}",
 					},
-					Env: []v1.EnvVar{
+					Env: []corev1.EnvVar{
 						{
 							Name:  "PROPAGATE_HEADERS",
 							Value: "Authorization,Intuit_tid",
 						},
 					},
-					Resources: v1.ResourceRequirements{
-						Limits: v1.ResourceList{
-							v1.ResourceCPU:    resource.MustParse("100m"),
-							v1.ResourceMemory: resource.MustParse("500Mi"),
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("500Mi"),
 						},
-						Requests: v1.ResourceList{
-							v1.ResourceCPU:    resource.MustParse("100m"),
-							v1.ResourceMemory: resource.MustParse("100Mi"),
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
 						},
 					},
 					ReadinessProbe: expectedReadinessProbe,
-					SecurityContext: &v1.SecurityContext{
+					SecurityContext: &corev1.SecurityContext{
 						Privileged:               proto.Bool(false),
 						RunAsNonRoot:             proto.Bool(true),
 						ReadOnlyRootFilesystem:   proto.Bool(true),
 						AllowPrivilegeEscalation: proto.Bool(false),
-						Capabilities: &v1.Capabilities{
-							Drop: []v1.Capability{v1.Capability("ALL")},
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{corev1.Capability("ALL")},
 						},
 					},
 				},
@@ -218,7 +261,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 			AutomountServiceAccountToken: proto.Bool(false),
 		},
 		"withresource": {
-			Containers: []v1.Container{
+			Containers: []corev1.Container{
 				{
 					Image: "kserve/router:v0.10.0",
 					Name:  "resource-ig",
@@ -226,36 +269,76 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 						"--graph-json",
 						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"100m\",\"memory\":\"500Mi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"100Mi\"}}}",
 					},
-					Resources: v1.ResourceRequirements{
-						Limits: v1.ResourceList{
-							v1.ResourceCPU:    resource.MustParse("100m"),
-							v1.ResourceMemory: resource.MustParse("500Mi"),
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("500Mi"),
 						},
-						Requests: v1.ResourceList{
-							v1.ResourceCPU:    resource.MustParse("100m"),
-							v1.ResourceMemory: resource.MustParse("100Mi"),
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
 						},
 					},
 					ReadinessProbe: expectedReadinessProbe,
-					SecurityContext: &v1.SecurityContext{
+					SecurityContext: &corev1.SecurityContext{
 						Privileged:               proto.Bool(false),
 						RunAsNonRoot:             proto.Bool(true),
 						ReadOnlyRootFilesystem:   proto.Bool(true),
 						AllowPrivilegeEscalation: proto.Bool(false),
-						Capabilities: &v1.Capabilities{
-							Drop: []v1.Capability{v1.Capability("ALL")},
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{corev1.Capability("ALL")},
 						},
 					},
 				},
 			},
 			AutomountServiceAccountToken: proto.Bool(false),
 		},
+		"with tolerations": {
+			Containers: []corev1.Container{
+				{
+					Image: "kserve/router:v0.10.0",
+					Name:  "resource-ig",
+					Args: []string{
+						"--graph-json",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"100m\",\"memory\":\"500Mi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"100Mi\"}},\"tolerations\":[{\"key\":\"key1\",\"operator\":\"Equal\",\"value\":\"value1\",\"effect\":\"NoSchedule\"}]}",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("500Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
+						},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						Privileged:               proto.Bool(false),
+						RunAsNonRoot:             proto.Bool(true),
+						ReadOnlyRootFilesystem:   proto.Bool(true),
+						AllowPrivilegeEscalation: proto.Bool(false),
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{corev1.Capability("ALL")},
+						},
+					},
+				},
+			},
+			AutomountServiceAccountToken: proto.Bool(false),
+			Tolerations: []corev1.Toleration{
+				{
+					Key:      "key1",
+					Operator: corev1.TolerationOpEqual,
+					Value:    "value1",
+					Effect:   corev1.TaintEffectNoSchedule,
+				},
+			},
+		},
 	}
 
 	scenarios := []struct {
 		name     string
 		args     args
-		expected *v1.PodSpec
+		expected *corev1.PodSpec
 	}{
 		{
 			name: "Basic Inference graph",
@@ -277,6 +360,11 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				config: &routerConfigWithHeaders,
 			},
 			expected: expectedPodSpecs["basicgraphwithheaders"],
+		},
+		{
+			name:     "Inference graph with tolerations",
+			args:     args{testIGSpecs["with tolerations"], &routerConfig},
+			expected: expectedPodSpecs["with tolerations"],
 		},
 	}
 
@@ -480,7 +568,7 @@ func TestPropagateRawStatus(t *testing.T) {
 						Conditions: duckv1.Conditions{
 							{
 								Type:   apis.ConditionReady,
-								Status: v1.ConditionTrue,
+								Status: corev1.ConditionTrue,
 							},
 						},
 					},
@@ -500,7 +588,7 @@ func TestPropagateRawStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   apis.ConditionReady,
-							Status: v1.ConditionTrue,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
@@ -515,7 +603,7 @@ func TestPropagateRawStatus(t *testing.T) {
 						Conditions: duckv1.Conditions{
 							{
 								Type:   apis.ConditionReady,
-								Status: v1.ConditionFalse,
+								Status: corev1.ConditionFalse,
 							},
 						},
 					},
@@ -531,7 +619,7 @@ func TestPropagateRawStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   apis.ConditionReady,
-							Status: v1.ConditionFalse,
+							Status: corev1.ConditionFalse,
 						},
 					},
 				},

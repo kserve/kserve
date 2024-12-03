@@ -78,6 +78,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 		},
 		Affinity:                     graph.Spec.Affinity,
 		AutomountServiceAccountToken: proto.Bool(false), // Inference graph does not need access to api server
+		Tolerations:                  graph.Spec.Tolerations,
 	}
 
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"

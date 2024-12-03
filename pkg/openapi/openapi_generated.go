@@ -525,12 +525,26 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Toleration specifies the toleration for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"nodes"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.ResourceRequirements"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration"},
 	}
 }
 
