@@ -19,6 +19,7 @@ resources:
 - full/serving.kserve.io_clusterstoragecontainers.yaml
 - full/serving.kserve.io_clusterlocalmodels.yaml
 - full/serving.kserve.io_localmodelnodegroups.yaml
+- full/serving.kserve.io_localmodelnodes.yaml
 
 patches:
 # Fix for https://github.com/kubernetes/kubernetes/issues/91395

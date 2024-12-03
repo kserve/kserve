@@ -1,0 +1,7 @@
+{{- if .Values.kserve.localmodel.enabled }}
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{.Values.kserve.localmodel.jobNamespace}}
+{{- end }}

@@ -39,27 +39,10 @@ rules:
   - update
   - watch
 - apiGroups:
-  - batch
-  resources:
-  - jobs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - batch
-  resources:
-  - jobs/status
-  verbs:
-  - get
-- apiGroups:
   - serving.kserve.io
   resources:
   - clusterlocalmodels
+  - localmodelnodes
   verbs:
   - create
   - delete
@@ -79,10 +62,16 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - clusterstoragecontainers
   - inferenceservices
   - localmodelnodegroups
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelnodes/status
+  verbs:
+  - get
   - watch
