@@ -568,6 +568,22 @@ spec:
               timeout:
                 format: int64
                 type: integer
+              tolerations:
+                items:
+                  properties:
+                    effect:
+                      type: string
+                    key:
+                      type: string
+                    operator:
+                      type: string
+                    tolerationSeconds:
+                      format: int64
+                      type: integer
+                    value:
+                      type: string
+                  type: object
+                type: array
             required:
             - nodes
             type: object

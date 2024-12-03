@@ -144,6 +144,49 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				},
 			},
 		},
+
+		"with tolerations": {
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "resource-ig",
+				Namespace: "resource-ig-namespace",
+				Annotations: map[string]string{
+					"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
+				},
+			},
+
+			Spec: InferenceGraphSpec{
+				Nodes: map[string]InferenceRouter{
+					GraphRootNodeName: {
+						RouterType: Sequence,
+						Steps: []InferenceStep{
+							{
+								InferenceTarget: InferenceTarget{
+									ServiceURL: "http://someservice.exmaple.com",
+								},
+							},
+						},
+					},
+				},
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+						corev1.ResourceMemory: resource.MustParse("500Mi"),
+					},
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+						corev1.ResourceMemory: resource.MustParse("100Mi"),
+					},
+				},
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "key1",
+						Operator: corev1.TolerationOpEqual,
+						Value:    "value1",
+						Effect:   corev1.TaintEffectNoSchedule,
+					},
+				},
+			},
+		},
 	}
 
 	expectedPodSpecs := map[string]*corev1.PodSpec{
@@ -252,6 +295,46 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 			},
 			AutomountServiceAccountToken: proto.Bool(false),
 		},
+		"with tolerations": {
+			Containers: []corev1.Container{
+				{
+					Image: "kserve/router:v0.10.0",
+					Name:  "resource-ig",
+					Args: []string{
+						"--graph-json",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"100m\",\"memory\":\"500Mi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"100Mi\"}},\"tolerations\":[{\"key\":\"key1\",\"operator\":\"Equal\",\"value\":\"value1\",\"effect\":\"NoSchedule\"}]}",
+					},
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("500Mi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("100Mi"),
+						},
+					},
+					SecurityContext: &corev1.SecurityContext{
+						Privileged:               proto.Bool(false),
+						RunAsNonRoot:             proto.Bool(true),
+						ReadOnlyRootFilesystem:   proto.Bool(true),
+						AllowPrivilegeEscalation: proto.Bool(false),
+						Capabilities: &corev1.Capabilities{
+							Drop: []corev1.Capability{corev1.Capability("ALL")},
+						},
+					},
+				},
+			},
+			AutomountServiceAccountToken: proto.Bool(false),
+			Tolerations: []corev1.Toleration{
+				{
+					Key:      "key1",
+					Operator: corev1.TolerationOpEqual,
+					Value:    "value1",
+					Effect:   corev1.TaintEffectNoSchedule,
+				},
+			},
+		},
 	}
 
 	scenarios := []struct {
@@ -279,6 +362,11 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				config: &routerConfigWithHeaders,
 			},
 			expected: expectedPodSpecs["basicgraphwithheaders"],
+		},
+		{
+			name:     "Inference graph with tolerations",
+			args:     args{testIGSpecs["with tolerations"], &routerConfig},
+			expected: expectedPodSpecs["with tolerations"],
 		},
 	}
 

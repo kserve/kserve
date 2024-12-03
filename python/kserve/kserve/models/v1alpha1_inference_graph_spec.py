@@ -54,7 +54,8 @@ class V1alpha1InferenceGraphSpec(object):
         'resources': 'V1ResourceRequirements',
         'scale_metric': 'str',
         'scale_target': 'int',
-        'timeout': 'int'
+        'timeout': 'int',
+        'tolerations': 'list[V1Toleration]'
     }
 
     attribute_map = {
@@ -65,10 +66,11 @@ class V1alpha1InferenceGraphSpec(object):
         'resources': 'resources',
         'scale_metric': 'scaleMetric',
         'scale_target': 'scaleTarget',
-        'timeout': 'timeout'
+        'timeout': 'timeout',
+        'tolerations': 'tolerations'
     }
 
-    def __init__(self, affinity=None, max_replicas=None, min_replicas=None, nodes=None, resources=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, max_replicas=None, min_replicas=None, nodes=None, resources=None, scale_metric=None, scale_target=None, timeout=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceGraphSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -82,6 +84,7 @@ class V1alpha1InferenceGraphSpec(object):
         self._scale_metric = None
         self._scale_target = None
         self._timeout = None
+        self._tolerations = None
         self.discriminator = None
 
         if affinity is not None:
@@ -99,6 +102,8 @@ class V1alpha1InferenceGraphSpec(object):
             self.scale_target = scale_target
         if timeout is not None:
             self.timeout = timeout
+        if tolerations is not None:
+            self.tolerations = tolerations
 
     @property
     def affinity(self):
@@ -281,6 +286,29 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._timeout = timeout
+
+    @property
+    def tolerations(self):
+        """Gets the tolerations of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        Toleration specifies the toleration for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/  # noqa: E501
+
+        :return: The tolerations of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: list[V1Toleration]
+        """
+        return self._tolerations
+
+    @tolerations.setter
+    def tolerations(self, tolerations):
+        """Sets the tolerations of this V1alpha1InferenceGraphSpec.
+
+        Toleration specifies the toleration for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/  # noqa: E501
+
+        :param tolerations: The tolerations of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: list[V1Toleration]
+        """
+
+        self._tolerations = tolerations
 
     def to_dict(self):
         """Returns the model properties as a dict"""
