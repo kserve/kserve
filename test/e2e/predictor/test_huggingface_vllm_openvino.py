@@ -40,7 +40,6 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
             model_format=V1beta1ModelFormat(
                 name="huggingface",
             ),
-            image="quay.io/ayush_sawant/huggingface_server-cpu-openvino:v0.14.0",
             args=[
                 "--model_id",
                 "facebook/opt-125m",
@@ -91,7 +90,6 @@ def test_huggingface_vllm_openvino_openai_completions():
             model_format=V1beta1ModelFormat(
                 name="huggingface",
             ),
-            image="quay.io/ayush_sawant/huggingface_server-cpu-openvino:v0.14.0",
             args=[
                 "--model_id",
                 "facebook/opt-125m",
