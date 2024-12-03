@@ -10,3 +10,4 @@ resources:
   - serving.kserve.io_clusterstoragecontainers.yaml
   - serving.kserve.io_clusterlocalmodels.yaml
   - serving.kserve.io_localmodelnodegroups.yaml
+  - serving.kserve.io_localmodelnodes.yaml
