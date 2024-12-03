@@ -28,7 +28,7 @@ COPY kserve kserve
 RUN cd kserve && poetry install --no-interaction --no-cache
 
 COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/health_check.py huggingfaceserver/
-RUN cd huggingfaceserver && poetry install --no-root --no-interaction 
+RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 

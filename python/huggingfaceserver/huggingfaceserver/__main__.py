@@ -278,6 +278,7 @@ def load_model():
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
                 predictor_config=predictor_config,
                 request_logger=request_logger,
+                return_probabilities=kwargs.get("return_probabilities", False),
             )
     model.load()
     return model
