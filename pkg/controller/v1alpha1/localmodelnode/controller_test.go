@@ -22,8 +22,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
@@ -33,6 +31,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 type MockFileInfo struct {
@@ -229,7 +230,7 @@ var _ = Describe("CachedModel controller", func() {
 				return nil
 			}
 
-			nodeName = "worker" // Definied in controller.go, representing the name of the curent node
+			nodeName = "worker" // Definied in controller.go, representing the name of the current node
 			// Creates a LocalModelNode with no models but the controller should find a model from local disk and delete it
 			localModelNode := &v1alpha1.LocalModelNode{
 				ObjectMeta: metav1.ObjectMeta{
