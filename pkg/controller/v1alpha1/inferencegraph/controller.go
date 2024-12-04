@@ -46,9 +46,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
@@ -122,7 +121,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	_ = context.Background()
 
 	// Fetch the InferenceService instance
-	graph := &v1alpha1api.InferenceGraph{}
+	graph := &v1alpha1.InferenceGraph{}
 	if err := r.Get(ctx, req.NamespacedName, graph); err != nil {
 		if apierr.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -165,7 +164,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 		}
 	}
-	deployConfig, err := v1beta1api.NewDeployConfig(r.Clientset)
+	deployConfig, err := v1beta1.NewDeployConfig(r.Clientset)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
 	}
@@ -242,8 +241,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, nil
 }
 
-func (r *InferenceGraphReconciler) updateStatus(desiredGraph *v1alpha1api.InferenceGraph) error {
-	graph := &v1alpha1api.InferenceGraph{}
+func (r *InferenceGraphReconciler) updateStatus(desiredGraph *v1alpha1.InferenceGraph) error {
+	graph := &v1alpha1.InferenceGraph{}
 	namespacedName := types.NamespacedName{Name: desiredGraph.Name, Namespace: desiredGraph.Namespace}
 	if err := r.Get(context.TODO(), namespacedName, graph); err != nil {
 		return err
@@ -275,13 +274,13 @@ func (r *InferenceGraphReconciler) updateStatus(desiredGraph *v1alpha1api.Infere
 	return nil
 }
 
-func inferenceGraphReadiness(status v1alpha1api.InferenceGraphStatus) bool {
+func inferenceGraphReadiness(status v1alpha1.InferenceGraphStatus) bool {
 	return status.Conditions != nil &&
 		status.GetCondition(apis.ConditionReady) != nil &&
 		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
 }
 
-func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1api.DeployConfig) error {
+func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig) error {
 	r.ClientConfig = mgr.GetConfig()
 
 	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
@@ -290,7 +289,7 @@ func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConf
 	}
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1api.InferenceGraph{}).
+		For(&v1alpha1.InferenceGraph{}).
 		Owns(&appsv1.Deployment{})
 
 	if ksvcFound {
