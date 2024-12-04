@@ -5,8 +5,6 @@ resources:
 - ../../crd/external
 - ../../default
 - minio
-- dsci.yaml
-- dsc.yaml
 
 patches:
 - path: configmap/inferenceservice.yaml
