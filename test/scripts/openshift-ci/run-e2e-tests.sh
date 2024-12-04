@@ -77,6 +77,10 @@ kustomize build $PROJECT_ROOT/config/overlays/test |
   sed "s|kserve/kserve-controller:latest|${KSERVE_CONTROLLER_IMAGE}|" |
   oc apply --server-side=true -f -
 
+# Install DSC/DSCI for test. (sometimes there is timing issue when it is under the same kustomization so it is separated)
+oc create -f config/overlays/test/dsci.yaml
+oc create -f config/overlays/test/dsc.yaml
+
 # Patch the inferenceservice-config ConfigMap, when running RawDeployment tests
 if [ "$1" == "raw" ]; then
   export OPENSHIFT_INGRESS_DOMAIN=$(oc get ingresses.config cluster -o jsonpath='{.spec.domain}')
