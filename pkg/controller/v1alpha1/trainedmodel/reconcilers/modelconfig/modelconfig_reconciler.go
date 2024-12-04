@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	"github.com/kserve/kserve/pkg/modelconfig"
@@ -49,7 +49,7 @@ func NewModelConfigReconciler(client client.Client, clientset kubernetes.Interfa
 	}
 }
 
-func (c *ModelConfigReconciler) Reconcile(req ctrl.Request, tm *v1alpha1api.TrainedModel) error {
+func (c *ModelConfigReconciler) Reconcile(req ctrl.Request, tm *v1alpha1.TrainedModel) error {
 	log.Info("Reconciling TrainedModel", "apiVersion", tm.APIVersion, "trainedmodel", tm.Spec)
 	shardStrategy := memory.MemoryStrategy{}
 	shardId := shardStrategy.GetOrAssignShard(tm)
