@@ -41,22 +41,24 @@ var clusterlocalmodelsKind = v1alpha1.SchemeGroupVersion.WithKind("ClusterLocalM
 
 // Get takes name of the clusterLocalModel, and returns the corresponding clusterLocalModel object, and an error if there is any.
 func (c *FakeClusterLocalModels) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterLocalModel, err error) {
+	emptyResult := &v1alpha1.ClusterLocalModel{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(clusterlocalmodelsResource, c.ns, name), &v1alpha1.ClusterLocalModel{})
+		Invokes(testing.NewGetActionWithOptions(clusterlocalmodelsResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.ClusterLocalModel), err
 }
 
 // List takes label and field selectors, and returns the list of ClusterLocalModels that match those selectors.
 func (c *FakeClusterLocalModels) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ClusterLocalModelList, err error) {
+	emptyResult := &v1alpha1.ClusterLocalModelList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(clusterlocalmodelsResource, clusterlocalmodelsKind, c.ns, opts), &v1alpha1.ClusterLocalModelList{})
+		Invokes(testing.NewListActionWithOptions(clusterlocalmodelsResource, clusterlocalmodelsKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -75,40 +77,43 @@ func (c *FakeClusterLocalModels) List(ctx context.Context, opts v1.ListOptions) 
 // Watch returns a watch.Interface that watches the requested clusterLocalModels.
 func (c *FakeClusterLocalModels) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(clusterlocalmodelsResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(clusterlocalmodelsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a clusterLocalModel and creates it.  Returns the server's representation of the clusterLocalModel, and an error, if there is any.
 func (c *FakeClusterLocalModels) Create(ctx context.Context, clusterLocalModel *v1alpha1.ClusterLocalModel, opts v1.CreateOptions) (result *v1alpha1.ClusterLocalModel, err error) {
+	emptyResult := &v1alpha1.ClusterLocalModel{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(clusterlocalmodelsResource, c.ns, clusterLocalModel), &v1alpha1.ClusterLocalModel{})
+		Invokes(testing.NewCreateActionWithOptions(clusterlocalmodelsResource, c.ns, clusterLocalModel, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.ClusterLocalModel), err
 }
 
 // Update takes the representation of a clusterLocalModel and updates it. Returns the server's representation of the clusterLocalModel, and an error, if there is any.
 func (c *FakeClusterLocalModels) Update(ctx context.Context, clusterLocalModel *v1alpha1.ClusterLocalModel, opts v1.UpdateOptions) (result *v1alpha1.ClusterLocalModel, err error) {
+	emptyResult := &v1alpha1.ClusterLocalModel{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(clusterlocalmodelsResource, c.ns, clusterLocalModel), &v1alpha1.ClusterLocalModel{})
+		Invokes(testing.NewUpdateActionWithOptions(clusterlocalmodelsResource, c.ns, clusterLocalModel, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.ClusterLocalModel), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeClusterLocalModels) UpdateStatus(ctx context.Context, clusterLocalModel *v1alpha1.ClusterLocalModel, opts v1.UpdateOptions) (*v1alpha1.ClusterLocalModel, error) {
+func (c *FakeClusterLocalModels) UpdateStatus(ctx context.Context, clusterLocalModel *v1alpha1.ClusterLocalModel, opts v1.UpdateOptions) (result *v1alpha1.ClusterLocalModel, err error) {
+	emptyResult := &v1alpha1.ClusterLocalModel{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(clusterlocalmodelsResource, "status", c.ns, clusterLocalModel), &v1alpha1.ClusterLocalModel{})
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(clusterlocalmodelsResource, "status", c.ns, clusterLocalModel, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.ClusterLocalModel), err
 }
@@ -123,7 +128,7 @@ func (c *FakeClusterLocalModels) Delete(ctx context.Context, name string, opts v
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeClusterLocalModels) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(clusterlocalmodelsResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(clusterlocalmodelsResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.ClusterLocalModelList{})
 	return err
@@ -131,11 +136,12 @@ func (c *FakeClusterLocalModels) DeleteCollection(ctx context.Context, opts v1.D
 
 // Patch applies the patch and returns the patched clusterLocalModel.
 func (c *FakeClusterLocalModels) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterLocalModel, err error) {
+	emptyResult := &v1alpha1.ClusterLocalModel{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(clusterlocalmodelsResource, c.ns, name, pt, data, subresources...), &v1alpha1.ClusterLocalModel{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(clusterlocalmodelsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.ClusterLocalModel), err
 }

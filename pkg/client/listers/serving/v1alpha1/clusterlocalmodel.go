@@ -20,8 +20,8 @@ package v1alpha1
 
 import (
 	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,25 +38,17 @@ type ClusterLocalModelLister interface {
 
 // clusterLocalModelLister implements the ClusterLocalModelLister interface.
 type clusterLocalModelLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1alpha1.ClusterLocalModel]
 }
 
 // NewClusterLocalModelLister returns a new ClusterLocalModelLister.
 func NewClusterLocalModelLister(indexer cache.Indexer) ClusterLocalModelLister {
-	return &clusterLocalModelLister{indexer: indexer}
-}
-
-// List lists all ClusterLocalModels in the indexer.
-func (s *clusterLocalModelLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterLocalModel, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ClusterLocalModel))
-	})
-	return ret, err
+	return &clusterLocalModelLister{listers.New[*v1alpha1.ClusterLocalModel](indexer, v1alpha1.Resource("clusterlocalmodel"))}
 }
 
 // ClusterLocalModels returns an object that can list and get ClusterLocalModels.
 func (s *clusterLocalModelLister) ClusterLocalModels(namespace string) ClusterLocalModelNamespaceLister {
-	return clusterLocalModelNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return clusterLocalModelNamespaceLister{listers.NewNamespaced[*v1alpha1.ClusterLocalModel](s.ResourceIndexer, namespace)}
 }
 
 // ClusterLocalModelNamespaceLister helps list and get ClusterLocalModels.
@@ -74,26 +66,5 @@ type ClusterLocalModelNamespaceLister interface {
 // clusterLocalModelNamespaceLister implements the ClusterLocalModelNamespaceLister
 // interface.
 type clusterLocalModelNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all ClusterLocalModels in the indexer for a given namespace.
-func (s clusterLocalModelNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterLocalModel, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ClusterLocalModel))
-	})
-	return ret, err
-}
-
-// Get retrieves the ClusterLocalModel from the indexer for a given namespace and name.
-func (s clusterLocalModelNamespaceLister) Get(name string) (*v1alpha1.ClusterLocalModel, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("clusterlocalmodel"), name)
-	}
-	return obj.(*v1alpha1.ClusterLocalModel), nil
+	listers.ResourceIndexer[*v1alpha1.ClusterLocalModel]
 }
