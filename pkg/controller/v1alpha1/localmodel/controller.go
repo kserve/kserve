@@ -32,7 +32,6 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +49,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -66,7 +64,7 @@ type LocalModelReconciler struct {
 var (
 	ownerKey         = ".metadata.controller"
 	localModelKey    = ".localmodel"
-	apiGVStr         = v1alpha1api.SchemeGroupVersion.String()
+	apiGVStr         = v1alpha1.SchemeGroupVersion.String()
 	modelCacheCRName = "ClusterLocalModel"
 	finalizerName    = "localmodel.kserve.io/finalizer"
 )
@@ -159,7 +157,7 @@ func (c *LocalModelReconciler) createPVC(spec v1.PersistentVolumeClaim, namespac
 }
 
 // Get all isvcs with model cache enabled, create pvs and pvcs, remove pvs and pvcs in namespaces without isvcs.
-func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel *v1alpha1api.ClusterLocalModel, nodeGroup *v1alpha1api.LocalModelNodeGroup, jobNamespace string) error {
+func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel *v1alpha1.ClusterLocalModel, nodeGroup *v1alpha1.LocalModelNodeGroup, jobNamespace string) error {
 	isvcs := &v1beta1.InferenceServiceList{}
 	if err := c.Client.List(context.TODO(), isvcs, client.MatchingFields{localModelKey: localModel.Name}); err != nil {
 		c.Log.Error(err, "List isvc error")
@@ -241,12 +239,12 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, err
 	}
 
-	localModel := &v1alpha1api.ClusterLocalModel{}
+	localModel := &v1alpha1.ClusterLocalModel{}
 	if err := c.Get(ctx, req.NamespacedName, localModel); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	nodeGroup := &v1alpha1api.LocalModelNodeGroup{}
+	nodeGroup := &v1alpha1.LocalModelNodeGroup{}
 	nodeGroupNamespacedName := types.NamespacedName{Name: localModel.Spec.NodeGroup}
 	if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
 		return reconcile.Result{}, err
@@ -310,7 +308,7 @@ func (c *LocalModelReconciler) isvcFunc(ctx context.Context, obj client.Object) 
 	if modelName, ok = isvc.Labels[constants.LocalModelLabel]; !ok {
 		return []reconcile.Request{}
 	}
-	localModel := &v1alpha1api.ClusterLocalModel{}
+	localModel := &v1alpha1.ClusterLocalModel{}
 	if err := c.Get(ctx, types.NamespacedName{Name: modelName}, localModel); err != nil {
 		c.Log.Error(err, "error getting localModel", "name", modelName)
 		return []reconcile.Request{}
@@ -335,7 +333,7 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 	}
 
 	for _, model := range models.Items {
-		nodeGroup := &v1alpha1api.LocalModelNodeGroup{}
+		nodeGroup := &v1alpha1.LocalModelNodeGroup{}
 		nodeGroupNamespacedName := types.NamespacedName{Name: model.Spec.NodeGroup}
 		if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
 			c.Log.Info("get nodegroup failed", "name", model.Spec.NodeGroup)
@@ -452,7 +450,7 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1api.ClusterLocalModel{}).
+		For(&v1alpha1.ClusterLocalModel{}).
 		// Ownes PersistentVolumes and PersistentVolumeClaims that is created by this local model controller
 		Owns(&v1.PersistentVolume{}).
 		Owns(&v1.PersistentVolumeClaim{}).
@@ -489,7 +487,7 @@ func checkNodeAffinity(pvSpec *v1.PersistentVolumeSpec, node v1.Node) (bool, err
 }
 
 // Returns a list of ready nodes, and not ready nodes that matches the node selector in the node group
-func getNodesFromNodeGroup(nodeGroup *v1alpha1api.LocalModelNodeGroup, c client.Client) (*v1.NodeList, *v1.NodeList, error) {
+func getNodesFromNodeGroup(nodeGroup *v1alpha1.LocalModelNodeGroup, c client.Client) (*v1.NodeList, *v1.NodeList, error) {
 	nodes := &v1.NodeList{}
 	readyNodes := &v1.NodeList{}
 	notReadyNodes := &v1.NodeList{}
@@ -513,7 +511,7 @@ func getNodesFromNodeGroup(nodeGroup *v1alpha1api.LocalModelNodeGroup, c client.
 }
 
 // DeleteModelFromNode deletes the source model from the localmodelnode
-func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel) error {
+func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1.ClusterLocalModel) error {
 	var patch client.Patch
 	for i, modelInfo := range localmodelNode.Spec.LocalModels {
 		if modelInfo.ModelName == localModel.Name {
@@ -530,7 +528,7 @@ func (c *LocalModelReconciler) DeleteModelFromNode(ctx context.Context, localmod
 }
 
 // UpdateLocalModelNode updates the source model uri of the localmodelnode from the localmodel
-func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1api.ClusterLocalModel) error {
+func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmodelNode *v1alpha1.LocalModelNode, localModel *v1alpha1.ClusterLocalModel) error {
 	var patch client.Patch
 	updated := false
 	for i, modelInfo := range localmodelNode.Spec.LocalModels {
@@ -548,7 +546,7 @@ func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmo
 	}
 	if !updated {
 		patch = client.MergeFrom(localmodelNode.DeepCopy())
-		localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels, v1alpha1api.LocalModelInfo{ModelName: localModel.Name, SourceModelUri: localModel.Spec.SourceModelUri})
+		localmodelNode.Spec.LocalModels = append(localmodelNode.Spec.LocalModels, v1alpha1.LocalModelInfo{ModelName: localModel.Name, SourceModelUri: localModel.Spec.SourceModelUri})
 	}
 	if err := c.Client.Patch(context.TODO(), localmodelNode, patch); err != nil {
 		c.Log.Error(err, "Update localmodelnode", "name", localmodelNode.Name)
@@ -557,33 +555,33 @@ func (c *LocalModelReconciler) UpdateLocalModelNode(ctx context.Context, localmo
 	return nil
 }
 
-func nodeStatusFromLocalModelStatus(modelStatus v1alpha1.ModelStatus) v1alpha1api.NodeStatus {
+func nodeStatusFromLocalModelStatus(modelStatus v1alpha1.ModelStatus) v1alpha1.NodeStatus {
 	switch modelStatus {
-	case v1alpha1api.ModelDownloadPending:
-		return v1alpha1api.NodeDownloadPending
-	case v1alpha1api.ModelDownloading:
-		return v1alpha1api.NodeDownloading
-	case v1alpha1api.ModelDownloadError:
-		return v1alpha1api.NodeDownloadError
-	case v1alpha1api.ModelDownloaded:
-		return v1alpha1api.NodeDownloaded
+	case v1alpha1.ModelDownloadPending:
+		return v1alpha1.NodeDownloadPending
+	case v1alpha1.ModelDownloading:
+		return v1alpha1.NodeDownloading
+	case v1alpha1.ModelDownloadError:
+		return v1alpha1.NodeDownloadError
+	case v1alpha1.ModelDownloaded:
+		return v1alpha1.NodeDownloaded
 	}
-	return v1alpha1api.NodeDownloadPending
+	return v1alpha1.NodeDownloadPending
 }
 
 // ReconcileLocalModelNode creates updates localmodelnode for each node in the node group. It adds and removes localmodels from the localmodelnode and updates the status on the localmodel from the localmodelnode.
-func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, localModel *v1alpha1api.ClusterLocalModel, nodeGroup *v1alpha1api.LocalModelNodeGroup) error {
+func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, localModel *v1alpha1.ClusterLocalModel, nodeGroup *v1alpha1.LocalModelNodeGroup) error {
 	readyNodes, notReadyNodes, err := getNodesFromNodeGroup(nodeGroup, c.Client)
 	if err != nil {
 		c.Log.Error(err, "getNodesFromNodeGroup node error")
 		return err
 	}
 	if localModel.Status.NodeStatus == nil {
-		localModel.Status.NodeStatus = make(map[string]v1alpha1api.NodeStatus)
+		localModel.Status.NodeStatus = make(map[string]v1alpha1.NodeStatus)
 	}
 	for _, node := range notReadyNodes.Items {
 		if _, ok := localModel.Status.NodeStatus[node.Name]; !ok {
-			localModel.Status.NodeStatus[node.Name] = v1alpha1api.NodeNotReady
+			localModel.Status.NodeStatus[node.Name] = v1alpha1.NodeNotReady
 		}
 	}
 	for _, node := range readyNodes.Items {
@@ -604,7 +602,7 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 				ObjectMeta: metav1.ObjectMeta{
 					Name: node.Name,
 				},
-				Spec: v1alpha1api.LocalModelNodeSpec{LocalModels: []v1alpha1api.LocalModelInfo{{ModelName: localModel.Name, SourceModelUri: localModel.Spec.SourceModelUri}}},
+				Spec: v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{{ModelName: localModel.Name, SourceModelUri: localModel.Spec.SourceModelUri}}},
 			}
 			if err := c.Client.Create(ctx, localModelNode); err != nil {
 				c.Log.Error(err, "Create localmodelnode", "name", node.Name)
@@ -623,13 +621,13 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 	failedNodes := 0
 	for _, status := range localModel.Status.NodeStatus {
 		switch status {
-		case v1alpha1api.NodeDownloaded:
+		case v1alpha1.NodeDownloaded:
 			successfulNodes += 1
-		case v1alpha1api.NodeDownloadError:
+		case v1alpha1.NodeDownloadError:
 			failedNodes += 1
 		}
 	}
-	localModel.Status.ModelCopies = &v1alpha1api.ModelCopies{Total: len(localModel.Status.NodeStatus), Available: successfulNodes, Failed: failedNodes}
+	localModel.Status.ModelCopies = &v1alpha1.ModelCopies{Total: len(localModel.Status.NodeStatus), Available: successfulNodes, Failed: failedNodes}
 	if err := c.Status().Update(context.TODO(), localModel); err != nil {
 		c.Log.Error(err, "cannot update model status from node", "name", localModel.Name)
 	}
