@@ -246,7 +246,7 @@ func extractTarFiles(reader io.Reader, dest string) error {
 		}
 
 		// gosec G110
-		_, err := io.CopyN(newFile, tr, DEFAULT_MAX_DECOMPRESSION_SIZE)
+		_, err = io.CopyN(newFile, tr, DEFAULT_MAX_DECOMPRESSION_SIZE)
 		if err != nil && err != io.EOF {
 			return fmt.Errorf("unable to copy contents to %s: %w", header.Name, err)
 		}
