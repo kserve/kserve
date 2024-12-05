@@ -360,6 +360,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 		statusSpec               ComponentStatusSpec
 		podList                  *v1.PodList
 		rawDeployment            bool
+		serviceStatus            *knservingv1.ServiceStatus
 		expectedRevisionStates   *ModelRevisionStates
 		expectedTransitionStatus TransitionStatus
 		expectedFailureInfo      *FailureInfo
@@ -400,6 +401,16 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				Items:    []v1.Pod{},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: Pending,
@@ -466,6 +477,16 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: Pending,
@@ -538,6 +559,16 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: FailedToLoad,
@@ -619,6 +650,16 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: FailedToLoad,
@@ -695,6 +736,16 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: FailedToLoad,
@@ -776,6 +827,16 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "Unknown",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: FailedToLoad,
@@ -850,6 +911,98 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
+			expectedRevisionStates: &ModelRevisionStates{
+				ActiveModelState: "",
+				TargetModelState: Loading,
+			},
+			expectedTransitionStatus: InProgress,
+			expectedFailureInfo:      nil,
+		},
+		"storage initializer in running state but knative has errors": {
+			isvcStatus: &InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: v1.ConditionFalse,
+						},
+					},
+				},
+				Address: &duckv1.Addressable{},
+				URL:     &apis.URL{},
+				Components: map[ComponentType]ComponentStatusSpec{
+					PredictorComponent: {
+						LatestRolledoutRevision: "test-predictor-default-0001",
+					},
+				},
+				ModelStatus: ModelStatus{},
+			},
+			statusSpec: ComponentStatusSpec{
+				LatestReadyRevision:       "",
+				LatestCreatedRevision:     "",
+				PreviousRolledoutRevision: "",
+				LatestRolledoutRevision:   "",
+				Traffic:                   nil,
+				URL:                       nil,
+				RestURL:                   nil,
+				GrpcURL:                   nil,
+				Address:                   nil,
+			},
+			podList: &v1.PodList{
+				TypeMeta: metav1.TypeMeta{},
+				ListMeta: metav1.ListMeta{},
+				Items: []v1.Pod{
+					{
+						TypeMeta: metav1.TypeMeta{},
+						ObjectMeta: metav1.ObjectMeta{
+							Name: constants.StorageInitializerContainerName,
+						},
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							InitContainerStatuses: []v1.ContainerStatus{
+								{
+									Name: constants.StorageInitializerContainerName,
+									State: v1.ContainerState{
+										Running: &v1.ContainerStateRunning{
+											StartedAt: metav1.Time{},
+										},
+									},
+									LastTerminationState: v1.ContainerState{},
+									Ready:                false,
+									RestartCount:         0,
+									Image:                "",
+									ImageID:              "",
+									ContainerID:          "",
+									Started:              proto.Bool(true),
+								},
+							},
+						},
+					},
+				},
+			},
+			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:    "Ready",
+							Status:  "True",
+							Reason:  "RevisionFailed",
+							Message: "For testing",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: Loading,
@@ -917,6 +1070,16 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: Loaded,
 				TargetModelState: Loaded,
@@ -984,6 +1147,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: true,
+			serviceStatus: &knservingv1.ServiceStatus{},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: Loaded,
 				TargetModelState: Loaded,
@@ -1049,7 +1213,17 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					},
 				},
 			},
-			rawDeployment:            false,
+			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates:   nil,
 			expectedTransitionStatus: "",
 			expectedFailureInfo:      nil,
@@ -1112,7 +1286,17 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					},
 				},
 			},
-			rawDeployment:            false,
+			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates:   nil,
 			expectedTransitionStatus: "",
 			expectedFailureInfo:      nil,
@@ -1121,7 +1305,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.isvcStatus.PropagateModelStatus(scenario.statusSpec, scenario.podList, scenario.rawDeployment)
+			scenario.isvcStatus.PropagateModelStatus(scenario.statusSpec, scenario.podList, scenario.rawDeployment, scenario.serviceStatus)
 
 			g.Expect(scenario.isvcStatus.ModelStatus.ModelRevisionStates).To(gomega.Equal(scenario.expectedRevisionStates))
 			g.Expect(scenario.isvcStatus.ModelStatus.TransitionStatus).To(gomega.Equal(scenario.expectedTransitionStatus))
