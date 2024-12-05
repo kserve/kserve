@@ -191,7 +191,7 @@ func extractZipFiles(reader io.Reader, dest string) error {
 			return fmt.Errorf("unable to open file: %w", err)
 		}
 
-		_, err = io.CopyN(file, rc, DEFAULT_MAX_DECOMPRESSION_SIZE) // gosec G110
+		_, ioErr := io.CopyN(file, rc, DEFAULT_MAX_DECOMPRESSION_SIZE) // gosec G110
 		closeErr := file.Close()
 		if closeErr != nil {
 			return closeErr
@@ -200,7 +200,7 @@ func extractZipFiles(reader io.Reader, dest string) error {
 		if closeErr != nil {
 			return closeErr
 		}
-		if err != nil && err != io.EOF {
+		if ioErr != nil && ioErr != io.EOF {
 			return fmt.Errorf("unable to copy file content: %w", err)
 		}
 	}
@@ -246,8 +246,8 @@ func extractTarFiles(reader io.Reader, dest string) error {
 		}
 
 		// gosec G110
-		_, err = io.CopyN(newFile, tr, DEFAULT_MAX_DECOMPRESSION_SIZE)
-		if err != nil && err != io.EOF {
+		_, ioErr := io.CopyN(newFile, tr, DEFAULT_MAX_DECOMPRESSION_SIZE)
+		if ioErr != nil && ioErr != io.EOF {
 			return fmt.Errorf("unable to copy contents to %s: %w", header.Name, err)
 		}
 	}
