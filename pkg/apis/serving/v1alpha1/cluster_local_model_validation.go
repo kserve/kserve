@@ -20,11 +20,13 @@ import (
 	"context"
 	"fmt"
 
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 var (
@@ -40,7 +42,9 @@ var (
 //
 // NOTE: The +kubebuilder:object:generate=false and +k8s:deepcopy-gen=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
-type ClusterLocalModelValidator struct{}
+type ClusterLocalModelValidator struct {
+	client.Client
+}
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-clusterlocalmodels,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=clusterlocalmodels,versions=v1alpha1,name=clusterlocalmodel.kserve-webhook-server.validator
 var _ webhook.CustomValidator = &ClusterLocalModelValidator{}
@@ -77,7 +81,20 @@ func (v *ClusterLocalModelValidator) ValidateDelete(ctx context.Context, obj run
 	clusterLocalModelValidatorLogger.Info("validate delete", "name", clusterLocalModel.Name)
 
 	// Check if current ClusterLocalModel is being used
-	// Check the status of each isvc in clusterLocalModel.Status.InferenceServices?
+	for _, isvcMeta := range clusterLocalModel.Status.InferenceServices {
+		isvc := v1beta1.InferenceService{}
+		if err := v.Get(ctx, client.ObjectKey(isvcMeta), &isvc); err != nil {
+			clusterLocalModelValidatorLogger.Error(err, "Error getting InferenceService", "name", isvcMeta.Name)
+			return nil, err
+		}
+		modelName, ok := isvc.Labels[constants.LocalModelLabel]
+		if !ok {
+			continue
+		}
+		if modelName == clusterLocalModel.Name {
+			return admission.Warnings{}, fmt.Errorf("ClusterLocalModel %s is being used by InferenceService %s", clusterLocalModel.Name, isvcMeta.Name)
+		}
+	}
 	return nil, nil
 }
 
