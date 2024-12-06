@@ -32,6 +32,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -67,12 +68,43 @@ var (
 	jobNamespace     string
 	nodeName         = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
 	modelsRootFolder = filepath.Join(MountPath, `models`)
-	removeAll        = os.RemoveAll // For patching os.RemoveAll in controller tests
-	readDir          = os.ReadDir   // For patching os.ReadDir in controller tests
+	fsHelper         fileSystemInterface
 )
 
-// Launch a new job or return an existing job
-func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, jobName string, localModelNode *v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo, claimName string) (*batchv1.Job, error) {
+type fileSystemInterface interface {
+	removeAll(path string) error
+	readDir(name string) ([]os.DirEntry, error)
+	hasModelFolder(modelName string) (bool, error)
+}
+
+type fileSystemHelper struct {
+}
+
+func getModelFolder(modelName string) string {
+	return filepath.Join(modelsRootFolder, modelName)
+}
+
+func (f *fileSystemHelper) removeAll(path string) error {
+	return os.RemoveAll(path)
+}
+
+func (f *fileSystemHelper) readDir(path string) ([]os.DirEntry, error) {
+	return os.ReadDir(path)
+}
+
+func (f *fileSystemHelper) hasModelFolder(modelName string) (bool, error) {
+	folder := getModelFolder(modelName)
+	_, err := f.readDir(folder)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func (c *LocalModelNodeReconciler) getOrLaunchJob(ctx context.Context, jobName string, localModelNode *v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo, recreateJob bool) (*batchv1.Job, error) {
 	container, err := c.getContainerSpecForStorageUri(ctx, modelInfo.SourceModelUri)
 	if err != nil {
 		return nil, err
@@ -117,7 +149,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, jobName string
 							Name: PvcSourceMountName,
 							VolumeSource: v1.VolumeSource{
 								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-									ClaimName: claimName,
+									ClaimName: modelInfo.ModelName,
 								},
 							},
 						},
@@ -133,13 +165,26 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, jobName string
 	if err != nil {
 		return nil, err
 	}
-	if job != nil && reflect.DeepEqual(job.Spec.Template.Spec, dryrunJob.Spec.Template.Spec) {
+
+	// If we do not recreate job on purpose, return the existing job if it is the same as the expected job
+	if !recreateJob && jobFound && reflect.DeepEqual(job.Spec.Template.Spec, dryrunJob.Spec.Template.Spec) {
 		return job, nil
 	}
+
+	// Remove the existing job because either of them is true:
+	// 1. it is different from the expected job
+	// 2. recreate the job on purpose by setting recreateJob to true
 	if jobFound {
-		bg := metav1.DeletePropagationBackground
+		// If the job is still running, do not delete it
+		if recreateJob && job.Status.Succeeded == 0 {
+			c.Log.Info("New job is not successful yet, skipping deletion", "name", job.Name)
+			return job, nil
+		}
+		c.Log.Info("Deleting job.", "name", job.Name)
+		policy := metav1.DeletePropagationForeground
 		err = jobs.Delete(ctx, job.Name, metav1.DeleteOptions{
-			PropagationPolicy: &bg,
+			GracePeriodSeconds: new(int64),
+			PropagationPolicy:  &policy,
 		})
 		if err != nil {
 			c.Log.Error(err, "Failed to delete job.", "name", job.Name)
@@ -197,16 +242,26 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode) error {
 	newStatus := map[string]v1alpha1api.ModelStatus{}
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
+		recreateJob := false
 		if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
 			if status == v1alpha1api.ModelDownloaded {
 				newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloaded
-				continue
+				hasModelFolder, err := fsHelper.hasModelFolder(modelInfo.ModelName)
+				if err != nil {
+					c.Log.Error(err, "Failed to check model folder", "model", modelInfo.ModelName, "folder", getModelFolder(modelInfo.ModelName))
+					return err
+				}
+				if hasModelFolder {
+					continue
+				}
+				c.Log.Info("Model folder not found, re-downloading", "model", modelInfo.ModelName)
+				recreateJob = true
 			}
 		}
 
 		jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
 
-		job, err := c.launchJob(ctx, jobName, localModelNode, modelInfo, modelInfo.ModelName)
+		job, err := c.getOrLaunchJob(ctx, jobName, localModelNode, modelInfo, recreateJob)
 		if err != nil {
 			c.Log.Error(err, "Job error", "name", jobName)
 			return err
@@ -228,6 +283,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 
 	// Skip update if no changes to status
 	if maps.Equal(localModelNode.Status.ModelStatus, newStatus) {
+		c.Log.Info("Skipping Status update", "name", localModelNode.Name)
 		return nil
 	}
 
@@ -236,6 +292,8 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 		c.Log.Error(err, "Update local model cache status error", "name", localModelNode.Name)
 		return err
 	}
+	c.Log.Info("status updated", "name", localModelNode.Name)
+
 	return nil
 }
 
@@ -243,7 +301,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.LocalModelNode) error {
 	// 1. Scan model dir and get a list of existing folders representing downloaded models
 	foldersToRemove := map[string]struct{}{}
-	entries, err := readDir(modelsRootFolder)
+	entries, err := fsHelper.readDir(modelsRootFolder)
 	if err != nil {
 		c.Log.Error(err, "Failed to list model folder", "folder", modelsRootFolder)
 	}
@@ -264,8 +322,8 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.Local
 		c.Log.Info("Found model(s) to remove", "num of models", len(foldersToRemove))
 		for modelName := range foldersToRemove {
 			c.Log.Info("Removing model", "model", modelName)
-			modelFolder := filepath.Join(modelsRootFolder, modelName)
-			if err := removeAll(modelFolder); err != nil {
+			modelFolder := getModelFolder(modelName)
+			if err := fsHelper.removeAll(modelFolder); err != nil {
 				c.Log.Error(err, "Failed to remove model directory", "dir", modelFolder)
 			}
 		}
@@ -280,6 +338,11 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	c.Log.Info("Agent reconciling LocalModelNode", "name", req.Name, "node", nodeName)
+
+	// fsHelper is a global variable to allow mocking in tests
+	if fsHelper == nil {
+		fsHelper = &fileSystemHelper{}
+	}
 
 	// Create Jobs to download models if the model is not present locally.
 	// 1. Check if LocalModelNode CR is for current node
@@ -308,7 +371,9 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		c.Log.Error(err, "Model deletion err")
 		return reconcile.Result{}, err
 	}
-	return reconcile.Result{}, nil
+	// Requeue to check local folders periodically
+	// Todo: Make it configurable
+	return reconcile.Result{RequeueAfter: time.Minute}, nil
 }
 
 func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
