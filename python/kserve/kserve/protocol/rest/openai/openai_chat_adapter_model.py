@@ -23,12 +23,11 @@ from kserve.protocol.rest.openai.types import (
     ChatCompletionRequestMessage,
     ChatCompletionResponseMessage,
     ChatCompletionTokenLogprob,
+    ChatCompletionTool,
     ChoiceDelta,
     ChunkChoice,
     Completion,
     CompletionChoice,
-    CreateChatCompletionRequest,
-    CreateCompletionRequest,
     Logprobs,
     TopLogprob,
 )
@@ -39,6 +38,8 @@ from .openai_model import (
     ChatPrompt,
     CompletionRequest,
     ChatCompletionRequest,
+    CreateCompletionRequest,
+    CreateChatCompletionRequest,
     AsyncMappingIterator,
 )
 
@@ -56,6 +57,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
         self,
         messages: Iterable[ChatCompletionRequestMessage],
         chat_template: Optional[str] = None,
+        tools: Optional[list[ChatCompletionTool]] = None,
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
@@ -82,6 +84,12 @@ class OpenAIChatAdapterModel(OpenAIModel):
             top_p=params.top_p,
             user=params.user,
             logprobs=params.top_logprobs,
+            guided_json=params.guided_json,
+            guided_regex=params.guided_regex,
+            guided_choice=params.guided_choice,
+            guided_grammar=params.guided_grammar,
+            guided_decoding_backend=params.guided_decoding_backend,
+            guided_whitespace_pattern=params.guided_whitespace_pattern,
         )
 
     @classmethod
