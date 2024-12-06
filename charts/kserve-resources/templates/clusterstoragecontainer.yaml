@@ -23,6 +23,7 @@ spec:
     - prefix: hdfs://
     - prefix: hf://
     - prefix: webhdfs://
+    - prefix: hf://
     - regex: "https://(.+?).blob.core.windows.net/(.+)"
     - regex: "https://(.+?).file.core.windows.net/(.+)"
     - regex: "https?://(.+)/(.+)"
