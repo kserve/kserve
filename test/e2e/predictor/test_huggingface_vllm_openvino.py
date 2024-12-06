@@ -27,8 +27,7 @@ from kserve import (
     KServeClient,
 )
 from kserve.constants import constants
-from ..common.utils import KSERVE_TEST_NAMESPACE, generate, predict_isvc
-from .test_output import huggingface_text_embedding_expected_output
+from ..common.utils import KSERVE_TEST_NAMESPACE, generate
 
 
 @pytest.mark.llm
