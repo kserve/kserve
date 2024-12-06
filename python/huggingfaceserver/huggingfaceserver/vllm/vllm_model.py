@@ -26,6 +26,9 @@ from kserve.protocol.rest.openai.types import (
     Completion,
     ChatCompletion,
     CompletionRequest,
+    ChatCompletionRequest,
+    EmbeddingRequest,
+    Embedding,
 )
 
 from vllm import AsyncEngineArgs
@@ -140,9 +143,18 @@ class VLLMModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
 
     async def create_chat_completion(
         self,
-        request: CompletionRequest,
+        request: ChatCompletionRequest,
         raw_request: Optional[Request] = None,
     ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
         return await self.openai_serving_chat.create_chat_completion(
+            request, raw_request
+        )
+
+    async def create_embedding(
+        self,
+        request: EmbeddingRequest,
+        raw_request: Optional[Request] = None,
+    ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
+        return await self.openai_serving_embedding.create_embedding(
             request, raw_request
         )

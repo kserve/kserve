@@ -24,6 +24,7 @@ from starlette.responses import StreamingResponse
 from kserve.protocol.rest.openai.types.openapi import (
     ChatCompletionRequest,
     CompletionRequest,
+    EmbeddingRequest,
     ListModelsResponse,  # TODO: Does vLLM support it?
     Model,  # TODO: vLLM does not support
 )
@@ -40,6 +41,7 @@ if len(OPENAI_ROUTE_PREFIX) > 0 and not OPENAI_ROUTE_PREFIX.startswith("/"):
 
 CreateCompletionRequestAdapter = TypeAdapter(CompletionRequest)
 ChatCompletionRequestAdapter = TypeAdapter(ChatCompletionRequest)
+EmbeddingRequestAdapter = TypeAdapter(EmbeddingRequest)
 
 
 class OpenAIEndpoints:
@@ -126,6 +128,45 @@ class OpenAIEndpoints:
         else:
             return completion
 
+    async def create_embedding(
+        self,
+        raw_request: Request,
+        request_body: EmbeddingRequest,
+        response: Response,
+    ) -> Response:
+        """Create embedding handler.
+
+        Args:
+            raw_request (Request): fastapi request object,
+            model_name (str): Model name.
+            request_body (EmbeddingRequestAdapter): Embedding params body.
+
+        Returns:
+            InferenceResponse: Inference response object.
+        """
+        try:
+            params = EmbeddingRequestAdapter.validate_python(request_body)
+        except ValidationError as e:
+            raise RequestValidationError(errors=e.errors())
+        params = request_body
+        model_name = params.model
+        model_ready = await self.dataplane.model_ready(model_name)
+
+        if not model_ready:
+            raise ModelNotReady(model_name)
+
+        embedding = await self.dataplane.create_embedding(
+            model_name=model_name,
+            request=params,
+            raw_request=raw_request,
+            headers=raw_request.headers,
+            response=response,
+        )
+        if isinstance(embedding, AsyncGenerator):
+            return StreamingResponse(embedding, media_type="text/event-stream")
+        else:
+            return embedding
+        
     async def models(
         self,
     ) -> ListModelsResponse:
@@ -165,6 +206,13 @@ def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):
     openai_router.add_api_route(
         r"/v1/chat/completions",
         endpoints.create_chat_completion,
+        methods=["POST"],
+        response_model_exclude_none=True,
+        response_model_exclude_unset=True,
+    )
+    openai_router.add_api_route(
+        r"/v1/embeddings",
+        endpoints.create_embedding,
         methods=["POST"],
         response_model_exclude_none=True,
         response_model_exclude_unset=True,

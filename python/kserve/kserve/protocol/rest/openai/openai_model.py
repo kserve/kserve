@@ -22,8 +22,10 @@ from fastapi import Request  # TODO: Double check whether fastapi is installed
 from kserve.protocol.rest.openai.types import (
     ChatCompletion,
     Completion,
+    Embedding,
     ChatCompletionRequest,
     CompletionRequest,
+    EmbeddingRequest,
     ErrorResponse,
 )
 
@@ -65,6 +67,14 @@ class OpenAIModel(BaseKServeModel):
         request: ChatCompletionRequest,
         raw_request: Optional[Request] = None,
     ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
+        pass
+
+    @abstractmethod
+    async def create_embedding(
+        self,
+        request: EmbeddingRequest,
+        raw_request: Optional[Request] = None,
+    ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
         pass
 
 

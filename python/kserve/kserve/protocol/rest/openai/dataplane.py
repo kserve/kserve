@@ -89,6 +89,33 @@ class OpenAIDataPlane(DataPlane):
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support chat completion")
         return await model.create_chat_completion(request, raw_request)
+    
+    async def create_embedding(
+        self,
+        model_name: str,
+        request: CompletionRequest,
+        raw_request: Request,
+        headers: Headers,
+        response: Response,
+    ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
+        """Generate the text with the provided text prompt.
+
+        Args:
+            model_name (str): Model name.
+            request (CompletionRequest): Params to create a embedding.
+            raw_request (Request): fastapi request object.
+            headers: (Headers): Request headers.
+            response: (Response): FastAPI response object
+        Returns:
+            response: A non-streaming or streaming embedding response.
+
+        Raises:
+            InvalidInput: An error when the body bytes can't be decoded as JSON.
+        """
+        model = await self.get_model(model_name)
+        if not isinstance(model, OpenAIModel):
+            raise RuntimeError(f"Model {model_name} does not support completion")
+        return await model.create_completion(request, raw_request)
 
     async def models(self) -> List[OpenAIModel]:
         """Retrieve a list of models
