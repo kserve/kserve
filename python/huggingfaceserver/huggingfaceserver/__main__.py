@@ -113,7 +113,9 @@ parser.add_argument(
 # Updated to use hf_task for the HuggingFace backend. Starting from vLLM version 0.6.4,
 # the task flag was added to the vLLM CLI parser, supporting different task values specific to the vLLM framework.
 # To avoid conflicts and maintain compatibility with the HuggingFace backend, a separate argument (hf_task) is now used.
-parser.add_argument("--hf_task", required=False, help="The ML task name for huggingface backend")
+parser.add_argument(
+    "--hf_task", required=False, help="The ML task name for huggingface backend"
+)
 available_backends = ", ".join(f"'{b.name}'" for b in Backend)
 parser.add_argument(
     "--backend",
