@@ -3,7 +3,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: kserve-localmodel-manager-role
+  name: kserve-localmodelnode-agent-role
 rules:
 - apiGroups:
   - ""
@@ -27,10 +27,9 @@ rules:
   - get
   - watch
 - apiGroups:
-  - ""
+  - batch
   resources:
-  - persistentvolumeclaims
-  - persistentvolumes
+  - jobs
   verbs:
   - create
   - delete
@@ -40,9 +39,29 @@ rules:
   - update
   - watch
 - apiGroups:
+  - batch
+  resources:
+  - jobs/status
+  verbs:
+  - get
+- apiGroups:
   - serving.kserve.io
   resources:
-  - clusterlocalmodels
+  - clusterstoragecontainers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelnodegroups
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - localmodelnodes
   verbs:
   - create
@@ -55,25 +74,9 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - clusterlocalmodels/status
+  - localmodelnodes/status
   verbs:
   - get
   - patch
   - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - inferenceservices
-  - localmodelnodegroups
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - localmodelnodes/status
-  verbs:
-  - get
-  - watch
 {{- end }}
