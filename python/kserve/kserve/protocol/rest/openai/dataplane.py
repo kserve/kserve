@@ -115,7 +115,7 @@ class OpenAIDataPlane(DataPlane):
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support completion")
-        return await model.create_completion(request, raw_request)
+        return await model.create_embedding(request, raw_request)
 
     async def models(self) -> List[OpenAIModel]:
         """Retrieve a list of models
