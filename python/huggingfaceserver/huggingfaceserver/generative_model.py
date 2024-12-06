@@ -27,6 +27,7 @@ from typing import (
     Union,
     cast,
 )
+from http import HTTPStatus
 
 import torch
 from accelerate import init_empty_weights
@@ -36,6 +37,7 @@ from kserve.protocol.rest.openai import (
     CompletionRequest,
     OpenAIChatAdapterModel,
 )
+from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
 from kserve.protocol.rest.openai.types.openapi import ChatCompletionTool
 from kserve.protocol.rest.openai.types import (
     ChatCompletionRequestMessage,
@@ -357,14 +359,20 @@ class HuggingfaceGenerativeModel(
         Check that only support params have been provided
         """
         if params.frequency_penalty is not None and params.frequency_penalty > 0:
-            raise ValueError("'frequency_penalty' is not supported")
+            raise OpenAIError(
+                create_error_response("'frequency_penalty' is not supported")
+            )
         if params.best_of is not None and params.best_of > 1:
-            raise ValueError("'best_of' > 1 is not supported")
+            raise OpenAIError(create_error_response("'best_of' > 1 is not supported"))
         if params.n is not None and params.n > 1:
             # TODO: support 'n' by using num
-            raise ValueError("'n' > 1 is not supported")
+            raise OpenAIError(create_error_response("'n' > 1 is not supported"))
         if params.echo and self.is_encoder_decoder:
-            raise ValueError("'echo' is not supported by encoder-decoder models")
+            raise OpenAIError(
+                create_error_response(
+                    "'echo' is not supported by encoder-decoder models"
+                )
+            )
 
     def build_generation_config(
         self, params: CreateCompletionRequest
@@ -412,7 +420,7 @@ class HuggingfaceGenerativeModel(
         self._log_request(request)
         params = request.params
         if params.prompt is None:
-            raise ValueError("prompt is required")
+            raise OpenAIError(create_error_response("prompt is required"))
         stats = LLMStats()
         request.context[LLM_STATS_KEY] = stats
         prompt = params.prompt
@@ -435,12 +443,16 @@ class HuggingfaceGenerativeModel(
         if params.max_tokens is None:
             params.max_tokens = self.max_length - num_input_tokens_per_prompt
         if num_input_tokens_per_prompt + params.max_tokens > self.max_length:
-            raise ValueError(
-                f"This model's maximum context length is {self.max_length} tokens. "
-                f"However, you requested {params.max_tokens + num_input_tokens_per_prompt} tokens "
-                f"({num_input_tokens_per_prompt} in the messages, "
-                f"{params.max_tokens} in the completion). "
-                f"Please reduce the length of the messages or completion.",
+            raise OpenAIError(
+                response=create_error_response(
+                    f"This model's maximum context length is {self.max_length} tokens. "
+                    f"However, you requested {params.max_tokens + num_input_tokens_per_prompt} tokens "
+                    f"({num_input_tokens_per_prompt} in the messages, "
+                    f"{params.max_tokens} in the completion). "
+                    f"Please reduce the length of the messages or completion.",
+                    err_type="BadRequest",
+                    status_code=HTTPStatus.BAD_REQUEST,
+                )
             )
 
         self.validate_supported_completion_params(params)
