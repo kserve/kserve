@@ -22,7 +22,8 @@ import (
 	"os"
 	"strings"
 
-	"k8s.io/klog"
+	kserve "github.com/kserve/kserve/pkg/openapi"
+	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/common"
 	spec "k8s.io/kube-openapi/pkg/validation/spec"
 

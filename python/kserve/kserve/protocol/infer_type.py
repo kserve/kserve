@@ -1049,6 +1049,8 @@ class InferOutput:
             raise InferenceError("input_tensor must be a numpy array")
 
         dtype = from_np_dtype(output_tensor.dtype)
+        if np.issubdtype(output_tensor.dtype, np.datetime64):
+            output_tensor = output_tensor.astype(np.object_)
         if self._datatype != dtype:
             raise InferenceError(
                 "got unexpected datatype {} from numpy array, expected {}".format(

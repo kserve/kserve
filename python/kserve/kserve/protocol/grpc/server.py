@@ -23,7 +23,7 @@ from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 
 from . import grpc_predict_v2_pb2_grpc
-from .interceptors import LoggingInterceptor
+from .interceptors import LoggingInterceptor, ExceptionToStatusInterceptor
 from .servicer import InferenceServicer
 
 
@@ -47,7 +47,7 @@ class GRPCServer:
         )
         self._server = aio.server(
             futures.ThreadPoolExecutor(max_workers=max_workers),
-            interceptors=(LoggingInterceptor(),),
+            interceptors=(LoggingInterceptor(), ExceptionToStatusInterceptor()),
             options=[
                 (
                     "grpc.max_send_message_length",

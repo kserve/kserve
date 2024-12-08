@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import datetime
 import io
 import json
 import os
@@ -47,7 +48,7 @@ from kserve.protocol.infer_type import (
 )
 from kserve.protocol.rest.server import RESTServer
 from kserve.protocol.rest.v2_datamodels import is_pydantic_2
-from kserve.utils.utils import get_predict_input, get_predict_response
+from kserve.utils.utils import generate_uuid, get_predict_input, get_predict_response
 
 test_avsc_schema = """
         {
@@ -338,6 +339,39 @@ class DummyFP16InputModel(Model):
         return infer_response
 
 
+class DateTimeModel(Model):
+    def __init__(self, name):
+        super().__init__(name)
+        self.ready = False
+
+    def load(self):
+        self.ready = True
+
+    async def predict(self, payload, headers=None, response_headers=None):
+        if isinstance(payload, InferRequest):
+            response_id = generate_uuid()
+            infer_output = InferOutput(
+                name="output-0",
+                shape=[1],
+                datatype="BYTES",
+            )
+            infer_output.set_data_from_numpy(
+                np.array(
+                    [datetime.datetime.now(tz=datetime.timezone.utc)], dtype=np.object_
+                ),
+                binary_data=False,
+            )
+            return InferResponse(
+                model_name=self.name,
+                infer_outputs=[infer_output],
+                response_id=response_id,
+            )
+        return {"predictions": [datetime.datetime.now(tz=datetime.timezone.utc)]}
+
+    async def explain(self, payload, headers=None):
+        return {"predictions": [datetime.datetime.now(tz=datetime.timezone.utc)]}
+
+
 @pytest.mark.asyncio
 class TestModel:
     async def test_validate(self):
@@ -379,8 +413,12 @@ class TestV1Endpoints:
         model = DummyModel("TestModel")
         model.load()
         server.register_model(model)
+        datetime_model = DateTimeModel("DateTimeModel")
+        datetime_model.load()
+        server.register_model(datetime_model)
         yield kserve_app
         await server.model_repository_extension.unload("TestModel")
+        await server.model_repository_extension.unload("DateTimeModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -403,7 +441,7 @@ class TestV1Endpoints:
     def test_list_models_v1(self, http_server_client):
         resp = http_server_client.get("/v1/models")
         assert resp.status_code == 200
-        assert resp.json() == {"models": ["TestModel"]}
+        assert resp.json() == {"models": ["TestModel", "DateTimeModel"]}
 
     def test_predict_v1(self, http_server_client):
         resp = http_server_client.post(
@@ -431,6 +469,19 @@ class TestV1Endpoints:
         assert resp.status_code == 200
         assert resp.content is not None
 
+    def test_datetime_output_v1(self, http_server_client):
+        resp = http_server_client.post(
+            "/v1/models/DateTimeModel:predict", content=b'{"instances":[[1,2]]}'
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/json"
+        result = json.loads(resp.content)
+        assert isinstance(result["predictions"][0], str)
+        result_datetime = datetime.datetime.fromisoformat(result["predictions"][0])
+        datetime_now = datetime.datetime.now(tz=datetime.timezone.utc)
+        assert result_datetime.date() == datetime_now.date()
+        assert result_datetime.tzinfo == datetime_now.tzinfo
+
 
 class TestV2Endpoints:
     @pytest.fixture(scope="class")
@@ -454,10 +505,14 @@ class TestV2Endpoints:
         fp16_output_model = DummyFP16OutputModel("FP16OutputModel")
         fp16_output_model.load()
         server.register_model(fp16_output_model)
+        datetime_model = DateTimeModel("DateTimeModel")
+        datetime_model.load()
+        server.register_model(datetime_model)
         yield kserve_app
         await server.model_repository_extension.unload("TestModel")
         await server.model_repository_extension.unload("FP16InputModel")
         await server.model_repository_extension.unload("FP16OutputModel")
+        await server.model_repository_extension.unload("DateTimeModel")
 
     @pytest.fixture(scope="class")
     def http_server_client(self, app):
@@ -467,7 +522,12 @@ class TestV2Endpoints:
         resp = http_server_client.get("/v2/models")
         assert resp.status_code == 200
         assert resp.json() == {
-            "models": ["TestModel", "FP16InputModel", "FP16OutputModel"]
+            "models": [
+                "TestModel",
+                "FP16InputModel",
+                "FP16OutputModel",
+                "DateTimeModel",
+            ]
         }
 
     def test_infer_v2(self, http_server_client):
@@ -803,6 +863,23 @@ class TestV2Endpoints:
             == b'{"id":"123","model_name":"FP16OutputModel","model_version":null,"outputs":[{"name":"fp16_output","shape":[8],"datatype":"FP16","parameters":{"binary_data_size":16}},{"name":"fp32_output","shape":[8],"datatype":"FP32","data":[6.800000190734863,2.799999952316284,4.800000190734863,1.399999976158142,6.0,3.4000000953674316,4.5,1.600000023841858]}]}\xcdF\x9aA\xcdD\x9a=\x00F\xcdB\x80Df>'
         )
         assert resp.headers.get(INFERENCE_CONTENT_LENGTH_HEADER) == "345"
+
+    def test_datetime_output(self, http_server_client):
+        input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
+        resp = http_server_client.post(
+            "/v2/models/DateTimeModel/infer",
+            content=input_data,
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/json"
+        result = json.loads(resp.content)
+        assert isinstance(result["outputs"][0]["data"][0], str)
+        result_datetime = datetime.datetime.fromisoformat(
+            result["outputs"][0]["data"][0]
+        )
+        datetime_now = datetime.datetime.now(tz=datetime.timezone.utc)
+        assert result_datetime.date() == datetime_now.date()
+        assert result_datetime.tzinfo == datetime_now.tzinfo
 
 
 class TestRayServer:
