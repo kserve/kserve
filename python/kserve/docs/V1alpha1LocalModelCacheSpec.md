@@ -1,5 +1,6 @@
-# V1alpha1ClusterLocalModelSpec
+# V1alpha1LocalModelCacheSpec
 
+LocalModelCacheSpec
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
