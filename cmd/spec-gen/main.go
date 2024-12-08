@@ -26,6 +26,8 @@ import (
 	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/common"
 	spec "k8s.io/kube-openapi/pkg/validation/spec"
+
+	kserve "github.com/kserve/kserve/pkg/openapi"
 )
 
 // Generate OpenAPI spec definitions for InferenceService Resource

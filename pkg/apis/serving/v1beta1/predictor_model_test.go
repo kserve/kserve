@@ -19,8 +19,6 @@ package v1beta1
 import (
 	"testing"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
@@ -28,6 +26,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestGetSupportingRuntimes(t *testing.T) {
@@ -493,7 +495,6 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestModelPredictorGetContainer(t *testing.T) {
@@ -505,7 +506,7 @@ func TestModelPredictorGetContainer(t *testing.T) {
 		Namespace: "default",
 	}
 	componentSpec := &ComponentExtensionSpec{
-		MinReplicas: GetIntReference(3),
+		MinReplicas: utils.ToPointer(int32(3)),
 		MaxReplicas: 2,
 	}
 	scenarios := map[string]struct {

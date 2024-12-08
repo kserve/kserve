@@ -19,13 +19,14 @@ package autoscaler
 import (
 	"fmt"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	hpa "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/hpa"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	hpa "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/hpa"
 )
 
 // Autoscaler Interface implemented by all autoscalers
@@ -84,7 +85,7 @@ func createAutoscaler(client client.Client,
 	ac := getAutoscalerClass(componentMeta)
 	switch ac {
 	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal:
-		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt), nil
+		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt)
 	default:
 		return nil, fmt.Errorf("unknown autoscaler class type: %v", ac)
 	}

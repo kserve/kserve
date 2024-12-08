@@ -23,9 +23,6 @@ import (
 	"reflect"
 	"strings"
 
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
@@ -42,6 +39,10 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var log = logf.Log.WithName("GraphKsvcReconciler")
@@ -135,7 +136,7 @@ func semanticEquals(desiredService, service *knservingv1.Service) bool {
 		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
 }
 
-func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.InferenceGraph, config *RouterConfig) *knservingv1.Service {
+func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.InferenceGraph, config *RouterConfig) *knservingv1.Service {
 	bytes, err := json.Marshal(graph.Spec)
 	if err != nil {
 		return nil
@@ -227,7 +228,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 	return service
 }
 
-func constructResourceRequirements(graph v1alpha1api.InferenceGraph, config RouterConfig) v1.ResourceRequirements {
+func constructResourceRequirements(graph v1alpha1.InferenceGraph, config RouterConfig) v1.ResourceRequirements {
 	var specResources v1.ResourceRequirements
 	if !reflect.ValueOf(graph.Spec.Resources).IsZero() {
 		log.Info("Ignoring defaults for ResourceRequirements as spec has resources mentioned", "specResources", graph.Spec.Resources)
