@@ -14,12 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package localmodelcache
 
 import (
 	"context"
 	"fmt"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -99,8 +100,8 @@ func (v *ClusterLocalModelValidator) ValidateDelete(ctx context.Context, obj run
 }
 
 // Convert runtime.Object into ClusterLocalModel
-func convertToClusterLocalModel(obj runtime.Object) (*ClusterLocalModel, error) {
-	clusterLocalModel, ok := obj.(*ClusterLocalModel)
+func convertToClusterLocalModel(obj runtime.Object) (*v1alpha1.ClusterLocalModel, error) {
+	clusterLocalModel, ok := obj.(*v1alpha1.ClusterLocalModel)
 	if !ok {
 		return nil, fmt.Errorf("expected an ClusterLocalModel object but got %T", obj)
 	}

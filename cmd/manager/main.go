@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/utils"
@@ -280,6 +281,14 @@ func main() {
 		WithValidator(&v1beta1.InferenceServiceValidator{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1beta1")
+		os.Exit(1)
+	}
+
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.ClusterLocalModel{}).
+		WithValidator(&localmodelcache.ClusterLocalModelValidator{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "localmodelcache")
 		os.Exit(1)
 	}
 
