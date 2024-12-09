@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import pathlib
-from typing import Any, Dict, Optional, Union
-
+from typing import Any, Dict, Optional, Union, AsyncGenerator, Union
+import time
+from fastapi import Request
 import torch
 import torch.nn.functional as F
 from accelerate import init_empty_weights
@@ -22,6 +23,7 @@ from kserve import Model
 from kserve.errors import InferenceError
 from kserve.logging import logger
 from kserve.model import PredictorConfig
+
 from kserve.protocol.infer_type import InferInput, InferRequest, InferResponse
 from kserve.utils.utils import (
     from_np_dtype,
@@ -38,6 +40,16 @@ from transformers import (
     PretrainedConfig,
     TensorType,
 )
+from kserve.utils import generate_uuid, LLMStats
+from kserve.protocol.rest.openai.types import (
+    EmbeddingRequest,
+    Embedding,
+    EmbeddingResponseData,
+    UsageInfo, 
+    ErrorResponse
+)
+
+from kserve.protocol.rest.openai import OpenAIModel
 
 from .request_logger import RequestLogger
 from .task import (
@@ -49,7 +61,7 @@ from .task import (
 from .utils import _get_and_verify_max_len, _mean_pooling
 
 
-class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
+class HuggingfaceEncoderModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
     task: MLTask
     model_config: PretrainedConfig
     model_id_or_path: Union[pathlib.Path, str]
@@ -340,3 +352,76 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
                 request_id,
                 prompt=prompt,
             )
+
+    async def create_embedding(
+        self, 
+        request: EmbeddingRequest, 
+        raw_request: Optional[Request] = None,
+    ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
+        self._log_request(request, raw_request)
+        
+        input = request.input  # Extract the input field
+        prompts = (
+            input
+            if isinstance(input, list) and not isinstance(input[0], int)
+            else [input]
+        )
+
+        if isinstance(prompts[0][0], int):  # If tokens are provided directly
+            inputs = {
+                "input_ids": torch.tensor(prompts, dtype=torch.int64).to(self._device)
+            }
+        else:  # If text prompts are provided
+            inputs = self._tokenizer(
+                prompts, padding=True, return_tensors=TensorType.PYTORCH
+            ).to(self._device)
+
+        stats = LLMStats()
+        num_input_tokens_per_prompt = inputs["input_ids"].shape[-1]
+        num_input_tokens = num_input_tokens_per_prompt * inputs["input_ids"].shape[0]
+        stats.num_prompt_tokens = num_input_tokens
+
+        try:
+            with torch.no_grad():
+                outputs = self._model(**inputs)
+
+            token_embeddings = outputs.last_hidden_state
+            attention_mask = inputs.get("attention_mask")
+
+            # TODO: check if this is correct
+            # Perform mean pooling
+            if attention_mask is not None:
+                expanded_mask = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+                sum_embeddings = torch.sum(token_embeddings * expanded_mask, dim=1)
+                sum_mask = torch.clamp(expanded_mask.sum(dim=1), min=1e-9)
+                embeddings = sum_embeddings / sum_mask
+            else:
+                embeddings = torch.mean(token_embeddings, dim=1)
+
+            # Normalize embeddings
+            normalized_embeddings = F.normalize(embeddings, p=2, dim=1)
+
+            data = [
+                EmbeddingResponseData(
+                    index=idx,
+                    object="embedding",
+                    embedding=embedding.tolist(),
+                )
+                for idx, embedding in enumerate(normalized_embeddings)
+            ]
+
+            return Embedding(
+                id=generate_uuid(),
+                model=request.model,
+                created=int(time.time()),
+                object="embedding",
+                data=data,
+                usage=UsageInfo(
+                    prompt_tokens=stats.num_prompt_tokens,
+                    total_tokens=stats.num_prompt_tokens,
+                ),
+            )
+
+        except Exception as e:
+            logger.error(f"Error during embedding creation: {str(e)}")
+            return ErrorResponse(message=str(e))

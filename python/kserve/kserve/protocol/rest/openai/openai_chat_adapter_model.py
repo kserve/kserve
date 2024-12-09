@@ -15,12 +15,12 @@
 from abc import abstractmethod
 from typing import Iterable, Optional, cast, AsyncGenerator, Union
 from fastapi import Request
+import time
 
 from kserve.protocol.rest.openai.types import (
     ChatCompletionRequest,
     CompletionRequest,
     ChatCompletion,
-    EmbeddingRequest,
     ChatCompletionChoice,
     ChatCompletionLogProb,
     ChatCompletionChoiceLogProbs,
@@ -251,10 +251,3 @@ class OpenAIChatAdapterModel(OpenAIModel):
                 yield "data: [DONE]\n\n"
 
             return stream_results()
-
-    async def create_embedding(
-        self, 
-        request: EmbeddingRequest, 
-        raw_request: Optional[Request] = None,
-    ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
-        return await super().create_embedding(request, raw_request)
