@@ -135,13 +135,6 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - clusterlocalmodels
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - serving.kserve.io
-  resources:
   - clusterservingruntimes
   - clusterservingruntimes/finalizers
   - clusterstoragecontainers
@@ -172,3 +165,10 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelcaches
+  verbs:
+  - get
+  - list

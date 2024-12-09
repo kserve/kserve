@@ -26,19 +26,18 @@
 
 from __future__ import absolute_import
 
-import datetime
 import unittest
-
-from kserve.models.v1alpha1_cluster_local_model import (  # noqa: E501
-    V1alpha1ClusterLocalModel,
-)
-from kserve.rest import ApiException
+import datetime
 
 import kserve
+from kserve.models.v1alpha1_local_model_cache import (
+    V1alpha1LocalModelCache,
+)  # noqa: E501
+from kserve.rest import ApiException
 
 
-class TestV1alpha1ClusterLocalModel(unittest.TestCase):
-    """V1alpha1ClusterLocalModel unit test stubs"""
+class TestV1alpha1LocalModelCache(unittest.TestCase):
+    """V1alpha1LocalModelCache unit test stubs"""
 
     def setUp(self):
         pass
@@ -47,17 +46,17 @@ class TestV1alpha1ClusterLocalModel(unittest.TestCase):
         pass
 
     def make_instance(self, include_optional):
-        """Test V1alpha1ClusterLocalModel
+        """Test V1alpha1LocalModelCache
         include_option is a boolean, when False only required
         params are included, when True both required and
         optional params are included"""
-        # model = kserve.models.v1alpha1_cluster_local_model.V1alpha1ClusterLocalModel()  # noqa: E501
+        # model = kserve.models.v1alpha1_local_model_cache.V1alpha1LocalModelCache()  # noqa: E501
         if include_optional:
-            return V1alpha1ClusterLocalModel(
+            return V1alpha1LocalModelCache(
                 api_version="0",
                 kind="0",
                 metadata=None,
-                spec=kserve.models.v1alpha1_cluster_local_model_spec.V1alpha1ClusterLocalModelSpec(
+                spec=kserve.models.v1alpha1_local_model_cache_spec.V1alpha1LocalModelCacheSpec(
                     model_size="1Gi",
                     node_group="0",
                     source_model_uri="0",
@@ -65,10 +64,10 @@ class TestV1alpha1ClusterLocalModel(unittest.TestCase):
                 status=None,
             )
         else:
-            return V1alpha1ClusterLocalModel()
+            return V1alpha1LocalModelCache()
 
-    def testV1alpha1ClusterLocalModel(self):
-        """Test V1alpha1ClusterLocalModel"""
+    def testV1alpha1LocalModelCache(self):
+        """Test V1alpha1LocalModelCache"""
         inst_req_only = self.make_instance(include_optional=False)
         inst_req_and_optional = self.make_instance(include_optional=True)
 

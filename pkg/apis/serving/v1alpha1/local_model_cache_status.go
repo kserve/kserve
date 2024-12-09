@@ -16,7 +16,7 @@ limitations under the License.
 
 package v1alpha1
 
-type ClusterLocalModelStatus struct {
+type LocalModelCacheStatus struct {
 	// Status of the model on a node, like NodeDownloaded or NodeNotReady
 	NodeStatus map[string]NodeStatus `json:"nodeStatus,omitempty"`
 
@@ -33,7 +33,7 @@ type NamespacedName struct {
 }
 
 // NodeStatus enum
-// +kubebuilder:validation:Enum="";NodeNotReady;NodeDownloadPending;NodeDownloading;NodeDownloaded;NodeDownloadError;NodeDeleting;NodeDeletionError;NodeDeleted
+// +kubebuilder:validation:Enum="";NodeNotReady;NodeDownloadPending;NodeDownloading;NodeDownloaded;NodeDownloadError;
 type NodeStatus string
 
 // NodeStatus Enum values
@@ -43,9 +43,6 @@ const (
 	NodeDownloading     NodeStatus = "NodeDownloading"
 	NodeDownloaded      NodeStatus = "NodeDownloaded"
 	NodeDownloadError   NodeStatus = "NodeDownloadError"
-	NodeDeleting        NodeStatus = "NodeDeleting"
-	NodeDeletionError   NodeStatus = "NodeDeletionError"
-	NodeDeleted         NodeStatus = "NodeDeleted"
 )
 
 type ModelCopies struct {

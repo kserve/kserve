@@ -41,7 +41,7 @@ var _ = Describe("CachedModel controller", func() {
 		sourceModelUri      = "s3://mybucket/mymodel"
 	)
 	var (
-		localModelSpec = v1alpha1.ClusterLocalModelSpec{
+		localModelSpec = v1alpha1.LocalModelCacheSpec{
 			SourceModelUri: sourceModelUri,
 			ModelSize:      resource.MustParse("123Gi"),
 			NodeGroup:      "gpu",
@@ -130,7 +130,7 @@ var _ = Describe("CachedModel controller", func() {
 			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
 			defer k8sClient.Delete(ctx, nodeGroup)
 
-			cachedModel := &v1alpha1.ClusterLocalModel{
+			cachedModel := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "iris",
 				},
@@ -211,7 +211,7 @@ var _ = Describe("CachedModel controller", func() {
 			// Now let's test deletion
 			k8sClient.Delete(ctx, cachedModel)
 
-			newLocalModel := &v1alpha1.ClusterLocalModel{}
+			newLocalModel := &v1alpha1.LocalModelCache{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, newLocalModel)
 				return err == nil
@@ -250,7 +250,7 @@ var _ = Describe("CachedModel controller", func() {
 			modelName := "iris2"
 			isvcNamespace := "default"
 			isvcName := "foo"
-			cachedModel := &v1alpha1.ClusterLocalModel{
+			cachedModel := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: modelName,
 				},
@@ -277,8 +277,8 @@ var _ = Describe("CachedModel controller", func() {
 			}
 
 			// Mutating webhook adds a local model label
-			cachedModelList := &v1alpha1.ClusterLocalModelList{}
-			cachedModelList.Items = []v1alpha1.ClusterLocalModel{*cachedModel}
+			cachedModelList := &v1alpha1.LocalModelCacheList{}
+			cachedModelList.Items = []v1alpha1.LocalModelCache{*cachedModel}
 			isvc.DefaultInferenceService(nil, nil, nil, cachedModelList)
 
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
@@ -421,14 +421,14 @@ var _ = Describe("CachedModel controller", func() {
 				defer k8sClient.Delete(ctx, node)
 			}
 
-			cachedModel1 := &v1alpha1.ClusterLocalModel{
+			cachedModel1 := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "iris1",
 				},
 				Spec: localModelSpec,
 			}
 			Expect(k8sClient.Create(ctx, cachedModel1)).Should(Succeed())
-			cachedModel2 := &v1alpha1.ClusterLocalModel{
+			cachedModel2 := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "iris2",
 				},

@@ -87,7 +87,7 @@ deploy-dev: manifests
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	echo > ../certmanager/certificate.yaml; \
 	else git checkout HEAD -- ../certmanager/certificate.yaml; fi;
-	kubectl apply --server-side=true -k config/overlays/development
+	kubectl apply --server-side=true --force-conflicts -k config/overlays/development
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
