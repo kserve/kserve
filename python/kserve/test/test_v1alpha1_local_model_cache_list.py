@@ -55,14 +55,12 @@ class TestV1alpha1LocalModelCacheList(unittest.TestCase):
             return V1alpha1LocalModelCacheList(
                 api_version="0",
                 items=[
-                    kserve.models.v1alpha1
-                    / local_model_cache.v1alpha1.LocalModelCache(
+                    kserve.models.v1alpha1_local_model_cache.V1alpha1LocalModelCache(
                         api_version="0",
                         kind="0",
                         metadata=None,
-                        spec=kserve.models.v1alpha1
-                        / local_model_cache_spec.v1alpha1.LocalModelCacheSpec(
-                            model_size=None,
+                        spec=kserve.models.v1alpha1_local_model_cache_spec.V1alpha1LocalModelCacheSpec(
+                            model_size="1Gi",
                             node_group="0",
                             source_model_uri="0",
                         ),
@@ -75,14 +73,12 @@ class TestV1alpha1LocalModelCacheList(unittest.TestCase):
         else:
             return V1alpha1LocalModelCacheList(
                 items=[
-                    kserve.models.v1alpha1
-                    / local_model_cache.v1alpha1.LocalModelCache(
+                    kserve.models.v1alpha1_local_model_cache.V1alpha1LocalModelCache(
                         api_version="0",
                         kind="0",
                         metadata=None,
-                        spec=kserve.models.v1alpha1
-                        / local_model_cache_spec.v1alpha1.LocalModelCacheSpec(
-                            model_size=None,
+                        spec=kserve.models.v1alpha1_local_model_cache_spec.V1alpha1LocalModelCacheSpec(
+                            model_size="1Gi",
                             node_group="0",
                             source_model_uri="0",
                         ),

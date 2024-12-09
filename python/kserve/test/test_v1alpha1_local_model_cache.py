@@ -56,9 +56,8 @@ class TestV1alpha1LocalModelCache(unittest.TestCase):
                 api_version="0",
                 kind="0",
                 metadata=None,
-                spec=kserve.models.v1alpha1
-                / local_model_cache_spec.v1alpha1.LocalModelCacheSpec(
-                    model_size=None,
+                spec=kserve.models.v1alpha1_local_model_cache_spec.V1alpha1LocalModelCacheSpec(
+                    model_size="1Gi",
                     node_group="0",
                     source_model_uri="0",
                 ),
