@@ -195,11 +195,11 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 // Create jobs to download models if the model is not present locally
 // Update the status of the LocalModelNode CR
 func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode) error {
-
 	newStatus := map[string]v1alpha1api.ModelStatus{}
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
 		if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
 			if status == v1alpha1api.ModelDownloaded {
+				newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloaded
 				continue
 			}
 		}
@@ -286,7 +286,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	localModelNode := v1alpha1api.LocalModelNode{}
 	if err := c.Get(ctx, req.NamespacedName, &localModelNode); err != nil {
 		c.Log.Error(err, "Error getting LocalModelNode", "name", req.Name)
-		return reconcile.Result{}, err
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	// 2. Kick off download jobs for all models in spec
