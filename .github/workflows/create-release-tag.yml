@@ -27,7 +27,7 @@ jobs:
       - name: Get latest tag
         id: get_tag
         run: |
-          echo "old_tag_name=$(git ls-remote --tags origin | awk -F'/' '{print $3}' | grep -v '{}' | sort -V | tail -n1)" >> $GITHUB_OUTPUT
+          echo "old_tag_name=$(git for-each-ref --sort=creatordate --format '%(refname)' refs/tags | awk -F'/' '{print $3}' | tail -n1)" >> $GITHUB_OUTPUT
       - name: print tag
         id: print_tag
         run: | 
