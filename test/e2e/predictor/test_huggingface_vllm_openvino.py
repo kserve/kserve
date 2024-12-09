@@ -30,7 +30,7 @@ from kserve.constants import constants
 from ..common.utils import KSERVE_TEST_NAMESPACE, generate
 
 
-@pytest.mark.llm
+@pytest.mark.vllm
 def test_huggingface_vllm_openvino_openai_chat_completions():
     service_name = "hf-opt-125m-chat"
     predictor = V1beta1PredictorSpec(
@@ -50,8 +50,8 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
                 "512",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "1", "memory": "4Gi"},
-                limits={"cpu": "1", "memory": "4Gi"},
+                requests={"cpu": "2", "memory": "6Gi"},
+                limits={"cpu": "2", "memory": "6Gi"},
             ),
         ),
     )
@@ -80,9 +80,9 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.llm
+@pytest.mark.vllm
 def test_huggingface_vllm_openvino_openai_completions():
-    service_name = "hf-opt-125m-chat"
+    service_name = "hf-opt-125m-cmpl"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -100,8 +100,8 @@ def test_huggingface_vllm_openvino_openai_completions():
                 "512",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "1", "memory": "4Gi"},
-                limits={"cpu": "1", "memory": "4Gi"},
+                requests={"cpu": "2", "memory": "6Gi"},
+                limits={"cpu": "2", "memory": "6Gi"},
             ),
         ),
     )

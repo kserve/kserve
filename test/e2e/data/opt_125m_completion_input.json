@@ -1,5 +1,5 @@
 {
-  "model": "hf-opt-125m-chat",
+  "model": "hf-opt-125m-cmpl",
   "prompt": "Explain transformers?",
   "temperature": 0,
   "max_tokens": 10
