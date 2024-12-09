@@ -21,8 +21,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// LocalModelCacheSpec
 // +k8s:openapi-gen=true
-type ClusterLocalModelSpec struct {
+type LocalModelCacheSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="StorageUri is immutable"
 	// Original StorageUri
 	SourceModelUri string `json:"sourceModelUri" validate:"required"`
@@ -32,29 +33,31 @@ type ClusterLocalModelSpec struct {
 	NodeGroup string `json:"nodeGroup" validate:"required"`
 }
 
+// LocalModelCache
 // +k8s:openapi-gen=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope="Cluster"
-type ClusterLocalModel struct {
+type LocalModelCache struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ClusterLocalModelSpec   `json:"spec,omitempty"`
-	Status ClusterLocalModelStatus `json:"status,omitempty"`
+	Spec   LocalModelCacheSpec   `json:"spec,omitempty"`
+	Status LocalModelCacheStatus `json:"status,omitempty"`
 }
 
+// LocalModelCacheList
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type ClusterLocalModelList struct {
+type LocalModelCacheList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ClusterLocalModel `json:"items" validate:"required"`
+	Items           []LocalModelCache `json:"items" validate:"required"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ClusterLocalModel{}, &ClusterLocalModelList{})
+	SchemeBuilder.Register(&LocalModelCache{}, &LocalModelCacheList{})
 }
