@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
@@ -47,7 +47,7 @@ Also propagates headers onto podspec container environment variables.
 
 This function makes sense to be used in raw k8s deployment mode
 */
-func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *RouterConfig) *v1.PodSpec {
+func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterConfig) *v1.PodSpec {
 	bytes, err := json.Marshal(graph.Spec)
 	if err != nil {
 		return nil
@@ -96,7 +96,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 /*
 A simple utility to create a basic meta object given name and namespace;  Can be extended to accept labels, annotations as well
 */
-func constructForRawDeployment(graph *v1alpha1api.InferenceGraph) (metav1.ObjectMeta, v1beta1.ComponentExtensionSpec) {
+func constructForRawDeployment(graph *v1alpha1.InferenceGraph) (metav1.ObjectMeta, v1beta1.ComponentExtensionSpec) {
 	name := graph.ObjectMeta.Name
 	namespace := graph.ObjectMeta.Namespace
 	annotations := graph.ObjectMeta.Annotations
@@ -138,7 +138,7 @@ Handles bulk of raw deployment logic for Inference graph controller
 5. Finally reconcile
 */
 func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	graph *v1alpha1api.InferenceGraph, routerConfig *RouterConfig) (*appsv1.Deployment, *knapis.URL, error) {
+	graph *v1alpha1.InferenceGraph, routerConfig *RouterConfig) (*appsv1.Deployment, *knapis.URL, error) {
 	// create desired service object.
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
 
@@ -184,7 +184,7 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 PropagateRawStatus Propagates deployment status onto Inference graph status.
 In raw deployment mode, deployment available denotes the ready status for IG
 */
-func PropagateRawStatus(graphStatus *v1alpha1api.InferenceGraphStatus, deployment *appsv1.Deployment,
+func PropagateRawStatus(graphStatus *v1alpha1.InferenceGraphStatus, deployment *appsv1.Deployment,
 	url *apis.URL) {
 	for _, con := range deployment.Status.Conditions {
 		if con.Type == appsv1.DeploymentAvailable {

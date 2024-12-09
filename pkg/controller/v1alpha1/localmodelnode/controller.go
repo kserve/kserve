@@ -34,8 +34,6 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -46,6 +44,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 type LocalModelNodeReconciler struct {
@@ -72,7 +73,7 @@ var (
 )
 
 // Launch a new job or return an existing job
-func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, jobName string, localModelNode *v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo, claimName string) (*batchv1.Job, error) {
+func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, jobName string, localModelNode *v1alpha1.LocalModelNode, modelInfo v1alpha1.LocalModelInfo, claimName string) (*batchv1.Job, error) {
 	container, err := c.getContainerSpecForStorageUri(ctx, modelInfo.SourceModelUri)
 	if err != nil {
 		return nil, err
@@ -163,7 +164,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, jobName string
 
 // Fetches container spec for model download container, use the default KServe image if not found
 func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*v1.Container, error) {
-	storageContainers := &v1alpha1api.ClusterStorageContainerList{}
+	storageContainers := &v1alpha1.ClusterStorageContainerList{}
 	if err := c.Client.List(ctx, storageContainers); err != nil {
 		return nil, err
 	}
@@ -172,7 +173,7 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 		if sc.IsDisabled() {
 			continue
 		}
-		if sc.Spec.WorkloadType != v1alpha1api.LocalModelDownloadJob {
+		if sc.Spec.WorkloadType != v1alpha1.LocalModelDownloadJob {
 			continue
 		}
 		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
@@ -194,13 +195,13 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 
 // Create jobs to download models if the model is not present locally
 // Update the status of the LocalModelNode CR
-func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode) error {
+func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1.LocalModelNode) error {
 	c.Log.Info("Downloading models to", "node", localModelNode.ObjectMeta.Name)
 
-	newStatus := map[string]v1alpha1api.ModelStatus{}
+	newStatus := map[string]v1alpha1.ModelStatus{}
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
 		if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
-			if status == v1alpha1api.ModelDownloaded {
+			if status == v1alpha1.ModelDownloaded {
 				continue
 			}
 		}
@@ -214,13 +215,13 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 
 		switch {
 		case job.Status.Succeeded > 0:
-			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloaded
+			newStatus[modelInfo.ModelName] = v1alpha1.ModelDownloaded
 		case job.Status.Failed > 0:
-			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloadError
+			newStatus[modelInfo.ModelName] = v1alpha1.ModelDownloadError
 		case job.Status.Ready != nil && *job.Status.Ready > 0:
-			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloading
+			newStatus[modelInfo.ModelName] = v1alpha1.ModelDownloading
 		default:
-			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloadPending
+			newStatus[modelInfo.ModelName] = v1alpha1.ModelDownloadPending
 		}
 	}
 
@@ -239,7 +240,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 }
 
 // Delete models that are not in the spec
-func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.LocalModelNode) error {
+func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalModelNode) error {
 	// 1. Scan model dir and get a list of existing folders representing downloaded models
 	foldersToRemove := map[string]struct{}{}
 	entries, err := readDir(modelsRootFolder)
@@ -282,7 +283,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// Create Jobs to download models if the model is not present locally.
 	// 1. Check if LocalModelNode CR is for current node
-	localModelNode := v1alpha1api.LocalModelNode{}
+	localModelNode := v1alpha1.LocalModelNode{}
 	if err := c.Get(ctx, req.NamespacedName, &localModelNode); err != nil {
 		c.Log.Error(err, "Error getting LocalModelNode", "name", req.Name)
 		return reconcile.Result{}, err
@@ -312,7 +313,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1api.LocalModelNode{}).
+		For(&v1alpha1.LocalModelNode{}).
 		Owns(&batchv1.Job{}).
 		Complete(c)
 }

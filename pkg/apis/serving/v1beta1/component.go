@@ -17,15 +17,17 @@ limitations under the License.
 package v1beta1
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // Known error messages
@@ -79,10 +81,10 @@ type Component interface {
 type ComponentExtensionSpec struct {
 	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
 	// +optional
-	MinReplicas *int `json:"minReplicas,omitempty"`
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
 	// Maximum number of replicas for autoscaling.
 	// +optional
-	MaxReplicas int `json:"maxReplicas,omitempty"`
+	MaxReplicas int32 `json:"maxReplicas,omitempty"`
 	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
 	// concurrency and rps targets are supported by Knative Pod Autoscaler
 	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
@@ -171,18 +173,18 @@ func validateStorageSpec(storageSpec *StorageSpec, storageURI *string) error {
 	return nil
 }
 
-func validateReplicas(minReplicas *int, maxReplicas int) error {
+func validateReplicas(minReplicas *int32, maxReplicas int32) error {
 	if minReplicas == nil {
 		minReplicas = &constants.DefaultMinReplicas
 	}
 	if *minReplicas < 0 {
-		return fmt.Errorf(MinReplicasLowerBoundExceededError)
+		return errors.New(MinReplicasLowerBoundExceededError)
 	}
 	if maxReplicas < 0 {
-		return fmt.Errorf(MaxReplicasLowerBoundExceededError)
+		return errors.New(MaxReplicasLowerBoundExceededError)
 	}
 	if *minReplicas > maxReplicas && maxReplicas != 0 {
-		return fmt.Errorf(MinReplicasShouldBeLessThanMaxError)
+		return errors.New(MinReplicasShouldBeLessThanMaxError)
 	}
 	return nil
 }
@@ -192,7 +194,7 @@ func validateContainerConcurrency(containerConcurrency *int64) error {
 		return nil
 	}
 	if *containerConcurrency < 0 {
-		return fmt.Errorf(ParallelismLowerBoundExceededError)
+		return errors.New(ParallelismLowerBoundExceededError)
 	}
 	return nil
 }
@@ -200,7 +202,7 @@ func validateContainerConcurrency(containerConcurrency *int64) error {
 func validateLogger(logger *LoggerSpec) error {
 	if logger != nil {
 		if !(logger.Mode == LogAll || logger.Mode == LogRequest || logger.Mode == LogResponse) {
-			return fmt.Errorf(InvalidLoggerType)
+			return errors.New(InvalidLoggerType)
 		}
 	}
 	return nil
