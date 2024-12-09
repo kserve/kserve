@@ -19,9 +19,11 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
@@ -55,16 +57,38 @@ func NewRawIngressReconciler(client client.Client,
 	}, nil
 }
 
-func createRawURL(isvc *v1beta1.InferenceService,
-	ingressConfig *v1beta1.IngressConfig) (*knapis.URL, error) {
-	var err error
-	url := &knapis.URL{}
-	url.Scheme = ingressConfig.UrlScheme
-	url.Host, err = GenerateDomainName(isvc.Name, isvc.ObjectMeta, ingressConfig)
-	if err != nil {
-		return nil, err
-	}
+func createRawURL(client client.Client, isvc *v1beta1.InferenceService, authEnabled bool) (*knapis.URL, error) {
+	// upstream implementation
+	// var err error
+	// url := &knapis.URL{}
+	// url.Scheme = ingressConfig.UrlScheme
+	// url.Host, err = GenerateDomainName(isvc.Name, isvc.ObjectMeta, ingressConfig)
+	// if err != nil {
+	//	return nil, err
+	// }
+	// if authEnabled {
+	//	url.Host += ":" + strconv.Itoa(constants.OauthProxyPort)
+	// }
+	// return url, nil
 
+	// ODH changes
+	url := &knapis.URL{}
+	if val, ok := isvc.Labels[constants.NetworkVisibility]; ok && val == constants.ODHRouteEnabled {
+		var err error
+		url, err = v1beta1utils.GetRouteURLIfExists(client, isvc.ObjectMeta, isvc.Name)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		url = &apis.URL{
+			Host:   getRawServiceHost(isvc, client),
+			Scheme: "http",
+			Path:   "",
+		}
+		if authEnabled {
+			url.Host += ":" + strconv.Itoa(constants.OauthProxyPort)
+		}
+	}
 	return url, nil
 }
 
@@ -304,13 +328,21 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 			return err
 		}
 	}
-	isvc.Status.URL, err = createRawURL(isvc, r.ingressConfig)
+	authEnabled := false
+	if val, ok := isvc.Labels[constants.ODHKserveRawAuth]; ok && val == "true" {
+		authEnabled = true
+	}
+	isvc.Status.URL, err = createRawURL(r.client, isvc, authEnabled)
 	if err != nil {
 		return err
 	}
+	internalHost := getRawServiceHost(isvc, r.client)
+	if authEnabled {
+		internalHost += ":" + strconv.Itoa(constants.OauthProxyPort)
+	}
 	isvc.Status.Address = &duckv1.Addressable{
 		URL: &apis.URL{
-			Host:   getRawServiceHost(isvc, r.client),
+			Host:   internalHost,
 			Scheme: r.ingressConfig.UrlScheme,
 			Path:   "",
 		},

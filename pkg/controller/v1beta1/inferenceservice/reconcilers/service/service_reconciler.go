@@ -110,6 +110,9 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 				},
 				Protocol: container.Ports[0].Protocol,
 			}
+			if len(servicePort.Name) == 0 {
+				servicePort.Name = "http"
+			}
 			servicePorts = append(servicePorts, servicePort)
 
 			for i := 1; i < len(container.Ports); i++ {
@@ -167,6 +170,33 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 			// Follow up issue to align with upstream: https://issues.redhat.com/browse/RHOAIENG-5077
 			ClusterIP: corev1.ClusterIPNone,
 		},
+	}
+	if val, ok := componentMeta.Labels[constants.ODHKserveRawAuth]; ok && val == "true" {
+		if service.ObjectMeta.Annotations == nil {
+			service.ObjectMeta.Annotations = make(map[string]string)
+		}
+		service.ObjectMeta.Annotations["service.beta.openshift.io/serving-cert-secret-name"] = componentMeta.Name + constants.ServingCertSecretSuffix
+		httpsPort := corev1.ServicePort{
+			Name: "https",
+			Port: constants.OauthProxyPort,
+			TargetPort: intstr.IntOrString{
+				Type:   intstr.String,
+				StrVal: "https",
+			},
+			Protocol: corev1.ProtocolTCP,
+		}
+		ports := service.Spec.Ports
+		replaced := false
+		for i, port := range ports {
+			if port.Port == constants.CommonDefaultHttpPort {
+				ports[i] = httpsPort
+				replaced = true
+			}
+		}
+		if !replaced {
+			ports = append(ports, httpsPort)
+		}
+		service.Spec.Ports = ports
 	}
 	return service
 }

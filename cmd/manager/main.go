@@ -50,6 +50,7 @@ import (
 	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 	"github.com/kserve/kserve/pkg/webhook/admission/servingruntime"
+	routev1 "github.com/openshift/api/route/v1"
 )
 
 var (
@@ -187,7 +188,10 @@ func main() {
 			}
 		}
 	}
-
+	if err = routev1.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add routev1 APIs to scheme")
+		os.Exit(1)
+	}
 	setupLog.Info("Setting up core scheme")
 	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Core APIs to scheme")

@@ -54,6 +54,13 @@ vars:
     apiVersion: v1
     kind: ConfigMap
     name: kserve-parameters
+- fieldref:
+    fieldpath: data.oauth-proxy
+  name: oauth-proxy
+  objref:
+    apiVersion: v1
+    kind: ConfigMap
+    name: kserve-parameters
 
 configurations:
   - params.yaml

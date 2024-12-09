@@ -19,11 +19,6 @@ package raw
 import (
 	"fmt"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
-	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
-	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +26,12 @@ import (
 	"k8s.io/client-go/kubernetes"
 	knapis "knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
+	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
+	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
 )
 
 // RawKubeReconciler reconciles the Native K8S Resources
@@ -64,10 +65,14 @@ func NewRawKubeReconciler(client client.Client,
 	if workerPodSpec != nil {
 		multiNodeEnabled = true
 	}
+	depl, err := deployment.NewDeploymentReconciler(client, clientset, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	if err != nil {
+		return nil, err
+	}
 	return &RawKubeReconciler{
 		client:     client,
 		scheme:     scheme,
-		Deployment: deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec),
+		Deployment: depl,
 		Service:    service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled),
 		Scaler:     as,
 		URL:        url,
@@ -86,19 +91,19 @@ func createRawURL(clientset kubernetes.Interface, metadata metav1.ObjectMeta) (*
 	if err != nil {
 		return nil, fmt.Errorf("failed creating host name: %w", err)
 	}
-
 	return url, nil
 }
 
 // Reconcile ...
 func (r *RawKubeReconciler) Reconcile() ([]*appsv1.Deployment, error) {
-	// reconcile Deployment
-	deploymentList, err := r.Deployment.Reconcile()
+	// reconciling service before deployment because we want to use "service.beta.openshift.io/serving-cert-secret-name"
+	// reconcile Service
+	_, err := r.Service.Reconcile()
 	if err != nil {
 		return nil, err
 	}
-	// reconcile Service
-	_, err = r.Service.Reconcile()
+	// reconcile Deployment
+	deploymentList, err := r.Deployment.Reconcile()
 	if err != nil {
 		return nil, err
 	}

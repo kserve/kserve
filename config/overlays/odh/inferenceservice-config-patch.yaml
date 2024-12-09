@@ -5,6 +5,14 @@ metadata:
   namespace: kserve
 data:
   explainers: "{}"
+  oauthProxy: |- 
+    {
+      "image" : "$(oauth-proxy)",
+      "memoryRequest": "64Mi",
+      "memoryLimit": "128Mi",
+      "cpuRequest": "100m",
+      "cpuLimit": "200m"
+    }
   storageInitializer: |-
     {
         "image" : "$(kserve-storage-initializer)",

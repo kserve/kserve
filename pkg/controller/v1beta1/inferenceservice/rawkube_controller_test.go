@@ -19,6 +19,7 @@ package inferenceservice
 import (
 	"context"
 	"fmt"
+
 	"time"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -40,6 +41,8 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 
+	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	routev1 "github.com/openshift/api/route/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -414,7 +417,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				URL: &apis.URL{
 					Scheme: "http",
-					Host:   "raw-foo-default.example.com",
+					Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
 				},
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
@@ -829,7 +832,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				URL: &apis.URL{
 					Scheme: "http",
-					Host:   "raw-foo-customized-default.example.com",
+					Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
 				},
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
@@ -1235,7 +1238,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				URL: &apis.URL{
 					Scheme: "http",
-					Host:   "raw-foo-2-default.example.com",
+					Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
 				},
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
@@ -1271,6 +1274,109 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(HaveOccurred())
+		})
+		It("Should have no ingress created if labeled as cluster-local", func() {
+			By("By creating a new InferenceService")
+			// Create configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving-raw",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			serviceName := "raw-cluster-local"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":              "RawDeployment",
+						"serving.kserve.io/autoscalerClass":             "hpa",
+						"serving.kserve.io/metrics":                     "cpu",
+						"serving.kserve.io/targetUtilizationPercentage": "75",
+					},
+					Labels: map[string]string{
+						"networking.kserve.io/visibility": "cluster-local",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			inferenceService := &v1beta1.InferenceService{}
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+			actualIngress := &netv1.Ingress{}
+			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
+				Namespace: serviceKey.Namespace}
+			Consistently(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
+				ShouldNot(Succeed())
 		})
 	})
 	Context("When creating inference service with raw kube predictor and empty ingressClassName", func() {
@@ -1609,7 +1715,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				URL: &apis.URL{
 					Scheme: "http",
-					Host:   fmt.Sprintf("%s-default.example.com", serviceName),
+					Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
 				},
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
@@ -2042,7 +2148,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				URL: &apis.URL{
 					Scheme: "http",
-					Host:   fmt.Sprintf("%s.%s.%s", serviceName, serviceKey.Namespace, domain),
+					Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local", serviceKey.Name, serviceKey.Namespace),
 				},
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
@@ -2136,6 +2242,445 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(actualHPA.Spec).To(gomega.Equal(expectedHPA.Spec))
+		})
+	})
+	Context("When creating an inferenceservice with raw kube predictor and ODH auth enabled", func() {
+		configs := map[string]string{
+			"oauthProxy":         `{"image": "registry.redhat.io/openshift4/ose-oauth-proxy@sha256:234af927030921ab8f7333f61f967b4b4dee37a1b3cf85689e9e63240dd62800", "memoryRequest": "64Mi", "memoryLimit": "128Mi", "cpuRequest": "100m", "cpuLimit": "200m"}`,
+			"ingress":            `{"ingressGateway": "knative-serving/knative-ingress-gateway", "ingressService": "test-destination", "localGateway": "knative-serving/knative-local-gateway", "localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"}`,
+			"storageInitializer": `{"image": "kserve/storage-initializer:latest", "memoryRequest": "100Mi", "memoryLimit": "1Gi", "cpuRequest": "100m", "cpuLimit": "1", "CaBundleConfigMapName": "", "caBundleVolumeMountPath": "/etc/ssl/custom-certs", "enableDirectPvcVolumeMount": false}`,
+		}
+
+		It("Should have ingress/service/deployment/hpa created", func() {
+			By("By creating a new InferenceService")
+			// Create configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving-raw",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			serviceName := "raw-auth"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": "RawDeployment",
+					},
+					Labels: map[string]string{
+						constants.ODHKserveRawAuth:  "true",
+						constants.NetworkVisibility: constants.ODHRouteEnabled,
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			inferenceService := &v1beta1.InferenceService{}
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			actualDeployment := &appsv1.Deployment{}
+			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
+				Should(Succeed())
+			var replicas int32 = 1
+			var revisionHistory int32 = 10
+			var progressDeadlineSeconds int32 = 600
+			var gracePeriod int64 = 30
+			expectedDeployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      predictorDeploymentKey.Name,
+					Namespace: predictorDeploymentKey.Namespace,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: &replicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"app": "isvc." + predictorDeploymentKey.Name,
+						},
+					},
+					Template: v1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      predictorDeploymentKey.Name,
+							Namespace: "default",
+							Labels: map[string]string{
+								"app":                                 "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:      constants.Predictor.String(),
+								constants.InferenceServicePodLabelKey: serviceName,
+								"serving.kserve.io/inferenceservice":  serviceName,
+								constants.ODHKserveRawAuth:            "true",
+								constants.NetworkVisibility:           constants.ODHRouteEnabled,
+							},
+							Annotations: map[string]string{
+								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
+								"serving.kserve.io/deploymentMode":                         "RawDeployment",
+								"service.beta.openshift.io/serving-cert-secret-name":       predictorDeploymentKey.Name + constants.ServingCertSecretSuffix,
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Image: "tensorflow/serving:" +
+										*isvc.Spec.Predictor.Model.RuntimeVersion,
+									Name:    constants.InferenceServiceContainerName,
+									Command: []string{v1beta1.TensorflowEntrypointCommand},
+									Args: []string{
+										"--port=" + v1beta1.TensorflowServingGRPCPort,
+										"--rest_api_port=" + v1beta1.TensorflowServingRestPort,
+										"--model_base_path=" + constants.DefaultModelLocalMountPath,
+										"--rest_api_timeout_in_ms=60000",
+									},
+									Resources: defaultResource,
+									ReadinessProbe: &v1.Probe{
+										ProbeHandler: v1.ProbeHandler{
+											TCPSocket: &v1.TCPSocketAction{
+												Port: intstr.IntOrString{
+													IntVal: 8080,
+												},
+											},
+										},
+										InitialDelaySeconds: 0,
+										TimeoutSeconds:      1,
+										PeriodSeconds:       10,
+										SuccessThreshold:    1,
+										FailureThreshold:    3,
+									},
+									TerminationMessagePath:   "/dev/termination-log",
+									TerminationMessagePolicy: "File",
+									ImagePullPolicy:          "IfNotPresent",
+								},
+								{
+									Name:  "oauth-proxy",
+									Image: constants.OauthProxyImage,
+									Args: []string{
+										`--https-address=:8443`,
+										`--provider=openshift`,
+										`--skip-provider-button`,
+										`--openshift-service-account=default`,
+										`--upstream=http://localhost:8080`,
+										`--tls-cert=/etc/tls/private/tls.crt`,
+										`--tls-key=/etc/tls/private/tls.key`,
+										// omit cookie secret arg in unit test as it is generated randomly
+										//`--cookie-secret=SECRET`,
+										`--openshift-delegate-urls={"/": {"namespace": "` + serviceKey.Namespace + `", "resource": "inferenceservices", "group": "serving.kserve.io", "name": "` + serviceName + `", "verb": "get"}}`,
+										`--openshift-sar={"namespace": "` + serviceKey.Namespace + `", "resource": "inferenceservices", "group": "serving.kserve.io", "name": "` + serviceName + `", "verb": "get"}`,
+									},
+									Ports: []v1.ContainerPort{
+										{
+											ContainerPort: constants.OauthProxyPort,
+											Name:          "https",
+											Protocol:      v1.ProtocolTCP,
+										},
+									},
+									LivenessProbe: &v1.Probe{
+										ProbeHandler: v1.ProbeHandler{
+											HTTPGet: &v1.HTTPGetAction{
+												Path:   "/oauth/healthz",
+												Port:   intstr.FromInt(constants.OauthProxyPort),
+												Scheme: v1.URISchemeHTTPS,
+											},
+										},
+										InitialDelaySeconds: 30,
+										TimeoutSeconds:      1,
+										PeriodSeconds:       5,
+										SuccessThreshold:    1,
+										FailureThreshold:    3,
+									},
+									ReadinessProbe: &v1.Probe{
+										ProbeHandler: v1.ProbeHandler{
+											HTTPGet: &v1.HTTPGetAction{
+												Path:   "/oauth/healthz",
+												Port:   intstr.FromInt(constants.OauthProxyPort),
+												Scheme: v1.URISchemeHTTPS,
+											},
+										},
+										InitialDelaySeconds: 5,
+										TimeoutSeconds:      1,
+										PeriodSeconds:       5,
+										SuccessThreshold:    1,
+										FailureThreshold:    3,
+									},
+									Resources: v1.ResourceRequirements{
+										Limits: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse(constants.OauthProxyResourceCPULimit),
+											v1.ResourceMemory: resource.MustParse(constants.OauthProxyResourceMemoryLimit),
+										},
+										Requests: v1.ResourceList{
+											v1.ResourceCPU:    resource.MustParse(constants.OauthProxyResourceCPURequest),
+											v1.ResourceMemory: resource.MustParse(constants.OauthProxyResourceMemoryRequest),
+										},
+									},
+									VolumeMounts: []v1.VolumeMount{
+										{
+											Name:      "proxy-tls",
+											MountPath: "/etc/tls/private",
+										},
+									},
+									TerminationMessagePath:   "/dev/termination-log",
+									TerminationMessagePolicy: "File",
+									ImagePullPolicy:          "IfNotPresent",
+								},
+							},
+							Volumes: []v1.Volume{
+								{
+									Name: "proxy-tls",
+									VolumeSource: v1.VolumeSource{
+										Secret: &v1.SecretVolumeSource{
+											SecretName:  predictorDeploymentKey.Name + constants.ServingCertSecretSuffix,
+											DefaultMode: func(i int32) *int32 { return &i }(420),
+										},
+									},
+								},
+							},
+							SchedulerName:                 "default-scheduler",
+							RestartPolicy:                 "Always",
+							TerminationGracePeriodSeconds: &gracePeriod,
+							DNSPolicy:                     "ClusterFirst",
+							SecurityContext: &v1.PodSecurityContext{
+								SELinuxOptions:      nil,
+								WindowsOptions:      nil,
+								RunAsUser:           nil,
+								RunAsGroup:          nil,
+								RunAsNonRoot:        nil,
+								SupplementalGroups:  nil,
+								FSGroup:             nil,
+								Sysctls:             nil,
+								FSGroupChangePolicy: nil,
+								SeccompProfile:      nil,
+							},
+							AutomountServiceAccountToken: proto.Bool(false),
+						},
+					},
+					Strategy: appsv1.DeploymentStrategy{
+						Type: "RollingUpdate",
+						RollingUpdate: &appsv1.RollingUpdateDeployment{
+							MaxUnavailable: &intstr.IntOrString{Type: 1, IntVal: 0, StrVal: "25%"},
+							MaxSurge:       &intstr.IntOrString{Type: 1, IntVal: 0, StrVal: "25%"},
+						},
+					},
+					RevisionHistoryLimit:    &revisionHistory,
+					ProgressDeadlineSeconds: &progressDeadlineSeconds,
+				},
+			}
+			// remove the cookie-secret arg from the generated deployment for comparison
+			cleanedDep := actualDeployment.DeepCopy()
+			actualDep := v1beta1utils.RemoveCookieSecretArg(*cleanedDep)
+			Expect(actualDep.Spec).To(gomega.Equal(expectedDeployment.Spec))
+
+			//check service
+			actualService := &v1.Service{}
+			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
+				Should(Succeed())
+
+			expectedService := &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      predictorServiceKey.Name,
+					Namespace: predictorServiceKey.Namespace,
+				},
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:       "https",
+							Protocol:   "TCP",
+							Port:       8443,
+							TargetPort: intstr.IntOrString{Type: intstr.String, StrVal: "https"},
+						},
+					},
+					Type:            "ClusterIP",
+					SessionAffinity: "None",
+					Selector: map[string]string{
+						"app": fmt.Sprintf("isvc.%s", constants.PredictorServiceName(serviceName)),
+					},
+				},
+			}
+			actualService.Spec.ClusterIP = ""
+			actualService.Spec.ClusterIPs = nil
+			actualService.Spec.IPFamilies = nil
+			actualService.Spec.IPFamilyPolicy = nil
+			actualService.Spec.InternalTrafficPolicy = nil
+			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
+
+			route := &routev1.Route{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Labels: map[string]string{
+						"inferenceservice-name": serviceName,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion:         "serving.kserve.io/v1beta1",
+							Kind:               "InferenceService",
+							Name:               serviceKey.Name,
+							UID:                isvc.GetUID(),
+							Controller:         proto.Bool(true),
+							BlockOwnerDeletion: proto.Bool(true),
+						},
+					},
+				},
+				Spec: routev1.RouteSpec{
+					Host: "raw-auth-default.example.com",
+					To: routev1.RouteTargetReference{
+						Kind:   "Service",
+						Name:   predictorServiceKey.Name,
+						Weight: proto.Int32(100),
+					},
+					Port: &routev1.RoutePort{
+						TargetPort: intstr.FromInt(8443),
+					},
+					TLS: &routev1.TLSConfig{
+						Termination:                   routev1.TLSTerminationReencrypt,
+						InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
+					},
+					WildcardPolicy: routev1.WildcardPolicyNone,
+				},
+				Status: routev1.RouteStatus{
+					Ingress: []routev1.RouteIngress{
+						{
+							Host: "raw-auth-default.example.com",
+							Conditions: []routev1.RouteIngressCondition{
+								{
+									Type:   routev1.RouteAdmitted,
+									Status: v1.ConditionTrue,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(context.TODO(), route)).Should(Succeed())
+
+			//check isvc status
+			updatedDeployment := actualDeployment.DeepCopy()
+			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
+				{
+					Type:   appsv1.DeploymentAvailable,
+					Status: v1.ConditionTrue,
+				},
+			}
+			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(gomega.HaveOccurred())
+
+			// verify if InferenceService status is updated
+			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.IngressReady,
+							Status: "True",
+						},
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: "True",
+						},
+						{
+							Type:   apis.ConditionReady,
+							Status: "True",
+						},
+					},
+				},
+				URL: &apis.URL{
+					Scheme: "https",
+					Host:   "raw-auth-default.example.com",
+				},
+				Address: &duckv1.Addressable{
+					URL: &apis.URL{
+						Scheme: "http",
+						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local:8443", serviceKey.Name, serviceKey.Namespace),
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.PredictorComponent: {
+						LatestCreatedRevision: "",
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   "raw-auth-predictor-default.example.com",
+						},
+					},
+				},
+				ModelStatus: v1beta1.ModelStatus{
+					TransitionStatus:    "InProgress",
+					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
+				},
+			}
+			Eventually(func() string {
+				isvc := &v1beta1.InferenceService{}
+				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
+					return err.Error()
+				}
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+			}, timeout).Should(gomega.BeEmpty())
+
 		})
 	})
 	Context("When creating inference service with raw kube predictor with workerSpec", func() {
