@@ -195,7 +195,6 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 // Create jobs to download models if the model is not present locally
 // Update the status of the LocalModelNode CR
 func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode) error {
-	c.Log.Info("Downloading models to", "node", localModelNode.ObjectMeta.Name)
 
 	newStatus := map[string]v1alpha1api.ModelStatus{}
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
@@ -204,6 +203,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 				continue
 			}
 		}
+
 		jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
 
 		job, err := c.launchJob(ctx, jobName, localModelNode, modelInfo, modelInfo.ModelName)
@@ -222,6 +222,8 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 		default:
 			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloadPending
 		}
+		c.Log.Info("Downloading models:", "model", modelInfo.ModelName,
+			"node", localModelNode.ObjectMeta.Name, "status", newStatus[modelInfo.ModelName])
 	}
 
 	// Skip update if no changes to status
@@ -234,7 +236,6 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 		c.Log.Error(err, "Update local model cache status error", "name", localModelNode.Name)
 		return err
 	}
-
 	return nil
 }
 
