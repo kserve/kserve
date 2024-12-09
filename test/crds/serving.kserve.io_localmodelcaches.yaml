@@ -4,14 +4,14 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.2
-  name: clusterlocalmodels.serving.kserve.io
+  name: localmodelcaches.serving.kserve.io
 spec:
   group: serving.kserve.io
   names:
-    kind: ClusterLocalModel
-    listKind: ClusterLocalModelList
-    plural: clusterlocalmodels
-    singular: clusterlocalmodel
+    kind: LocalModelCache
+    listKind: LocalModelCacheList
+    plural: localmodelcaches
+    singular: localmodelcache
   scope: Cluster
   versions:
   - name: v1alpha1
@@ -73,9 +73,6 @@ spec:
                   - NodeDownloading
                   - NodeDownloaded
                   - NodeDownloadError
-                  - NodeDeleting
-                  - NodeDeletionError
-                  - NodeDeleted
                   type: string
                 type: object
             type: object
