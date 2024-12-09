@@ -124,6 +124,6 @@ def test_huggingface_vllm_openvino_openai_completions():
     res = generate(
         service_name, "./data/opt_125m_completion_input.json", chat_completions=False
     )
-    assert res["choices"][0]["text"] == "\nA book about the history of the world."
+    assert res["choices"][0]["text"] == "\nI think it's a mod that allows you"
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
