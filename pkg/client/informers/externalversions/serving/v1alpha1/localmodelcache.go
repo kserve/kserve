@@ -32,59 +32,59 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// ClusterLocalModelInformer provides access to a shared informer and lister for
-// ClusterLocalModels.
-type ClusterLocalModelInformer interface {
+// LocalModelCacheInformer provides access to a shared informer and lister for
+// LocalModelCaches.
+type LocalModelCacheInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ClusterLocalModelLister
+	Lister() v1alpha1.LocalModelCacheLister
 }
 
-type clusterLocalModelInformer struct {
+type localModelCacheInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
 	namespace        string
 }
 
-// NewClusterLocalModelInformer constructs a new informer for ClusterLocalModel type.
+// NewLocalModelCacheInformer constructs a new informer for LocalModelCache type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewClusterLocalModelInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredClusterLocalModelInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewLocalModelCacheInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredLocalModelCacheInformer(client, namespace, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredClusterLocalModelInformer constructs a new informer for ClusterLocalModel type.
+// NewFilteredLocalModelCacheInformer constructs a new informer for LocalModelCache type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredClusterLocalModelInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredLocalModelCacheInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ServingV1alpha1().ClusterLocalModels(namespace).List(context.TODO(), options)
+				return client.ServingV1alpha1().LocalModelCaches(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ServingV1alpha1().ClusterLocalModels(namespace).Watch(context.TODO(), options)
+				return client.ServingV1alpha1().LocalModelCaches(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1alpha1.ClusterLocalModel{},
+		&servingv1alpha1.LocalModelCache{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *clusterLocalModelInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredClusterLocalModelInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *localModelCacheInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredLocalModelCacheInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *clusterLocalModelInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1alpha1.ClusterLocalModel{}, f.defaultInformer)
+func (f *localModelCacheInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&servingv1alpha1.LocalModelCache{}, f.defaultInformer)
 }
 
-func (f *clusterLocalModelInformer) Lister() v1alpha1.ClusterLocalModelLister {
-	return v1alpha1.NewClusterLocalModelLister(f.Informer().GetIndexer())
+func (f *localModelCacheInformer) Lister() v1alpha1.LocalModelCacheLister {
+	return v1alpha1.NewLocalModelCacheLister(f.Informer().GetIndexer())
 }
