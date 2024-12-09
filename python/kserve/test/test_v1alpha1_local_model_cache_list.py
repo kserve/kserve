@@ -30,8 +30,11 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1alpha1_local_model_cache_list import V1alpha1LocalModelCacheList  # noqa: E501
+from kserve.models.v1alpha1_local_model_cache_list import (
+    V1alpha1LocalModelCacheList,
+)  # noqa: E501
 from kserve.rest import ApiException
+
 
 class TestV1alpha1LocalModelCacheList(unittest.TestCase):
     """V1alpha1LocalModelCacheList unit test stubs"""
@@ -44,41 +47,49 @@ class TestV1alpha1LocalModelCacheList(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1alpha1LocalModelCacheList
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1alpha1_local_model_cache_list.V1alpha1LocalModelCacheList()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1alpha1LocalModelCacheList(
-                api_version = '0', 
-                items = [
-                    kserve.models.v1alpha1/local_model_cache.v1alpha1.LocalModelCache(
-                        api_version = '0', 
-                        kind = '0', 
-                        metadata = None, 
-                        spec = kserve.models.v1alpha1/local_model_cache_spec.v1alpha1.LocalModelCacheSpec(
-                            model_size = None, 
-                            node_group = '0', 
-                            source_model_uri = '0', ), 
-                        status = None, )
-                    ], 
-                kind = '0', 
-                metadata = None
+                api_version="0",
+                items=[
+                    kserve.models.v1alpha1
+                    / local_model_cache.v1alpha1.LocalModelCache(
+                        api_version="0",
+                        kind="0",
+                        metadata=None,
+                        spec=kserve.models.v1alpha1
+                        / local_model_cache_spec.v1alpha1.LocalModelCacheSpec(
+                            model_size=None,
+                            node_group="0",
+                            source_model_uri="0",
+                        ),
+                        status=None,
+                    )
+                ],
+                kind="0",
+                metadata=None,
             )
-        else :
+        else:
             return V1alpha1LocalModelCacheList(
-                items = [
-                    kserve.models.v1alpha1/local_model_cache.v1alpha1.LocalModelCache(
-                        api_version = '0', 
-                        kind = '0', 
-                        metadata = None, 
-                        spec = kserve.models.v1alpha1/local_model_cache_spec.v1alpha1.LocalModelCacheSpec(
-                            model_size = None, 
-                            node_group = '0', 
-                            source_model_uri = '0', ), 
-                        status = None, )
-                    ],
-        )
+                items=[
+                    kserve.models.v1alpha1
+                    / local_model_cache.v1alpha1.LocalModelCache(
+                        api_version="0",
+                        kind="0",
+                        metadata=None,
+                        spec=kserve.models.v1alpha1
+                        / local_model_cache_spec.v1alpha1.LocalModelCacheSpec(
+                            model_size=None,
+                            node_group="0",
+                            source_model_uri="0",
+                        ),
+                        status=None,
+                    )
+                ],
+            )
 
     def testV1alpha1LocalModelCacheList(self):
         """Test V1alpha1LocalModelCacheList"""
@@ -86,5 +97,5 @@ class TestV1alpha1LocalModelCacheList(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
