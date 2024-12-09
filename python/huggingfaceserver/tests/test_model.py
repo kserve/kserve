@@ -15,8 +15,9 @@
 import pytest
 import torch
 from kserve.model import PredictorConfig
-from kserve.protocol.rest.openai import ChatCompletionRequest, CompletionRequest
-from kserve.protocol.rest.openai.types import (
+from kserve.protocol.rest.openai import (
+    ChatCompletionRequest,
+    CompletionRequest,
     CreateChatCompletionRequest,
     CreateCompletionRequest,
 )
