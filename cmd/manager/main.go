@@ -285,8 +285,8 @@ func main() {
 	}
 
 	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.ClusterLocalModel{}).
-		WithValidator(&localmodelcache.ClusterLocalModelValidator{}).
+		For(&v1alpha1.LocalModelCache{}).
+		WithValidator(&localmodelcache.LocalModelCacheValidator{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "localmodelcache")
 		os.Exit(1)

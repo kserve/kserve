@@ -32,78 +32,78 @@ import (
 
 var (
 	// logger for the validation webhook.
-	clusterLocalModelValidatorLogger = logf.Log.WithName("clusterlocalmodel-v1alpha1-validation-webhook")
+	localModelCacheValidatorLogger = logf.Log.WithName("localmodelcache-v1alpha1-validation-webhook")
 )
 
 // +kubebuilder:object:generate=false
 // +k8s:deepcopy-gen=false
 // +k8s:openapi-gen=false
-// ClusterLocalModelValidator is responsible for validating the ClusterLocalModelValidator resource
+// LocalModelCacheValidator is responsible for validating the LocalModelCache resource
 // when it is created, updated, or deleted.
 //
 // NOTE: The +kubebuilder:object:generate=false and +k8s:deepcopy-gen=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
-type ClusterLocalModelValidator struct {
+type LocalModelCacheValidator struct {
 	client.Client
 }
 
-// +kubebuilder:webhook:verbs=create;update,path=/validate-clusterlocalmodels,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=clusterlocalmodels,versions=v1alpha1,name=clusterlocalmodel.kserve-webhook-server.validator
-var _ webhook.CustomValidator = &ClusterLocalModelValidator{}
+// +kubebuilder:webhook:verbs=delete,path=/validate-localmodelcaches,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=localmodelcaches,versions=v1alpha1,name=localmodelcache.kserve-webhook-server.validator
+var _ webhook.CustomValidator = &LocalModelCacheValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *ClusterLocalModelValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	clusterLocalModel, err := convertToClusterLocalModel(obj)
+func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	localModelCache, err := convertToLocalModelCache(obj)
 	if err != nil {
-		clusterLocalModelValidatorLogger.Error(err, "Unable to convert object to ClusterLocalModel")
+		localModelCacheValidatorLogger.Error(err, "Unable to convert object to LocalModelCache")
 		return nil, err
 	}
-	clusterLocalModelValidatorLogger.Info("validate create", "name", clusterLocalModel.Name)
+	localModelCacheValidatorLogger.Info("validate create", "name", localModelCache.Name)
 	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *ClusterLocalModelValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	clusterLocalModel, err := convertToClusterLocalModel(newObj)
+func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	localModelCache, err := convertToLocalModelCache(newObj)
 	if err != nil {
-		clusterLocalModelValidatorLogger.Error(err, "Unable to convert object to ClusterLocalModel")
+		localModelCacheValidatorLogger.Error(err, "Unable to convert object to LocalModelCache")
 		return nil, err
 	}
-	clusterLocalModelValidatorLogger.Info("validate update", "name", clusterLocalModel.Name)
+	localModelCacheValidatorLogger.Info("validate update", "name", localModelCache.Name)
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *ClusterLocalModelValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	clusterLocalModel, err := convertToClusterLocalModel(obj)
+func (v *LocalModelCacheValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	localModelCache, err := convertToLocalModelCache(obj)
 	if err != nil {
-		clusterLocalModelValidatorLogger.Error(err, "Unable to convert object to ClusterLocalModel")
+		localModelCacheValidatorLogger.Error(err, "Unable to convert object to LocalModelCache")
 		return nil, err
 	}
-	clusterLocalModelValidatorLogger.Info("validate delete", "name", clusterLocalModel.Name)
+	localModelCacheValidatorLogger.Info("validate delete", "name", localModelCache.Name)
 
-	// Check if current ClusterLocalModel is being used
-	for _, isvcMeta := range clusterLocalModel.Status.InferenceServices {
+	// Check if current LocalModelCache is being used
+	for _, isvcMeta := range localModelCache.Status.InferenceServices {
 		isvc := v1beta1.InferenceService{}
 		if err := v.Get(ctx, client.ObjectKey(isvcMeta), &isvc); err != nil {
-			clusterLocalModelValidatorLogger.Error(err, "Error getting InferenceService", "name", isvcMeta.Name)
+			localModelCacheValidatorLogger.Error(err, "Error getting InferenceService", "name", isvcMeta.Name)
 			return nil, err
 		}
 		modelName, ok := isvc.Labels[constants.LocalModelLabel]
 		if !ok {
 			continue
 		}
-		if modelName == clusterLocalModel.Name {
-			return admission.Warnings{}, fmt.Errorf("ClusterLocalModel %s is being used by InferenceService %s", clusterLocalModel.Name, isvcMeta.Name)
+		if modelName == localModelCache.Name {
+			return admission.Warnings{}, fmt.Errorf("LocalModelCache %s is being used by InferenceService %s", localModelCache.Name, isvcMeta.Name)
 		}
 	}
 	return nil, nil
 }
 
-// Convert runtime.Object into ClusterLocalModel
-func convertToClusterLocalModel(obj runtime.Object) (*v1alpha1.ClusterLocalModel, error) {
-	clusterLocalModel, ok := obj.(*v1alpha1.ClusterLocalModel)
+// Convert runtime.Object into LocalModelCache
+func convertToLocalModelCache(obj runtime.Object) (*v1alpha1.LocalModelCache, error) {
+	localModelCache, ok := obj.(*v1alpha1.LocalModelCache)
 	if !ok {
-		return nil, fmt.Errorf("expected an ClusterLocalModel object but got %T", obj)
+		return nil, fmt.Errorf("expected an LocalModelCache object but got %T", obj)
 	}
-	return clusterLocalModel, nil
+	return localModelCache, nil
 }
