@@ -115,7 +115,7 @@ func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localMo
 }
 
 // Creates a PV and set the localModel as its controller
-func (c *LocalModelReconciler) createPV(ctx context.Context, spec v1.PersistentVolume, localModel *v1alpha1.ClusterLocalModel) error {
+func (c *LocalModelReconciler) createPV(ctx context.Context, spec v1.PersistentVolume, localModel *v1alpha1.LocalModelCache) error {
 	persistentVolumes := c.Clientset.CoreV1().PersistentVolumes()
 	if _, err := persistentVolumes.Get(ctx, spec.Name, metav1.GetOptions{}); err != nil {
 		if !apierr.IsNotFound(err) {
@@ -136,7 +136,7 @@ func (c *LocalModelReconciler) createPV(ctx context.Context, spec v1.PersistentV
 }
 
 // Creates a PVC and sets the localModel as its controller
-func (c *LocalModelReconciler) createPVC(ctx context.Context, spec v1.PersistentVolumeClaim, namespace string, localModel *v1alpha1.ClusterLocalModel) error {
+func (c *LocalModelReconciler) createPVC(ctx context.Context, spec v1.PersistentVolumeClaim, namespace string, localModel *v1alpha1.LocalModelCache) error {
 	persistentVolumeClaims := c.Clientset.CoreV1().PersistentVolumeClaims(namespace)
 	if _, err := persistentVolumeClaims.Get(ctx, spec.Name, metav1.GetOptions{}); err != nil {
 		if !apierr.IsNotFound(err) {
@@ -241,11 +241,8 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	localModel := &v1alpha1api.LocalModelCache{}
 	if err := c.Get(ctx, req.NamespacedName, localModel); err != nil {
-		if apierr.IsNotFound(err) {
-			// Ignore not-found errors, we can get them on deleted requests.
-			return reconcile.Result{}, nil
-		}
-		return reconcile.Result{}, err
+		// Ignore not-found errors, we can get them on deleted requests.
+		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
 	nodeGroup := &v1alpha1api.LocalModelNodeGroup{}
