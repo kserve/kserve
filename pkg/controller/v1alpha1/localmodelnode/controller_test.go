@@ -96,6 +96,10 @@ func (f *mockFileSystem) mockDir(path string, dirs []os.DirEntry) {
 	f.subDirs[path] = dirs
 }
 
+func (f *mockFileSystem) clear() {
+	f.subDirs = make(map[string][]os.DirEntry)
+}
+
 func newMockFileSystem() *mockFileSystem {
 	return &mockFileSystem{
 		subDirs: make(map[string][]os.DirEntry),
@@ -178,9 +182,10 @@ var _ = Describe("LocalModelNode controller", func() {
 	Context("When creating a local model", func() {
 		It("Should create download jobs, update model status from jobs, and handle model deletion", func() {
 			ctx := context.Background()
-			fsMock := newMockFileSystem()
-			fsHelper = fsMock
-
+			fsMock.clear()
+			fsMock.mockDir(modelsRootFolder, []fs.DirEntry{
+				&MockFileInfo{name: modelName, isDir: true},
+			})
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
@@ -220,10 +225,14 @@ var _ = Describe("LocalModelNode controller", func() {
 			defer k8sClient.Delete(ctx, localModelNode)
 
 			// Wait for the download job to be created
-			job := &batchv1.Job{}
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": modelName,
+				"node":  nodeName,
+			}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName + "-" + nodeName, Namespace: modelCacheNamespace}, job)
-				return err == nil
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
 			}, timeout, interval).Should(BeTrue(), "Download job should be created")
 
 			// Now let's update the job status to be successful
@@ -231,6 +240,9 @@ var _ = Describe("LocalModelNode controller", func() {
 				&MockFileInfo{name: modelName, isDir: true},
 			})
 
+			// Expect(true).To(BeFalse())
+
+			job := &jobs.Items[0]
 			job.Status.Succeeded = 1
 			Expect(k8sClient.Status().Update(ctx, job)).Should(Succeed())
 
@@ -265,8 +277,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			}, timeout, interval).Should(BeTrue(), "Model should be removed from the status field")
 		})
 		It("Should recreate download jobs if the model is missing from local disk", func() {
-			fsMock := newMockFileSystem()
-			fsHelper = fsMock
+			fsMock.clear()
 
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -304,13 +315,17 @@ var _ = Describe("LocalModelNode controller", func() {
 				Spec: localModelNodeSpec,
 			}
 			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
-			// defer k8sClient.Delete(ctx, localModelNode)
+			defer k8sClient.Delete(ctx, localModelNode)
 
 			// Wait for the download job to be created
-			job := &batchv1.Job{}
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": modelName,
+				"node":  nodeName,
+			}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName + "-" + nodeName, Namespace: modelCacheNamespace}, job)
-				return err == nil
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
 			}, timeout, interval).Should(BeTrue(), "Download job should be created")
 
 			// Now let's update the job status to be successful
@@ -318,6 +333,7 @@ var _ = Describe("LocalModelNode controller", func() {
 				&MockFileInfo{name: modelName, isDir: true},
 			})
 
+			job := &jobs.Items[0]
 			job.Status.Succeeded = 1
 			Expect(k8sClient.Status().Update(ctx, job)).Should(Succeed())
 
@@ -329,21 +345,13 @@ var _ = Describe("LocalModelNode controller", func() {
 			localModelNode.Annotations = map[string]string{"foo": "bar"}
 			Expect(k8sClient.Patch(ctx, localModelNode, patch)).Should(Succeed())
 
-			newJob := &batchv1.Job{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName + "-" + nodeName, Namespace: modelCacheNamespace}, newJob)
-				// Todo: Figure out why we have to manually remove finalizers in the test. It works in kind clusters.
-				if newJob.GetDeletionTimestamp() != nil && len(newJob.Finalizers) > 0 {
-					fmt.Fprintln(GinkgoWriter, "deleting job")
-					newJob.Finalizers = []string{}
-					Expect(k8sClient.Update(ctx, newJob)).Should(Succeed())
-				}
-				return err == nil && job.ObjectMeta.GetUID() != newJob.ObjectMeta.GetUID()
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 2
 			}, timeout, interval).Should(BeTrue(), "New job should be created")
 		})
 		It("Should delete models from local disk if the model is not in the spec", func() {
-			fsMock := newMockFileSystem()
-			fsHelper = fsMock
+			fsMock.clear()
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
