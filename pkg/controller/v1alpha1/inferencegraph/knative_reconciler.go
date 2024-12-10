@@ -207,6 +207,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 							},
 							Affinity:                     graph.Spec.Affinity,
 							AutomountServiceAccountToken: proto.Bool(false), // Inference graph does not need access to api server
+							Tolerations:                  graph.Spec.Tolerations,
 						},
 					},
 				},
