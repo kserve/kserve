@@ -452,7 +452,7 @@ data:
          "defaultJobImage" : "kserve/storage-initializer:latest",
          # Kubernetes modifies the filesystem group ID on the attached volume.
          "fsGroup": 1000,
-         "jobTTLSecondsAfterFinished": 86400
+         "jobTTLSecondsAfterFinished": 3600
        }
 
   agent: |-
@@ -561,8 +561,9 @@ data:
     {
       "enabled": {{ .Values.kserve.localmodel.enabled }},
       "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
+      "jobTTLSecondsAfterFinished": "{{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }}",
       "defaultJobImage" : "kserve/storage-initializer:latest",
-      "FSGroup": {{ .Values.kserve.localmodel.securityContext.FSGroup }}
+      "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }}
     }
   security: |-
     {
