@@ -66,7 +66,7 @@ var (
 	defaultJobImage            = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
 	FSGroup                    *int64
 	jobNamespace               string
-	jobTTLSecondsAfterFinished int32 = 86400                  // Can be overwritten by the value in the configmap
+	jobTTLSecondsAfterFinished int32 = 3600                   // One hour. Can be overwritten by the value in the configmap
 	nodeName                         = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
 	modelsRootFolder                 = filepath.Join(MountPath, "models")
 	fsHelper                   fileSystemInterface
