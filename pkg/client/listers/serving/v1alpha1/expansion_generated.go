@@ -18,14 +18,6 @@ limitations under the License.
 
 package v1alpha1
 
-// ClusterLocalModelListerExpansion allows custom methods to be added to
-// ClusterLocalModelLister.
-type ClusterLocalModelListerExpansion interface{}
-
-// ClusterLocalModelNamespaceListerExpansion allows custom methods to be added to
-// ClusterLocalModelNamespaceLister.
-type ClusterLocalModelNamespaceListerExpansion interface{}
-
 // ClusterServingRuntimeListerExpansion allows custom methods to be added to
 // ClusterServingRuntimeLister.
 type ClusterServingRuntimeListerExpansion interface{}
@@ -49,6 +41,14 @@ type InferenceGraphListerExpansion interface{}
 // InferenceGraphNamespaceListerExpansion allows custom methods to be added to
 // InferenceGraphNamespaceLister.
 type InferenceGraphNamespaceListerExpansion interface{}
+
+// LocalModelCacheListerExpansion allows custom methods to be added to
+// LocalModelCacheLister.
+type LocalModelCacheListerExpansion interface{}
+
+// LocalModelCacheNamespaceListerExpansion allows custom methods to be added to
+// LocalModelCacheNamespaceLister.
+type LocalModelCacheNamespaceListerExpansion interface{}
 
 // LocalModelNodeListerExpansion allows custom methods to be added to
 // LocalModelNodeLister.

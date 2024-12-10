@@ -41,7 +41,16 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - clusterlocalmodels
+  - inferenceservices
+  - localmodelnodegroups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelcaches
   - localmodelnodes
   verbs:
   - create
@@ -54,20 +63,11 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - clusterlocalmodels/status
+  - localmodelcaches/status
   verbs:
   - get
   - patch
   - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - inferenceservices
-  - localmodelnodegroups
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - serving.kserve.io
   resources:

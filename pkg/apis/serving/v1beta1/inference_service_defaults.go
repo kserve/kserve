@@ -117,26 +117,26 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 		return err
 	}
 
-	var models *v1alpha1.ClusterLocalModelList
+	var models *v1alpha1.LocalModelCacheList
 	if localModelConfig.Enabled {
 		var c client.Client
 		if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
 			mutatorLogger.Error(err, "Failed to start client")
 			return err
 		}
-		models = &v1alpha1.ClusterLocalModelList{}
+		models = &v1alpha1.LocalModelCacheList{}
 		if err := c.List(context.TODO(), models); err != nil {
 			mutatorLogger.Error(err, "Cannot List local models")
 			return err
 		}
 	}
 
-	// Pass a list of ClusterLocalModel resources to set the local model label if there is a match
+	// Pass a list of LocalModelCache resources to set the local model label if there is a match
 	isvc.DefaultInferenceService(configMap, deployConfig, securityConfig, models)
 	return nil
 }
 
-func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.ClusterLocalModelList) {
+func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList) {
 	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
 
 	if !ok && deployConfig != nil {
@@ -434,9 +434,9 @@ func (isvc *InferenceService) SetTritonDefaults() {
 	}
 }
 
-// If there is a ClusterLocalModel resource, add the name of the ClusterLocalModel and sourceModelUri to the isvc,
+// If there is a LocalModelCache resource, add the name of the LocalModelCache and sourceModelUri to the isvc,
 // which is used by the local model controller to manage PV/PVCs.
-func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.ClusterLocalModelList) {
+func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList) {
 	if models == nil {
 		return
 	}
@@ -450,7 +450,7 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.ClusterLocalMo
 		return
 	}
 	storageUri = *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
-	var localModel *v1alpha1.ClusterLocalModel
+	var localModel *v1alpha1.LocalModelCache
 	for i, model := range models.Items {
 		if strings.HasPrefix(storageUri, model.Spec.SourceModelUri) {
 			localModel = &models.Items[i]
@@ -468,5 +468,5 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.ClusterLocalMo
 	}
 	isvc.Labels[constants.LocalModelLabel] = localModel.Name
 	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = localModel.Spec.SourceModelUri
-	mutatorLogger.Info("ClusterLocalModel found", "model", localModel.Name, "namespace", isvc.Namespace, "isvc", isvc.Name)
+	mutatorLogger.Info("LocalModelCache found", "model", localModel.Name, "namespace", isvc.Namespace, "isvc", isvc.Name)
 }

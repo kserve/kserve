@@ -476,7 +476,6 @@ const (
 const (
 	IstioVirtualServiceKind = "VirtualService"
 	KnativeServiceKind      = "Service"
-	ClusterLocalModelKind   = "ClusterLocalModel"
 )
 
 // Model Parallel Options

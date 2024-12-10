@@ -29,9 +29,6 @@ from __future__ import absolute_import
 
 # import models into model package
 from kserve.models.v1alpha1_built_in_adapter import V1alpha1BuiltInAdapter
-from kserve.models.v1alpha1_cluster_local_model import V1alpha1ClusterLocalModel
-from kserve.models.v1alpha1_cluster_local_model_list import V1alpha1ClusterLocalModelList
-from kserve.models.v1alpha1_cluster_local_model_spec import V1alpha1ClusterLocalModelSpec
 from kserve.models.v1alpha1_cluster_serving_runtime import V1alpha1ClusterServingRuntime
 from kserve.models.v1alpha1_cluster_serving_runtime_list import V1alpha1ClusterServingRuntimeList
 from kserve.models.v1alpha1_cluster_storage_container import V1alpha1ClusterStorageContainer
@@ -43,6 +40,9 @@ from kserve.models.v1alpha1_inference_graph_status import V1alpha1InferenceGraph
 from kserve.models.v1alpha1_inference_router import V1alpha1InferenceRouter
 from kserve.models.v1alpha1_inference_step import V1alpha1InferenceStep
 from kserve.models.v1alpha1_inference_target import V1alpha1InferenceTarget
+from kserve.models.v1alpha1_local_model_cache import V1alpha1LocalModelCache
+from kserve.models.v1alpha1_local_model_cache_list import V1alpha1LocalModelCacheList
+from kserve.models.v1alpha1_local_model_cache_spec import V1alpha1LocalModelCacheSpec
 from kserve.models.v1alpha1_local_model_node import V1alpha1LocalModelNode
 from kserve.models.v1alpha1_local_model_node_group import V1alpha1LocalModelNodeGroup
 from kserve.models.v1alpha1_local_model_node_group_list import V1alpha1LocalModelNodeGroupList
