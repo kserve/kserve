@@ -463,6 +463,7 @@ data:
          "defaultJobImage" : "kserve/storage-initializer:latest",
          # Kubernetes modifies the filesystem group ID on the attached volume.
          "FSGroup": 1000
+         "jobTTLSecondsAfterFinished": 86400
        }
 
   explainers: |-
