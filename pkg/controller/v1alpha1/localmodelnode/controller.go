@@ -63,12 +63,13 @@ const (
 )
 
 var (
-	defaultJobImage  = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
-	FSGroup          *int64
-	jobNamespace     string
-	nodeName         = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
-	modelsRootFolder = filepath.Join(MountPath, `models`)
-	fsHelper         fileSystemInterface
+	defaultJobImage            = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
+	FSGroup                    *int64
+	jobNamespace               string
+	jobTTLSecondsAfterFinished int32 = 86400                  // Can be overwritten by the value in the configmap
+	nodeName                         = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
+	modelsRootFolder                 = filepath.Join(MountPath, "models")
+	fsHelper                   fileSystemInterface
 )
 
 type fileSystemInterface interface {
@@ -139,6 +140,7 @@ func (c *LocalModelNodeReconciler) getOrLaunchJob(ctx context.Context, jobName s
 			Namespace: jobNamespace,
 		},
 		Spec: batchv1.JobSpec{
+			TTLSecondsAfterFinished: &jobTTLSecondsAfterFinished,
 			Template: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					NodeName:      nodeName,
@@ -361,6 +363,9 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	defaultJobImage = localModelConfig.DefaultJobImage
 	jobNamespace = localModelConfig.JobNamespace
 	FSGroup = localModelConfig.FSGroup
+	if localModelConfig.JobTTLSecondsAfterFinished != nil {
+		jobTTLSecondsAfterFinished = *localModelConfig.JobTTLSecondsAfterFinished
+	}
 	if err := c.downloadModels(ctx, &localModelNode); err != nil {
 		c.Log.Error(err, "Model download err")
 		return reconcile.Result{}, err
