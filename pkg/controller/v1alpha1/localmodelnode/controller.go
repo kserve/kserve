@@ -31,7 +31,6 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
-	"reflect"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -39,7 +38,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
-	apierr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -105,24 +104,11 @@ func (f *fileSystemHelper) hasModelFolder(modelName string) (bool, error) {
 	return false, err
 }
 
-func (c *LocalModelNodeReconciler) getOrLaunchJob(ctx context.Context, jobName string, localModelNode *v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo, recreateJob bool) (*batchv1.Job, error) {
+func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo) (*batchv1.Job, error) {
+	jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
 	container, err := c.getContainerSpecForStorageUri(ctx, modelInfo.SourceModelUri)
 	if err != nil {
 		return nil, err
-	}
-	jobs := c.Clientset.BatchV1().Jobs(jobNamespace)
-
-	job, err := jobs.Get(ctx, jobName, metav1.GetOptions{})
-
-	// In tests, job is an empty struct, using this bool is easier than checking for empty struct
-	jobFound := true
-	if err != nil {
-		if apierr.IsNotFound(err) {
-			jobFound = false
-		} else {
-			c.Log.Error(err, "Failed to get job", "name", jobName)
-			return job, err
-		}
 	}
 
 	container.Args = []string{modelInfo.SourceModelUri, MountPath}
@@ -134,10 +120,11 @@ func (c *LocalModelNodeReconciler) getOrLaunchJob(ctx context.Context, jobName s
 			SubPath:   filepath.Join("models", modelInfo.ModelName),
 		},
 	}
-	expectedJob := &batchv1.Job{
+	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      jobName + "dryrun",
-			Namespace: jobNamespace,
+			GenerateName: jobName,
+			Namespace:    jobNamespace,
+			Labels:       map[string]string{"model": modelInfo.ModelName, "node": localModelNode.Name},
 		},
 		Spec: batchv1.JobSpec{
 			TTLSecondsAfterFinished: &jobTTLSecondsAfterFinished,
@@ -163,46 +150,15 @@ func (c *LocalModelNodeReconciler) getOrLaunchJob(ctx context.Context, jobName s
 			},
 		},
 	}
-	dryrunJob, err := jobs.Create(ctx, expectedJob, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}})
-	if err != nil {
-		return nil, err
-	}
-
-	// If we do not recreate job on purpose, return the existing job if it is the same as the expected job
-	if !recreateJob && jobFound && reflect.DeepEqual(job.Spec.Template.Spec, dryrunJob.Spec.Template.Spec) {
-		return job, nil
-	}
-
-	// Remove the existing job because either of them is true:
-	// 1. it is different from the expected job
-	// 2. recreate the job on purpose by setting recreateJob to true
-	if jobFound {
-		// If the job is still running, do not delete it
-		if recreateJob && job.Status.Succeeded == 0 {
-			c.Log.Info("New job is not successful yet, skipping deletion", "name", job.Name)
-			return job, nil
-		}
-		c.Log.Info("Deleting job.", "name", job.Name)
-		policy := metav1.DeletePropagationForeground
-		err = jobs.Delete(ctx, job.Name, metav1.DeleteOptions{
-			GracePeriodSeconds: new(int64),
-			PropagationPolicy:  &policy,
-		})
-		if err != nil {
-			c.Log.Error(err, "Failed to delete job.", "name", job.Name)
-			return nil, err
-		}
-	}
-
-	if err := controllerutil.SetControllerReference(localModelNode, expectedJob, c.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(&localModelNode, job, c.Scheme); err != nil {
 		c.Log.Error(err, "Failed to set controller reference", "name", modelInfo.ModelName)
 		return nil, err
 	}
-	expectedJob.Name = jobName
-	job, err = jobs.Create(ctx, expectedJob, metav1.CreateOptions{})
+	jobs := c.Clientset.BatchV1().Jobs(jobNamespace)
+	job, err = jobs.Create(ctx, job, metav1.CreateOptions{})
 	c.Log.Info("Creating job", "name", job.Name, "namespace", job.Namespace)
 	if err != nil {
-		c.Log.Error(err, "Failed to create job.", "name", expectedJob.Name)
+		c.Log.Error(err, "Failed to create job.", "name", job.Name)
 		return nil, err
 	}
 	return job, err
@@ -239,46 +195,95 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 	return defaultContainer, nil
 }
 
+func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName string, nodeName string) (*batchv1.Job, error) {
+	jobList := &batchv1.JobList{}
+	labelSelector := map[string]string{
+		"model": modelName,
+		"node":  nodeName,
+	}
+	if err := c.Client.List(ctx, jobList, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	c.Log.Info("Found jobs", "model", modelName, "num of jobs", len(jobList.Items))
+	var latestJob *batchv1.Job
+	for i, job := range jobList.Items {
+		if latestJob == nil || job.CreationTimestamp.After(latestJob.CreationTimestamp.Time) {
+			latestJob = &jobList.Items[i]
+		}
+	}
+	return latestJob, nil
+}
+
+func getModelStatusFromJobStatus(jobStatus batchv1.JobStatus) v1alpha1api.ModelStatus {
+	switch {
+	case jobStatus.Succeeded > 0:
+		return v1alpha1api.ModelDownloaded
+	case jobStatus.Failed > 0:
+		return v1alpha1api.ModelDownloadError
+	case jobStatus.Ready != nil && *jobStatus.Ready > 0:
+		return v1alpha1api.ModelDownloading
+	default:
+		return v1alpha1api.ModelDownloadPending
+	}
+}
+
 // Create jobs to download models if the model is not present locally
 // Update the status of the LocalModelNode CR
 func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode) error {
 	newStatus := map[string]v1alpha1api.ModelStatus{}
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
-		recreateJob := false
-		if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
-			if status == v1alpha1api.ModelDownloaded {
-				newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloaded
-				hasModelFolder, err := fsHelper.hasModelFolder(modelInfo.ModelName)
-				if err != nil {
-					c.Log.Error(err, "Failed to check model folder", "model", modelInfo.ModelName, "folder", getModelFolder(modelInfo.ModelName))
-					return err
-				}
-				if hasModelFolder {
-					continue
-				}
-				c.Log.Info("Model folder not found, re-downloading", "model", modelInfo.ModelName)
-				recreateJob = true
-			}
-		}
-
-		jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
-
-		job, err := c.getOrLaunchJob(ctx, jobName, localModelNode, modelInfo, recreateJob)
+		var job *batchv1.Job
+		folderExists, err := fsHelper.hasModelFolder(modelInfo.ModelName)
 		if err != nil {
-			c.Log.Error(err, "Job error", "name", jobName)
+			c.Log.Error(err, "Failed to check model folder", "model", modelInfo.ModelName, "folder", getModelFolder(modelInfo.ModelName))
 			return err
 		}
-
-		switch {
-		case job.Status.Succeeded > 0:
-			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloaded
-		case job.Status.Failed > 0:
-			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloadError
-		case job.Status.Ready != nil && *job.Status.Ready > 0:
-			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloading
-		default:
-			newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloadPending
+		if folderExists {
+			// If folder exists and the job has been successfully completed, do nothing
+			if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
+				if status == v1alpha1api.ModelDownloaded {
+					newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloaded
+				}
+				continue
+			}
+			job, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName)
+			if err != nil {
+				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName, "node", nodeName)
+				return err
+			}
+			// If job is not found, create a new one. Because download could be incomplete.
+			// Otherwise model status is updated by the job status outside this if statement
+			if job == nil {
+				c.Log.Info("Model folder exists, creating download job", "model", modelInfo.ModelName)
+				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
+				if err != nil {
+					c.Log.Error(err, "Failed to create Job", "model", modelInfo.ModelName, "node", nodeName)
+					return err
+				}
+			}
+		} else {
+			// Folder does not exist, create a new job
+			c.Log.Info("Model folder not found", "model", modelInfo.ModelName)
+			job, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName)
+			if err != nil {
+				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName, "node", nodeName)
+				return err
+			}
+			// Recreate job if it has been terminated because the model is missing locally
+			if job == nil || job.Status.Succeeded > 0 {
+				c.Log.Info("Download model", "model", modelInfo.ModelName)
+				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
+				if err != nil {
+					c.Log.Error(err, "Failed to create Job", "model", modelInfo.ModelName, "node", nodeName)
+					return err
+				}
+			}
 		}
+		newStatus[modelInfo.ModelName] = getModelStatusFromJobStatus(job.Status)
+
 		c.Log.Info("Downloading models:", "model", modelInfo.ModelName,
 			"node", localModelNode.ObjectMeta.Name, "status", newStatus[modelInfo.ModelName])
 	}
@@ -288,7 +293,6 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 		c.Log.Info("Skipping Status update", "name", localModelNode.Name)
 		return nil
 	}
-
 	localModelNode.Status.ModelStatus = newStatus
 	if err := c.Status().Update(ctx, localModelNode); err != nil {
 		c.Log.Error(err, "Update local model cache status error", "name", localModelNode.Name)
