@@ -19,6 +19,8 @@ package v1alpha1
 import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
 // LocalModelCacheSpec
@@ -60,4 +62,21 @@ type LocalModelCacheList struct {
 
 func init() {
 	SchemeBuilder.Register(&LocalModelCache{}, &LocalModelCacheList{})
+}
+
+func (l *LocalModelCache) Validate() field.ErrorList {
+	var allErrs field.ErrorList
+	allErrs = append(allErrs, validateLocalModelCacheName(l.Name, field.NewPath("metadata"))...)
+	return allErrs
+}
+
+func validateLocalModelCacheName(name string, fldPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	// The name is used as part of pod name (which must conform to a DNS 1123 Label) for downloading models, so it cannot contain dots.
+	if errs := validation.IsDNS1123Label(name); len(errs) > 0 {
+		for _, err := range errs {
+			allErrs = append(allErrs, field.Invalid(fldPath.Child("name"), name, err))
+		}
+	}
+	return allErrs
 }
