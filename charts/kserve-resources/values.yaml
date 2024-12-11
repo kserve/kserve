@@ -401,8 +401,9 @@ kserve:
         image: kserve/kserve-localmodel-controller
         tag: *defaultVersion
       jobNamespace: kserve-localmodel-jobs
+      jobTTLSecondsAfterFinished: 3600
       securityContext:
-        FSGroup: 1000
+        fsGroup: 1000
       agent:
         nodeSelector: {}
         hostPath: /mnt/models

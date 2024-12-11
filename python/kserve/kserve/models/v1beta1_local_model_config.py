@@ -50,17 +50,19 @@ class V1beta1LocalModelConfig(object):
         'default_job_image': 'str',
         'enabled': 'bool',
         'fs_group': 'int',
-        'job_namespace': 'str'
+        'job_namespace': 'str',
+        'job_ttl_seconds_after_finished': 'int'
     }
 
     attribute_map = {
         'default_job_image': 'defaultJobImage',
         'enabled': 'enabled',
         'fs_group': 'fsGroup',
-        'job_namespace': 'jobNamespace'
+        'job_namespace': 'jobNamespace',
+        'job_ttl_seconds_after_finished': 'jobTTLSecondsAfterFinished'
     }
 
-    def __init__(self, default_job_image=None, enabled=False, fs_group=None, job_namespace='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_job_image=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LocalModelConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -70,6 +72,7 @@ class V1beta1LocalModelConfig(object):
         self._enabled = None
         self._fs_group = None
         self._job_namespace = None
+        self._job_ttl_seconds_after_finished = None
         self.discriminator = None
 
         if default_job_image is not None:
@@ -78,6 +81,8 @@ class V1beta1LocalModelConfig(object):
         if fs_group is not None:
             self.fs_group = fs_group
         self.job_namespace = job_namespace
+        if job_ttl_seconds_after_finished is not None:
+            self.job_ttl_seconds_after_finished = job_ttl_seconds_after_finished
 
     @property
     def default_job_image(self):
@@ -166,6 +171,27 @@ class V1beta1LocalModelConfig(object):
             raise ValueError("Invalid value for `job_namespace`, must not be `None`")  # noqa: E501
 
         self._job_namespace = job_namespace
+
+    @property
+    def job_ttl_seconds_after_finished(self):
+        """Gets the job_ttl_seconds_after_finished of this V1beta1LocalModelConfig.  # noqa: E501
+
+
+        :return: The job_ttl_seconds_after_finished of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: int
+        """
+        return self._job_ttl_seconds_after_finished
+
+    @job_ttl_seconds_after_finished.setter
+    def job_ttl_seconds_after_finished(self, job_ttl_seconds_after_finished):
+        """Sets the job_ttl_seconds_after_finished of this V1beta1LocalModelConfig.
+
+
+        :param job_ttl_seconds_after_finished: The job_ttl_seconds_after_finished of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: int
+        """
+
+        self._job_ttl_seconds_after_finished = job_ttl_seconds_after_finished
 
     def to_dict(self):
         """Returns the model properties as a dict"""

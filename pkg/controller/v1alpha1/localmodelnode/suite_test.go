@@ -52,6 +52,7 @@ var (
 	testEnv   *envtest.Environment
 	cancel    context.CancelFunc
 	ctx       context.Context
+	fsMock    *mockFileSystem
 )
 
 func TestAPIs(t *testing.T) {
@@ -102,6 +103,9 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
 	Expect(k8sClient.Create(context.Background(), jobsNamespaceObj)).Should(Succeed())
+
+	fsMock = newMockFileSystem()
+	fsHelper = fsMock
 
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,

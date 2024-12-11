@@ -3313,6 +3313,10 @@
         "jobNamespace": {
           "type": "string",
           "default": ""
+        },
+        "jobTTLSecondsAfterFinished": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
