@@ -36,7 +36,7 @@ from .model_repository import ModelRepository
 from .protocol.dataplane import DataPlane
 from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
-from .protocol.rest.server import UvicornServer
+from .protocol.rest.server import RESTServer
 from .utils import utils
 from .utils.inference_client_factory import InferenceClientFactory
 
@@ -227,7 +227,6 @@ class ModelServer:
         )
         self.http_port = http_port
         self.grpc_port = grpc_port
-        self.workers = workers
         self.max_threads = max_threads
         self.max_asyncio_workers = max_asyncio_workers
         self.enable_grpc = enable_grpc
@@ -237,21 +236,11 @@ class ModelServer:
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models
         )
-        self._grpc_server = None
-        self._rest_server = None
-        if self.enable_grpc:
-            self._grpc_server = GRPCServer(
-                grpc_port,
-                self.dataplane,
-                self.model_repository_extension,
-                kwargs=vars(args),
-            )
         if args.configure_logging:
             # If the logger does not have any handlers, then the logger is not configured.
             # For backward compatibility, we configure the logger here.
             if len(logger.handlers) == 0:
                 logging.configure_logging(args.log_config_file)
-        self.access_log_format = access_log_format
         self._custom_exception_handler = None
         predictor_config = PredictorConfig(
             predictor_host=args.predictor_host,
@@ -264,35 +253,57 @@ class ModelServer:
         self.dataplane = DataPlane(
             model_registry=self.registered_models, predictor_config=predictor_config
         )
-
-    async def _serve_rest(self):
-        logger.info(f"Starting uvicorn with {self.workers} workers")
-        loop = asyncio.get_event_loop()
-        if sys.platform not in ["win32", "win64"]:
-            sig_list = [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]
-        else:
-            sig_list = [signal.SIGINT, signal.SIGTERM]
-
-        for sig in sig_list:
-            loop.add_signal_handler(
-                sig, lambda s=sig: asyncio.create_task(self.stop(sig=s))
+        self._rest_server = self._rest_server = RESTServer(
+            app,
+            self.dataplane,
+            self.model_repository_extension,
+            self.http_port,
+            # By setting log_config to None we tell Uvicorn not to configure logging as it is already
+            # configured by kserve.
+            log_config=None,
+            access_log_format=access_log_format,
+            workers=workers,
+        )
+        self._grpc_server = None
+        if self.enable_grpc:
+            self._grpc_server = GRPCServer(
+                grpc_port,
+                self.dataplane,
+                self.model_repository_extension,
+                kwargs=vars(args),
             )
+
+    def setup_event_loop(self):
+        loop = asyncio.get_event_loop()
         if self._custom_exception_handler is None:
             loop.set_exception_handler(self.default_exception_handler)
         else:
             loop.set_exception_handler(self._custom_exception_handler)
-        self._rest_server = UvicornServer(
-            app,
-            self.http_port,
-            self.dataplane,
-            self.model_repository_extension,
-            # By setting log_config to None we tell Uvicorn not to configure logging as it is already
-            # configured by kserve.
-            log_config=None,
-            access_log_format=self.access_log_format,
-            workers=self.workers,
+
+        if self.max_asyncio_workers is None:
+            # formula as suggest in https://bugs.python.org/issue35279
+            self.max_asyncio_workers = min(32, utils.cpu_count() + 4)
+        logger.info(f"Setting max asyncio worker threads as {self.max_asyncio_workers}")
+        loop.set_default_executor(
+            concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers)
         )
-        await self._rest_server.run()
+
+    def register_signal_handler(self):
+        if sys.platform == "win32":
+            sig_list = [signal.SIGINT, signal.SIGTERM, signal.SIGBREAK]
+        else:
+            sig_list = [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]
+
+        for sig in sig_list:
+            signal.signal(
+                sig, lambda sig, frame: asyncio.create_task(self.stop(sig=sig))
+            )
+
+    async def _servers_task(self):
+        servers = [self._rest_server.start()]
+        if self.enable_grpc:
+            servers.append(self._grpc_server.start(self.max_threads))
+        await asyncio.gather(*servers)
 
     def start(self, models: List[BaseKServeModel]) -> None:
         """Start the model server with a set of registered models.
@@ -300,50 +311,19 @@ class ModelServer:
         Args:
             models: a list of models to register to the model server.
         """
-        if isinstance(models, list):
-            at_least_one_model_ready = False
-            for model in models:
-                if isinstance(model, BaseKServeModel):
-                    if model.ready:
-                        at_least_one_model_ready = True
-                        self.register_model(model)
-                        # pass whether to log request latency into the model
-                        model.enable_latency_logging = self.enable_latency_logging
-                    model.start()
-                else:
-                    raise RuntimeError("Model type should be 'BaseKServeModel'")
-            if not at_least_one_model_ready and models:
-                raise NoModelReady(models)
-        else:
-            raise RuntimeError("Unknown model collection type")
+        self._check_atleast_one_model_is_ready(models)
+        self.setup_event_loop()
+        self.register_signal_handler()
+        asyncio.run(self._servers_task())
 
-        if self.max_asyncio_workers is None:
-            # formula as suggest in https://bugs.python.org/issue35279
-            self.max_asyncio_workers = min(32, utils.cpu_count() + 4)
-        logger.info(f"Setting max asyncio worker threads as {self.max_asyncio_workers}")
-        asyncio.get_event_loop().set_default_executor(
-            concurrent.futures.ThreadPoolExecutor(max_workers=self.max_asyncio_workers)
-        )
-
-        async def servers_task():
-            servers = [self._serve_rest()]
-            if self.enable_grpc:
-                servers.append(self._grpc_server.start(self.max_threads))
-            await asyncio.gather(*servers)
-
-        asyncio.run(servers_task())
-
-    async def stop(self, sig: Optional[int] = None):
+    async def stop(self, sig: int):
         """Stop the instances of REST and gRPC model servers.
 
         Args:
-            sig: The signal to stop the server. Default: ``None``.
+            sig: The signal to stop the server.
         """
         await InferenceClientFactory().close()
         logger.info("Stopping the model server")
-        if self._rest_server:
-            logger.info("Stopping the rest server")
-            await self._rest_server.stop()
         if self._grpc_server:
             logger.info("Stopping the grpc server")
             await self._grpc_server.stop(sig)
@@ -387,3 +367,21 @@ class ModelServer:
             raise Exception("Failed to register model, model.name must be provided.")
         self.registered_models.update(model)
         logger.info("Registering model: %s", model.name)
+
+    def _check_atleast_one_model_is_ready(self, models: List[BaseKServeModel]):
+        if isinstance(models, list):
+            at_least_one_model_ready = False
+            for model in models:
+                if isinstance(model, BaseKServeModel):
+                    if model.ready:
+                        at_least_one_model_ready = True
+                        self.register_model(model)
+                        # pass whether to log request latency into the model
+                        model.enable_latency_logging = self.enable_latency_logging
+                    model.start()
+                else:
+                    raise RuntimeError("Model type should be 'BaseKServeModel'")
+            if not at_least_one_model_ready and models:
+                raise NoModelReady(models)
+        else:
+            raise RuntimeError("Unknown model collection type")

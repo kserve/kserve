@@ -65,6 +65,7 @@ class GRPCServer:
 
         listen_addr = f"[::]:{self._port}"
         self._server.add_insecure_port(listen_addr)
+        logger.info(f"Starting gRPC server with {max_workers} workers")
         logger.info("Starting gRPC server on %s", listen_addr)
         await self._server.start()
         await self._server.wait_for_termination()
