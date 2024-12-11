@@ -214,6 +214,7 @@ func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName s
 			latestJob = &jobList.Items[i]
 		}
 	}
+	c.Log.Info("found job", "job", latestJob)
 	return latestJob, nil
 }
 
@@ -265,7 +266,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 				}
 			}
 		} else {
-			// Folder does not exist, create a new job
+			// Folder does not exist
 			c.Log.Info("Model folder not found", "model", modelInfo.ModelName)
 			job, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName)
 			if err != nil {
