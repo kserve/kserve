@@ -561,7 +561,7 @@ data:
     {
       "enabled": {{ .Values.kserve.localmodel.enabled }},
       "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
-      "jobTTLSecondsAfterFinished": "{{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }}",
+      "jobTTLSecondsAfterFinished": {{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }},
       "defaultJobImage" : "kserve/storage-initializer:latest",
       "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }}
     }

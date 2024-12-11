@@ -337,6 +337,22 @@ var _ = Describe("LocalModelNode controller", func() {
 			job.Status.Succeeded = 1
 			Expect(k8sClient.Status().Update(ctx, job)).Should(Succeed())
 
+			// LocalModelNode status should be updated
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode)
+				if err != nil {
+					fmt.Fprintf(GinkgoWriter, "get err")
+					return false
+				}
+				modelStatus, ok := localModelNode.Status.ModelStatus[modelName]
+				if !ok {
+					fmt.Fprintf(GinkgoWriter, "model not found in status\n")
+					return false
+				}
+				fmt.Fprintf(GinkgoWriter, "model status %v\n", modelStatus)
+				return modelStatus == v1alpha1.ModelDownloaded
+			}, timeout, interval).Should(BeTrue(), "LocaModelNode status should be downloaded")
+
 			// Delete the model folder
 			fsMock.mockDir(modelsRootFolder, []fs.DirEntry{})
 

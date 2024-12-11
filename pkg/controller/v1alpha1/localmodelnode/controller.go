@@ -195,7 +195,7 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 	return defaultContainer, nil
 }
 
-func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName string, nodeName string) (*batchv1.Job, error) {
+func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName string, nodeName string, excludeSucceeded bool) (*batchv1.Job, error) {
 	jobList := &batchv1.JobList{}
 	labelSelector := map[string]string{
 		"model": modelName,
@@ -210,11 +210,13 @@ func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName s
 	c.Log.Info("Found jobs", "model", modelName, "num of jobs", len(jobList.Items))
 	var latestJob *batchv1.Job
 	for i, job := range jobList.Items {
+		if excludeSucceeded && job.Status.Succeeded > 0 {
+			continue
+		}
 		if latestJob == nil || job.CreationTimestamp.After(latestJob.CreationTimestamp.Time) {
 			latestJob = &jobList.Items[i]
 		}
 	}
-	c.Log.Info("found job", "job", latestJob)
 	return latestJob, nil
 }
 
@@ -250,13 +252,12 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 				}
 				continue
 			}
-			job, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName)
+			job, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName, false)
 			if err != nil {
 				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName, "node", nodeName)
 				return err
 			}
 			// If job is not found, create a new one. Because download could be incomplete.
-			// Otherwise model status is updated by the job status outside this if statement
 			if job == nil {
 				c.Log.Info("Model folder exists, creating download job", "model", modelInfo.ModelName)
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
@@ -268,10 +269,13 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 		} else {
 			// Folder does not exist
 			c.Log.Info("Model folder not found", "model", modelInfo.ModelName)
-			job, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName)
+			job, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName, true)
 			if err != nil {
 				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName, "node", nodeName)
 				return err
+			}
+			if job != nil {
+				c.Log.Info("model status from latest job", "model", modelInfo.ModelName, "status", getModelStatusFromJobStatus(job.Status))
 			}
 			// Recreate job if it has been terminated because the model is missing locally
 			if job == nil || job.Status.Succeeded > 0 {
