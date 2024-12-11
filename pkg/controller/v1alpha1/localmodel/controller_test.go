@@ -209,7 +209,7 @@ var _ = Describe("CachedModel controller", func() {
 			}, timeout, interval).Should(BeTrue(), "Node status should be downloaded")
 
 			// Now let's test deletion
-			k8sClient.Delete(ctx, cachedModel)
+			Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
 
 			newLocalModel := &v1alpha1.LocalModelCache{}
 			Eventually(func() bool {

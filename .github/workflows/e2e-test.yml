@@ -512,7 +512,8 @@ jobs:
     needs:
       [
         kserve-image-build,
-        predictor-runtime-build
+        predictor-runtime-build,
+        explainer-runtime-build
       ]
     steps:
       - name: Checkout
