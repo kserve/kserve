@@ -47,7 +47,7 @@ type LocalModelCacheValidator struct {
 	client.Client
 }
 
-// +kubebuilder:webhook:verbs=delete,path=/validate-localmodelcaches,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=localmodelcaches,versions=v1alpha1,name=localmodelcache.kserve-webhook-server.validator
+// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-localmodelcaches,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=localmodelcaches,versions=v1alpha1,name=localmodelcache.kserve-webhook-server.validator
 var _ webhook.CustomValidator = &LocalModelCacheValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
@@ -58,6 +58,14 @@ func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, obj runti
 		return nil, err
 	}
 	localModelCacheValidatorLogger.Info("validate create", "name", localModelCache.Name)
+	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)
+	if err != nil {
+		localModelCacheValidatorLogger.Error(err, "Unable to check LocalModelCache with the same storage URI")
+		return nil, err
+	}
+	if localModelCacheWithSameStorageURI != nil {
+		return admission.Warnings{}, fmt.Errorf("LocalModelCache %s has the same StorageURI %s", localModelCacheWithSameStorageURI.Name, localModelCacheWithSameStorageURI.Spec.SourceModelUri)
+	}
 	return nil, nil
 }
 
@@ -69,6 +77,14 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldObj, n
 		return nil, err
 	}
 	localModelCacheValidatorLogger.Info("validate update", "name", localModelCache.Name)
+	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)
+	if err != nil {
+		localModelCacheValidatorLogger.Error(err, "Unable to check LocalModelCache with the same storage URI")
+		return nil, err
+	}
+	if localModelCacheWithSameStorageURI != nil {
+		return admission.Warnings{}, fmt.Errorf("LocalModelCache %s has the same StorageURI %s", localModelCacheWithSameStorageURI.Name, localModelCacheWithSameStorageURI.Spec.SourceModelUri)
+	}
 	return nil, nil
 }
 
@@ -94,6 +110,27 @@ func (v *LocalModelCacheValidator) ValidateDelete(ctx context.Context, obj runti
 		}
 		if modelName == localModelCache.Name {
 			return admission.Warnings{}, fmt.Errorf("LocalModelCache %s is being used by InferenceService %s", localModelCache.Name, isvcMeta.Name)
+		}
+	}
+	return nil, nil
+}
+
+// Checks if there are other LocalModelCache with the same storage URI
+func (v *LocalModelCacheValidator) validateUniqueStorageURI(ctx context.Context, currentLocalModelCache *v1alpha1.LocalModelCache) (*v1alpha1.LocalModelCache, error) {
+	// Get all LocalModelCache CR
+	localModelCacheList := &v1alpha1.LocalModelCacheList{}
+	if err := v.Client.List(ctx, localModelCacheList); err != nil {
+		localModelCacheValidatorLogger.Error(err, "Unable to list LocalModelCaches")
+		return nil, err
+	}
+	// Check the storage URI of each LocalModelCache CR except for the current one
+	for _, localModelCache := range localModelCacheList.Items {
+		// Skip the current one
+		if localModelCache.Name == currentLocalModelCache.Name {
+			continue
+		}
+		if localModelCache.Spec.SourceModelUri == currentLocalModelCache.Spec.SourceModelUri {
+			return &localModelCache, nil
 		}
 	}
 	return nil, nil

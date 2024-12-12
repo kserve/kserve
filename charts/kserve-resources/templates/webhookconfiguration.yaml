@@ -213,6 +213,8 @@ webhooks:
         apiVersions:
           - v1alpha1
         operations:
+          - CREATE
+          - UPDATE
           - DELETE
         resources:
           - localmodelcaches
