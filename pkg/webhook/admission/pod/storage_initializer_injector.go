@@ -157,6 +157,11 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 
 	// Mount volume initialized by the modelcar container to the user container and transformer (if exists)
 	modelParentDir := getParentDirectory(constants.DefaultModelLocalMountPath)
+	for _, envVar := range userContainer.Env {
+		if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
+			modelParentDir = getParentDirectory(envVar.Value)
+		}
+	}
 	addVolumeMountIfNotPresent(userContainer, StorageInitializerVolumeName, modelParentDir)
 	if transformerContainer != nil {
 		addVolumeMountIfNotPresent(transformerContainer, StorageInitializerVolumeName, modelParentDir)
@@ -175,6 +180,11 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 	// of the containers (but only if not already have been added)
 	if getContainerWithName(pod, ModelcarContainerName) == nil {
 		modelContainer := mi.createModelContainer(image, constants.DefaultModelLocalMountPath)
+		for _, envVar := range userContainer.Env {
+			if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
+				modelContainer = mi.createModelContainer(image, envVar.Value)
+			}
+		}
 		pod.Spec.Containers = append(pod.Spec.Containers, *modelContainer)
 
 		// Add the model container as an init-container to pre-fetch the model before
@@ -287,6 +297,12 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 				ReadOnly: isvcReadonlyStringFlag,
 			}
 
+			for _, envVar := range userContainer.Env {
+				if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
+					pvcSourceVolumeMount.MountPath = envVar.Value
+				}
+			}
+
 			// Check if PVC source URIs is already mounted
 			// this may occur when mutator is triggered more than once
 			if userContainer.VolumeMounts != nil {
@@ -315,6 +331,11 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 			for index, envVar := range userContainer.Env {
 				if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
 					userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
+					for _, envVar := range userContainer.Env {
+						if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
+							userContainer.Env[index].Value = envVar.Value
+						}
+					}
 				}
 			}
 
@@ -358,6 +379,13 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  false,
 	}
+	for _, envVar := range userContainer.Env {
+		if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
+			sharedVolumeWriteMount.MountPath = envVar.Value
+		} else if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value == "" {
+			sharedVolumeWriteMount.MountPath = constants.DefaultModelLocalMountPath
+		}
+	}
 	storageInitializerMounts = append(storageInitializerMounts, sharedVolumeWriteMount)
 
 	storageInitializerImage := StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion
@@ -365,14 +393,20 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		storageInitializerImage = mi.config.Image
 	}
 
+	args := []string{srcURI, constants.DefaultModelLocalMountPath}
+
+	for _, envVar := range userContainer.Env {
+		if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
+			args = []string{srcURI, envVar.Value}
+			break
+		}
+	}
+
 	// Add an init container to run provisioning logic to the PodSpec
 	initContainer := &v1.Container{
-		Name:  StorageInitializerContainerName,
-		Image: storageInitializerImage,
-		Args: []string{
-			srcURI,
-			constants.DefaultModelLocalMountPath,
-		},
+		Name:                     StorageInitializerContainerName,
+		Image:                    storageInitializerImage,
+		Args:                     args,
 		TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
 		VolumeMounts:             storageInitializerMounts,
 		Resources: v1.ResourceRequirements{
@@ -397,10 +431,20 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 	if transformerContainer != nil {
 		transformerContainer.VolumeMounts = append(transformerContainer.VolumeMounts, sharedVolumeReadMount)
 	}
+	for _, envVar := range userContainer.Env {
+		if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
+			sharedVolumeReadMount.MountPath = envVar.Value
+		}
+	}
 	// Change the CustomSpecStorageUri env variable value to the default model path if present
 	for index, envVar := range userContainer.Env {
 		if envVar.Name == constants.CustomSpecStorageUriEnvVarKey && envVar.Value != "" {
 			userContainer.Env[index].Value = constants.DefaultModelLocalMountPath
+			for _, envVar := range userContainer.Env {
+				if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
+					userContainer.Env[index].Value = envVar.Value
+				}
+			}
 		}
 	}
 
