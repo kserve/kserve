@@ -84,7 +84,7 @@ func (v *LocalModelCacheValidator) ValidateDelete(ctx context.Context, obj runti
 	// Check if current LocalModelCache is being used
 	for _, isvcMeta := range localModelCache.Status.InferenceServices {
 		isvc := v1beta1.InferenceService{}
-		if err := v.Get(ctx, client.ObjectKey(isvcMeta), &isvc); err != nil {
+		if err := v.Client.Get(ctx, client.ObjectKey(isvcMeta), &isvc); err != nil {
 			localModelCacheValidatorLogger.Error(err, "Error getting InferenceService", "name", isvcMeta.Name)
 			return nil, err
 		}

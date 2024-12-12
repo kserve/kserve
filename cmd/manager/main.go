@@ -286,7 +286,7 @@ func main() {
 
 	if err = ctrl.NewWebhookManagedBy(mgr).
 		For(&v1alpha1.LocalModelCache{}).
-		WithValidator(&localmodelcache.LocalModelCacheValidator{}).
+		WithValidator(&localmodelcache.LocalModelCacheValidator{Client: mgr.GetClient()}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "localmodelcache")
 		os.Exit(1)
