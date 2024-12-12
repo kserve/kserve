@@ -227,6 +227,7 @@ class ModelServer:
         )
         self.http_port = http_port
         self.grpc_port = grpc_port
+        self.workers = workers
         self.max_threads = max_threads
         self.max_asyncio_workers = max_asyncio_workers
         self.enable_grpc = enable_grpc
@@ -241,6 +242,7 @@ class ModelServer:
             # For backward compatibility, we configure the logger here.
             if len(logger.handlers) == 0:
                 logging.configure_logging(args.log_config_file)
+        self.access_log_format = access_log_format
         self._custom_exception_handler = None
         predictor_config = PredictorConfig(
             predictor_host=args.predictor_host,
@@ -261,8 +263,8 @@ class ModelServer:
             # By setting log_config to None we tell Uvicorn not to configure logging as it is already
             # configured by kserve.
             log_config=None,
-            access_log_format=access_log_format,
-            workers=workers,
+            access_log_format=self.access_log_format,
+            workers=self.workers,
         )
         self._grpc_server = None
         if self.enable_grpc:

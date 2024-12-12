@@ -138,9 +138,12 @@ class RESTServer:
             # so we get duplicates if we don't set it explicitly.
             logging.getLogger("access").propagate = False
 
-    async def start(self):
+    def create_application(self):
+        self._add_middlewares()
         self._register_endpoints()
         self._add_exception_handlers()
-        self._add_middlewares()
+
+    async def start(self):
+        self.create_application()
         logger.info(f"Starting uvicorn with {self._server.config.workers} workers")
         await self._server.serve()
