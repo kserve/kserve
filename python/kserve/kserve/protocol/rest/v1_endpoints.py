@@ -16,7 +16,7 @@ from typing import Optional, Union, Dict, List, AsyncIterator
 
 from fastapi import Request, Response, FastAPI, APIRouter
 from starlette.responses import StreamingResponse
-from fastapi.responses import JSONResponse
+from fastapi.responses import ORJSONResponse
 
 from kserve.errors import ModelNotReady
 from ..dataplane import DataPlane
@@ -97,7 +97,7 @@ class V1Endpoints:
             return Response(content=response, headers=response_headers)
         if isinstance(response, AsyncIterator):
             return StreamingResponse(content=response)
-        return JSONResponse(content=response, headers=response_headers)
+        return ORJSONResponse(content=response, headers=response_headers)
 
     async def explain(self, model_name: str, request: Request) -> Union[Response, Dict]:
         """Explain handler.
@@ -132,9 +132,9 @@ class V1Endpoints:
         response_headers.update(res_headers)
         response_headers.pop("content-length", None)
 
-        if not isinstance(response, dict):
-            return Response(content=response, headers=response_headers)
-        return response
+        if isinstance(response, dict):
+            return ORJSONResponse(content=response, headers=response_headers)
+        return Response(content=response, headers=response_headers)
 
 
 def register_v1_endpoints(
