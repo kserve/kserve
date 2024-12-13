@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -50,41 +49,24 @@ func (m *MockFileInfo) Type() fs.FileMode          { return 0 }
 func (m *MockFileInfo) Info() (fs.FileInfo, error) { return nil, nil }
 
 type mockFileSystem struct {
-	fileSystemInterface
-	subDirs map[string][]os.DirEntry
+	FileSystemInterface
+	// represents the dirs under /mnt/models/models
+	subDirs []os.DirEntry
 }
 
-func (f *mockFileSystem) removeAll(path string) error {
-	base := filepath.Base(path)
-	root := filepath.Dir(path)
-	_, ok := f.subDirs[root]
-	if !ok {
-		return nil
-	}
+func (f *mockFileSystem) removeModel(model string) error {
 	newEntries := []os.DirEntry{}
-	for _, dirEntry := range f.subDirs[root] {
-		if dirEntry.Name() != base {
+	for _, dirEntry := range f.subDirs {
+		if dirEntry.Name() != model {
 			newEntries = append(newEntries, dirEntry)
 		}
 	}
-	f.subDirs[root] = newEntries
+	f.subDirs = newEntries
 	return nil
 }
 
-func (f *mockFileSystem) readDir(path string) ([]os.DirEntry, error) {
-	value, ok := f.subDirs[path]
-	if ok {
-		return value, nil
-	}
-	return []os.DirEntry{}, nil
-}
-
 func (f *mockFileSystem) hasModelFolder(modelName string) (bool, error) {
-	folders, ok := f.subDirs[modelsRootFolder]
-	if !ok {
-		return false, nil
-	}
-	for _, dirEntry := range folders {
+	for _, dirEntry := range f.subDirs {
 		if dirEntry.Name() == modelName {
 			return true, nil
 		}
@@ -92,17 +74,26 @@ func (f *mockFileSystem) hasModelFolder(modelName string) (bool, error) {
 	return false, nil
 }
 
-func (f *mockFileSystem) mockDir(path string, dirs []os.DirEntry) {
-	f.subDirs[path] = dirs
+func (f *mockFileSystem) mockModel(dir os.DirEntry) {
+	for _, dirEntry := range f.subDirs {
+		if dirEntry.Name() == dir.Name() {
+			return
+		}
+	}
+	f.subDirs = append(f.subDirs, dir)
+}
+
+func (f *mockFileSystem) getModelFolders() ([]os.DirEntry, error) {
+	return f.subDirs, nil
 }
 
 func (f *mockFileSystem) clear() {
-	f.subDirs = make(map[string][]os.DirEntry)
+	f.subDirs = []os.DirEntry{}
 }
 
 func newMockFileSystem() *mockFileSystem {
 	return &mockFileSystem{
-		subDirs: make(map[string][]os.DirEntry),
+		subDirs: []os.DirEntry{},
 	}
 }
 
@@ -183,9 +174,7 @@ var _ = Describe("LocalModelNode controller", func() {
 		It("Should create download jobs, update model status from jobs, and handle model deletion", func() {
 			ctx := context.Background()
 			fsMock.clear()
-			fsMock.mockDir(modelsRootFolder, []fs.DirEntry{
-				&MockFileInfo{name: modelName, isDir: true},
-			})
+			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
@@ -236,12 +225,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			}, timeout, interval).Should(BeTrue(), "Download job should be created")
 
 			// Now let's update the job status to be successful
-			fsMock.mockDir(modelsRootFolder, []fs.DirEntry{
-				&MockFileInfo{name: modelName, isDir: true},
-			})
-
-			// Expect(true).To(BeFalse())
-
+			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
 			job := &jobs.Items[0]
 			job.Status.Succeeded = 1
 			Expect(k8sClient.Status().Update(ctx, job)).Should(Succeed())
@@ -329,10 +313,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			}, timeout, interval).Should(BeTrue(), "Download job should be created")
 
 			// Now let's update the job status to be successful
-			fsMock.mockDir(modelsRootFolder, []fs.DirEntry{
-				&MockFileInfo{name: modelName, isDir: true},
-			})
-
+			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
 			job := &jobs.Items[0]
 			job.Status.Succeeded = 1
 			Expect(k8sClient.Status().Update(ctx, job)).Should(Succeed())
@@ -354,7 +335,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			}, timeout, interval).Should(BeTrue(), "LocaModelNode status should be downloaded")
 
 			// Delete the model folder
-			fsMock.mockDir(modelsRootFolder, []fs.DirEntry{})
+			fsMock.clear()
 
 			// Manually trigger reconcillation
 			patch := client.MergeFrom(localModelNode.DeepCopy())
@@ -379,9 +360,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Mock readDir to return a fake model folder
-			fsMock.mockDir(modelsRootFolder, []fs.DirEntry{
-				&MockFileInfo{name: modelName, isDir: true},
-			})
+			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
 
 			nodeName = "worker" // Definied in controller.go, representing the name of the curent node
 			// Creates a LocalModelNode with no models but the controller should find a model from local disk and delete it
@@ -397,8 +376,16 @@ var _ = Describe("LocalModelNode controller", func() {
 			defer k8sClient.Delete(ctx, localModelNode)
 
 			Eventually(func() bool {
-				dirs, err := fsMock.readDir(modelsRootFolder)
-				return err == nil && len(dirs) == 0
+				dirs, err := fsMock.getModelFolders()
+				if err != nil {
+					return false
+				}
+				for _, dir := range dirs {
+					if dir.Name() == modelName {
+						return false
+					}
+				}
+				return true
 			}, timeout, interval).Should(BeTrue(), "Should remove the model folder")
 		})
 	})

@@ -68,41 +68,8 @@ var (
 	jobTTLSecondsAfterFinished int32 = 3600                   // One hour. Can be overwritten by the value in the configmap
 	nodeName                         = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
 	modelsRootFolder                 = filepath.Join(MountPath, "models")
-	fsHelper                   fileSystemInterface
+	fsHelper                   FileSystemInterface
 )
-
-type fileSystemInterface interface {
-	removeAll(path string) error
-	readDir(name string) ([]os.DirEntry, error)
-	hasModelFolder(modelName string) (bool, error)
-}
-
-type fileSystemHelper struct {
-}
-
-func getModelFolder(modelName string) string {
-	return filepath.Join(modelsRootFolder, modelName)
-}
-
-func (f *fileSystemHelper) removeAll(path string) error {
-	return os.RemoveAll(path)
-}
-
-func (f *fileSystemHelper) readDir(path string) ([]os.DirEntry, error) {
-	return os.ReadDir(path)
-}
-
-func (f *fileSystemHelper) hasModelFolder(modelName string) (bool, error) {
-	folder := getModelFolder(modelName)
-	_, err := f.readDir(folder)
-	if err == nil {
-		return true, nil
-	}
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	return false, err
-}
 
 func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo) (*batchv1.Job, error) {
 	jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
@@ -241,10 +208,11 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 		var job *batchv1.Job
 		folderExists, err := fsHelper.hasModelFolder(modelInfo.ModelName)
 		if err != nil {
-			c.Log.Error(err, "Failed to check model folder", "model", modelInfo.ModelName, "folder", getModelFolder(modelInfo.ModelName))
+			c.Log.Error(err, "Failed to check model folder", "model", modelInfo.ModelName)
 			return err
 		}
 		if folderExists {
+			c.Log.Info("Model folder found", "model", modelInfo.ModelName)
 			// If folder exists and the job has been successfully completed, do nothing
 			if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
 				if status == v1alpha1api.ModelDownloaded {
@@ -312,9 +280,9 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.LocalModelNode) error {
 	// 1. Scan model dir and get a list of existing folders representing downloaded models
 	foldersToRemove := map[string]struct{}{}
-	entries, err := fsHelper.readDir(modelsRootFolder)
+	entries, err := fsHelper.getModelFolders()
 	if err != nil {
-		c.Log.Error(err, "Failed to list model folder", "folder", modelsRootFolder)
+		c.Log.Error(err, "Failed to list model folder")
 	}
 	for _, entry := range entries {
 		// Models could only exist in sub dir
@@ -333,9 +301,8 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.Local
 		c.Log.Info("Found model(s) to remove", "num of models", len(foldersToRemove))
 		for modelName := range foldersToRemove {
 			c.Log.Info("Removing model", "model", modelName)
-			modelFolder := getModelFolder(modelName)
-			if err := fsHelper.removeAll(modelFolder); err != nil {
-				c.Log.Error(err, "Failed to remove model directory", "dir", modelFolder)
+			if err := fsHelper.removeModel(modelName); err != nil {
+				c.Log.Error(err, "Failed to remove model directory", "model", modelName)
 			}
 		}
 	}
@@ -352,7 +319,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	// fsHelper is a global variable to allow mocking in tests
 	if fsHelper == nil {
-		fsHelper = &fileSystemHelper{}
+		fsHelper = NewFileSystemHelper(modelsRootFolder)
 	}
 
 	// Create Jobs to download models if the model is not present locally.
