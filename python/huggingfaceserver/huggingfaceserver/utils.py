@@ -133,6 +133,8 @@ def _mean_pooling(token_embeddings, attention_mask):
     https://github.com/UKPLab/sentence-transformers/blob/f012ab33189d23cef0dd00df7c5642ebb0bac2d4/sentence_transformers/model_card_templates.py#L136-L146
     """
 
+    attention_mask = attention_mask.to(token_embeddings.device)
+
     input_mask_expanded = (
         attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
     )
