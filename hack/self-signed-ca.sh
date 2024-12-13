@@ -75,7 +75,7 @@ done
 [ -z "${secret}" ] && secret=kserve-webhook-server-cert
 [ -z "${namespace}" ] && namespace=kserve
 [ -z "${webhookDeployment}" ] && webhookDeployment=kserve-controller-manager
-[ "${#validatingWebhookNames[@]}" -eq 0 ] && validatingWebhookNames=("inferenceservice.serving.kserve.io" "inferencegraph.serving.kserve.io" "servingruntime.serving.kserve.io" "clusterservingruntime.serving.kserve.io" "trainedmodel.serving.kserve.io")
+[ "${#validatingWebhookNames[@]}" -eq 0 ] && validatingWebhookNames=("inferenceservice.serving.kserve.io" "inferencegraph.serving.kserve.io" "servingruntime.serving.kserve.io" "clusterservingruntime.serving.kserve.io" "trainedmodel.serving.kserve.io" "localmodelcache.serving.kserve.io")
 [ "${#mutatingWebhookNames[@]}" -eq 0 ] && mutatingWebhookNames=("inferenceservice.serving.kserve.io")
 [ -z "${service}" ] && service=kserve-webhook-server-service
 webhookDeploymentName=${webhookDeployment}
