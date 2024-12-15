@@ -77,7 +77,6 @@ def vllm_opt_model():
             seed=0,
             dtype=dtype,
             max_model_len=max_model_len,
-            task="auto",
         )
 
     mock_vllm_engine = mock.AsyncMock(spec=AsyncLLMEngine)
