@@ -35,7 +35,6 @@ require (
 	k8s.io/client-go v0.30.4
 	k8s.io/code-generator v0.30.4
 	k8s.io/component-helpers v0.30.4
-	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20240827152857-f7e401e7b4c2
 	k8s.io/utils v0.0.0-20240821151609-f90d01438635
@@ -105,6 +104,7 @@ require (
 	github.com/prometheus/common v0.57.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/prometheus/statsd_exporter v0.27.1 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	go.opencensus.io v0.24.0 // indirect
