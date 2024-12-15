@@ -942,3 +942,63 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
+
+  test-huggingface-server-vllm:
+    runs-on: ubuntu-22.04
+    needs:
+      [ kserve-image-build, predictor-runtime-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Download huggingface server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Run E2E tests
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "vllm" "1"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
