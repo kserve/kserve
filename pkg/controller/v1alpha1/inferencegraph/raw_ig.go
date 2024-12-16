@@ -148,7 +148,7 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 	reconciler, err := raw.NewRawKubeReconciler(cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
 
 	if err != nil {
-		return nil, reconciler.URL, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
+		return nil, nil, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
 	}
 	// set Deployment Controller
 	for _, deployments := range reconciler.Deployment.DeploymentList {
