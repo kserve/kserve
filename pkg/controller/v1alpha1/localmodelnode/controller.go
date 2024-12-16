@@ -170,6 +170,7 @@ func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName s
 	}
 	if err := c.Client.List(ctx, jobList, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
 		if errors.IsNotFound(err) {
+			c.Log.Info("Job not found", "model", modelName)
 			return nil, nil
 		}
 		return nil, err
@@ -205,6 +206,7 @@ func getModelStatusFromJobStatus(jobStatus batchv1.JobStatus) v1alpha1api.ModelS
 func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode) error {
 	newStatus := map[string]v1alpha1api.ModelStatus{}
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
+		c.Log.Info("checking model from spec", "model", modelInfo.ModelName)
 		var job *batchv1.Job
 		folderExists, err := fsHelper.hasModelFolder(modelInfo.ModelName)
 		if err != nil {
@@ -218,8 +220,8 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
 				if status == v1alpha1api.ModelDownloaded {
 					newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloaded
+					continue
 				}
-				continue
 			}
 			job, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName, false)
 			if err != nil {
@@ -266,15 +268,15 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 
 	// Skip update if no changes to status
 	if maps.Equal(localModelNode.Status.ModelStatus, newStatus) {
-		c.Log.Info("Skipping Status update", "name", localModelNode.Name)
 		return nil
 	}
+
 	localModelNode.Status.ModelStatus = newStatus
 	if err := c.Status().Update(ctx, localModelNode); err != nil {
 		c.Log.Error(err, "Update local model cache status error", "name", localModelNode.Name)
 		return err
 	}
-	c.Log.Info("status updated", "name", localModelNode.Name)
+	c.Log.Info("status updated", "name", localModelNode.Name, "num of models in status", len(localModelNode.Status.ModelStatus))
 
 	return nil
 }
