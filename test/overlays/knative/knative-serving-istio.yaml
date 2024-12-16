@@ -9,7 +9,7 @@ metadata:
   name: knative-serving
   namespace: knative-serving
 spec:
-  version: "1.13.1"
+  version: "1.15.2"
   config:
     deployment:
       # Skip tag resolution for certain domains

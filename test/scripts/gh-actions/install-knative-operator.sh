@@ -20,7 +20,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-KNATIVE_OPERATOR_VERSION="v1.14.5"
+KNATIVE_OPERATOR_VERSION="v1.16.0"
 
 echo "Installing Knative Operator ..."
 helm install knative-operator --namespace knative-operator --create-namespace --wait \
