@@ -40,6 +40,11 @@ from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
 from kserve.protocol.rest.openai.types.openapi import (
     CreateCompletionResponse as Completion,
 )
+from kserve.protocol.rest.openai.types.openapi import CreateEmbeddingRequest
+from kserve.protocol.rest.openai.types.openapi import (
+    CreateEmbeddingResponse as Embedding,
+    Embedding as EmbeddingObject,
+)
 from kserve.protocol.rest.openai.types.openapi import Logprobs
 from kserve.protocol.rest.openai.types.openapi import (
     Logprobs2 as ChatCompletionChoiceLogprobs,
@@ -76,6 +81,9 @@ __all__ = [
     "CompletionChoice",
     "CreateChatCompletionRequest",
     "CreateCompletionRequest",
+    "CreateEmbeddingRequest",
+    "Embedding",
+    "EmbeddingObject",
     "ErrorResponse",
     "Logprobs",
     "TopLogprob",
