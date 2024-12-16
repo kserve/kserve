@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import base64
 import pathlib
+import struct
 from typing import Any, Dict, Optional, Union
 
 import torch
@@ -23,6 +24,12 @@ from kserve.errors import InferenceError
 from kserve.logging import logger
 from kserve.model import PredictorConfig
 from kserve.protocol.infer_type import InferInput, InferRequest, InferResponse
+from kserve.protocol.rest.openai import (
+    EmbeddingRequest,
+    OpenAIEmbeddingModel,
+)
+from kserve.protocol.rest.openai.types import Embedding, EmbeddingObject
+from kserve.protocol.rest.openai.types.openapi import Usage
 from kserve.utils.utils import (
     from_np_dtype,
     get_predict_input,
@@ -49,7 +56,9 @@ from .task import (
 from .utils import _get_and_verify_max_len, _mean_pooling
 
 
-class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
+class HuggingfaceEncoderModel(
+    Model, OpenAIEmbeddingModel
+):  # pylint:disable=c-extension-no-member
     task: MLTask
     model_config: PretrainedConfig
     model_id_or_path: Union[pathlib.Path, str]
@@ -340,3 +349,32 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
                 request_id,
                 prompt=prompt,
             )
+
+    async def create_embedding(self, request: EmbeddingRequest) -> Embedding:
+        params = request.params
+        if params.input is None:
+            raise ValueError("input is required")
+
+        # Todo: Compute actual embedding here
+        embedding_out = [0.1, 0.2, 0.3, 0.4]
+
+        if params.encoding_format == "base64":
+            embedding_bytes = [struct.pack("<f", el) for el in embedding_out]
+            embedding_out = base64.b64encode(b"".join(embedding_bytes))
+
+        return Embedding(
+            object="list",
+            data=[
+                EmbeddingObject(
+                    object="embedding",
+                    index=0,
+                    embedding=embedding_out,
+                )
+            ],
+            model=params.model,
+            usage=Usage(
+                # Todo: Include proper usage
+                prompt_tokens=0,
+                total_tokens=0,
+            ),
+        )
