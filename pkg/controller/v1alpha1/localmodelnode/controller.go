@@ -214,6 +214,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 		if folderExists {
 			c.Log.Info("Model folder found", "model", modelInfo.ModelName)
 			// If folder exists and the job has been successfully completed, do nothing
+			// If the job is cleaned up, no new job is created because the status is already set to ModelDownloaded
 			if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
 				if status == v1alpha1api.ModelDownloaded {
 					newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloaded
@@ -246,6 +247,8 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 				c.Log.Info("model status from latest job", "model", modelInfo.ModelName, "status", getModelStatusFromJobStatus(job.Status))
 			}
 			// Recreate job if it has been terminated because the model is missing locally
+			// If the job has failed, we do not retry here because there are retries on the job.
+			// To retry the download, users can manually fix the issue and delete the failed job.
 			if job == nil || job.Status.Succeeded > 0 {
 				c.Log.Info("Download model", "model", modelInfo.ModelName)
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
