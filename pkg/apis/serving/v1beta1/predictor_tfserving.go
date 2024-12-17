@@ -71,7 +71,7 @@ func (t *TFServingSpec) validateGPU() error {
 // Default sets defaults on the resource
 func (t *TFServingSpec) Default(config *InferenceServicesConfig) {
 	t.Container.Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&t.Resources)
+	setResourceRequirementDefaults(config, &t.Resources)
 }
 
 func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {

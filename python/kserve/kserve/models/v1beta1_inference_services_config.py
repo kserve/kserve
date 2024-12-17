@@ -47,23 +47,28 @@ class V1beta1InferenceServicesConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'explainers': 'V1beta1ExplainersConfig'
+        'explainers': 'V1beta1ExplainersConfig',
+        'resource': 'V1beta1ResourceConfig'
     }
 
     attribute_map = {
-        'explainers': 'explainers'
+        'explainers': 'explainers',
+        'resource': 'resource'
     }
 
-    def __init__(self, explainers=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, explainers=None, resource=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServicesConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._explainers = None
+        self._resource = None
         self.discriminator = None
 
         self.explainers = explainers
+        if resource is not None:
+            self.resource = resource
 
     @property
     def explainers(self):
@@ -87,6 +92,27 @@ class V1beta1InferenceServicesConfig(object):
             raise ValueError("Invalid value for `explainers`, must not be `None`")  # noqa: E501
 
         self._explainers = explainers
+
+    @property
+    def resource(self):
+        """Gets the resource of this V1beta1InferenceServicesConfig.  # noqa: E501
+
+
+        :return: The resource of this V1beta1InferenceServicesConfig.  # noqa: E501
+        :rtype: V1beta1ResourceConfig
+        """
+        return self._resource
+
+    @resource.setter
+    def resource(self, resource):
+        """Sets the resource of this V1beta1InferenceServicesConfig.
+
+
+        :param resource: The resource of this V1beta1InferenceServicesConfig.  # noqa: E501
+        :type: V1beta1ResourceConfig
+        """
+
+        self._resource = resource
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -74,7 +74,7 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 		defaultProtocol := constants.ProtocolV1
 		t.ProtocolVersion = &defaultProtocol
 	}
-	setResourceRequirementDefaults(&t.Resources)
+	setResourceRequirementDefaults(config, &t.Resources)
 }
 
 func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
