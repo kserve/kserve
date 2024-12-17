@@ -2531,7 +2531,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// remove the cookie-secret arg from the generated deployment for comparison
 			cleanedDep := actualDeployment.DeepCopy()
 			actualDep := v1beta1utils.RemoveCookieSecretArg(*cleanedDep)
-			Expect(actualDep.Spec).To(gomega.Equal(expectedDeployment.Spec))
+			Expect(actualDep.Spec).To(Equal(expectedDeployment.Spec))
 
 			//check service
 			actualService := &v1.Service{}
@@ -2566,7 +2566,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.IPFamilies = nil
 			actualService.Spec.IPFamilyPolicy = nil
 			actualService.Spec.InternalTrafficPolicy = nil
-			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
+			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
 			route := &routev1.Route{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2626,7 +2626,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: v1.ConditionTrue,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -2676,7 +2676,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return err.Error()
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, timeout).Should(gomega.BeEmpty())
+			}, timeout).Should(BeEmpty())
 
 		})
 	})
