@@ -451,7 +451,8 @@ data:
          # defaultJobImage specifies the default image used for the download job.
          "defaultJobImage" : "kserve/storage-initializer:latest",
          # Kubernetes modifies the filesystem group ID on the attached volume.
-         "FSGroup": 1000
+         "fsGroup": 1000,
+         "jobTTLSecondsAfterFinished": 3600
        }
 
   agent: |-
@@ -560,8 +561,9 @@ data:
     {
       "enabled": {{ .Values.kserve.localmodel.enabled }},
       "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
+      "jobTTLSecondsAfterFinished": {{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }},
       "defaultJobImage" : "kserve/storage-initializer:latest",
-      "FSGroup": {{ .Values.kserve.localmodel.securityContext.FSGroup }}
+      "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }}
     }
   security: |-
     {
