@@ -33,6 +33,10 @@ import (
 
 func TestInferenceServiceDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	defaultResource := v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
 	scenarios := map[string]struct {
 		config       *InferenceServicesConfig
 		deployConfig *DeployConfig
@@ -47,6 +51,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
+				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
 				},
 			},
 			deployConfig: &DeployConfig{
@@ -100,6 +110,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
+				},
 			},
 			deployConfig: &DeployConfig{
 				DefaultDeploymentMode: string(constants.RawDeployment),
@@ -151,6 +167,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
+				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
 				},
 			},
 			deployConfig: &DeployConfig{
@@ -204,6 +226,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
+				},
 			},
 			deployConfig: &DeployConfig{
 				DefaultDeploymentMode: "Serverless",
@@ -255,6 +283,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
+				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
 				},
 			},
 			deployConfig: &DeployConfig{
@@ -372,12 +406,22 @@ func TestCustomPredictorDefaultsConfig(t *testing.T) {
 
 func TestCustomPredictorDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	var defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
 	config := &InferenceServicesConfig{
 		Explainers: ExplainersConfig{
 			ARTExplainer: ExplainerConfig{
 				ContainerImage:      "art",
 				DefaultImageVersion: "v0.4.0",
 			},
+		},
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
 		},
 	}
 	deployConfig := &DeployConfig{
