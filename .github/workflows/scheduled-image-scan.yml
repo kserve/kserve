@@ -24,6 +24,7 @@ jobs:
               file: python/storage-initializer.Dockerfile,
             },
             { name: router, file: router.Dockerfile },
+            { name: kserve-localmodel-controller, file: localmodel.Dockerfile },
           ]
 
     steps:
@@ -70,6 +71,8 @@ jobs:
             { name: xgbserver, file: python/xgb.Dockerfile },
             { name: pmmlserver, file: python/pmml.Dockerfile },
             { name: paddleserver, file: python/paddle.Dockerfile },
+            { name: lgbserver, file: python/lgb.Dockerfile },
+            { name: huggingfaceserver, file: python/huggingface_server.Dockerfile },
           ]
 
     steps:

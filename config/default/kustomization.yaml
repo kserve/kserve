@@ -19,6 +19,7 @@ resources:
 - ../webhook
 # - ../certmanager # not needed, because ODH is using OpenShift's serving certificates for WebHooks
 # - ../localmodels # This is commented out for 2.16
+# - ../localmodelnodes
 - network-policies.yaml # ODH specific
 
 generatorOptions:
@@ -63,6 +64,11 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: servingruntime.serving.kserve.io
+  - fieldPaths:
+      - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: localmodelcache.serving.kserve.io
   - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0

@@ -265,6 +265,7 @@ def test_download_azure_blob_called_with_matching_uri(mock_download_azure_blob):
     azure_blob_uris = [
         "https://accountname.blob.core.windows.net/container/some/blob/",
         "https://accountname.z20.blob.storage.azure.net/container/some/blob/",
+        "https://accountname.z2.blob.storage.azure.net/container/some/blob/",
     ]
 
     for uri in azure_blob_uris:
@@ -281,6 +282,7 @@ def test_download_azure_file_share_called_with_matching_uri(
     azure_file_uris = [
         "https://accountname.file.core.windows.net/container/some/blob",
         "https://accountname.z20.file.storage.azure.net/container/some/blob",
+        "https://accountname.z2.file.storage.azure.net/container/some/blob",
     ]
 
     for uri in azure_file_uris:

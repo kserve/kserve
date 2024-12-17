@@ -12,17 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from grpc import ServicerContext
 
 from . import grpc_predict_v2_pb2 as pb
 from . import grpc_predict_v2_pb2_grpc
-from kserve.protocol.infer_type import InferRequest, InferResponse
-from kserve.protocol.dataplane import DataPlane
-from kserve.protocol.model_repository_extension import ModelRepositoryExtension
-from kserve.utils.utils import to_headers
-
-from grpc import ServicerContext
-
+from ..infer_type import InferRequest, InferResponse
+from ..dataplane import DataPlane
+from ..model_repository_extension import ModelRepositoryExtension
 from ...errors import InvalidInput
+from ...utils.utils import to_headers
 
 
 class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):

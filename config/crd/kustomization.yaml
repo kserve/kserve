@@ -18,8 +18,9 @@ resources:
 - full/serving.kserve.io_servingruntimes.yaml
 - full/serving.kserve.io_inferencegraphs.yaml
 - full/serving.kserve.io_clusterstoragecontainers.yaml
-- full/serving.kserve.io_clusterlocalmodels.yaml
+- full/serving.kserve.io_localmodelcaches.yaml
 - full/serving.kserve.io_localmodelnodegroups.yaml
+- full/serving.kserve.io_localmodelnodes.yaml
 
 
 patches:

@@ -24,6 +24,7 @@ set -o pipefail
 DEPLOYMENT_MODE="${1:-'serverless'}"
 
 make deploy-ci
+
 shopt -s nocasematch
 if [[ $DEPLOYMENT_MODE == "raw" ]];then
   echo "Patching default deployment mode to raw deployment"

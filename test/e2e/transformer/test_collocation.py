@@ -26,7 +26,7 @@ from kubernetes.client import V1Container
 from kubernetes.client import V1EnvVar
 from kubernetes.client import V1ContainerPort
 import pytest
-from ..common.utils import predict_isvc
+from ..common.utils import is_model_ready, predict_isvc
 from ..common.utils import (
     KSERVE_TEST_NAMESPACE,
     INFERENCESERVICE_CONTAINER,
@@ -72,11 +72,17 @@ async def test_transformer_collocation(rest_v1_client):
                     "--http_port=8080",
                     "--grpc_port=8081",
                     "--predictor_host=localhost:8085",
+                    "--enable_predictor_health_check",
                 ],
                 ports=[V1ContainerPort(container_port=8080, protocol="TCP")],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+                readiness_probe=client.V1Probe(
+                    http_get=client.V1HTTPGetAction(
+                        path=f"/v1/models/{model_name}", port=8080
+                    )
                 ),
             ),
         ],
@@ -114,6 +120,8 @@ async def test_transformer_collocation(rest_v1_client):
         for pod in pods.items:
             print(pod)
         raise e
+    is_ready = await is_model_ready(rest_v1_client, service_name, model_name) is True
+    assert is_ready is True
     res = await predict_isvc(
         rest_v1_client, service_name, "./data/transformer.json", model_name=model_name
     )
@@ -161,6 +169,7 @@ async def test_raw_transformer_collocation(rest_v1_client):
                     "--http_port=8080",
                     "--grpc_port=8081",
                     "--predictor_host=localhost:8085",
+                    "--enable_predictor_health_check",
                 ],
                 ports=[
                     V1ContainerPort(name="http", container_port=8080, protocol="TCP"),
@@ -208,6 +217,8 @@ async def test_raw_transformer_collocation(rest_v1_client):
         for pod in pods.items:
             print(pod)
         raise e
+    is_ready = await is_model_ready(rest_v1_client, service_name, model_name) is True
+    assert is_ready is True
     res = await predict_isvc(
         rest_v1_client, service_name, "./data/transformer.json", model_name=model_name
     )

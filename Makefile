@@ -87,7 +87,7 @@ deploy-dev: manifests
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	echo > ../certmanager/certificate.yaml; \
 	else git checkout HEAD -- ../certmanager/certificate.yaml; fi;
-	kubectl apply --server-side=true -k config/overlays/development
+	kubectl apply --server-side=true --force-conflicts -k config/overlays/development
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
@@ -137,6 +137,7 @@ manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full
 	$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/...} output:rbac:artifacts:config=config/rbac
 	$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
+	$(CONTROLLER_GEN) rbac:roleName=kserve-localmodelnode-agent-role paths=./pkg/controller/v1alpha1/localmodelnode output:rbac:artifacts:config=config/rbac/localmodelnode
 	# Copy the cluster role to the helm chart
 	cp config/rbac/auth_proxy_role.yaml charts/kserve-resources/templates/clusterrole.yaml
 	cat config/rbac/role.yaml >> charts/kserve-resources/templates/clusterrole.yaml
@@ -144,6 +145,10 @@ manifests: controller-gen
 	echo '{{- if .Values.kserve.localmodel.enabled }}' > charts/kserve-resources/templates/localmodel/role.yaml
 	cat config/rbac/localmodel/role.yaml >> charts/kserve-resources/templates/localmodel/role.yaml
 	echo '{{- end }}' >> charts/kserve-resources/templates/localmodel/role.yaml
+	# Copy the local model node role with Helm chart while keeping the Helm template condition
+	echo '{{- if .Values.kserve.localmodel.enabled }}'> charts/kserve-resources/templates/localmodelnode/role.yaml
+	cat config/rbac/localmodelnode/role.yaml >> charts/kserve-resources/templates/localmodelnode/role.yaml
+	echo '{{- end }}' >> charts/kserve-resources/templates/localmodelnode/role.yaml
 	
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
@@ -198,8 +203,8 @@ generate: controller-gen
 	hack/update-helm-docs.sh
 
 bump-version:
-	# TBA
-	echo "bumping version numbers for this release"
+	@echo "bumping version numbers for this release"
+	@hack/prepare-for-release.sh $(PRIOR_VERSION) $(NEW_VERSION)
 
 # Build the docker image
 docker-build: test

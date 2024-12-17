@@ -88,7 +88,255 @@ func TestAzureSecret(t *testing.T) {
 				},
 			},
 		},
+		"AzureSecretEnvsWithStorageAccessKey": {
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "azcreds",
+				},
+				Data: map[string][]byte{
+					AzureSubscriptionId:   []byte("AzureSubscriptionId"),
+					AzureTenantId:         []byte("AzureTenantId"),
+					AzureClientId:         []byte("AzureClientId"),
+					AzureStorageAccessKey: []byte("AzureStorageAccessKey"),
+				},
+			},
+			expected: []v1.EnvVar{
+				{
+					Name: AzureSubscriptionId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureSubscriptionId,
+						},
+					},
+				},
+				{
+					Name: AzureTenantId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureTenantId,
+						},
+					},
+				},
+				{
+					Name: AzureClientId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureClientId,
+						},
+					},
+				},
+				{
+					Name: AzureStorageAccessKey,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureStorageAccessKey,
+						},
+					},
+				},
+			},
+		},
+		"AzureSecretEnvsWithClientSecretAndStorageAccessKey": {
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "azcreds",
+				},
+				Data: map[string][]byte{
+					AzureSubscriptionId:   []byte("AzureSubscriptionId"),
+					AzureTenantId:         []byte("AzureTenantId"),
+					AzureClientId:         []byte("AzureClientId"),
+					AzureClientSecret:     []byte("AzureClientSecret"),
+					AzureStorageAccessKey: []byte("AzureStorageAccessKey"),
+				},
+			},
+			expected: []v1.EnvVar{
+				{
+					Name: AzureSubscriptionId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureSubscriptionId,
+						},
+					},
+				},
+				{
+					Name: AzureTenantId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureTenantId,
+						},
+					},
+				},
+				{
+					Name: AzureClientId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureClientId,
+						},
+					},
+				},
+				{
+					Name: AzureClientSecret,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureClientSecret,
+						},
+					},
+				},
+				{
+					Name: AzureStorageAccessKey,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureStorageAccessKey,
+						},
+					},
+				},
+			},
+		},
 		"AzureSecretEnvsWithoutClientSecret": {
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "azcreds",
+				},
+				Data: map[string][]byte{
+					AzureSubscriptionId:   []byte("AzureSubscriptionId"),
+					AzureTenantId:         []byte("AzureTenantId"),
+					AzureClientId:         []byte("AzureClientId"),
+					AzureStorageAccessKey: []byte("AzureStorageAccessKey"),
+				},
+			},
+			expected: []v1.EnvVar{
+				{
+					Name: AzureSubscriptionId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureSubscriptionId,
+						},
+					},
+				},
+				{
+					Name: AzureTenantId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureTenantId,
+						},
+					},
+				},
+				{
+					Name: AzureClientId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureClientId,
+						},
+					},
+				},
+				{
+					Name: AzureStorageAccessKey,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureStorageAccessKey,
+						},
+					},
+				},
+			},
+		},
+		"AzureSecretEnvsWithoutStorageAccessKey": {
+			secret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "azcreds",
+				},
+				Data: map[string][]byte{
+					AzureSubscriptionId: []byte("AzureSubscriptionId"),
+					AzureTenantId:       []byte("AzureTenantId"),
+					AzureClientId:       []byte("AzureClientId"),
+					AzureClientSecret:   []byte("AzureClientSecret"),
+				},
+			},
+			expected: []v1.EnvVar{
+				{
+					Name: AzureSubscriptionId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureSubscriptionId,
+						},
+					},
+				},
+				{
+					Name: AzureTenantId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureTenantId,
+						},
+					},
+				},
+				{
+					Name: AzureClientId,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureClientId,
+						},
+					},
+				},
+				{
+					Name: AzureClientSecret,
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "azcreds",
+							},
+							Key: AzureClientSecret,
+						},
+					},
+				},
+			},
+		},
+		"AzureSecretEnvsWithoutClientSecretAndStorageAccessKey": {
 			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "azcreds",

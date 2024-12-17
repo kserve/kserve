@@ -765,7 +765,7 @@ func TestLocalModelAnnotation(t *testing.T) {
 		isvc    InferenceService
 		matcher types.GomegaMatcher
 	}{
-		"isvc without ClusterLocalModel": {
+		"isvc without LocalModelCache": {
 			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -785,7 +785,7 @@ func TestLocalModelAnnotation(t *testing.T) {
 			},
 			matcher: gomega.HaveKeyWithValue(constants.LocalModelLabel, localModelName),
 		},
-		"isvc with ClusterLocalModel": {
+		"isvc with LocalModelCache": {
 			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -808,17 +808,17 @@ func TestLocalModelAnnotation(t *testing.T) {
 			matcher: gomega.Not(gomega.HaveKeyWithValue(constants.LocalModelLabel, localModelName)),
 		},
 	}
-	localModel := &v1alpha1.ClusterLocalModel{
+	localModel := &v1alpha1.LocalModelCache{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: localModelName,
 		},
-		Spec: v1alpha1.ClusterLocalModelSpec{
+		Spec: v1alpha1.LocalModelCacheSpec{
 			SourceModelUri: "gs://testbucket/testmodel",
 			ModelSize:      resource.MustParse("123Gi"),
 			NodeGroup:      "gpu",
 		},
 	}
-	localModels := &v1alpha1.ClusterLocalModelList{Items: []v1alpha1.ClusterLocalModel{*localModel}}
+	localModels := &v1alpha1.LocalModelCacheList{Items: []v1alpha1.LocalModelCache{*localModel}}
 	for _, scenario := range scenarios {
 		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, localModels)
 		g.Expect(scenario.isvc.ObjectMeta.Labels).To(scenario.matcher)
