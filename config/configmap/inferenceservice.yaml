@@ -435,13 +435,13 @@ data:
      # Example
      service: |-
        {
-         "serviceClusterIPNone":  "false"
+         "serviceClusterIPNone":  false
        }
      service: |-
        {
           # ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None.
           # If the DeploymentMode is Raw, the default value for ServiceClusterIPNone if not set is false
-          # "serviceClusterIPNone":  "false"
+          # "serviceClusterIPNone":  false
        }
 
      # ====================================== METRICS CONFIGURATION ======================================

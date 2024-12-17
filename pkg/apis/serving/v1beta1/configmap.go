@@ -102,7 +102,7 @@ type SecurityConfig struct {
 type ServiceConfig struct {
 	// ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None.
 	// If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is false when the value is absent.
-	ServiceClusterIPNone *bool `json:"serviceClusterIPNone,omitempty"`
+	ServiceClusterIPNone bool `json:"serviceClusterIPNone,omitempty"`
 }
 
 func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServicesConfig, error) {

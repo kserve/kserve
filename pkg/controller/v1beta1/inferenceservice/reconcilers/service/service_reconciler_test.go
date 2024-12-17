@@ -27,11 +27,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func TestCreateDefaultDeployment(t *testing.T) {
+var emptyServiceConfig = &v1beta1.ServiceConfig{}
 
-	serviceConfig := &v1beta1.ServiceConfig{
-		ServiceClusterIPNone: nil,
-	}
+func TestCreateDefaultDeployment(t *testing.T) {
 
 	type args struct {
 		componentMeta    metav1.ObjectMeta
@@ -223,7 +221,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createService(tt.args.componentMeta, tt.args.componentExt, tt.args.podSpec, tt.args.multiNodeEnabled, serviceConfig)
+			got := createService(tt.args.componentMeta, tt.args.componentExt, tt.args.podSpec, tt.args.multiNodeEnabled, emptyServiceConfig)
 			for i, service := range got {
 				if diff := cmp.Diff(tt.expected[i], service); diff != "" {
 					t.Errorf("Test %q unexpected service (-want +got): %v", tt.name, diff)
@@ -234,15 +232,9 @@ func TestCreateDefaultDeployment(t *testing.T) {
 	}
 }
 
-var (
-	pboolT = true
-	pboolF = false
-)
-
 func TestCreateServiceRawServiceConfigEmpty(t *testing.T) {
-	serviceConfig := &v1beta1.ServiceConfig{}
 	// nothing expected
-	runTestServiceCreate(serviceConfig, "", t)
+	runTestServiceCreate(emptyServiceConfig, "", t)
 }
 
 func TestCreateServiceRawServiceAndConfigNil(t *testing.T) {
@@ -254,31 +246,25 @@ func TestCreateServiceRawServiceAndConfigNil(t *testing.T) {
 
 func TestCreateServiceRawFalseAndConfigTrue(t *testing.T) {
 	serviceConfig := &v1beta1.ServiceConfig{
-		ServiceClusterIPNone: &pboolT,
+		ServiceClusterIPNone: true,
 	}
 	runTestServiceCreate(serviceConfig, corev1.ClusterIPNone, t)
 }
 
 func TestCreateServiceRawTrueAndConfigFalse(t *testing.T) {
 	serviceConfig := &v1beta1.ServiceConfig{
-		ServiceClusterIPNone: &pboolF,
+		ServiceClusterIPNone: false,
 	}
 	runTestServiceCreate(serviceConfig, "", t)
 }
 
 func TestCreateServiceRawFalseAndConfigNil(t *testing.T) {
-	serviceConfig := &v1beta1.ServiceConfig{
-		ServiceClusterIPNone: nil,
-	}
-	runTestServiceCreate(serviceConfig, "", t)
+	runTestServiceCreate(emptyServiceConfig, "", t)
 }
 
 func TestCreateServiceRawTrueAndConfigNil(t *testing.T) {
-	serviceConfig := &v1beta1.ServiceConfig{
-		ServiceClusterIPNone: nil,
-	}
 	// service is there, but no property, should be empty
-	runTestServiceCreate(serviceConfig, "", t)
+	runTestServiceCreate(emptyServiceConfig, "", t)
 }
 
 func runTestServiceCreate(serviceConfig *v1beta1.ServiceConfig, expectedClusterIP string, t *testing.T) {

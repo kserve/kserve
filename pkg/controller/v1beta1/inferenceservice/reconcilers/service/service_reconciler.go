@@ -166,7 +166,7 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 		},
 	}
 
-	if serviceConfig != nil && serviceConfig.ServiceClusterIPNone != nil && *serviceConfig.ServiceClusterIPNone {
+	if serviceConfig != nil && serviceConfig.ServiceClusterIPNone {
 		service.Spec.ClusterIP = corev1.ClusterIPNone
 	}
 
