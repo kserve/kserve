@@ -29,6 +29,7 @@ package localmodel
 
 import (
 	"context"
+	"maps"
 	"reflect"
 
 	"github.com/go-logr/logr"
@@ -577,13 +578,12 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 		c.Log.Error(err, "getNodesFromNodeGroup node error")
 		return err
 	}
+	newNodeStatus := make(map[string]v1alpha1api.NodeStatus)
 	if localModel.Status.NodeStatus == nil {
 		localModel.Status.NodeStatus = make(map[string]v1alpha1api.NodeStatus)
 	}
 	for _, node := range notReadyNodes.Items {
-		if _, ok := localModel.Status.NodeStatus[node.Name]; !ok {
-			localModel.Status.NodeStatus[node.Name] = v1alpha1api.NodeNotReady
-		}
+		newNodeStatus[node.Name] = v1alpha1api.NodeNotReady
 	}
 	for _, node := range readyNodes.Items {
 		localModelNode := &v1alpha1.LocalModelNode{}
@@ -615,12 +615,12 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 			}
 		}
 		modelStatus := localModelNode.Status.ModelStatus[localModel.Name]
-		localModel.Status.NodeStatus[node.Name] = nodeStatusFromLocalModelStatus(modelStatus)
+		newNodeStatus[node.Name] = nodeStatusFromLocalModelStatus(modelStatus)
 	}
 
 	successfulNodes := 0
 	failedNodes := 0
-	for _, status := range localModel.Status.NodeStatus {
+	for _, status := range newNodeStatus {
 		switch status {
 		case v1alpha1api.NodeDownloaded:
 			successfulNodes += 1
@@ -628,7 +628,11 @@ func (c *LocalModelReconciler) ReconcileLocalModelNode(ctx context.Context, loca
 			failedNodes += 1
 		}
 	}
-	localModel.Status.ModelCopies = &v1alpha1.ModelCopies{Total: len(localModel.Status.NodeStatus), Available: successfulNodes, Failed: failedNodes}
+	localModel.Status.ModelCopies = &v1alpha1.ModelCopies{Total: len(newNodeStatus), Available: successfulNodes, Failed: failedNodes}
+	if maps.Equal(localModel.Status.NodeStatus, newNodeStatus) {
+		c.Log.Info("Skipping status update", "localmodel", localModel.Name)
+		return nil
+	}
 	if err := c.Status().Update(ctx, localModel); err != nil {
 		c.Log.Error(err, "cannot update model status from node", "name", localModel.Name)
 	}
