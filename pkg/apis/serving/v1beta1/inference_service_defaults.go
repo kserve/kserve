@@ -125,7 +125,7 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 			return err
 		}
 		models = &v1alpha1.LocalModelCacheList{}
-		if err := c.List(context.TODO(), models); err != nil {
+		if err := c.List(ctx, models); err != nil {
 			mutatorLogger.Error(err, "Cannot List local models")
 			return err
 		}
