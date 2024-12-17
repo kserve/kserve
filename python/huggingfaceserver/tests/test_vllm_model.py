@@ -17,8 +17,10 @@ from unittest import mock
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from vllm import AsyncLLMEngine, AsyncEngineArgs, RequestOutput
+from vllm import AsyncLLMEngine, AsyncEngineArgs, RequestOutput, CompletionOutput
 from vllm.config import ModelConfig
+from vllm.sampling_params import SamplingParams, GuidedDecodingParams
+from vllm.sequence import RequestMetrics
 
 from huggingfaceserver.vllm.vllm_completions import OpenAIServingCompletion
 from huggingfaceserver.vllm.vllm_model import VLLMModel
@@ -30,8 +32,6 @@ from kserve.protocol.rest.openai import (
 )
 from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai.types import (
-    CreateChatCompletionRequest,
-    CreateCompletionRequest,
     ChatCompletionChoice,
     CompletionUsage,
     ChatCompletionResponseMessage,
@@ -46,6 +46,10 @@ from kserve.protocol.rest.openai.types.openapi import (
     CreateCompletionResponse,
     Choice,
     ChatCompletionTool,
+)
+from kserve.protocol.rest.openai import (
+    CreateChatCompletionRequest,
+    CreateCompletionRequest,
 )
 from vllm_mock_outputs import (
     opt_chat_cmpl_chunks,
@@ -2975,6 +2979,80 @@ class TestCompletions:
             usage=CompletionUsage(
                 completion_tokens=10, prompt_tokens=7, total_tokens=17
             ),
+        )
+        assert compare_response_to_expected(response, expected) is True
+
+    @pytest.mark.asyncio
+    async def test_vllm_completion_facebook_opt_model_with_guided_choice(
+        self, vllm_opt_model
+    ):
+        opt_model, mock_vllm_engine = vllm_opt_model
+        request_id = "cmpl-d771287a234c44498e345f0a429d6691"
+
+        async def mock_generate(*args, **kwargs) -> AsyncIterator[RequestOutput]:
+            sampling_params: SamplingParams = args[1]
+            guided_decoding: GuidedDecodingParams = getattr(
+                sampling_params, "guided_decoding"
+            )
+            # Always pick the first guided choice for simplicity
+            text = guided_decoding.choice[0]
+            request_id = args[2]
+
+            yield RequestOutput(
+                request_id=request_id,
+                prompt=None,
+                prompt_token_ids=[1, 2, 3],  # doesn't matter
+                prompt_logprobs=None,
+                outputs=[
+                    CompletionOutput(
+                        index=0,
+                        text=text,  # Use the guided choice
+                        token_ids=(2895,),
+                        cumulative_logprob=-6.909554481506348,
+                        logprobs=None,
+                        finish_reason="stop",
+                        stop_reason=None,
+                    )
+                ],
+                finished=True,  # Indicate the request is finished
+                metrics=RequestMetrics(
+                    arrival_time=1719560628.8399613,
+                    last_token_time=1719560628.89679,
+                    first_scheduled_time=1719560628.8405166,
+                    first_token_time=1719560628.8966174,
+                    time_in_queue=0.0005552768707275391,
+                    finished_time=1719560628.9000000,  # Add a finished time
+                ),
+                lora_request=None,
+            )
+
+        mock_vllm_engine.generate = mock_generate
+
+        prompt = "This is an extremely positive and reassuring statement."
+        params = CreateCompletionRequest(
+            model="opt-125m",
+            prompt=prompt,
+            stream=False,
+            guided_choice=["positive", "negative"],
+        )
+        request = CompletionRequest(request_id=request_id, params=params, context={})
+        response = await opt_model.create_completion(request)
+
+        expected = CreateCompletionResponse(
+            id=request_id,
+            choices=[
+                CompletionChoice(
+                    finish_reason="stop",
+                    index=0,
+                    logprobs=None,
+                    text="positive",
+                )
+            ],
+            created=1733093361,
+            model="opt-125m",
+            system_fingerprint=None,
+            object="text_completion",
+            usage=CompletionUsage(completion_tokens=1, prompt_tokens=3, total_tokens=4),
         )
         assert compare_response_to_expected(response, expected) is True
 

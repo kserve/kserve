@@ -13,17 +13,17 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import Any, AsyncIterator, Callable, Dict, Optional, Union
+from typing import Any, AsyncIterator, Callable, Dict, Optional, Union, List
 import inspect
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from kserve.protocol.rest.openai.types import (
     ChatCompletion,
     ChatCompletionChunk,
     Completion,
-    CreateChatCompletionRequest,
-    CreateCompletionRequest,
+    CreateChatCompletionRequest as BaseCreateChatCompletionRequest,
+    CreateCompletionRequest as BaseCreateCompletionRequest,
 )
 
 from ....model import BaseKServeModel
@@ -32,6 +32,100 @@ from ....model import BaseKServeModel
 class ChatPrompt(BaseModel):
     response_role: str = "assistant"
     prompt: str
+
+
+class VLLMCreateCompletionRequest(BaseModel):
+    """
+    VLLM-specific extra completion params. Not a part of OpenAI API.
+    """
+
+    # https://github.com/vllm-project/vllm/blob/main/vllm/entrypoints/openai/protocol.py#L566
+    # https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html#extra-parameters
+    guided_json: Optional[Union[str, dict, BaseModel]] = Field(
+        default=None,
+        description="If specified, the output will follow the JSON schema.",
+    )
+    guided_regex: Optional[str] = Field(
+        default=None,
+        description=("If specified, the output will follow the regex pattern."),
+    )
+    guided_choice: Optional[List[str]] = Field(
+        default=None,
+        description=("If specified, the output will be exactly one of the choices."),
+    )
+    guided_grammar: Optional[str] = Field(
+        default=None,
+        description=("If specified, the output will follow the context free grammar."),
+    )
+    guided_decoding_backend: Optional[str] = Field(
+        default=None,
+        description=(
+            "If specified, will override the default guided decoding backend "
+            "of the server for this specific request. If set, must be one of "
+            "'outlines' / 'lm-format-enforcer'"
+        ),
+    )
+    guided_whitespace_pattern: Optional[str] = Field(
+        default=None,
+        description=(
+            "If specified, will override the default whitespace pattern "
+            "for guided json decoding."
+        ),
+    )
+
+
+class VLLMCreateChatCompletionRequest(BaseModel):
+    """
+    VLLM-specific extra chat completion params. Not a part of OpenAI API.
+    """
+
+    # https://github.com/vllm-project/vllm/blob/main/vllm/entrypoints/openai/protocol.py#L254
+    # https://docs.vllm.ai/en/latest/serving/openai_compatible_server.html#extra-parameters
+    guided_json: Optional[Union[str, dict, BaseModel]] = Field(
+        default=None,
+        description=("If specified, the output will follow the JSON schema."),
+    )
+    guided_regex: Optional[str] = Field(
+        default=None,
+        description=("If specified, the output will follow the regex pattern."),
+    )
+    guided_choice: Optional[List[str]] = Field(
+        default=None,
+        description=("If specified, the output will be exactly one of the choices."),
+    )
+    guided_grammar: Optional[str] = Field(
+        default=None,
+        description=("If specified, the output will follow the context free grammar."),
+    )
+    guided_decoding_backend: Optional[str] = Field(
+        default=None,
+        description=(
+            "If specified, will override the default guided decoding backend "
+            "of the server for this specific request. If set, must be either "
+            "'outlines' / 'lm-format-enforcer'"
+        ),
+    )
+    guided_whitespace_pattern: Optional[str] = Field(
+        default=None,
+        description=(
+            "If specified, will override the default whitespace pattern "
+            "for guided json decoding."
+        ),
+    )
+
+
+class CreateCompletionRequest(BaseCreateCompletionRequest, VLLMCreateCompletionRequest):
+    """
+    Overrides OpenAPI CreateCompletionRequest with VLLM-specific params.
+    """
+
+
+class CreateChatCompletionRequest(
+    BaseCreateChatCompletionRequest, VLLMCreateChatCompletionRequest
+):
+    """
+    Overrides OpenAPI CreateChatCompletionRequest with VLLM-specific params.
+    """
 
 
 class BaseCompletionRequest(BaseModel):
