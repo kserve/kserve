@@ -36,7 +36,7 @@ from typing import AsyncIterator, Union
 from kserve.errors import InvalidInput, ModelNotFound
 from kserve.model import PredictorProtocol, PredictorConfig
 from kserve.protocol.dataplane import DataPlane
-from kserve.protocol.rest.openai import CompletionRequest, OpenAIModel
+from kserve.protocol.rest.openai import CompletionRequest, OpenAICompletionModel
 from kserve.model_repository import ModelRepository
 from kserve.ray import RayModel
 from test.test_server import (
@@ -423,7 +423,7 @@ class TestDataPlaneAvroCloudEvent:
 class TestDataPlaneOpenAI:
     MODEL_NAME = "TestModel"
 
-    class DummyOpenAIModel(OpenAIModel):
+    class DummyOpenAIModel(OpenAICompletionModel):
         async def create_completion(
             self, params: CompletionRequest
         ) -> Union[Completion, AsyncIterator[Completion]]:
@@ -434,7 +434,7 @@ class TestDataPlaneOpenAI:
         ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
             pass
 
-    async def test_infer_on_openai_model_raises(self):
+    async def test_infer_on_openai_completion_model_raises(self):
         openai_model = self.DummyOpenAIModel(self.MODEL_NAME)
         repo = ModelRepository()
         repo.update(openai_model)
@@ -448,7 +448,7 @@ class TestDataPlaneOpenAI:
 
         assert (
             exc.value.reason
-            == "Model TestModel is of type OpenAIModel. It does not support the infer method."
+            == "Model TestModel is of type OpenAICompletionModel. It does not support the infer method."
         )
 
 
