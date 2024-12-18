@@ -31,15 +31,31 @@ type GCSConfig struct {
 	GCSCredentialFileName string `json:"gcsCredentialFileName,omitempty"`
 }
 
-func BuildSecretVolume(secret *v1.Secret) (v1.Volume, v1.VolumeMount) {
+func BuildSecretVolume(secret *v1.Secret, useKeyToPath bool, key string) (v1.Volume, v1.VolumeMount) {
+	var items []v1.KeyToPath
+
+	if useKeyToPath {
+		keyToPath := v1.KeyToPath{
+			Key:  key,
+			Path: key,
+		}
+		items = append(items, keyToPath)
+	}
+
+	volumeSource := v1.SecretVolumeSource{
+		SecretName: secret.Name,
+	}
+	if useKeyToPath {
+		volumeSource.Items = items
+	}
+
 	volume := v1.Volume{
 		Name: GCSCredentialVolumeName,
 		VolumeSource: v1.VolumeSource{
-			Secret: &v1.SecretVolumeSource{
-				SecretName: secret.Name,
-			},
+			Secret: &volumeSource,
 		},
 	}
+
 	volumeMount := v1.VolumeMount{
 		MountPath: GCSCredentialVolumeMountPath,
 		Name:      GCSCredentialVolumeName,
