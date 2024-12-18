@@ -89,6 +89,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.router.image | string | `"kserve/router"` |  |
 | kserve.router.tag | string | `"v0.14.0"` |  |
 | kserve.security.autoMountServiceAccountToken | bool | `true` |  |
+| kserve.service.serviceClusterIPNone | bool | `false` |  |
 | kserve.servingruntime.art.defaultVersion | string | `"v0.14.0"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
 | kserve.servingruntime.art.imagePullSecrets | list | `[]` |  |
