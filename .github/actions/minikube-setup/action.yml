@@ -6,6 +6,10 @@ inputs:
     description: 'Number of nodes to start minikube with'
     required: false
     default: '1'
+  driver:
+    description: 'Driver to use for minikube'
+    required: false
+    default: 'none'
 
 runs:
   using: "composite"
@@ -20,8 +24,10 @@ runs:
       with:
         minikube-version: '1.33.1'
         kubernetes-version: 'v1.29.7'
-        driver: 'none'
+        driver: ${{ inputs.driver }}
         wait: 'all'
+        cpus: 'max'
+        memory: 'max'
         start-args: --wait-timeout=6m0s --nodes=${{ inputs.nodes }}
 
     - name: Check Kubernetes pods
