@@ -318,7 +318,7 @@ func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNo
 	// 1. Get all jobs for the LocalModelNode
 	jobs := &batchv1.JobList{}
 	labelSelector := map[string]string{"node": localModelNode.Name}
-	if err := c.Client.List(context.Background(), jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
+	if err := c.Client.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
 		c.Log.Error(err, "Failed to list jobs", "node", localModelNode.Name)
 		return err
 	}
@@ -339,7 +339,8 @@ func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNo
 		}
 		if _, ok := modelsInSpec[modelName]; !ok {
 			c.Log.Info("Deleting job", "job", job.Name, "model", modelName)
-			if err := c.Client.Delete(ctx, &job); err != nil {
+			propagationPolicy := metav1.DeletePropagationBackground
+			if err := c.Client.Delete(ctx, &job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
 				c.Log.Error(err, "Failed to delete job", "job", job.Name)
 				return err
 			}
