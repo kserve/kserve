@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferenceservice-config
+  namespace: kserve
+data:
+  localModel: |-
+    {
+      "enabled": true,
+      "jobNamespace": "kserve-localmodel-jobs",
+      "defaultJobImage" : "kserve/storage-initializer:latest",
+      "fsGroup": 1000
+    }
