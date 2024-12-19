@@ -1042,6 +1042,11 @@ jobs:
         uses: ./.github/actions/minikube-setup
         with:
           nodes: 3
+          driver: "docker"
+      
+      - name: Create minikube tunnel
+        run: |
+          nohup minikube tunnel > minikube-tunnel.log 2>&1 &
 
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
@@ -1096,4 +1101,7 @@ jobs:
       - name: Check system status
         if: always()
         run: |
+          echo "::group::Minikube tunnel logs"
+          cat minikube-tunnel.log
+          echo "::endgroup::"
           ./test/scripts/gh-actions/status-check.sh
