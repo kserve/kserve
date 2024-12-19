@@ -437,14 +437,7 @@ var _ = Describe("LocalModelNode controller", func() {
 				if err != nil {
 					return false
 				}
-				// Todo: somehow the job are not really deleted in the test, let's just check the deletion timestamp
-				for _, job := range jobs.Items {
-					if job.DeletionTimestamp == nil {
-						return true
-					}
-					return false
-				}
-				return false
+				return len(jobs.Items) == 0
 			}, timeout, interval).Should(BeTrue(), "Download job should be deleted")
 		})
 	})
