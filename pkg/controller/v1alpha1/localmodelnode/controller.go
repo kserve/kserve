@@ -330,7 +330,7 @@ func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNo
 	}
 
 	// 3. Delete jobs that are not in the spec
-	for i, _ := range jobs.Items {
+	for i := range jobs.Items {
 		job := jobs.Items[i]
 		modelName, ok := job.Labels["model"]
 		if !ok {
