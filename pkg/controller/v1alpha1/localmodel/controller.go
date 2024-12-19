@@ -246,7 +246,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	nodeGroup := &v1alpha1api.LocalModelNodeGroup{}
-	nodeGroupNamespacedName := types.NamespacedName{Name: localModel.Spec.NodeGroup}
+	nodeGroupNamespacedName := types.NamespacedName{Name: localModel.Spec.NodeGroups[0]}
 	if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -335,9 +335,9 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 
 	for _, model := range models.Items {
 		nodeGroup := &v1alpha1api.LocalModelNodeGroup{}
-		nodeGroupNamespacedName := types.NamespacedName{Name: model.Spec.NodeGroup}
+		nodeGroupNamespacedName := types.NamespacedName{Name: model.Spec.NodeGroups[0]}
 		if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
-			c.Log.Info("get nodegroup failed", "name", model.Spec.NodeGroup)
+			c.Log.Info("get nodegroup failed", "name", model.Spec.NodeGroups[0])
 			continue
 		}
 		matches, err := checkNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
