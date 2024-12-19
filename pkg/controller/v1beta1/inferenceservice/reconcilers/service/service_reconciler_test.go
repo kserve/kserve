@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -236,8 +237,7 @@ func TestCreateServiceRawServiceConfigEmpty(t *testing.T) {
 }
 
 func TestCreateServiceRawServiceAndConfigNil(t *testing.T) {
-	serviceConfig := &v1beta1.ServiceConfig{}
-	serviceConfig = nil
+	var serviceConfig *v1beta1.ServiceConfig
 	// no service means empty
 	runTestServiceCreate(serviceConfig, "", t)
 }
