@@ -258,7 +258,7 @@ class DataPlane:
                     self.predictor_config.predictor_base_url
                 )
             else:
-                return await self._inference_rest_client.is_server_ready(
+                return await self.rest_client.is_server_ready(
                     self.predictor_config.predictor_base_url
                 )
         return True
