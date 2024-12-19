@@ -148,5 +148,4 @@ func TestNewServiceConfig(t *testing.T) {
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(nv).ShouldNot(gomega.BeNil())
 	g.Expect(nv.ServiceClusterIPNone).Should(gomega.BeFalse())
-
 }

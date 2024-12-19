@@ -188,16 +188,16 @@ func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName s
 	return latestJob, len(jobList.Items), nil
 }
 
-func getModelStatusFromJobStatus(jobStatus batchv1.JobStatus) v1alpha1api.ModelStatus {
+func getModelStatusFromJobStatus(jobStatus batchv1.JobStatus) v1alpha1.ModelStatus {
 	switch {
 	case jobStatus.Succeeded > 0:
-		return v1alpha1api.ModelDownloaded
+		return v1alpha1.ModelDownloaded
 	case jobStatus.Failed > 0:
-		return v1alpha1api.ModelDownloadError
+		return v1alpha1.ModelDownloadError
 	case jobStatus.Ready != nil && *jobStatus.Ready > 0:
-		return v1alpha1api.ModelDownloading
+		return v1alpha1.ModelDownloading
 	default:
-		return v1alpha1api.ModelDownloadPending
+		return v1alpha1.ModelDownloadPending
 	}
 }
 
