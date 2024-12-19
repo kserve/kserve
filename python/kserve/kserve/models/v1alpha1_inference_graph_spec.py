@@ -48,8 +48,10 @@ class V1alpha1InferenceGraphSpec(object):
     """
     openapi_types = {
         'affinity': 'V1Affinity',
+        'image_pull_secrets': 'list[V1LocalObjectReference]',
         'max_replicas': 'int',
         'min_replicas': 'int',
+        'node_selector': 'dict(str, str)',
         'nodes': 'dict(str, V1alpha1InferenceRouter)',
         'resources': 'V1ResourceRequirements',
         'scale_metric': 'str',
@@ -60,8 +62,10 @@ class V1alpha1InferenceGraphSpec(object):
 
     attribute_map = {
         'affinity': 'affinity',
+        'image_pull_secrets': 'imagePullSecrets',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
+        'node_selector': 'nodeSelector',
         'nodes': 'nodes',
         'resources': 'resources',
         'scale_metric': 'scaleMetric',
@@ -70,15 +74,17 @@ class V1alpha1InferenceGraphSpec(object):
         'tolerations': 'tolerations'
     }
 
-    def __init__(self, affinity=None, max_replicas=None, min_replicas=None, nodes=None, resources=None, scale_metric=None, scale_target=None, timeout=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, image_pull_secrets=None, max_replicas=None, min_replicas=None, node_selector=None, nodes=None, resources=None, scale_metric=None, scale_target=None, timeout=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceGraphSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._affinity = None
+        self._image_pull_secrets = None
         self._max_replicas = None
         self._min_replicas = None
+        self._node_selector = None
         self._nodes = None
         self._resources = None
         self._scale_metric = None
@@ -89,10 +95,14 @@ class V1alpha1InferenceGraphSpec(object):
 
         if affinity is not None:
             self.affinity = affinity
+        if image_pull_secrets is not None:
+            self.image_pull_secrets = image_pull_secrets
         if max_replicas is not None:
             self.max_replicas = max_replicas
         if min_replicas is not None:
             self.min_replicas = min_replicas
+        if node_selector is not None:
+            self.node_selector = node_selector
         self.nodes = nodes
         if resources is not None:
             self.resources = resources
@@ -125,6 +135,29 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._affinity = affinity
+
+    @property
+    def image_pull_secrets(self):
+        """Gets the image_pull_secrets of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        ImagePullSecrets specifies the image pull secrets for the InferenceGraph. https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/  # noqa: E501
+
+        :return: The image_pull_secrets of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: list[V1LocalObjectReference]
+        """
+        return self._image_pull_secrets
+
+    @image_pull_secrets.setter
+    def image_pull_secrets(self, image_pull_secrets):
+        """Sets the image_pull_secrets of this V1alpha1InferenceGraphSpec.
+
+        ImagePullSecrets specifies the image pull secrets for the InferenceGraph. https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/  # noqa: E501
+
+        :param image_pull_secrets: The image_pull_secrets of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: list[V1LocalObjectReference]
+        """
+
+        self._image_pull_secrets = image_pull_secrets
 
     @property
     def max_replicas(self):
@@ -171,6 +204,29 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._min_replicas = min_replicas
+
+    @property
+    def node_selector(self):
+        """Gets the node_selector of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        NodeSelector specifies the node selector for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/  # noqa: E501
+
+        :return: The node_selector of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: dict(str, str)
+        """
+        return self._node_selector
+
+    @node_selector.setter
+    def node_selector(self, node_selector):
+        """Sets the node_selector of this V1alpha1InferenceGraphSpec.
+
+        NodeSelector specifies the node selector for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/  # noqa: E501
+
+        :param node_selector: The node_selector of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: dict(str, str)
+        """
+
+        self._node_selector = node_selector
 
     @property
     def nodes(self):
