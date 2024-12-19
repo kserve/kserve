@@ -44,7 +44,7 @@ var _ = Describe("CachedModel controller", func() {
 		localModelSpec = v1alpha1.LocalModelCacheSpec{
 			SourceModelUri: sourceModelUri,
 			ModelSize:      resource.MustParse("123Gi"),
-			NodeGroup:      "gpu",
+			NodeGroups:     []string{"gpu"},
 		}
 		clusterStorageContainerSpec = v1alpha1.StorageContainerSpec{
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}},

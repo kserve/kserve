@@ -855,16 +855,23 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelCacheSpec(ref common.ReferenceCa
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
-					"nodeGroup": {
+					"nodeGroups": {
 						SchemaProps: spec.SchemaProps{
-							Description: "group of nodes to cache the model on.",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "group of nodes to cache the model on. Todo: support more than 1 node groups",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 				},
-				Required: []string{"sourceModelUri", "modelSize", "nodeGroup"},
+				Required: []string{"sourceModelUri", "modelSize", "nodeGroups"},
 			},
 		},
 		Dependencies: []string{
