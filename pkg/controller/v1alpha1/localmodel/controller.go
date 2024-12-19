@@ -213,7 +213,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 
 		pvc := v1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      localModel.Name,
+				Name:      localModel.Name + "-" + localModel.Spec.NodeGroups[0],
 				Namespace: namespace,
 			},
 			Spec: nodeGroup.Spec.PersistentVolumeClaimSpec,
