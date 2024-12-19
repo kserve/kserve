@@ -20,11 +20,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var (
@@ -147,5 +148,4 @@ func TestNewServiceConfig(t *testing.T) {
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(nv).ShouldNot(gomega.BeNil())
 	g.Expect(nv.ServiceClusterIPNone).Should(gomega.BeFalse())
-
 }

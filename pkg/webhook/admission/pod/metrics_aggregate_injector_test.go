@@ -16,18 +16,23 @@ limitations under the License.
 package pod
 
 import (
-	"github.com/kserve/kserve/pkg/constants"
+	"testing"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmp"
-	"strconv"
 
-	"testing"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 const sklearnPrometheusPort = "8080"
 
 func TestInjectMetricsAggregator(t *testing.T) {
+	qpextAggregateMetricsPort, err := utils.StringToInt32(constants.QueueProxyAggregatePrometheusMetricsPort)
+	if err != nil {
+		t.Errorf("Error converting string to int32 %v", err)
+	}
 	scenarios := map[string]struct {
 		original *v1.Pod
 		expected *v1.Pod
@@ -69,11 +74,11 @@ func TestInjectMetricsAggregator(t *testing.T) {
 							Env: []v1.EnvVar{
 								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
 								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
-								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort)},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
 							},
 							Ports: []v1.ContainerPort{
 								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
-								{Name: constants.AggregateMetricsPortName, ContainerPort: int32(constants.QueueProxyAggregatePrometheusMetricsPort), Protocol: "TCP"},
+								{Name: constants.AggregateMetricsPortName, ContainerPort: qpextAggregateMetricsPort, Protocol: "TCP"},
 							},
 						},
 					},
@@ -185,7 +190,7 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					Annotations: map[string]string{
 						constants.EnableMetricAggregation:     "true",
 						constants.SetPrometheusAnnotation:     "true",
-						constants.PrometheusPortAnnotationKey: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort),
+						constants.PrometheusPortAnnotationKey: constants.QueueProxyAggregatePrometheusMetricsPort,
 						constants.PrometheusPathAnnotationKey: constants.DefaultPrometheusPath,
 					},
 				},
@@ -198,11 +203,11 @@ func TestInjectMetricsAggregator(t *testing.T) {
 							Env: []v1.EnvVar{
 								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
 								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
-								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort)},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
 							},
 							Ports: []v1.ContainerPort{
 								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
-								{Name: constants.AggregateMetricsPortName, ContainerPort: int32(constants.QueueProxyAggregatePrometheusMetricsPort), Protocol: "TCP"},
+								{Name: constants.AggregateMetricsPortName, ContainerPort: qpextAggregateMetricsPort, Protocol: "TCP"},
 							},
 						},
 					},
@@ -292,11 +297,11 @@ func TestInjectMetricsAggregator(t *testing.T) {
 							Env: []v1.EnvVar{
 								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
 								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
-								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort)},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
 							},
 							Ports: []v1.ContainerPort{
 								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
-								{Name: constants.AggregateMetricsPortName, ContainerPort: int32(constants.QueueProxyAggregatePrometheusMetricsPort), Protocol: "TCP"},
+								{Name: constants.AggregateMetricsPortName, ContainerPort: qpextAggregateMetricsPort, Protocol: "TCP"},
 							},
 						},
 					},

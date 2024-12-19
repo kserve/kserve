@@ -20,9 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	. "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -30,6 +27,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+
+	. "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestCreateInferenceGraphPodSpec(t *testing.T) {
@@ -342,7 +344,7 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 						},
 					},
 					Spec: InferenceGraphSpec{
-						MinReplicas: v1beta1.GetIntReference(2),
+						MinReplicas: utils.ToPointer(int32(2)),
 						MaxReplicas: 5,
 					},
 				},
@@ -361,7 +363,7 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 
 				componentExt: v1beta1.ComponentExtensionSpec{
 					MaxReplicas: 5,
-					MinReplicas: v1beta1.GetIntReference(2),
+					MinReplicas: utils.ToPointer(int32(2)),
 					ScaleMetric: nil,
 					ScaleTarget: nil,
 				},
@@ -413,9 +415,9 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 						},
 					},
 					Spec: InferenceGraphSpec{
-						MinReplicas: v1beta1.GetIntReference(5),
+						MinReplicas: utils.ToPointer(int32(5)),
 						MaxReplicas: 10,
-						ScaleTarget: v1beta1.GetIntReference(50),
+						ScaleTarget: utils.ToPointer(50),
 						ScaleMetric: (*ScaleMetric)(&cpuResource),
 					},
 				},
@@ -433,9 +435,9 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 					},
 				},
 				componentExt: v1beta1.ComponentExtensionSpec{
-					MinReplicas: v1beta1.GetIntReference(5),
+					MinReplicas: utils.ToPointer(int32(5)),
 					MaxReplicas: 10,
-					ScaleTarget: v1beta1.GetIntReference(50),
+					ScaleTarget: utils.ToPointer(50),
 					ScaleMetric: &cpuResource,
 				},
 			},

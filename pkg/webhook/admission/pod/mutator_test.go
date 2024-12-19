@@ -19,8 +19,10 @@ package pod
 import (
 	"context"
 	"encoding/json"
+	"sort"
+	"testing"
+
 	"github.com/google/uuid"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	gomegaTypes "github.com/onsi/gomega/types"
 	"gomodules.xyz/jsonpatch/v2"
@@ -31,8 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-	"sort"
-	"testing"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestMutator_Handle(t *testing.T) {
