@@ -1,5 +1,6 @@
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,BuiltInAdapter,Env
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,InferenceGraphList,Items
+API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,InferenceGraphSpec,ImagePullSecrets
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,InferenceGraphSpec,Tolerations
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,InferenceRouter,Steps
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,LocalModelCacheSpec,NodeGroups

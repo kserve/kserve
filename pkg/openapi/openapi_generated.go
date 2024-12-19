@@ -539,12 +539,42 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref common.ReferenceCal
 							},
 						},
 					},
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeSelector specifies the node selector for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"imagePullSecrets": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ImagePullSecrets specifies the image pull secrets for the InferenceGraph. https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.LocalObjectReference"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"nodes"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration"},
 	}
 }
 
