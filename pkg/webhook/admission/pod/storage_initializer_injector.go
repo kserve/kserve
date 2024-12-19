@@ -247,7 +247,11 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		if !strings.HasPrefix(subPath, "/") {
 			subPath = "/" + subPath
 		}
-		srcURI = "pvc://" + modelName + "/models/" + modelName + subPath
+		if pvcName, ok := pod.ObjectMeta.Annotations[constants.LocalModelPVCNameAnnotationKey]; ok {
+			srcURI = "pvc://" + pvcName + "/models/" + modelName + subPath
+		} else {
+			return fmt.Errorf("Annotation %s not found", constants.LocalModelPVCNameAnnotationKey)
+		}
 	}
 
 	podVolumes := []v1.Volume{}
