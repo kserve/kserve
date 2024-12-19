@@ -69,6 +69,18 @@ type InferenceGraphSpec struct {
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
 	// +optional
 	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
+	// Toleration specifies the toleration for the InferenceGraph.
+	// https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+	// +optional
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// NodeSelector specifies the node selector for the InferenceGraph.
+	// https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// ImagePullSecrets specifies the image pull secrets for the InferenceGraph.
+	// https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+	// +optional
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
 // ScaleMetric enum
