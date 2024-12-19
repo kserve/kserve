@@ -63,7 +63,7 @@ async def test_qpext_kserve(rest_v2_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
