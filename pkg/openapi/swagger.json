@@ -209,6 +209,14 @@
         "affinity": {
           "$ref": "#/definitions/v1.Affinity"
         },
+        "imagePullSecrets": {
+          "description": "ImagePullSecrets specifies the image pull secrets for the InferenceGraph. https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.LocalObjectReference"
+          }
+        },
         "maxReplicas": {
           "description": "Maximum number of replicas for autoscaling.",
           "type": "integer",
@@ -218,6 +226,14 @@
           "description": "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
           "type": "integer",
           "format": "int32"
+        },
+        "nodeSelector": {
+          "description": "NodeSelector specifies the node selector for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
         },
         "nodes": {
           "description": "Map of InferenceGraph router nodes Each node defines the router which can be different routing types",
