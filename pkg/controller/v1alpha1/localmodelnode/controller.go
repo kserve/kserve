@@ -65,10 +65,10 @@ var (
 	defaultJobImage            = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
 	FSGroup                    *int64
 	jobNamespace               string
-	jobTTLSecondsAfterFinished int32 = 3600                   // One hour. Can be overwritten by the value in the configmap
-	reconcilationFreqency      int64 = int64(time.Minute)     // Reconcile every one minute to check if model folders exist. Can be overwritten by the value in configmap
-	nodeName                         = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
-	modelsRootFolder                 = filepath.Join(MountPath, "models")
+	jobTTLSecondsAfterFinished int32         = 3600                   // One hour. Can be overwritten by the value in the configmap
+	reconcilationFreqency      time.Duration = time.Minute            // Reconcile every one minute to check if model folders exist. Can be overwritten by the value in configmap
+	nodeName                                 = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
+	modelsRootFolder                         = filepath.Join(MountPath, "models")
 	fsHelper                   FileSystemInterface
 )
 
@@ -344,8 +344,8 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 	jobNamespace = localModelConfig.JobNamespace
 	FSGroup = localModelConfig.FSGroup
-	if localModelConfig.ReconcilationFreqency != nil {
-		reconcilationFreqency = *localModelConfig.ReconcilationFreqency
+	if localModelConfig.ReconcilationFrequencyInSecs != nil {
+		reconcilationFreqency = time.Duration(*localModelConfig.ReconcilationFrequencyInSecs) * time.Second
 	}
 	if localModelConfig.JobTTLSecondsAfterFinished != nil {
 		jobTTLSecondsAfterFinished = *localModelConfig.JobTTLSecondsAfterFinished

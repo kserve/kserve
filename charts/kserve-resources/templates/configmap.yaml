@@ -469,7 +469,7 @@ data:
          "jobTTLSecondsAfterFinished": 3600,
          # The frequency at which the local model agent reconciles the local models
          # This is to detect if models are missing from local disk
-         "reconcilationFreqency": 60
+         "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }}
        }
 
   agent: |-
@@ -585,7 +585,7 @@ data:
       "jobTTLSecondsAfterFinished": {{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }},
       "defaultJobImage": "kserve/storage-initializer:latest",
       "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }},
-      "reconcilationFreqency": {{ .Values.kserve.localmodel.agent.reconcilationFreqency }}
+      "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }}
     }
   security: |-
     {

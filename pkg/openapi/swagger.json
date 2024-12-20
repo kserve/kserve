@@ -3321,7 +3321,7 @@
           "type": "integer",
           "format": "int32"
         },
-        "reconcilationFreqency": {
+        "reconcilationFrequencyInSecs": {
           "type": "integer",
           "format": "int64"
         }

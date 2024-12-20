@@ -411,6 +411,6 @@ kserve:
         hostPath: /mnt/models
         image: kserve/kserve-localmodelnode-agent
         tag: *defaultVersion
-        reconcilationFreqency: 60
+        reconcilationFrequencyInSecs: 60
   security:
     autoMountServiceAccountToken: true
