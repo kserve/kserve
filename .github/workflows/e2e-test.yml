@@ -1061,7 +1061,23 @@ jobs:
         uses: ./.github/actions/kserve-dep-setup
 
       - name: Download base images
-        uses: ./.github/actions/base-download
+        uses: actions/download-artifact@v4
+        with:
+          path: ./tmp
+          pattern: ${{ env.BASE_ARTIFACT_PREFIX }}-*
+          merge-multiple: true
+      
+      - name: Load docker images
+        run: |
+          nohup minikube mount ./tmp:/tmp/images/ > minikube-mount.log 2>&1 &
+          files=$(find ./tmp -maxdepth 1 -type f)
+          for file in ${files[@]};do
+            echo "Loading image $(basename ${file})"
+            minikube ssh -n minikube -- docker image load -i /tmp/images/$(basename ${file})
+            minikube ssh -n minikube-m02 -- docker image load -i /tmp/images/$(basename ${file})
+          done
+          rm -rf ./tmp
+          minikube ssh -n minikube-m02 -- docker image ls
 
       - name: Download huggingface server image
         uses: actions/download-artifact@v4
@@ -1070,9 +1086,14 @@ jobs:
           path: ./tmp
 
       - name: Load docker images
-        uses: ./.github/actions/load-docker-images
-        with:
-          directory: ./tmp
+        run: |
+          files=$(find ./tmp -maxdepth 1 -type f)
+          for file in ${files[@]};do
+            echo "Loading image $(basename ${file})"
+            minikube ssh -n minikube-m02 -- docker image load -i /tmp/images/$(basename ${file})
+          done
+          rm -rf ./tmp
+          minikube ssh -n minikube-m02 -- docker image ls
 
       - name: Install Poetry and version plugin
         run: ./test/scripts/gh-actions/setup-poetry.sh
@@ -1110,6 +1131,9 @@ jobs:
       - name: Check system status
         if: always()
         run: |
+          echo "::group::Minikube mount logs"
+          cat minikube-mount.log
+          echo "::endgroup::"
           echo "::group::Minikube tunnel logs"
           cat minikube-tunnel.log
           echo "::endgroup::"
