@@ -403,5 +403,10 @@ kserve:
       jobNamespace: kserve-localmodel-jobs
       securityContext:
         FSGroup: 1000
+      agent:
+        nodeSelector: {}
+        hostPath: /mnt/models
+        image: kserve/kserve-localmodelnode-agent
+        tag: *defaultVersion
   security:
     autoMountServiceAccountToken: true

@@ -18,13 +18,15 @@ limitations under the License.
 
 package v1alpha1
 
-type ClusterLocalModelExpansion interface{}
-
 type ClusterServingRuntimeExpansion interface{}
 
 type ClusterStorageContainerExpansion interface{}
 
 type InferenceGraphExpansion interface{}
+
+type LocalModelCacheExpansion interface{}
+
+type LocalModelNodeExpansion interface{}
 
 type LocalModelNodeGroupExpansion interface{}
 

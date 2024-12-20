@@ -28,10 +28,6 @@ type FakeServingV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeServingV1alpha1) ClusterLocalModels(namespace string) v1alpha1.ClusterLocalModelInterface {
-	return &FakeClusterLocalModels{c, namespace}
-}
-
 func (c *FakeServingV1alpha1) ClusterServingRuntimes(namespace string) v1alpha1.ClusterServingRuntimeInterface {
 	return &FakeClusterServingRuntimes{c, namespace}
 }
@@ -42,6 +38,14 @@ func (c *FakeServingV1alpha1) ClusterStorageContainers(namespace string) v1alpha
 
 func (c *FakeServingV1alpha1) InferenceGraphs(namespace string) v1alpha1.InferenceGraphInterface {
 	return &FakeInferenceGraphs{c, namespace}
+}
+
+func (c *FakeServingV1alpha1) LocalModelCaches(namespace string) v1alpha1.LocalModelCacheInterface {
+	return &FakeLocalModelCaches{c, namespace}
+}
+
+func (c *FakeServingV1alpha1) LocalModelNodes(namespace string) v1alpha1.LocalModelNodeInterface {
+	return &FakeLocalModelNodes{c, namespace}
 }
 
 func (c *FakeServingV1alpha1) LocalModelNodeGroups(namespace string) v1alpha1.LocalModelNodeGroupInterface {

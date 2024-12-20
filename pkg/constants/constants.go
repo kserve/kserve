@@ -455,7 +455,6 @@ const (
 const (
 	IstioVirtualServiceKind = "VirtualService"
 	KnativeServiceKind      = "Service"
-	ClusterLocalModelKind   = "ClusterLocalModel"
 )
 
 // GetRawServiceLabel generate native service label

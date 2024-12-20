@@ -25,7 +25,6 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,7 +41,7 @@ var _ = Describe("CachedModel controller", func() {
 		sourceModelUri      = "s3://mybucket/mymodel"
 	)
 	var (
-		localModelSpec = v1alpha1.ClusterLocalModelSpec{
+		localModelSpec = v1alpha1.LocalModelCacheSpec{
 			SourceModelUri: sourceModelUri,
 			ModelSize:      resource.MustParse("123Gi"),
 			NodeGroup:      "gpu",
@@ -102,7 +101,7 @@ var _ = Describe("CachedModel controller", func() {
 		}
 	)
 	Context("When creating a local model", func() {
-		It("Should create pv, pvc, and download jobs", func() {
+		It("Should create pv, pvc, localmodelnode, and update status from localmodelnode", func() {
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
@@ -131,7 +130,7 @@ var _ = Describe("CachedModel controller", func() {
 			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
 			defer k8sClient.Delete(ctx, nodeGroup)
 
-			cachedModel := &v1alpha1.ClusterLocalModel{
+			cachedModel := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "iris",
 				},
@@ -182,83 +181,37 @@ var _ = Describe("CachedModel controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, node1)).Should(Succeed())
 			defer k8sClient.Delete(ctx, node1)
-			nodes := &v1.NodeList{}
+
+			localModelNode := &v1alpha1.LocalModelNode{}
 			Eventually(func() bool {
-				err := k8sClient.List(ctx, nodes)
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
-			Expect(len(nodes.Items)).Should(Equal(1))
+			Expect(localModelNode.Spec.LocalModels).Should(ContainElement(v1alpha1.LocalModelInfo{ModelName: cachedModel.Name, SourceModelUri: sourceModelUri}))
 
-			// Now that we have a node and a local model CR ready. It should create download jobs
-			jobs := &batchv1.JobList{}
-			Eventually(func() bool {
-				err := k8sClient.List(ctx, jobs)
-				return err == nil && len(jobs.Items) > 0
-			}, timeout, interval).Should(BeTrue())
+			// Todo: Test agent download
+			// Update the LocalModelNode status to be successful
+			localModelNode.Status.ModelStatus = map[string]v1alpha1.ModelStatus{cachedModel.Name: v1alpha1.ModelDownloaded}
+			Expect(k8sClient.Status().Update(ctx, localModelNode)).Should(Succeed())
+
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
 				if err != nil {
 					return false
 				}
-				if cachedModel.Status.ModelCopies == nil {
-					return false
-				}
-				if cachedModel.Status.NodeStatus[nodeName] != v1alpha1.NodeDownloadPending {
-					return false
-				}
-				return true
-			}, timeout, interval).Should(BeTrue(), "should create a job to download the model")
-
-			// Now let's update the job status to be successful
-			job := jobs.Items[0]
-			job.Status.Succeeded = 1
-			Expect(k8sClient.Status().Update(ctx, &job)).Should(Succeed())
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
-				if err != nil {
-					return false
-				}
-				if cachedModel.Status.ModelCopies == nil {
+				if !(cachedModel.Status.ModelCopies.Available == 1 && cachedModel.Status.ModelCopies.Total == 1 && cachedModel.Status.ModelCopies.Failed == 0) {
 					return false
 				}
 				if cachedModel.Status.NodeStatus[nodeName] != v1alpha1.NodeDownloaded {
 					return false
 				}
 				return true
-			}, timeout, interval).Should(BeTrue(), "Node status should be downloaded once the job succeeded")
+			}, timeout, interval).Should(BeTrue(), "Node status should be downloaded")
 
 			// Now let's test deletion
-			k8sClient.Delete(ctx, cachedModel)
+			Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
 
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
-				if err != nil {
-					return false
-				}
-				if cachedModel.Status.ModelCopies == nil {
-					return false
-				}
-				if cachedModel.Status.NodeStatus[nodeName] != v1alpha1.NodeDeleting {
-					return false
-				}
-				return true
-			}, timeout, interval).Should(BeTrue(), "Node status should be deleting")
-
-			// Deletion job should be created
-			deletionJob := &batchv1.Job{}
-			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: "iris-node-1-delete", Namespace: modelCacheNamespace}, deletionJob)
-				if err != nil {
-					return false
-				}
-				return true
-			}, timeout, interval).Should(BeTrue())
-
-			// Let's we update deletion job status to be successful and check if the cr is deleted.
-			deletionJob.Status.Succeeded = 1
-			Expect(k8sClient.Status().Update(ctx, deletionJob)).Should(Succeed())
-
-			newLocalModel := &v1alpha1.ClusterLocalModel{}
+			newLocalModel := &v1alpha1.LocalModelCache{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, newLocalModel)
 				return err == nil
@@ -297,7 +250,7 @@ var _ = Describe("CachedModel controller", func() {
 			modelName := "iris2"
 			isvcNamespace := "default"
 			isvcName := "foo"
-			cachedModel := &v1alpha1.ClusterLocalModel{
+			cachedModel := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: modelName,
 				},
@@ -324,8 +277,8 @@ var _ = Describe("CachedModel controller", func() {
 			}
 
 			// Mutating webhook adds a local model label
-			cachedModelList := &v1alpha1.ClusterLocalModelList{}
-			cachedModelList.Items = []v1alpha1.ClusterLocalModel{*cachedModel}
+			cachedModelList := &v1alpha1.LocalModelCacheList{}
+			cachedModelList.Items = []v1alpha1.LocalModelCache{*cachedModel}
 			isvc.DefaultInferenceService(nil, nil, nil, cachedModelList)
 
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
@@ -395,6 +348,122 @@ var _ = Describe("CachedModel controller", func() {
 				}
 				return false
 			}, timeout, interval).Should(BeTrue())
+		})
+	})
+	Context("When creating multiple localModels", func() {
+		// With two nodes and two local models, each node should have both local models
+		It("Should create localModelNode correctly", func() {
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: clusterStorageContainerSpec,
+			}
+			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
+			defer k8sClient.Delete(ctx, clusterStorageContainer)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu",
+				},
+				Spec: localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			node1 := &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node1",
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:   v1.NodeReady,
+							Status: v1.ConditionTrue,
+						},
+					},
+				},
+			}
+
+			node2 := &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "node2",
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:   v1.NodeReady,
+							Status: v1.ConditionTrue,
+						},
+					},
+				},
+			}
+
+			nodes := []*v1.Node{node1, node2}
+			for _, node := range nodes {
+				Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+				defer k8sClient.Delete(ctx, node)
+			}
+
+			cachedModel1 := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "iris1",
+				},
+				Spec: localModelSpec,
+			}
+			Expect(k8sClient.Create(ctx, cachedModel1)).Should(Succeed())
+			cachedModel2 := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "iris2",
+				},
+				Spec: localModelSpec,
+			}
+			Expect(k8sClient.Create(ctx, cachedModel2)).Should(Succeed())
+
+			for _, node := range nodes {
+				localModelNode := &v1alpha1.LocalModelNode{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
+					return err == nil && len(localModelNode.Spec.LocalModels) == 2
+				}, timeout, interval).Should(BeTrue())
+			}
+
+			// Now let's test deletion - delete one model and expect one model exists
+			Expect(k8sClient.Delete(ctx, cachedModel1)).Should(Succeed())
+			for _, node := range nodes {
+				localModelNode := &v1alpha1.LocalModelNode{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
+					// Only one model exists
+					return err == nil && len(localModelNode.Spec.LocalModels) == 1
+				}, timeout, interval).Should(BeTrue())
+			}
+
+			// Delete the last model and expect the spec to be empty
+			Expect(k8sClient.Delete(ctx, cachedModel2)).Should(Succeed())
+			for _, node := range nodes {
+				localModelNode := &v1alpha1.LocalModelNode{}
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: node.Name}, localModelNode)
+					return err == nil && len(localModelNode.Spec.LocalModels) == 0
+				}, timeout, interval).Should(BeTrue())
+			}
 		})
 	})
 })
