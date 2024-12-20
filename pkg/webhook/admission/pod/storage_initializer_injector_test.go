@@ -4003,30 +4003,35 @@ func TestLocalModelPVC(t *testing.T) {
 		storageUri               string
 		localModelLabel          string
 		localModelSourceUriLabel string
+		pvcName                  string
 		expectedSubPath          string
 	}{
 		"basic": {
 			storageUri:               "s3://foo",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo",
+			pvcName:                  "model-h100",
 			expectedSubPath:          "models/bar/",
 		},
 		"extra / at the end": {
 			storageUri:               "s3://foo/",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo",
+			pvcName:                  "model-h100",
 			expectedSubPath:          "models/bar/",
 		},
 		"subfolder": {
 			storageUri:               "s3://foo/model1",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo",
+			pvcName:                  "model-h100",
 			expectedSubPath:          "models/bar/model1",
 		},
 		"subfolder2": {
 			storageUri:               "s3://foo/model1",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo/",
+			pvcName:                  "model-h100",
 			expectedSubPath:          "models/bar/model1",
 		},
 	}
@@ -4042,6 +4047,7 @@ func TestLocalModelPVC(t *testing.T) {
 				Annotations: map[string]string{
 					constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageUri,
 					constants.LocalModelSourceUriAnnotationKey:                 scenario.localModelSourceUriLabel,
+					constants.LocalModelPVCNameAnnotationKey:                   scenario.pvcName,
 				},
 				Labels: map[string]string{
 					constants.LocalModelLabel: scenario.localModelLabel,
@@ -4079,7 +4085,7 @@ func TestLocalModelPVC(t *testing.T) {
 					{
 						Name: "kserve-pvc-source",
 						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{ClaimName: scenario.localModelLabel, ReadOnly: false},
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{ClaimName: scenario.pvcName, ReadOnly: false},
 						},
 					},
 				},
