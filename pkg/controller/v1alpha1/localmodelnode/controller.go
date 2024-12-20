@@ -285,6 +285,10 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.LocalModelNode) error {
 	// 1. Scan model dir and get a list of existing folders representing downloaded models
 	foldersToRemove := map[string]struct{}{}
+	if err := fsHelper.ensureModelRootFolderExists(); err != nil {
+		c.Log.Error(err, "Failed to ensure model root folder exists")
+		return err
+	}
 	entries, err := fsHelper.getModelFolders()
 	if err != nil {
 		c.Log.Error(err, "Failed to list model folder")

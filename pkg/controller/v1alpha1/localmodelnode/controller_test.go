@@ -87,6 +87,10 @@ func (f *mockFileSystem) getModelFolders() ([]os.DirEntry, error) {
 	return f.subDirs, nil
 }
 
+func (f *mockFileSystem) ensureModelRootFolderExists() error {
+	return nil
+}
+
 func (f *mockFileSystem) clear() {
 	f.subDirs = []os.DirEntry{}
 }

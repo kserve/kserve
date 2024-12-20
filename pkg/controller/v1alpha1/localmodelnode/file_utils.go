@@ -25,6 +25,7 @@ type FileSystemInterface interface {
 	removeModel(modelName string) error
 	hasModelFolder(modelName string) (bool, error)
 	getModelFolders() ([]os.DirEntry, error)
+	ensureModelRootFolderExists() error
 }
 
 type FileSystemHelper struct {
@@ -61,4 +62,12 @@ func (f *FileSystemHelper) hasModelFolder(modelName string) (bool, error) {
 		return false, nil
 	}
 	return false, err
+}
+
+func (f *FileSystemHelper) ensureModelRootFolderExists() error {
+	// If the folder already exists, this will do nothing
+	if err := os.MkdirAll(f.modelsRootFolder, os.ModePerm); err != nil {
+		return err
+	}
+	return nil
 }
