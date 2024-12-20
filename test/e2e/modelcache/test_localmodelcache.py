@@ -98,7 +98,7 @@ async def test_vllm_modelcache():
         ),
         spec=V1alpha1LocalModelCacheSpec(
             model_size="251Mi",
-            node_group=node_group.metadata.name,
+            node_groups=[node_group.metadata.name],
             source_model_uri=storage_uri,
         ),
     )
