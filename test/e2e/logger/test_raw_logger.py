@@ -37,7 +37,7 @@ annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_kserve_logger(rest_v1_client):
+async def test_kserve_logger(rest_v1_client, network_layer):
     msg_dumper = "message-dumper-raw"
     before(msg_dumper)
 
@@ -61,11 +61,11 @@ async def test_kserve_logger(rest_v1_client):
             ),
         ),
     )
-    base_test(msg_dumper, service_name, predictor, rest_v1_client)
+    base_test(msg_dumper, service_name, predictor, rest_v1_client, network_layer)
 
 
 @pytest.mark.rawcipn
-async def test_kserve_logger_cipn(rest_v1_client):
+async def test_kserve_logger_cipn(rest_v1_client, network_layer):
     msg_dumper = "message-dumper-raw-cipn"
     before(msg_dumper)
 
@@ -89,7 +89,7 @@ async def test_kserve_logger_cipn(rest_v1_client):
             ),
         ),
     )
-    await base_test(msg_dumper, service_name, predictor, rest_v1_client)
+    await base_test(msg_dumper, service_name, predictor, rest_v1_client, network_layer)
 
 
 def before(msg_dumper):
@@ -120,7 +120,7 @@ def before(msg_dumper):
     kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
 
 
-async def base_test(msg_dumper, service_name, predictor, rest_v1_client):
+async def base_test(msg_dumper, service_name, predictor, rest_v1_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
@@ -141,7 +141,12 @@ async def base_test(msg_dumper, service_name, predictor, rest_v1_client):
         for pod in pods.items:
             print(pod)
 
-    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
+    )
     assert res["predictions"] == [1, 1]
     pods = kserve_client.core_api.list_namespaced_pod(
         KSERVE_TEST_NAMESPACE,

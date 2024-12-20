@@ -21,6 +21,7 @@ configurations:
 - params.yaml
 
 replacements:
+# Replace the namespace with the namespace of the controller manager.
   - source:
       fieldPath: metadata.namespace
       kind: Deployment
@@ -126,7 +127,11 @@ replacements:
         options:
           delimiter: '/'
           index: 0
-
+      - select:
+          kind: Gateway
+          name: kserve-ingress-gateway
+        fieldPaths:
+          - metadata.namespace 
 patches:
 - path: patches/statefulset.yaml
 - path: patches/namespace.yaml
