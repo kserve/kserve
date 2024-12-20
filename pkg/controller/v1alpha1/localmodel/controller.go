@@ -201,9 +201,10 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	}
 
 	for namespace := range namespaces {
+		pvcName := localModel.Name + "-" + localModel.Spec.NodeGroups[0]
 		pv := v1.PersistentVolume{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: localModel.Name + "-" + namespace,
+				Name: pvcName + "-" + namespace,
 			},
 			Spec: nodeGroup.Spec.PersistentVolumeSpec,
 		}
@@ -213,7 +214,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 
 		pvc := v1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      localModel.Name + "-" + localModel.Spec.NodeGroups[0],
+				Name:      pvcName,
 				Namespace: namespace,
 			},
 			Spec: nodeGroup.Spec.PersistentVolumeClaimSpec,

@@ -292,7 +292,7 @@ var _ = Describe("CachedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// Expects a pv and a pvc are created in the isvcNamespace
-			pvLookupKey := types.NamespacedName{Name: modelName + "-" + isvcNamespace}
+			pvLookupKey := types.NamespacedName{Name: modelName + "-" + nodeGroup.Name + "-" + isvcNamespace}
 			pvcLookupKey := types.NamespacedName{Name: modelName + "-" + nodeGroup.Name, Namespace: isvcNamespace}
 
 			persistentVolume := &v1.PersistentVolume{}
