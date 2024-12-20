@@ -117,8 +117,9 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 		return err
 	}
 
+	_, localModelDisabledForIsvc := isvc.ObjectMeta.Annotations[constants.DisableLocalModelKey]
 	var models *v1alpha1.LocalModelCacheList
-	if localModelConfig.Enabled {
+	if !localModelDisabledForIsvc && localModelConfig.Enabled {
 		var c client.Client
 		if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
 			mutatorLogger.Error(err, "Failed to start client")
