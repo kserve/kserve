@@ -92,6 +92,7 @@ type LocalModelConfig struct {
 	DefaultJobImage            string `json:"defaultJobImage,omitempty"`
 	FSGroup                    *int64 `json:"fsGroup,omitempty"`
 	JobTTLSecondsAfterFinished *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
+	ReconcilationFreqency      *int64 `json:"reconcilationFreqency,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
