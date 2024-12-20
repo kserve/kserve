@@ -3320,6 +3320,10 @@
         "jobTTLSecondsAfterFinished": {
           "type": "integer",
           "format": "int32"
+        },
+        "reconcilationFreqency": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
