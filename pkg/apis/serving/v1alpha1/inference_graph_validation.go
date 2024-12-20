@@ -58,12 +58,11 @@ var (
 )
 
 // +kubebuilder:object:generate=false
-// +k8s:deepcopy-gen=false
 // +k8s:openapi-gen=false
 // InferenceGraphValidator is responsible for setting default values on the InferenceGraph resources
 // when created or updated.
 //
-// NOTE: The +kubebuilder:object:generate=false and +k8s:deepcopy-gen=false marker prevents controller-gen from generating DeepCopy methods,
+// NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as it is used only for temporary operations and does not need to be deeply copied.
 type InferenceGraphValidator struct{}
 
