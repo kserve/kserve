@@ -84,6 +84,7 @@ var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
 	DeploymentMode                              = KServeAPIGroupName + "/deploymentMode"
 	EnableRoutingTagAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
+	DisableLocalModelKey                        = KServeAPIGroupName + "/disable-localmodel"
 	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
 	AutoscalerMetrics                           = KServeAPIGroupName + "/metrics"
 	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
