@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -124,7 +125,7 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 		"without root node": {
 			ig:              makeTestInferenceGraph(),
 			nodes:           make(map[string]InferenceRouter),
-			errMatcher:      gomega.MatchError(fmt.Errorf(RootNodeNotFoundError)),
+			errMatcher:      gomega.MatchError(errors.New(RootNodeNotFoundError)),
 			warningsMatcher: gomega.BeEmpty(),
 		},
 		"with root node": {
@@ -277,7 +278,6 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 			if !g.Expect(warnings).To(scenario.warningsMatcher) {
 				t.Errorf("got %s, want %t", warnings, scenario.warningsMatcher)
 			}
-
 		})
 	}
 }

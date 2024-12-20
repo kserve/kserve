@@ -24,10 +24,11 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/google/go-cmp/cmp"
+	"go.uber.org/zap"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/modelconfig"
-	"go.uber.org/zap"
 )
 
 type Watcher struct {
