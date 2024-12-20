@@ -362,7 +362,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 	// Requeue to check local folders periodically
-	return reconcile.Result{RequeueAfter: time.Duration(reconcilationFreqency)}, nil
+	return reconcile.Result{RequeueAfter: reconcilationFreqency}, nil
 }
 
 func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
