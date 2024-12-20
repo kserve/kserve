@@ -100,6 +100,26 @@ class UnsupportedProtocol(Exception):
         return self.reason
 
 
+class ServerNotReady(RuntimeError):
+    def __init__(self, detail: str = None):
+        self.error_msg = "Server is not ready."
+        if detail:
+            self.error_msg = self.error_msg + " " + detail
+
+    def __str__(self):
+        return self.error_msg
+
+
+class ServerNotLive(RuntimeError):
+    def __init__(self, detail: str = None):
+        self.error_msg = "Server is not live."
+        if detail:
+            self.error_msg = self.error_msg + " " + detail
+
+    def __str__(self):
+        return self.error_msg
+
+
 async def exception_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
     return JSONResponse(
@@ -150,6 +170,20 @@ async def unsupported_protocol_error_handler(_, exc):
     logger.error("Exception:", exc_info=exc)
     return JSONResponse(
         status_code=HTTPStatus.NOT_IMPLEMENTED, content={"error": str(exc)}
+    )
+
+
+async def server_not_ready_handler(_, exc):
+    logger.error("Exception:", exc_info=exc)
+    return JSONResponse(
+        status_code=HTTPStatus.SERVICE_UNAVAILABLE, content={"error": str(exc)}
+    )
+
+
+async def server_not_live_handler(_, exc):
+    logger.error("Exception:", exc_info=exc)
+    return JSONResponse(
+        status_code=HTTPStatus.SERVICE_UNAVAILABLE, content={"error": str(exc)}
     )
 
 

@@ -18,8 +18,10 @@ import os
 import pathlib
 import re
 from unittest import mock
+from unittest.mock import patch
 
 import avro
+import httpx
 import pytest
 import tomlkit
 from cloudevents.conversion import to_binary, to_structured
@@ -32,6 +34,7 @@ from kserve.protocol.rest.openai.types.openapi import (
 )
 from typing import AsyncIterator, Union
 from kserve.errors import InvalidInput, ModelNotFound
+from kserve.model import PredictorProtocol, PredictorConfig
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.rest.openai import CompletionRequest, OpenAIModel
 from kserve.model_repository import ModelRepository
@@ -447,3 +450,391 @@ class TestDataPlaneOpenAI:
             exc.value.reason
             == "Model TestModel is of type OpenAIModel. It does not support the infer method."
         )
+
+
+@pytest.mark.asyncio
+class TestDataplaneTransformer:
+
+    @pytest.mark.skip(
+        "pytest_httpx requires python >= 3.9. It can be enabled once we remove the support for python 3.8"
+    )
+    async def test_dataplane_rest_with_ssl_enabled(self, httpx_mock):
+        # scenario: getting a 2xx response from predictor with ssl enabled
+        predictor_host = "ready.host"
+        httpx_mock.add_response(
+            url=re.compile(f"https://{predictor_host}/*"), json={"status": "alive"}
+        )
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V1.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+                predictor_use_ssl=True,
+            ),
+        )
+        assert (await dataplane.ready()) is True
+
+    @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
+    async def test_dataplane_grpc_with_ssl_enabled(self, mock_grpc_client):
+        # scenario: getting a 2xx response from predictor with ssl enabled
+        predictor_host = "ready.host"
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.GRPC_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+                predictor_use_ssl=True,
+            ),
+        )
+        mock_is_server_ready = mock.AsyncMock(return_value=True)
+        mock_grpc_client.return_value.is_server_ready = mock_is_server_ready
+        assert (await dataplane.ready()) is True
+        mock_grpc_client.assert_called_with(
+            url=predictor_host, timeout=5, retries=2, use_ssl=True
+        )
+
+    @pytest.mark.skip(
+        "pytest_httpx requires python >= 3.9. It can be enabled once we remove the support for python 3.8"
+    )
+    async def test_server_readiness_v1(self, httpx_mock):
+        # scenario: getting a 2xx response from predictor
+        predictor_host = "ready.host"
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/*"), json={"status": "alive"}
+        )
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V1.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        assert (await dataplane.ready()) is True
+
+        # scenario: not a 2xx response from predictor
+        predictor_host = "not-ready.host"
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/*"), status_code=500
+        )
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V1.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        with pytest.raises(httpx.HTTPStatusError):
+            await dataplane.ready()
+
+    @pytest.mark.skip(
+        "pytest_httpx requires python >= 3.9. It can be enabled once we remove the support for python 3.8"
+    )
+    async def test_server_readiness_v2(self, httpx_mock):
+        # scenario: getting a 2xx response from predictor
+        predictor_host = "ready.host"
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v2/*"), json={"ready": True}
+        )
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        assert (await dataplane.ready()) is True
+
+        # scenario: getting a 2xx response from predictor and server not ready
+        predictor_host = "not-ready.host"
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v2/*"), json={"ready": False}
+        )
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        assert (await dataplane.ready()) is False
+
+        # scenario: not a 2xx response from predictor
+        predictor_host = "not-ready.host"
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v2/*"), status_code=500
+        )
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        with pytest.raises(httpx.HTTPStatusError):
+            await dataplane.ready()
+
+    @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
+    async def test_server_readiness_grpc_v2(self, mock_grpc_client):
+        # scenario: getting a 2xx response from predictor
+        predictor_host = "ready.host"
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.GRPC_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        mock_is_server_ready = mock.AsyncMock(return_value=True)
+        mock_grpc_client.return_value.is_server_ready = mock_is_server_ready
+        assert (await dataplane.ready()) is True
+        mock_grpc_client.assert_called_with(
+            url=predictor_host, timeout=5, retries=2, use_ssl=False
+        )
+
+        # scenario: getting a 2xx response from predictor and server not ready
+        predictor_host = "not-ready.host"
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.GRPC_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        mock_is_server_ready = mock.AsyncMock(return_value=False)
+        mock_grpc_client.return_value.is_server_ready = mock_is_server_ready
+        assert (await dataplane.ready()) is False
+        mock_grpc_client.assert_called_with(
+            url=predictor_host, timeout=5, retries=2, use_ssl=False
+        )
+
+    @pytest.mark.skip(
+        "pytest_httpx requires python >= 3.9. It can be enabled once we remove the support for python 3.8"
+    )
+    async def test_model_readiness_v1(self, httpx_mock):
+        # scenario: getting a 2xx response from predictor
+        predictor_host = "ready.host"
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v1/*"), json={"ready": True}
+        )
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V1.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        # Transformer model ready
+        ready_model = DummyModel("ReadyModel")
+        dataplane._model_registry.update(ready_model)
+        assert (await dataplane.model_ready(ready_model.name)) is True
+
+        # scenario: getting a 2xx response from predictor and model not ready
+        predictor_host = "ready.host"
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v1/*"), json={"ready": False}
+        )
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V1.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        # Transformer model ready
+        not_ready_model = DummyModel("NotReadyModel")
+        dataplane._model_registry.update(not_ready_model)
+        assert (await dataplane.model_ready(not_ready_model.name)) is False
+
+        # scenario: not a 2xx response from predictor
+        predictor_host = "not-ready.host"
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v1/*"), status_code=503
+        )
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V1.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        # Transformer model is not ready
+        not_ready_model = DummyModel("NotReadyModel")
+        dataplane._model_registry.update(not_ready_model)
+        assert await dataplane.model_ready(not_ready_model.name) is False
+
+    @pytest.mark.skip(
+        "pytest_httpx requires python >= 3.9. It can be enabled once we remove the support for python 3.8"
+    )
+    async def test_model_readiness_v2(self, httpx_mock):
+        # scenario: getting a 2xx response from predictor
+        predictor_host = "ready.host"
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v2/*"), json={"ready": True}
+        )
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        # Transformer model ready
+        ready_model = DummyModel("ReadyModel")
+        dataplane._model_registry.update(ready_model)
+        assert (await dataplane.model_ready(ready_model.name)) is True
+
+        # scenario: getting a 2xx response from predictor and model not ready
+        predictor_host = "ready.host"
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v2/*"), json={"ready": False}
+        )
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        # Transformer model ready
+        not_ready_model = DummyModel("NotReadyModel")
+        dataplane._model_registry.update(not_ready_model)
+        assert (await dataplane.model_ready(not_ready_model.name)) is False
+
+        # scenario: not a 2xx response from predictor
+        predictor_host = "not-ready.host"
+        httpx_mock.add_response(
+            url=re.compile(f"http://{predictor_host}/v2/*"), status_code=503
+        )
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        # Transformer model is not ready
+        not_ready_model = DummyModel("NotReadyModel")
+        dataplane._model_registry.update(not_ready_model)
+        assert await dataplane.model_ready(not_ready_model.name) is False
+
+    @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
+    async def test_model_readiness_grpc_v2(self, mock_grpc_client):
+        # scenario: getting a 2xx response from predictor
+        predictor_host = "ready.host"
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.GRPC_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        # Transformer model ready
+        ready_model = DummyModel("ReadyModel")
+        dataplane._model_registry.update(ready_model)
+        mock_is_model_ready = mock.AsyncMock(return_value=True)
+        mock_grpc_client.return_value.is_model_ready = mock_is_model_ready
+        assert (await dataplane.model_ready(ready_model.name)) is True
+        mock_grpc_client.assert_called_with(
+            url=predictor_host, timeout=5, retries=2, use_ssl=False
+        )
+
+        # scenario: getting a 2xx response from predictor and server not ready
+        predictor_host = "not-ready.host"
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.GRPC_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        # Transformer model ready
+        not_ready_model = DummyModel("NotReadyModel")
+        dataplane._model_registry.update(not_ready_model)
+        mock_is_model_ready = mock.AsyncMock(return_value=False)
+        mock_grpc_client.return_value.is_model_ready = mock_is_model_ready
+        assert (await dataplane.model_ready(not_ready_model.name)) is False
+        mock_grpc_client.assert_called_with(
+            url=predictor_host, timeout=5, retries=2, use_ssl=False
+        )
+
+    @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
+    @patch("kserve.protocol.dataplane.InferenceClientFactory.get_rest_client")
+    async def test_dataplane_with_predictor_health_check_false(
+        self, mock_rest_client, mock_grpc_client
+    ):
+        # Inference client should not be created when predictor_health_check is False
+        predictor_host = "ready.host"
+        _ = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.GRPC_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=False,
+            ),
+        )
+        mock_grpc_client.assert_not_called()
+
+        _ = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=False,
+            ),
+        )
+        mock_rest_client.assert_not_called()

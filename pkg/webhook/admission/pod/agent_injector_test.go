@@ -32,6 +32,8 @@ import (
 
 	"knative.dev/pkg/kmp"
 
+	"encoding/json"
+
 	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1580,4 +1582,154 @@ func TestGetAgentConfigs(t *testing.T) {
 		g.Expect(err).Should(tc.matchers[1])
 		g.Expect(loggerConfigs).Should(tc.matchers[0])
 	}
+}
+
+func TestReadinessProbeInheritance(t *testing.T) {
+	tests := []struct {
+		name                string
+		readinessProbe      *v1.Probe
+		queueProxyAvailable bool
+		expectEnvVar        bool
+		expectedProbeJson   string
+	}{
+		{
+			name: "HTTPGet Readiness Probe",
+			readinessProbe: &v1.Probe{
+				ProbeHandler: v1.ProbeHandler{
+					HTTPGet: &v1.HTTPGetAction{
+						Path:   "/ready",
+						Port:   intstr.FromInt(8080),
+						Scheme: "HTTP",
+					},
+				},
+				TimeoutSeconds:   0,
+				PeriodSeconds:    0,
+				SuccessThreshold: 0,
+				FailureThreshold: 0,
+			},
+			queueProxyAvailable: false,
+			expectEnvVar:        true,
+			expectedProbeJson:   `{"httpGet":{"path":"/ready","port":8080,"scheme":"HTTP"},"timeoutSeconds":0,"periodSeconds":0,"successThreshold":0,"failureThreshold":0}`,
+		},
+		{
+			name: "TCPSocket Readiness Probe",
+			readinessProbe: &v1.Probe{
+				ProbeHandler: v1.ProbeHandler{
+					TCPSocket: &v1.TCPSocketAction{
+						Port: intstr.FromInt(8080),
+					},
+				},
+				TimeoutSeconds:   0,
+				PeriodSeconds:    0,
+				SuccessThreshold: 0,
+				FailureThreshold: 0,
+			},
+			queueProxyAvailable: false,
+			expectEnvVar:        true,
+			expectedProbeJson:   `{"tcpSocket":{"port":8080},"timeoutSeconds":0,"periodSeconds":0,"successThreshold":0,"failureThreshold":0}`,
+		},
+		{
+			name: "Exec Readiness Probe",
+			readinessProbe: &v1.Probe{
+				ProbeHandler: v1.ProbeHandler{
+					Exec: &v1.ExecAction{
+						Command: []string{"echo", "hello"},
+					},
+				},
+			},
+			queueProxyAvailable: false,
+			expectEnvVar:        false, // Exec probes should not be inherited
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Prepare the pod with the given readiness probe
+			pod := &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: "default",
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name:           "test-container",
+							ReadinessProbe: tt.readinessProbe,
+						},
+					},
+				},
+			}
+
+			var agentEnvs []v1.EnvVar
+			if !tt.queueProxyAvailable {
+				readinessProbe := pod.Spec.Containers[0].ReadinessProbe
+
+				// Handle HTTPGet and TCPSocket probes
+				if readinessProbe != nil {
+					if readinessProbe.HTTPGet != nil || readinessProbe.TCPSocket != nil {
+						readinessProbeJson, err := marshalReadinessProbe(readinessProbe)
+						if err != nil {
+							t.Errorf("failed to marshal readiness probe: %v", err)
+						} else {
+							agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: readinessProbeJson})
+						}
+					} else if readinessProbe.Exec != nil {
+						// Exec probes are skipped; log the information
+						t.Logf("INFO: Exec readiness probe skipped for pod %s/%s", pod.Namespace, pod.Name)
+					}
+				}
+			}
+
+			// Validate the presence of the SERVING_READINESS_PROBE environment variable
+			foundEnvVar := false
+			actualProbeJson := ""
+			for _, envVar := range agentEnvs {
+				if envVar.Name == "SERVING_READINESS_PROBE" {
+					foundEnvVar = true
+					actualProbeJson = envVar.Value
+					break
+				}
+			}
+
+			if foundEnvVar != tt.expectEnvVar {
+				t.Errorf("%s: expected SERVING_READINESS_PROBE to be %v, got %v", tt.name, tt.expectEnvVar, foundEnvVar)
+			}
+
+			if tt.expectEnvVar && actualProbeJson != tt.expectedProbeJson {
+				t.Errorf("%s: expected probe JSON %q, got %q", tt.name, tt.expectedProbeJson, actualProbeJson)
+			}
+		})
+	}
+}
+
+func marshalReadinessProbe(probe *v1.Probe) (string, error) {
+	if probe == nil {
+		return "", nil
+	}
+
+	// Create a custom struct to ensure all fields are included
+	type ReadinessProbe struct {
+		HTTPGet          *v1.HTTPGetAction   `json:"httpGet,omitempty"`
+		TCPSocket        *v1.TCPSocketAction `json:"tcpSocket,omitempty"`
+		TimeoutSeconds   int32               `json:"timeoutSeconds"`
+		PeriodSeconds    int32               `json:"periodSeconds"`
+		SuccessThreshold int32               `json:"successThreshold"`
+		FailureThreshold int32               `json:"failureThreshold"`
+	}
+
+	readinessProbe := ReadinessProbe{
+		HTTPGet:          probe.HTTPGet,
+		TCPSocket:        probe.TCPSocket,
+		TimeoutSeconds:   probe.TimeoutSeconds,
+		PeriodSeconds:    probe.PeriodSeconds,
+		SuccessThreshold: probe.SuccessThreshold,
+		FailureThreshold: probe.FailureThreshold,
+	}
+
+	probeJson, err := json.Marshal(readinessProbe)
+	if err != nil {
+		return "", err
+	}
+
+	return string(probeJson), nil
 }

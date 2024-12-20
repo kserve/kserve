@@ -123,7 +123,7 @@ async def test_xgboost_v2_mlserver(rest_v2_client):
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
 async def test_xgboost_single_model_file(rest_v2_client):
-    service_name = "isvc-xgboost-v2-mlserver"
+    service_name = "xgboost-v2-mlserver"
     protocol_version = "v2"
 
     predictor = V1beta1PredictorSpec(

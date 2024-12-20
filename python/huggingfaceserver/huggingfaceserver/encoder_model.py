@@ -103,7 +103,9 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         if model_config:
             self.model_config = model_config
         else:
-            self.model_config = AutoConfig.from_pretrained(self.model_id_or_path)
+            self.model_config = AutoConfig.from_pretrained(
+                self.model_id_or_path, trust_remote_code=self.trust_remote_code
+            )
 
         if task:
             self.task = task
@@ -112,7 +114,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             except ValueError:
                 inferred_task = None
             if inferred_task is not None and inferred_task != task:
-                logger.warn(
+                logger.warning(
                     f"Inferred task is '{inferred_task.name}' but"
                     f" task is explicitly set to '{self.task.name}'"
                 )
@@ -134,7 +136,9 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
         # device_map = "auto" for models that support this else set to either cuda/cpu
         with init_empty_weights():
-            self._model = model_cls.from_config(self.model_config)
+            self._model = model_cls.from_config(
+                self.model_config, trust_remote_code=self.trust_remote_code
+            )
 
         device_map = self._device
 

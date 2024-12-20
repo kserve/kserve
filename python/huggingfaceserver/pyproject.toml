@@ -32,6 +32,7 @@ pytest-cov = "^5.0.0"
 mypy = "^0.991"
 pytest-asyncio = ">=0.23.4, <1.0.0"
 pytest_httpx = "^v0.30.0"
+einops = "^0.8.0"
 
 [tool.poetry.group.dev]
 optional = true
