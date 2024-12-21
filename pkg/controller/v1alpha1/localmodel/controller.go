@@ -201,7 +201,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	}
 
 	for namespace := range namespaces {
-                # @TODO node group needs to be retrieved from isvc node group annotation when we support multiple node groups
+                // @TODO node group needs to be retrieved from isvc node group annotation when we support multiple node groups
 		pvcName := localModel.Name + "-" + localModel.Spec.NodeGroups[0]
 		pv := v1.PersistentVolume{
 			ObjectMeta: metav1.ObjectMeta{
