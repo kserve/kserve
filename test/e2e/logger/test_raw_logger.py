@@ -15,13 +15,15 @@ import asyncio
 import os
 from kubernetes import client
 
-from kserve import KServeClient
-from kserve import constants
-from kserve import V1beta1PredictorSpec
-from kserve import V1beta1SKLearnSpec
-from kserve import V1beta1InferenceServiceSpec
-from kserve import V1beta1InferenceService
-from kserve import V1beta1LoggerSpec
+from kserve import (
+    KServeClient,
+    constants,
+    V1beta1PredictorSpec,
+    V1beta1SKLearnSpec,
+    V1beta1InferenceServiceSpec,
+    V1beta1InferenceService,
+    V1beta1LoggerSpec,
+)
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 import pytest
@@ -30,14 +32,67 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_kserve_logger(rest_v1_client):
     msg_dumper = "message-dumper-raw"
-    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
+    before(msg_dumper)
 
+    service_name = "isvc-logger-raw"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        logger=V1beta1LoggerSpec(
+            mode="all",
+            url="http://"
+            + msg_dumper
+            + "-predictor"
+            + "."
+            + KSERVE_TEST_NAMESPACE
+            + ".svc.cluster.local",
+        ),
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "10m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+    base_test(msg_dumper, service_name, predictor, rest_v1_client)
+
+
+@pytest.mark.rawcipn
+async def test_kserve_logger_cipn(rest_v1_client):
+    msg_dumper = "message-dumper-raw-cipn"
+    before(msg_dumper)
+
+    service_name = "isvc-logger-raw-cipn"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        logger=V1beta1LoggerSpec(
+            mode="all",
+            url="http://"
+            + msg_dumper
+            + "-predictor"
+            + "."
+            + KSERVE_TEST_NAMESPACE
+            + ".svc.cluster.local:8080",
+        ),
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "10m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+    await base_test(msg_dumper, service_name, predictor, rest_v1_client)
+
+
+def before(msg_dumper):
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         containers=[
@@ -64,27 +119,8 @@ async def test_kserve_logger(rest_v1_client):
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
 
-    service_name = "isvc-logger-raw"
-    predictor = V1beta1PredictorSpec(
-        min_replicas=1,
-        logger=V1beta1LoggerSpec(
-            mode="all",
-            url="http://"
-            + msg_dumper
-            + "-predictor"
-            + "."
-            + KSERVE_TEST_NAMESPACE
-            + ".svc.cluster.local",
-        ),
-        sklearn=V1beta1SKLearnSpec(
-            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
-            resources=V1ResourceRequirements(
-                requests={"cpu": "10m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
-            ),
-        ),
-    )
 
+async def base_test(msg_dumper, service_name, predictor, rest_v1_client):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
@@ -120,6 +156,7 @@ async def test_kserve_logger(rest_v1_client):
             container="kserve-container",
         )
         print(log)
+
     assert "org.kubeflow.serving.inference.request" in log
     assert "org.kubeflow.serving.inference.response" in log
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
