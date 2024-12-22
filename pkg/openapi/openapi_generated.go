@@ -5993,6 +5993,12 @@ func schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref common.ReferenceCallba
 							Format: "int32",
 						},
 					},
+					"reconcilationFrequencyInSecs": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
 				},
 				Required: []string{"enabled", "jobNamespace"},
 			},

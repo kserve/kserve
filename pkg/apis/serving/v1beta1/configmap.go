@@ -86,11 +86,12 @@ type DeployConfig struct {
 
 // +kubebuilder:object:generate=false
 type LocalModelConfig struct {
-	Enabled                    bool   `json:"enabled"`
-	JobNamespace               string `json:"jobNamespace"`
-	DefaultJobImage            string `json:"defaultJobImage,omitempty"`
-	FSGroup                    *int64 `json:"fsGroup,omitempty"`
-	JobTTLSecondsAfterFinished *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
+	Enabled                      bool   `json:"enabled"`
+	JobNamespace                 string `json:"jobNamespace"`
+	DefaultJobImage              string `json:"defaultJobImage,omitempty"`
+	FSGroup                      *int64 `json:"fsGroup,omitempty"`
+	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
+	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
