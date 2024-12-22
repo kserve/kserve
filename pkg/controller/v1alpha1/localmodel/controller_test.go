@@ -44,7 +44,7 @@ var _ = Describe("CachedModel controller", func() {
 		localModelSpec = v1alpha1.LocalModelCacheSpec{
 			SourceModelUri: sourceModelUri,
 			ModelSize:      resource.MustParse("123Gi"),
-			NodeGroup:      "gpu",
+			NodeGroups:     []string{"gpu"},
 		}
 		clusterStorageContainerSpec = v1alpha1.StorageContainerSpec{
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}},
@@ -209,7 +209,7 @@ var _ = Describe("CachedModel controller", func() {
 			}, timeout, interval).Should(BeTrue(), "Node status should be downloaded")
 
 			// Now let's test deletion
-			k8sClient.Delete(ctx, cachedModel)
+			Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
 
 			newLocalModel := &v1alpha1.LocalModelCache{}
 			Eventually(func() bool {
@@ -292,8 +292,8 @@ var _ = Describe("CachedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// Expects a pv and a pvc are created in the isvcNamespace
-			pvLookupKey := types.NamespacedName{Name: modelName + "-" + isvcNamespace}
-			pvcLookupKey := types.NamespacedName{Name: modelName, Namespace: isvcNamespace}
+			pvLookupKey := types.NamespacedName{Name: modelName + "-" + nodeGroup.Name + "-" + isvcNamespace}
+			pvcLookupKey := types.NamespacedName{Name: modelName + "-" + nodeGroup.Name, Namespace: isvcNamespace}
 
 			persistentVolume := &v1.PersistentVolume{}
 			Eventually(func() bool {

@@ -419,17 +419,20 @@
       "required": [
         "sourceModelUri",
         "modelSize",
-        "nodeGroup"
+        "nodeGroups"
       ],
       "properties": {
         "modelSize": {
           "description": "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
           "$ref": "#/definitions/resource.Quantity"
         },
-        "nodeGroup": {
-          "description": "group of nodes to cache the model on.",
-          "type": "string",
-          "default": ""
+        "nodeGroups": {
+          "description": "group of nodes to cache the model on. Todo: support more than 1 node groups",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
         },
         "sourceModelUri": {
           "description": "Original StorageUri",
@@ -3313,6 +3316,10 @@
         "jobNamespace": {
           "type": "string",
           "default": ""
+        },
+        "jobTTLSecondsAfterFinished": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
@@ -5123,6 +5130,15 @@
         "autoMountServiceAccountToken": {
           "type": "boolean",
           "default": false
+        }
+      }
+    },
+    "v1beta1.ServiceConfig": {
+      "type": "object",
+      "properties": {
+        "serviceClusterIPNone": {
+          "description": "ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None. If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is false when the value is absent.",
+          "type": "boolean"
         }
       }
     },

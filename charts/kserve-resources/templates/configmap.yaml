@@ -420,6 +420,19 @@ data:
          "defaultDeploymentMode": "Serverless"
        }
 
+     # ====================================== SERVICE CONFIGURATION ======================================
+     # Example
+     service: |-
+       {
+         "serviceClusterIPNone": "false"
+       }
+     service: |-
+       {
+          # ServiceClusterIPNone is a flag to indicate if the service should have a clusterIP set to None.
+          # If the DeploymentMode is Raw, the default value for ServiceClusterIPNone if not set is false
+          # "serviceClusterIPNone": "false"
+       }
+
      # ====================================== METRICS CONFIGURATION ======================================
      # Example
      metricsAggregator: |-
@@ -451,7 +464,8 @@ data:
          # defaultJobImage specifies the default image used for the download job.
          "defaultJobImage" : "kserve/storage-initializer:latest",
          # Kubernetes modifies the filesystem group ID on the attached volume.
-         "FSGroup": 1000
+         "fsGroup": 1000,
+         "jobTTLSecondsAfterFinished": 3600
        }
 
   agent: |-
@@ -502,6 +516,10 @@ data:
   deploy: |-
     {
       "defaultDeploymentMode": "{{ .Values.kserve.controller.deploymentMode }}"
+    }
+  service: |-
+    {
+      "serviceClusterIPNone": "{{ .Values.kserve.service.serviceClusterIPNone }}"
     }
   explainers: |-
     {
@@ -560,8 +578,9 @@ data:
     {
       "enabled": {{ .Values.kserve.localmodel.enabled }},
       "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
+      "jobTTLSecondsAfterFinished": {{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }},
       "defaultJobImage" : "kserve/storage-initializer:latest",
-      "FSGroup": {{ .Values.kserve.localmodel.securityContext.FSGroup }}
+      "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }}
     }
   security: |-
     {

@@ -63,7 +63,8 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.localmodel.controller.tag | string | `"v0.14.0"` |  |
 | kserve.localmodel.enabled | bool | `false` |  |
 | kserve.localmodel.jobNamespace | string | `"kserve-localmodel-jobs"` |  |
-| kserve.localmodel.securityContext.FSGroup | int | `1000` |  |
+| kserve.localmodel.jobTTLSecondsAfterFinished | int | `3600` |  |
+| kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
 | kserve.metricsaggregator.enableMetricAggregation | string | `"false"` | configures metric aggregation annotation. This adds the annotation serving.kserve.io/enable-metric-aggregation to every service with the specified boolean value. If true enables metric aggregation in queue-proxy by setting env vars in the queue proxy container to configure scraping ports. |
 | kserve.metricsaggregator.enablePrometheusScraping | string | `"false"` | If true, prometheus annotations are added to the pod to scrape the metrics. If serving.kserve.io/enable-metric-aggregation is false, the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port. |
 | kserve.modelmesh.config.modelmeshImage | string | `"kserve/modelmesh"` |  |
@@ -88,6 +89,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.router.image | string | `"kserve/router"` |  |
 | kserve.router.tag | string | `"v0.14.0"` |  |
 | kserve.security.autoMountServiceAccountToken | bool | `true` |  |
+| kserve.service.serviceClusterIPNone | bool | `false` |  |
 | kserve.servingruntime.art.defaultVersion | string | `"v0.14.0"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
 | kserve.servingruntime.art.imagePullSecrets | list | `[]` |  |

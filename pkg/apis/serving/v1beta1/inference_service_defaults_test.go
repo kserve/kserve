@@ -815,7 +815,7 @@ func TestLocalModelAnnotation(t *testing.T) {
 		Spec: v1alpha1.LocalModelCacheSpec{
 			SourceModelUri: "gs://testbucket/testmodel",
 			ModelSize:      resource.MustParse("123Gi"),
-			NodeGroup:      "gpu",
+			NodeGroups:     []string{"gpu"},
 		},
 	}
 	localModels := &v1alpha1.LocalModelCacheList{Items: []v1alpha1.LocalModelCache{*localModel}}
