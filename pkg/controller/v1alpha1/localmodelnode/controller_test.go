@@ -18,8 +18,9 @@ package localmodelnode
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
-	"path/filepath"
+	"os"
 	"time"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -33,6 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type MockFileInfo struct {
@@ -46,7 +48,60 @@ func (m *MockFileInfo) IsDir() bool                { return m.isDir }
 func (m *MockFileInfo) Type() fs.FileMode          { return 0 }
 func (m *MockFileInfo) Info() (fs.FileInfo, error) { return nil, nil }
 
-var _ = Describe("CachedModel controller", func() {
+type mockFileSystem struct {
+	FileSystemInterface
+	// represents the dirs under /mnt/models/models
+	subDirs []os.DirEntry
+}
+
+func (f *mockFileSystem) removeModel(model string) error {
+	newEntries := []os.DirEntry{}
+	for _, dirEntry := range f.subDirs {
+		if dirEntry.Name() != model {
+			newEntries = append(newEntries, dirEntry)
+		}
+	}
+	f.subDirs = newEntries
+	return nil
+}
+
+func (f *mockFileSystem) hasModelFolder(modelName string) (bool, error) {
+	for _, dirEntry := range f.subDirs {
+		if dirEntry.Name() == modelName {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (f *mockFileSystem) mockModel(dir os.DirEntry) {
+	for _, dirEntry := range f.subDirs {
+		if dirEntry.Name() == dir.Name() {
+			return
+		}
+	}
+	f.subDirs = append(f.subDirs, dir)
+}
+
+func (f *mockFileSystem) getModelFolders() ([]os.DirEntry, error) {
+	return f.subDirs, nil
+}
+
+func (f *mockFileSystem) ensureModelRootFolderExists() error {
+	return nil
+}
+
+func (f *mockFileSystem) clear() {
+	f.subDirs = []os.DirEntry{}
+}
+
+func newMockFileSystem() *mockFileSystem {
+	return &mockFileSystem{
+		subDirs: []os.DirEntry{},
+	}
+}
+
+var _ = Describe("LocalModelNode controller", func() {
 	const (
 		timeout             = time.Second * 10
 		duration            = time.Second * 10
@@ -120,13 +175,10 @@ var _ = Describe("CachedModel controller", func() {
 	)
 
 	Context("When creating a local model", func() {
-		It("Should create download jobs and update model status from jobs", func() {
-			// Mock readDir to return no models in the local disk
-			// Todo: fix this mock when we trigger re-download jobs when models don't exist in the local disk
-			readDir = func(_ string) ([]fs.DirEntry, error) {
-				return []fs.DirEntry{}, nil
-			}
-
+		It("Should create download jobs, update model status from jobs, and handle model deletion", func() {
+			ctx := context.Background()
+			fsMock.clear()
+			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
@@ -166,13 +218,19 @@ var _ = Describe("CachedModel controller", func() {
 			defer k8sClient.Delete(ctx, localModelNode)
 
 			// Wait for the download job to be created
-			job := &batchv1.Job{}
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": modelName,
+				"node":  nodeName,
+			}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName + "-" + nodeName, Namespace: modelCacheNamespace}, job)
-				return err == nil
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
 			}, timeout, interval).Should(BeTrue(), "Download job should be created")
 
 			// Now let's update the job status to be successful
+			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
+			job := &jobs.Items[0]
 			job.Status.Succeeded = 1
 			Expect(k8sClient.Status().Update(ctx, job)).Should(Succeed())
 
@@ -180,12 +238,15 @@ var _ = Describe("CachedModel controller", func() {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode)
 				if err != nil {
+					fmt.Fprintf(GinkgoWriter, "get err")
 					return false
 				}
 				modelStatus, ok := localModelNode.Status.ModelStatus[modelName]
 				if !ok {
+					fmt.Fprintf(GinkgoWriter, "model not found in status\n")
 					return false
 				}
+				fmt.Fprintf(GinkgoWriter, "model status %v\n", modelStatus)
 				return modelStatus == v1alpha1.ModelDownloaded
 			}, timeout, interval).Should(BeTrue(), "LocaModelNode status should be downloaded")
 
@@ -203,7 +264,95 @@ var _ = Describe("CachedModel controller", func() {
 				return !ok
 			}, timeout, interval).Should(BeTrue(), "Model should be removed from the status field")
 		})
+		It("Should recreate download jobs if the model is missing from local disk", func() {
+			fsMock.clear()
+
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: clusterStorageContainerSpec,
+			}
+			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
+			defer k8sClient.Delete(ctx, clusterStorageContainer)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu",
+				},
+				Spec: localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName = "worker2"
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: localModelNodeSpec,
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			// Wait for the download job to be created
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": modelName,
+				"node":  nodeName,
+			}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created")
+
+			// Now let's update the job status to be successful
+			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
+			job := &jobs.Items[0]
+			job.Status.Succeeded = 1
+			Expect(k8sClient.Status().Update(ctx, job)).Should(Succeed())
+
+			// LocalModelNode status should be updated
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode)
+				if err != nil {
+					fmt.Fprintf(GinkgoWriter, "get err")
+					return false
+				}
+				modelStatus, ok := localModelNode.Status.ModelStatus[modelName]
+				if !ok {
+					fmt.Fprintf(GinkgoWriter, "model not found in status\n")
+					return false
+				}
+				fmt.Fprintf(GinkgoWriter, "model status %v\n", modelStatus)
+				return modelStatus == v1alpha1.ModelDownloaded
+			}, timeout, interval).Should(BeTrue(), "LocaModelNode status should be downloaded")
+
+			// Delete the model folder
+			fsMock.clear()
+
+			// Manually trigger reconcillation
+			patch := client.MergeFrom(localModelNode.DeepCopy())
+			localModelNode.Annotations = map[string]string{"foo": "bar"}
+			Expect(k8sClient.Patch(ctx, localModelNode, patch)).Should(Succeed())
+
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 2
+			}, timeout, interval).Should(BeTrue(), "New job should be created")
+		})
 		It("Should delete models from local disk if the model is not in the spec", func() {
+			fsMock.clear()
 			var configMap = &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
@@ -215,19 +364,7 @@ var _ = Describe("CachedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Mock readDir to return a fake model folder
-			readDir = func(_ string) ([]fs.DirEntry, error) {
-				return []fs.DirEntry{
-					&MockFileInfo{name: modelName, isDir: true},
-				}, nil
-			}
-
-			removeAllCalled := false
-			var pathRemoved string
-			removeAll = func(path string) error {
-				pathRemoved = path
-				removeAllCalled = true
-				return nil
-			}
+			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
 
 			nodeName = "worker" // Definied in controller.go, representing the name of the curent node
 			// Creates a LocalModelNode with no models but the controller should find a model from local disk and delete it
@@ -243,9 +380,69 @@ var _ = Describe("CachedModel controller", func() {
 			defer k8sClient.Delete(ctx, localModelNode)
 
 			Eventually(func() bool {
-				return removeAllCalled
-			}, timeout, interval).Should(BeTrue())
-			Expect(pathRemoved).Should(Equal(filepath.Join(modelsRootFolder, modelName)), "Should remove the model folder")
+				dirs, err := fsMock.getModelFolders()
+				if err != nil {
+					return false
+				}
+				for _, dir := range dirs {
+					if dir.Name() == modelName {
+						return false
+					}
+				}
+				return true
+			}, timeout, interval).Should(BeTrue(), "Should remove the model folder")
+		})
+		// This test creates a LocalModelNode with a model, then deletes the model from the spec and checks if the job is deleted
+		It("Should delete jobs if the model is not present", func() {
+			fsMock.clear()
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			// Mock readDir to return a fake model folder
+			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
+
+			nodeName = "test3" // Definied in controller.go, representing the name of the curent node
+			// Creates a LocalModelNode with no models but the controller should find a model from local disk and delete it
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: localModelNodeSpec,
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": modelName,
+				"node":  nodeName,
+			}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created")
+
+			// Remove the model from the spec
+			// Use patch to avoid conflict
+			patch := client.MergeFrom(localModelNode.DeepCopy())
+			localModelNode.Spec = v1alpha1.LocalModelNodeSpec{
+				LocalModels: []v1alpha1.LocalModelInfo{},
+			}
+			Expect(k8sClient.Patch(ctx, localModelNode, patch)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				if err != nil {
+					return false
+				}
+				return len(jobs.Items) == 0
+			}, timeout, interval).Should(BeTrue(), "Download job should be deleted")
 		})
 	})
 })
