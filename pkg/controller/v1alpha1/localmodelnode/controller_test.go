@@ -87,6 +87,10 @@ func (f *mockFileSystem) getModelFolders() ([]os.DirEntry, error) {
 	return f.subDirs, nil
 }
 
+func (f *mockFileSystem) ensureModelRootFolderExists() error {
+	return nil
+}
+
 func (f *mockFileSystem) clear() {
 	f.subDirs = []os.DirEntry{}
 }
@@ -387,6 +391,58 @@ var _ = Describe("LocalModelNode controller", func() {
 				}
 				return true
 			}, timeout, interval).Should(BeTrue(), "Should remove the model folder")
+		})
+		// This test creates a LocalModelNode with a model, then deletes the model from the spec and checks if the job is deleted
+		It("Should delete jobs if the model is not present", func() {
+			fsMock.clear()
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			// Mock readDir to return a fake model folder
+			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
+
+			nodeName = "test3" // Definied in controller.go, representing the name of the curent node
+			// Creates a LocalModelNode with no models but the controller should find a model from local disk and delete it
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+				},
+				Spec: localModelNodeSpec,
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{
+				"model": modelName,
+				"node":  nodeName,
+			}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created")
+
+			// Remove the model from the spec
+			// Use patch to avoid conflict
+			patch := client.MergeFrom(localModelNode.DeepCopy())
+			localModelNode.Spec = v1alpha1.LocalModelNodeSpec{
+				LocalModels: []v1alpha1.LocalModelInfo{},
+			}
+			Expect(k8sClient.Patch(ctx, localModelNode, patch)).Should(Succeed())
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				if err != nil {
+					return false
+				}
+				return len(jobs.Items) == 0
+			}, timeout, interval).Should(BeTrue(), "Download job should be deleted")
 		})
 	})
 })
