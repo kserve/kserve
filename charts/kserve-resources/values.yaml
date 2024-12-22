@@ -7,6 +7,8 @@ kserve:
   router:
     image: kserve/router
     tag: *defaultVersion
+  service:
+    serviceClusterIPNone: false
   storage:
     image: kserve/storage-initializer
     tag: *defaultVersion
@@ -111,8 +113,14 @@ kserve:
     # -- Optional additional annotations to add to the controller deployment.
     annotations: {}
 
-    # -- Optional additional labels to add to the controller Pods.
+    # -- Optional additional annotations to add to the controller Pods.
     podAnnotations: {}
+
+    # -- Optional additional annotations to add to the controller service.
+    serviceAnnotations: {}
+
+    # -- Optional additional annotations to add to the webhook service.
+    webhookServiceAnnotations: {}
 
     # -- Pod Security Context.
     # For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
@@ -129,6 +137,12 @@ kserve:
       privileged: false
       readOnlyRootFilesystem: true
       runAsNonRoot: true
+
+    # -- Metrics bind address
+    metricsBindAddress: "127.0.0.1"
+
+    # -- Metrics bind port
+    metricsBindPort: "8080"
 
     gateway:
       # -- Ingress domain for RawDeployment mode, for Serverless it is configured in Knative.
@@ -401,7 +415,14 @@ kserve:
         image: kserve/kserve-localmodel-controller
         tag: *defaultVersion
       jobNamespace: kserve-localmodel-jobs
+      jobTTLSecondsAfterFinished: 3600
       securityContext:
-        FSGroup: 1000
+        fsGroup: 1000
+      agent:
+        nodeSelector: {}
+        hostPath: /mnt/models
+        image: kserve/kserve-localmodelnode-agent
+        tag: *defaultVersion
+        reconcilationFrequencyInSecs: 60
   security:
     autoMountServiceAccountToken: true

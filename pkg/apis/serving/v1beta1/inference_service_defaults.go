@@ -49,12 +49,11 @@ var (
 )
 
 // +kubebuilder:object:generate=false
-// +k8s:deepcopy-gen=false
 // +k8s:openapi-gen=false
 // InferenceServiceDefaulter is responsible for setting default values on the InferenceService
 // when created or updated.
 //
-// NOTE: The +kubebuilder:object:generate=false and +k8s:deepcopy-gen=false marker prevents controller-gen from generating DeepCopy methods,
+// NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as it is used only for temporary operations and does not need to be deeply copied.
 type InferenceServiceDefaulter struct {
 }
@@ -117,26 +116,27 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 		return err
 	}
 
-	var models *v1alpha1.ClusterLocalModelList
-	if localModelConfig.Enabled {
+	_, localModelDisabledForIsvc := isvc.ObjectMeta.Annotations[constants.DisableLocalModelKey]
+	var models *v1alpha1.LocalModelCacheList
+	if !localModelDisabledForIsvc && localModelConfig.Enabled {
 		var c client.Client
 		if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
 			mutatorLogger.Error(err, "Failed to start client")
 			return err
 		}
-		models = &v1alpha1.ClusterLocalModelList{}
-		if err := c.List(context.TODO(), models); err != nil {
+		models = &v1alpha1.LocalModelCacheList{}
+		if err := c.List(ctx, models); err != nil {
 			mutatorLogger.Error(err, "Cannot List local models")
 			return err
 		}
 	}
 
-	// Pass a list of ClusterLocalModel resources to set the local model label if there is a match
+	// Pass a list of LocalModelCache resources to set the local model label if there is a match
 	isvc.DefaultInferenceService(configMap, deployConfig, securityConfig, models)
 	return nil
 }
 
-func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.ClusterLocalModelList) {
+func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList) {
 	deploymentMode, ok := isvc.ObjectMeta.Annotations[constants.DeploymentMode]
 
 	if !ok && deployConfig != nil {
@@ -434,9 +434,9 @@ func (isvc *InferenceService) SetTritonDefaults() {
 	}
 }
 
-// If there is a ClusterLocalModel resource, add the name of the ClusterLocalModel and sourceModelUri to the isvc,
+// If there is a LocalModelCache resource, add the name of the LocalModelCache and sourceModelUri to the isvc,
 // which is used by the local model controller to manage PV/PVCs.
-func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.ClusterLocalModelList) {
+func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList) {
 	if models == nil {
 		return
 	}
@@ -450,7 +450,7 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.ClusterLocalMo
 		return
 	}
 	storageUri = *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
-	var localModel *v1alpha1.ClusterLocalModel
+	var localModel *v1alpha1.LocalModelCache
 	for i, model := range models.Items {
 		if strings.HasPrefix(storageUri, model.Spec.SourceModelUri) {
 			localModel = &models.Items[i]
@@ -468,5 +468,7 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.ClusterLocalMo
 	}
 	isvc.Labels[constants.LocalModelLabel] = localModel.Name
 	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = localModel.Spec.SourceModelUri
-	mutatorLogger.Info("ClusterLocalModel found", "model", localModel.Name, "namespace", isvc.Namespace, "isvc", isvc.Name)
+	// TODO: node group needs to be retrieved from isvc node group annotation when we support multiple node groups
+	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModel.Name + "-" + localModel.Spec.NodeGroups[0]
+	mutatorLogger.Info("LocalModelCache found", "model", localModel.Name, "namespace", isvc.Namespace, "isvc", isvc.Name)
 }

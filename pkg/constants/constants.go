@@ -85,6 +85,7 @@ var (
 	InferenceServiceGKEAcceleratorAnnotationKey = KServeAPIGroupName + "/gke-accelerator"
 	DeploymentMode                              = KServeAPIGroupName + "/deploymentMode"
 	EnableRoutingTagAnnotationKey               = KServeAPIGroupName + "/enable-tag-routing"
+	DisableLocalModelKey                        = KServeAPIGroupName + "/disable-localmodel"
 	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
 	AutoscalerMetrics                           = KServeAPIGroupName + "/metrics"
 	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
@@ -126,6 +127,7 @@ var (
 	PredictorProtocolAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/predictor-protocol"
 	LocalModelLabel                                  = InferenceServiceInternalAnnotationsPrefix + "/localmodel"
 	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
+	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
 )
 
 // kserve networking constants
@@ -401,15 +403,16 @@ const (
 
 // built-in runtime servers
 const (
-	SKLearnServer = "kserve-sklearnserver"
-	MLServer      = "kserve-mlserver"
-	TFServing     = "kserve-tensorflow-serving"
-	XGBServer     = "kserve-xgbserver"
-	TorchServe    = "kserve-torchserve"
-	TritonServer  = "kserve-tritonserver"
-	PMMLServer    = "kserve-pmmlserver"
-	LGBServer     = "kserve-lgbserver"
-	PaddleServer  = "kserve-paddleserver"
+	SKLearnServer     = "kserve-sklearnserver"
+	MLServer          = "kserve-mlserver"
+	TFServing         = "kserve-tensorflow-serving"
+	XGBServer         = "kserve-xgbserver"
+	TorchServe        = "kserve-torchserve"
+	TritonServer      = "kserve-tritonserver"
+	PMMLServer        = "kserve-pmmlserver"
+	LGBServer         = "kserve-lgbserver"
+	PaddleServer      = "kserve-paddleserver"
+	HuggingFaceServer = "kserve-huggingfaceserver"
 )
 
 const (
@@ -475,7 +478,6 @@ const (
 const (
 	IstioVirtualServiceKind = "VirtualService"
 	KnativeServiceKind      = "Service"
-	ClusterLocalModelKind   = "ClusterLocalModel"
 )
 
 // Model Parallel Options

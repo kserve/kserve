@@ -106,7 +106,7 @@ cp ${temp_dir}/serving.kserve.io_inferencegraphs.yaml charts/kserve-crd/template
 cp ${temp_dir}/serving.kserve.io_servingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
 cp ${temp_dir}/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/templates/serving.kserve.io_clusterstoragecontainers.yaml
 cp ${temp_dir}/serving.kserve.io_localmodelnodegroups.yaml charts/kserve-crd/templates/serving.kserve.io_localmodelnodegroups.yaml
-cp ${temp_dir}/serving.kserve.io_clusterlocalmodels.yaml charts/kserve-crd/templates/serving.kserve.io_clusterlocalmodels.yaml
+cp ${temp_dir}/serving.kserve.io_localmodelcaches.yaml charts/kserve-crd/templates/serving.kserve.io_localmodelcaches.yaml
 
 # Clean temp directory
 rm -rf ${temp_dir}

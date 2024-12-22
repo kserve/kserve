@@ -39,82 +39,6 @@
         }
       }
     },
-    "v1alpha1.ClusterLocalModel": {
-      "type": "object",
-      "properties": {
-        "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-          "type": "string"
-        },
-        "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-          "type": "string"
-        },
-        "metadata": {
-          "default": {},
-          "$ref": "#/definitions/v1.ObjectMeta"
-        },
-        "spec": {
-          "default": {},
-          "$ref": "#/definitions/v1alpha1.ClusterLocalModelSpec"
-        },
-        "status": {
-          "default": {},
-          "$ref": "#/definitions/v1alpha1.ClusterLocalModelStatus"
-        }
-      }
-    },
-    "v1alpha1.ClusterLocalModelList": {
-      "type": "object",
-      "required": [
-        "items"
-      ],
-      "properties": {
-        "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-          "type": "string"
-        },
-        "items": {
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/v1alpha1.ClusterLocalModel"
-          }
-        },
-        "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-          "type": "string"
-        },
-        "metadata": {
-          "default": {},
-          "$ref": "#/definitions/v1.ListMeta"
-        }
-      }
-    },
-    "v1alpha1.ClusterLocalModelSpec": {
-      "type": "object",
-      "required": [
-        "sourceModelUri",
-        "modelSize",
-        "nodeGroup"
-      ],
-      "properties": {
-        "modelSize": {
-          "description": "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
-          "$ref": "#/definitions/resource.Quantity"
-        },
-        "nodeGroup": {
-          "description": "group of nodes to cache the model on.",
-          "type": "string",
-          "default": ""
-        },
-        "sourceModelUri": {
-          "description": "Original StorageUri",
-          "type": "string",
-          "default": ""
-        }
-      }
-    },
     "v1alpha1.ClusterServingRuntime": {
       "description": "ClusterServingRuntime is the Schema for the servingruntimes API",
       "type": "object",
@@ -432,6 +356,88 @@
         "serviceUrl": {
           "description": "InferenceService URL, mutually exclusive with ServiceName",
           "type": "string"
+        }
+      }
+    },
+    "v1alpha1.LocalModelCache": {
+      "description": "LocalModelCache",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LocalModelCacheSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LocalModelCacheStatus"
+        }
+      }
+    },
+    "v1alpha1.LocalModelCacheList": {
+      "description": "LocalModelCacheList",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.LocalModelCache"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.LocalModelCacheSpec": {
+      "description": "LocalModelCacheSpec",
+      "type": "object",
+      "required": [
+        "sourceModelUri",
+        "modelSize",
+        "nodeGroups"
+      ],
+      "properties": {
+        "modelSize": {
+          "description": "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
+          "$ref": "#/definitions/resource.Quantity"
+        },
+        "nodeGroups": {
+          "description": "group of nodes to cache the model on. Todo: support more than 1 node groups",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "sourceModelUri": {
+          "description": "Original StorageUri",
+          "type": "string",
+          "default": ""
         }
       }
     },
@@ -3310,6 +3316,14 @@
         "jobNamespace": {
           "type": "string",
           "default": ""
+        },
+        "jobTTLSecondsAfterFinished": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "reconcilationFrequencyInSecs": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
@@ -5120,6 +5134,15 @@
         "autoMountServiceAccountToken": {
           "type": "boolean",
           "default": false
+        }
+      }
+    },
+    "v1beta1.ServiceConfig": {
+      "type": "object",
+      "properties": {
+        "serviceClusterIPNone": {
+          "description": "ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None. If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is false when the value is absent.",
+          "type": "boolean"
         }
       }
     },
