@@ -177,6 +177,185 @@ func TestServingRuntimeSpec_IsDisabled(t *testing.T) {
 	}
 }
 
+func TestServingRuntimeSpec_ValidateField(t *testing.T) {
+	endpoint := "endpoint"
+	version := "1.0"
+
+	scenarios := map[string]struct {
+		spec ServingRuntimeSpec
+		res  bool
+	}{
+		"if servingRuntimePodSpec does not have containers field, it will fail": {
+			spec: ServingRuntimeSpec{
+				GrpcDataEndpoint: &endpoint,
+				ServingRuntimePodSpec: ServingRuntimePodSpec{
+					NodeSelector: make(map[string]string),
+				},
+				SupportedModelFormats: []SupportedModelFormat{
+					{
+						Name:    "name",
+						Version: &version,
+					},
+				},
+			},
+			res: false,
+		},
+		"if servingRuntimePodSpec have containers field, it will succeed": {
+			spec: ServingRuntimeSpec{
+				GrpcDataEndpoint: &endpoint,
+				ServingRuntimePodSpec: ServingRuntimePodSpec{
+					Containers: []v1.Container{
+						{
+							Args:    []string{"arg1", "arg2"},
+							Command: []string{"command", "command2"},
+							Env: []v1.EnvVar{
+								{Name: "name", Value: "value"},
+								{
+									Name: "fromSecret",
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
+									},
+								},
+							},
+							Image:           "image",
+							Name:            "name",
+							ImagePullPolicy: "IfNotPresent",
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
+								},
+							},
+						},
+					},
+				},
+				SupportedModelFormats: []SupportedModelFormat{
+					{
+						Name:    "name",
+						Version: &version,
+					},
+				},
+			},
+			res: true,
+		},
+		"if workerSpec does not have containers field, it will fail": {
+			spec: ServingRuntimeSpec{
+				GrpcDataEndpoint: &endpoint,
+				Disabled:         proto.Bool(true),
+				ServingRuntimePodSpec: ServingRuntimePodSpec{
+					Containers: []v1.Container{
+						{
+							Args:    []string{"arg1", "arg2"},
+							Command: []string{"command", "command2"},
+							Env: []v1.EnvVar{
+								{Name: "name", Value: "value"},
+								{
+									Name: "fromSecret",
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
+									},
+								},
+							},
+							Image:           "image",
+							Name:            "name",
+							ImagePullPolicy: "IfNotPresent",
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
+								},
+							},
+						},
+					},
+				},
+				WorkerSpec: &WorkerSpec{
+					ServingRuntimePodSpec: ServingRuntimePodSpec{
+						NodeSelector: make(map[string]string),
+					},
+				},
+				SupportedModelFormats: []SupportedModelFormat{
+					{
+						Name:    "name",
+						Version: &version,
+					},
+				},
+			},
+			res: false,
+		},
+		"if workerSpec have containers field, it will succeed": {
+			spec: ServingRuntimeSpec{
+				GrpcDataEndpoint: &endpoint,
+				Disabled:         proto.Bool(true),
+				ServingRuntimePodSpec: ServingRuntimePodSpec{
+					Containers: []v1.Container{
+						{
+							Args:    []string{"arg1", "arg2"},
+							Command: []string{"command", "command2"},
+							Env: []v1.EnvVar{
+								{Name: "name", Value: "value"},
+								{
+									Name: "fromSecret",
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
+									},
+								},
+							},
+							Image:           "image",
+							Name:            "name",
+							ImagePullPolicy: "IfNotPresent",
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
+								},
+							},
+						},
+					},
+				},
+				WorkerSpec: &WorkerSpec{
+					ServingRuntimePodSpec: ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Args:    []string{"arg1", "arg2"},
+								Command: []string{"command", "command2"},
+								Env: []v1.EnvVar{
+									{Name: "name", Value: "value"},
+									{
+										Name: "fromSecret",
+										ValueFrom: &v1.EnvVarSource{
+											SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
+										},
+									},
+								},
+								Image:           "image",
+								Name:            "name",
+								ImagePullPolicy: "IfNotPresent",
+								Resources: v1.ResourceRequirements{
+									Limits: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("200Mi"),
+									},
+								},
+							},
+						},
+					},
+				},
+				SupportedModelFormats: []SupportedModelFormat{
+					{
+						Name:    "name",
+						Version: &version,
+					},
+				},
+			},
+			res: true,
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.spec.IsValid()
+			if res != scenario.res {
+				t.Errorf("Expected %t, got %t", scenario.res, res)
+			}
+		})
+	}
+}
+
 func TestServingRuntimeSpec_IsMultiModelRuntime(t *testing.T) {
 	endpoint := "endpoint"
 	version := "1.0"

@@ -11,3 +11,6 @@ spec:
         limits:
           memory: 4Gi
           nvidia.com/gpu: "1"
+      args:
+        - --disable-token-auth
+        - --enable-model-api

@@ -29,15 +29,17 @@ from .constants.constants import (
     DEFAULT_GRPC_PORT,
     MAX_GRPC_MESSAGE_LENGTH,
 )
+from .errors import NoModelReady
 from .logging import logger
-from .model import BaseKServeModel
+from .model import BaseKServeModel, PredictorConfig
 from .model_repository import ModelRepository
 from .protocol.dataplane import DataPlane
 from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.server import UvicornServer
 from .utils import utils
-from kserve.errors import NoModelReady
+from .utils.inference_client_factory import InferenceClientFactory
+
 
 parser = argparse.ArgumentParser(
     add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -164,6 +166,18 @@ parser.add_argument(
     type=int,
     help="The max message length for gRPC receive message.",
 )
+parser.add_argument(
+    "--predictor_request_retries",
+    default=0,
+    type=int,
+    help="The number of retries if predictor request fails. Defaults to 0.",
+)
+parser.add_argument(
+    "--enable_predictor_health_check",
+    action="store_true",
+    help="The Transformer will perform readiness check for the predictor in addition to "
+    "its health check. By default it is disabled.",
+)
 args, _ = parser.parse_known_args()
 
 app = FastAPI(
@@ -239,6 +253,17 @@ class ModelServer:
                 logging.configure_logging(args.log_config_file)
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
+        predictor_config = PredictorConfig(
+            predictor_host=args.predictor_host,
+            predictor_protocol=args.predictor_protocol,
+            predictor_use_ssl=args.predictor_use_ssl,
+            predictor_request_timeout_seconds=args.predictor_request_timeout_seconds,
+            predictor_request_retries=args.predictor_request_retries,
+            predictor_health_check=args.enable_predictor_health_check,
+        )
+        self.dataplane = DataPlane(
+            model_registry=self.registered_models, predictor_config=predictor_config
+        )
 
     async def _serve_rest(self):
         logger.info(f"Starting uvicorn with {self.workers} workers")
@@ -314,6 +339,7 @@ class ModelServer:
         Args:
             sig: The signal to stop the server. Default: ``None``.
         """
+        await InferenceClientFactory().close()
         logger.info("Stopping the model server")
         if self._rest_server:
             logger.info("Stopping the rest server")
@@ -348,7 +374,7 @@ class ModelServer:
         """
         if "exception" in context:
             logger.error(f"Caught exception: {context.get('exception')}")
-        logger.error(f"message: { context.get('message')}")
+        logger.error(f"message: {context.get('message')}")
         loop.default_exception_handler(context)
 
     def register_model(self, model: BaseKServeModel):

@@ -420,6 +420,19 @@ data:
          "defaultDeploymentMode": "Serverless"
        }
 
+     # ====================================== SERVICE CONFIGURATION ======================================
+     # Example
+     service: |-
+       {
+         "serviceClusterIPNone": "false"
+       }
+     service: |-
+       {
+          # ServiceClusterIPNone is a flag to indicate if the service should have a clusterIP set to None.
+          # If the DeploymentMode is Raw, the default value for ServiceClusterIPNone if not set is false
+          # "serviceClusterIPNone": "false"
+       }
+
      # ====================================== METRICS CONFIGURATION ======================================
      # Example
      metricsAggregator: |-
@@ -439,6 +452,24 @@ data:
          # service with the specified boolean value. If true, prometheus annotations are added to the pod. If serving.kserve.io/enable-metric-aggregation is false,
          # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
          "enablePrometheusScraping" : "false"
+       }
+
+     # ====================================== LOCALMODEL CONFIGURATION ======================================
+     # Example
+     localModel: |-
+       {
+         "enabled": false,
+         # jobNamespace specifies the namespace where the download job will be created.
+         "jobNamespace": "kserve-localmodel-jobs",
+         # defaultJobImage specifies the default image used for the download job.
+         "defaultJobImage" : "kserve/storage-initializer:latest",
+         # Kubernetes modifies the filesystem group ID on the attached volume.
+         "fsGroup": 1000,
+         # TTL for the download job after it is finished.
+         "jobTTLSecondsAfterFinished": 3600,
+         # The frequency at which the local model agent reconciles the local models
+         # This is to detect if models are missing from local disk
+         "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }}
        }
 
   agent: |-
@@ -489,6 +520,10 @@ data:
   deploy: |-
     {
       "defaultDeploymentMode": "{{ .Values.kserve.controller.deploymentMode }}"
+    }
+  service: |-
+    {
+      "serviceClusterIPNone": "{{ .Values.kserve.service.serviceClusterIPNone }}"
     }
   explainers: |-
     {
@@ -542,4 +577,17 @@ data:
     {
       "enableMetricAggregation": "{{ .Values.kserve.metricsaggregator.enableMetricAggregation }}",
       "enablePrometheusScraping" : "{{ .Values.kserve.metricsaggregator.enablePrometheusScraping }}"
+    }
+  localModel: |-
+    {
+      "enabled": {{ .Values.kserve.localmodel.enabled }},
+      "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
+      "jobTTLSecondsAfterFinished": {{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }},
+      "defaultJobImage": "kserve/storage-initializer:latest",
+      "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }},
+      "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }}
+    }
+  security: |-
+    {
+      "autoMountServiceAccountToken": {{ .Values.kserve.security.autoMountServiceAccountToken }}
     }

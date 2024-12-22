@@ -32,16 +32,17 @@ import (
 // ConfigMap Keys
 const (
 	ExplainerConfigKeyName = "explainers"
+	IngressConfigKeyName   = "ingress"
+	DeployConfigName       = "deploy"
+	LocalModelConfigName   = "localModel"
+	SecurityConfigName     = "security"
+	ServiceConfigName      = "service"
 )
 
 const (
-	IngressConfigKeyName = "ingress"
-	DeployConfigName     = "deploy"
-
 	DefaultDomainTemplate = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
 	DefaultIngressDomain  = "example.com"
-
-	DefaultUrlScheme = "http"
+	DefaultUrlScheme      = "http"
 )
 
 // +kubebuilder:object:generate=false
@@ -82,6 +83,28 @@ type IngressConfig struct {
 // +kubebuilder:object:generate=false
 type DeployConfig struct {
 	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type LocalModelConfig struct {
+	Enabled                      bool   `json:"enabled"`
+	JobNamespace                 string `json:"jobNamespace"`
+	DefaultJobImage              string `json:"defaultJobImage,omitempty"`
+	FSGroup                      *int64 `json:"fsGroup,omitempty"`
+	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
+	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type SecurityConfig struct {
+	AutoMountServiceAccountToken bool `json:"autoMountServiceAccountToken"`
+}
+
+// +kubebuilder:object:generate=false
+type ServiceConfig struct {
+	// ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None.
+	// If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is false when the value is absent.
+	ServiceClusterIPNone bool `json:"serviceClusterIPNone,omitempty"`
 }
 
 func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServicesConfig, error) {
@@ -183,4 +206,50 @@ func NewDeployConfig(clientset kubernetes.Interface) (*DeployConfig, error) {
 		}
 	}
 	return deployConfig, nil
+}
+
+func NewLocalModelConfig(clientset kubernetes.Interface) (*LocalModelConfig, error) {
+	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	localModelConfig := &LocalModelConfig{}
+	if localModel, ok := configMap.Data[LocalModelConfigName]; ok {
+		err := json.Unmarshal([]byte(localModel), &localModelConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return localModelConfig, nil
+}
+
+func NewSecurityConfig(clientset kubernetes.Interface) (*SecurityConfig, error) {
+	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	securityConfig := &SecurityConfig{}
+	if security, ok := configMap.Data[SecurityConfigName]; ok {
+		err := json.Unmarshal([]byte(security), &securityConfig)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return securityConfig, nil
+}
+
+func NewServiceConfig(clientset kubernetes.Interface) (*ServiceConfig, error) {
+	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+
+	if err != nil {
+		return nil, err
+	}
+	serviceConfig := &ServiceConfig{}
+	if service, ok := configMap.Data[ServiceConfigName]; ok {
+		err := json.Unmarshal([]byte(service), &serviceConfig)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse service config json: %w", err)
+		}
+	}
+	return serviceConfig, nil
 }

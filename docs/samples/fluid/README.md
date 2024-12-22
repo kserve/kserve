@@ -25,23 +25,6 @@ To improve performance, it becomes crucial to cache the model artifacts rather t
       --type merge \
       --patch '{"data":{"kubernetes.podspec-nodeselector":"enabled", "kubernetes.podspec-tolerations":"enabled"}}'
     ```
-  * Enable Direct VolumeMount for PVC In KServe
-
-    ```sh
-    # edit inferenceservice-config and update enableDirectPvcVolumeMount to true
-    kubectl edit configmap inferenceservice-config  -n kserve
-
-    #   storageInitializer: |-
-    #     {
-    #         "image" : "kserve/storage-initializer:latest",
-    #         "memoryRequest": "100Mi",
-    #         "memoryLimit": "1Gi",
-    #         "cpuRequest": "100m",
-    #         "cpuLimit": "1",
-    #         "storageSpecSecretName": "storage-config",
-    #         "enableDirectPvcVolumeMount": false        # change to true
-    #     }
-    ```
 
 * [Fluid](https://github.com/fluid-cloudnative/fluid/blob/master/docs/en/userguide/get_started.md)
   * Deploy Fluid
@@ -50,15 +33,13 @@ To improve performance, it becomes crucial to cache the model artifacts rather t
     # Add Fluid repository to Helm repos and keep it up-to-date
     helm repo add fluid https://fluid-cloudnative.github.io/charts
     helm repo update
-    # we use the devel version here
-    helm upgrade --install \
-      --set webhook.reinvocationPolicy=IfNeeded \
-      fluid --create-namespace --namespace=fluid-system fluid/fluid --devel
+    # Deploy Fluid with Helm
+    helm upgrade --install fluid --create-namespace --namespace=fluid-system fluid/fluid
     ```
 
 ## Prepare Demo Application
 
-The demo application uses KServe to serve a LLM (Large Language Model). In this tutorial [BLOOM](https://huggingface.co/docs/transformers/model_doc/bloom) model is used as an example.
+The demo application uses KServe to serve a LLM (Large Language Model). In this tutorial [Llama3.1-8B-Instruct](https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct) model is used as an example.
 
 ### Prerequisite
 
@@ -69,73 +50,48 @@ git clone https://github.com/kserve/kserve.git
 cd kserve/docs/samples/fluid
 ```
 
-### Build and Push Application Image
-
-```sh
-export DOCKER_REPO='docker.io/<username>'
-
-# build and push application image
-cd docker
-docker build -f Dockerfile -t ${DOCKER_REPO}/kserve-fluid:bloom-gpu-v1 .
-docker push ${DOCKER_REPO}/kserve-fluid:bloom-gpu-v1
-cd ..
-```
-
 ### Prepare Model Artifact
 
-Download model from `HuggingFace`, `BLOOM` models are using in this tutorial.
+Download model from `HuggingFace`, `Llama3.1-8B-Instruct` model is using in this tutorial.
 
 ```sh
 python -m venv .venv
 source .venv/bin/activate
-pip install --upgrade pip
-pip install 'transformers[torch]'
+pip3 install --upgrade pip
+pip3 install "huggingface_hub[hf_transfer]"
 
 # create models folder
 mkdir -p models
 
-# please check https://huggingface.co/docs/transformers/model_doc/bloom for other BLOOM models and update the command accordingly
-python3 download_model.py --model_name="bigscience/bloom-560m" --model_dir="models"
-# export output_dir=models/models--bigscience--bloom-560m/snapshots/e985a63cdc139290c5f700ff1929f0b5942cced2
+# to download Llama models, you need accept the Llama 3 community license agreement and set HF_TOKEN
+export HF_TOKEN="xxxxxxxx"
+HF_HUB_ENABLE_HF_TRANSFER=1 python3 download_model.py --model_name="meta-llama/Meta-Llama-3.1-8B-Instruct" --model_dir="./models"
+# export output_dir=models/models--meta-llama--Meta-Llama-3.1-8B-Instruct/snapshots/main
 ```
 
 Structure of the model artifact:
 ```sh
 ❯ tree ${output_dir}
-models/models--bigscience--bloom-560m/snapshots/e985a63cdc139290c5f700ff1929f0b5942cced2
-├── LICENSE -> ../../blobs/ab1f554e777c9a2075dca946ae706c0ab257a9de
-├── README.md -> ../../blobs/2d31ada6c9c81597141987c8d8eeeb1df27c42ef
-├── config.json -> ../../blobs/a9f31df161b949147c63449ead0bd4e5fc70770d
-├── flax_model.msgpack -> ../../blobs/fdd2b3658489e7d17525b5ccfc656e1e056c4b47360e2a3bd808bce15bf4a79c
-├── model.safetensors -> ../../blobs/a8702498162c95d68d2724e7f333c83d7be08de81cfc091455c38730682116d3
-├── pytorch_model.bin -> ../../blobs/8b42cc000f3764cd7983479c71e01cf7bda8e37352cef99cc44f36f5944377d8
-├── special_tokens_map.json -> ../../blobs/25bc39604f72700b3b8e10bd69bb2f227157edd1
-├── tokenizer.json -> ../../blobs/3fa39cd4b1500feb205bcce3b9703a4373414cafe4970e0657b413f7ddd2a9d3
-└── tokenizer_config.json -> ../../blobs/e7016b49fcff7e162946ec012d3c7b4db0b66d87
-
-0 directories, 9 files
+models/models--meta-llama--Meta-Llama-3.1-8B-Instruct/snapshots/main
+├── config.json
+├── generation_config.json
+├── model-00001-of-00004.safetensors
+├── model-00002-of-00004.safetensors
+├── model-00003-of-00004.safetensors
+├── model-00004-of-00004.safetensors
+├── model.safetensors.index.json
+├── original
+│   ├── params.json
+│   └── tokenizer.model
+├── special_tokens_map.json
+├── tokenizer.json
+└── tokenizer_config.json
 ```
 
 Upload the model to S3 bucket:
 ```sh
 # update the path accordingly
-aws s3 cp --recursive ${output_dir} s3://${bucket}/models/bloom-560m
-```
-
-### Run The Application Locally
-
-```sh
-docker run -it --rm -p 8080:8080 \
-  -v $(pwd)/models:/mnt/models \
-  -e MODEL_URL=/mnt/${output_dir} \
-  -e MODEL_NAME=bloom \
-  ${DOCKER_REPO}/kserve-fluid:bloom-gpu-v1
-```
-
-### Test The Application
-
-```sh
-curl -i -X POST -H "Content-Type: application/json" "localhost:8080/v1/models/bloom:predict" -d '{"prompt": "It was a dark and stormy night", "result_length": 50}'
+aws s3 cp --recursive ${output_dir} s3://${bucket}/models/meta-llama--Meta-Llama-3.1-8B-Instruct
 ```
 
 ## Demo
@@ -146,17 +102,13 @@ Let's start our demo.
 
 ```sh
 kubectl create ns kserve-fluid-demo
-
-# add label to inject fluid sidecar
-kubectl label namespace kserve-fluid-demo fluid.io/enable-injection=true
 ```
 
 ### Create S3 Credentials Secret And Service Account
 
 ```sh
 # please update the s3 credentials to yours
-# NOTE: for Jindo runtime, https is not supported in current version
-kubectl create -f s3creds.yaml -n kserve-fluid-demo
+$ kubectl create -f s3creds.yaml -n kserve-fluid-demo
 ```
 
 ### Create Dataset And Runtime
@@ -165,7 +117,7 @@ Create Dataset and Runtime (In this tutorial you will use `JindoFS` as the runti
 
 ```sh
 # please update the `mountPoint` and `options`
-kubectl create -f jindo.yaml -n kserve-fluid-demo
+$ kubectl create -f jindo.yaml -n kserve-fluid-demo
 
 dataset.data.fluid.io/s3-data created
 jindoruntime.data.fluid.io/s3-data created
@@ -174,30 +126,28 @@ jindoruntime.data.fluid.io/s3-data created
 Check the status:
 
 ```sh
-kubectl get po -n kserve-fluid-demo
-
+$ kubectl get po -n kserve-fluid-demo
 NAME                       READY   STATUS    RESTARTS   AGE
-s3-data-jindofs-master-0   1/1     Running   0          28s
-s3-data-jindofs-worker-0   1/1     Running   0          5s
-s3-data-jindofs-worker-1   1/1     Running   0          5s
+s3-data-jindofs-master-0   1/1     Running   0          5m18s
+s3-data-jindofs-worker-0   1/1     Running   0          3m53s
+s3-data-jindofs-worker-1   1/1     Running   0          3m52s
+s3-data-jindofs-worker-2   1/1     Running   0          3m52s
 
 
-kubectl get jindoruntime,dataset -n kserve-fluid-demo
-
+$ kubectl get jindoruntime,dataset -n kserve-fluid-demo
 NAME                                 MASTER PHASE   WORKER PHASE   FUSE PHASE   AGE
-jindoruntime.data.fluid.io/s3-data   Ready          Ready          Ready        70s
+jindoruntime.data.fluid.io/s3-data   Ready          Ready          Ready        9m17s
 
-NAME                            UFS TOTAL SIZE   CACHED   CACHE CAPACITY   CACHED PERCENTAGE   PHASE   AGE
-dataset.data.fluid.io/s3-data   3.14GiB          0.00B    100.00GiB        0.0%                Bound   70s
+NAME                            UFS TOTAL SIZE   CACHED     CACHE CAPACITY   CACHED PERCENTAGE   PHASE   AGE
+dataset.data.fluid.io/s3-data   14.97GiB         12.11MiB   300.00GiB        0.1%                Bound   9m19s
 ```
 
 A PVC is created to mount the dataset into the application:
 
-```
-kubectl get pvc -n kserve-fluid-demo
-
-NAME      STATUS   VOLUME                      CAPACITY   ACCESS MODES   STORAGECLASS   AGE
-s3-data   Bound    kserve-fluid-demo-s3-data   100Pi      ROX            fluid          65s
+```sh
+$ kubectl get pvc -n kserve-fluid-demo
+NAME      STATUS   VOLUME                      CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+s3-data   Bound    kserve-fluid-demo-s3-data   100Pi      ROX            fluid          <unset>                 9m57s
 ```
 
 ### Preload The Data
@@ -206,86 +156,78 @@ Preload the data into workers to improve the performance:
 
 ```sh
 # please update the `path` under `target`
-kubectl create -f dataload.yaml -n kserve-fluid-demo
+$ kubectl create -f dataload.yaml -n kserve-fluid-demo
 ```
 
 Check the dataload status:
 
 ```sh
-kubectl get dataload -n kserve-fluid-demo
+$ kubectl get dataload -n kserve-fluid-demo
+NAME          DATASET   PHASE      AGE    DURATION
+s3-dataload   s3-data   Complete   6m1s   2m51s
 
-NAME          DATASET   PHASE      AGE     DURATION
-s3-dataload   s3-data   Complete   4m50s   2m22s
-
-kubectl get dataset -n kserve-fluid-demo
-
-NAME      UFS TOTAL SIZE   CACHED    CACHE CAPACITY   CACHED PERCENTAGE   PHASE   AGE
-s3-data   3.14GiB          3.02GiB   100.00GiB        96.2%               Bound   13m
+$ kubectl get dataset -n kserve-fluid-demo
+NAME      UFS TOTAL SIZE   CACHED     CACHE CAPACITY   CACHED PERCENTAGE   PHASE   AGE
+s3-data   14.97GiB         44.92GiB   300.00GiB        100.0%              Bound   12m
 ```
 
 Data are cached successfully.
 
-### Deploy The Demo Application
+### Deploy Cluster Serving Runtime
+
+From my testing, the safetensors weights are loaded randomly which causing low performance when reading from remote cache, so I modify the huggingfaceserver servingruntime to load the safetensors weights sequentially to warm up the cache before running the application server.
+
+```sh
+# deploy the custom huggingfaceserver servingruntime
+$ kubectl create -f kserve-huggingfaceserver.yaml
+```
+
+### Deploy The Inference Service
 
 Create the InferenceService with Fluid:
 
 ```sh
-# please update the `STORAGE_URI`
-kubectl create -f fluid-isvc.yaml -n kserve-fluid-demo
+# please update the `storageUri`.
+$ kubectl create -f fluid-isvc.yaml -n kserve-fluid-demo
 
-# run this command if you want to use the KServe Storage Initializer
-kubectl create -f kserve-isvc.yaml -n kserve-fluid-demo
+# run this command if you want to use the KServe Storage Initializer to download from cloud storage, update the `storageUri` as well. Please use the original huggerface server servingruntime.
+$ kubectl create -f kserve-isvc.yaml -n kserve-fluid-demo
 ```
 
 ### Test The Demo Application
 
-Follow this [guide](https://kserve.github.io/website/0.10/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) to get the ingress host and port:
+Follow this [guide](https://kserve.github.io/website/0.13/get_started/first_isvc/#4-determine-the-ingress-ip-and-ports) to get the ingress host and port:
 
 ```sh
-export MODEL_NAME=fluid-bloom
-# export MODEL_NAME=kserve-bloom
+export MODEL_NAME="llama-31-8b-instruct"
 export SERVICE_HOSTNAME=$(kubectl get inferenceservice ${MODEL_NAME} -n kserve-fluid-demo -o jsonpath='{.status.url}' | cut -d "/" -f 3)
 export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
 
-curl -v -H "Content-Type: application/json" -H "Host: ${SERVICE_HOSTNAME}" "http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/bloom:predict" -d '{"prompt": "It was a dark and stormy night", "result_length": 50}'
+$ curl "http://${INGRESS_HOST}:${INGRESS_PORT}/openai/v1/completions" \
+-H "content-type: application/json" \
+-H "Host: ${SERVICE_HOSTNAME}" \
+-d '{"model": "'"$MODEL_NAME"'", "prompt": "Write a poem about colors", "stream":false, "max_tokens": 30}'
 ```
 
 Output:
 
-```
-❯ curl -v -H "Content-Type: application/json" -H "Host: ${SERVICE_HOSTNAME}" "http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/bloom:predict" -d '{"prompt": "It was a dark and stormy night", "result_length": 50}'
-*   Trying 52.29.43.253:80...
-* Connected to a38c4xxxxxxxxxxxxxxx717177.eu-central-1.elb.amazonaws.com (52.29.43.253) port 80 (#0)
-> POST /v1/models/bloom:predict HTTP/1.1
-> Host: fluid-bloom.kserve-fluid-demo.a38c4xxxxxxxxxxxxxxx717177.eu-central-1.elb.amazonaws.com
-> User-Agent: curl/7.86.0
-> Accept: */*
-> Content-Type: application/json
-> Content-Length: 65
->
-* Mark bundle as not supporting multiuse
-< HTTP/1.1 200 OK
-< content-length: 190
-< content-type: application/json
-< date: Wed, 12 Apr 2023 15:46:16 GMT
-< server: istio-envoy
-< x-envoy-upstream-service-time: 52071
-<
-{
-  "result": "It was a dark and stormy night, and the wind blew with a\nfearful howl. The moon was obscured by a thick cloud, and the stars\nshone dimly. The wind blew the snow from the"
-}
-* Connection #0 to host a38c4xxxxxxxxxxxxxxx717177.eu-central-1.elb.amazonaws.com left intact
+```sh
+$ curl "http://${INGRESS_HOST}:${INGRESS_PORT}/openai/v1/completions" \
+-H "content-type: application/json" \
+-H "Host: ${SERVICE_HOSTNAME}" \
+-d '{"model": "'"$MODEL_NAME"'", "prompt": "Write a poem about colors", "stream":false, "max_tokens": 30}'
+{"id":"4e170959-8112-4a68-9415-4cb10239a2a5","choices":[{"finish_reason":"length","index":0,"logprobs":null,"text":". Many different things in life can be described by colors. Colors evoke emotions and memories. Use sensory details to bring your poem to life.\nSat in"}],"created":1724823045,"model":"llama-31-8b-instruct","system_fingerprint":null,"object":"text_completion","usage":{"completion_tokens":30,"prompt_tokens":6,"total_tokens":36}}
 ```
 
 ### Performance Benchmark
 
 To conduct a performance benchmark, we will compare the scaling time of the inference service with Storage initializer and Fluid across different model artifacts, measuring the time it takes for the service to scale from `0 to 1`.
 
-We will use the following [machine types](https://aws.amazon.com/ec2/instance-types/m5/) for our tests:
+We will use the following [machine types](https://aws.amazon.com/ec2/instance-types/g5/) for our tests:
 
-* Data: m5.xlarge (gp3 volume)
-* Workload: m5.2xlarge, m5.4xlarge
+* Data: m5n.xlarge (EBS GP3)
+* Workload: g5.8xlarge (NVIDIA A10G)
 
 We will use the following Fluid runtimes for our tests:
 
@@ -297,23 +239,23 @@ Other assumptions:
 
 * S3 bucket and Cluster are in the same region (eu-central-1)
 * Data are preloaded in workers
+* fuse.cleanPolicy: OnDemand
 
 
 Command to measure the total time:
 
 ```sh
 # Total time includes: pod initialization and running + download model (storage initializer) + load model + inference + network
-curl --connect-timeout 3600 --max-time 3600 -o /dev/null -s -w 'Total: %{time_total}s\n' -H "Content-Type: application/json" -H "Host: ${SERVICE_HOSTNAME}" "http://${INGRESS_HOST}:${INGRESS_PORT}/v1/models/bloom:predict" -d '{"prompt": "It was a dark and stormy night", "result_length": 50}'
+$ curl --connect-timeout 3600 --max-time 3600 -o /dev/null -s -w 'Total: %{time_total}s\n' -H "Content-Type: application/json" -H "Host: ${SERVICE_HOSTNAME}" "http://${INGRESS_HOST}:${INGRESS_PORT}/openai/v1/completions" -d '{"model": "'"$MODEL_NAME"'", "prompt": "Write a poem about colors", "stream":false, "max_tokens": 30}'
 # Total time: 53.037210s, status code: 200
 ```
 
 | Model Name                                                                | Model Size (Snapshot) | Machine Type | KServe + Storage Initializer                         | KServe + Fluid(JindoFS)                    |
 |---------------------------------------------------------------------------|-----------------------|--------------|------------------------------------------------------|--------------------------------------------|
-| [ bigscience/bloom-560m ]( https://huggingface.co/bigscience/bloom-560m ) | 3.14GB                | m5.2xlarge   | total: 52.725s (download: 25.091s, load: 3.549s)     | total: 23.286s (load: 4.763s) (2 workers)  |
-| [ bigscience/bloom-7b1 ]( https://huggingface.co/bigscience/bloom-7b1 )   | 26.35GB               | m5.4xlarge   | total: 365.479s (download: 219.844s, load: 102.299s) | total: 53.037s (load: 24.137s) (3 workers) |
+| [ meta-llama/Meta-Llama-3.1-8B-Instruct ]( https://huggingface.co/meta-llama/Meta-Llama-3.1-8B-Instruct )   | 15GB               | g5.8xlarge   | total: 265.253s | total: 50.111s |
 
-> NOTE: `total` is the response time of sending an inference request to a serverless inference service (scale from 0), which includes pod startup, `model download`, `model load`, model inference and network time.
-> TBD: add testing results for other runtimes
+> NOTE: `total` is the response time of sending an inference request to a serverless inference service (scale from 0), which includes pod startup, model download, model load, model inference and network time.
+> The above results are for reference only and may vary depending on the environment and the specific use case.
 
 As can be observed, Fluid has demonstrated notable improvements in the autoscaling performance of KServe on LLM.
 
@@ -341,5 +283,5 @@ kubectl delete ns fluid-system
 ## Reference
 * [KNative with Fluid](https://github.com/fluid-cloudnative/fluid/blob/master/docs/en/samples/knative.md)
 * [JindoFS](https://www.alibabacloud.com/blog/introducing-jindofs-a-high-performance-data-lake-storage-solution_595600)
-* [KServe with S3](https://kserve.github.io/website/0.8/modelserving/storage/s3/s3/)
-* [BLOOM](https://huggingface.co/docs/transformers/model_doc/bloom)
+* [KServe with S3](https://kserve.github.io/website/0.13/modelserving/storage/s3/s3/)
+* [Meta Llama](https://huggingface.co/meta-llama)

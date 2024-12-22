@@ -48,6 +48,7 @@ const (
 	PvcSourceMountPath                      = "/mnt/pvc"
 	CaBundleVolumeName                      = "cabundle-cert"
 	ModelcarContainerName                   = "modelcar"
+	ModelcarInitContainerName               = "modelcar-init"
 	ModelInitModeEnv                        = "MODEL_INIT_MODE"
 	CpuModelcarDefault                      = "10m"
 	MemoryModelcarDefault                   = "15Mi"
@@ -105,6 +106,9 @@ func GetContainerSpecForStorageUri(storageUri string, client client.Client) (*v1
 
 	for _, sc := range storageContainers.Items {
 		if sc.IsDisabled() {
+			continue
+		}
+		if sc.Spec.WorkloadType != v1alpha1.InitContainer {
 			continue
 		}
 		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
@@ -172,6 +176,11 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 	if getContainerWithName(pod, ModelcarContainerName) == nil {
 		modelContainer := mi.createModelContainer(image, constants.DefaultModelLocalMountPath)
 		pod.Spec.Containers = append(pod.Spec.Containers, *modelContainer)
+
+		// Add the model container as an init-container to pre-fetch the model before
+		// the runtimes starts.
+		modelInitContainer := mi.createModelInitContainer(image)
+		pod.Spec.InitContainers = append(pod.Spec.InitContainers, *modelInitContainer)
 	}
 
 	// Enable process namespace sharing so that the modelcar's root filesystem
@@ -184,7 +193,7 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *v1.Pod) error {
 
 // InjectStorageInitializer injects an init container to provision model data
 // for the serving container in a unified way across storage tech by injecting
-// a provisioning INIT container. This is a work around because KNative does not
+// a provisioning INIT container. This is a workaround because KNative does not
 // support INIT containers: https://github.com/knative/serving/issues/4307
 func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) error {
 	// Only inject if the required annotations are set
@@ -210,12 +219,39 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		}
 	}
 
-	// Find the kserve-container (this is the model inference server) and transformer container
+	// Update volume mount's readonly annotation based on the ISVC annotation
+	isvcReadonlyStringFlag := true
+	isvcReadonlyString, ok := pod.ObjectMeta.Annotations[constants.StorageReadonlyAnnotationKey]
+	if ok {
+		if isvcReadonlyString == "false" {
+			isvcReadonlyStringFlag = false
+		}
+	}
+
+	// Find the kserve-container (this is the model inference server) and transformer container and the worker-container
 	userContainer := getContainerWithName(pod, constants.InferenceServiceContainerName)
 	transformerContainer := getContainerWithName(pod, constants.TransformerContainerName)
+	workerContainer := getContainerWithName(pod, constants.WorkerContainerName)
 
 	if userContainer == nil {
-		return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
+		if workerContainer == nil {
+			return fmt.Errorf("Invalid configuration: cannot find container: %s", constants.InferenceServiceContainerName)
+		} else {
+			userContainer = workerContainer
+		}
+	}
+
+	// Mount pvc directly if local model label exists
+	if modelName, ok := pod.ObjectMeta.Labels[constants.LocalModelLabel]; ok {
+		subPath, _ := strings.CutPrefix(srcURI, pod.ObjectMeta.Annotations[constants.LocalModelSourceUriAnnotationKey])
+		if !strings.HasPrefix(subPath, "/") {
+			subPath = "/" + subPath
+		}
+		if pvcName, ok := pod.ObjectMeta.Annotations[constants.LocalModelPVCNameAnnotationKey]; ok {
+			srcURI = "pvc://" + pvcName + "/models/" + modelName + subPath
+		} else {
+			return fmt.Errorf("Annotation %s not found", constants.LocalModelPVCNameAnnotationKey)
+		}
 	}
 
 	podVolumes := []v1.Volume{}
@@ -252,7 +288,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 				MountPath: constants.DefaultModelLocalMountPath,
 				// only path to volume's root ("") or folder is supported
 				SubPath:  pvcPath,
-				ReadOnly: true,
+				ReadOnly: isvcReadonlyStringFlag,
 			}
 
 			// Check if PVC source URIs is already mounted
@@ -298,7 +334,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		pvcSourceVolumeMount := v1.VolumeMount{
 			Name:      PvcSourceMountName,
 			MountPath: PvcSourceMountPath,
-			ReadOnly:  true,
+			ReadOnly:  isvcReadonlyStringFlag,
 		}
 		storageInitializerMounts = append(storageInitializerMounts, pvcSourceVolumeMount)
 
@@ -333,7 +369,6 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 		storageInitializerImage = mi.config.Image
 	}
 
-	securityContext := userContainer.SecurityContext.DeepCopy()
 	// Add an init container to run provisioning logic to the PodSpec
 	initContainer := &v1.Container{
 		Name:  StorageInitializerContainerName,
@@ -354,14 +389,13 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 				v1.ResourceMemory: resource.MustParse(mi.config.MemoryRequest),
 			},
 		},
-		SecurityContext: securityContext,
 	}
 
 	// Add a mount the shared volume on the kserve-container, update the PodSpec
 	sharedVolumeReadMount := v1.VolumeMount{
 		Name:      StorageInitializerVolumeName,
 		MountPath: constants.DefaultModelLocalMountPath,
-		ReadOnly:  true,
+		ReadOnly:  isvcReadonlyStringFlag,
 	}
 	userContainer.VolumeMounts = append(userContainer.VolumeMounts, sharedVolumeReadMount)
 	if transformerContainer != nil {
@@ -678,6 +712,42 @@ func (mi *StorageInitializerInjector) createModelContainer(image string, modelPa
 		modelContainer.SecurityContext = &v1.SecurityContext{
 			RunAsUser: mi.config.UidModelcar,
 		}
+	}
+
+	return modelContainer
+}
+
+func (mi *StorageInitializerInjector) createModelInitContainer(image string) *v1.Container {
+	cpu := mi.config.CpuModelcar
+	if cpu == "" {
+		cpu = CpuModelcarDefault
+	}
+	memory := mi.config.MemoryModelcar
+	if memory == "" {
+		memory = MemoryModelcarDefault
+	}
+
+	modelContainer := &v1.Container{
+		Name:  ModelcarInitContainerName,
+		Image: image,
+		Args: []string{
+			"sh",
+			"-c",
+			// Check that the expected models directory exists
+			"echo 'Pre-fetching modelcar " + image + ": ' && [ -d /models ] && [ \"$$(ls -A /models)\" ] && echo 'OK ... Prefetched and valid (/models exists)' || (echo 'NOK ... Prefetched but modelcar is invalid (/models does not exist or is empty)' && exit 1)",
+		},
+		Resources: v1.ResourceRequirements{
+			Limits: map[v1.ResourceName]resource.Quantity{
+				// Could possibly be reduced to even less
+				v1.ResourceCPU:    resource.MustParse(cpu),
+				v1.ResourceMemory: resource.MustParse(memory),
+			},
+			Requests: map[v1.ResourceName]resource.Quantity{
+				v1.ResourceCPU:    resource.MustParse(cpu),
+				v1.ResourceMemory: resource.MustParse(memory),
+			},
+		},
+		TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
 	}
 
 	return modelContainer

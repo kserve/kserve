@@ -18,7 +18,6 @@ package testing
 
 import (
 	"context"
-	"path/filepath"
 	"sync"
 
 	"google.golang.org/protobuf/proto"
@@ -35,16 +34,12 @@ import (
 
 var log = logf.Log.WithName("TestingEnvSetup")
 
-func SetupEnvTest() *envtest.Environment {
+func SetupEnvTest(crdDirectoryPaths []string) *envtest.Environment {
 	t := &envtest.Environment{
+		ErrorIfCRDPathMissing: true,
 		// The relative paths must be provided for each level of test nesting
 		// This code should be illegal
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "..", "..", "..", "config", "crd", "serving.kserve.io_trainedmodels.yaml"),
-			filepath.Join("..", "..", "..", "..", "..", "..", "test", "crds"),
-			filepath.Join("..", "..", "..", "..", "config", "crd", "serving.kserve.io_trainedmodels.yaml"),
-			filepath.Join("..", "..", "..", "..", "test", "crds"),
-		},
+		CRDDirectoryPaths:  crdDirectoryPaths,
 		UseExistingCluster: proto.Bool(false),
 	}
 

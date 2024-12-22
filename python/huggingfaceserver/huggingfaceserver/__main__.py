@@ -50,7 +50,12 @@ def list_of_strings(arg):
     return arg.split(",")
 
 
-parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
+try:
+    from vllm.utils import FlexibleArgumentParser
+
+    parser = FlexibleArgumentParser(parents=[kserve.model_server.parser])
+except ImportError:
+    parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 
 parser.add_argument(
     "--model_dir",
@@ -270,6 +275,7 @@ def load_model():
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
                 predictor_config=predictor_config,
                 request_logger=request_logger,
+                return_probabilities=kwargs.get("return_probabilities", False),
             )
     model.load()
     return model

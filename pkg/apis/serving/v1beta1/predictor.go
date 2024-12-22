@@ -56,6 +56,9 @@ type PredictorSpec struct {
 	// Model spec for any arbitrary framework.
 	Model *ModelSpec `json:"model,omitempty"`
 
+	// WorkerSpec for enabling multi-node/multi-gpu
+	WorkerSpec *WorkerSpec `json:"workerSpec,omitempty"`
+
 	// This spec is dual purpose. <br />
 	// 1) Provide a full PodSpec for custom predictor.
 	// The field PodSpec.Containers is mutually exclusive with other predictors (i.e. TFServing). <br />
@@ -64,6 +67,20 @@ type PredictorSpec struct {
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for a predictor
 	ComponentExtensionSpec `json:",inline"`
+}
+
+type WorkerSpec struct {
+	PodSpec `json:",inline"`
+
+	// PipelineParallelSize defines the number of parallel workers.
+	// It also represents the number of replicas in the worker set, where each worker set serves as a scaling unit.
+	// +optional
+	PipelineParallelSize *int `json:"pipelineParallelSize,omitempty"`
+
+	// TensorParallelSize specifies the number of GPUs to be used per node.
+	// It indicates the degree of parallelism for tensor computations across the available GPUs.
+	// +optional
+	TensorParallelSize *int `json:"tensorParallelSize,omitempty"`
 }
 
 var _ Component = &PredictorSpec{}

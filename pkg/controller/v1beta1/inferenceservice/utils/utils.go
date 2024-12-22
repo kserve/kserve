@@ -26,9 +26,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/pkg/errors"
 	goerrors "github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -259,7 +260,7 @@ func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alph
 	err := cl.Get(context.TODO(), client.ObjectKey{Name: name, Namespace: namespace}, runtime)
 	if err == nil {
 		return &runtime.Spec, nil
-	} else if !errors.IsNotFound(err) {
+	} else if !apierrors.IsNotFound(err) {
 		return nil, err
 	}
 
@@ -267,7 +268,7 @@ func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alph
 	err = cl.Get(context.TODO(), client.ObjectKey{Name: name}, clusterRuntime)
 	if err == nil {
 		return &clusterRuntime.Spec, nil
-	} else if !errors.IsNotFound(err) {
+	} else if !apierrors.IsNotFound(err) {
 		return nil, err
 	}
 	return nil, goerrors.New("No ServingRuntimes or ClusterServingRuntimes with the name: " + name)
@@ -301,9 +302,9 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, servingRunt
 	} else if utils.IsGPUEnabled(container.Resources) && len(strings.Split(image, ":")) > 0 {
 		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
 		if len(re.FindString(image)) > 0 {
-			// For TFServing/TorchServe the GPU image is tagged with suffix "-gpu", when the version is found in the tag
+			// For TFServing/TorchServe/HuggingFace the GPU image is tagged with suffix "-gpu", when the version is found in the tag
 			// and runtimeVersion is not specified, we default to append the "-gpu" suffix to the image tag
-			if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe) {
+			if servingRuntime != nil && (*servingRuntime == constants.TFServing || *servingRuntime == constants.TorchServe || *servingRuntime == constants.HuggingFaceServer) {
 				// check for the case when image field is specified directly with gpu tag
 				if !strings.HasSuffix(container.Image, "-gpu") {
 					container.Image = image + "-gpu"
@@ -321,7 +322,7 @@ func ListPodsByLabel(cl client.Client, namespace string, labelKey string, labelV
 		client.MatchingLabels{labelKey: labelVal},
 	}
 	err := cl.List(context.TODO(), podList, opts...)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}
 	sortPodsByCreatedTimestampDesc(podList)
@@ -365,4 +366,76 @@ func ValidateStorageURI(storageURI *string, client client.Client) error {
 	}
 
 	return fmt.Errorf(v1beta1.UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
+}
+
+// Function to add a new environment variable to a specific container in the PodSpec
+func AddEnvVarToPodSpec(podSpec *v1.PodSpec, containerName, envName, envValue string) error {
+	updatedResult := false
+	// Iterate over the containers in the PodTemplateSpec to find the specified container
+	for i, container := range podSpec.Containers {
+		if container.Name == containerName {
+			updatedResult = true
+			if _, exists := utils.GetEnvVarValue(container.Env, envName); exists {
+				// Overwrite the environment variable
+				for j, envVar := range container.Env {
+					if envVar.Name == envName {
+						podSpec.Containers[i].Env[j].Value = envValue
+						break
+					}
+				}
+			} else {
+				// Add the new environment variable to the Env field if it ooes not exist
+				container.Env = append(container.Env, v1.EnvVar{
+					Name:  envName,
+					Value: envValue,
+				})
+				podSpec.Containers[i].Env = container.Env
+			}
+		}
+	}
+
+	if !updatedResult {
+		return fmt.Errorf("target container(%s) does not exist", containerName)
+	}
+	return nil
+}
+
+func MergeServingRuntimeAndInferenceServiceSpecs(srContainers []v1.Container, isvcContainer v1.Container, isvc *v1beta1.InferenceService, targetContainerName string, srPodSpec v1alpha1.ServingRuntimePodSpec, isvcPodSpec v1beta1.PodSpec) (int, *v1.Container, *v1.PodSpec, error) {
+	var err error
+	containerIndexInSR := -1
+	for i := range srContainers {
+		if srContainers[i].Name == targetContainerName {
+			containerIndexInSR = i
+			break
+		}
+	}
+	if containerIndexInSR == -1 {
+		errMsg := fmt.Sprintf("failed to find %s in ServingRuntime containers", targetContainerName)
+		isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+			Reason:  v1beta1.InvalidPredictorSpec,
+			Message: errMsg,
+		})
+		return 0, nil, nil, errors.New(errMsg)
+	}
+
+	mergedContainer, err := MergeRuntimeContainers(&srContainers[containerIndexInSR], &isvcContainer)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to merge container. Detail: %s", err)
+		isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+			Reason:  v1beta1.InvalidPredictorSpec,
+			Message: errMsg,
+		})
+		return 0, nil, nil, errors.New(errMsg)
+	}
+
+	mergedPodSpec, err := MergePodSpec(&srPodSpec, &isvcPodSpec)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to consolidate serving runtime PodSpecs. Detail: %s", err)
+		isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+			Reason:  v1beta1.InvalidPredictorSpec,
+			Message: errMsg,
+		})
+		return 0, nil, nil, errors.New(errMsg)
+	}
+	return containerIndexInSR, mergedContainer, mergedPodSpec, nil
 }

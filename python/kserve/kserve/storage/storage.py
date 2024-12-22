@@ -27,16 +27,7 @@ import zipfile
 from pathlib import Path
 from typing import Dict
 from urllib.parse import urlparse
-
-import boto3
 import requests
-from azure.storage.blob import BlobServiceClient
-from azure.storage.blob._list_blobs_helper import BlobPrefix
-from azure.storage.fileshare import ShareServiceClient
-from botocore import UNSIGNED
-from botocore.client import Config
-from google.auth import exceptions
-from google.cloud import storage
 
 from ..logging import logger
 
@@ -48,17 +39,18 @@ _HDFS_PREFIX = "hdfs://"
 _WEBHDFS_PREFIX = "webhdfs://"
 _AZURE_BLOB_RE = [
     "https://(.+?).blob.core.windows.net/(.+)",
-    "https://(.+?).z[0-9]{2}.blob.storage.azure.net/(.+)",
+    "https://(.+?).z[0-9]{1,2}.blob.storage.azure.net/(.+)",
 ]
 _AZURE_FILE_RE = [
     "https://(.+?).file.core.windows.net/(.+)",
-    "https://(.+?).z[0-9]{2}.file.storage.azure.net/(.+)",
+    "https://(.+?).z[0-9]{1,2}.file.storage.azure.net/(.+)",
 ]
 _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
 _HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
+_HF_PREFIX = "hf://"
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
@@ -105,6 +97,8 @@ class Storage(object):
                 model_dir = Storage._download_azure_file_share(uri, out_dir)
             elif re.search(_URI_RE, uri):
                 model_dir = Storage._download_from_uri(uri, out_dir)
+            elif uri.startswith(_HF_PREFIX):
+                model_dir = Storage._download_hf(uri, out_dir)
             else:
                 raise Exception(
                     "Cannot recognize storage type for "
@@ -160,6 +154,9 @@ class Storage(object):
 
     @staticmethod
     def get_S3_config():
+        from botocore import UNSIGNED
+        from botocore.client import Config
+
         # default s3 config
         c = Config()
 
@@ -183,6 +180,8 @@ class Storage(object):
 
     @staticmethod
     def _download_s3(uri, temp_dir: str) -> str:
+        import boto3
+
         # Boto3 looks at various configuration locations until it finds configuration values.
         # lookup order:
         # 1. Config object passed in as the config parameter when creating S3 resource
@@ -285,7 +284,43 @@ class Storage(object):
         return temp_dir
 
     @staticmethod
+    def _download_hf(uri, temp_dir: str) -> str:
+        from huggingface_hub import snapshot_download
+
+        components = uri[len(_HF_PREFIX) :].split("/")
+
+        # Validate that the URI has two parts: repo and model (optional hash)
+        if len(components) != 2:
+            raise ValueError(
+                "URI must contain exactly one '/' separating the repo and model name"
+            )
+
+        repo = components[0]
+        model_part = components[1]
+
+        if not repo:
+            raise ValueError("Repository name cannot be empty")
+        if not model_part:
+            raise ValueError("Model name cannot be empty")
+
+        model, _, hash_value = model_part.partition(":")
+        # Ensure model is non-empty
+        if not model:
+            raise ValueError("Model name cannot be empty")
+
+        revision = hash_value if hash_value else None
+
+        snapshot_download(
+            repo_id=f"{repo}/{model}", revision=revision, local_dir=temp_dir
+        )
+        return temp_dir
+
+    @staticmethod
     def _download_gcs(uri, temp_dir: str) -> str:
+        from google.auth import exceptions
+        from google.cloud import storage
+        import copy
+
         try:
             storage_client = storage.Client()
         except exceptions.DefaultCredentialsError:
@@ -299,22 +334,36 @@ class Storage(object):
             prefix = prefix + "/"
         blobs = bucket.list_blobs(prefix=prefix)
         file_count = 0
-        for blob in blobs:
-            # Replace any prefix from the object key with temp_dir
-            subdir_object_key = blob.name.replace(bucket_path, "", 1).lstrip("/")
 
-            # Create necessary subdirectory to store the object locally
-            if "/" in subdir_object_key:
-                local_object_dir = os.path.join(
-                    temp_dir, subdir_object_key.rsplit("/", 1)[0]
-                )
-                if not os.path.isdir(local_object_dir):
-                    os.makedirs(local_object_dir, exist_ok=True)
-            if subdir_object_key.strip() != "" and not subdir_object_key.endswith("/"):
-                dest_path = os.path.join(temp_dir, subdir_object_key)
-                logger.info("Downloading: %s", dest_path)
-                blob.download_to_filename(dest_path)
-                file_count += 1
+        # Shallow copy, otherwise Iterator has already started
+        shallow_blobs = copy.copy(blobs)
+        blob = bucket.blob(bucket_path)
+        # checks if the blob is a file or a directory
+        if blob.name == bucket_path and len(list(shallow_blobs)) == 0:
+            dest_path = os.path.join(temp_dir, os.path.basename(bucket_path))
+            logger.info("Downloading single file to: %s", dest_path)
+            blob.download_to_filename(dest_path)
+            file_count = 1
+
+        else:
+            for blob in blobs:
+                # Replace any prefix from the object key with temp_dir
+                subdir_object_key = blob.name.replace(bucket_path, "", 1).lstrip("/")
+                # Create necessary subdirectory to store the object locally
+                if "/" in subdir_object_key:
+                    local_object_dir = os.path.join(
+                        temp_dir, subdir_object_key.rsplit("/", 1)[0]
+                    )
+                    if not os.path.isdir(local_object_dir):
+                        os.makedirs(local_object_dir, exist_ok=True)
+                if subdir_object_key.strip() != "" and not subdir_object_key.endswith(
+                    "/"
+                ):
+                    dest_path = os.path.join(temp_dir, subdir_object_key)
+                    logger.info("Downloading: %s", dest_path)
+                    blob.download_to_filename(dest_path)
+                    file_count += 1
+
         if file_count == 0:
             raise RuntimeError("Failed to fetch model. No model found in %s." % uri)
 
@@ -446,6 +495,9 @@ class Storage(object):
     def _download_azure_blob(
         uri, out_dir: str
     ) -> str:  # pylint: disable=too-many-locals
+        from azure.storage.blob import BlobServiceClient
+        from azure.storage.blob._list_blobs_helper import BlobPrefix
+
         account_name, account_url, container_name, prefix = Storage._parse_azure_uri(
             uri
         )
@@ -506,6 +558,8 @@ class Storage(object):
     def _download_azure_file_share(
         uri, out_dir: str
     ) -> str:  # pylint: disable=too-many-locals
+        from azure.storage.fileshare import ShareServiceClient
+
         account_name, account_url, share_name, prefix = Storage._parse_azure_uri(uri)
         logger.info(
             "Connecting to file share account: [%s], container: [%s], prefix: [%s]",

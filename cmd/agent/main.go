@@ -75,6 +75,8 @@ var (
 	readinessProbeTimeout = flag.Duration("probe-period", -1, "run readiness probe with given timeout") //nolint: unused
 	// This creates an abstract socket instead of an actual file.
 	unixSocketPath = "@/kserve/agent.sock"
+	CaCertFile     = flag.String("logger-ca-cert-file", "service-ca.crt", "The logger CA certificate file")
+	TlsSkipVerify  = flag.Bool("logger-tls-skip-verify", false, "Skip verification of TLS certificate")
 )
 
 const (
@@ -94,6 +96,9 @@ type config struct {
 	UserPort               int    `split_words:"true"`
 	RevisionTimeoutSeconds int    `split_words:"true"`
 	ServingReadinessProbe  string `split_words:"true" required:"true"`
+	// See https://github.com/knative/serving/issues/12387
+	EnableHTTP2AutoDetection   bool `envconfig:"ENABLE_HTTP2_AUTO_DETECTION"` // optional
+	EnableMultiContainerProbes bool `split_words:"true"`
 	// Logging configuration
 	ServingLoggingConfig         string `split_words:"true"`
 	ServingLoggingLevel          string `split_words:"true"`
@@ -111,6 +116,8 @@ type loggerArgs struct {
 	endpoint         string
 	component        string
 	metadataHeaders  []string
+	certName         string
+	tlsSkipVerify    bool
 }
 
 type batcherArgs struct {
@@ -132,7 +139,7 @@ func main() {
 	// Setup probe to run for checking user container healthiness.
 	probe := func() bool { return true }
 	if env.ServingReadinessProbe != "" {
-		probe = buildProbe(logger, env.ServingReadinessProbe).ProbeContainer
+		probe = buildProbe(logger, env.ServingReadinessProbe, env.EnableHTTP2AutoDetection, env.EnableMultiContainerProbes).ProbeContainer
 	}
 
 	if *enablePuller {
@@ -289,6 +296,8 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		namespace:        *namespace,
 		component:        *component,
 		metadataHeaders:  *metadataHeaders,
+		certName:         *CaCertFile,
+		tlsSkipVerify:    *TlsSkipVerify,
 	}
 }
 
@@ -304,16 +313,21 @@ func startModelPuller(logger *zap.SugaredLogger) {
 	go watcher.Start()
 }
 
-func buildProbe(logger *zap.SugaredLogger, probeJSON string) *readiness.Probe {
-	coreProbe, err := readiness.DecodeProbe(probeJSON)
+func buildProbe(logger *zap.SugaredLogger, probeJSON string, autodetectHTTP2 bool, multiContainerProbes bool) *readiness.Probe {
+	coreProbes, err := readiness.DecodeProbes(probeJSON, multiContainerProbes)
 	if err != nil {
 		logger.Fatalw("Agent failed to parse readiness probe", zap.Error(err))
 		panic("Agent failed to parse readiness probe")
 	}
-	newProbe := readiness.NewProbe(coreProbe)
-	if newProbe.InitialDelaySeconds == 0 {
-		newProbe.InitialDelaySeconds = 10
+	for _, probe := range coreProbes {
+		if probe.InitialDelaySeconds == 0 {
+			probe.InitialDelaySeconds = 10
+		}
 	}
+	if autodetectHTTP2 {
+		return readiness.NewProbeWithHTTP2AutoDetection(coreProbes)
+	}
+	newProbe := readiness.NewProbe(coreProbes)
 	return newProbe
 }
 
@@ -342,7 +356,8 @@ func buildServer(ctx context.Context, port string, userPort int, loggerArgs *log
 	}
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
-			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler, loggerArgs.metadataHeaders)
+			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler,
+			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.tlsSkipVerify)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)

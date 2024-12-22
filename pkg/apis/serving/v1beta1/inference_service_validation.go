@@ -17,9 +17,12 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
@@ -46,12 +49,60 @@ var (
 	IsvcRegexp = regexp.MustCompile("^" + IsvcNameFmt + "$")
 )
 
+// +kubebuilder:object:generate=false
+// +k8s:deepcopy-gen=false
+// +k8s:openapi-gen=false
+// InferenceServiceValidator is responsible for validating the InferenceService resource
+// when it is created, updated, or deleted.
+//
+// NOTE: The +kubebuilder:object:generate=false and +k8s:deepcopy-gen=false marker prevents controller-gen from generating DeepCopy methods,
+// as this struct is used only for temporary operations and does not need to be deeply copied.
+type InferenceServiceValidator struct{}
+
 // +kubebuilder:webhook:verbs=create;update,path=/validate-inferenceservices,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,versions=v1beta1,name=inferenceservice.kserve-webhook-server.validator
-var _ webhook.Validator = &InferenceService{}
+var _ webhook.CustomValidator = &InferenceServiceValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (isvc *InferenceService) ValidateCreate() (admission.Warnings, error) {
+func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	isvc, err := convertToInferenceService(obj)
+	if err != nil {
+		validatorLogger.Error(err, "Unable to convert object to InferenceService")
+		return nil, err
+	}
 	validatorLogger.Info("validate create", "name", isvc.Name)
+	return validateInferenceService(isvc)
+}
+
+// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
+func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	isvc, err := convertToInferenceService(newObj)
+	if err != nil {
+		validatorLogger.Error(err, "Unable to convert object to InferenceService")
+		return nil, err
+	}
+	validatorLogger.Info("validate update", "name", isvc.Name)
+
+	return validateInferenceService(isvc)
+}
+
+// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
+func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	isvc, err := convertToInferenceService(obj)
+	if err != nil {
+		validatorLogger.Error(err, "Unable to convert object to InferenceService")
+		return nil, err
+	}
+	validatorLogger.Info("validate delete", "name", isvc.Name)
+	return nil, nil
+}
+
+// GetIntReference returns the pointer for the integer input
+func GetIntReference(number int) *int {
+	num := number
+	return &num
+}
+
+func validateInferenceService(isvc *InferenceService) (admission.Warnings, error) {
 	var allWarnings admission.Warnings
 	annotations := isvc.Annotations
 
@@ -64,6 +115,10 @@ func (isvc *InferenceService) ValidateCreate() (admission.Warnings, error) {
 	}
 
 	if err := validateAutoscalerTargetUtilizationPercentage(isvc); err != nil {
+		return allWarnings, err
+	}
+
+	if err := validateMultiNodeVariables(isvc); err != nil {
 		return allWarnings, err
 	}
 
@@ -92,6 +147,65 @@ func (isvc *InferenceService) ValidateCreate() (admission.Warnings, error) {
 	return allWarnings, nil
 }
 
+// validateMultiNodeVariables validates when there is workerSpec set in isvc
+func validateMultiNodeVariables(isvc *InferenceService) error {
+	if isvc.Spec.Predictor.WorkerSpec != nil {
+		if len(isvc.Spec.Predictor.WorkerSpec.Containers) > 1 {
+			return fmt.Errorf(DisallowedMultipleContainersInWorkerSpecError, isvc.Name)
+		}
+		if isvc.Spec.Predictor.Model != nil {
+			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.PipelineParallelSizeEnvName); exists {
+				return fmt.Errorf(DisallowedWorkerSpecPipelineParallelSizeEnvError, isvc.Name)
+			}
+			if _, exists := utils.GetEnvVarValue(isvc.Spec.Predictor.Model.PredictorExtensionSpec.Container.Env, constants.TensorParallelSizeEnvName); exists {
+				return fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, isvc.Name)
+			}
+
+			customGPUResourceTypes := isvc.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey]
+			if customGPUResourceTypes != "" {
+				if !utils.IsValidCustomGPUArray(customGPUResourceTypes) {
+					return fmt.Errorf(InvalidCustomGPUTypesAnnotationFormatError, isvc.Name, constants.CustomGPUResourceTypesAnnotationKey)
+				}
+			}
+
+			if utils.IsUnknownGpuResourceType(isvc.Spec.Predictor.Model.Resources, customGPUResourceTypes) {
+				return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
+			}
+
+			if isvc.Spec.Predictor.Model.StorageURI == nil {
+				return fmt.Errorf(MissingStorageURI, isvc.Name)
+			} else {
+				storageProtocol := strings.Split(*isvc.Spec.Predictor.Model.StorageURI, "://")[0]
+				if storageProtocol != "pvc" {
+					return fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, isvc.Name, storageProtocol)
+				}
+			}
+			if isvc.GetAnnotations()[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+				return fmt.Errorf(InvalidAutoScalerError, isvc.Name, isvc.GetAnnotations()[constants.AutoscalerClass])
+			}
+		}
+
+		// WorkerSpec.PipelineParallelSize should not be less than 2 (head + worker)
+		if pps := isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize; pps != nil && *pps < 2 {
+			return fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, isvc.Name, strconv.Itoa(*pps))
+		}
+
+		// WorkerSpec.TensorParallelSize should not be less than 1.
+		if tps := isvc.Spec.Predictor.WorkerSpec.TensorParallelSize; tps != nil && *tps < 1 {
+			return fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, isvc.Name, strconv.Itoa(*tps))
+		}
+
+		if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
+			for _, container := range isvc.Spec.Predictor.WorkerSpec.Containers {
+				if utils.IsUnknownGpuResourceType(container.Resources, isvc.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey]) {
+					return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // Validate scaling options component extensions
 func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec *ComponentExtensionSpec) error {
 	deploymentMode := annotations["serving.kserve.io/deploymentMode"]
@@ -101,25 +215,6 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	}
 
 	return validateScalingKPACompExtension(compExtSpec)
-}
-
-// ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (isvc *InferenceService) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	validatorLogger.Info("validate update", "name", isvc.Name)
-
-	return isvc.ValidateCreate()
-}
-
-// ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (isvc *InferenceService) ValidateDelete() (admission.Warnings, error) {
-	validatorLogger.Info("validate delete", "name", isvc.Name)
-	return nil, nil
-}
-
-// GetIntReference returns the pointer for the integer input
-func GetIntReference(number int) *int {
-	num := number
-	return &num
 }
 
 // Validation of isvc name
@@ -250,11 +345,20 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 		if container.Name == constants.TransformerContainerName {
 			for _, env := range container.Env {
 				if env.Name == constants.CustomSpecStorageUriEnvVarKey {
-					return fmt.Errorf(StorageUriPresentInTransformerError)
+					return errors.New(StorageUriPresentInTransformerError)
 				}
 			}
 			break
 		}
 	}
 	return nil
+}
+
+// Convert runtime.Object into InferenceService
+func convertToInferenceService(obj runtime.Object) (*InferenceService, error) {
+	isvc, ok := obj.(*InferenceService)
+	if !ok {
+		return nil, fmt.Errorf("expected an InferenceService object but got %T", obj)
+	}
+	return isvc, nil
 }

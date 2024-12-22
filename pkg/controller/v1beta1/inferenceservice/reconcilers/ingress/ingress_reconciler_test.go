@@ -22,8 +22,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	gomegaTypes "github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -34,6 +32,9 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestCreateVirtualService(t *testing.T) {
@@ -145,7 +146,10 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Headers: &istiov1beta1.Headers{
 							Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-								"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+								"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+								"KServe-Isvc-Name":      serviceName,
+								"KServe-Isvc-Namespace": namespace,
+							}},
 						},
 					},
 				},
@@ -209,7 +213,9 @@ func TestCreateVirtualService(t *testing.T) {
 						},
 						Headers: &istiov1beta1.Headers{
 							Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-								"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+								"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+								"KServe-Isvc-Name":      serviceName,
+								"KServe-Isvc-Namespace": namespace}},
 						},
 					},
 				},
@@ -308,7 +314,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
+									"Host":                  network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace,
 								}},
 							},
 						},
@@ -380,7 +388,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
+									"Host":                  network.GetServiceHostname(constants.TransformerServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace,
 								}},
 							},
 						},
@@ -506,7 +516,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace)},
+									"Host":                  network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace},
 								},
 							},
 						},
@@ -520,7 +532,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)},
+									"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace},
 								},
 							},
 						},
@@ -597,7 +611,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+									"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace}},
 							},
 						},
 						{
@@ -638,7 +654,9 @@ func TestCreateVirtualService(t *testing.T) {
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{
 									Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										"KServe-Isvc-Name":      serviceName,
+										"KServe-Isvc-Namespace": namespace,
 									},
 								},
 							},
@@ -735,7 +753,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+									"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace}},
 							},
 						},
 						{
@@ -776,7 +796,9 @@ func TestCreateVirtualService(t *testing.T) {
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{
 									Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										"KServe-Isvc-Name":      serviceName,
+										"KServe-Isvc-Namespace": namespace,
 									},
 								},
 							},
@@ -874,7 +896,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+									"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace}},
 							},
 						},
 						{
@@ -915,7 +939,225 @@ func TestCreateVirtualService(t *testing.T) {
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{
 									Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										"KServe-Isvc-Name":      serviceName,
+										"KServe-Isvc-Namespace": namespace,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}, {
+			name: "found predictor and explainer status with path template",
+			ingressConfig: &v1beta1.IngressConfig{
+				IngressGateway:             constants.KnativeIngressGateway,
+				KnativeLocalGatewayService: knativeLocalGatewayService,
+				LocalGateway:               constants.KnativeLocalGateway,
+				LocalGatewayServiceName:    knativeLocalGatewayService,
+				UrlScheme:                  "http",
+				IngressDomain:              "my-domain.com",
+				PathTemplate:               "/serving/{{ .Namespace }}/{{ .Name }}",
+				DisableIstioVirtualHost:    false,
+			},
+			useDefault: false,
+			componentStatus: &v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.PredictorReady,
+							Status: corev1.ConditionTrue,
+						},
+						{
+							Type:   v1beta1.ExplainerReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+					v1beta1.ExplainerComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   explainerHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace),
+							},
+						},
+					},
+					v1beta1.PredictorComponent: {
+						URL: &apis.URL{
+							Scheme: "http",
+							Host:   predictorHostname,
+						},
+						Address: &duckv1.Addressable{
+							URL: &apis.URL{
+								Scheme: "http",
+								Host:   network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+							},
+						},
+					},
+				},
+			},
+			expectedService: &istioclientv1beta1.VirtualService{
+				ObjectMeta: metav1.ObjectMeta{Name: serviceName, Namespace: namespace, Annotations: annotations, Labels: labels},
+				Spec: istiov1beta1.VirtualService{
+					Hosts:    []string{serviceInternalHostName, serviceHostName, "my-domain.com"},
+					Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway, constants.KnativeIngressGateway},
+					Http: []*istiov1beta1.HTTPRoute{
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
+								},
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.ExplainPrefix(),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{Destination: &istiov1beta1.Destination{Host: knativeLocalGatewayService, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight: 100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host":                        network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace),
+									constants.IsvcNameHeader:      serviceName,
+									constants.IsvcNamespaceHeader: namespace,
+								},
+								},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(network.GetServiceHostname(serviceName, namespace)),
+										},
+									},
+									Gateways: []string{constants.KnativeLocalGateway, constants.IstioMeshGateway},
+								},
+								{
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp(constants.InferenceServiceHostName(serviceName, namespace, domain)),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								{Destination: &istiov1beta1.Destination{Host: knativeLocalGatewayService, Port: &istiov1beta1.PortSelector{Number: constants.CommonDefaultHttpPort}},
+									Weight: 100,
+								},
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
+									"Host":                        network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									constants.IsvcNameHeader:      serviceName,
+									constants.IsvcNamespaceHeader: namespace}},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: fmt.Sprintf("/serving/%s/%s%s", namespace, serviceName, constants.PathBasedExplainPrefix()),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Rewrite: &istiov1beta1.HTTPRewrite{
+								UriRegexRewrite: &istiov1beta1.RegexRewrite{
+									Match:   fmt.Sprintf("/serving/%s/%s%s", namespace, serviceName, constants.PathBasedExplainPrefix()),
+									Rewrite: `\1`,
+								},
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								createHTTPRouteDestination(knativeLocalGatewayService),
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{
+									Set: map[string]string{
+										"Host":                        network.GetServiceHostname(constants.ExplainerServiceName(serviceName), namespace),
+										constants.IsvcNameHeader:      serviceName,
+										constants.IsvcNamespaceHeader: namespace,
+									},
+								},
+							},
+						},
+						{
+							Match: []*istiov1beta1.HTTPMatchRequest{
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Prefix{
+											Prefix: fmt.Sprintf("/serving/%s/%s/", namespace, serviceName),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+								{
+									Uri: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Exact{
+											Exact: fmt.Sprintf("/serving/%s/%s", namespace, serviceName),
+										},
+									},
+									Authority: &istiov1beta1.StringMatch{
+										MatchType: &istiov1beta1.StringMatch_Regex{
+											Regex: constants.HostRegExp("my-domain.com"),
+										},
+									},
+									Gateways: []string{constants.KnativeIngressGateway},
+								},
+							},
+							Rewrite: &istiov1beta1.HTTPRewrite{
+								Uri: "/",
+							},
+							Route: []*istiov1beta1.HTTPRouteDestination{
+								createHTTPRouteDestination(knativeLocalGatewayService),
+							},
+							Headers: &istiov1beta1.Headers{
+								Request: &istiov1beta1.Headers_HeaderOperations{
+									Set: map[string]string{
+										"Host":                        network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+										constants.IsvcNameHeader:      serviceName,
+										constants.IsvcNamespaceHeader: namespace,
 									},
 								},
 							},
@@ -972,7 +1214,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace)}},
+									"Host":                  network.GetServiceHostname(constants.DefaultPredictorServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace}},
 							},
 						},
 					},
@@ -1043,7 +1287,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+									"Host":                  network.GetServiceHostname(constants.DefaultTransformerServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace,
 								}},
 							},
 						},
@@ -1250,7 +1496,9 @@ func TestCreateVirtualService(t *testing.T) {
 							},
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{Set: map[string]string{
-									"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace)}},
+									"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceName), namespace),
+									"KServe-Isvc-Name":      serviceName,
+									"KServe-Isvc-Namespace": namespace}},
 							},
 						},
 					},

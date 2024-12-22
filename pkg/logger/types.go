@@ -32,4 +32,6 @@ type LogRequest struct {
 	Component        string
 	Endpoint         string
 	Metadata         map[string][]string
+	CertName         string
+	TlsSkipVerify    bool
 }

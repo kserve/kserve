@@ -213,10 +213,31 @@ func TestPropagateRawStatus(t *testing.T) {
 	}
 	parsedUrl, _ := url.Parse("http://test-predictor-default.default.example.com")
 	url := (*apis.URL)(parsedUrl)
-	status.PropagateRawStatus(PredictorComponent, deployment, url)
+	deploymentList := []*appsv1.Deployment{deployment}
+	status.PropagateRawStatus(PredictorComponent, deploymentList, url)
 	if res := status.IsConditionReady(PredictorReady); !res {
 		t.Errorf("expected: %v got: %v conditions: %v", true, res, status.Conditions)
 	}
+}
+
+func TestPropagateRawStatusWithMessages(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	errorMsg := "test message"
+	reason := "test reason"
+	targetStatus := v1.ConditionFalse
+
+	status := &InferenceServiceStatus{
+		Status:      duckv1.Status{},
+		Address:     nil,
+		URL:         nil,
+		ModelStatus: ModelStatus{},
+	}
+
+	status.PropagateRawStatusWithMessages(PredictorComponent, reason, errorMsg, targetStatus)
+	g.Expect(status.IsConditionFalse(PredictorReady)).To(gomega.BeTrue())
+	g.Expect(status.Conditions[0].Message).To(gomega.Equal(errorMsg))
+	g.Expect(status.Conditions[0].Reason).To(gomega.Equal(reason))
 }
 
 func TestPropagateStatus(t *testing.T) {
@@ -339,9 +360,11 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 		statusSpec               ComponentStatusSpec
 		podList                  *v1.PodList
 		rawDeployment            bool
+		serviceStatus            *knservingv1.ServiceStatus
 		expectedRevisionStates   *ModelRevisionStates
 		expectedTransitionStatus TransitionStatus
 		expectedFailureInfo      *FailureInfo
+		expectedReturnValue      bool
 	}{
 		"pod list is empty": {
 			isvcStatus: &InferenceServiceStatus{
@@ -379,12 +402,79 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				Items:    []v1.Pod{},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: Pending,
 			},
 			expectedTransitionStatus: InProgress,
 			expectedFailureInfo:      nil,
+			expectedReturnValue:      true,
+		},
+		"pod list is empty but knative has an error": {
+			isvcStatus: &InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: v1.ConditionFalse,
+						},
+					},
+				},
+				Address: &duckv1.Addressable{},
+				URL:     &apis.URL{},
+				Components: map[ComponentType]ComponentStatusSpec{
+					PredictorComponent: {
+						LatestRolledoutRevision: "test-predictor-default-0001",
+					},
+				},
+				ModelStatus: ModelStatus{},
+			},
+			statusSpec: ComponentStatusSpec{
+				LatestReadyRevision:       "",
+				LatestCreatedRevision:     "",
+				PreviousRolledoutRevision: "",
+				LatestRolledoutRevision:   "",
+				Traffic:                   nil,
+				URL:                       nil,
+				RestURL:                   nil,
+				GrpcURL:                   nil,
+				Address:                   nil,
+			},
+			podList: &v1.PodList{ // pod list is empty because the revision failed and scaled down to 0
+				TypeMeta: metav1.TypeMeta{},
+				ListMeta: metav1.ListMeta{},
+				Items:    []v1.Pod{},
+			},
+			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:    "Ready",
+							Status:  "False",
+							Reason:  "RevisionFailed",
+							Message: "For testing",
+						},
+					},
+				},
+			},
+			expectedRevisionStates: &ModelRevisionStates{
+				ActiveModelState: "",
+				TargetModelState: FailedToLoad,
+			},
+			expectedTransitionStatus: BlockedByFailedLoad,
+			expectedFailureInfo:      nil,
+			expectedReturnValue:      true,
 		},
 		"kserve container in pending state": {
 			isvcStatus: &InferenceServiceStatus{
@@ -445,12 +535,23 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: Pending,
 			},
 			expectedTransitionStatus: InProgress,
 			expectedFailureInfo:      nil,
+			expectedReturnValue:      true,
 		},
 		"kserve container failed due to an error": {
 			isvcStatus: &InferenceServiceStatus{
@@ -517,6 +618,16 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: FailedToLoad,
@@ -527,6 +638,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				Message:  "For testing",
 				ExitCode: 1,
 			},
+			expectedReturnValue: true,
 		},
 		"kserve container failed due to crash loopBackOff": {
 			isvcStatus: &InferenceServiceStatus{
@@ -598,6 +710,16 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: FailedToLoad,
@@ -608,6 +730,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				Message:  "For testing",
 				ExitCode: 1,
 			},
+			expectedReturnValue: true,
 		},
 		"storage initializer failed due to an error": {
 			isvcStatus: &InferenceServiceStatus{
@@ -674,6 +797,16 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: FailedToLoad,
@@ -684,6 +817,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				Message:  "For testing",
 				ExitCode: 1,
 			},
+			expectedReturnValue: true,
 		},
 		"storage initializer failed due to crash loopBackOff": {
 			isvcStatus: &InferenceServiceStatus{
@@ -755,6 +889,16 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "Unknown",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: FailedToLoad,
@@ -765,6 +909,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				Message:  "For testing",
 				ExitCode: 1,
 			},
+			expectedReturnValue: true,
 		},
 		"storage initializer in running state": {
 			isvcStatus: &InferenceServiceStatus{
@@ -829,12 +974,109 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: "",
 				TargetModelState: Loading,
 			},
 			expectedTransitionStatus: InProgress,
 			expectedFailureInfo:      nil,
+			expectedReturnValue:      true,
+		},
+		"storage initializer in running state but it has a previous error": {
+			isvcStatus: &InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: v1.ConditionFalse,
+						},
+					},
+				},
+				Address: &duckv1.Addressable{},
+				URL:     &apis.URL{},
+				Components: map[ComponentType]ComponentStatusSpec{
+					PredictorComponent: {
+						LatestRolledoutRevision: "test-predictor-default-0001",
+					},
+				},
+				ModelStatus: ModelStatus{},
+			},
+			statusSpec: ComponentStatusSpec{
+				LatestReadyRevision:       "",
+				LatestCreatedRevision:     "",
+				PreviousRolledoutRevision: "",
+				LatestRolledoutRevision:   "",
+				Traffic:                   nil,
+				URL:                       nil,
+				RestURL:                   nil,
+				GrpcURL:                   nil,
+				Address:                   nil,
+			},
+			podList: &v1.PodList{
+				TypeMeta: metav1.TypeMeta{},
+				ListMeta: metav1.ListMeta{},
+				Items: []v1.Pod{
+					{
+						TypeMeta: metav1.TypeMeta{},
+						ObjectMeta: metav1.ObjectMeta{
+							Name: constants.StorageInitializerContainerName,
+						},
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							InitContainerStatuses: []v1.ContainerStatus{
+								{
+									Name: constants.StorageInitializerContainerName,
+									State: v1.ContainerState{
+										Running: &v1.ContainerStateRunning{
+											StartedAt: metav1.Time{},
+										},
+									},
+									LastTerminationState: v1.ContainerState{
+										Terminated: &v1.ContainerStateTerminated{
+											Reason:   constants.StateReasonCrashLoopBackOff,
+											Message:  "For testing",
+											ExitCode: 1,
+										},
+									},
+									Ready:        false,
+									RestartCount: 0,
+									Image:        "",
+									ImageID:      "",
+									ContainerID:  "",
+									Started:      proto.Bool(true),
+								},
+							},
+						},
+					},
+				},
+			},
+			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:    "Ready",
+							Status:  "False",
+							Reason:  "RevisionFailed",
+							Message: "For testing",
+						},
+					},
+				},
+			},
+			expectedRevisionStates:   nil, // This field is not changed in this use case
+			expectedTransitionStatus: "",  // This field is not changed in this use case
+			expectedFailureInfo:      nil, // This field is not changed in this use case
+			expectedReturnValue:      false,
 		},
 		"kserve container is ready": {
 			isvcStatus: &InferenceServiceStatus{
@@ -896,12 +1138,23 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: Loaded,
 				TargetModelState: Loaded,
 			},
 			expectedTransitionStatus: UpToDate,
 			expectedFailureInfo:      nil,
+			expectedReturnValue:      true,
 		},
 		"raw deployment is ready": {
 			isvcStatus: &InferenceServiceStatus{
@@ -963,12 +1216,14 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				},
 			},
 			rawDeployment: true,
+			serviceStatus: &knservingv1.ServiceStatus{},
 			expectedRevisionStates: &ModelRevisionStates{
 				ActiveModelState: Loaded,
 				TargetModelState: Loaded,
 			},
 			expectedTransitionStatus: UpToDate,
 			expectedFailureInfo:      nil,
+			expectedReturnValue:      true,
 		},
 		"skip containers other than kserve": {
 			isvcStatus: &InferenceServiceStatus{
@@ -1028,10 +1283,21 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					},
 				},
 			},
-			rawDeployment:            false,
+			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates:   nil,
 			expectedTransitionStatus: "",
 			expectedFailureInfo:      nil,
+			expectedReturnValue:      true,
 		},
 		"skip initcontainers other than storage initializer": {
 			isvcStatus: &InferenceServiceStatus{
@@ -1091,17 +1357,29 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					},
 				},
 			},
-			rawDeployment:            false,
+			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
 			expectedRevisionStates:   nil,
 			expectedTransitionStatus: "",
 			expectedFailureInfo:      nil,
+			expectedReturnValue:      true,
 		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.isvcStatus.PropagateModelStatus(scenario.statusSpec, scenario.podList, scenario.rawDeployment)
+			rstatus := scenario.isvcStatus.PropagateModelStatus(scenario.statusSpec, scenario.podList, scenario.rawDeployment, scenario.serviceStatus)
 
+			g.Expect(rstatus).To(gomega.Equal(scenario.expectedReturnValue))
 			g.Expect(scenario.isvcStatus.ModelStatus.ModelRevisionStates).To(gomega.Equal(scenario.expectedRevisionStates))
 			g.Expect(scenario.isvcStatus.ModelStatus.TransitionStatus).To(gomega.Equal(scenario.expectedTransitionStatus))
 			g.Expect(scenario.isvcStatus.ModelStatus.LastFailureInfo).To(gomega.Equal(scenario.expectedFailureInfo))

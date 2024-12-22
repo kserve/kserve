@@ -56,7 +56,7 @@ class OpenAIDataPlane(DataPlane):
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
-        model = self.get_model(model_name)
+        model = await self.get_model(model_name)
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support completion")
 
@@ -87,7 +87,7 @@ class OpenAIDataPlane(DataPlane):
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
-        model = self.get_model(model_name)
+        model = await self.get_model(model_name)
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support chat completion")
 

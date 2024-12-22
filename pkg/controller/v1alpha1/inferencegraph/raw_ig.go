@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,9 +64,19 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 					string(bytes),
 				},
 				Resources: constructResourceRequirements(*graph, *config),
+				SecurityContext: &v1.SecurityContext{
+					Privileged:               proto.Bool(false),
+					RunAsNonRoot:             proto.Bool(true),
+					ReadOnlyRootFilesystem:   proto.Bool(true),
+					AllowPrivilegeEscalation: proto.Bool(false),
+					Capabilities: &v1.Capabilities{
+						Drop: []v1.Capability{v1.Capability("ALL")},
+					},
+				},
 			},
 		},
-		Affinity: graph.Spec.Affinity,
+		Affinity:                     graph.Spec.Affinity,
+		AutomountServiceAccountToken: proto.Bool(false), // Inference graph does not need access to api server
 	}
 
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
@@ -134,18 +145,22 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 	objectMeta, componentExtSpec := constructForRawDeployment(graph)
 
 	// create the reconciler
-	reconciler, err := raw.NewRawKubeReconciler(cl, clientset, scheme, objectMeta, &componentExtSpec, desiredSvc)
+	reconciler, err := raw.NewRawKubeReconciler(cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
 
 	if err != nil {
 		return nil, reconciler.URL, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
 	}
 	// set Deployment Controller
-	if err := controllerutil.SetControllerReference(graph, reconciler.Deployment.Deployment, scheme); err != nil {
-		return nil, reconciler.URL, errors.Wrapf(err, "fails to set deployment owner reference for inference graph")
+	for _, deployments := range reconciler.Deployment.DeploymentList {
+		if err := controllerutil.SetControllerReference(graph, deployments, scheme); err != nil {
+			return nil, reconciler.URL, errors.Wrapf(err, "fails to set deployment owner reference for inference graph")
+		}
 	}
 	// set Service Controller
-	if err := controllerutil.SetControllerReference(graph, reconciler.Service.Service, scheme); err != nil {
-		return nil, reconciler.URL, errors.Wrapf(err, "fails to set service owner reference for inference graph")
+	for _, svc := range reconciler.Service.ServiceList {
+		if err := controllerutil.SetControllerReference(graph, svc, scheme); err != nil {
+			return nil, reconciler.URL, errors.Wrapf(err, "fails to set service owner reference for inference graph")
+		}
 	}
 
 	// set autoscaler Controller
@@ -155,14 +170,14 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 
 	// reconcile
 	deployment, err := reconciler.Reconcile()
-	logger.Info("Result of inference graph raw reconcile", "deployment", deployment)
+	logger.Info("Result of inference graph raw reconcile", "deployment", deployment[0]) // only 1 deployment exist (default deployment)
 	logger.Info("Result of reconcile", "err", err)
 
 	if err != nil {
-		return deployment, reconciler.URL, errors.Wrapf(err, "fails to reconcile inference graph raw")
+		return deployment[0], reconciler.URL, errors.Wrapf(err, "fails to reconcile inference graph raw")
 	}
 
-	return deployment, reconciler.URL, nil
+	return deployment[0], reconciler.URL, nil
 }
 
 /*

@@ -43,19 +43,19 @@ func outputTensors() []TFTensor {
 // corresponding response schemas in row and col fmt for SignatureDef above
 func expectedResponseSchemaRowFmt() *openapi3.Schema {
 	return &openapi3.Schema{
-		Type: "object",
+		Type: &openapi3.Types{openapi3.TypeObject},
 		Properties: map[string]*openapi3.SchemaRef{
 			"predictions": {
 				Value: &openapi3.Schema{
-					Type: "array",
+					Type: &openapi3.Types{openapi3.TypeArray},
 					Items: &openapi3.SchemaRef{
 						Value: &openapi3.Schema{
-							Type:     "array",
+							Type:     &openapi3.Types{openapi3.TypeArray},
 							MaxItems: utils.UInt64(3),
 							MinItems: 3,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
-									Type: "number",
+									Type: &openapi3.Types{openapi3.TypeNumber},
 								},
 							},
 						},
@@ -73,19 +73,19 @@ func expectedResponseSchemaRowFmt() *openapi3.Schema {
 }
 func expectedResponseSchemaColFmt() *openapi3.Schema {
 	return &openapi3.Schema{
-		Type: "object",
+		Type: &openapi3.Types{openapi3.TypeArray},
 		Properties: map[string]*openapi3.SchemaRef{
 			"outputs": {
 				Value: &openapi3.Schema{
-					Type: "array",
+					Type: &openapi3.Types{openapi3.TypeArray},
 					Items: &openapi3.SchemaRef{
 						Value: &openapi3.Schema{
-							Type:     "array",
+							Type:     &openapi3.Types{openapi3.TypeArray},
 							MaxItems: utils.UInt64(3),
 							MinItems: 3,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
-									Type: "number",
+									Type: &openapi3.Types{openapi3.TypeNumber},
 								},
 							},
 						},
@@ -196,40 +196,40 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				Outputs: outputTensors(),
 			},
 			expectedRequestSchema: &openapi3.Schema{
-				Type: "object",
+				Type: &openapi3.Types{openapi3.TypeArray},
 				Properties: map[string]*openapi3.SchemaRef{
 					"instances": {
 						Value: &openapi3.Schema{
-							Type: "array",
+							Type: &openapi3.Types{openapi3.TypeArray},
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
-									Type: "object",
+									Type: &openapi3.Types{openapi3.TypeArray},
 									Properties: map[string]*openapi3.SchemaRef{
 										"signal": {
 											Value: &openapi3.Schema{
-												Type:     "array",
+												Type:     &openapi3.Types{openapi3.TypeArray},
 												MaxItems: utils.UInt64(5),
 												MinItems: 5,
 												Items: &openapi3.SchemaRef{
 													Value: &openapi3.Schema{
-														Type: "number",
+														Type: &openapi3.Types{openapi3.TypeNumber},
 													},
 												},
 											},
 										},
 										"sensor": {
 											Value: &openapi3.Schema{
-												Type:     "array",
+												Type:     &openapi3.Types{openapi3.TypeArray},
 												MaxItems: utils.UInt64(2),
 												MinItems: 2,
 												Items: &openapi3.SchemaRef{
 													Value: &openapi3.Schema{
-														Type:     "array",
+														Type:     &openapi3.Types{openapi3.TypeArray},
 														MaxItems: utils.UInt64(2),
 														MinItems: 2,
 														Items: &openapi3.SchemaRef{
 															Value: &openapi3.Schema{
-																Type: "number",
+																Type: &openapi3.Types{openapi3.TypeNumber},
 															},
 														},
 													},
@@ -258,19 +258,19 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 		"RowSchemaSingleTensor": {
 			tfSigDef: expectedTFSignatureDef(),
 			expectedRequestSchema: &openapi3.Schema{
-				Type: "object",
+				Type: &openapi3.Types{openapi3.TypeArray},
 				Properties: map[string]*openapi3.SchemaRef{
 					"instances": {
 						Value: &openapi3.Schema{
-							Type: "array",
+							Type: &openapi3.Types{openapi3.TypeArray},
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
-									Type:     "array",
+									Type:     &openapi3.Types{openapi3.TypeArray},
 									MaxItems: utils.UInt64(3),
 									MinItems: 3,
 									Items: &openapi3.SchemaRef{
 										Value: &openapi3.Schema{
-											Type: "number",
+											Type: &openapi3.Types{openapi3.TypeNumber},
 										},
 									},
 								},
@@ -306,25 +306,25 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				Outputs: outputTensors(),
 			},
 			expectedRequestSchema: &openapi3.Schema{
-				Type: "object",
+				Type: &openapi3.Types{openapi3.TypeArray},
 				Properties: map[string]*openapi3.SchemaRef{
 					"inputs": {
 						Value: &openapi3.Schema{
-							Type: "object",
+							Type: &openapi3.Types{openapi3.TypeArray},
 							Properties: map[string]*openapi3.SchemaRef{
 								"signal": {
 									Value: &openapi3.Schema{
-										Type:     "array",
+										Type:     &openapi3.Types{openapi3.TypeArray},
 										MaxItems: utils.UInt64(2),
 										MinItems: 2,
 										Items: &openapi3.SchemaRef{
 											Value: &openapi3.Schema{
-												Type:     "array",
+												Type:     &openapi3.Types{openapi3.TypeArray},
 												MaxItems: utils.UInt64(5),
 												MinItems: 5,
 												Items: &openapi3.SchemaRef{
 													Value: &openapi3.Schema{
-														Type: "number",
+														Type: &openapi3.Types{openapi3.TypeNumber},
 													},
 												},
 											},
@@ -333,22 +333,22 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 								},
 								"sensor": {
 									Value: &openapi3.Schema{
-										Type:     "array",
+										Type:     &openapi3.Types{openapi3.TypeArray},
 										MaxItems: utils.UInt64(2),
 										MinItems: 2,
 										Items: &openapi3.SchemaRef{
 											Value: &openapi3.Schema{
-												Type:     "array",
+												Type:     &openapi3.Types{openapi3.TypeArray},
 												MaxItems: utils.UInt64(2),
 												MinItems: 2,
 												Items: &openapi3.SchemaRef{
 													Value: &openapi3.Schema{
-														Type:     "array",
+														Type:     &openapi3.Types{openapi3.TypeArray},
 														MaxItems: utils.UInt64(2),
 														MinItems: 2,
 														Items: &openapi3.SchemaRef{
 															Value: &openapi3.Schema{
-																Type: "number",
+																Type: &openapi3.Types{openapi3.TypeNumber},
 															},
 														},
 													},
@@ -387,21 +387,21 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				},
 				Outputs: outputTensors(),
 			}, expectedRequestSchema: &openapi3.Schema{
-				Type: "object",
+				Type: &openapi3.Types{openapi3.TypeArray},
 				Properties: map[string]*openapi3.SchemaRef{
 					"inputs": {
 						Value: &openapi3.Schema{
-							Type:     "array",
+							Type:     &openapi3.Types{openapi3.TypeArray},
 							MaxItems: utils.UInt64(2),
 							MinItems: 2,
 							Items: &openapi3.SchemaRef{
 								Value: &openapi3.Schema{
-									Type:     "array",
+									Type:     &openapi3.Types{openapi3.TypeArray},
 									MaxItems: utils.UInt64(5),
 									MinItems: 5,
 									Items: &openapi3.SchemaRef{
 										Value: &openapi3.Schema{
-											Type: "number",
+											Type: &openapi3.Types{openapi3.TypeNumber},
 										},
 									},
 								},
@@ -429,7 +429,7 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				Outputs: outputTensors(),
 			},
 			expectedRequestSchema: &openapi3.Schema{
-				Type: "object",
+				Type: &openapi3.Types{openapi3.TypeArray},
 				Properties: map[string]*openapi3.SchemaRef{
 					"inputs": {
 						Value: &openapi3.Schema{},
@@ -457,11 +457,11 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				Outputs: outputTensors(),
 			},
 			expectedRequestSchema: &openapi3.Schema{
-				Type: "object",
+				Type: &openapi3.Types{openapi3.TypeArray},
 				Properties: map[string]*openapi3.SchemaRef{
 					"inputs": {
 						Value: &openapi3.Schema{
-							Type: "number",
+							Type: &openapi3.Types{openapi3.TypeNumber},
 						},
 					},
 				},
@@ -493,20 +493,20 @@ func TestTFSignatureDefVariousFmt(t *testing.T) {
 				Outputs: outputTensors(),
 			},
 			expectedRequestSchema: &openapi3.Schema{
-				Type: "object",
+				Type: &openapi3.Types{openapi3.TypeArray},
 				Properties: map[string]*openapi3.SchemaRef{
 					"inputs": {
 						Value: &openapi3.Schema{
-							Type: "object",
+							Type: &openapi3.Types{openapi3.TypeArray},
 							Properties: map[string]*openapi3.SchemaRef{
 								"signal": {
 									Value: &openapi3.Schema{
-										Type: "number",
+										Type: &openapi3.Types{openapi3.TypeNumber},
 									},
 								},
 								"sensor": {
 									Value: &openapi3.Schema{
-										Type: "number",
+										Type: &openapi3.Types{openapi3.TypeNumber},
 									},
 								},
 							},

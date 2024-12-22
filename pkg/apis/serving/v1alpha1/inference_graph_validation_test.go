@@ -17,12 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"fmt"
+	"testing"
+
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func makeTestInferenceGraph() InferenceGraph {
@@ -260,6 +262,7 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 		},
 	}
 
+	validator := InferenceGraphValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
 			ig := &scenario.ig
@@ -267,7 +270,7 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 				ig.update(igField, value)
 			}
 			ig.Spec.Nodes = scenario.nodes
-			warnings, err := scenario.ig.ValidateCreate()
+			warnings, err := validator.ValidateCreate(context.Background(), ig)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -300,6 +303,7 @@ func TestInferenceGraph_ValidateUpdate(t *testing.T) {
 		},
 	}
 
+	validator := InferenceGraphValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
 			ig := &scenario.ig
@@ -307,7 +311,7 @@ func TestInferenceGraph_ValidateUpdate(t *testing.T) {
 				ig.update(igField, value)
 			}
 			ig.Spec.Nodes = scenario.nodes
-			warnings, err := scenario.ig.ValidateUpdate(old)
+			warnings, err := validator.ValidateUpdate(context.Background(), old, ig)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -337,6 +341,7 @@ func TestInferenceGraph_ValidateDelete(t *testing.T) {
 		},
 	}
 
+	validator := InferenceGraphValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
 			ig := &scenario.ig
@@ -344,7 +349,7 @@ func TestInferenceGraph_ValidateDelete(t *testing.T) {
 				ig.update(igField, value)
 			}
 			ig.Spec.Nodes = scenario.nodes
-			warnings, err := scenario.ig.ValidateDelete()
+			warnings, err := validator.ValidateDelete(context.Background(), ig)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}

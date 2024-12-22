@@ -440,7 +440,9 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			Headers: &istiov1beta1.Headers{
 				Request: &istiov1beta1.Headers_HeaderOperations{
 					Set: map[string]string{
-						"Host": network.GetServiceHostname(expBackend, isvc.Namespace),
+						"Host":                        network.GetServiceHostname(expBackend, isvc.Namespace),
+						constants.IsvcNameHeader:      isvc.Name,
+						constants.IsvcNamespaceHeader: isvc.Namespace,
 					},
 				},
 			},
@@ -457,7 +459,9 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		Headers: &istiov1beta1.Headers{
 			Request: &istiov1beta1.Headers_HeaderOperations{
 				Set: map[string]string{
-					"Host": network.GetServiceHostname(backend, isvc.Namespace),
+					"Host":                        network.GetServiceHostname(backend, isvc.Namespace),
+					constants.IsvcNameHeader:      isvc.Name,
+					constants.IsvcNamespaceHeader: isvc.Namespace,
 				},
 			},
 		},
@@ -482,6 +486,43 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		url.Path = strings.TrimSuffix(path, "/") // remove trailing "/" if present
 		url.Host = config.IngressDomain
 		// In this case, we have a path-based URL so we add a path-based rule
+		if isvc.Spec.Explainer != nil {
+			httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
+				Match: []*istiov1beta1.HTTPMatchRequest{
+					{
+						Uri: &istiov1beta1.StringMatch{
+							MatchType: &istiov1beta1.StringMatch_Regex{
+								Regex: url.Path + constants.PathBasedExplainPrefix(),
+							},
+						},
+						Authority: &istiov1beta1.StringMatch{
+							MatchType: &istiov1beta1.StringMatch_Regex{
+								Regex: constants.HostRegExp(url.Host),
+							},
+						},
+						Gateways: []string{config.IngressGateway},
+					},
+				},
+				Rewrite: &istiov1beta1.HTTPRewrite{
+					UriRegexRewrite: &istiov1beta1.RegexRewrite{
+						Match:   url.Path + constants.PathBasedExplainPrefix(),
+						Rewrite: `\1`,
+					},
+				},
+				Route: []*istiov1beta1.HTTPRouteDestination{
+					createHTTPRouteDestination(config.KnativeLocalGatewayService),
+				},
+				Headers: &istiov1beta1.Headers{
+					Request: &istiov1beta1.Headers_HeaderOperations{
+						Set: map[string]string{
+							"Host":                        network.GetServiceHostname(expBackend, isvc.Namespace),
+							constants.IsvcNameHeader:      isvc.Name,
+							constants.IsvcNamespaceHeader: isvc.Namespace,
+						},
+					},
+				},
+			})
+		}
 		httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
 			Match: []*istiov1beta1.HTTPMatchRequest{
 				{
@@ -520,7 +561,9 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 			Headers: &istiov1beta1.Headers{
 				Request: &istiov1beta1.Headers_HeaderOperations{
 					Set: map[string]string{
-						"Host": network.GetServiceHostname(backend, isvc.Namespace),
+						"Host":                        network.GetServiceHostname(backend, isvc.Namespace),
+						constants.IsvcNameHeader:      isvc.Name,
+						constants.IsvcNamespaceHeader: isvc.Namespace,
 					},
 				},
 			},
