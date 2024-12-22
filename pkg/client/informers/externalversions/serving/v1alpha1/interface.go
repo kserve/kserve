@@ -24,14 +24,16 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// ClusterLocalModels returns a ClusterLocalModelInformer.
-	ClusterLocalModels() ClusterLocalModelInformer
 	// ClusterServingRuntimes returns a ClusterServingRuntimeInformer.
 	ClusterServingRuntimes() ClusterServingRuntimeInformer
 	// ClusterStorageContainers returns a ClusterStorageContainerInformer.
 	ClusterStorageContainers() ClusterStorageContainerInformer
 	// InferenceGraphs returns a InferenceGraphInformer.
 	InferenceGraphs() InferenceGraphInformer
+	// LocalModelCaches returns a LocalModelCacheInformer.
+	LocalModelCaches() LocalModelCacheInformer
+	// LocalModelNodes returns a LocalModelNodeInformer.
+	LocalModelNodes() LocalModelNodeInformer
 	// LocalModelNodeGroups returns a LocalModelNodeGroupInformer.
 	LocalModelNodeGroups() LocalModelNodeGroupInformer
 	// ServingRuntimes returns a ServingRuntimeInformer.
@@ -51,11 +53,6 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// ClusterLocalModels returns a ClusterLocalModelInformer.
-func (v *version) ClusterLocalModels() ClusterLocalModelInformer {
-	return &clusterLocalModelInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
-}
-
 // ClusterServingRuntimes returns a ClusterServingRuntimeInformer.
 func (v *version) ClusterServingRuntimes() ClusterServingRuntimeInformer {
 	return &clusterServingRuntimeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
@@ -69,6 +66,16 @@ func (v *version) ClusterStorageContainers() ClusterStorageContainerInformer {
 // InferenceGraphs returns a InferenceGraphInformer.
 func (v *version) InferenceGraphs() InferenceGraphInformer {
 	return &inferenceGraphInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// LocalModelCaches returns a LocalModelCacheInformer.
+func (v *version) LocalModelCaches() LocalModelCacheInformer {
+	return &localModelCacheInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// LocalModelNodes returns a LocalModelNodeInformer.
+func (v *version) LocalModelNodes() LocalModelNodeInformer {
+	return &localModelNodeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // LocalModelNodeGroups returns a LocalModelNodeGroupInformer.

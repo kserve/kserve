@@ -451,7 +451,12 @@ data:
          # defaultJobImage specifies the default image used for the download job.
          "defaultJobImage" : "kserve/storage-initializer:latest",
          # Kubernetes modifies the filesystem group ID on the attached volume.
-         "FSGroup": 1000
+         "fsGroup": 1000,
+         # TTL for the download job after it is finished.
+         "jobTTLSecondsAfterFinished": 3600,
+         # The frequency at which the local model agent reconciles the local models
+         # This is to detect if models are missing from local disk
+         "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }}
        }
 
   agent: |-
@@ -560,8 +565,10 @@ data:
     {
       "enabled": {{ .Values.kserve.localmodel.enabled }},
       "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
-      "defaultJobImage" : "kserve/storage-initializer:latest",
-      "FSGroup": {{ .Values.kserve.localmodel.securityContext.FSGroup }}
+      "jobTTLSecondsAfterFinished": {{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }},
+      "defaultJobImage": "kserve/storage-initializer:latest",
+      "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }},
+      "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }}
     }
   security: |-
     {

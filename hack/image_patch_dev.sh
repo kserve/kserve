@@ -41,6 +41,24 @@ spec:
           image: ${IMG}
 EOF
 
+IMG=$(ko resolve -f config/localmodelnodes/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
+if [ -z ${IMG} ]; then exit; fi
+cat > config/overlays/${OVERLAY}/localmodelnode_image_patch.yaml << EOF
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kserve-localmodelnode-agent
+  namespace: kserve
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          command:
+            - /ko-app/localmodelnode
+          image: ${IMG}
+EOF
+
 AGENT_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_agent| grep 'image:' | awk '{print $2}')
 ROUTER_IMG=$(ko resolve -f config/overlays/development/configmap/ko_resolve_router| grep 'image:' | awk '{print $2}')
 
