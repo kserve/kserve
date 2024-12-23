@@ -26,19 +26,16 @@
 
 from __future__ import absolute_import
 
-import datetime
 import unittest
-
-from kserve.models.v1alpha1_local_model_cache import (  # noqa: E501
-    V1alpha1LocalModelCache,
-)
-from kserve.rest import ApiException
+import datetime
 
 import kserve
+from kserve.models.v1beta1_service_config import V1beta1ServiceConfig  # noqa: E501
+from kserve.rest import ApiException
 
 
-class TestV1alpha1LocalModelCache(unittest.TestCase):
-    """V1alpha1LocalModelCache unit test stubs"""
+class TestV1beta1ServiceConfig(unittest.TestCase):
+    """V1beta1ServiceConfig unit test stubs"""
 
     def setUp(self):
         pass
@@ -47,28 +44,18 @@ class TestV1alpha1LocalModelCache(unittest.TestCase):
         pass
 
     def make_instance(self, include_optional):
-        """Test V1alpha1LocalModelCache
+        """Test V1beta1ServiceConfig
         include_option is a boolean, when False only required
         params are included, when True both required and
         optional params are included"""
-        # model = kserve.models.v1alpha1_local_model_cache.V1alpha1LocalModelCache()  # noqa: E501
+        # model = kserve.models.v1beta1_service_config.V1beta1ServiceConfig()  # noqa: E501
         if include_optional:
-            return V1alpha1LocalModelCache(
-                api_version="0",
-                kind="0",
-                metadata=None,
-                spec=kserve.models.v1alpha1_local_model_cache_spec.V1alpha1LocalModelCacheSpec(
-                    model_size="1Gi",
-                    node_groups=["0"],
-                    source_model_uri="0",
-                ),
-                status=None,
-            )
+            return V1beta1ServiceConfig(service_cluster_ip_none=True)
         else:
-            return V1alpha1LocalModelCache()
+            return V1beta1ServiceConfig()
 
-    def testV1alpha1LocalModelCache(self):
-        """Test V1alpha1LocalModelCache"""
+    def testV1beta1ServiceConfig(self):
+        """Test V1beta1ServiceConfig"""
         inst_req_only = self.make_instance(include_optional=False)
         inst_req_and_optional = self.make_instance(include_optional=True)
 

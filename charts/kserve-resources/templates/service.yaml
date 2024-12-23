@@ -4,6 +4,9 @@ kind: Service
 metadata:
   name: kserve-webhook-server-service
   namespace: {{ .Release.Namespace }}
+  {{- with .Values.kserve.controller.webhookServiceAnnotations }}
+  annotations: {{ toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   ports:
     - port: 443
@@ -20,6 +23,9 @@ metadata:
   labels:
     control-plane: kserve-controller-manager
     controller-tools.k8s.io: "1.0"
+  {{- with .Values.kserve.controller.serviceAnnotations }}
+  annotations: {{ toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   selector:
     control-plane: kserve-controller-manager

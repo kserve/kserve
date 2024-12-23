@@ -97,6 +97,7 @@ from kserve.models.v1beta1_predictor_extension_spec import V1beta1PredictorExten
 from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kserve.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec
 from kserve.models.v1beta1_security_config import V1beta1SecurityConfig
+from kserve.models.v1beta1_service_config import V1beta1ServiceConfig
 from kserve.models.v1beta1_storage_spec import V1beta1StorageSpec
 from kserve.models.v1beta1_tf_serving_spec import V1beta1TFServingSpec
 from kserve.models.v1beta1_torch_serve_spec import V1beta1TorchServeSpec
