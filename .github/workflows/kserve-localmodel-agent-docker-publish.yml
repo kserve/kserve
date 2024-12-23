@@ -14,7 +14,7 @@ on:
   pull_request:
 
 env:
-  IMAGE_NAME: kserve-localmodel-agent
+  IMAGE_NAME: kserve-localmodelnode-agent
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

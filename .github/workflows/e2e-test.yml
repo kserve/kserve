@@ -24,7 +24,7 @@ env:
   # Controller images
   CONTROLLER_IMG: "kserve-controller"
   LOCALMODEL_CONTROLLER_IMG: "kserve-localmodel-controller"
-  LOCALMODEL_AGENT_IMG: "kserve-localmodel-agent"
+  LOCALMODEL_AGENT_IMG: "kserve-localmodelnode-agent"
   STORAGE_INIT_IMG: "storage-initializer"
   AGENT_IMG: "agent"
   ROUTER_IMG: "router"
