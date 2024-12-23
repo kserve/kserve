@@ -51,7 +51,8 @@ class V1beta1LocalModelConfig(object):
         'enabled': 'bool',
         'fs_group': 'int',
         'job_namespace': 'str',
-        'job_ttl_seconds_after_finished': 'int'
+        'job_ttl_seconds_after_finished': 'int',
+        'reconcilation_frequency_in_secs': 'int'
     }
 
     attribute_map = {
@@ -59,10 +60,11 @@ class V1beta1LocalModelConfig(object):
         'enabled': 'enabled',
         'fs_group': 'fsGroup',
         'job_namespace': 'jobNamespace',
-        'job_ttl_seconds_after_finished': 'jobTTLSecondsAfterFinished'
+        'job_ttl_seconds_after_finished': 'jobTTLSecondsAfterFinished',
+        'reconcilation_frequency_in_secs': 'reconcilationFrequencyInSecs'
     }
 
-    def __init__(self, default_job_image=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_job_image=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, reconcilation_frequency_in_secs=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LocalModelConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -73,6 +75,7 @@ class V1beta1LocalModelConfig(object):
         self._fs_group = None
         self._job_namespace = None
         self._job_ttl_seconds_after_finished = None
+        self._reconcilation_frequency_in_secs = None
         self.discriminator = None
 
         if default_job_image is not None:
@@ -83,6 +86,8 @@ class V1beta1LocalModelConfig(object):
         self.job_namespace = job_namespace
         if job_ttl_seconds_after_finished is not None:
             self.job_ttl_seconds_after_finished = job_ttl_seconds_after_finished
+        if reconcilation_frequency_in_secs is not None:
+            self.reconcilation_frequency_in_secs = reconcilation_frequency_in_secs
 
     @property
     def default_job_image(self):
@@ -192,6 +197,27 @@ class V1beta1LocalModelConfig(object):
         """
 
         self._job_ttl_seconds_after_finished = job_ttl_seconds_after_finished
+
+    @property
+    def reconcilation_frequency_in_secs(self):
+        """Gets the reconcilation_frequency_in_secs of this V1beta1LocalModelConfig.  # noqa: E501
+
+
+        :return: The reconcilation_frequency_in_secs of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: int
+        """
+        return self._reconcilation_frequency_in_secs
+
+    @reconcilation_frequency_in_secs.setter
+    def reconcilation_frequency_in_secs(self, reconcilation_frequency_in_secs):
+        """Sets the reconcilation_frequency_in_secs of this V1beta1LocalModelConfig.
+
+
+        :param reconcilation_frequency_in_secs: The reconcilation_frequency_in_secs of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: int
+        """
+
+        self._reconcilation_frequency_in_secs = reconcilation_frequency_in_secs
 
     def to_dict(self):
         """Returns the model properties as a dict"""
