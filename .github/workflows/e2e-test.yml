@@ -24,6 +24,7 @@ env:
   # Controller images
   CONTROLLER_IMG: "kserve-controller"
   LOCALMODEL_CONTROLLER_IMG: "kserve-localmodel-controller"
+  LOCALMODEL_AGENT_IMG: "kserve-localmodelnode-agent"
   STORAGE_INIT_IMG: "storage-initializer"
   AGENT_IMG: "agent"
   ROUTER_IMG: "router"
@@ -83,6 +84,14 @@ jobs:
         with:
           name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ github.sha }}
           path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ github.sha }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload localmodel agent image
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_AGENT_IMG }}-${{ github.sha }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_AGENT_IMG }}-${{ github.sha }}
           compression-level: 0
           if-no-files-found: error
 
