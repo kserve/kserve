@@ -602,3 +602,8 @@ data:
     {
       "autoMountServiceAccountToken": true
     }
+
+  service: |-
+    {
+        "serviceClusterIPNone": true
+    }
