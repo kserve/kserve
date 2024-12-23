@@ -30,12 +30,14 @@ type LocalModelCacheSpec struct {
 	// Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.
 	ModelSize resource.Quantity `json:"modelSize" validate:"required"`
 	// group of nodes to cache the model on.
-	NodeGroup string `json:"nodeGroup" validate:"required"`
+	// Todo: support more than 1 node groups
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=1
+	NodeGroups []string `json:"nodeGroups" validate:"required"`
 }
 
 // LocalModelCache
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
@@ -51,7 +53,6 @@ type LocalModelCache struct {
 // LocalModelCacheList
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type LocalModelCacheList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

@@ -26,14 +26,15 @@
 
 from __future__ import absolute_import
 
-import unittest
 import datetime
+import unittest
+
+from kserve.models.v1alpha1_local_model_cache import (  # noqa: E501
+    V1alpha1LocalModelCache,
+)
+from kserve.rest import ApiException
 
 import kserve
-from kserve.models.v1alpha1_local_model_cache import (
-    V1alpha1LocalModelCache,
-)  # noqa: E501
-from kserve.rest import ApiException
 
 
 class TestV1alpha1LocalModelCache(unittest.TestCase):
@@ -58,7 +59,7 @@ class TestV1alpha1LocalModelCache(unittest.TestCase):
                 metadata=None,
                 spec=kserve.models.v1alpha1_local_model_cache_spec.V1alpha1LocalModelCacheSpec(
                     model_size="1Gi",
-                    node_group="0",
+                    node_groups=["0"],
                     source_model_uri="0",
                 ),
                 status=None,

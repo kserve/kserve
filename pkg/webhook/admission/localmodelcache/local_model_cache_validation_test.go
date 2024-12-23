@@ -67,12 +67,12 @@ func makeTestLocalModelCache() v1alpha1.LocalModelCache {
 		},
 		Spec: v1alpha1.LocalModelCacheSpec{
 			ModelSize:      resource.MustParse("1Gi"),
-			NodeGroup:      "gpu1",
+			NodeGroups:     []string{"gpu1"},
 			SourceModelUri: storageURI,
 		},
 		Status: v1alpha1.LocalModelCacheStatus{
 			InferenceServices: []v1alpha1.NamespacedName{
-				v1alpha1.NamespacedName{
+				{
 					Namespace: "default",
 					Name:      "sklearn-iris",
 				},
@@ -89,7 +89,7 @@ func makeTestLocalModelCacheWithSameStorageURI() v1alpha1.LocalModelCache {
 		},
 		Spec: v1alpha1.LocalModelCacheSpec{
 			ModelSize:      resource.MustParse("1Gi"),
-			NodeGroup:      "gpu1",
+			NodeGroups:     []string{"gpu1"},
 			SourceModelUri: storageURI,
 		},
 	}

@@ -8,6 +8,7 @@ Name | Type | Description | Notes
 **fs_group** | **int** |  | [optional] 
 **job_namespace** | **str** |  | [default to '']
 **job_ttl_seconds_after_finished** | **int** |  | [optional] 
+**reconcilation_frequency_in_secs** | **int** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

@@ -65,9 +65,10 @@ var (
 	defaultJobImage            = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
 	FSGroup                    *int64
 	jobNamespace               string
-	jobTTLSecondsAfterFinished int32 = 3600                   // One hour. Can be overwritten by the value in the configmap
-	nodeName                         = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
-	modelsRootFolder                 = filepath.Join(MountPath, "models")
+	jobTTLSecondsAfterFinished int32         = 3600                   // One hour. Can be overwritten by the value in the configmap
+	reconcilationFreqency      time.Duration = time.Minute            // Reconcile every one minute to check if model folders exist. Can be overwritten by the value in configmap
+	nodeName                                 = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
+	modelsRootFolder                         = filepath.Join(MountPath, "models")
 	fsHelper                   FileSystemInterface
 )
 
@@ -285,6 +286,10 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.LocalModelNode) error {
 	// 1. Scan model dir and get a list of existing folders representing downloaded models
 	foldersToRemove := map[string]struct{}{}
+	if err := fsHelper.ensureModelRootFolderExists(); err != nil {
+		c.Log.Error(err, "Failed to ensure model root folder exists")
+		return err
+	}
 	entries, err := fsHelper.getModelFolders()
 	if err != nil {
 		c.Log.Error(err, "Failed to list model folder")
@@ -314,6 +319,41 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.Local
 	return nil
 }
 
+func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNode v1alpha1api.LocalModelNode) error {
+	// 1. Get all jobs for the LocalModelNode
+	jobs := &batchv1.JobList{}
+	labelSelector := map[string]string{"node": localModelNode.Name}
+	if err := c.Client.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
+		c.Log.Error(err, "Failed to list jobs", "node", localModelNode.Name)
+		return err
+	}
+
+	// 2. Get a list of models that are in the spec
+	modelsInSpec := map[string]struct{}{}
+	for _, modelInfo := range localModelNode.Spec.LocalModels {
+		modelsInSpec[modelInfo.ModelName] = struct{}{}
+	}
+
+	// 3. Delete jobs that are not in the spec
+	for i := range jobs.Items {
+		job := jobs.Items[i]
+		modelName, ok := job.Labels["model"]
+		if !ok {
+			c.Log.Info("Job does not have model label", "job", job.Name)
+			continue
+		}
+		if _, ok := modelsInSpec[modelName]; !ok {
+			c.Log.Info("Deleting job", "job", job.Name, "model", modelName)
+			propagationPolicy := metav1.DeletePropagationBackground
+			if err := c.Client.Delete(ctx, &job, &client.DeleteOptions{PropagationPolicy: &propagationPolicy}); err != nil {
+				c.Log.Error(err, "Failed to delete job", "job", job.Name)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	if req.Name != nodeName {
 		c.Log.Info("Skipping LocalModelNode because it is not for current node", "name", req.Name, "current node", nodeName)
@@ -335,31 +375,39 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
-	// 2. Kick off download jobs for all models in spec
+	// 2. Cleanup jobs for models that are not in the spec
+	if err := c.cleanupJobs(ctx, localModelNode); err != nil {
+		c.Log.Error(err, "Job cleanup err")
+		return reconcile.Result{}, err
+	}
+
+	// 3. Kick off download jobs for all models in spec
 	localModelConfig, err := v1beta1.NewLocalModelConfig(c.Clientset)
 	if err != nil {
 		c.Log.Error(err, "Failed to get local model config")
 		return reconcile.Result{}, err
 	}
-	defaultJobImage = localModelConfig.DefaultJobImage
 	jobNamespace = localModelConfig.JobNamespace
 	FSGroup = localModelConfig.FSGroup
+	if localModelConfig.ReconcilationFrequencyInSecs != nil {
+		reconcilationFreqency = time.Duration(*localModelConfig.ReconcilationFrequencyInSecs) * time.Second
+	}
 	if localModelConfig.JobTTLSecondsAfterFinished != nil {
 		jobTTLSecondsAfterFinished = *localModelConfig.JobTTLSecondsAfterFinished
 	}
+
 	if err := c.downloadModels(ctx, &localModelNode); err != nil {
 		c.Log.Error(err, "Model download err")
 		return reconcile.Result{}, err
 	}
 
-	// 3. Delete models that are not in the spec. This function does not modify the resource.
+	// 4. Delete models that are not in the spec. This function does not modify the resource.
 	if err := c.deleteModels(localModelNode); err != nil {
 		c.Log.Error(err, "Model deletion err")
 		return reconcile.Result{}, err
 	}
 	// Requeue to check local folders periodically
-	// Todo: Make it configurable
-	return reconcile.Result{RequeueAfter: time.Minute}, nil
+	return reconcile.Result{RequeueAfter: reconcilationFreqency}, nil
 }
 
 func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
