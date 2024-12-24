@@ -10,6 +10,10 @@ inputs:
     description: 'Driver to use for minikube'
     required: false
     default: 'none'
+  start-args:
+    description: 'Additional arguments to pass to minikube start'
+    required: false
+    default: ''
 
 runs:
   using: "composite"
@@ -28,7 +32,7 @@ runs:
         wait: 'all'
         cpus: 'max'
         memory: 'max'
-        start-args: --wait-timeout=6m0s --nodes=${{ inputs.nodes }}
+        start-args: --wait-timeout=6m0s --nodes=${{ inputs.nodes }} ${{ inputs.start-args }}
 
     - name: Check Kubernetes pods
       shell: bash

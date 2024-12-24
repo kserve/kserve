@@ -1046,12 +1046,18 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.9"
+      
+      - name: Create tmp-images directory
+        run: |
+          sudo mkdir -p /tmp-images
+          sudo chown -R $USER /tmp-images
 
       - name: Setup Minikube
         uses: ./.github/actions/minikube-setup
         with:
           nodes: 3
           driver: "docker"
+          start-args: "--mount --mount-string=/tmp-images:/tmp-images"
       
       - name: Create minikube tunnel
         run: |
@@ -1063,36 +1069,38 @@ jobs:
       - name: Download base images
         uses: actions/download-artifact@v4
         with:
-          path: ./tmp
+          path: /tmp-images
           pattern: ${{ env.BASE_ARTIFACT_PREFIX }}-*
           merge-multiple: true
-      
+
       - name: Load docker images
         run: |
-          nohup minikube mount ./tmp:/tmp/images/ > minikube-mount.log 2>&1 &
-          files=$(find ./tmp -maxdepth 1 -type f)
+          ls -l /tmp-images
+          minikube ssh -n minikube -- ls -l /tmp-images
+          files=$(find /tmp-images -maxdepth 1 -type f)
           for file in ${files[@]};do
             echo "Loading image $(basename ${file})"
-            minikube ssh -n minikube -- docker image load -i /tmp/images/$(basename ${file})
-            minikube ssh -n minikube-m02 -- docker image load -i /tmp/images/$(basename ${file})
+            minikube ssh -n minikube -- docker image load -i ${file}
+            minikube ssh -n minikube-m02 -- docker image load -i ${file}
           done
-          rm -rf ./tmp
+          sudo rm -rf /tmp-images/*
+          minikube ssh -n minikube -- docker image ls
           minikube ssh -n minikube-m02 -- docker image ls
 
       - name: Download huggingface server image
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
-          path: ./tmp
+          path: /tmp-images
 
       - name: Load docker images
         run: |
-          files=$(find ./tmp -maxdepth 1 -type f)
+          files=$(find /tmp-images -maxdepth 1 -type f)
           for file in ${files[@]};do
             echo "Loading image $(basename ${file})"
-            minikube ssh -n minikube-m02 -- docker image load -i /tmp/images/$(basename ${file})
+            minikube ssh -n minikube-m02 -- docker image load -i ${file}
           done
-          rm -rf ./tmp
+          sudo rm -rf tmp-images/*
           minikube ssh -n minikube-m02 -- docker image ls
 
       - name: Install Poetry and version plugin
@@ -1131,9 +1139,6 @@ jobs:
       - name: Check system status
         if: always()
         run: |
-          echo "::group::Minikube mount logs"
-          cat minikube-mount.log
-          echo "::endgroup::"
           echo "::group::Minikube tunnel logs"
           cat minikube-tunnel.log
           echo "::endgroup::"
