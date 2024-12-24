@@ -89,7 +89,7 @@ type ComponentExtensionSpec struct {
 	// concurrency and rps targets are supported by Knative Pod Autoscaler
 	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
 	// +optional
-	ScaleTarget *int `json:"scaleTarget,omitempty"`
+	ScaleTarget *int32 `json:"scaleTarget,omitempty"`
 	// ScaleMetric defines the scaling metric type watched by autoscaler
 	// possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).

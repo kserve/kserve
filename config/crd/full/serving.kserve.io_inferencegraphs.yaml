@@ -561,6 +561,7 @@ spec:
                 - rps
                 type: string
               scaleTarget:
+                format: int32
                 type: integer
               timeout:
                 format: int64

@@ -2726,6 +2726,7 @@ spec:
                         - rps
                       type: string
                     scaleTarget:
+                      format: int32
                       type: integer
                     schedulerName:
                       type: string
@@ -10466,6 +10467,7 @@ spec:
                         - rps
                       type: string
                     scaleTarget:
+                      format: int32
                       type: integer
                     schedulerName:
                       type: string
@@ -19690,6 +19692,7 @@ spec:
                         - rps
                       type: string
                     scaleTarget:
+                      format: int32
                       type: integer
                     schedulerName:
                       type: string

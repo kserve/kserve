@@ -69,7 +69,7 @@ func TestCreateHPA(t *testing.T) {
 			componentExt: &v1beta1.ComponentExtensionSpec{
 				MinReplicas: utils.ToPointer(int32(2)),
 				MaxReplicas: 5,
-				ScaleTarget: utils.ToPointer(30),
+				ScaleTarget: utils.ToPointer(int32(30)),
 				ScaleMetric: &cpuResource,
 			},
 		},
@@ -87,7 +87,7 @@ func TestCreateHPA(t *testing.T) {
 			componentExt: &v1beta1.ComponentExtensionSpec{
 				MinReplicas: utils.ToPointer(int32(5)),
 				MaxReplicas: 10,
-				ScaleTarget: utils.ToPointer(50),
+				ScaleTarget: utils.ToPointer(int32(50)),
 				ScaleMetric: &cpuResource,
 			},
 		},
