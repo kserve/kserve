@@ -14,7 +14,7 @@
 
 import argparse
 from pathlib import Path
-from typing import cast
+from typing import cast, Union
 
 import torch
 import kserve
@@ -48,6 +48,26 @@ from .vllm.utils import (
 
 def list_of_strings(arg):
     return arg.split(",")
+
+
+def get_model_id_or_path(args: argparse.Namespace) -> Union[str, Path]:
+    # If --model_id is specified then pass model_id to HF API, otherwise load the model from /mnt/models
+    if args.model_id:
+        return cast(str, args.model_id)
+    return Path(Storage.download(args.model_dir))
+
+
+def is_vllm_backend_enabled(
+    args: argparse.Namespace, model_id_or_path: Union[str, Path]
+) -> bool:
+    return (
+        (args.backend == Backend.vllm or args.backend == Backend.auto)
+        and vllm_available()
+        and infer_vllm_supported_from_model_architecture(
+            model_id_or_path,
+            trust_remote_code=args.trust_remote_code,
+        )
+    )
 
 
 try:
@@ -110,12 +130,6 @@ parser.add_argument(
     default=None,
     help="the tensor input names passed to the model",
 )
-# Updated to use hf_task for the HuggingFace backend. Starting from vLLM version 0.6.4,
-# the task flag was added to the vLLM CLI parser, supporting different task values specific to the vLLM framework.
-# To avoid conflicts and maintain compatibility with the HuggingFace backend, a separate argument (hf_task) is now used.
-parser.add_argument(
-    "--hf_task", required=False, help="The ML task name for huggingface backend"
-)
 available_backends = ", ".join(f"'{b.name}'" for b in Backend)
 parser.add_argument(
     "--backend",
@@ -143,7 +157,6 @@ parser.add_argument(
     "ID numbers being printed in log."
     "\n\nDefault: Unlimited",
 )
-parser = maybe_add_vllm_cli_parser(parser)
 
 default_dtype = "float16" if torch.cuda.is_available() else "float32"
 if not vllm_available():
@@ -157,6 +170,17 @@ if not vllm_available():
         f"Defaults to float16 for GPU and float32 for CPU systems",
     )
 
+# The initial_args are required to determine whether the vLLM backend is enabled.
+initial_args, _ = parser.parse_known_args()
+model_id_or_path = get_model_id_or_path(initial_args)
+if is_vllm_backend_enabled(initial_args, model_id_or_path):
+    # If vLLM backend is enabled, add the vLLM specific CLI arguments to the parser
+    parser = maybe_add_vllm_cli_parser(parser)
+else:
+    # If vLLM backend is not enabled, add the task argument for Huggingface backend
+    parser.add_argument(
+        "--task", required=False, help="The ML task name for huggingface backend"
+    )
 
 args, _ = parser.parse_known_args()
 
@@ -170,11 +194,7 @@ if "dtype" in args and args.dtype == "auto":
 
 def load_model():
     engine_args = None
-    # If --model_id is specified then pass model_id to HF API, otherwise load the model from /mnt/models
-    if args.model_id:
-        model_id_or_path = cast(str, args.model_id)
-    else:
-        model_id_or_path = Path(Storage.download(args.model_dir))
+    model_id_or_path = get_model_id_or_path(args)
 
     if args.disable_log_requests:
         request_logger = None
@@ -187,14 +207,7 @@ def load_model():
     if args.backend == Backend.vllm and not vllm_available():
         raise RuntimeError("Backend is set to 'vllm' but vLLM is not available")
 
-    if (
-        (args.backend == Backend.vllm or args.backend == Backend.auto)
-        and vllm_available()
-        and infer_vllm_supported_from_model_architecture(
-            model_id_or_path,
-            trust_remote_code=args.trust_remote_code,
-        )
-    ):
+    if is_vllm_backend_enabled(args, model_id_or_path):
         from .vllm.vllm_model import VLLMModel
 
         args.model = args.model_id or args.model_dir
@@ -217,15 +230,15 @@ def load_model():
             revision=kwargs.get("model_revision", None),
             trust_remote_code=kwargs.get("trust_remote_code", False),
         )
-        if kwargs.get("hf_task", None):
+        if kwargs.get("task", None):
             try:
-                task = MLTask[kwargs["hf_task"]]
+                task = MLTask[kwargs["task"]]
                 if task not in SUPPORTED_TASKS:
                     raise ValueError(f"Task not supported: {task.name}")
             except (KeyError, ValueError):
                 tasks_str = ", ".join(t.name for t in SUPPORTED_TASKS)
                 raise ValueError(
-                    f"Unsupported task: {kwargs['hf_task']}. "
+                    f"Unsupported task: {kwargs['task']}. "
                     f"Currently supported tasks are: {tasks_str}"
                 )
         else:
