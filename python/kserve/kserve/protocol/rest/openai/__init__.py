@@ -16,6 +16,8 @@ from .openai_model import (
     ChatPrompt,
     CompletionRequest,
     ChatCompletionRequest,
+    CreateCompletionRequest,
+    CreateChatCompletionRequest,
     OpenAIModel,
 )
 
@@ -31,4 +33,6 @@ __all__ = [
     "CompletionRequest",
     "ChatCompletionRequest",
     "ChatCompletionRequestMessage",
+    "CreateCompletionRequest",
+    "CreateChatCompletionRequest",
 ]
