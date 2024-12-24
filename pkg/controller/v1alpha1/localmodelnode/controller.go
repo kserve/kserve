@@ -318,7 +318,7 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalMod
 	return nil
 }
 
-func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNode v1alpha1api.LocalModelNode) error {
+func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNode v1alpha1.LocalModelNode) error {
 	// 1. Get all jobs for the LocalModelNode
 	jobs := &batchv1.JobList{}
 	labelSelector := map[string]string{"node": localModelNode.Name}

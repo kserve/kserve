@@ -409,7 +409,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			// Mock readDir to return a fake model folder
 			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
 
-			nodeName = "test3" // Definied in controller.go, representing the name of the curent node
+			nodeName = "test3" // Definied in controller.go, representing the name of the current node
 			// Creates a LocalModelNode with no models but the controller should find a model from local disk and delete it
 			localModelNode := &v1alpha1.LocalModelNode{
 				ObjectMeta: metav1.ObjectMeta{

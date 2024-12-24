@@ -196,13 +196,13 @@ func extractZipFiles(reader io.Reader, dest string) error {
 			return fmt.Errorf("file %s exceeds the maximum decompression size %d", zipFile.Name, DEFAULT_MAX_DECOMPRESSION_SIZE)
 		}
 		limitReader := io.LimitReader(rc, DEFAULT_MAX_DECOMPRESSION_SIZE)
-		_, err = io.Copy(file, limitReader)
-		closeErr := file.Close()
-		if closeErr != nil {
+		if _, err = io.Copy(file, limitReader); err != nil {
+			return err
+		}
+		if closeErr := file.Close(); closeErr != nil {
 			return closeErr
 		}
-		closeErr = rc.Close()
-		if closeErr != nil {
+		if closeErr := rc.Close(); closeErr != nil {
 			return closeErr
 		}
 	}
