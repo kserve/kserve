@@ -230,17 +230,7 @@ class ModelServer:
                 logging.configure_logging(args.log_config_file)
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
-        predictor_config = PredictorConfig(
-            predictor_host=args.predictor_host,
-            predictor_protocol=args.predictor_protocol,
-            predictor_use_ssl=args.predictor_use_ssl,
-            predictor_request_timeout_seconds=args.predictor_request_timeout_seconds,
-            predictor_request_retries=args.predictor_request_retries,
-            predictor_health_check=args.enable_predictor_health_check,
-        )
-        self.dataplane = DataPlane(
-            model_registry=self.registered_models, predictor_config=predictor_config
-        )
+
         self._rest_server = self._rest_server = RESTServer(
             app,
             self.dataplane,
