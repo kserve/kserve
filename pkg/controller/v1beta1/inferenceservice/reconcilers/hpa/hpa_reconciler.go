@@ -15,7 +15,6 @@ package hpa
 
 import (
 	"context"
-	"strconv"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -76,10 +75,7 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 	}
 
 	if componentExt.ScaleTarget != nil {
-		utilization, err = utils.StringToInt32(strconv.Itoa(*componentExt.ScaleTarget))
-		if err != nil {
-			return metrics, err
-		}
+		utilization = *componentExt.ScaleTarget
 	}
 
 	if componentExt.ScaleMetric != nil {

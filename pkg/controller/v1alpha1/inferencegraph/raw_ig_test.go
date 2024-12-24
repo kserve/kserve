@@ -417,7 +417,7 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 					Spec: InferenceGraphSpec{
 						MinReplicas: utils.ToPointer(int32(5)),
 						MaxReplicas: 10,
-						ScaleTarget: utils.ToPointer(50),
+						ScaleTarget: utils.ToPointer(int32(0)),
 						ScaleMetric: (*ScaleMetric)(&cpuResource),
 					},
 				},
@@ -437,7 +437,7 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 				componentExt: v1beta1.ComponentExtensionSpec{
 					MinReplicas: utils.ToPointer(int32(5)),
 					MaxReplicas: 10,
-					ScaleTarget: utils.ToPointer(50),
+					ScaleTarget: utils.ToPointer(int32(50)),
 					ScaleMetric: &cpuResource,
 				},
 			},
