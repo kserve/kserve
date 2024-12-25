@@ -36,7 +36,7 @@ from kserve.errors import (
     UnsupportedProtocol,
     unsupported_protocol_error_handler,
 )
-from kserve.logging import trace_logger
+from kserve.logging import trace_logger, logger
 from kserve.protocol.dataplane import DataPlane
 
 from .openai.config import maybe_register_openai_endpoints
@@ -55,24 +55,32 @@ class PrintTimings(TimingClient):
         trace_logger.info(f"{metric_name}: {timing} {tags}")
 
 
-class _NoSignalUvicornServer(uvicorn.Server):
-    def install_signal_handlers(self) -> None:
-        pass
-
-
 class RESTServer:
     def __init__(
         self,
         app: FastAPI,
         data_plane: DataPlane,
         model_repository_extension: ModelRepositoryExtension,
+        http_port: int,
+        log_config: Optional[Union[str, Dict]] = None,
+        access_log_format: Optional[str] = None,
+        workers: int = 1,
     ):
         self.app = app
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension
+        self.access_log_format = access_log_format
+        self._server = uvicorn.Server(
+            config=uvicorn.Config(
+                app="kserve.model_server:app",
+                host="0.0.0.0",
+                log_config=log_config,
+                port=http_port,
+                workers=workers,
+            )
+        )
 
-    def create_application(self):
-        """Create a KServe ModelServer application with API routes."""
+    def _register_endpoints(self):
         root_router = APIRouter()
         root_router.add_api_route(r"/", self.dataplane.live)
         root_router.add_api_route(r"/metrics", metrics_handler, methods=["GET"])
@@ -84,7 +92,7 @@ class RESTServer:
         # REST server.
         maybe_register_openai_endpoints(self.app, self.dataplane.model_registry)
 
-        # Add exception handlers
+    def _add_exception_handlers(self):
         self.app.add_exception_handler(InvalidInput, invalid_input_handler)
         self.app.add_exception_handler(InferenceError, inference_error_handler)
         self.app.add_exception_handler(ModelNotFound, model_not_found_handler)
@@ -97,32 +105,13 @@ class RESTServer:
         )
         self.app.add_exception_handler(Exception, generic_exception_handler)
 
-
-class UvicornServer:
-    def __init__(
-        self,
-        app: FastAPI,
-        http_port: int,
-        data_plane: DataPlane,
-        model_repository_extension,
-        log_config: Optional[Union[str, Dict]] = None,
-        access_log_format: Optional[str] = None,
-        workers: int = 1,
-    ):
-        super().__init__()
-        rest_server = RESTServer(app, data_plane, model_repository_extension)
-        rest_server.create_application()
-        app.add_middleware(
+    def _add_middlewares(self):
+        self.app.add_middleware(
             TimingMiddleware,
             client=PrintTimings(),
-            metric_namer=StarletteScopeToName(prefix="kserve.io", starlette_app=app),
-        )
-        self.cfg = uvicorn.Config(
-            app="kserve.model_server:app",
-            host="0.0.0.0",
-            log_config=log_config,
-            port=http_port,
-            workers=workers,
+            metric_namer=StarletteScopeToName(
+                prefix="kserve.io", starlette_app=self.app
+            ),
         )
 
         # More context in https://github.com/encode/uvicorn/pull/947
@@ -130,22 +119,25 @@ class UvicornServer:
         # to change the access log format, and hence the Uvicorn upstream devs
         # chose to create a custom middleware for this.
         # The allowed log format is specified in https://github.com/Kludex/asgi-logger#usage
-        if access_log_format:
+        if self.access_log_format:
             from asgi_logger import AccessLoggerMiddleware
 
             # As indicated by the asgi-logger docs, we need to clear/unset
             # any setting for uvicorn.access to avoid log duplicates.
             logging.getLogger("uvicorn.access").handlers = []
-            app.add_middleware(AccessLoggerMiddleware, format=access_log_format)
+            self.app.add_middleware(
+                AccessLoggerMiddleware, format=self.access_log_format
+            )
             # The asgi-logger settings don't set propagate to False,
             # so we get duplicates if we don't set it explicitly.
             logging.getLogger("access").propagate = False
 
-        self.server = _NoSignalUvicornServer(config=self.cfg)
+    def create_application(self):
+        self._add_middlewares()
+        self._register_endpoints()
+        self._add_exception_handlers()
 
-    async def run(self):
-        await self.server.serve()
-
-    async def stop(self, sig: Optional[int] = None):
-        if self.server:
-            self.server.handle_exit(sig=sig, frame=None)
+    async def start(self):
+        self.create_application()
+        logger.info(f"Starting uvicorn with {self._server.config.workers} workers")
+        await self._server.serve()
