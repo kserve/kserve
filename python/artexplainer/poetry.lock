@@ -707,7 +707,7 @@ rich = "*"
 
 [[package]]
 name = "kserve"
-version = "0.14.0"
+version = "0.14.1"
 description = "KServe Python SDK"
 optional = false
 python-versions = ">=3.9,<3.13"
