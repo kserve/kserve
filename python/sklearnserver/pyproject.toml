@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sklearnserver"
-version = "0.14.0"
+version = "0.14.1"
 description = "Model Server implementation for scikit-learn. Not intended for use outside KServe Frameworks Images."
 authors = ["singhan <singhan@us.ibm.com>"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
