@@ -256,7 +256,10 @@ def test_get_S3_config():
     # tests legacy endpoint url
     with mock.patch.dict(
         os.environ,
-        {"AWS_ENDPOINT_URL": "https://s3.amazonaws.com", "region": "eu-west-1"},
+        {
+            "AWS_ENDPOINT_URL": "https://s3.amazonaws.com",
+            "AWS_DEFAULT_REGION": "eu-west-1",
+        },
     ):
         config8 = Storage.get_S3_config()
     assert config8.s3["addressing_style"] == VIRTUAL_CONFIG.s3["addressing_style"]
