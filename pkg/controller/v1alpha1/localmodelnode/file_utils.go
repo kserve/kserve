@@ -39,12 +39,12 @@ func NewFileSystemHelper(modelsRootFolder string) *FileSystemHelper {
 }
 
 // should be used only in this struct
-func (f *FileSystemHelper) getModelFolderPrivate(modelName string) string {
-	return filepath.Join(f.modelsRootFolder, modelName)
+func getModelFolder(rootFolderName string, modelName string) string {
+	return filepath.Join(rootFolderName, modelName)
 }
 
 func (f *FileSystemHelper) removeModel(modelName string) error {
-	path := f.getModelFolderPrivate(modelName)
+	path := getModelFolder(f.modelsRootFolder, modelName)
 	return os.RemoveAll(path)
 }
 
@@ -53,7 +53,7 @@ func (f *FileSystemHelper) getModelFolders() ([]os.DirEntry, error) {
 }
 
 func (f *FileSystemHelper) hasModelFolder(modelName string) (bool, error) {
-	folder := f.getModelFolderPrivate(modelName)
+	folder := getModelFolder(f.modelsRootFolder, modelName)
 	_, err := os.ReadDir(folder)
 	if err == nil {
 		return true, nil

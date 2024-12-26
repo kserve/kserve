@@ -91,7 +91,7 @@ deploy-dev: manifests
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kubectl apply --server-side=true -k config/clusterresources
+	kubectl apply --server-side=true --force-conflicts -k config/clusterresources
 	git checkout HEAD -- config/certmanager/certificate.yaml
 
 deploy-dev-sklearn: docker-push-sklearn
