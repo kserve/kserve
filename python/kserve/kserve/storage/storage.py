@@ -181,7 +181,10 @@ class Storage(object):
         # AWS SDK retries under the hood to set the correct region when the valid virtual addressing style endpoint url is provided
         endpoint_url = os.getenv("AWS_ENDPOINT_URL")
         region = os.getenv("AWS_DEFAULT_REGION")
-        if endpoint_url == "https://s3.amazonaws.com" and region not in (None, "us-east-1"):
+        if endpoint_url == "https://s3.amazonaws.com" and region not in (
+            None,
+            "us-east-1",
+        ):
             c = c.merge(Config(s3={"addressing_style": "virtual"}))
 
         return c
