@@ -65,9 +65,10 @@ var (
 	defaultJobImage            = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
 	FSGroup                    *int64
 	jobNamespace               string
-	jobTTLSecondsAfterFinished int32 = 3600                   // One hour. Can be overwritten by the value in the configmap
-	nodeName                         = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
-	modelsRootFolder                 = filepath.Join(MountPath, "models")
+	jobTTLSecondsAfterFinished int32         = 3600                   // One hour. Can be overwritten by the value in the configmap
+	reconcilationFreqency      time.Duration = time.Minute            // Reconcile every one minute to check if model folders exist. Can be overwritten by the value in configmap
+	nodeName                                 = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
+	modelsRootFolder                         = filepath.Join(MountPath, "models")
 	fsHelper                   FileSystemInterface
 )
 
@@ -122,13 +123,14 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		return nil, err
 	}
 	jobs := c.Clientset.BatchV1().Jobs(jobNamespace)
-	job, err = jobs.Create(ctx, job, metav1.CreateOptions{})
-	c.Log.Info("Creating job", "name", job.Name, "namespace", job.Namespace)
+	createdJob, err := jobs.Create(ctx, job, metav1.CreateOptions{})
 	if err != nil {
 		c.Log.Error(err, "Failed to create job.", "name", job.Name)
 		return nil, err
 	}
-	return job, err
+	c.Log.Info("Created job", "name", createdJob.Name, "namespace", createdJob.Namespace,
+		"model", modelInfo.ModelName)
+	return createdJob, err
 }
 
 // Fetches container spec for model download container, use the default KServe image if not found
@@ -162,7 +164,7 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 	return defaultContainer, nil
 }
 
-func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName string, nodeName string, excludeSucceeded bool) (*batchv1.Job, error) {
+func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName string, nodeName string) (*batchv1.Job, int, error) {
 	jobList := &batchv1.JobList{}
 	labelSelector := map[string]string{
 		"model": modelName,
@@ -171,21 +173,18 @@ func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName s
 	if err := c.Client.List(ctx, jobList, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
 		if errors.IsNotFound(err) {
 			c.Log.Info("Job not found", "model", modelName)
-			return nil, nil
+			return nil, 0, nil
 		}
-		return nil, err
+		return nil, 0, err
 	}
 	c.Log.Info("Found jobs", "model", modelName, "num of jobs", len(jobList.Items))
 	var latestJob *batchv1.Job
 	for i, job := range jobList.Items {
-		if excludeSucceeded && job.Status.Succeeded > 0 {
-			continue
-		}
 		if latestJob == nil || job.CreationTimestamp.After(latestJob.CreationTimestamp.Time) {
 			latestJob = &jobList.Items[i]
 		}
 	}
-	return latestJob, nil
+	return latestJob, len(jobList.Items), nil
 }
 
 func getModelStatusFromJobStatus(jobStatus batchv1.JobStatus) v1alpha1api.ModelStatus {
@@ -223,7 +222,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 					continue
 				}
 			}
-			job, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName, false)
+			job, _, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName)
 			if err != nil {
 				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName, "node", nodeName)
 				return err
@@ -237,10 +236,13 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 					return err
 				}
 			}
+			newStatus[modelInfo.ModelName] = getModelStatusFromJobStatus(job.Status)
+			c.Log.Info("model downloading status:", "model", modelInfo.ModelName,
+				"node", localModelNode.ObjectMeta.Name, "status", newStatus[modelInfo.ModelName])
 		} else {
 			// Folder does not exist
 			c.Log.Info("Model folder not found", "model", modelInfo.ModelName)
-			job, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName, true)
+			job, jobCount, err := c.getLatestJob(ctx, modelInfo.ModelName, nodeName)
 			if err != nil {
 				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName, "node", nodeName)
 				return err
@@ -251,19 +253,18 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			// Recreate job if it has been terminated because the model is missing locally
 			// If the job has failed, we do not retry here because there are retries on the job.
 			// To retry the download, users can manually fix the issue and delete the failed job.
-			if job == nil || job.Status.Succeeded > 0 {
-				c.Log.Info("Download model", "model", modelInfo.ModelName)
+			// Add the job count check for protection to ensure not creating more than 2 jobs including the previous one.
+			if job == nil || (job.Status.Succeeded > 0 && jobCount <= 2) {
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
-					c.Log.Error(err, "Failed to create Job", "model", modelInfo.ModelName, "node", nodeName)
+					c.Log.Error(err, "Failed to create job", "model", modelInfo.ModelName, "node", nodeName)
 					return err
 				}
 			}
+			newStatus[modelInfo.ModelName] = getModelStatusFromJobStatus(job.Status)
+			c.Log.Info("model downloading status:", "model", modelInfo.ModelName,
+				"node", localModelNode.ObjectMeta.Name, "status", newStatus[modelInfo.ModelName])
 		}
-		newStatus[modelInfo.ModelName] = getModelStatusFromJobStatus(job.Status)
-
-		c.Log.Info("Downloading models:", "model", modelInfo.ModelName,
-			"node", localModelNode.ObjectMeta.Name, "status", newStatus[modelInfo.ModelName])
 	}
 
 	// Skip update if no changes to status
@@ -285,10 +286,6 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.LocalModelNode) error {
 	// 1. Scan model dir and get a list of existing folders representing downloaded models
 	foldersToRemove := map[string]struct{}{}
-	if err := fsHelper.ensureModelRootFolderExists(); err != nil {
-		c.Log.Error(err, "Failed to ensure model root folder exists")
-		return err
-	}
 	entries, err := fsHelper.getModelFolders()
 	if err != nil {
 		c.Log.Error(err, "Failed to list model folder")
@@ -364,6 +361,11 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// fsHelper is a global variable to allow mocking in tests
 	if fsHelper == nil {
 		fsHelper = NewFileSystemHelper(modelsRootFolder)
+		// TODO we need a way to ensure that the local path on persistent volume is the same as the local path of the node agent DaemonSet.
+		err := fsHelper.ensureModelRootFolderExists()
+		if err != nil {
+			panic("Failed to ensure model root folder exists")
+		}
 	}
 
 	// Create Jobs to download models if the model is not present locally.
@@ -386,12 +388,15 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		c.Log.Error(err, "Failed to get local model config")
 		return reconcile.Result{}, err
 	}
-	defaultJobImage = localModelConfig.DefaultJobImage
 	jobNamespace = localModelConfig.JobNamespace
 	FSGroup = localModelConfig.FSGroup
+	if localModelConfig.ReconcilationFrequencyInSecs != nil {
+		reconcilationFreqency = time.Duration(*localModelConfig.ReconcilationFrequencyInSecs) * time.Second
+	}
 	if localModelConfig.JobTTLSecondsAfterFinished != nil {
 		jobTTLSecondsAfterFinished = *localModelConfig.JobTTLSecondsAfterFinished
 	}
+
 	if err := c.downloadModels(ctx, &localModelNode); err != nil {
 		c.Log.Error(err, "Model download err")
 		return reconcile.Result{}, err
@@ -403,8 +408,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, err
 	}
 	// Requeue to check local folders periodically
-	// Todo: Make it configurable
-	return reconcile.Result{RequeueAfter: time.Minute}, nil
+	return reconcile.Result{RequeueAfter: reconcilationFreqency}, nil
 }
 
 func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {

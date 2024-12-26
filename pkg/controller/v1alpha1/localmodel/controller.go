@@ -228,6 +228,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	return nil
 }
 
+// Reconcile
 // Step 1 - Checks if the CR is in the deletion process. Deletion completes when all LocalModelNodes have been updated
 // Step 2 - Adds this model to LocalModelNode resources in the node group
 // Step 3 - Creates PV & PVC for model download

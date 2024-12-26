@@ -475,8 +475,12 @@ data:
          # defaultJobImage specifies the default image used for the download job.
          "defaultJobImage" : "kserve/storage-initializer:latest",
          # Kubernetes modifies the filesystem group ID on the attached volume.
-         "fsGroup": 1000
-         "jobTTLSecondsAfterFinished": 86400
+         "fsGroup": 1000,
+         # TTL for the download job after it is finished.
+         "jobTTLSecondsAfterFinished": 3600,
+         # The frequency at which the local model agent reconciles the local models
+         # This is to detect if models are missing from local disk
+         "reconcilationFrequencyInSecs": 60
        }
 
   explainers: |-
