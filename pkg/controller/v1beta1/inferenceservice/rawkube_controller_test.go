@@ -95,7 +95,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}`,
 		}
 
-		It("Should have httproute/service/deployment/hpa created", func() {
+		It("Should have httproute/service/deployment/httproute created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
 			var configMap = &v1.ConfigMap{
@@ -161,8 +161,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: v1beta1.GetIntReference(1),
-							MaxReplicas: 3,
+							MinReplicas:    v1beta1.GetIntReference(1),
+							MaxReplicas:    3,
+							TimeoutSeconds: utils.ToPointer(int64(30)),
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -391,7 +392,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 					},
@@ -460,7 +461,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 					},
@@ -2687,9 +2688,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 					Transformer: &v1beta1.TransformerSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int(transformerMinReplicas)),
-							MaxReplicas: int(transformerMaxReplicas),
-							ScaleTarget: utils.ToPointer(int(transformerCpuUtilization)),
+							MinReplicas:    utils.ToPointer(int(transformerMinReplicas)),
+							MaxReplicas:    int(transformerMaxReplicas),
+							ScaleTarget:    utils.ToPointer(int(transformerCpuUtilization)),
+							TimeoutSeconds: utils.ToPointer(int64(30)),
 						},
 						PodSpec: v1beta1.PodSpec{
 							Containers: []v1.Container{
@@ -3060,7 +3062,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 					},
@@ -3200,7 +3202,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 					},
@@ -3568,9 +3570,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int(explainerMinReplicas)),
-							MaxReplicas: int(explainerMaxReplicas),
-							ScaleTarget: utils.ToPointer(int(explainerCpuUtilization)),
+							MinReplicas:    utils.ToPointer(int(explainerMinReplicas)),
+							MaxReplicas:    int(explainerMaxReplicas),
+							ScaleTarget:    utils.ToPointer(int(explainerCpuUtilization)),
+							TimeoutSeconds: utils.ToPointer(int64(30)),
 						},
 					},
 				},
@@ -3887,8 +3890,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
 					Namespace: serviceKey.Namespace}, actualToplevelHttpRoute)
-			}, timeout).
-				Should(Succeed())
+			}, timeout).Should(Succeed())
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
@@ -3935,7 +3937,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 						{
@@ -4119,7 +4121,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 					},
@@ -4451,8 +4453,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: v1beta1.GetIntReference(1),
-							MaxReplicas: 3,
+							MinReplicas:    v1beta1.GetIntReference(1),
+							MaxReplicas:    3,
+							TimeoutSeconds: utils.ToPointer(int64(30)),
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -4683,7 +4686,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 						{
@@ -4727,7 +4730,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 					},
@@ -4797,7 +4800,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 					},
@@ -5085,9 +5088,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 					Transformer: &v1beta1.TransformerSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int(transformerMinReplicas)),
-							MaxReplicas: int(transformerMaxReplicas),
-							ScaleTarget: utils.ToPointer(int(transformerCpuUtilization)),
+							MinReplicas:    utils.ToPointer(int(transformerMinReplicas)),
+							MaxReplicas:    int(transformerMaxReplicas),
+							ScaleTarget:    utils.ToPointer(int(transformerCpuUtilization)),
+							TimeoutSeconds: utils.ToPointer(int64(30)),
 						},
 						PodSpec: v1beta1.PodSpec{
 							Containers: []v1.Container{
@@ -5461,7 +5465,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 						{
@@ -5505,7 +5509,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 					},
@@ -5645,7 +5649,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 					},
@@ -6015,9 +6019,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int(explainerMinReplicas)),
-							MaxReplicas: int(explainerMaxReplicas),
-							ScaleTarget: utils.ToPointer(int(explainerCpuUtilization)),
+							MinReplicas:    utils.ToPointer(int(explainerMinReplicas)),
+							MaxReplicas:    int(explainerMaxReplicas),
+							ScaleTarget:    utils.ToPointer(int(explainerCpuUtilization)),
+							TimeoutSeconds: utils.ToPointer(int64(30)),
 						},
 					},
 				},
@@ -6383,7 +6388,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 						{
@@ -6471,7 +6476,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 						{
@@ -6655,7 +6660,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: utils.ToPointer(gatewayapiv1.Duration("30s")),
 							},
 						},
 					},

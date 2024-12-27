@@ -247,7 +247,7 @@ func TestCreateHTTPRouteRule(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			rule := createHTTPRouteRule(tc.matches, tc.filters, tc.serviceName, "default", tc.servicePort)
+			rule := createHTTPRouteRule(tc.matches, tc.filters, tc.serviceName, "default", tc.servicePort, DefaultTimeout)
 			g.Expect(rule.Matches).To(HaveLen(tc.expectedRules))
 			g.Expect(rule.Filters).To(HaveLen(tc.expectedRules))
 			g.Expect(rule.BackendRefs).To(HaveLen(tc.expectedRules))

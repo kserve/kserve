@@ -45,6 +45,8 @@ const (
 	HTTPRouteParentStatusNotAvailable = "ParentStatusNotAvailable"
 )
 
+var DefaultTimeout = toGatewayAPIDuration(60)
+
 type RawHTTPRouteReconciler struct {
 	client        client.Client
 	scheme        *runtime.Scheme
@@ -57,6 +59,12 @@ func NewRawHTTPRouteReconciler(client client.Client, scheme *runtime.Scheme, ing
 		scheme:        scheme,
 		ingressConfig: ingressConfig,
 	}
+}
+
+// toGatewayAPIDuration converts seconds to gatewayapiv1.Duration
+func toGatewayAPIDuration(seconds int64) *gatewayapiv1.Duration {
+	duration := gatewayapiv1.Duration(fmt.Sprintf("%ds", seconds))
+	return &duration
 }
 
 func createRawURL(isvc *v1beta1.InferenceService,
@@ -123,7 +131,7 @@ func addIsvcHeaders(name string, namespace string) gatewayapiv1.HTTPRouteFilter 
 }
 
 func createHTTPRouteRule(routeMatches []gatewayapiv1.HTTPRouteMatch, filters []gatewayapiv1.HTTPRouteFilter,
-	serviceName, namespace string, port int32) gatewayapiv1.HTTPRouteRule {
+	serviceName, namespace string, port int32, timeout *gatewayapiv1.Duration) gatewayapiv1.HTTPRouteRule {
 	var backendRefs []gatewayapiv1.HTTPBackendRef
 	if serviceName != "" {
 		backendRefs = []gatewayapiv1.HTTPBackendRef{
@@ -144,7 +152,7 @@ func createHTTPRouteRule(routeMatches []gatewayapiv1.HTTPRouteMatch, filters []g
 		Filters:     filters,
 		BackendRefs: backendRefs,
 		Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-			Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+			Request: timeout,
 		},
 	}
 }
@@ -183,7 +191,11 @@ func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	}
 	allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(predictorHost))
 	routeMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
-	httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, filters, predictorName, isvc.Namespace, int32(constants.CommonDefaultHttpPort)))
+	timeout := DefaultTimeout
+	if isvc.Spec.Predictor.TimeoutSeconds != nil {
+		timeout = toGatewayAPIDuration(*isvc.Spec.Predictor.TimeoutSeconds)
+	}
+	httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, filters, predictorName, isvc.Namespace, constants.CommonDefaultHttpPort, timeout))
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
@@ -247,7 +259,12 @@ func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig
 	}
 	allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(transformerHost))
 	routeMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
-	httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, filters, transformerName, isvc.Namespace, constants.CommonDefaultHttpPort))
+	timeout := DefaultTimeout
+	if isvc.Spec.Transformer.TimeoutSeconds != nil {
+		timeout = toGatewayAPIDuration(*isvc.Spec.Transformer.TimeoutSeconds)
+	}
+	httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, filters, transformerName, isvc.Namespace,
+		constants.CommonDefaultHttpPort, timeout))
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
@@ -313,8 +330,12 @@ func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 
 	// Add explainer host rules
 	routeMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
+	timeout := DefaultTimeout
+	if isvc.Spec.Explainer.TimeoutSeconds != nil {
+		timeout = toGatewayAPIDuration(*isvc.Spec.Explainer.TimeoutSeconds)
+	}
 	httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, filters, explainerName, isvc.Namespace,
-		constants.CommonDefaultHttpPort))
+		constants.CommonDefaultHttpPort, timeout))
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
@@ -399,12 +420,15 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 			})
 			return nil, nil
 		}
-
+		timeout := DefaultTimeout
+		if isvc.Spec.Explainer.TimeoutSeconds != nil {
+			timeout = toGatewayAPIDuration(*isvc.Spec.Explainer.TimeoutSeconds)
+		}
 		// Add toplevel host :explain route
 		// :explain routes to the explainer when there is only explainer
 		explainRouteMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.ExplainPrefix())}
 		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(explainRouteMatch, filters,
-			explainerName, isvc.Namespace, constants.CommonDefaultHttpPort))
+			explainerName, isvc.Namespace, constants.CommonDefaultHttpPort, timeout))
 	}
 	if isvc.Spec.Transformer != nil {
 		// Scenario: When predictor with transformer and with/without explainer present
@@ -416,15 +440,22 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 			})
 			return nil, nil
 		}
-
+		timeout := DefaultTimeout
+		if isvc.Spec.Transformer.TimeoutSeconds != nil {
+			timeout = toGatewayAPIDuration(*isvc.Spec.Transformer.TimeoutSeconds)
+		}
 		// :predict routes to the transformer when there are both predictor and transformer
 		routeMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
-		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, filters, transformerName, isvc.Namespace, constants.CommonDefaultHttpPort))
+		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, filters, transformerName, isvc.Namespace, constants.CommonDefaultHttpPort, timeout))
 	} else {
 		// Scenario: When predictor without transformer and with/without explainer present
+		timeout := DefaultTimeout
+		if isvc.Spec.Predictor.TimeoutSeconds != nil {
+			timeout = toGatewayAPIDuration(*isvc.Spec.Predictor.TimeoutSeconds)
+		}
 		// Add toplevel host rules for predictor which routes all traffic to predictor
 		routeMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(constants.FallbackPrefix())}
-		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, filters, predictorName, isvc.Namespace, constants.CommonDefaultHttpPort))
+		httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, filters, predictorName, isvc.Namespace, constants.CommonDefaultHttpPort, timeout))
 	}
 
 	// Add path based routing rules
@@ -439,22 +470,34 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 		allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(ingressConfig.IngressDomain))
 
 		if isvc.Spec.Explainer != nil {
+			timeout := DefaultTimeout
+			if isvc.Spec.Explainer.TimeoutSeconds != nil {
+				timeout = toGatewayAPIDuration(*isvc.Spec.Explainer.TimeoutSeconds)
+			}
 			// Add path based routing rule for :explain endpoint
 			explainerPathRouteMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(path + constants.PathBasedExplainPrefix())}
 			httpRouteRules = append(httpRouteRules, createHTTPRouteRule(explainerPathRouteMatch, filters, explainerName, isvc.Namespace,
-				constants.CommonDefaultHttpPort))
+				constants.CommonDefaultHttpPort, timeout))
 		}
 		// Add path based routing rule for :predict endpoint
 		if isvc.Spec.Transformer != nil {
+			timeout := DefaultTimeout
+			if isvc.Spec.Transformer.TimeoutSeconds != nil {
+				timeout = toGatewayAPIDuration(*isvc.Spec.Transformer.TimeoutSeconds)
+			}
 			// :predict routes to the transformer when there are both predictor and transformer
 			pathRouteMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(path + "/")}
 			httpRouteRules = append(httpRouteRules, createHTTPRouteRule(pathRouteMatch, filters, transformerName, isvc.Namespace,
-				int32(constants.CommonDefaultHttpPort)))
+				constants.CommonDefaultHttpPort, timeout))
 		} else {
+			timeout := DefaultTimeout
+			if isvc.Spec.Predictor.TimeoutSeconds != nil {
+				timeout = toGatewayAPIDuration(*isvc.Spec.Predictor.TimeoutSeconds)
+			}
 			// :predict routes to the predictor when there is only predictor
 			pathRouteMatch := []gatewayapiv1.HTTPRouteMatch{createHTTPRouteMatch(path + "/")}
 			httpRouteRules = append(httpRouteRules, createHTTPRouteRule(pathRouteMatch, filters, predictorName, isvc.Namespace,
-				int32(constants.CommonDefaultHttpPort)))
+				constants.CommonDefaultHttpPort, timeout))
 		}
 	}
 
@@ -722,7 +765,6 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 			})
 			return nil
 		}
-		log.Info("Predictor HTTPRoute is ready")
 		// Check Transformer HTTPRoute stauts
 		if isvc.Spec.Transformer != nil {
 			httpRoute = &gatewayapiv1.HTTPRoute{}
@@ -776,7 +818,6 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 			})
 			return nil
 		}
-		log.Info("Top level HTTPRoute is ready")
 		// If we are here, then all the HTTPRoutes are ready, Mark ingress as ready
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 			Type:   v1beta1.IngressReady,
