@@ -380,6 +380,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 			ctrlBuilder = ctrlBuilder.Owns(&gatewayapiv1.HTTPRoute{})
 		} else {
 			r.Log.Info("The InferenceService controller won't watch gateway.networking.k8s.io/v1/HTTPRoute resources because the CRD is not available.")
+			panic("Gateway API CRD not available")
 		}
 	} else {
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})

@@ -828,7 +828,7 @@ jobs:
         if: matrix.network-layer == 'envoy'
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "path_based_routing" "6" ${{ matrix.network-layer }}
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
 
       - name: Patch inferenceservice config for cluster ip none
         run: |

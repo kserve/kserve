@@ -1,4 +1,4 @@
-{{- if .Values.kserve.controller.gateway.ingressGateway.enableGatewayApi }}
+{{- if and .Values.kserve.controller.gateway.ingressGateway.enableGatewayApi .Values.kserve.controller.gateway.ingressGateway.createGateway }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
