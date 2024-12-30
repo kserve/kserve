@@ -35,7 +35,7 @@ var (
 // Default sets defaults on the resource
 func (x *LightGBMSpec) Default(config *InferenceServicesConfig) {
 	x.Container.Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&x.Resources)
+	setResourceRequirementDefaults(config, &x.Resources)
 }
 
 func (x *LightGBMSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
