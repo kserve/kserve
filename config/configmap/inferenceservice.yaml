@@ -43,7 +43,7 @@ data:
        }
     # ====================================== ISVC CONFIGURATION ======================================
     # Example   
-     inferenceservice: |-
+     inferenceService: |-
       {
         "serviceAnnotationDisallowedList": [
           "my.custom.annotation/1"  
@@ -53,7 +53,7 @@ data:
         ]
        }
     # Example of isvc configuration
-    inferenceservice: |-
+    inferenceService: |-
       {
         # ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative 
         # revisions, which prevents the reconciliation loop to be triggered if the annotations is 
