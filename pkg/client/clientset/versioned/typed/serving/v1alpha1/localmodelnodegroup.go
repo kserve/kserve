@@ -20,14 +20,13 @@ package v1alpha1
 
 import (
 	"context"
-	"time"
 
 	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	scheme "github.com/kserve/kserve/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // LocalModelNodeGroupsGetter has a method to return a LocalModelNodeGroupInterface.
@@ -40,6 +39,7 @@ type LocalModelNodeGroupsGetter interface {
 type LocalModelNodeGroupInterface interface {
 	Create(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.CreateOptions) (*v1alpha1.LocalModelNodeGroup, error)
 	Update(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (*v1alpha1.LocalModelNodeGroup, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 	UpdateStatus(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (*v1alpha1.LocalModelNodeGroup, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
@@ -52,144 +52,18 @@ type LocalModelNodeGroupInterface interface {
 
 // localModelNodeGroups implements LocalModelNodeGroupInterface
 type localModelNodeGroups struct {
-	client rest.Interface
-	ns     string
+	*gentype.ClientWithList[*v1alpha1.LocalModelNodeGroup, *v1alpha1.LocalModelNodeGroupList]
 }
 
 // newLocalModelNodeGroups returns a LocalModelNodeGroups
 func newLocalModelNodeGroups(c *ServingV1alpha1Client, namespace string) *localModelNodeGroups {
 	return &localModelNodeGroups{
-		client: c.RESTClient(),
-		ns:     namespace,
+		gentype.NewClientWithList[*v1alpha1.LocalModelNodeGroup, *v1alpha1.LocalModelNodeGroupList](
+			"localmodelnodegroups",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			namespace,
+			func() *v1alpha1.LocalModelNodeGroup { return &v1alpha1.LocalModelNodeGroup{} },
+			func() *v1alpha1.LocalModelNodeGroupList { return &v1alpha1.LocalModelNodeGroupList{} }),
 	}
-}
-
-// Get takes name of the localModelNodeGroup, and returns the corresponding localModelNodeGroup object, and an error if there is any.
-func (c *localModelNodeGroups) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.LocalModelNodeGroup, err error) {
-	result = &v1alpha1.LocalModelNodeGroup{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("localmodelnodegroups").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of LocalModelNodeGroups that match those selectors.
-func (c *localModelNodeGroups) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.LocalModelNodeGroupList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha1.LocalModelNodeGroupList{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("localmodelnodegroups").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested localModelNodeGroups.
-func (c *localModelNodeGroups) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Namespace(c.ns).
-		Resource("localmodelnodegroups").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a localModelNodeGroup and creates it.  Returns the server's representation of the localModelNodeGroup, and an error, if there is any.
-func (c *localModelNodeGroups) Create(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.CreateOptions) (result *v1alpha1.LocalModelNodeGroup, err error) {
-	result = &v1alpha1.LocalModelNodeGroup{}
-	err = c.client.Post().
-		Namespace(c.ns).
-		Resource("localmodelnodegroups").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(localModelNodeGroup).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a localModelNodeGroup and updates it. Returns the server's representation of the localModelNodeGroup, and an error, if there is any.
-func (c *localModelNodeGroups) Update(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (result *v1alpha1.LocalModelNodeGroup, err error) {
-	result = &v1alpha1.LocalModelNodeGroup{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("localmodelnodegroups").
-		Name(localModelNodeGroup.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(localModelNodeGroup).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *localModelNodeGroups) UpdateStatus(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (result *v1alpha1.LocalModelNodeGroup, err error) {
-	result = &v1alpha1.LocalModelNodeGroup{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("localmodelnodegroups").
-		Name(localModelNodeGroup.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(localModelNodeGroup).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the localModelNodeGroup and deletes it. Returns an error if one occurs.
-func (c *localModelNodeGroups) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("localmodelnodegroups").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *localModelNodeGroups) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("localmodelnodegroups").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched localModelNodeGroup.
-func (c *localModelNodeGroups) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LocalModelNodeGroup, err error) {
-	result = &v1alpha1.LocalModelNodeGroup{}
-	err = c.client.Patch(pt).
-		Namespace(c.ns).
-		Resource("localmodelnodegroups").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

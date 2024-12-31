@@ -75,6 +75,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 			}`,
 			"ingress": `{
+				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 				"ingressGateway": "knative-serving/knative-ingress-gateway",
 				"localGateway": "knative-serving/knative-local-gateway",
 				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
@@ -1932,6 +1933,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			for key, value := range configs {
 				if key == "ingress" {
 					copiedConfigs[key] = `{
+						"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 						"disableIstioVirtualHost": true,
 						"ingressGateway": "knative-serving/knative-ingress-gateway",
 						"localGateway": "knative-serving/knative-local-gateway",
