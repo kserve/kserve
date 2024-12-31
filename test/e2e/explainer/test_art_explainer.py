@@ -14,6 +14,7 @@
 
 import logging
 import os
+import uuid
 
 from kubernetes import client
 from kubernetes.client import V1ResourceRequirements
@@ -109,7 +110,8 @@ async def test_tabular_explainer(rest_v1_client):
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_raw_tabular_explainer(rest_v1_client, network_layer):
-    service_name = "art-explainer-raw"
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "art-explainer-raw-" + suffix
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,

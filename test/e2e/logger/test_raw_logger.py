@@ -13,6 +13,7 @@
 
 import asyncio
 import os
+import uuid
 from kubernetes import client
 
 from kserve import (
@@ -38,10 +39,11 @@ annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_kserve_logger(rest_v1_client, network_layer):
-    msg_dumper = "message-dumper-raw"
+    suffix = str(uuid.uuid4())[1:6]
+    msg_dumper = "message-dumper-raw-" + suffix
     before(msg_dumper)
 
-    service_name = "isvc-logger-raw"
+    service_name = "isvc-logger-raw-" + suffix
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         logger=V1beta1LoggerSpec(

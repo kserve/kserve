@@ -11,6 +11,7 @@
 # limitations under the License.
 
 import os
+import uuid
 from kubernetes import client
 
 from kserve import KServeClient
@@ -32,7 +33,8 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_batcher_raw(rest_v1_client, network_layer):
-    service_name = "isvc-raw-sklearn-batcher"
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "isvc-raw-sklearn-batcher-" + suffix
 
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"

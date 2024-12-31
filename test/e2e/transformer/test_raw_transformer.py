@@ -12,7 +12,13 @@
 # limitations under the License.
 
 import os
+import uuid
+
 from kubernetes import client
+from kubernetes.client import V1ResourceRequirements
+from kubernetes.client import V1Container
+from kubernetes.client import V1EnvVar
+import pytest
 
 from kserve import KServeClient
 from kserve import constants
@@ -21,10 +27,7 @@ from kserve import V1beta1TransformerSpec
 from kserve import V1beta1TorchServeSpec
 from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
-from kubernetes.client import V1ResourceRequirements
-from kubernetes.client import V1Container
-from kubernetes.client import V1EnvVar
-import pytest
+
 from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
@@ -32,7 +35,8 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_transformer(rest_v1_client, network_layer):
-    service_name = "raw-transformer"
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "raw-transformer-" + suffix
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         pytorch=V1beta1TorchServeSpec(

@@ -15,6 +15,7 @@
 import base64
 import json
 import os
+import uuid
 from kubernetes import client
 from kubernetes.client import (
     V1ResourceRequirements,
@@ -42,7 +43,8 @@ api_version = constants.KSERVE_V1BETA1
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_raw_deployment_kserve(rest_v1_client, network_layer):
-    service_name = "raw-sklearn"
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "raw-sklearn-" + suffix
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
 
@@ -86,7 +88,8 @@ async def test_raw_deployment_kserve(rest_v1_client, network_layer):
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_raw_deployment_runtime_kserve(rest_v1_client, network_layer):
-    service_name = "raw-sklearn-runtime"
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "raw-sklearn-runtime-" + suffix
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
 
@@ -134,7 +137,8 @@ async def test_raw_deployment_runtime_kserve(rest_v1_client, network_layer):
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_isvc_with_multiple_container_port(network_layer):
-    service_name = "raw-multiport-custom-model"
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "raw-multiport-custom-model-" + suffix
     model_name = "custom-model"
 
     predictor = V1beta1PredictorSpec(

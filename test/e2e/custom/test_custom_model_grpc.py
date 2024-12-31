@@ -14,6 +14,7 @@
 import base64
 import json
 import os
+import uuid
 
 import numpy as np
 import pytest
@@ -373,7 +374,8 @@ async def test_predictor_rest_with_transformer_rest(rest_v2_client):
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_predictor_grpc_with_transformer_grpc_raw(network_layer):
-    service_name = "model-grpc-trans-grpc-raw"
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "model-grpc-trans-grpc-raw-" + suffix
     model_name = "custom-model"
 
     predictor = V1beta1PredictorSpec(

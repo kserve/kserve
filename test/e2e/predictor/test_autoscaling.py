@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import uuid
 
 import pytest
 from kubernetes import client
@@ -175,7 +176,8 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_scale_raw(rest_v1_client, network_layer):
-    service_name = "isvc-sklearn-scale-raw"
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "isvc-sklearn-scale-raw-" + suffix
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         scale_metric="cpu",
@@ -226,7 +228,8 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_rolling_update():
-    service_name = "isvc-sklearn-rolling-update"
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "isvc-sklearn-rolling-update-" + suffix
     min_replicas = 4
     predictor = V1beta1PredictorSpec(
         min_replicas=min_replicas,

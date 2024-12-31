@@ -14,6 +14,7 @@
 
 
 import os
+import uuid
 from kubernetes import client
 
 from kserve import KServeClient
@@ -132,7 +133,8 @@ async def test_transformer_collocation(rest_v1_client):
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_raw_transformer_collocation(rest_v1_client, network_layer):
-    service_name = "raw-custom-model-collocation"
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "raw-custom-model-collocation-" + suffix
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
