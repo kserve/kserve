@@ -253,6 +253,17 @@ def test_get_S3_config():
         == USE_ACCELERATE_CONFIG.s3["use_accelerate_endpoint"]
     )
 
+    # tests legacy endpoint url
+    with mock.patch.dict(
+        os.environ,
+        {
+            "AWS_ENDPOINT_URL": "https://s3.amazonaws.com",
+            "AWS_DEFAULT_REGION": "eu-west-1",
+        },
+    ):
+        config8 = Storage.get_S3_config()
+    assert config8.s3["addressing_style"] == VIRTUAL_CONFIG.s3["addressing_style"]
+
 
 def test_update_with_storage_spec_s3(monkeypatch):
     # save the environment and restore it after the test to avoid mutating it
