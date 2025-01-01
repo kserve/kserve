@@ -22,7 +22,6 @@ from cloudevents.http import CloudEvent
 
 from .constants.constants import (
     PredictorProtocol,
-    PREDICTOR_BASE_URL_FORMAT,
     EXPLAINER_BASE_URL_FORMAT,
 )
 from .errors import InvalidInput
@@ -37,6 +36,7 @@ from .metrics import (
 )
 from .protocol.grpc.grpc_predict_v2_pb2 import ModelInferRequest
 from .protocol.infer_type import InferRequest, InferResponse
+from .utils.inference_client_factory import InferenceClientFactory
 
 
 class BaseKServeModel(ABC):
@@ -139,6 +139,8 @@ class PredictorConfig:
         predictor_protocol: str = PredictorProtocol.REST_V1.value,
         predictor_use_ssl: bool = False,
         predictor_request_timeout_seconds: int = 600,
+        predictor_request_retries: int = 0,
+        predictor_health_check: bool = False,
     ):
         """The configuration for the http call to the predictor
 
@@ -146,16 +148,36 @@ class PredictorConfig:
             predictor_host: The host name of the predictor
             predictor_protocol: The inference protocol used for predictor http call
             predictor_use_ssl: Enable using ssl for http connection to the predictor
-            predictor_request_timeout_seconds: The request timeout seconds for the predictor http call
+            predictor_request_timeout_seconds: The request timeout seconds for the predictor http call. Default is 600 seconds.
+            predictor_request_retries: The number of retries if the predictor request fails. Default is 0.
+            predictor_health_check: Enable predictor health check
         """
         self.predictor_host = predictor_host
         self.predictor_protocol = predictor_protocol
         self.predictor_use_ssl = predictor_use_ssl
         self.predictor_request_timeout_seconds = predictor_request_timeout_seconds
+        self.predictor_request_retries = predictor_request_retries
+        self.predictor_health_check = predictor_health_check
+
+    @property
+    def predictor_base_url(self) -> str:
+        """
+        Get the base url for the predictor.
+
+        Returns:
+            str: The base url for the predictor
+        """
+        protocol = "https" if self.predictor_use_ssl else "http"
+        return f"{protocol}://{self.predictor_host}"
 
 
 class Model(InferenceModel):
-    def __init__(self, name: str, predictor_config: Optional[PredictorConfig] = None):
+    def __init__(
+        self,
+        name: str,
+        predictor_config: Optional[PredictorConfig] = None,
+        return_response_headers: bool = False,
+    ):
         """KServe Model Public Interface
 
         Model is intended to be subclassed to implement the model handlers.
@@ -184,10 +206,17 @@ class Model(InferenceModel):
             else 600
         )
         self.use_ssl = predictor_config.predictor_use_ssl if predictor_config else False
+        self.retries = (
+            predictor_config.predictor_request_retries if predictor_config else 0
+        )
         self.explainer_host = None
+        self._predictor_base_url = (
+            predictor_config.predictor_base_url if predictor_config else None
+        )
         self._http_client_instance = None
         self._grpc_client_stub = None
         self.enable_latency_logging = False
+        self.required_response_headers = return_response_headers
 
     async def __call__(
         self,
@@ -213,6 +242,7 @@ class Model(InferenceModel):
         predict_ms = 0
         postprocess_ms = 0
         prom_labels = get_labels(self.name)
+        response_headers = {}
 
         with PRE_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
@@ -235,22 +265,36 @@ class Model(InferenceModel):
         elif verb == InferenceVerb.PREDICT:
             with PREDICT_HIST_TIME.labels(**prom_labels).time():
                 start = time.time()
-                response = (
-                    (await self.predict(payload, headers))
-                    if inspect.iscoroutinefunction(self.predict)
-                    else self.predict(payload, headers)
-                )
+                if self.required_response_headers:
+                    response = (
+                        (await self.predict(payload, headers, response_headers))
+                        if inspect.iscoroutinefunction(self.predict)
+                        else self.predict(payload, headers, response_headers)
+                    )
+                else:
+                    response = (
+                        (await self.predict(payload, headers))
+                        if inspect.iscoroutinefunction(self.predict)
+                        else self.predict(payload, headers)
+                    )
                 predict_ms = get_latency_ms(start, time.time())
         else:
             raise NotImplementedError
 
         with POST_HIST_TIME.labels(**prom_labels).time():
             start = time.time()
-            response = (
-                await self.postprocess(response, headers)
-                if inspect.iscoroutinefunction(self.postprocess)
-                else self.postprocess(response, headers)
-            )
+            if self.required_response_headers:
+                response = (
+                    await self.postprocess(response, headers, response_headers)
+                    if inspect.iscoroutinefunction(self.postprocess)
+                    else self.postprocess(response, headers, response_headers)
+                )
+            else:
+                response = (
+                    await self.postprocess(response, headers)
+                    if inspect.iscoroutinefunction(self.postprocess)
+                    else self.postprocess(response, headers)
+                )
             postprocess_ms = get_latency_ms(start, time.time())
 
         if self.enable_latency_logging is True:
@@ -260,20 +304,27 @@ class Model(InferenceModel):
                 f"postprocess_ms: {postprocess_ms}"
             )
 
-        return response
+        return response, response_headers
 
     @property
     def _http_client(self) -> InferenceRESTClient:
         if self._http_client_instance is None and self.predictor_host:
-            config = RESTConfig(protocol=self.protocol, timeout=self.timeout, retries=3)
-            self._http_client_instance = InferenceRESTClient(config=config)
+            config = RESTConfig(
+                protocol=self.protocol, timeout=self.timeout, retries=self.retries
+            )
+            self._http_client_instance = InferenceClientFactory().get_rest_client(
+                config=config
+            )
         return self._http_client_instance
 
     @property
     def _grpc_client(self) -> InferenceGRPCClient:
         if self._grpc_client_stub is None and self.predictor_host:
-            self._grpc_client_stub = InferenceGRPCClient(
-                url=self.predictor_host, use_ssl=self.use_ssl, timeout=self.timeout
+            self._grpc_client_stub = InferenceClientFactory().get_grpc_client(
+                url=self.predictor_host,
+                use_ssl=self.use_ssl,
+                timeout=self.timeout,
+                retries=self.retries,
             )
         return self._grpc_client_stub
 
@@ -323,7 +374,10 @@ class Model(InferenceModel):
         return payload
 
     async def postprocess(
-        self, result: Union[Dict, InferResponse], headers: Dict[str, str] = None
+        self,
+        result: Union[Dict, InferResponse],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         """The `postprocess` handler can be overridden for inference result or response transformation.
         The predictor sends back the inference result in `Dict` for v1 endpoints and `InferResponse` for v2 endpoints.
@@ -338,7 +392,10 @@ class Model(InferenceModel):
         return result
 
     async def _http_predict(
-        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
+        self,
+        payload: Union[Dict, InferRequest],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         # Adjusting headers. Inject content type if not exist.
         # Also, removing host, as the header is the one passed to transformer and contains transformer's host
@@ -349,16 +406,14 @@ class Model(InferenceModel):
             if "x-b3-traceid" in headers:
                 predict_headers["x-b3-traceid"] = headers["x-b3-traceid"]
 
-        protocol = "https" if self.use_ssl else "http"
-        predict_base_url = PREDICTOR_BASE_URL_FORMAT.format(
-            protocol, self.predictor_host
-        )
         response = await self._http_client.infer(
-            predict_base_url,
+            self._predictor_base_url,
             model_name=self.name,
             data=payload,
             headers=predict_headers,
+            response_headers=response_headers,
         )
+
         return response
 
     async def _grpc_predict(
@@ -382,6 +437,7 @@ class Model(InferenceModel):
         self,
         payload: Union[Dict, InferRequest, ModelInferRequest],
         headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse, AsyncIterator[Any]]:
         """The `predict` handler can be overridden for performing the inference.
             By default, the predict handler makes call to predictor for the inference step.
@@ -401,7 +457,7 @@ class Model(InferenceModel):
         if self.protocol == PredictorProtocol.GRPC_V2.value:
             return await self._grpc_predict(payload, headers)
         else:
-            return await self._http_predict(payload, headers)
+            return await self._http_predict(payload, headers, response_headers)
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.

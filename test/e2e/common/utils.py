@@ -71,10 +71,10 @@ async def predict_isvc(
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    cluster_ip, host, path = get_isvc_endpoint(isvc)
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
     if model_name is None:
         model_name = service_name
-    base_url = f"http://{cluster_ip}{path}"
+    base_url = f"{scheme}://{cluster_ip}{path}"
     return await predict(
         client,
         base_url,
@@ -167,8 +167,8 @@ async def predict_ig(
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    cluster_ip, host, _ = get_isvc_endpoint(ig)
-    url = f"http://{cluster_ip}"
+    scheme, cluster_ip, host, _ = get_isvc_endpoint(ig)
+    url = f"{scheme}://{cluster_ip}"
     return await predict(client, url, host, input_path, is_graph=True)
 
 
@@ -191,8 +191,8 @@ async def explain_response(client, service_name, input_path) -> Dict:
         namespace=KSERVE_TEST_NAMESPACE,
         version=constants.KSERVE_V1BETA1_VERSION,
     )
-    cluster_ip, host, path = get_isvc_endpoint(isvc)
-    url = f"http://{cluster_ip}{path}"
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+    url = f"{scheme}://{cluster_ip}{path}"
     headers = {"Host": host}
     with open(input_path) as json_file:
         data = json.load(json_file)
@@ -257,7 +257,7 @@ async def predict_grpc(
         namespace=KSERVE_TEST_NAMESPACE,
         version=version,
     )
-    _, host, _ = get_isvc_endpoint(isvc)
+    _, _, host, _ = get_isvc_endpoint(isvc)
 
     if model_name is None:
         model_name = service_name
@@ -293,13 +293,14 @@ async def predict_modelmesh(
 
 
 def get_isvc_endpoint(isvc):
+    scheme = urlparse(isvc["status"]["url"]).scheme
     host = urlparse(isvc["status"]["url"]).netloc
     path = urlparse(isvc["status"]["url"]).path
     if os.environ.get("CI_USE_ISVC_HOST") == "1":
         cluster_ip = host
     else:
         cluster_ip = get_cluster_ip()
-    return cluster_ip, host, path
+    return scheme, cluster_ip, host, path
 
 
 def generate(
@@ -319,13 +320,13 @@ def generate(
             namespace=KSERVE_TEST_NAMESPACE,
             version=version,
         )
-        cluster_ip, host, path = get_isvc_endpoint(isvc)
+        scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
         headers = {"Host": host, "Content-Type": "application/json"}
 
         if chat_completions:
-            url = f"http://{cluster_ip}{path}/openai/v1/chat/completions"
+            url = f"{scheme}://{cluster_ip}{path}/openai/v1/chat/completions"
         else:
-            url = f"http://{cluster_ip}{path}/openai/v1/completions"
+            url = f"{scheme}://{cluster_ip}{path}/openai/v1/completions"
         logger.info("Sending Header = %s", headers)
         logger.info("Sending url = %s", url)
         logger.info("Sending request data: %s", data)
@@ -340,3 +341,22 @@ def generate(
             return preds
         else:
             response.raise_for_status()
+
+
+def is_model_ready(
+    rest_client, service_name, model_name, version=constants.KSERVE_V1BETA1_VERSION
+):
+    kfs_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    isvc = kfs_client.get(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        version=version,
+    )
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+    if model_name is None:
+        model_name = service_name
+    base_url = f"{scheme}://{cluster_ip}{path}"
+    headers = {"Host": host}
+    return rest_client.is_model_ready(base_url, model_name, headers=headers)

@@ -19,12 +19,11 @@ import numpy as np
 import pytest
 import pytest_asyncio
 
-from kserve import ModelServer, InferenceRESTClient, InferRequest, InferInput
+from kserve import InferenceRESTClient, InferRequest, InferInput
 from kserve.model_server import app as kserve_app
 from kserve.errors import UnsupportedProtocol
 from kserve.inference_client import RESTConfig
 from kserve.protocol.infer_type import RequestedOutput
-from kserve.protocol.rest.server import RESTServer
 from test.test_server import DummyModel
 
 
@@ -32,12 +31,7 @@ from test.test_server import DummyModel
 class TestInferenceRESTClient:
 
     @pytest_asyncio.fixture(scope="class")
-    async def app(self):
-        server = ModelServer()
-        rest_server = RESTServer(
-            kserve_app, server.dataplane, server.model_repository_extension
-        )
-        rest_server.create_application()
+    async def app(self, server):
         model = DummyModel("TestModel")
         model.load()
         not_ready_model = DummyModel("NotReadyModel")
@@ -47,7 +41,6 @@ class TestInferenceRESTClient:
         yield kserve_app
         await server.model_repository_extension.unload("TestModel")
         await server.model_repository_extension.unload("NotReadyModel")
-        kserve_app.routes.clear()
 
     @pytest_asyncio.fixture(scope="class")
     async def rest_client(self, request, app):
@@ -557,3 +550,15 @@ class TestInferenceRESTClient:
                     headers={"Host": "test-server.com"},
                     timeout=2,
                 )
+
+    @pytest.mark.parametrize("rest_client", ["v2"], indirect=["rest_client"])
+    async def test_base_url_with_no_scheme(self, rest_client):
+        with pytest.raises(
+            httpx.InvalidURL,
+            match="Base url should have 'http://' or 'https://' protocol",
+        ):
+            await rest_client.is_server_ready(
+                "test-server.com",
+                headers={"Host": "test-server.com"},
+                timeout=1.3,
+            )

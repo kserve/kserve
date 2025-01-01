@@ -2623,6 +2623,9 @@ func TestGetStorageContainerSpec(t *testing.T) {
 						v1.ResourceMemory: resource.MustParse("200Mi"),
 					},
 				},
+				SecurityContext: &v1.SecurityContext{
+					RunAsNonRoot: ptr.Bool(true),
+				},
 			},
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
 		},
@@ -3007,6 +3010,33 @@ func TestInjectModelcar(t *testing.T) {
 		// Check that a sidecar container has been injected
 		if len(pod.Spec.Containers) != 2 {
 			t.Errorf("Expected two containers but got %d", len(pod.Spec.Containers))
+		}
+
+		// Check that an init container has been injected, and it is the model container
+		if len(pod.Spec.InitContainers) != 1 {
+			t.Errorf("Expected one init container but got %d", len(pod.Spec.InitContainers))
+		} else if pod.Spec.InitContainers[0].Name != ModelcarInitContainerName {
+			t.Errorf("Expected the init container to be the model but got %s", pod.Spec.InitContainers[0].Name)
+		} else {
+			// Check that resources are correctly set.
+			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[v1.ResourceCPU]; !ok {
+				t.Error("The model container does not have CPU limit set")
+			}
+			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[v1.ResourceMemory]; !ok {
+				t.Error("The model container does not have Memory limit set")
+			}
+			if _, ok := pod.Spec.InitContainers[0].Resources.Requests[v1.ResourceCPU]; !ok {
+				t.Error("The model container does not have CPU request set")
+			}
+			if _, ok := pod.Spec.InitContainers[0].Resources.Requests[v1.ResourceMemory]; !ok {
+				t.Error("The model container does not have Memory request set")
+			}
+
+			// Check args
+			joinedArgs := strings.Join(pod.Spec.InitContainers[0].Args, " ")
+			if !strings.Contains(joinedArgs, "Prefetched") {
+				t.Errorf("The model container args are not correctly setup. Got: %s", joinedArgs)
+			}
 		}
 
 		// Check that the user-container has an env var set
@@ -3973,30 +4003,35 @@ func TestLocalModelPVC(t *testing.T) {
 		storageUri               string
 		localModelLabel          string
 		localModelSourceUriLabel string
+		pvcName                  string
 		expectedSubPath          string
 	}{
 		"basic": {
 			storageUri:               "s3://foo",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo",
+			pvcName:                  "model-h100",
 			expectedSubPath:          "models/bar/",
 		},
 		"extra / at the end": {
 			storageUri:               "s3://foo/",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo",
+			pvcName:                  "model-h100",
 			expectedSubPath:          "models/bar/",
 		},
 		"subfolder": {
 			storageUri:               "s3://foo/model1",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo",
+			pvcName:                  "model-h100",
 			expectedSubPath:          "models/bar/model1",
 		},
 		"subfolder2": {
 			storageUri:               "s3://foo/model1",
 			localModelLabel:          "bar",
 			localModelSourceUriLabel: "s3://foo/",
+			pvcName:                  "model-h100",
 			expectedSubPath:          "models/bar/model1",
 		},
 	}
@@ -4012,6 +4047,7 @@ func TestLocalModelPVC(t *testing.T) {
 				Annotations: map[string]string{
 					constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageUri,
 					constants.LocalModelSourceUriAnnotationKey:                 scenario.localModelSourceUriLabel,
+					constants.LocalModelPVCNameAnnotationKey:                   scenario.pvcName,
 				},
 				Labels: map[string]string{
 					constants.LocalModelLabel: scenario.localModelLabel,
@@ -4049,7 +4085,7 @@ func TestLocalModelPVC(t *testing.T) {
 					{
 						Name: "kserve-pvc-source",
 						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{ClaimName: scenario.localModelLabel, ReadOnly: false},
+							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{ClaimName: scenario.pvcName, ReadOnly: false},
 						},
 					},
 				},

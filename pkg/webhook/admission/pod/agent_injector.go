@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/klog/v2"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -238,16 +239,35 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	}
 
 	if !queueProxyAvailable {
-		readinessProbeJson, err := json.Marshal(pod.Spec.Containers[0].ReadinessProbe)
-		if err != nil {
-			return err
+		readinessProbe := pod.Spec.Containers[0].ReadinessProbe
+
+		// Check if the readiness probe exists
+		if readinessProbe != nil {
+			if readinessProbe.HTTPGet != nil || readinessProbe.TCPSocket != nil {
+				// Marshal the readiness probe into JSON format
+				readinessProbeJson, err := json.Marshal(readinessProbe)
+				if err != nil {
+					klog.Errorf("Failed to marshal readiness probe for pod %s/%s: %v", pod.Namespace, pod.Name, err)
+					return fmt.Errorf("failed to marshal readiness probe: %w", err)
+				}
+
+				// Log successful addition of readiness probe
+				klog.Infof("Readiness probe marshaled and added as environment variable for pod %s/%s", pod.Namespace, pod.Name)
+
+				// Append the marshaled readiness probe as an environment variable for the agent container
+				agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+			} else if readinessProbe.Exec != nil {
+				// Log the skipping of ExecAction readiness probes
+				klog.Infof("Exec readiness probe skipped for pod %s/%s", pod.Namespace, pod.Name)
+			}
 		}
-		agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
 	} else {
+		// Adjust USER_PORT when queueProxy is available
 		for i, envVar := range queueProxyEnvs {
 			if envVar.Name == "USER_PORT" {
+				klog.Infof("Adjusting USER_PORT to %s for pod %s/%s", constants.InferenceServiceDefaultAgentPortStr, pod.Namespace, pod.Name)
 				envVar.Value = constants.InferenceServiceDefaultAgentPortStr
-				queueProxyEnvs[i] = envVar
+				queueProxyEnvs[i] = envVar // Update the environment variable in the list
 			}
 		}
 	}

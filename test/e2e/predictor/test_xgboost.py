@@ -122,6 +122,57 @@ async def test_xgboost_v2_mlserver(rest_v2_client):
 @pytest.mark.predictor
 @pytest.mark.path_based_routing
 @pytest.mark.asyncio(scope="session")
+async def test_xgboost_single_model_file(rest_v2_client):
+    service_name = "xgboost-v2-mlserver"
+    protocol_version = "v2"
+
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        xgboost=V1beta1XGBoostSpec(
+            storage_uri="gs://kfserving-examples/models/xgboost/iris/model.bst",
+            env=[V1EnvVar(name="MLSERVER_MODEL_PARALLEL_WORKERS", value="0")],
+            protocol_version=protocol_version,
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "1024Mi"},
+            ),
+            readiness_probe=client.V1Probe(
+                http_get=client.V1HTTPGetAction(
+                    path=f"/v2/models/{service_name}/ready", port=8080
+                ),
+                initial_delay_seconds=30,
+            ),
+        ),
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    res = await predict_isvc(
+        rest_v2_client,
+        service_name,
+        "./data/iris_input_v2.json",
+    )
+    assert res.outputs[0].data == [1.0, 1.0]
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.predictor
+@pytest.mark.path_based_routing
+@pytest.mark.asyncio(scope="session")
 async def test_xgboost_runtime_kserve(rest_v1_client):
     service_name = "isvc-xgboost-runtime"
     predictor = V1beta1PredictorSpec(

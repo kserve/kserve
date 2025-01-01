@@ -208,7 +208,6 @@ type BuiltInAdapter struct {
 
 // ServingRuntime is the Schema for the servingruntimes API
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Disabled",type="boolean",JSONPath=".spec.disabled"
@@ -226,7 +225,6 @@ type ServingRuntime struct {
 // ServingRuntimeList contains a list of ServingRuntime
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ServingRuntimeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -235,7 +233,6 @@ type ServingRuntimeList struct {
 
 // ClusterServingRuntime is the Schema for the servingruntimes API
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope="Cluster"
@@ -254,7 +251,6 @@ type ClusterServingRuntime struct {
 // ClusterServingRuntimeList contains a list of ServingRuntime
 // +k8s:openapi-gen=true
 // +kubebuilder:object:root=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type ClusterServingRuntimeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
@@ -271,9 +267,16 @@ type SupportedRuntime struct {
 type WorkerSpec struct {
 	ServingRuntimePodSpec `json:",inline"`
 
-	// Configure the number of replicas in the worker set, each worker set represents the unit of scaling
+	// PipelineParallelSize defines the number of parallel workers.
+	// It specifies the number of model partitions across multiple devices, allowing large models to be split and processed concurrently across these partitions
+	// It also represents the number of replicas in the worker set, where each worker set serves as a scaling unit.
 	// +optional
-	Size int `json:"size,omitempty"`
+	PipelineParallelSize *int `json:"pipelineParallelSize,omitempty"`
+
+	// TensorParallelSize specifies the number of GPUs to be used per node.
+	// It indicates the degree of parallelism for tensor computations across the available GPUs.
+	// +optional
+	TensorParallelSize *int `json:"tensorParallelSize,omitempty"`
 }
 
 func init() {
@@ -287,6 +290,10 @@ func (srSpec *ServingRuntimeSpec) IsDisabled() bool {
 
 func (srSpec *ServingRuntimeSpec) IsMultiModelRuntime() bool {
 	return srSpec.MultiModel != nil && *srSpec.MultiModel
+}
+
+func (srSpec *ServingRuntimeSpec) IsMultiNodeRuntime() bool {
+	return srSpec.WorkerSpec != nil
 }
 
 func (srSpec *ServingRuntimeSpec) IsProtocolVersionSupported(modelProtocolVersion constants.InferenceServiceProtocol) bool {

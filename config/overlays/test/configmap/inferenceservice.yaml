@@ -75,3 +75,7 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "100m"
     }
+  service: |-
+    {
+        "serviceClusterIPNone": false
+    }

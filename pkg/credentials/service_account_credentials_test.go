@@ -807,10 +807,11 @@ func TestAzureCredentialBuilder(t *testing.T) {
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
-			"AZURE_SUBSCRIPTION_ID": {},
-			"AZURE_TENANT_ID":       {},
-			"AZURE_CLIENT_ID":       {},
-			"AZURE_CLIENT_SECRET":   {},
+			"AZURE_SUBSCRIPTION_ID":    {},
+			"AZURE_TENANT_ID":          {},
+			"AZURE_CLIENT_ID":          {},
+			"AZURE_CLIENT_SECRET":      {},
+			"AZURE_STORAGE_ACCESS_KEY": {},
 		},
 	}
 
@@ -884,6 +885,17 @@ func TestAzureCredentialBuilder(t *testing.T) {
 															Name: "az-custom-secret",
 														},
 														Key: azure.AzureClientSecret,
+													},
+												},
+											},
+											{
+												Name: azure.AzureStorageAccessKey,
+												ValueFrom: &v1.EnvVarSource{
+													SecretKeyRef: &v1.SecretKeySelector{
+														LocalObjectReference: v1.LocalObjectReference{
+															Name: "az-custom-secret",
+														},
+														Key: azure.AzureStorageAccessKey,
 													},
 												},
 											},

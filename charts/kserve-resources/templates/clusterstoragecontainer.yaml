@@ -13,10 +13,15 @@ spec:
       limits:
         memory: 1Gi
         cpu: "1"
+    securityContext:
+      {{- with .Values.kserve.storage.containerSecurityContext}}
+      {{- toYaml . | nindent 6 }}
+      {{- end }}
   supportedUriFormats:
     - prefix: gs://
     - prefix: s3://
     - prefix: hdfs://
+    - prefix: hf://
     - prefix: webhdfs://
     - regex: "https://(.+?).blob.core.windows.net/(.+)"
     - regex: "https://(.+?).file.core.windows.net/(.+)"

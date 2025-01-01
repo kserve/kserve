@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# For debugging purpose: The KServe webhook is failing randomly in the GH Actions environment. This is to check if the webhook cert is ready at 
+# the time of failure. Once the issue is resolved, the following line can be removed.
+kubectl describe cert -n kserve serving-cert
+
 sleep 10
 echo "::group::Free Space"
 df -hT

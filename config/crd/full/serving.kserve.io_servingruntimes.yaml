@@ -3218,7 +3218,9 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
-                    size:
+                    pipelineParallelSize:
+                      type: integer
+                    tensorParallelSize:
                       type: integer
                     tolerations:
                       items:

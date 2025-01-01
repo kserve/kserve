@@ -22,6 +22,9 @@ SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
 SCRIPT_ROOT="${SCRIPT_DIR}/.."
 CODEGEN_VERSION=$(cd "${SCRIPT_ROOT}" && grep 'k8s.io/code-generator' go.mod | awk '{print $2}')
 
+# For debugging purposes
+echo "Codegen version ${CODEGEN_VERSION}"
+
 if [ -z "${GOPATH:-}" ]; then
     GOPATH=$(go env GOPATH)
     export GOPATH

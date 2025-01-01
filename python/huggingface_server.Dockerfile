@@ -9,9 +9,9 @@ ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.8.3
 
 # Install vllm
-ARG VLLM_VERSION=0.6.1.post2
+ARG VLLM_VERSION=0.6.4.post1
 
-RUN apt-get update -y && apt-get install gcc python3.10-venv python3-dev -y && apt-get clean && \
+RUN apt-get update && apt-get upgrade -y && apt-get install gcc python3.10-venv python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip3 install poetry==${POETRY_VERSION}
 ENV PATH="$PATH:${POETRY_HOME}/bin"
@@ -27,16 +27,16 @@ RUN cd kserve && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
 RUN cd kserve && poetry install --no-interaction --no-cache
 
-COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/
+COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/health_check.py huggingfaceserver/
 RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
-RUN pip3 install vllm==${VLLM_VERSION}
+RUN pip install --upgrade pip && pip install vllm==${VLLM_VERSION}
 
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS prod
 
-RUN apt-get update -y && apt-get install python3.10-venv build-essential gcc python3-dev -y && apt-get clean && \
+RUN apt-get update && apt-get upgrade -y && apt-get install python3.10-venv build-essential gcc python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 COPY third_party third_party
@@ -66,4 +66,3 @@ ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 USER 1000
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]
-

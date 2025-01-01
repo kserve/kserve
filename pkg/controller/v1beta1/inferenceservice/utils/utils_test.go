@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"errors"
 	"strconv"
 	"testing"
 
@@ -25,7 +26,6 @@ import (
 	knativeV1 "knative.dev/pkg/apis/duck/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	. "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
@@ -782,7 +782,7 @@ func TestMergePodSpec(t *testing.T) {
 
 	scenarios := map[string]struct {
 		podSpecBase     *v1alpha1.ServingRuntimePodSpec
-		podSpecOverride *v1beta1.PodSpec
+		podSpecOverride *PodSpec
 		expected        *v1.PodSpec
 	}{
 		"BasicMerge": {
@@ -816,7 +816,7 @@ func TestMergePodSpec(t *testing.T) {
 					{Name: "foo"},
 				},
 			},
-			podSpecOverride: &v1beta1.PodSpec{
+			podSpecOverride: &PodSpec{
 				NodeSelector: map[string]string{
 					"foo": "baz",
 					"xxx": "yyy",
@@ -1085,7 +1085,7 @@ func TestUpdateImageTag(t *testing.T) {
 		container      *v1.Container
 		runtimeVersion *string
 		servingRuntime string
-		isvcConfig     *v1beta1.InferenceServicesConfig
+		isvcConfig     *InferenceServicesConfig
 		expected       string
 	}{
 		"UpdateRuntimeVersion": {
@@ -1116,7 +1116,7 @@ func TestUpdateImageTag(t *testing.T) {
 			servingRuntime: constants.TFServing,
 			expected:       "tfserving:2.6.2",
 		},
-		"UpdateGPUImageTag": {
+		"UpdateTFServingGPUImageTag": {
 			container: &v1.Container{
 				Name:  "kserve-container",
 				Image: "tfserving:1.14.0",
@@ -1138,6 +1138,29 @@ func TestUpdateImageTag(t *testing.T) {
 			runtimeVersion: nil,
 			servingRuntime: constants.TFServing,
 			expected:       "tfserving:1.14.0-gpu",
+		},
+		"UpdateHuggingFaceServerGPUImageTag": {
+			container: &v1.Container{
+				Name:  "kserve-container",
+				Image: "huggingfaceserver:1.14.0",
+				Args: []string{
+					"--foo=bar",
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []v1.EnvVar{
+					{Name: "PORT", Value: "8080"},
+					{Name: "MODELS_DIR", Value: "/mnt/models"},
+				},
+				Resources: v1.ResourceRequirements{
+					Limits: v1.ResourceList{
+						"nvidia.com/gpu": resource.MustParse("1"),
+					},
+				},
+			},
+			runtimeVersion: nil,
+			servingRuntime: constants.HuggingFaceServer,
+			expected:       "huggingfaceserver:1.14.0-gpu",
 		},
 		"UpdateGPUImageTagWithProxy": {
 			container: &v1.Container{
@@ -1233,33 +1256,33 @@ func TestGetDeploymentMode(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		annotations  map[string]string
-		deployConfig *v1beta1.DeployConfig
+		deployConfig *DeployConfig
 		expected     constants.DeploymentModeType
 	}{
 		"RawDeployment": {
 			annotations: map[string]string{
 				constants.DeploymentMode: string(constants.RawDeployment),
 			},
-			deployConfig: &v1beta1.DeployConfig{},
+			deployConfig: &DeployConfig{},
 			expected:     constants.DeploymentModeType(constants.RawDeployment),
 		},
 		"ServerlessDeployment": {
 			annotations: map[string]string{
 				constants.DeploymentMode: string(constants.Serverless),
 			},
-			deployConfig: &v1beta1.DeployConfig{},
+			deployConfig: &DeployConfig{},
 			expected:     constants.DeploymentModeType(constants.Serverless),
 		},
 		"ModelMeshDeployment": {
 			annotations: map[string]string{
 				constants.DeploymentMode: string(constants.ModelMeshDeployment),
 			},
-			deployConfig: &v1beta1.DeployConfig{},
+			deployConfig: &DeployConfig{},
 			expected:     constants.DeploymentModeType(constants.ModelMeshDeployment),
 		},
 		"DefaultDeploymentMode": {
 			annotations: map[string]string{},
-			deployConfig: &v1beta1.DeployConfig{
+			deployConfig: &DeployConfig{
 				DefaultDeploymentMode: string(constants.Serverless),
 			},
 			expected: constants.DeploymentModeType(constants.Serverless),
@@ -1890,5 +1913,361 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 		if err := ValidateStorageURI(&uri, mockClient); err != nil {
 			t.Errorf("%q validation failed: %s", uri, err)
 		}
+	}
+}
+
+func TestAddEnvVarToPodSpec(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		pod                 *v1.Pod
+		targetContainerName string
+		envName             string
+		envValue            string
+		expectedPodSpec     *v1.PodSpec
+		expectedErr         gomega.OmegaMatcher
+	}{
+		"addNewEnv": {
+			targetContainerName: "test-container",
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "test-container",
+							Env: []v1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+					},
+				},
+			},
+			envName:  "NEW_ENV",
+			envValue: "new_value",
+			expectedPodSpec: &v1.PodSpec{
+				Containers: []v1.Container{
+					{
+						Name: "test-container",
+						Env: []v1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "existing_value",
+							},
+							{
+								Name:  "NEW_ENV",
+								Value: "new_value",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: gomega.BeNil(),
+		},
+		"updateExistingEnv": {
+			targetContainerName: "test-container",
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "test-container",
+							Env: []v1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+					},
+				},
+			},
+			envName:  "EXISTING_VAR",
+			envValue: "updated_value",
+			expectedPodSpec: &v1.PodSpec{
+				Containers: []v1.Container{
+					{
+						Name: "test-container",
+						Env: []v1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "updated_value",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: gomega.BeNil(),
+		},
+		"updateExistingEnvWithSpecificContainer": {
+			targetContainerName: "target-container",
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "target-container",
+							Env: []v1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+						{
+							Name: "test-container",
+							Env: []v1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+					},
+				},
+			},
+			envName:  "EXISTING_VAR",
+			envValue: "updated_value",
+			expectedPodSpec: &v1.PodSpec{
+				Containers: []v1.Container{
+					{
+						Name: "target-container",
+						Env: []v1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "updated_value",
+							},
+						},
+					},
+					{
+						Name: "test-container",
+						Env: []v1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "existing_value",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: gomega.BeNil(),
+		},
+		"addNewEnvWithSpecificContainer": {
+			targetContainerName: "target-container",
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "target-container",
+							Env: []v1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+						{
+							Name: "test-container",
+							Env: []v1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+					},
+				},
+			},
+			envName:  "NEW_ENV",
+			envValue: "new_value",
+			expectedPodSpec: &v1.PodSpec{
+				Containers: []v1.Container{
+					{
+						Name: "target-container",
+						Env: []v1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "existing_value",
+							},
+							{
+								Name:  "NEW_ENV",
+								Value: "new_value",
+							},
+						},
+					},
+					{
+						Name: "test-container",
+						Env: []v1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "existing_value",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: gomega.BeNil(),
+		},
+		"AddEnvToWrongContainer": {
+			targetContainerName: "test-container",
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod",
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: "wrong-container",
+							Env: []v1.EnvVar{
+								{
+									Name:  "EXISTING_VAR",
+									Value: "existing_value",
+								},
+							},
+						},
+					},
+				},
+			},
+			envName:  "EXISTING_VAR",
+			envValue: "updated_value",
+			expectedPodSpec: &v1.PodSpec{
+				Containers: []v1.Container{
+					{
+						Name: "test-container",
+						Env: []v1.EnvVar{
+							{
+								Name:  "EXISTING_VAR",
+								Value: "existing_value",
+							},
+						},
+					},
+				},
+			},
+			expectedErr: gomega.Equal(errors.New("target container(test-container) does not exist")),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := AddEnvVarToPodSpec(&scenario.pod.Spec, scenario.targetContainerName, scenario.envName, scenario.envValue)
+			g.Expect(err).To(scenario.expectedErr)
+			g.Expect(scenario.pod.Spec.Containers[0].Env).Should(gomega.Equal(scenario.expectedPodSpec.Containers[0].Env))
+		})
+	}
+}
+
+func TestMergeServingRuntimeAndInferenceServiceSpecs(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		srContainers        []v1.Container
+		isvcContainer       v1.Container
+		isvc                *InferenceService
+		targetContainerName string
+		srPodSpec           v1alpha1.ServingRuntimePodSpec
+		isvcPodSpec         PodSpec
+		expectedContainer   *v1.Container
+		expectedPodSpec     *v1.PodSpec
+		expectedErr         gomega.OmegaMatcher
+	}{
+		"Merge container when there is no target container": {
+			srContainers: []v1.Container{
+				{Name: "containerA"},
+			},
+			isvcContainer:       v1.Container{Name: "containerA"},
+			isvc:                &InferenceService{},
+			targetContainerName: "containerA",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{},
+			isvcPodSpec:         PodSpec{},
+			expectedContainer:   &v1.Container{Name: "containerA"},
+			expectedPodSpec:     &v1.PodSpec{},
+			expectedErr:         gomega.BeNil(),
+		},
+		"Merge container when there is target container": {
+			srContainers: []v1.Container{
+				{Name: "containerA"},
+			},
+			isvcContainer: v1.Container{Name: "containerA",
+				Env: []v1.EnvVar{{Name: "test", Value: "test"}}},
+			isvc:                &InferenceService{},
+			targetContainerName: "containerA",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{},
+			isvcPodSpec:         PodSpec{},
+			expectedContainer: &v1.Container{Name: "containerA",
+				Env: []v1.EnvVar{{Name: "test", Value: "test"}}},
+			expectedPodSpec: &v1.PodSpec{},
+			expectedErr:     gomega.BeNil(),
+		},
+		"Return error when invalid container name": {
+			srContainers:        []v1.Container{{Name: "containerA"}},
+			isvcContainer:       v1.Container{Name: "containerB"},
+			isvc:                &InferenceService{},
+			targetContainerName: "nonExistentContainer",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{},
+			isvcPodSpec:         PodSpec{},
+			expectedContainer:   nil,
+			expectedPodSpec:     nil,
+			expectedErr:         gomega.HaveOccurred(),
+		},
+		"Merge podSpec when there is target container": {
+			srContainers: []v1.Container{
+				{Name: "containerA"},
+			},
+			isvcContainer:       v1.Container{Name: "containerA"},
+			isvc:                &InferenceService{},
+			targetContainerName: "containerA",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{Containers: []v1.Container{{Name: "containerA", Env: []v1.EnvVar{{Name: "original", Value: "original"}}}}},
+			isvcPodSpec:         PodSpec{Containers: []v1.Container{{Name: "containerA", Env: []v1.EnvVar{{Name: "test", Value: "test"}}}}},
+			expectedContainer:   &v1.Container{Name: "containerA"},
+			expectedPodSpec:     &v1.PodSpec{Containers: []v1.Container{{Name: "containerA", Env: []v1.EnvVar{{Name: "original", Value: "original"}, {Name: "test", Value: "test"}}}}},
+			expectedErr:         gomega.BeNil(),
+		},
+		"Merge podSpec when there is no target container": {
+			srContainers: []v1.Container{
+				{Name: "containerA"},
+			},
+			isvcContainer:       v1.Container{Name: "containerA"},
+			isvc:                &InferenceService{},
+			targetContainerName: "containerA",
+			srPodSpec:           v1alpha1.ServingRuntimePodSpec{Containers: []v1.Container{{Name: "containerA", Env: []v1.EnvVar{{Name: "original", Value: "original"}}}}},
+			isvcPodSpec:         PodSpec{Containers: []v1.Container{{Name: "containerB", Env: []v1.EnvVar{{Name: "test", Value: "test"}}}}},
+			expectedContainer:   &v1.Container{Name: "containerA"},
+			expectedPodSpec:     &v1.PodSpec{Containers: []v1.Container{{Name: "containerA", Env: []v1.EnvVar{{Name: "original", Value: "original"}}}}},
+			expectedErr:         gomega.BeNil(),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			index, mergedContainer, mergedPodSpec, err := MergeServingRuntimeAndInferenceServiceSpecs(
+				scenario.srContainers,
+				scenario.isvcContainer,
+				scenario.isvc,
+				scenario.targetContainerName,
+				scenario.srPodSpec,
+				scenario.isvcPodSpec,
+			)
+
+			if scenario.expectedErr == gomega.BeNil() {
+				g.Expect(index).To(gomega.Equal(0))
+				g.Expect(err).To(scenario.expectedErr)
+				g.Expect(mergedContainer).To(gomega.Equal(scenario.expectedContainer))
+				g.Expect(mergedPodSpec).To(gomega.Equal(scenario.expectedPodSpec))
+			} else {
+				g.Expect(index).NotTo(gomega.Equal(-1))
+				g.Expect(err).To(scenario.expectedErr)
+			}
+		})
 	}
 }

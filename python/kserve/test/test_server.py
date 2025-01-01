@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import asyncio
+import datetime
 import io
 import json
 import os
@@ -45,9 +46,8 @@ from kserve.protocol.infer_type import (
     InferResponse,
     RequestedOutput,
 )
-from kserve.protocol.rest.server import RESTServer
 from kserve.protocol.rest.v2_datamodels import is_pydantic_2
-from kserve.utils.utils import get_predict_input, get_predict_response
+from kserve.utils.utils import generate_uuid, get_predict_input, get_predict_response
 
 test_avsc_schema = """
         {
@@ -108,15 +108,6 @@ class DummyStreamModel(Model):
 
 
 class TestStreamPredict:
-    @pytest.fixture(scope="class")
-    def server(self):
-        server = ModelServer()
-        rest_server = RESTServer(
-            kserve_app, server.dataplane, server.model_repository_extension
-        )
-        rest_server.create_application()
-        yield server
-        kserve_app.routes.clear()
 
     @pytest_asyncio.fixture(scope="class")
     async def app(self, server):  # pylint: disable=no-self-use
@@ -338,6 +329,44 @@ class DummyFP16InputModel(Model):
         return infer_response
 
 
+class DateTimeModel(Model):
+    def __init__(self, name):
+        super().__init__(name)
+        self.ready = False
+
+    def load(self):
+        self.ready = True
+
+    async def predict(self, payload, headers=None, response_headers=None):
+        if isinstance(payload, InferRequest):
+            response_id = generate_uuid()
+            infer_output = InferOutput(
+                name="output-0",
+                shape=[1],
+                datatype="BYTES",
+            )
+            infer_output.set_data_from_numpy(
+                np.array(
+                    [datetime.datetime.now(tz=datetime.timezone.utc)], dtype=np.object_
+                ),
+                binary_data=False,
+            )
+            return InferResponse(
+                model_name=self.name,
+                infer_outputs=[infer_output],
+                response_id=response_id,
+            )
+        return {"predictions": [datetime.datetime.now(tz=datetime.timezone.utc)]}
+
+    async def explain(self, payload, headers=None):
+        return {"predictions": [datetime.datetime.now(tz=datetime.timezone.utc)]}
+
+
+@pytest.fixture(scope="module")
+def http_server_client():
+    return TestClient(kserve_app, headers={"content-type": "application/json"})
+
+
 @pytest.mark.asyncio
 class TestModel:
     async def test_validate(self):
@@ -364,27 +393,17 @@ class TestModel:
 
 class TestV1Endpoints:
 
-    @pytest.fixture(scope="class")
-    def server(self):
-        server = ModelServer(registered_models=ModelRepository())
-        rest_server = RESTServer(
-            kserve_app, server.dataplane, server.model_repository_extension
-        )
-        rest_server.create_application()
-        yield server
-        kserve_app.routes.clear()
-
-    @pytest_asyncio.fixture(scope="class")
+    @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):
         model = DummyModel("TestModel")
         model.load()
         server.register_model(model)
+        datetime_model = DateTimeModel("DateTimeModel")
+        datetime_model.load()
+        server.register_model(datetime_model)
         yield kserve_app
         await server.model_repository_extension.unload("TestModel")
-
-    @pytest.fixture(scope="class")
-    def http_server_client(self, app):
-        return TestClient(app, headers={"content-type": "application/json"})
+        await server.model_repository_extension.unload("DateTimeModel")
 
     def test_liveness_v1(self, http_server_client):
         resp = http_server_client.get("/")
@@ -403,7 +422,7 @@ class TestV1Endpoints:
     def test_list_models_v1(self, http_server_client):
         resp = http_server_client.get("/v1/models")
         assert resp.status_code == 200
-        assert resp.json() == {"models": ["TestModel"]}
+        assert resp.json() == {"models": ["TestModel", "DateTimeModel"]}
 
     def test_predict_v1(self, http_server_client):
         resp = http_server_client.post(
@@ -431,19 +450,23 @@ class TestV1Endpoints:
         assert resp.status_code == 200
         assert resp.content is not None
 
+    def test_datetime_output_v1(self, http_server_client):
+        resp = http_server_client.post(
+            "/v1/models/DateTimeModel:predict", content=b'{"instances":[[1,2]]}'
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/json"
+        result = json.loads(resp.content)
+        assert isinstance(result["predictions"][0], str)
+        result_datetime = datetime.datetime.fromisoformat(result["predictions"][0])
+        datetime_now = datetime.datetime.now(tz=datetime.timezone.utc)
+        assert result_datetime.date() == datetime_now.date()
+        assert result_datetime.tzinfo == datetime_now.tzinfo
+
 
 class TestV2Endpoints:
-    @pytest.fixture(scope="class")
-    def server(self):
-        server = ModelServer()
-        rest_server = RESTServer(
-            kserve_app, server.dataplane, server.model_repository_extension
-        )
-        rest_server.create_application()
-        yield server
-        kserve_app.routes.clear()
 
-    @pytest_asyncio.fixture(scope="class")
+    @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):
         model = DummyModel("TestModel")
         model.load()
@@ -454,20 +477,25 @@ class TestV2Endpoints:
         fp16_output_model = DummyFP16OutputModel("FP16OutputModel")
         fp16_output_model.load()
         server.register_model(fp16_output_model)
+        datetime_model = DateTimeModel("DateTimeModel")
+        datetime_model.load()
+        server.register_model(datetime_model)
         yield kserve_app
         await server.model_repository_extension.unload("TestModel")
         await server.model_repository_extension.unload("FP16InputModel")
         await server.model_repository_extension.unload("FP16OutputModel")
-
-    @pytest.fixture(scope="class")
-    def http_server_client(self, app):
-        return TestClient(app, headers={"content-type": "application/json"})
+        await server.model_repository_extension.unload("DateTimeModel")
 
     def test_list_models_v2(self, http_server_client):
         resp = http_server_client.get("/v2/models")
         assert resp.status_code == 200
         assert resp.json() == {
-            "models": ["TestModel", "FP16InputModel", "FP16OutputModel"]
+            "models": [
+                "TestModel",
+                "FP16InputModel",
+                "FP16OutputModel",
+                "DateTimeModel",
+            ]
         }
 
     def test_infer_v2(self, http_server_client):
@@ -804,19 +832,27 @@ class TestV2Endpoints:
         )
         assert resp.headers.get(INFERENCE_CONTENT_LENGTH_HEADER) == "345"
 
+    def test_datetime_output(self, http_server_client):
+        input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
+        resp = http_server_client.post(
+            "/v2/models/DateTimeModel/infer",
+            content=input_data,
+        )
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/json"
+        result = json.loads(resp.content)
+        assert isinstance(result["outputs"][0]["data"][0], str)
+        result_datetime = datetime.datetime.fromisoformat(
+            result["outputs"][0]["data"][0]
+        )
+        datetime_now = datetime.datetime.now(tz=datetime.timezone.utc)
+        assert result_datetime.date() == datetime_now.date()
+        assert result_datetime.tzinfo == datetime_now.tzinfo
+
 
 class TestRayServer:
-    @pytest.fixture(scope="class")
-    def server(self):
-        server = ModelServer()
-        rest_server = RESTServer(
-            kserve_app, server.dataplane, server.model_repository_extension
-        )
-        rest_server.create_application()
-        yield server
-        kserve_app.routes.clear()
 
-    @pytest_asyncio.fixture(scope="class")
+    @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):  # pylint: disable=no-self-use
         serve.start(http_options={"host": "0.0.0.0", "port": 9071})
 
@@ -831,10 +867,6 @@ class TestRayServer:
         yield kserve_app
         await server.model_repository_extension.unload("TestModel")
         serve.shutdown()
-
-    @pytest.fixture(scope="class")
-    def http_server_client(self, app):
-        return TestClient(app, headers={"content-type": "application/json"})
 
     def test_liveness_handler(self, http_server_client):
         resp = http_server_client.get("/")
@@ -885,26 +917,13 @@ class TestRayServer:
 
 
 class TestTFHttpServerModelNotLoaded:
-    @pytest.fixture(scope="class")
-    def server(self):
-        server = ModelServer()
-        rest_server = RESTServer(
-            kserve_app, server.dataplane, server.model_repository_extension
-        )
-        rest_server.create_application()
-        yield server
-        kserve_app.routes.clear()
 
-    @pytest_asyncio.fixture(scope="class")
+    @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):  # pylint: disable=no-self-use
         model = DummyModel("TestModel")
         server.register_model(model)
         yield kserve_app
         await server.model_repository_extension.unload("TestModel")
-
-    @pytest.fixture(scope="class")
-    def http_server_client(self, app):
-        return TestClient(app)
 
     def test_model_not_ready_error(self, http_server_client):
         resp = http_server_client.get("/v1/models/TestModel")
@@ -912,27 +931,14 @@ class TestTFHttpServerModelNotLoaded:
 
 
 class TestTFHttpServerCloudEvent:
-    @pytest.fixture(scope="class")
-    def server(self):
-        server = ModelServer()
-        rest_server = RESTServer(
-            kserve_app, server.dataplane, server.model_repository_extension
-        )
-        rest_server.create_application()
-        yield server
-        kserve_app.routes.clear()
 
-    @pytest_asyncio.fixture(scope="class")
+    @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):  # pylint: disable=no-self-use
         model = DummyCEModel("TestModel")
         model.load()
         server.register_model(model)
         yield kserve_app
         await server.model_repository_extension.unload("TestModel")
-
-    @pytest.fixture(scope="class")
-    def http_server_client(self, app):
-        return TestClient(app)
 
     def test_predict_ce_structured(self, http_server_client):
         event = dummy_cloud_event({"instances": [[1, 2]]})
@@ -1088,27 +1094,14 @@ class TestTFHttpServerCloudEvent:
 
 
 class TestTFHttpServerAvroCloudEvent:
-    @pytest.fixture(scope="class")
-    def server(self):
-        server = ModelServer()
-        rest_server = RESTServer(
-            kserve_app, server.dataplane, server.model_repository_extension
-        )
-        rest_server.create_application()
-        yield server
-        kserve_app.routes.clear()
 
-    @pytest_asyncio.fixture(scope="class")
+    @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):  # pylint: disable=no-self-use
         model = DummyAvroCEModel("TestModel")
         model.load()
         server.register_model(model)
         yield kserve_app
         await server.model_repository_extension.unload("TestModel")
-
-    @pytest.fixture(scope="class")
-    def http_server_client(self, app):
-        return TestClient(app)
 
     def test_predict_ce_avro_binary(self, http_server_client):
         schema = avro.schema.parse(test_avsc_schema)
@@ -1140,21 +1133,16 @@ class TestTFHttpServerAvroCloudEvent:
 
 
 class TestTFHttpServerLoadAndUnLoad:
-    @pytest.fixture(scope="class")
-    def app(self):
-        server = ModelServer(
-            registered_models=DummyModelRepository(test_load_success=True)
+    @pytest_asyncio.fixture(scope="class", autouse=True)
+    def app(self, server):
+        mp = pytest.MonkeyPatch()
+        mp.setattr(
+            server.model_repository_extension,
+            "_model_registry",
+            DummyModelRepository(test_load_success=True),
         )
-        rest_server = RESTServer(
-            kserve_app, server.dataplane, server.model_repository_extension
-        )
-        rest_server.create_application()
-        yield kserve_app
-        kserve_app.routes.clear()
-
-    @pytest.fixture(scope="class")
-    def http_server_client(self, app):
-        return TestClient(app)
+        yield
+        mp.undo()
 
     def test_load(self, http_server_client):
         resp = http_server_client.post("/v2/repository/models/model/load", content=b"")
@@ -1170,21 +1158,16 @@ class TestTFHttpServerLoadAndUnLoad:
 
 
 class TestTFHttpServerLoadAndUnLoadFailure:
-    @pytest.fixture(scope="class")
-    def app(self):
-        server = ModelServer(
-            registered_models=DummyModelRepository(test_load_success=False)
+    @pytest.fixture(scope="class", autouse=True)
+    def app(self, server):
+        mp = pytest.MonkeyPatch()
+        mp.setattr(
+            server.model_repository_extension,
+            "_model_registry",
+            DummyModelRepository(test_load_success=False),
         )
-        rest_server = RESTServer(
-            kserve_app, server.dataplane, server.model_repository_extension
-        )
-        rest_server.create_application()
-        yield kserve_app
-        kserve_app.routes.clear()
-
-    @pytest.fixture(scope="class")
-    def http_server_client(self, app):
-        return TestClient(app)
+        yield
+        mp.undo()
 
     def test_load_fail(self, http_server_client):
         resp = http_server_client.post("/v2/repository/models/model/load", content=b"")
@@ -1198,26 +1181,13 @@ class TestTFHttpServerLoadAndUnLoadFailure:
 
 
 class TestTFHttpServerModelNotReady:
-    @pytest.fixture(scope="class")
-    def server(self):
-        server = ModelServer()
-        rest_server = RESTServer(
-            kserve_app, server.dataplane, server.model_repository_extension
-        )
-        rest_server.create_application()
-        yield server
-        kserve_app.routes.clear()
 
-    @pytest_asyncio.fixture(scope="class")
+    @pytest_asyncio.fixture(scope="class", autouse=True)
     async def app(self, server):  # pylint: disable=no-self-use
         model = DummyModel("TestModel")
         server.register_model(model)
         yield kserve_app
         await server.model_repository_extension.unload("TestModel")
-
-    @pytest.fixture(scope="class")
-    def http_server_client(self, app):
-        return TestClient(app)
 
     def test_model_not_ready_v1(self, http_server_client):
         resp = http_server_client.get("/v1/models/TestModel")
