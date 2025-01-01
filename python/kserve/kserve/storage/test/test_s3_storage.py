@@ -338,9 +338,13 @@ def test_file_name_preservation(mock_storage):
     downloaded_source, downloaded_target = arg_list[0]
 
     # Check if the source S3 key matches the original object key
-    assert downloaded_source == object_paths[0], f"Expected {object_paths[0]}, got {downloaded_source}"
+    assert (
+        downloaded_source == object_paths[0]
+    ), f"Expected {object_paths[0]}, got {downloaded_source}"
 
     # Check if the target file path ends with the expected file name
-    assert downloaded_target.endswith(expected_file_name), f"Expected file name to end with {expected_file_name}, got {downloaded_target}"
+    assert (
+        downloaded_target.endswith(expected_file_name)
+    ), f"Expected file name to end with {expected_file_name}, got {downloaded_target}"
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="model")
