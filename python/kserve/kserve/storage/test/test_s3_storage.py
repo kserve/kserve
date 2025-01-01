@@ -343,8 +343,8 @@ def test_file_name_preservation(mock_storage):
     ), f"Expected {object_paths[0]}, got {downloaded_source}"
 
     # Check if the target file path ends with the expected file name
-    assert (
-        downloaded_target.endswith(expected_file_name)
+    assert downloaded_target.endswith(
+        expected_file_name
     ), f"Expected file name to end with {expected_file_name}, got {downloaded_target}"
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="model")
