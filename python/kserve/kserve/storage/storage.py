@@ -259,7 +259,11 @@ class Storage(object):
             ):
                 target_key = object_last_path
             else:
-                target_key = obj.key.replace(bucket_path, "").lstrip("/")
+                if obj.key.startswith(bucket_path):
+                    # remove only the bucket_path prefix
+                    target_key = obj.key[len(bucket_path):].lstrip("/")
+                else:
+                    target_key = obj.key
 
             target = f"{temp_dir}/{target_key}"
             if not os.path.exists(os.path.dirname(target)):
