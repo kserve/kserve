@@ -424,5 +424,8 @@ kserve:
         image: kserve/kserve-localmodelnode-agent
         tag: *defaultVersion
         reconcilationFrequencyInSecs: 60
+        securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
   security:
     autoMountServiceAccountToken: true
