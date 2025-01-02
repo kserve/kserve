@@ -425,7 +425,7 @@ kserve:
         tag: *defaultVersion
         reconcilationFrequencyInSecs: 60
         securityContext:
-          runAsUser: 0
-          runAsNonRoot: false
+          runAsUser: 1000
+          runAsNonRoot: true
   security:
     autoMountServiceAccountToken: true
