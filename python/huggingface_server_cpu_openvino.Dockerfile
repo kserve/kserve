@@ -68,6 +68,7 @@ RUN useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
+COPY --from=builder storage storage
 COPY --from=builder huggingfaceserver huggingfaceserver
 
 # Set a writable Hugging Face home folder to avoid permission issue. See https://github.com/kserve/kserve/issues/3562
