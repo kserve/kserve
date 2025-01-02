@@ -129,7 +129,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		return nil, err
 	}
 	c.Log.Info("Created job", "name", createdJob.Name, "namespace", createdJob.Namespace,
-		"model", modelInfo.ModelName)
+		"model", modelInfo.ModelName, "node", nodeName)
 	return createdJob, err
 }
 
@@ -172,12 +172,12 @@ func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName s
 	}
 	if err := c.Client.List(ctx, jobList, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
 		if errors.IsNotFound(err) {
-			c.Log.Info("Job not found", "model", modelName)
+			c.Log.Info("Job not found", "nodeName", nodeName, "model", modelName)
 			return nil, 0, nil
 		}
 		return nil, 0, err
 	}
-	c.Log.Info("Found jobs", "model", modelName, "num of jobs", len(jobList.Items))
+	c.Log.Info("node", nodeName, "Found jobs", "model", modelName, "num of jobs", len(jobList.Items))
 	var latestJob *batchv1.Job
 	for i, job := range jobList.Items {
 		if latestJob == nil || job.CreationTimestamp.After(latestJob.CreationTimestamp.Time) {
@@ -213,7 +213,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			return err
 		}
 		if folderExists {
-			c.Log.Info("Model folder found", "model", modelInfo.ModelName)
+			c.Log.Info("Model folder found", "model", modelInfo.ModelName, "node", nodeName)
 			// If folder exists and the job has been successfully completed, do nothing
 			// If the job is cleaned up, no new job is created because the status is already set to ModelDownloaded
 			if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
@@ -224,7 +224,8 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			}
 			job, _, err = c.getLatestJob(ctx, modelInfo.ModelName, nodeName)
 			if err != nil {
-				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName, "node", nodeName)
+				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName,
+					"node", nodeName)
 				return err
 			}
 			// If job is not found, create a new one. Because download could be incomplete.
@@ -232,7 +233,8 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 				c.Log.Info("Model folder exists, creating download job", "model", modelInfo.ModelName)
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
-					c.Log.Error(err, "Failed to create Job", "model", modelInfo.ModelName, "node", nodeName)
+					c.Log.Error(err, "Failed to create Job", "model", modelInfo.ModelName,
+						"node", nodeName)
 					return err
 				}
 			}
@@ -241,14 +243,16 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 				"node", localModelNode.ObjectMeta.Name, "status", newStatus[modelInfo.ModelName])
 		} else {
 			// Folder does not exist
-			c.Log.Info("Model folder not found", "model", modelInfo.ModelName)
+			c.Log.Info("Model folder not found", "model", modelInfo.ModelName, "node", nodeName)
 			job, jobCount, err := c.getLatestJob(ctx, modelInfo.ModelName, nodeName)
 			if err != nil {
 				c.Log.Error(err, "Failed to getLatestJob", "model", modelInfo.ModelName, "node", nodeName)
 				return err
 			}
 			if job != nil {
-				c.Log.Info("model status from latest job", "model", modelInfo.ModelName, "status", getModelStatusFromJobStatus(job.Status))
+				c.Log.Info("model status from latest job", "model", modelInfo.ModelName,
+					"status", getModelStatusFromJobStatus(job.Status),
+					"node", nodeName)
 			}
 			// Recreate job if it has been terminated because the model is missing locally
 			// If the job has failed, we do not retry here because there are retries on the job.

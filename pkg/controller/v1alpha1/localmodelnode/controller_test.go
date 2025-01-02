@@ -341,13 +341,15 @@ var _ = Describe("LocalModelNode controller", func() {
 			// Delete the model folder
 			fsMock.clear()
 
-			// Manually trigger reconcillation
+			// Manually trigger reconciliation
 			patch := client.MergeFrom(localModelNode.DeepCopy())
 			localModelNode.Annotations = map[string]string{"foo": "bar"}
 			Expect(k8sClient.Patch(ctx, localModelNode, patch)).Should(Succeed())
 
 			Eventually(func() bool {
 				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				// Print the job length if the test fails
+				fmt.Fprintf(GinkgoWriter, "Job length %+v\n", len(jobs.Items))
 				return err == nil && len(jobs.Items) == 2
 			}, timeout, interval).Should(BeTrue(), "New job should be created")
 		})
