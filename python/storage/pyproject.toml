@@ -25,7 +25,6 @@ azure-storage-file-share = { version = "^12.16.0" }
 azure-identity = { version = "^1.15.0" }
 boto3 = { version = "^1.29.0" }
 huggingface-hub = { version = "^0.24.5", extras = ["hf-transfer"] }
-# botocore (>=1.35.60,<1.35.61) requires urllib3 (>=1.25.4,<1.27)
 urllib3 = { version=">=1.25.4,<1.27" }
 
 # Logging dependencies. They can be opted into by apps.
