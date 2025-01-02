@@ -26,6 +26,11 @@ ENV VIRTUAL_ENV=${VENV_PATH}
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
+COPY storage/pyproject.toml storage/poetry.lock storage/
+RUN cd storage && poetry install --no-root --no-interaction --no-cache
+COPY storage storage
+RUN cd storage && poetry install --no-interaction --no-cache
+
 # Install KServe and Hugging Face Server dependencies
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
 RUN cd kserve && poetry install --no-root --no-interaction --no-cache
