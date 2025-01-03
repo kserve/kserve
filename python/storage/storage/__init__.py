@@ -1,4 +1,4 @@
-# Copyright 2025 The KServe Authors.
+# Copyright 2023 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,15 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 # flake8: noqa
 
-# Keep backwards capability, try import storage package.
-# This way, existing projects using the Python SDK will not break, allowing
-# users to upgrade the SDK without changing their code.
-# We might need to inform users about the segregation of the storage package
-# so they have time to update the code and change the imports to the new package.
-try:
-    from storage import *
-except ImportError as e:
-    print("Please install the storage package")
-    raise ImportError("Failed to import storage package") from e
+from .storage_logging import configure_logging, logger
+from .ks_storage import Storage
