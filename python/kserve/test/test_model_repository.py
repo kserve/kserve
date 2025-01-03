@@ -14,17 +14,23 @@
 import pytest
 
 from kserve import ModelRepository, Model
-from kserve.protocol.rest.openai import CompletionRequest, OpenAIModel
+from kserve.protocol.rest.openai import (
+    CompletionRequest,
+    OpenAICompletionModel,
+    EmbeddingRequest,
+    OpenAIEmbeddingModel,
+)
 from unittest.mock import patch
 from kserve.protocol.rest.openai.types.openapi import (
     CreateChatCompletionResponse as ChatCompletion,
     CreateChatCompletionStreamResponse as ChatCompletionChunk,
     CreateCompletionResponse as Completion,
+    Embedding,
 )
 from typing import AsyncIterator, Union
 
 
-class DummyOpenAIModel(OpenAIModel):
+class DummyOpenAICompletionModel(OpenAICompletionModel):
     async def create_completion(
         self, params: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
@@ -33,6 +39,11 @@ class DummyOpenAIModel(OpenAIModel):
     async def create_chat_completion(
         self, params: CompletionRequest
     ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
+        pass
+
+
+class DummyOpenAIEmbeddingModel(OpenAIEmbeddingModel):
+    async def create_embedding(self, params: EmbeddingRequest) -> Embedding:
         pass
 
 
@@ -47,15 +58,26 @@ def test_adding_kserve_model():
     assert actual.name == "kserve-model"
 
 
-def test_adding_openai_model():
+def test_adding_openai_completion_model():
     repo = ModelRepository()
-    repo.update(DummyOpenAIModel(name="openai-model"))
+    repo.update(DummyOpenAICompletionModel(name="openai-completion-model"))
 
-    actual = repo.get_model("openai-model")
+    actual = repo.get_model("openai-completion-model")
 
     assert actual is not None
-    assert isinstance(actual, OpenAIModel)
-    assert actual.name == "openai-model"
+    assert isinstance(actual, OpenAICompletionModel)
+    assert actual.name == "openai-completion-model"
+
+
+def test_adding_openai_embedding_model():
+    repo = ModelRepository()
+    repo.update(DummyOpenAIEmbeddingModel(name="openai-embedding-model"))
+
+    actual = repo.get_model("openai-embedding-model")
+
+    assert actual is not None
+    assert isinstance(actual, OpenAIEmbeddingModel)
+    assert actual.name == "openai-embedding-model"
 
 
 @pytest.mark.asyncio
@@ -83,7 +105,7 @@ async def test_is_model_ready_kserve_model():
 @pytest.mark.asyncio
 async def test_is_model_ready_openai_model():
     repo = ModelRepository()
-    model = DummyOpenAIModel(name="openai-model")
+    model = DummyOpenAICompletionModel(name="openai-model")
     repo.update(model)
 
     actual = await repo.is_model_ready("openai-model")
