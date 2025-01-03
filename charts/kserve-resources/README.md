@@ -63,6 +63,8 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
 | kserve.localmodel.agent.nodeSelector | object | `{}` |  |
 | kserve.localmodel.agent.reconcilationFrequencyInSecs | int | `60` |  |
+| kserve.localmodel.agent.securityContext.runAsNonRoot | bool | `true` |  |
+| kserve.localmodel.agent.securityContext.runAsUser | int | `1000` |  |
 | kserve.localmodel.agent.tag | string | `"v0.14.0"` |  |
 | kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.tag | string | `"v0.14.0"` |  |
