@@ -49,6 +49,17 @@ var (
 	ServiceConfigData = fmt.Sprintf(`{
 		"serviceClusterIPNone" : %t
 	}`, true)
+
+	ISCVWithData = fmt.Sprintf(`{
+		"serviceAnnotationDisallowedList": ["%s","%s"],
+		"serviceLabelDisallowedList": ["%s","%s"]
+	}`, "my.custom.annotation/1", "my.custom.annotation/2",
+		"my.custom.label.1", "my.custom.label.2")
+
+	ISCVNoData = fmt.Sprintf(`{
+		"serviceAnnotationDisallowedList": %s,
+		"serviceLabelDisallowedList": %s
+	}`, []string{}, []string{})
 )
 
 func TestNewInferenceServiceConfig(t *testing.T) {
@@ -147,5 +158,35 @@ func TestNewServiceConfig(t *testing.T) {
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(nv).ShouldNot(gomega.BeNil())
 	g.Expect(nv.ServiceClusterIPNone).Should(gomega.BeFalse())
+}
 
+func TestInferenceServiceDisallowedLists(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	withData := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			InferenceServiceConfigKeyName: ISCVWithData,
+		},
+	})
+	isvcConfigWithData, err := NewInferenceServicesConfig(withData)
+	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(isvcConfigWithData).ShouldNot(gomega.BeNil())
+
+	annotations := append(constants.ServiceAnnotationDisallowedList, []string{"my.custom.annotation/1", "my.custom.annotation/2"}...)
+	g.Expect(isvcConfigWithData.ServiceAnnotationDisallowedList).To(gomega.Equal(annotations))
+	labels := append(constants.RevisionTemplateLabelDisallowedList, []string{"my.custom.label.1", "my.custom.label.2"}...)
+	g.Expect(isvcConfigWithData.ServiceLabelDisallowedList).To(gomega.Equal(labels))
+
+	// with no data
+	withoutData := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			InferenceServiceConfigKeyName: ISCVNoData,
+		},
+	})
+	isvcConfigWithoutData, err := NewInferenceServicesConfig(withoutData)
+	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(isvcConfigWithoutData).ShouldNot(gomega.BeNil())
+	g.Expect(isvcConfigWithoutData.ServiceAnnotationDisallowedList).To(gomega.Equal(constants.ServiceAnnotationDisallowedList))
+	g.Expect(isvcConfigWithoutData.ServiceLabelDisallowedList).To(gomega.Equal(constants.RevisionTemplateLabelDisallowedList))
 }
