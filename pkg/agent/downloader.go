@@ -26,10 +26,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kserve/kserve/pkg/agent/storage"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
+	"github.com/kserve/kserve/pkg/agent/storage"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
 type Downloader struct {
@@ -66,7 +67,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 			if err != nil {
 				return errors.Wrapf(createErr, "failed to encode model spec")
 			}
-			err = os.WriteFile(successFile, encodedJson, 0644) //#nosec
+			err = os.WriteFile(successFile, encodedJson, 0644) // #nosec G306
 			if err != nil {
 				return errors.Wrapf(createErr, "failed to write the success file")
 			}

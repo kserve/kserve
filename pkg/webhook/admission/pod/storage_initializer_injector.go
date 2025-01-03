@@ -27,13 +27,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
+	v1 "k8s.io/api/core/v1"
+	"knative.dev/pkg/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/s3"
-	v1 "k8s.io/api/core/v1"
-	"knative.dev/pkg/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (

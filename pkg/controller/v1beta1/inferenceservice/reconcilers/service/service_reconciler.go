@@ -20,10 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var log = logf.Log.WithName("ServiceReconciler")
@@ -130,14 +131,13 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 				servicePorts = append(servicePorts, servicePort)
 			}
 		} else {
-			port, _ := strconv.Atoi(constants.InferenceServiceDefaultHttpPort)
-			portInt32 := int32(port) // nolint  #nosec G109
+			port, _ := utils.StringToInt32(constants.InferenceServiceDefaultHttpPort)
 			servicePorts = append(servicePorts, corev1.ServicePort{
 				Name: componentMeta.Name,
 				Port: constants.CommonDefaultHttpPort,
 				TargetPort: intstr.IntOrString{
 					Type:   intstr.Int,
-					IntVal: portInt32, // #nosec G109
+					IntVal: port,
 				},
 				Protocol: corev1.ProtocolTCP,
 			})

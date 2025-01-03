@@ -17,7 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -59,11 +59,11 @@ func (t *TFServingSpec) validateGPU() error {
 		return nil
 	}
 	if utils.IsGPUEnabled(t.Resources) && !strings.Contains(*t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU)
+		return errors.New(InvalidTensorflowRuntimeIncludesGPU)
 	}
 
 	if !utils.IsGPUEnabled(t.Resources) && strings.Contains(*t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU)
+		return errors.New(InvalidTensorflowRuntimeExcludesGPU)
 	}
 	return nil
 }

@@ -19,9 +19,10 @@ package v1beta1
 import (
 	"reflect"
 
+	v1 "k8s.io/api/core/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
 )
 
 // PredictorImplementation defines common functions for all predictors e.g Tensorflow, Triton, etc

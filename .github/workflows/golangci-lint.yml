@@ -21,10 +21,10 @@ jobs:
           go-version: "1.22"
           cache: false
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.56
-          args: --out-format=line-number
+          version: v1.61
+          args: --out-format=colored-line-number
 
   verify-go-mod:
     runs-on: ubuntu-latest
