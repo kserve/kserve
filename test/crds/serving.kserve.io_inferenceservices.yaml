@@ -8069,9 +8069,47 @@ spec:
                     - memory
                     - concurrency
                     - rps
+                    - prometheus
+                    type: string
+                  scaleMetricType:
                     type: string
                   scaleTarget:
                     type: integer
+                  scaler:
+                    properties:
+                      maxReplicas:
+                        type: integer
+                      metricBackend:
+                        enum:
+                        - cpu
+                        - memory
+                        - concurrency
+                        - rps
+                        - prometheus
+                        type: string
+                      metricQuery:
+                        type: string
+                      minReplicas:
+                        type: integer
+                      queryParameters:
+                        type: string
+                      queryTime:
+                        type: string
+                      scaleMetric:
+                        enum:
+                        - cpu
+                        - memory
+                        - concurrency
+                        - rps
+                        - prometheus
+                        type: string
+                      scaleMetricType:
+                        type: string
+                      scaleTarget:
+                        type: integer
+                      serverAddress:
+                        type: string
+                    type: object
                   schedulerName:
                     type: string
                   schedulingGates:
@@ -15807,9 +15845,47 @@ spec:
                     - memory
                     - concurrency
                     - rps
+                    - prometheus
+                    type: string
+                  scaleMetricType:
                     type: string
                   scaleTarget:
                     type: integer
+                  scaler:
+                    properties:
+                      maxReplicas:
+                        type: integer
+                      metricBackend:
+                        enum:
+                        - cpu
+                        - memory
+                        - concurrency
+                        - rps
+                        - prometheus
+                        type: string
+                      metricQuery:
+                        type: string
+                      minReplicas:
+                        type: integer
+                      queryParameters:
+                        type: string
+                      queryTime:
+                        type: string
+                      scaleMetric:
+                        enum:
+                        - cpu
+                        - memory
+                        - concurrency
+                        - rps
+                        - prometheus
+                        type: string
+                      scaleMetricType:
+                        type: string
+                      scaleTarget:
+                        type: integer
+                      serverAddress:
+                        type: string
+                    type: object
                   schedulerName:
                     type: string
                   schedulingGates:
@@ -25029,9 +25105,47 @@ spec:
                     - memory
                     - concurrency
                     - rps
+                    - prometheus
+                    type: string
+                  scaleMetricType:
                     type: string
                   scaleTarget:
                     type: integer
+                  scaler:
+                    properties:
+                      maxReplicas:
+                        type: integer
+                      metricBackend:
+                        enum:
+                        - cpu
+                        - memory
+                        - concurrency
+                        - rps
+                        - prometheus
+                        type: string
+                      metricQuery:
+                        type: string
+                      minReplicas:
+                        type: integer
+                      queryParameters:
+                        type: string
+                      queryTime:
+                        type: string
+                      scaleMetric:
+                        enum:
+                        - cpu
+                        - memory
+                        - concurrency
+                        - rps
+                        - prometheus
+                        type: string
+                      scaleMetricType:
+                        type: string
+                      scaleTarget:
+                        type: integer
+                      serverAddress:
+                        type: string
+                    type: object
                   schedulerName:
                     type: string
                   schedulingGates:
