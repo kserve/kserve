@@ -19,12 +19,10 @@ jobs:
           [
             { name: kserve-controller, file: Dockerfile },
             { name: agent, file: agent.Dockerfile },
-            {
-              name: storage-initializer,
-              file: python/storage-initializer.Dockerfile,
-            },
+            { name: storage-initializer, file: python/storage-initializer.Dockerfile },
             { name: router, file: router.Dockerfile },
             { name: kserve-localmodel-controller, file: localmodel.Dockerfile },
+            { name: kserve-localmodelnode-agent, file: localmodel-agent.Dockerfile },
           ]
 
     steps:
@@ -112,10 +110,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        image:
-          [
-            { name: art-explainer, file: python/artexplainer.Dockerfile },
-          ]
+        image: [{ name: art-explainer, file: python/artexplainer.Dockerfile }]
 
     steps:
       - name: Checkout
