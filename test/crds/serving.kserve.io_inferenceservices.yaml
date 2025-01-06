@@ -5270,6 +5270,8 @@ spec:
               minReplicas:
                 format: int32
                 type: integer
+              nodeName:
+                type: string
               nodeSelector:
                 additionalProperties:
                   type: string
@@ -5356,6 +5358,8 @@ spec:
               scaleTarget:
                 format: int32
                 type: integer
+              serviceAccountName:
+                type: string
               timeout:
                 format: int64
                 type: integer

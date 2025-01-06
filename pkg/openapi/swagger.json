@@ -227,6 +227,10 @@
           "type": "integer",
           "format": "int32"
         },
+        "nodeName": {
+          "description": "NodeName specifies the node name for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/",
+          "type": "string"
+        },
         "nodeSelector": {
           "description": "NodeSelector specifies the node selector for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/",
           "type": "object",
@@ -255,6 +259,10 @@
           "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
+        },
+        "serviceAccountName": {
+          "description": "ServiceAccountName specifies the service account name for the InferenceGraph. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
+          "type": "string"
         },
         "timeout": {
           "description": "TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.",

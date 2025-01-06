@@ -76,10 +76,18 @@ type InferenceGraphSpec struct {
 	// https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// NodeName specifies the node name for the InferenceGraph.
+	// https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+	// +optional
+	NodeName string `json:"nodeName,omitempty"`
 	// ImagePullSecrets specifies the image pull secrets for the InferenceGraph.
 	// https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 	// +optional
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	// ServiceAccountName specifies the service account name for the InferenceGraph.
+	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
 // ScaleMetric enum

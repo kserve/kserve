@@ -555,6 +555,13 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref common.ReferenceCal
 							},
 						},
 					},
+					"nodeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeName specifies the node name for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"imagePullSecrets": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ImagePullSecrets specifies the image pull secrets for the InferenceGraph. https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/",
@@ -567,6 +574,13 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref common.ReferenceCal
 									},
 								},
 							},
+						},
+					},
+					"serviceAccountName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceAccountName specifies the service account name for the InferenceGraph. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

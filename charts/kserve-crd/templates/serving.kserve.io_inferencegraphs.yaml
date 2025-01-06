@@ -476,10 +476,25 @@ spec:
                         x-kubernetes-list-type: atomic
                     type: object
                 type: object
+              imagePullSecrets:
+                items:
+                  properties:
+                    name:
+                      default: ""
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
               maxReplicas:
                 type: integer
               minReplicas:
                 type: integer
+              nodeName:
+                type: string
+              nodeSelector:
+                additionalProperties:
+                  type: string
+                type: object
               nodes:
                 additionalProperties:
                   properties:
@@ -561,6 +576,8 @@ spec:
                 type: string
               scaleTarget:
                 type: integer
+              serviceAccountName:
+                type: string
               timeout:
                 format: int64
                 type: integer

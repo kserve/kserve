@@ -51,11 +51,13 @@ class V1alpha1InferenceGraphSpec(object):
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'max_replicas': 'int',
         'min_replicas': 'int',
+        'node_name': 'str',
         'node_selector': 'dict(str, str)',
         'nodes': 'dict(str, V1alpha1InferenceRouter)',
         'resources': 'V1ResourceRequirements',
         'scale_metric': 'str',
         'scale_target': 'int',
+        'service_account_name': 'str',
         'timeout': 'int',
         'tolerations': 'list[V1Toleration]'
     }
@@ -65,16 +67,18 @@ class V1alpha1InferenceGraphSpec(object):
         'image_pull_secrets': 'imagePullSecrets',
         'max_replicas': 'maxReplicas',
         'min_replicas': 'minReplicas',
+        'node_name': 'nodeName',
         'node_selector': 'nodeSelector',
         'nodes': 'nodes',
         'resources': 'resources',
         'scale_metric': 'scaleMetric',
         'scale_target': 'scaleTarget',
+        'service_account_name': 'serviceAccountName',
         'timeout': 'timeout',
         'tolerations': 'tolerations'
     }
 
-    def __init__(self, affinity=None, image_pull_secrets=None, max_replicas=None, min_replicas=None, node_selector=None, nodes=None, resources=None, scale_metric=None, scale_target=None, timeout=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, image_pull_secrets=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, nodes=None, resources=None, scale_metric=None, scale_target=None, service_account_name=None, timeout=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceGraphSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -84,11 +88,13 @@ class V1alpha1InferenceGraphSpec(object):
         self._image_pull_secrets = None
         self._max_replicas = None
         self._min_replicas = None
+        self._node_name = None
         self._node_selector = None
         self._nodes = None
         self._resources = None
         self._scale_metric = None
         self._scale_target = None
+        self._service_account_name = None
         self._timeout = None
         self._tolerations = None
         self.discriminator = None
@@ -101,6 +107,8 @@ class V1alpha1InferenceGraphSpec(object):
             self.max_replicas = max_replicas
         if min_replicas is not None:
             self.min_replicas = min_replicas
+        if node_name is not None:
+            self.node_name = node_name
         if node_selector is not None:
             self.node_selector = node_selector
         self.nodes = nodes
@@ -110,6 +118,8 @@ class V1alpha1InferenceGraphSpec(object):
             self.scale_metric = scale_metric
         if scale_target is not None:
             self.scale_target = scale_target
+        if service_account_name is not None:
+            self.service_account_name = service_account_name
         if timeout is not None:
             self.timeout = timeout
         if tolerations is not None:
@@ -204,6 +214,29 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._min_replicas = min_replicas
+
+    @property
+    def node_name(self):
+        """Gets the node_name of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        NodeName specifies the node name for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/  # noqa: E501
+
+        :return: The node_name of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._node_name
+
+    @node_name.setter
+    def node_name(self, node_name):
+        """Sets the node_name of this V1alpha1InferenceGraphSpec.
+
+        NodeName specifies the node name for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/  # noqa: E501
+
+        :param node_name: The node_name of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._node_name = node_name
 
     @property
     def node_selector(self):
@@ -319,6 +352,29 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._scale_target = scale_target
+
+    @property
+    def service_account_name(self):
+        """Gets the service_account_name of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        ServiceAccountName specifies the service account name for the InferenceGraph. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/  # noqa: E501
+
+        :return: The service_account_name of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._service_account_name
+
+    @service_account_name.setter
+    def service_account_name(self, service_account_name):
+        """Sets the service_account_name of this V1alpha1InferenceGraphSpec.
+
+        ServiceAccountName specifies the service account name for the InferenceGraph. https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/  # noqa: E501
+
+        :param service_account_name: The service_account_name of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._service_account_name = service_account_name
 
     @property
     def timeout(self):

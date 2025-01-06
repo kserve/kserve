@@ -89,7 +89,8 @@ type RouterConfig struct {
 		operations on headers. For example: Similar to "propagate" operation, one can add "transform" operation if they
 		want to transform headers keys or values before passing down to nodes.
 	*/
-	Headers map[string][]string `json:"headers"`
+	Headers         map[string][]string `json:"headers"`
+	ImagePullPolicy string              `json:"imagePullPolicy"`
 }
 
 func getRouterConfigs(configMap *corev1.ConfigMap) (*RouterConfig, error) {
