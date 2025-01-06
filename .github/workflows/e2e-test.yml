@@ -1118,6 +1118,14 @@ jobs:
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
+      
+      - name: Enable modelcache
+        run: |
+          sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+          kubectl rollout restart deployment/kserve-controller-manager -n kserve
+          kubectl wait --for=condition=Ready pod -l "app.kubernetes.io/name=kserve-controller-manager" -n kserve --timeout=5m
 
       - name: Create localmodel job namespace
         run: |
@@ -1126,12 +1134,6 @@ jobs:
       - name: Label worker nodes for modelcache
         run: |
           kubectl label nodes -l '!node-role.kubernetes.io/control-plane' kserve/localmodel=worker
-      
-      - name: Enable modelcache
-        run: |
-          sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
-          kubectl describe configmaps -n kserve inferenceservice-config
       
       - name: Enable nodeselector in knative
         run: |
