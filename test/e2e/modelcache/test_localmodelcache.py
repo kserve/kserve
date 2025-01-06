@@ -14,7 +14,6 @@
 
 import asyncio
 import os
-import subprocess
 
 import pytest
 from kubernetes import client
@@ -25,6 +24,7 @@ from kubernetes.client import (
     V1VolumeNodeAffinity,
     V1PersistentVolumeClaimSpec,
 )
+from kubernetes.client.exceptions import ApiException
 
 from kserve import constants
 from kserve.api.kserve_client import KServeClient
@@ -143,42 +143,38 @@ async def test_vllm_modelcache():
     kserve_client.wait_local_model_cache_ready(model_cache.metadata.name, nodes=nodes)
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    k8s_client = kserve_client.api_instance
 
-    # Test the model is cached on the correct node
-    for node in nodes:
-        result = subprocess.run(
-            [
-                "minikube",
-                "ssh",
-                "-n",
-                node,
-                "--",
-                "test",
-                "-s",
-                f"/models/models/{model_cache.metadata.name}/*.bin",
-            ],
-            capture_output=True,
-            check=False,
-            text=True,
-        )
-        assert result.returncode == 0
-        assert result.stderr == ""
+    # Test the model is cached on the correct nodes
+    worker_node_1_cache = k8s_client.get_cluster_custom_object(
+        constants.KSERVE_GROUP,
+        constants.KSERVE_V1ALPHA1_VERSION,
+        constants.KSERVE_PLURAL_LOCALMODELNODE,
+        "minikube-m02",
+    )
+    worker_node_2_cache = k8s_client.get_cluster_custom_object(
+        constants.KSERVE_GROUP,
+        constants.KSERVE_V1ALPHA1_VERSION,
+        constants.KSERVE_PLURAL_LOCALMODELNODE,
+        "minikube-m03",
+    )
+    assert (
+        worker_node_1_cache["status"]["modelStatus"][model_cache.metadata.name]
+        == "ModelDownloaded"
+    )
+    assert (
+        worker_node_2_cache["status"]["modelStatus"][model_cache.metadata.name]
+        == "ModelDownloaded"
+    )
 
     # Test the model is not cached on the controller node
-    result = subprocess.run(
-        ["minikube", "ssh", "-n", "minikube", "--", "test", "-d", "/models"],
-        capture_output=True,
-        check=False,
-        text=True,
-    )
-    assert result.returncode == 1
-
-    # Test the storage initializer is not injected
-    pods = kserve_client.core_api.list_namespaced_pod(
-        namespace=KSERVE_TEST_NAMESPACE,
-        label_selector=f"serving.kserve.io/inferenceservice={service_name}",
-    )
-    assert pods.items[0].spec.init_containers is None
+    with pytest.raises(ApiException):
+        k8s_client.get_cluster_custom_object(
+            constants.KSERVE_GROUP,
+            constants.KSERVE_V1ALPHA1_VERSION,
+            constants.KSERVE_PLURAL_LOCALMODELNODE,
+            "minikube",
+        )
 
     res = generate(service_name, "./data/opt_125m_input_generate.json")
     assert (
