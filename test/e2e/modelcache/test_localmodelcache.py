@@ -52,7 +52,7 @@ async def test_vllm_modelcache():
     pv_spec = V1PersistentVolumeSpec(
         access_modes=["ReadWriteOnce"],
         storage_class_name="standard",
-        capacity={"storage": "10Gi"},
+        capacity={"storage": "1Gi"},
         local=V1LocalVolumeSource(path="/models"),
         persistent_volume_reclaim_policy="Delete",
         node_affinity=V1VolumeNodeAffinity(
@@ -73,7 +73,7 @@ async def test_vllm_modelcache():
     )
     pvc_spec = V1PersistentVolumeClaimSpec(
         access_modes=["ReadWriteOnce"],
-        resources=V1ResourceRequirements(requests={"storage": "10Gi"}),
+        resources=V1ResourceRequirements(requests={"storage": "1Gi"}),
         storage_class_name="standard",
     )
 
@@ -84,7 +84,7 @@ async def test_vllm_modelcache():
             name="opt-125m-nodegroup",
         ),
         spec=V1alpha1LocalModelNodeGroupSpec(
-            storage_limit="10Gi",
+            storage_limit="1Gi",
             persistent_volume_spec=pv_spec,
             persistent_volume_claim_spec=pvc_spec,
         ),
