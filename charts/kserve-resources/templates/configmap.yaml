@@ -383,7 +383,8 @@ data:
            "cpuLimit": "1",
            "headers": {
              "propagate": []
-           }
+           },
+           "imagePullPolicy": "IfNotPresent"
        }
      # router is the implementation of inference graph.
      router: |-
@@ -412,7 +413,10 @@ data:
                 "Test-Header-*",
                 "*Trace-Id*"
              ]
-           }
+           },
+
+           # imagePullPolicy specifies when the router image should be pulled from registry.
+           "imagePullPolicy": "IfNotPresent"
        }
 
      # ====================================== DEPLOYMENT CONFIGURATION ======================================
@@ -510,7 +514,8 @@ data:
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "1",
+        "imagePullPolicy": "{{ .Values.kserve.router.imagePullPolicy }}"
     }
   credentials: |-
     {
