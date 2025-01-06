@@ -96,6 +96,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.modelmesh.enabled | bool | `true` |  |
 | kserve.modelmeshVersion | string | `"v0.12.0"` |  |
 | kserve.router.image | string | `"kserve/router"` |  |
+| kserve.router.imagePullPolicy | string | `"IfNotPresent"` | Specifies when to pull router image from registry. |
 | kserve.router.tag | string | `"v0.14.0"` |  |
 | kserve.security.autoMountServiceAccountToken | bool | `true` |  |
 | kserve.service.serviceClusterIPNone | bool | `false` |  |
