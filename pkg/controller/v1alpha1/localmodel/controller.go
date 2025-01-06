@@ -164,13 +164,21 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 		return err
 	}
 	isvcNames := []v1alpha1.NamespacedName{}
-	// namespaces with isvcs deployed
-	namespaces := make(map[string]struct{})
+	// namespaces with isvcs deployed and their node groups
+	namespaceToNodeGroups := make(map[string][]string)
+	// node group of each isvc
+	isvcNodeGroups := []string{}
 	for _, isvc := range isvcs.Items {
 		isvcNames = append(isvcNames, v1alpha1.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace})
-		namespaces[isvc.Namespace] = struct{}{}
+		if isvcNodeGroup, ok := isvc.ObjectMeta.Annotations[constants.NodeGroupAnnotationKey]; ok {
+			isvcNodeGroups = append(isvcNodeGroups, isvcNodeGroup)
+			namespaceToNodeGroups[isvc.Namespace] = append(namespaceToNodeGroups[isvc.Namespace], isvcNodeGroup)
+		} else if _, ok := namespaceToNodeGroups[isvc.Namespace]; !ok {
+			namespaceToNodeGroups[isvc.Namespace] = []string{}
+		}
 	}
 	localModel.Status.InferenceServices = isvcNames
+	localModel.Spec.NodeGroups = isvcNodeGroups
 	if err := c.Status().Update(ctx, localModel); err != nil {
 		c.Log.Error(err, "cannot update status", "name", localModel.Name)
 	}
@@ -182,7 +190,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 		return err
 	}
 	for _, pvc := range pvcs.Items {
-		if _, ok := namespaces[pvc.Namespace]; !ok {
+		if _, ok := namespaceToNodeGroups[pvc.Namespace]; !ok {
 			if pvc.Namespace == jobNamespace {
 				// Keep PVCs in modelCacheNamespace as they don't have a corresponding inference service
 				continue
@@ -200,29 +208,30 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 		}
 	}
 
-	for namespace := range namespaces {
-		// TODO: node group needs to be retrieved from isvc node group annotation when we support multiple node groups
-		pvcName := localModel.Name + "-" + localModel.Spec.NodeGroups[0]
-		pv := v1.PersistentVolume{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: pvcName + "-" + namespace,
-			},
-			Spec: nodeGroup.Spec.PersistentVolumeSpec,
-		}
-		if err := c.createPV(ctx, pv, localModel); err != nil {
-			c.Log.Error(err, "Create PV err", "name", pv.Name)
-		}
+	for namespace, isvcNodeGroups := range namespaceToNodeGroups {
+		for _, isvcNodeGroup := range isvcNodeGroups {
+			pvcName := localModel.Name + "-" + isvcNodeGroup
+			pv := v1.PersistentVolume{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: pvcName + "-" + namespace,
+				},
+				Spec: nodeGroup.Spec.PersistentVolumeSpec,
+			}
+			if err := c.createPV(ctx, pv, localModel); err != nil {
+				c.Log.Error(err, "Create PV err", "name", pv.Name)
+			}
 
-		pvc := v1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      pvcName,
-				Namespace: namespace,
-			},
-			Spec: nodeGroup.Spec.PersistentVolumeClaimSpec,
-		}
-		pvc.Spec.VolumeName = pv.Name
-		if err := c.createPVC(ctx, pvc, namespace, localModel); err != nil {
-			c.Log.Error(err, "Create PVC err", "name", pvc.Name)
+			pvc := v1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      pvcName,
+					Namespace: namespace,
+				},
+				Spec: nodeGroup.Spec.PersistentVolumeClaimSpec,
+			}
+			pvc.Spec.VolumeName = pv.Name
+			if err := c.createPVC(ctx, pvc, namespace, localModel); err != nil {
+				c.Log.Error(err, "Create PVC err", "name", pvc.Name)
+			}
 		}
 	}
 	return nil
