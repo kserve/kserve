@@ -1073,7 +1073,7 @@ jobs:
           pattern: ${{ env.BASE_ARTIFACT_PREFIX }}-*
           merge-multiple: true
 
-      - name: Load docker images
+      - name: Load base docker images
         run: |
           ls -l /tmp-images
           minikube ssh -n minikube -- ls -l /tmp-images
@@ -1087,6 +1087,7 @@ jobs:
           sudo rm -rf /tmp-images/*
           minikube ssh -n minikube -- docker image ls
           minikube ssh -n minikube-m02 -- docker image ls
+          minikube ssh -n minikube-m03 -- docker image ls
 
       - name: Download huggingface server image
         uses: actions/download-artifact@v4
@@ -1094,7 +1095,7 @@ jobs:
           name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
           path: /tmp-images
 
-      - name: Load docker images
+      - name: Load runtime docker images
         run: |
           files=$(find /tmp-images -maxdepth 1 -type f)
           for file in ${files[@]};do
@@ -1124,8 +1125,6 @@ jobs:
           sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
           kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
           kubectl describe configmaps -n kserve inferenceservice-config
-          kubectl rollout restart deployment/kserve-controller-manager -n kserve
-          kubectl wait --for=condition=Ready pod -l "app.kubernetes.io/name=kserve-controller-manager" -n kserve --timeout=5m
 
       - name: Create localmodel job namespace
         run: |
