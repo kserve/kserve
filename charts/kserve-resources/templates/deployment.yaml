@@ -86,7 +86,7 @@ spec:
           {{- toYaml . | nindent 10 }}
           {{- end }}
         args:
-        - "--metrics-addr=127.0.0.1:8080"
+        - "--metrics-addr={{ .Values.kserve.controller.metricsBindAddress }}:{{ .Values.kserve.controller.metricsBindPort }}"
         - "--leader-elect"
         env:
           - name: POD_NAMESPACE
