@@ -255,7 +255,7 @@ class Storage(object):
                 target_key = obj.key.rsplit("/", 1)[-1]
                 exact_obj_found = True
             else:
-                target_key = obj.key.replace(bucket_path, "").lstrip("/")
+                target_key = re.sub(r"^" + re.escape(bucket_path) + r"/?", "", obj.key)
 
             target = f"{temp_dir}/{target_key}"
             if not os.path.exists(os.path.dirname(target)):
