@@ -60,8 +60,8 @@ class OpenAIEndpoints:
 
         Args:
             raw_request (Request): fastapi request object,
-            model_name (str): Model name.
             request_body (CompletionCreateParams): Completion params body.
+            response (Response): fastapi response object
 
         Returns:
             InferenceResponse: Inference response object.
@@ -104,8 +104,8 @@ class OpenAIEndpoints:
 
         Args:
             raw_request (Request): fastapi request object,
-            model_name (str): Model name.
             request_body (ChatCompletionRequestAdapter): Chat completion params body.
+            response (Response): fastapi response object
 
         Returns:
             InferenceResponse: Inference response object.
@@ -149,8 +149,8 @@ class OpenAIEndpoints:
 
         Args:
             raw_request (Request): fastapi request object,
-            model_name (str): Model name.
             request_body (CreateEmbeddingRequest): Embedding params body.
+            response (Response): fastapi response object
 
         Returns:
             InferenceResponse: Inference response object.
