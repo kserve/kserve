@@ -84,13 +84,13 @@ type ScalerSpec struct {
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
 	// +optional
 	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
+	// Type of metric to use. Options are Utilization, or AverageValue.
+	// +optional
+	ScaleMetricType *v2.MetricTargetType `json:"scaleMetricType,omitempty"`
 	// MetricsBackend defines the scaling metric type watched by autoscaler
 	// possible values are prometheus, graphite.
 	// +optional
 	MetricsBackend *MetricsBackend `json:"metricBackend,omitempty"`
-	// Type of metric to use. Options are Utilization, or AverageValue.
-	// +optional
-	ScaleMetricType *v2.MetricTargetType `json:"scaleMetricType,omitempty"`
 	// Address of MetricsBackend server.
 	// +optional
 	ServerAddress string `json:"serverAddress,omitempty"`
