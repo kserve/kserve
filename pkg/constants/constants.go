@@ -174,10 +174,7 @@ var (
 
 var (
 	AutoScalerMetricsAverageValue AutoscalerKedaMetricsType = "AverageValue"
-)
-
-var (
-	AutoScalerMetricsUtilization AutoscalerKedaMetricsType = "Utilization"
+	AutoScalerMetricsUtilization  AutoscalerKedaMetricsType = "Utilization"
 )
 
 // Autoscaler Default Class
@@ -194,22 +191,10 @@ var (
 
 // Autoscaler Metrics
 var (
-	AutoScalerMetricsCPU AutoscalerMetricsType = "cpu"
-)
-
-// Autoscaler Memory metrics
-var (
-	AutoScalerMetricsMemory AutoscalerMetricsType = "memory"
-)
-
-// Autoscaler Prometheus metrics
-var (
+	AutoScalerMetricsCPU        AutoscalerMetricsType = "cpu"
+	AutoScalerMetricsMemory     AutoscalerMetricsType = "memory"
 	AutoScalerMetricsPrometheus AutoscalerMetricsType = "prometheus"
-)
-
-// Autoscaler Prometheus metrics
-var (
-	AutoScalerMetricsGraphite AutoscalerMetricsType = "graphite"
+	AutoScalerMetricsGraphite   AutoscalerMetricsType = "graphite"
 )
 
 // Autoscaler Class Allowed List

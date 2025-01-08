@@ -9437,16 +9437,16 @@ func schema_pkg_apis_serving_v1beta1_ScalerSpec(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
-					"metricBackend": {
+					"scaleMetricType": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
+							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"scaleMetricType": {
+					"metricBackend": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
+							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

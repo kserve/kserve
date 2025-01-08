@@ -106,8 +106,8 @@ type ScalerSpec struct {
 	QueryTime string `json:"queryTime,omitempty"`
 }
 
-// ScaleMetric enum
-// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps;prometheus
+// MetricsBackend enum
+// +kubebuilder:validation:Enum=prometheus;graphite
 type MetricsBackend string
 
 const (

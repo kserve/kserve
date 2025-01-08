@@ -131,7 +131,7 @@ type ComponentExtensionSpec struct {
 }
 
 // ScaleMetric enum
-// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps;prometheus
+// +kubebuilder:validation:Enum=cpu;memory;concurrency;rps
 type ScaleMetric string
 
 const (

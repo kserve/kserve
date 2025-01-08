@@ -973,14 +973,14 @@ func (in *ScalerSpec) DeepCopyInto(out *ScalerSpec) {
 		*out = new(ScaleMetric)
 		**out = **in
 	}
-	if in.MetricsBackend != nil {
-		in, out := &in.MetricsBackend, &out.MetricsBackend
-		*out = new(MetricsBackend)
-		**out = **in
-	}
 	if in.ScaleMetricType != nil {
 		in, out := &in.ScaleMetricType, &out.ScaleMetricType
 		*out = new(v2.MetricTargetType)
+		**out = **in
+	}
+	if in.MetricsBackend != nil {
+		in, out := &in.MetricsBackend, &out.MetricsBackend
+		*out = new(MetricsBackend)
 		**out = **in
 	}
 }
