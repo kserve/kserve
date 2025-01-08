@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -263,20 +264,16 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 
 // Validate of autoscaler KEDA metrics
 func validateKEDAMetrics(metric ScaleMetric) error {
-	for _, item := range constants.AutoscalerAllowedKEDAMetricsList {
-		if item == constants.AutoscalerMetricsType(metric) {
-			return nil
-		}
+	if slices.Contains(constants.AutoscalerAllowedKEDAMetricsList, constants.AutoscalerMetricsType(metric)) {
+		return nil
 	}
 	return fmt.Errorf("[%s] is not a supported metric in KEDA.\n", metric)
 }
 
 // Validate of autoscaler HPA metrics
 func validateHPAMetrics(metric ScaleMetric) error {
-	for _, item := range constants.AutoscalerAllowedHPAMetricsList {
-		if item == constants.AutoscalerMetricsType(metric) {
-			return nil
-		}
+	if slices.Contains(constants.AutoscalerAllowedHPAMetricsList, constants.AutoscalerMetricsType(metric)) {
+		return nil
 	}
 	return fmt.Errorf("[%s] is not a supported metric", metric)
 }
