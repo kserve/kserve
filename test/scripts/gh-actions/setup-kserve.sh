@@ -67,7 +67,7 @@ echo "Installing KServe Python SDK ..."
 pushd python/kserve >/dev/null
     poetry install --with=test --no-interaction
 popd
-echo "Installing KServe Storage ..."
+echo "Installing KServe Storage module..."
 pushd python/storage >/dev/null
     poetry install --no-interaction
 popd

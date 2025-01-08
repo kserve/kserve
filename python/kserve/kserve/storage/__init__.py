@@ -13,13 +13,16 @@
 # limitations under the License.
 # flake8: noqa
 
-# Keep backwards capability, try import storage package.
+# Keep backwards compatibility, try import storage package.
 # This way, existing projects using the Python SDK will not break, allowing
 # users to upgrade the SDK without changing their code.
 # We might need to inform users about the segregation of the storage package
 # so they have time to update the code and change the imports to the new package.
 try:
-    from storage import *
+    from storage import Storage
 except ImportError as e:
-    print("Please install the storage package")
     raise ImportError("Failed to import storage package") from e
+
+# Ensure that public methods are available in the kserve.storage namespace
+download = Storage.download
+get_S3_config = Storage.get_S3_config
