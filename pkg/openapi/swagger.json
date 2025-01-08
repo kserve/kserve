@@ -3074,6 +3074,22 @@
           "description": "Explainer configurations",
           "default": {},
           "$ref": "#/definitions/v1beta1.ExplainersConfig"
+        },
+        "serviceAnnotationDisallowedList": {
+          "description": "ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative revisions",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "serviceLabelDisallowedList": {
+          "description": "ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
         }
       }
     },
