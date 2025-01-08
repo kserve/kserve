@@ -406,6 +406,8 @@ kserve:
         fsGroup: 1000
       agent:
         nodeSelector: {}
+        affinity: {}
+        tolerations: []
         hostPath: /mnt/models
         image: kserve/kserve-localmodelnode-agent
         tag: *defaultVersion
