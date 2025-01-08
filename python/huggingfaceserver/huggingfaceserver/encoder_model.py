@@ -14,6 +14,7 @@
 import base64
 import pathlib
 import struct
+from http import HTTPStatus
 from typing import Any, Dict, Optional, Union, List
 
 import torch
@@ -28,6 +29,7 @@ from kserve.protocol.rest.openai import (
     EmbeddingRequest,
     OpenAIEmbeddingModel,
 )
+from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
 from kserve.protocol.rest.openai.types import Embedding, EmbeddingObject
 from kserve.protocol.rest.openai.types.openapi import Usage
 from kserve.utils.utils import (
@@ -353,7 +355,13 @@ class HuggingfaceEncoderModel(
     async def create_embedding(self, request: EmbeddingRequest) -> Embedding:
         params = request.params
         if params.input is None:
-            raise ValueError("input is required")
+            raise OpenAIError(
+                response=create_error_response(
+                    "'input' is a required property",
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    err_type="invalid_request_error",
+                )
+            )
 
         # The OpenAI documentation allows the input of token lists instead of strings. As the tokenization is specific
         # to the model, it is most likely different from the ones used by OpenAI (e.g., tiktoken). Libraries like
@@ -368,7 +376,13 @@ class HuggingfaceEncoderModel(
                 and isinstance(params.input[0][0], int)
             )
             if input_is_int or input_is_list_of_int:
-                raise NotImplementedError("Input of token lists is not supported.")
+                raise OpenAIError(
+                    response=create_error_response(
+                        "'input' as token lists is not supported",
+                        status_code=HTTPStatus.NOT_IMPLEMENTED,
+                        err_type="invalid_request_error",
+                    )
+                )
 
         # Call the inference to determine the embedding values
         context = {}
