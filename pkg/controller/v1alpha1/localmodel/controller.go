@@ -210,7 +210,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	}
 
 	for namespace, nodeGroups := range namespaceToNodeGroups {
-		for nodeGroup, _ := range nodeGroups {
+		for nodeGroup := range nodeGroups {
 			pvcName := localModel.Name + "-" + nodeGroup.Name
 			pv := v1.PersistentVolume{
 				ObjectMeta: metav1.ObjectMeta{
