@@ -89,8 +89,17 @@ type RouterConfig struct {
 		operations on headers. For example: Similar to "propagate" operation, one can add "transform" operation if they
 		want to transform headers keys or values before passing down to nodes.
 	*/
-	Headers         map[string][]string `json:"headers"`
-	ImagePullPolicy string              `json:"imagePullPolicy"`
+	Headers          map[string][]string `json:"headers"`
+	ImagePullPolicy  string              `json:"imagePullPolicy"`
+	ImagePullSecrets []string            `json:"imagePullSecrets"`
+}
+
+func (rc *RouterConfig) GetImagePullSecrets() []v1.LocalObjectReference {
+	var imagePullSecrets []v1.LocalObjectReference
+	for _, secret := range rc.ImagePullSecrets {
+		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: secret})
+	}
+	return imagePullSecrets
 }
 
 func getRouterConfigs(configMap *corev1.ConfigMap) (*RouterConfig, error) {

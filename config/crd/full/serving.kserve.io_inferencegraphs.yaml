@@ -477,15 +477,6 @@ spec:
                         x-kubernetes-list-type: atomic
                     type: object
                 type: object
-              imagePullSecrets:
-                items:
-                  properties:
-                    name:
-                      default: ""
-                      type: string
-                  type: object
-                  x-kubernetes-map-type: atomic
-                type: array
               maxReplicas:
                 format: int32
                 type: integer

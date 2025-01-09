@@ -5,7 +5,6 @@ InferenceGraphSpec defines the InferenceGraph spec
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **affinity** | [**V1Affinity**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Affinity.md) |  | [optional] 
-**image_pull_secrets** | [**list[V1LocalObjectReference]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1LocalObjectReference.md) | ImagePullSecrets specifies the image pull secrets for the InferenceGraph. https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/ | [optional] 
 **max_replicas** | **int** | Maximum number of replicas for autoscaling. | [optional] 
 **min_replicas** | **int** | Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero. | [optional] 
 **node_name** | **str** | NodeName specifies the node name for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/ | [optional] 

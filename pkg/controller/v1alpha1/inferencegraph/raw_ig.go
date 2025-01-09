@@ -81,7 +81,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 		Affinity:                     graph.Spec.Affinity,
 		AutomountServiceAccountToken: proto.Bool(false), // Inference graph does not need access to api server
 		Tolerations:                  graph.Spec.Tolerations,
-		ImagePullSecrets:             graph.Spec.ImagePullSecrets,
+		ImagePullSecrets:             config.GetImagePullSecrets(),
 		NodeSelector:                 graph.Spec.NodeSelector,
 		NodeName:                     graph.Spec.NodeName,
 		ServiceAccountName:           graph.Spec.ServiceAccountName,
