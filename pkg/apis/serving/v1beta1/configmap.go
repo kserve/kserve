@@ -34,12 +34,13 @@ import (
 
 // ConfigMap Keys
 const (
-	ExplainerConfigKeyName = "explainers"
-	IngressConfigKeyName   = "ingress"
-	DeployConfigName       = "deploy"
-	LocalModelConfigName   = "localModel"
-	SecurityConfigName     = "security"
-	ServiceConfigName      = "service"
+	ExplainerConfigKeyName        = "explainers"
+	InferenceServiceConfigKeyName = "inferenceService"
+	IngressConfigKeyName          = "ingress"
+	DeployConfigName              = "deploy"
+	LocalModelConfigName          = "localModel"
+	SecurityConfigName            = "security"
+	ServiceConfigName             = "service"
 )
 
 const (
@@ -73,6 +74,11 @@ type ExplainersConfig struct {
 type InferenceServicesConfig struct {
 	// Explainer configurations
 	Explainers ExplainersConfig `json:"explainers"`
+	// ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative
+	// revisions
+	ServiceAnnotationDisallowedList []string `json:"serviceAnnotationDisallowedList,omitempty"`
+	// ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions
+	ServiceLabelDisallowedList []string `json:"serviceLabelDisallowedList,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -121,7 +127,9 @@ type ServiceConfig struct {
 }
 
 func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServicesConfig, error) {
-	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(
+		context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+
 	if err != nil {
 		return nil, err
 	}
@@ -131,6 +139,27 @@ func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServi
 	} {
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	if isvc, ok := configMap.Data[InferenceServiceConfigKeyName]; ok {
+		errisvc := json.Unmarshal([]byte(isvc), &icfg)
+		if errisvc != nil {
+			return nil, fmt.Errorf("unable to parse isvc config json: %w", errisvc)
+		}
+		if icfg.ServiceAnnotationDisallowedList == nil {
+			icfg.ServiceAnnotationDisallowedList = constants.ServiceAnnotationDisallowedList
+		} else {
+			icfg.ServiceAnnotationDisallowedList = append(
+				constants.ServiceAnnotationDisallowedList,
+				icfg.ServiceAnnotationDisallowedList...)
+		}
+		if icfg.ServiceLabelDisallowedList == nil {
+			icfg.ServiceLabelDisallowedList = constants.RevisionTemplateLabelDisallowedList
+		} else {
+			icfg.ServiceLabelDisallowedList = append(
+				constants.RevisionTemplateLabelDisallowedList,
+				icfg.ServiceLabelDisallowedList...)
 		}
 	}
 	return icfg, nil

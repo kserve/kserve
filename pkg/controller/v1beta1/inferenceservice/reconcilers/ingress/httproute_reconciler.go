@@ -51,13 +51,16 @@ type RawHTTPRouteReconciler struct {
 	client        client.Client
 	scheme        *runtime.Scheme
 	ingressConfig *v1beta1.IngressConfig
+	isvcConfig    *v1beta1.InferenceServicesConfig
 }
 
-func NewRawHTTPRouteReconciler(client client.Client, scheme *runtime.Scheme, ingressConfig *v1beta1.IngressConfig) *RawHTTPRouteReconciler {
+func NewRawHTTPRouteReconciler(client client.Client, scheme *runtime.Scheme, ingressConfig *v1beta1.IngressConfig,
+	isvcConfig *v1beta1.InferenceServicesConfig) *RawHTTPRouteReconciler {
 	return &RawHTTPRouteReconciler{
 		client:        client,
 		scheme:        scheme,
 		ingressConfig: ingressConfig,
+		isvcConfig:    isvcConfig,
 	}
 }
 
@@ -157,7 +160,7 @@ func createHTTPRouteRule(routeMatches []gatewayapiv1.HTTPRouteMatch, filters []g
 	}
 }
 
-func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
+func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig, isvcConfig *v1beta1.InferenceServicesConfig,
 	client client.Client) (*gatewayapiv1.HTTPRoute, error) {
 	var httpRouteRules []gatewayapiv1.HTTPRouteRule
 	var allowedHosts []gatewayapiv1.Hostname
@@ -198,7 +201,10 @@ func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	httpRouteRules = append(httpRouteRules, createHTTPRouteRule(routeMatch, filters, predictorName, isvc.Namespace, constants.CommonDefaultHttpPort, timeout))
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
+	})
+	labels := utils.Filter(isvc.Labels, func(key string) bool {
+		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
 	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
 	httpRoute := gatewayapiv1.HTTPRoute{
@@ -206,7 +212,7 @@ func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 			Name:        constants.PredictorServiceName(isvc.Name),
 			Namespace:   isvc.Namespace,
 			Annotations: annotations,
-			Labels:      isvc.Labels,
+			Labels:      labels,
 		},
 		Spec: gatewayapiv1.HTTPRouteSpec{
 			Hostnames: allowedHosts,
@@ -226,7 +232,7 @@ func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	return &httpRoute, nil
 }
 
-func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
+func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig, isvcConfig *v1beta1.InferenceServicesConfig,
 	client client.Client) (*gatewayapiv1.HTTPRoute, error) {
 	var httpRouteRules []gatewayapiv1.HTTPRouteRule
 	var allowedHosts []gatewayapiv1.Hostname
@@ -267,7 +273,10 @@ func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig
 		constants.CommonDefaultHttpPort, timeout))
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
+	})
+	labels := utils.Filter(isvc.Labels, func(key string) bool {
+		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
 	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
 	httpRoute := gatewayapiv1.HTTPRoute{
@@ -275,7 +284,7 @@ func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig
 			Name:        constants.TransformerServiceName(isvc.Name),
 			Namespace:   isvc.Namespace,
 			Annotations: annotations,
-			Labels:      isvc.Labels,
+			Labels:      labels,
 		},
 		Spec: gatewayapiv1.HTTPRouteSpec{
 			Hostnames: allowedHosts,
@@ -295,7 +304,7 @@ func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig
 	return &httpRoute, nil
 }
 
-func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
+func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig, isvcConfig *v1beta1.InferenceServicesConfig,
 	client client.Client) (*gatewayapiv1.HTTPRoute, error) {
 	var httpRouteRules []gatewayapiv1.HTTPRouteRule
 	var allowedHosts []gatewayapiv1.Hostname
@@ -338,7 +347,10 @@ func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 		constants.CommonDefaultHttpPort, timeout))
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
+	})
+	labels := utils.Filter(isvc.Labels, func(key string) bool {
+		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
 	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
 	httpRoute := gatewayapiv1.HTTPRoute{
@@ -346,7 +358,7 @@ func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 			Name:        constants.ExplainerServiceName(isvc.Name),
 			Namespace:   isvc.Namespace,
 			Annotations: annotations,
-			Labels:      isvc.Labels,
+			Labels:      labels,
 		},
 		Spec: gatewayapiv1.HTTPRouteSpec{
 			Hostnames: allowedHosts,
@@ -366,7 +378,7 @@ func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	return &httpRoute, nil
 }
 
-func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig,
+func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v1beta1.IngressConfig, isvcConfig *v1beta1.InferenceServicesConfig,
 	client client.Client) (*gatewayapiv1.HTTPRoute, error) {
 	var httpRouteRules []gatewayapiv1.HTTPRouteRule
 	var allowedHosts []gatewayapiv1.Hostname
@@ -502,7 +514,10 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 	}
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
+	})
+	labels := utils.Filter(isvc.Labels, func(key string) bool {
+		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
 	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
 	httpRoute := gatewayapiv1.HTTPRoute{
@@ -510,7 +525,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 			Name:        isvc.Name,
 			Namespace:   isvc.Namespace,
 			Annotations: annotations,
-			Labels:      isvc.Labels,
+			Labels:      labels,
 		},
 		Spec: gatewayapiv1.HTTPRouteSpec{
 			Hostnames: allowedHosts,
@@ -550,7 +565,7 @@ func isHTTPRouteReady(httpRouteStatus gatewayapiv1.HTTPRouteStatus) (bool, *stri
 }
 
 func (r *RawHTTPRouteReconciler) reconcilePredictorHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceService) error {
-	desired, err := createRawPredictorHTTPRoute(isvc, r.ingressConfig, r.client)
+	desired, err := createRawPredictorHTTPRoute(isvc, r.ingressConfig, r.isvcConfig, r.client)
 	if err != nil {
 		return err
 	}
@@ -591,7 +606,7 @@ func (r *RawHTTPRouteReconciler) reconcilePredictorHTTPRoute(ctx context.Context
 }
 
 func (r *RawHTTPRouteReconciler) reconcileTransformerHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceService) error {
-	desired, err := createRawTransformerHTTPRoute(isvc, r.ingressConfig, r.client)
+	desired, err := createRawTransformerHTTPRoute(isvc, r.ingressConfig, r.isvcConfig, r.client)
 	if err != nil {
 		return err
 	}
@@ -632,7 +647,7 @@ func (r *RawHTTPRouteReconciler) reconcileTransformerHTTPRoute(ctx context.Conte
 }
 
 func (r *RawHTTPRouteReconciler) reconcileExplainerHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceService) error {
-	desired, err := createRawExplainerHTTPRoute(isvc, r.ingressConfig, r.client)
+	desired, err := createRawExplainerHTTPRoute(isvc, r.ingressConfig, r.isvcConfig, r.client)
 	if err != nil {
 		return err
 	}
@@ -673,7 +688,7 @@ func (r *RawHTTPRouteReconciler) reconcileExplainerHTTPRoute(ctx context.Context
 }
 
 func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceService) error {
-	desired, err := createRawTopLevelHTTPRoute(isvc, r.ingressConfig, r.client)
+	desired, err := createRawTopLevelHTTPRoute(isvc, r.ingressConfig, r.isvcConfig, r.client)
 	if err != nil {
 		return err
 	}

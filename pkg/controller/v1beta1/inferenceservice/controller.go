@@ -113,9 +113,15 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return reconcile.Result{}, err
 	}
+
+	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Clientset)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
+	}
+
 	// get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
 	})
 
 	deployConfig, err := v1beta1api.NewDeployConfig(r.Clientset)
@@ -192,10 +198,6 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Setup reconcilers
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
-	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Clientset)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
-	}
 
 	// Reconcile cabundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset, r.Scheme)
@@ -249,13 +251,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// check raw deployment
 	if deploymentMode == constants.RawDeployment {
 		if ingressConfig.EnableGatewayAPI {
-			reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig)
+			reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
 
 			if err := reconciler.Reconcile(ctx, isvc); err != nil {
 				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 			}
 		} else {
-			reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig)
+			reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
 			if err != nil {
 				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 			}
@@ -264,7 +266,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 		}
 	} else {
-		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig)
+		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig, isvcConfig)
 		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
 		if err := reconciler.Reconcile(isvc); err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")

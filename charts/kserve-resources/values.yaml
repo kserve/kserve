@@ -430,9 +430,14 @@ kserve:
         fsGroup: 1000
       agent:
         nodeSelector: {}
+        affinity: {}
+        tolerations: []
         hostPath: /mnt/models
         image: kserve/kserve-localmodelnode-agent
         tag: *defaultVersion
         reconcilationFrequencyInSecs: 60
+        securityContext:
+          runAsUser: 1000
+          runAsNonRoot: true
   security:
     autoMountServiceAccountToken: true

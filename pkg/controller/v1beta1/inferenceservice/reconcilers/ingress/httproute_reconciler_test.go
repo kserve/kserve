@@ -417,6 +417,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Name:        "test-isvc",
 					Namespace:   "default",
 					Annotations: map[string]string{},
+					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
 					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "additional.example.com"},
@@ -545,6 +546,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Name:        "test-isvc",
 					Namespace:   "default",
 					Annotations: map[string]string{},
+					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
 					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "additional.example.com"},
@@ -678,6 +680,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Name:        "test-isvc",
 					Namespace:   "default",
 					Annotations: map[string]string{},
+					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
 					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "additional.example.com"},
@@ -854,6 +857,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Name:        "test-isvc",
 					Namespace:   "default",
 					Annotations: map[string]string{},
+					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
 					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "additional.example.com", "example.com"},
@@ -1079,6 +1083,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Name:        "test-isvc",
 					Namespace:   "default",
 					Annotations: map[string]string{},
+					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
 					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "additional.example.com", "example.com"},
@@ -1214,6 +1219,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Name:        "test-isvc-default",
 					Namespace:   "default",
 					Annotations: map[string]string{},
+					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
 					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default-default.example.com", "additional.example.com"},
@@ -1290,8 +1296,11 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: corev1.ServiceSpec{}})
-
-			httpRoute, err := createRawTopLevelHTTPRoute(tc.isvc, tc.ingressConfig, client)
+			isvcConfig := &v1beta1.InferenceServicesConfig{
+				ServiceAnnotationDisallowedList: []string{},
+				ServiceLabelDisallowedList:      []string{},
+			}
+			httpRoute, err := createRawTopLevelHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig, client)
 
 			g.Expect(err).To(BeNil())
 			if tc.expected != nil {
@@ -1344,6 +1353,7 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 					Name:        "test-isvc-predictor",
 					Namespace:   "default",
 					Annotations: map[string]string{},
+					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
 					Hostnames: []gatewayapiv1.Hostname{"test-isvc-predictor-default.example.com"},
@@ -1465,6 +1475,7 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 					Name:        "test-isvc-default-predictor",
 					Namespace:   "default",
 					Annotations: map[string]string{},
+					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
 					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default-predictor-default-default.example.com"},
@@ -1541,8 +1552,11 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: corev1.ServiceSpec{}})
-
-			httpRoute, err := createRawPredictorHTTPRoute(tc.isvc, tc.ingressConfig, client)
+			isvcConfig := &v1beta1.InferenceServicesConfig{
+				ServiceAnnotationDisallowedList: []string{},
+				ServiceLabelDisallowedList:      []string{},
+			}
+			httpRoute, err := createRawPredictorHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig, client)
 
 			g.Expect(err).To(BeNil())
 			if tc.expected != nil {
@@ -1596,6 +1610,7 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 					Name:        "test-isvc-transformer",
 					Namespace:   "default",
 					Annotations: map[string]string{},
+					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
 					Hostnames: []gatewayapiv1.Hostname{"test-isvc-transformer-default.example.com"},
@@ -1719,6 +1734,7 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 					Name:        "test-isvc-default-transformer",
 					Namespace:   "default",
 					Annotations: map[string]string{},
+					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
 					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default-transformer-default-default.example.com"},
@@ -1795,8 +1811,11 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: corev1.ServiceSpec{}})
-
-			httpRoute, err := createRawTransformerHTTPRoute(tc.isvc, tc.ingressConfig, client)
+			isvcConfig := &v1beta1.InferenceServicesConfig{
+				ServiceAnnotationDisallowedList: []string{},
+				ServiceLabelDisallowedList:      []string{},
+			}
+			httpRoute, err := createRawTransformerHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig, client)
 
 			g.Expect(err).To(BeNil())
 			if tc.expected != nil {
@@ -1850,6 +1869,7 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 					Name:        "test-isvc-explainer",
 					Namespace:   "default",
 					Annotations: map[string]string{},
+					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
 					Hostnames: []gatewayapiv1.Hostname{"test-isvc-explainer-default.example.com"},
@@ -1973,6 +1993,7 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 					Name:        "test-isvc-default-explainer",
 					Namespace:   "default",
 					Annotations: map[string]string{},
+					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
 					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default-explainer-default-default.example.com"},
@@ -2049,8 +2070,11 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: corev1.ServiceSpec{}})
-
-			httpRoute, err := createRawExplainerHTTPRoute(tc.isvc, tc.ingressConfig, client)
+			isvcConfig := &v1beta1.InferenceServicesConfig{
+				ServiceAnnotationDisallowedList: []string{},
+				ServiceLabelDisallowedList:      []string{},
+			}
+			httpRoute, err := createRawExplainerHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig, client)
 
 			g.Expect(err).To(BeNil())
 			if tc.expected != nil {
