@@ -12,77 +12,175 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import AsyncIterator, Iterable, Optional, Union
-
+from typing import Any, Dict, Optional, Union, AsyncGenerator
 import torch
-from vllm.entrypoints.logger import RequestLogger
+from argparse import Namespace
+from fastapi import Request  # TODO: Double check if it's installed here
 
 from kserve import Model
 from kserve.errors import ModelNotReady
 from kserve.model import PredictorConfig
-from kserve.protocol.rest.openai import (
-    ChatCompletionRequestMessage,
-    ChatPrompt,
+from kserve.protocol.rest.openai import OpenAIModel
+from kserve.protocol.rest.openai.types import (
+    Completion,
+    ChatCompletion,
     CompletionRequest,
-    OpenAIChatAdapterModel,
+    ChatCompletionRequest,
+    EmbeddingRequest,
+    Embedding,
 )
-from kserve.protocol.rest.openai.types.openapi import ChatCompletionTool
-from kserve.protocol.rest.openai.types import Completion
-from vllm.engine.async_llm_engine import AsyncLLMEngine
+
 from vllm import AsyncEngineArgs
+from vllm.entrypoints.logger import RequestLogger
+from vllm.engine.protocol import EngineClient
+from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
+from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
+from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
+from vllm.entrypoints.openai.tool_parsers import ToolParserManager
+from vllm.entrypoints.openai.protocol import ErrorResponse
+from vllm.entrypoints.openai.serving_engine import BaseModelPath
+from vllm.entrypoints.openai.api_server import build_async_engine_client_from_engine_args
+from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
+from vllm.entrypoints.chat_utils import load_chat_template
+from .utils import build_vllm_engine_args
 
-from .vllm_completions import OpenAIServingCompletion
 
-
-class VLLMModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no-member
-    vllm_engine: AsyncLLMEngine
+class VLLMModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
+    engine_client: EngineClient
     vllm_engine_args: AsyncEngineArgs = None
-    ready: bool = False
+    args: Namespace = None
+    ready: bool = False  # TODO: check members here
 
     def __init__(
         self,
         model_name: str,
-        engine_args: AsyncEngineArgs = None,
+        args: Namespace,
         predictor_config: Optional[PredictorConfig] = None,
         request_logger: Optional[RequestLogger] = None,
     ):
         super().__init__(model_name, predictor_config)
+        self.args = args
+        validate_parsed_serve_args(args)
+        engine_args = build_vllm_engine_args(args)  # Only for easy to write tests
         self.vllm_engine_args = engine_args
         self.request_logger = request_logger
+        self.model_name = model_name
+
+    async def start_engine(self):
+        if self.args.tool_parser_plugin and len(self.args.tool_parser_plugin) > 3:
+            ToolParserManager.import_tool_parser(self.args.tool_parser_plugin)
+
+        valide_tool_parses = ToolParserManager.tool_parsers.keys()
+        if self.args.enable_auto_tool_choice \
+            and self.args.tool_call_parser not in valide_tool_parses:
+            raise KeyError(f"invalid tool call parser: {self.args.tool_call_parser} "
+                        f"(chose from {{ {','.join(valide_tool_parses)} }})")
+
+        engine_args = AsyncEngineArgs.from_cli_args(self.args)
+        async with build_async_engine_client_from_engine_args(engine_args, disable_frontend_multiprocessing=True) as engine_client:
+            self.engine_client = engine_client
+            if self.args.served_model_name is not None:
+                served_model_names = self.args.served_model_name
+            else:
+                served_model_names = [self.model_name, self.args.model]
+
+            self.base_model_paths = [
+                BaseModelPath(name=name, model_path=self.args.model)
+                for name in served_model_names
+            ]
+            
+            self.log_stats = not self.args.disable_log_stats
+            self.model_config = await engine_client.get_model_config()
+
+            resolved_chat_template = load_chat_template(self.args.chat_template)
+
+            self.openai_serving_chat = OpenAIServingChat(
+                self.engine_client,
+                self.model_config,
+                self.base_model_paths,
+                self.args.response_role,
+                lora_modules=self.args.lora_modules,
+                prompt_adapters=self.args.prompt_adapters,
+                request_logger=self.request_logger,
+                chat_template=resolved_chat_template,
+                chat_template_content_format=self.args.chat_template_content_format,
+                return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
+                enable_auto_tools=self.args.enable_auto_tool_choice,
+                tool_parser=self.args.tool_call_parser,
+            ) if self.model_config.runner_type == "generate" else None
+            self.openai_serving_completion = OpenAIServingCompletion(
+                self.engine_client,
+                self.model_config,
+                self.base_model_paths,
+                lora_modules=self.args.lora_modules,
+                prompt_adapters=self.args.prompt_adapters,
+                request_logger=self.request_logger,
+                return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
+            ) if self.model_config.runner_type == "generate" else None
+            self.openai_serving_embedding = OpenAIServingEmbedding(
+                self.engine_client,
+                self.model_config,
+                self.base_model_paths,
+                request_logger=self.request_logger,
+                chat_template=resolved_chat_template,
+                chat_template_content_format=self.args.chat_template_content_format,
+            ) if self.model_config.task == "embed" else None
+        
+        self.ready = True
+        return self.ready
+
 
     def load(self) -> bool:
         if torch.cuda.is_available():
             self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
-        self.vllm_engine = AsyncLLMEngine.from_engine_args(self.vllm_engine_args)
-        self.openai_serving_completion = OpenAIServingCompletion(
-            self.vllm_engine, self.request_logger
-        )
-        self.ready = True
-        return self.ready
+        
+        self.engine = True
+        return False
+
+    def start(self):
+        pass
+
+    def stop_engine(self):
+        if hasattr(self.engine_client, "shutdown"):
+            self.engine_client.shutdown()
+        self.ready = False
 
     async def healthy(self) -> bool:
         try:
-            await self.vllm_engine.check_health()
+            await self.engine_client.check_health()
         except Exception as e:
             raise ModelNotReady(self.name) from e
         return True
 
-    def apply_chat_template(
+    async def create_completion(
         self,
-        messages: Iterable[ChatCompletionRequestMessage],
-        chat_template: Optional[str] = None,
-        tools: Optional[list[ChatCompletionTool]] = None,
-    ) -> ChatPrompt:
-        """
-        Given a list of chat completion messages, convert them to a prompt.
-        """
-        return ChatPrompt(
-            prompt=self.openai_serving_completion.apply_chat_template(
-                messages, chat_template, tools
-            )
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
+        response = await self.openai_serving_completion.create_completion(
+            request, raw_request
         )
 
-    async def create_completion(
-        self, request: CompletionRequest
-    ) -> Union[Completion, AsyncIterator[Completion]]:
-        return await self.openai_serving_completion.create_completion(request)
+        if isinstance(response, ErrorResponse):
+            raise OpenAIError(response)
+
+    async def create_chat_completion(
+        self,
+        request: ChatCompletionRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
+        return await self.openai_serving_chat.create_chat_completion(
+            request, raw_request
+        )
+
+    async def create_embedding(
+        self,
+        request: EmbeddingRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
+        return await self.openai_serving_embedding.create_embedding(
+            request, raw_request
+        )

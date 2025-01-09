@@ -39,7 +39,6 @@ from . import (
     Backend,
 )
 from .vllm.utils import (
-    build_vllm_engine_args,
     infer_vllm_supported_from_model_architecture,
     maybe_add_vllm_cli_parser,
     vllm_available,
@@ -148,15 +147,6 @@ parser.add_argument(
 parser.add_argument(
     "--disable_log_requests", action="store_true", help="Disable logging requests"
 )
-parser.add_argument(
-    "--max_log_len",
-    "--max-log-len",
-    type=int,
-    default=None,
-    help="Max number of prompt characters or prompt "
-    "ID numbers being printed in log."
-    "\n\nDefault: Unlimited",
-)
 
 default_dtype = "float16" if torch.cuda.is_available() else "float32"
 if not vllm_available():
@@ -168,6 +158,16 @@ if not vllm_available():
         choices=dtype_choices,
         help=f"data type to load the weights in. One of {dtype_choices}. "
         f"Defaults to float16 for GPU and float32 for CPU systems",
+    )
+
+    parser.add_argument(
+        "--max_log_len",
+        "--max-log-len",
+        type=int,
+        default=None,
+        help="Max number of prompt characters or prompt "
+        "ID numbers being printed in log."
+        "\n\nDefault: Unlimited",
     )
 
 # The initial_args are required to determine whether the vLLM backend is enabled.
@@ -193,7 +193,6 @@ if "dtype" in args and args.dtype == "auto":
 
 
 def load_model():
-    engine_args = None
     model_id_or_path = get_model_id_or_path(args)
 
     if args.disable_log_requests:
@@ -212,8 +211,9 @@ def load_model():
 
         args.model = args.model_id or args.model_dir
         args.revision = args.model_revision
-        engine_args = build_vllm_engine_args(args)
-        model = VLLMModel(args.model_name, engine_args, request_logger=request_logger)
+        model = VLLMModel(
+            args.model_name, args, request_logger=request_logger
+        )
 
     else:
         kwargs = vars(args)
