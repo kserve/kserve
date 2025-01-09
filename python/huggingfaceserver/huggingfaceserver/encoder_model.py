@@ -13,16 +13,14 @@
 # limitations under the License.
 import base64
 import pathlib
-import struct
-from http import HTTPStatus
-from typing import Any, Dict, Optional, Union, List
+from typing import Any, Dict, AsyncGenerator,Optional, Union
+from fastapi import Request
 
-import pydantic
+import time
 import torch
 import torch.nn.functional as F
 from accelerate import init_empty_weights
 from kserve import Model
-from kserve.errors import InferenceError
 from kserve.logging import logger
 from kserve.model import PredictorConfig
 from kserve.protocol.infer_type import InferInput, InferRequest, InferResponse
@@ -58,10 +56,20 @@ from .task import (
 )
 from .utils import _get_and_verify_max_len, _mean_pooling
 
+from kserve.utils.utils import generate_uuid
+from kserve.protocol.rest.openai.errors import OpenAIError
+from kserve.metrics import LLMStats
+from kserve.protocol.rest.openai import OpenAIEncoderModel
+from kserve.protocol.rest.openai.types import (
+    Embedding,
+    EmbeddingRequest,
+    EmbeddingResponseData,
+    ErrorResponse,
+    UsageInfo,
+)
 
-class HuggingfaceEncoderModel(
-    Model, OpenAIEmbeddingModel
-):  # pylint:disable=c-extension-no-member
+
+class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-extension-no-member
     task: MLTask
     model_config: PretrainedConfig
     model_id_or_path: Union[pathlib.Path, str]
@@ -134,7 +142,7 @@ class HuggingfaceEncoderModel(
             self.task = infer_task_from_model_architecture(self.model_config)
 
         if is_generative_task(self.task):
-            raise RuntimeError(
+            raise OpenAIError(
                 f"Encoder model does not support generative task: {self.task.name}"
             )
 
@@ -278,7 +286,7 @@ class HuggingfaceEncoderModel(
                         outputs = outputs.logits
                     return outputs
             except Exception as e:
-                raise InferenceError(str(e))
+                raise OpenAIError(str(e))
 
     def postprocess(
         self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any]
@@ -342,7 +350,7 @@ class HuggingfaceEncoderModel(
                 inferences.append(outputs[i].tolist())
             return get_predict_response(request, inferences, self.name)
         else:
-            raise ValueError(
+            raise OpenAIError(
                 f"Unsupported task {self.task}. Please check the supported `task` option."
             )
 
@@ -352,68 +360,76 @@ class HuggingfaceEncoderModel(
                 request_id,
                 prompt=prompt,
             )
+    
+    async def create_embedding(
+        self, 
+        request: EmbeddingRequest, 
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
+        self._log_request(request, raw_request)
 
-    async def create_embedding(self, request: EmbeddingRequest) -> Embedding:
-        params = request.params
-
-        try:
-            pydantic.TypeAdapter(
-                Union[str, List[str], List[int], List[List[int]]]
-            ).validate_python(params.input)
-        except pydantic.ValidationError as e:
-            raise OpenAIError(
-                response=create_error_response(
-                    "'$.input' is invalid. Please check the API reference: https://platform.openai.com/docs/api-reference.",
-                    status_code=HTTPStatus.BAD_REQUEST,
-                    err_type="invalid_request_error",
-                )
-            ) from e
-
-        # The OpenAI documentation allows the input of token lists instead of strings. As the tokenization is specific
-        # to the model, it is most likely different from the ones used by OpenAI (e.g., tiktoken). Libraries like
-        # LangChain attempt to determine the proper tokenization based on the model name and will fall back to the
-        # default "cl100k_base" tokenization, which will certainly not match the deployed model. Instead of silently
-        # accepting the mismatch, we rather raise an exception.
-        try:
-            pydantic.TypeAdapter(Union[str, List[str]]).validate_python(params.input)
-        except pydantic.ValidationError as e:
-            raise OpenAIError(
-                response=create_error_response(
-                    "'input' as token lists is not supported",
-                    status_code=HTTPStatus.NOT_IMPLEMENTED,
-                    err_type="invalid_request_error",
-                )
-            ) from e
-
-        # Call the inference to determine the embedding values
-        context = {}
-        instances = params.input if isinstance(params.input, list) else [params.input]
-        inference_out, _ = await self({"instances": instances}, context)
-        embedding_out = inference_out["predictions"]
-
-        # Calculate the input token count. Attention mask is "1" for each input token.
-        num_input_tokens = int(context["attention_mask"].sum())
-
-        # Optionally encode result to base64
-        if params.encoding_format == "base64":
-            for i, o in enumerate(embedding_out):
-                embedding_bytes = [struct.pack("<f", el) for el in o]
-                embedding_base64 = base64.b64encode(b"".join(embedding_bytes))
-                embedding_out[i] = embedding_base64.decode("ascii")
-
-        return Embedding(
-            object="list",
-            data=[
-                EmbeddingObject(
-                    object="embedding",
-                    index=i,
-                    embedding=o,
-                )
-                for i, o in enumerate(embedding_out)
-            ],
-            model=params.model,
-            usage=Usage(
-                prompt_tokens=num_input_tokens,
-                total_tokens=num_input_tokens,
-            ),
+        input = request.input  # Extract the input field
+        prompts = (
+            input
+            if isinstance(input, list) and not isinstance(input[0], int)
+            else [input]
         )
+
+        if isinstance(prompts[0][0], int):  # If tokens are provided directly
+            inputs = {
+                "input_ids": torch.tensor(prompts, dtype=torch.int64).to(self._device)
+            }
+        else:  # If text prompts are provided
+            inputs = self._tokenizer(
+                prompts, padding=True, return_tensors=TensorType.PYTORCH
+            ).to(self._device)
+
+        stats = LLMStats()
+        num_input_tokens_per_prompt = inputs["input_ids"].shape[-1]
+        num_input_tokens = num_input_tokens_per_prompt * inputs["input_ids"].shape[0]
+        stats.num_prompt_tokens = num_input_tokens
+
+        try:
+            with torch.no_grad():
+                outputs = self._model(**inputs)
+
+            token_embeddings = outputs.last_hidden_state
+            attention_mask = inputs.get("attention_mask")
+
+            # TODO: check if this is correct
+            # Perform mean pooling
+            if attention_mask is not None:
+                expanded_mask = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+                sum_embeddings = torch.sum(token_embeddings * expanded_mask, dim=1)
+                sum_mask = torch.clamp(expanded_mask.sum(dim=1), min=1e-9)
+                embeddings = sum_embeddings / sum_mask
+            else:
+                embeddings = torch.mean(token_embeddings, dim=1)
+
+            # Normalize embeddings
+            normalized_embeddings = F.normalize(embeddings, p=2, dim=1)
+
+            data = [
+                EmbeddingResponseData(
+                    index=idx,
+                    object="embedding",
+                    embedding=embedding.tolist(),
+                )
+                for idx, embedding in enumerate(normalized_embeddings)
+            ]
+
+            return Embedding(
+                id=generate_uuid(),
+                model=request.model,
+                created=int(time.time()),
+                object="embedding",
+                data=data,
+                usage=UsageInfo(
+                    prompt_tokens=stats.num_prompt_tokens,
+                    total_tokens=stats.num_prompt_tokens,
+                ),
+            )
+
+        except Exception as e:
+            raise OpenAIError(f"Error during embedding creation: {str(e)}")

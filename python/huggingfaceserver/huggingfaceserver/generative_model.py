@@ -29,8 +29,10 @@ from typing import (
 )
 
 import torch
+from http import HTTPStatus
 from accelerate import init_empty_weights
 from kserve.logging import logger
+from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
 from kserve.protocol.rest.openai import (
     ChatPrompt,
     CompletionRequest,
@@ -38,11 +40,11 @@ from kserve.protocol.rest.openai import (
 )
 from kserve.protocol.rest.openai.types.openapi import ChatCompletionTool
 from kserve.protocol.rest.openai.types import (
-    ChatCompletionRequestMessage,
+    ChatCompletionMessageParam,
     Completion,
     CompletionChoice,
-    CompletionUsage,
-    CreateCompletionRequest,
+    UsageInfo,
+    CompletionRequest,
 )
 from kserve.utils.utils import generate_uuid
 from kserve.constants.constants import LLM_STATS_KEY
@@ -180,7 +182,7 @@ class HuggingfaceGenerativeModel(
         else:
             self.task = infer_task_from_model_architecture(self.model_config)
         if not is_generative_task(self.task):
-            raise RuntimeError(
+            raise OpenAIError(
                 f"Generative model does not support encoder-only task: {self.task.name}"
             )
 
@@ -352,22 +354,22 @@ class HuggingfaceGenerativeModel(
         self._request_queue.put(req)
         return req["response_queue"]
 
-    def validate_supported_completion_params(self, params: CreateCompletionRequest):
+    def validate_supported_completion_params(self, params: CompletionRequest):
         """
         Check that only support params have been provided
         """
         if params.frequency_penalty is not None and params.frequency_penalty > 0:
-            raise ValueError("'frequency_penalty' is not supported")
+            raise OpenAIError("'frequency_penalty' is not supported")
         if params.best_of is not None and params.best_of > 1:
-            raise ValueError("'best_of' > 1 is not supported")
+            raise OpenAIError("'best_of' > 1 is not supported")
         if params.n is not None and params.n > 1:
             # TODO: support 'n' by using num
-            raise ValueError("'n' > 1 is not supported")
+            raise OpenAIError("'n' > 1 is not supported")
         if params.echo and self.is_encoder_decoder:
-            raise ValueError("'echo' is not supported by encoder-decoder models")
+            raise OpenAIError("'echo' is not supported by encoder-decoder models")
 
     def build_generation_config(
-        self, params: CreateCompletionRequest
+        self, params: CompletionRequest
     ) -> GenerationConfig:
         kwargs = {
             "max_new_tokens": params.max_tokens,
@@ -386,7 +388,7 @@ class HuggingfaceGenerativeModel(
 
     def apply_chat_template(
         self,
-        messages: Iterable[ChatCompletionRequestMessage],
+        messages: Iterable[ChatCompletionMessageParam],
         chat_template: Optional[str] = None,
         tools: Optional[list[ChatCompletionTool]] = None,
     ) -> ChatPrompt:
@@ -412,7 +414,7 @@ class HuggingfaceGenerativeModel(
         self._log_request(request)
         params = request.params
         if params.prompt is None:
-            raise ValueError("prompt is required")
+            raise OpenAIError("prompt is required")
         stats = LLMStats()
         request.context[LLM_STATS_KEY] = stats
         prompt = params.prompt
@@ -435,12 +437,16 @@ class HuggingfaceGenerativeModel(
         if params.max_tokens is None:
             params.max_tokens = self.max_length - num_input_tokens_per_prompt
         if num_input_tokens_per_prompt + params.max_tokens > self.max_length:
-            raise ValueError(
-                f"This model's maximum context length is {self.max_length} tokens. "
-                f"However, you requested {params.max_tokens + num_input_tokens_per_prompt} tokens "
-                f"({num_input_tokens_per_prompt} in the messages, "
-                f"{params.max_tokens} in the completion). "
-                f"Please reduce the length of the messages or completion.",
+            raise OpenAIError(
+                response=create_error_response(
+                    f"This model's maximum context length is {self.max_length} tokens. "
+                    f"However, you requested {params.max_tokens + num_input_tokens_per_prompt} tokens "
+                    f"({num_input_tokens_per_prompt} in the messages, "
+                    f"{params.max_tokens} in the completion). "
+                    f"Please reduce the length of the messages or completion.",
+                    err_type="BadRequest",
+                    status_code=HTTPStatus.BAD_REQUEST,
+                )
             )
 
         self.validate_supported_completion_params(params)
@@ -501,7 +507,7 @@ class HuggingfaceGenerativeModel(
                 object="text_completion",
                 model=params.model,
                 system_fingerprint=self.system_fingerprint,
-                usage=CompletionUsage(
+                usage=UsageInfo(
                     prompt_tokens=stats.num_prompt_tokens,
                     completion_tokens=stats.num_generation_tokens,
                     total_tokens=stats.num_prompt_tokens + stats.num_generation_tokens,
