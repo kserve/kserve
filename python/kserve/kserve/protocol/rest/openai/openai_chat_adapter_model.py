@@ -31,6 +31,8 @@ from kserve.protocol.rest.openai.types import (
     ChunkChoice,
     Completion,
     CompletionChoice,
+    CompletionChunk,
+    CompletionChunkChoice,
     CompletionLogProbs,
     ErrorResponse,
 )
@@ -130,7 +132,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
 
     @classmethod
     def to_chat_completion_chunk_choice(
-        cls, completion_choice: CompletionChoice, role: str
+        cls, completion_choice: CompletionChunkChoice, role: str
     ) -> ChunkChoice:
         # translate Token -> ChatCompletionTokenLogprob
         choice_logprobs = (
@@ -235,7 +237,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
                 if chunk == "[DONE]\n\n":
                     return
 
-                completion = Completion.model_validate_json(chunk)
+                completion = CompletionChunk.model_validate_json(chunk)
 
                 return self.completion_to_chat_completion_chunk(
                     completion, chat_prompt.response_role

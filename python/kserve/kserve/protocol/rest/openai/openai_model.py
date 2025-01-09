@@ -38,13 +38,9 @@ class ChatPrompt(BaseModel):
     prompt: str
 
 
-class OpenAIGenerativeModel(BaseKServeModel):
+class OpenAIModel(BaseKServeModel):
     """
-    An abstract model with methods for implementing OpenAI's completions (v1/completions)
-    and chat completions (v1/chat/completions) endpoints.
-
-    Users should extend this model and implement the abstract methods in order to expose
-    these endpoints.
+    An abstract model with methods for implementing OpenAI's endpoints.
     """
 
     def __init__(self, name: str):
@@ -53,6 +49,15 @@ class OpenAIGenerativeModel(BaseKServeModel):
         # We don't support the `load()` method on OpenAIModel yet
         # Assume the model is ready
         self.ready = True
+
+class OpenAIGenerativeModel(OpenAIModel):
+    """
+    An abstract model with methods for implementing OpenAI's completions (v1/completions)
+    and chat completions (v1/chat/completions) endpoints.
+
+    Users should extend this model and implement the abstract methods in order to expose
+    these endpoints.
+    """
 
     @abstractmethod
     async def create_completion(
@@ -73,7 +78,7 @@ class OpenAIGenerativeModel(BaseKServeModel):
         pass
 
 
-class OpenAIEncoderModel(BaseKServeModel):
+class OpenAIEncoderModel(OpenAIModel):
     """
     An abstract model with methods for implementing OpenAI's completions (v1/embeddings) endpoint.
 
@@ -96,10 +101,6 @@ class OpenAIEncoderModel(BaseKServeModel):
         context: Optional[Dict[str, Any]] = None
     ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
         pass
-
-
-class OpenAIModel(OpenAIGenerativeModel, OpenAIEncoderModel):
-    pass
 
 
 class AsyncMappingIterator:

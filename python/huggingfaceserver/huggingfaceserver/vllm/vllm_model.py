@@ -18,9 +18,10 @@ from argparse import Namespace
 from fastapi import Request  # TODO: Double check if it's installed here
 
 from kserve import Model
+from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.errors import ModelNotReady
 from kserve.model import PredictorConfig
-from kserve.protocol.rest.openai import OpenAIModel
+from kserve.protocol.rest.openai import OpenAIEncoderModel, OpenAIGenerativeModel
 from kserve.protocol.rest.openai.types import (
     Completion,
     ChatCompletion,
@@ -45,7 +46,7 @@ from vllm.entrypoints.chat_utils import load_chat_template
 from .utils import build_vllm_engine_args
 
 
-class VLLMModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
+class VLLMModel(Model, OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-extension-no-member
     engine_client: EngineClient
     vllm_engine_args: AsyncEngineArgs = None
     args: Namespace = None
