@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, AsyncGenerator, AsyncIterator, Optional, Union
+from typing import Any, Dict, AsyncGenerator, Optional, Union
 import httpx
 from http import HTTPStatus
 from functools import partial, wraps
@@ -31,6 +31,7 @@ from .types import (
     ChatCompletion,
     ChatCompletionChunk,
     Completion,
+    CompletionChunk,
     ErrorResponse,
 )
 from .errors import OpenAIError, create_error_response
@@ -215,9 +216,9 @@ class OpenAIProxyModel(OpenAICompletionModel):
 
         if self.skip_upstream_validation:
             obj = orjson.loads(data)
-            completion_chunk = Completion.model_construct(**obj)
+            completion_chunk = CompletionChunk.model_construct(**obj)
         else:
-            completion_chunk = Completion.model_validate_json(data)
+            completion_chunk = CompletionChunk.model_validate_json(data)
         self.postprocess_completion_chunk(completion_chunk, request, raw_request)
         return completion_chunk
 

@@ -26,11 +26,13 @@ from kserve.protocol.rest.openai.types import (
     ChatCompletionChunk,
     ChatCompletionMessageParam,
     ChatMessage,
-    ChatCompletionLogProbsContent,  # vLLM added this
+    ChatCompletionLogProbsContent,
     ChoiceDelta,
     ChunkChoice,
     Completion,
     CompletionChoice,
+    CompletionChunk,
+    CompletionChunkChoice,
     CompletionLogProbs,
     ErrorResponse,
 )
@@ -54,7 +56,7 @@ class OpenAIChatAdapterModel(OpenAICompletionModel):
 
     @abstractmethod
     def apply_chat_template(
-        self, messages: Iterable[ChatCompletionMessageParam]
+        self, request: ChatCompletionRequest,
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
@@ -84,9 +86,7 @@ class OpenAIChatAdapterModel(OpenAICompletionModel):
         )
 
     @classmethod
-    def to_choice_logprobs(
-        cls, logprobs: CompletionLogProbs
-    ) -> ChatCompletionLogProbs:
+    def to_choice_logprobs(cls, logprobs: CompletionLogProbs) -> ChatCompletionLogProbs:
         chat_completion_logprobs = []
         for i in range(len(logprobs.tokens)):
             token = logprobs.tokens[i]
@@ -130,7 +130,7 @@ class OpenAIChatAdapterModel(OpenAICompletionModel):
 
     @classmethod
     def to_chat_completion_chunk_choice(
-        cls, completion_choice: CompletionChoice, role: str
+        cls, completion_choice: CompletionChunkChoice, role: str
     ) -> ChunkChoice:
         # translate Token -> ChatCompletionTokenLogprob
         choice_logprobs = (
@@ -235,7 +235,7 @@ class OpenAIChatAdapterModel(OpenAICompletionModel):
                 if chunk == "[DONE]\n\n":
                     return
 
-                completion = Completion.model_validate_json(chunk)
+                completion = CompletionChunk.model_validate_json(chunk)
 
                 return self.completion_to_chat_completion_chunk(
                     completion, chat_prompt.response_role

@@ -160,16 +160,6 @@ if not vllm_available():
         f"Defaults to float16 for GPU and float32 for CPU systems",
     )
 
-    parser.add_argument(
-        "--max_log_len",
-        "--max-log-len",
-        type=int,
-        default=None,
-        help="Max number of prompt characters or prompt "
-        "ID numbers being printed in log."
-        "\n\nDefault: Unlimited",
-    )
-
 # The initial_args are required to determine whether the vLLM backend is enabled.
 initial_args, _ = parser.parse_known_args()
 model_id_or_path = get_model_id_or_path(initial_args)
@@ -180,6 +170,16 @@ else:
     # If vLLM backend is not enabled, add the task argument for Huggingface backend
     parser.add_argument(
         "--task", required=False, help="The ML task name for huggingface backend"
+    )
+
+    parser.add_argument(
+        "--max_log_len",
+        "--max-log-len",
+        type=int,
+        default=None,
+        help="Max number of prompt characters or prompt "
+        "ID numbers being printed in log."
+        "\n\nDefault: Unlimited",
     )
 
 args, _ = parser.parse_known_args()
@@ -211,9 +211,7 @@ def load_model():
 
         args.model = args.model_id or args.model_dir
         args.revision = args.model_revision
-        model = VLLMModel(
-            args.model_name, args, request_logger=request_logger
-        )
+        model = VLLMModel(args.model_name, args, request_logger=request_logger)
 
     else:
         kwargs = vars(args)

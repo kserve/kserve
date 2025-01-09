@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import AsyncGenerator, AsyncIterator, Union, List
+from typing import AsyncGenerator, Union, List
 
 from fastapi import Request, Response
 from starlette.datastructures import Headers
@@ -58,8 +58,10 @@ class OpenAIDataPlane(DataPlane):
         if not isinstance(model, OpenAICompletionModel):
             raise RuntimeError(f"Model {model_name} does not support completion")
 
-        context={"headers": dict(headers), "response": response}
-        return await model.create_completion(request=request, raw_request=raw_request, context=context)
+        context = {"headers": dict(headers), "response": response}
+        return await model.create_completion(
+            request=request, raw_request=raw_request, context=context
+        )
 
     async def create_chat_completion(
         self,
@@ -86,8 +88,10 @@ class OpenAIDataPlane(DataPlane):
         if not isinstance(model, OpenAICompletionModel):
             raise RuntimeError(f"Model {model_name} does not support chat completion")
 
-        context={"headers": dict(headers), "response": response}
-        return await model.create_chat_completion(request=request, raw_request=raw_request, context=context)
+        context = {"headers": dict(headers), "response": response}
+        return await model.create_chat_completion(
+            request=request, raw_request=raw_request, context=context
+        )
 
     async def create_embedding(
         self,
@@ -115,8 +119,10 @@ class OpenAIDataPlane(DataPlane):
         if not isinstance(model, OpenAIModel):
             raise RuntimeError(f"Model {model_name} does not support embedding")
 
-        context={"headers": dict(headers), "response": response}
-        return await model.create_embedding(request=request, raw_request=raw_request, context=context)
+        context = {"headers": dict(headers), "response": response}
+        return await model.create_embedding(
+            request=request, raw_request=raw_request, context=context
+        )
 
     async def create_embedding(
         self,

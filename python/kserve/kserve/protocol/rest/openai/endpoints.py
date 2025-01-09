@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import os
-from collections.abc import AsyncIterable
 from typing import AsyncGenerator
 import time
 
@@ -26,7 +25,7 @@ from kserve.protocol.rest.openai.types import (
     ChatCompletionRequest,
     CompletionRequest,
     EmbeddingRequest,
-    Model, 
+    Model,
     ModelList,
 )
 

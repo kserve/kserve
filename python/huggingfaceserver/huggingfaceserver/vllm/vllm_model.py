@@ -18,9 +18,10 @@ from argparse import Namespace
 from fastapi import Request  # TODO: Double check if it's installed here
 
 from kserve import Model
+from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.errors import ModelNotReady
 from kserve.model import PredictorConfig
-from kserve.protocol.rest.openai import OpenAIModel
+from kserve.protocol.rest.openai import OpenAIEncoderModel, OpenAIGenerativeModel
 from kserve.protocol.rest.openai.types import (
     Completion,
     ChatCompletion,
@@ -39,13 +40,17 @@ from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
 from vllm.entrypoints.openai.tool_parsers import ToolParserManager
 from vllm.entrypoints.openai.protocol import ErrorResponse
 from vllm.entrypoints.openai.serving_engine import BaseModelPath
-from vllm.entrypoints.openai.api_server import build_async_engine_client_from_engine_args
+from vllm.entrypoints.openai.api_server import (
+    build_async_engine_client_from_engine_args,
+)
 from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
 from vllm.entrypoints.chat_utils import load_chat_template
 from .utils import build_vllm_engine_args
 
 
-class VLLMModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
+class VLLMModel(
+    Model, OpenAIEncoderModel, OpenAIGenerativeModel
+):  # pylint:disable=c-extension-no-member
     engine_client: EngineClient
     vllm_engine_args: AsyncEngineArgs = None
     args: Namespace = None
@@ -71,16 +76,26 @@ class VLLMModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
             ToolParserManager.import_tool_parser(self.args.tool_parser_plugin)
 
         valide_tool_parses = ToolParserManager.tool_parsers.keys()
-        if self.args.enable_auto_tool_choice \
-            and self.args.tool_call_parser not in valide_tool_parses:
-            raise KeyError(f"invalid tool call parser: {self.args.tool_call_parser} "
-                        f"(chose from {{ {','.join(valide_tool_parses)} }})")
+        if (
+            self.args.enable_auto_tool_choice
+            and self.args.tool_call_parser not in valide_tool_parses
+        ):
+            raise KeyError(
+                f"invalid tool call parser: {self.args.tool_call_parser} "
+                f"(chose from {{ {','.join(valide_tool_parses)} }})"
+            )
 
         engine_args = AsyncEngineArgs.from_cli_args(self.args)
-        async with build_async_engine_client_from_engine_args(engine_args, disable_frontend_multiprocessing=True) as engine_client:
+        if torch.cuda.is_available():
+            engine_args.tensor_parallel_size = torch.cuda.device_count()
+
+        async with build_async_engine_client_from_engine_args(
+            engine_args, disable_frontend_multiprocessing=True
+        ) as engine_client:
             self.engine_client = engine_client
             if self.args.served_model_name is not None:
                 served_model_names = self.args.served_model_name
+                served_model_names.append(self.model_name)
             else:
                 served_model_names = [self.model_name, self.args.model]
 
@@ -88,52 +103,62 @@ class VLLMModel(Model, OpenAIModel):  # pylint:disable=c-extension-no-member
                 BaseModelPath(name=name, model_path=self.args.model)
                 for name in served_model_names
             ]
-            
+
             self.log_stats = not self.args.disable_log_stats
             self.model_config = await engine_client.get_model_config()
 
             resolved_chat_template = load_chat_template(self.args.chat_template)
 
-            self.openai_serving_chat = OpenAIServingChat(
-                self.engine_client,
-                self.model_config,
-                self.base_model_paths,
-                self.args.response_role,
-                lora_modules=self.args.lora_modules,
-                prompt_adapters=self.args.prompt_adapters,
-                request_logger=self.request_logger,
-                chat_template=resolved_chat_template,
-                chat_template_content_format=self.args.chat_template_content_format,
-                return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
-                enable_auto_tools=self.args.enable_auto_tool_choice,
-                tool_parser=self.args.tool_call_parser,
-            ) if self.model_config.runner_type == "generate" else None
-            self.openai_serving_completion = OpenAIServingCompletion(
-                self.engine_client,
-                self.model_config,
-                self.base_model_paths,
-                lora_modules=self.args.lora_modules,
-                prompt_adapters=self.args.prompt_adapters,
-                request_logger=self.request_logger,
-                return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
-            ) if self.model_config.runner_type == "generate" else None
-            self.openai_serving_embedding = OpenAIServingEmbedding(
-                self.engine_client,
-                self.model_config,
-                self.base_model_paths,
-                request_logger=self.request_logger,
-                chat_template=resolved_chat_template,
-                chat_template_content_format=self.args.chat_template_content_format,
-            ) if self.model_config.task == "embed" else None
-        
+            self.openai_serving_chat = (
+                OpenAIServingChat(
+                    self.engine_client,
+                    self.model_config,
+                    self.base_model_paths,
+                    self.args.response_role,
+                    lora_modules=self.args.lora_modules,
+                    prompt_adapters=self.args.prompt_adapters,
+                    request_logger=self.request_logger,
+                    chat_template=resolved_chat_template,
+                    chat_template_content_format=self.args.chat_template_content_format,
+                    return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
+                    enable_auto_tools=self.args.enable_auto_tool_choice,
+                    tool_parser=self.args.tool_call_parser,
+                )
+                if self.model_config.runner_type == "generate"
+                else None
+            )
+
+            self.openai_serving_completion = (
+                OpenAIServingCompletion(
+                    self.engine_client,
+                    self.model_config,
+                    self.base_model_paths,
+                    lora_modules=self.args.lora_modules,
+                    prompt_adapters=self.args.prompt_adapters,
+                    request_logger=self.request_logger,
+                    return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
+                )
+                if self.model_config.runner_type == "generate"
+                else None
+            )
+
+            self.openai_serving_embedding = (
+                OpenAIServingEmbedding(
+                    self.engine_client,
+                    self.model_config,
+                    self.base_model_paths,
+                    request_logger=self.request_logger,
+                    chat_template=resolved_chat_template,
+                    chat_template_content_format=self.args.chat_template_content_format,
+                )
+                if self.model_config.task == "embed"
+                else None
+            )
+
         self.ready = True
         return self.ready
 
-
     def load(self) -> bool:
-        if torch.cuda.is_available():
-            self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
-        
         self.engine = True
         return False
 

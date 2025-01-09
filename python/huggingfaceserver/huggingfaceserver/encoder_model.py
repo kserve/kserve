@@ -13,9 +13,10 @@
 # limitations under the License.
 import base64
 import pathlib
-from typing import Any, Dict, AsyncGenerator,Optional, Union
+from typing import Any, Dict, AsyncGenerator, Optional, Union
 from fastapi import Request
 
+import struct
 import time
 import torch
 import torch.nn.functional as F
@@ -47,6 +48,7 @@ from transformers import (
     TensorType,
 )
 
+from http import HTTPStatus
 from .request_logger import RequestLogger
 from .task import (
     MLTask,
@@ -57,7 +59,7 @@ from .task import (
 from .utils import _get_and_verify_max_len, _mean_pooling
 
 from kserve.utils.utils import generate_uuid
-from kserve.protocol.rest.openai.errors import OpenAIError
+from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
 from kserve.metrics import LLMStats
 from kserve.protocol.rest.openai import OpenAIEncoderModel
 from kserve.protocol.rest.openai.types import (
@@ -69,7 +71,9 @@ from kserve.protocol.rest.openai.types import (
 )
 
 
-class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-extension-no-member
+class HuggingfaceEncoderModel(
+    Model, OpenAIEncoderModel
+):  # pylint:disable=c-extension-no-member
     task: MLTask
     model_config: PretrainedConfig
     model_id_or_path: Union[pathlib.Path, str]
@@ -131,7 +135,7 @@ class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-ex
             self.task = task
             try:
                 inferred_task = infer_task_from_model_architecture(self.model_config)
-            except ValueError:
+            except OpenAIError:
                 inferred_task = None
             if inferred_task is not None and inferred_task != task:
                 logger.warning(
@@ -360,63 +364,73 @@ class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-ex
                 request_id,
                 prompt=prompt,
             )
-    
+
     async def create_embedding(
-        self, 
-        request: EmbeddingRequest, 
+        self,
+        request: EmbeddingRequest,
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
         self._log_request(request, raw_request)
 
-        input = request.input  # Extract the input field
-        prompts = (
-            input
-            if isinstance(input, list) and not isinstance(input[0], int)
-            else [input]
-        )
-
-        if isinstance(prompts[0][0], int):  # If tokens are provided directly
-            inputs = {
-                "input_ids": torch.tensor(prompts, dtype=torch.int64).to(self._device)
-            }
-        else:  # If text prompts are provided
-            inputs = self._tokenizer(
-                prompts, padding=True, return_tensors=TensorType.PYTORCH
-            ).to(self._device)
-
-        stats = LLMStats()
-        num_input_tokens_per_prompt = inputs["input_ids"].shape[-1]
-        num_input_tokens = num_input_tokens_per_prompt * inputs["input_ids"].shape[0]
-        stats.num_prompt_tokens = num_input_tokens
+        if request.input is None:
+            raise OpenAIError(
+                response=create_error_response(
+                    "'input' is a required property",
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    err_type="invalid_request_error",
+                )
+            )
 
         try:
-            with torch.no_grad():
-                outputs = self._model(**inputs)
+            # The OpenAI documentation allows the input of token lists instead of strings. As the tokenization is specific
+            # to the model, it is most likely different from the ones used by OpenAI (e.g., tiktoken). Libraries like
+            # LangChain attempt to determine the proper tokenization based on the model name and will fall back to the
+            # default "cl100k_base" tokenization, which will certainly not match the deployed model. Instead of silently
+            # accepting the mismatch, we rather raise an exception.
+            if isinstance(request.input, list) and len(request.input) > 0:
+                input_is_int = isinstance(request.input[0], int)
+                input_is_list_of_int = (
+                    isinstance(request.input[0], list)
+                    and len(request.input[0]) > 0
+                    and isinstance(request.input[0][0], int)
+                )
+                if input_is_int or input_is_list_of_int:
+                    raise OpenAIError(
+                        response=create_error_response(
+                            "'input' as token lists is not supported",
+                            status_code=HTTPStatus.NOT_IMPLEMENTED,
+                            err_type="invalid_request_error",
+                        )
+                    )
 
-            token_embeddings = outputs.last_hidden_state
-            attention_mask = inputs.get("attention_mask")
+            # Call the inference to determine the embedding values
+            context = {}
+            instances = (
+                request.input if isinstance(request.input, list) else [request.input]
+            )
+            inference_out, _ = await self({"instances": instances}, context)
+            embedding_out = inference_out["predictions"]
 
-            # TODO: check if this is correct
-            # Perform mean pooling
-            if attention_mask is not None:
-                expanded_mask = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-                sum_embeddings = torch.sum(token_embeddings * expanded_mask, dim=1)
-                sum_mask = torch.clamp(expanded_mask.sum(dim=1), min=1e-9)
-                embeddings = sum_embeddings / sum_mask
-            else:
-                embeddings = torch.mean(token_embeddings, dim=1)
+            # Calculate the input token count. Attention mask is "1" for each input token.
+            num_input_tokens = int(context["attention_mask"].sum())
+            stats = LLMStats()
+            stats.num_prompt_tokens = num_input_tokens
 
-            # Normalize embeddings
-            normalized_embeddings = F.normalize(embeddings, p=2, dim=1)
+            # Optionally encode result to base64
+            if request.encoding_format == "base64":
+                for i, o in enumerate(embedding_out):
+                    embedding_bytes = [struct.pack("<f", el) for el in o]
+                    embedding_base64 = base64.b64encode(b"".join(embedding_bytes))
+                    embedding_out[i] = embedding_base64.decode("ascii")
 
             data = [
                 EmbeddingResponseData(
                     index=idx,
                     object="embedding",
-                    embedding=embedding.tolist(),
+                    embedding=embedding,
                 )
-                for idx, embedding in enumerate(normalized_embeddings)
+                for idx, embedding in enumerate(embedding_out)
             ]
 
             return Embedding(

@@ -13,8 +13,6 @@
 # limitations under the License.
 
 from vllm.entrypoints.openai.protocol import (
-    ChatCompletionRequest, 
-    ChatCompletionResponse as ChatCompletion,
     ChatCompletionResponseChoice as ChatCompletionChoice,
     ChatCompletionLogProb,
     ChatCompletionLogProbs,
@@ -22,20 +20,31 @@ from vllm.entrypoints.openai.protocol import (
     ChatCompletionResponseStreamChoice as ChunkChoice,
     ChatMessage,
     DeltaMessage as ChoiceDelta,
-    CompletionResponse as Completion,
     CompletionResponseChoice as CompletionChoice,
+    CompletionStreamResponse as CompletionChunk,
+    CompletionResponseStreamChoice as CompletionChunkChoice,
     CompletionLogProbs,
     UsageInfo,
     ChatCompletionLogProbsContent,
     ModelCard as Model,
     ModelList,
 )
+from vllm.entrypoints.openai.protocol import ChatCompletionRequest, ChatCompletionResponse as ChatCompletion
 from vllm.entrypoints.openai.protocol import CompletionRequest, CompletionResponse as Completion
 from vllm.entrypoints.openai.protocol import EmbeddingRequest, EmbeddingResponse as Embedding, EmbeddingResponseData
-from vllm.entrypoints.chat_utils import ChatCompletionMessageParam
+from vllm.entrypoints.chat_utils import (
+    ChatCompletionContentPartParam,
+    CustomChatCompletionMessageParam,
+    ChatCompletionMessageParam,
+    ChatCompletionToolMessageParam,
+    ChatCompletionContentPartTextParam,
+    ChatCompletionAssistantMessageParam,
+    ConversationMessage,
+)
 
 from typing import Optional
 from pydantic import BaseModel, Field
+
 
 class Error(BaseModel):
     code: Optional[str] = Field(...)
@@ -58,8 +67,10 @@ __all__ = [
     "ChatCompletion",
     "ChatCompletionChoice",
     "ChatCompletionChunk",
+    "CompletionChunk",
+    "CompletionChunkChoice",
     "ChatMessage",
-    "ChatCompletionLogProb"
+    "ChatCompletionLogProb",
     "ChatCompletionLogProbs",
     "ChoiceDelta",
     "ChunkChoice",
@@ -67,6 +78,13 @@ __all__ = [
     "CompletionChoice",
     "ChatCompletionRequest",
     "CompletionRequest",
+    "ChatCompletionContentPartParam",
+    "CustomChatCompletionMessageParam",
+    "ChatCompletionMessageParam",
+    "ChatCompletionToolMessageParam",
+    "ChatCompletionContentPartTextParam",
+    "ChatCompletionAssistantMessageParam",
+    "ConversationMessage",
     "Error",
     "ErrorResponse",
     "CompletionLogProbs",
