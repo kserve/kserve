@@ -257,7 +257,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			// If the job has failed, we do not retry here because there are retries on the job.
 			// To retry the download, users can manually fix the issue and delete the failed job.
 			// Add the job count check for protection to ensure not creating more than 2 jobs including the previous one.
-			if job == nil || (job.Status.Succeeded > 0 && jobCount <= 2) {
+			if job == nil || (job.Status.Succeeded > 0 && jobCount < 2) {
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
 					c.Log.Error(err, "Failed to create job", "model", modelInfo.ModelName, "node", nodeName)

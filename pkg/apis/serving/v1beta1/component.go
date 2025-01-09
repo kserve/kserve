@@ -119,7 +119,6 @@ type ComponentExtensionSpec struct {
 	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
-
 	// The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.
 	// +optional
 	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`
