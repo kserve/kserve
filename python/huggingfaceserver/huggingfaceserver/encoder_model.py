@@ -17,6 +17,7 @@ import struct
 from http import HTTPStatus
 from typing import Any, Dict, Optional, Union, List
 
+import pydantic
 import torch
 import torch.nn.functional as F
 from accelerate import init_empty_weights
@@ -354,35 +355,35 @@ class HuggingfaceEncoderModel(
 
     async def create_embedding(self, request: EmbeddingRequest) -> Embedding:
         params = request.params
-        if params.input is None:
+
+        try:
+            pydantic.TypeAdapter(
+                Union[str, List[str], List[int], List[List[int]]]
+            ).validate_python(params.input)
+        except pydantic.ValidationError as e:
             raise OpenAIError(
                 response=create_error_response(
-                    "'input' is a required property",
+                    "'$.input' is invalid. Please check the API reference: https://platform.openai.com/docs/api-reference.",
                     status_code=HTTPStatus.BAD_REQUEST,
                     err_type="invalid_request_error",
                 )
-            )
+            ) from e
 
         # The OpenAI documentation allows the input of token lists instead of strings. As the tokenization is specific
         # to the model, it is most likely different from the ones used by OpenAI (e.g., tiktoken). Libraries like
         # LangChain attempt to determine the proper tokenization based on the model name and will fall back to the
         # default "cl100k_base" tokenization, which will certainly not match the deployed model. Instead of silently
         # accepting the mismatch, we rather raise an exception.
-        if isinstance(params.input, list) and len(params.input) > 0:
-            input_is_int = isinstance(params.input[0], int)
-            input_is_list_of_int = (
-                isinstance(params.input[0], list)
-                and len(params.input[0]) > 0
-                and isinstance(params.input[0][0], int)
-            )
-            if input_is_int or input_is_list_of_int:
-                raise OpenAIError(
-                    response=create_error_response(
-                        "'input' as token lists is not supported",
-                        status_code=HTTPStatus.NOT_IMPLEMENTED,
-                        err_type="invalid_request_error",
-                    )
+        try:
+            pydantic.TypeAdapter(Union[str, List[str]]).validate_python(params.input)
+        except pydantic.ValidationError as e:
+            raise OpenAIError(
+                response=create_error_response(
+                    "'input' as token lists is not supported",
+                    status_code=HTTPStatus.NOT_IMPLEMENTED,
+                    err_type="invalid_request_error",
                 )
+            ) from e
 
         # Call the inference to determine the embedding values
         context = {}
