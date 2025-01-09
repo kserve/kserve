@@ -22,8 +22,8 @@ from pydantic import ValidationError
 
 
 from .openai_model import (
-    BaseCompletionRequest,
-    OpenAIModel,
+    BaseOpenAIRequest,
+    OpenAICompletionModel,
     AsyncMappingIterator,
     CompletionRequest,
     ChatCompletionRequest,
@@ -91,7 +91,7 @@ def error_handler(f):
     return wrapper
 
 
-class OpenAIProxyModel(OpenAIModel):
+class OpenAIProxyModel(OpenAICompletionModel):
     """
     An implementation of OpenAIModel that proxies requests to a backend server exposing Open AI endpoints.
 
@@ -218,7 +218,7 @@ class OpenAIProxyModel(OpenAIModel):
         return chat_completion_chunk
 
     def _build_request(
-        self, endpoint: str, request: BaseCompletionRequest
+        self, endpoint: str, request: BaseOpenAIRequest
     ) -> httpx.Request:
 
         if request.context and "upstream_headers" in request.context:
