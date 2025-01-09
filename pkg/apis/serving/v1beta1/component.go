@@ -198,7 +198,7 @@ func validateContainerConcurrency(containerConcurrency *int64) error {
 
 func validateLogger(logger *LoggerSpec) error {
 	if logger != nil {
-		if !(logger.Mode == LogAll || logger.Mode == LogRequest || logger.Mode == LogResponse) {
+		if !(logger.Mode == LogAll || logger.Mode == LogRequest || logger.Mode == LogResponse || logger.Mode == LogCombined) {
 			return fmt.Errorf(InvalidLoggerType)
 		}
 	}
