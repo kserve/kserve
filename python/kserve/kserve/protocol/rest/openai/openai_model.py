@@ -13,17 +13,20 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import Any, AsyncIterator, Callable, Dict, Optional, Union
+from typing import Any, AsyncGenerator, AsyncIterator, Callable, Dict, Optional, Union
 import inspect
 
 from pydantic import BaseModel
+from fastapi import Request
 
 from kserve.protocol.rest.openai.types import (
     ChatCompletion,
-    ChatCompletionChunk,
     Completion,
-    CreateChatCompletionRequest,
-    CreateCompletionRequest,
+    CompletionRequest,
+    ChatCompletionRequest,
+    EmbeddingRequest,
+    Embedding,
+    ErrorResponse,
 )
 
 from ....model import BaseKServeModel
@@ -34,24 +37,50 @@ class ChatPrompt(BaseModel):
     prompt: str
 
 
-class BaseCompletionRequest(BaseModel):
-    request_id: Optional[str] = None
-    context: Optional[Dict[str, Any]] = None  # headers can go in here
-    params: Union[CreateCompletionRequest, CreateChatCompletionRequest]
-
-
-class CompletionRequest(BaseCompletionRequest):
-    params: CreateCompletionRequest
-
-
-class ChatCompletionRequest(BaseCompletionRequest):
-    params: CreateChatCompletionRequest
-
-
 class OpenAIModel(BaseKServeModel):
+    """
+    An abstract model with methods for implementing OpenAI's endpoints.
+    """
+
+    def __init__(self, name: str):
+        super().__init__(name)
+
+        # We don't support the `load()` method on OpenAIModel yet
+        # Assume the model is ready
+        self.ready = True
+
+
+class OpenAIGenerativeModel(OpenAIModel):
     """
     An abstract model with methods for implementing OpenAI's completions (v1/completions)
     and chat completions (v1/chat/completions) endpoints.
+
+    Users should extend this model and implement the abstract methods in order to expose
+    these endpoints.
+    """
+
+    @abstractmethod
+    async def create_completion(
+        self,
+        request: CompletionRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
+        pass
+
+    @abstractmethod
+    async def create_chat_completion(
+        self,
+        request: ChatCompletionRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
+        pass
+
+
+class OpenAIEncoderModel(OpenAIModel):
+    """
+    An abstract model with methods for implementing OpenAI's completions (v1/embeddings) endpoint.
 
     Users should extend this model and implement the abstract methods in order to expose
     these endpoints.
@@ -65,15 +94,12 @@ class OpenAIModel(BaseKServeModel):
         self.ready = True
 
     @abstractmethod
-    async def create_completion(
-        self, request: CompletionRequest
-    ) -> Union[Completion, AsyncIterator[Completion]]:
-        pass
-
-    @abstractmethod
-    async def create_chat_completion(
-        self, request: ChatCompletionRequest
-    ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
+    async def create_embedding(
+        self,
+        request: EmbeddingRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
         pass
 
 
