@@ -248,8 +248,6 @@ class Storage(object):
             # (without any subpaths).
             # If the bucket path is s3://test/models
             # Objects: churn, churn-pickle, churn-pickle-logs
-            bucket_path_last_part = bucket_path.split("/")[-1]
-            object_last_path = obj.key.split("/")[-1]
 
             if bucket_path == obj.key:
                 target_key = obj.key.rsplit("/", 1)[-1]
