@@ -30,8 +30,6 @@ from typing import (
     List,
     Tuple,
 )
-from typing_extensions import Required, Literal, TypeAlias
-from pydantic import ConfigDict
 
 import torch
 from accelerate import init_empty_weights

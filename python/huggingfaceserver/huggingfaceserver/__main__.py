@@ -211,9 +211,7 @@ def load_model():
 
         args.model = args.model_id or args.model_dir
         args.revision = args.model_revision
-        model = VLLMModel(
-            args.model_name, args, request_logger=request_logger
-        )
+        model = VLLMModel(args.model_name, args, request_logger=request_logger)
 
     else:
         kwargs = vars(args)

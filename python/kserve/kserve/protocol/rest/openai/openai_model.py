@@ -18,7 +18,6 @@ import inspect
 
 from pydantic import BaseModel
 from fastapi import Request
-from starlette.datastructures import Headers
 
 from kserve.protocol.rest.openai.types import (
     ChatCompletion,
@@ -50,6 +49,7 @@ class OpenAIModel(BaseKServeModel):
         # Assume the model is ready
         self.ready = True
 
+
 class OpenAIGenerativeModel(OpenAIModel):
     """
     An abstract model with methods for implementing OpenAI's completions (v1/completions)
@@ -73,7 +73,7 @@ class OpenAIGenerativeModel(OpenAIModel):
         self,
         request: ChatCompletionRequest,
         raw_request: Optional[Request] = None,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
         pass
 
@@ -98,7 +98,7 @@ class OpenAIEncoderModel(OpenAIModel):
         self,
         request: EmbeddingRequest,
         raw_request: Optional[Request] = None,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
         pass
 

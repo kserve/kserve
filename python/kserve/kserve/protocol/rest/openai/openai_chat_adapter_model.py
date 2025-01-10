@@ -26,7 +26,7 @@ from kserve.protocol.rest.openai.types import (
     ChatCompletionChunk,
     ChatCompletionMessageParam,
     ChatMessage,
-    ChatCompletionLogProbsContent,  # vLLM added this
+    ChatCompletionLogProbsContent,
     ChoiceDelta,
     ChunkChoice,
     Completion,
@@ -86,9 +86,7 @@ class OpenAIChatAdapterModel(OpenAIModel):
         )
 
     @classmethod
-    def to_choice_logprobs(
-        cls, logprobs: CompletionLogProbs
-    ) -> ChatCompletionLogProbs:
+    def to_choice_logprobs(cls, logprobs: CompletionLogProbs) -> ChatCompletionLogProbs:
         chat_completion_logprobs = []
         for i in range(len(logprobs.tokens)):
             token = logprobs.tokens[i]

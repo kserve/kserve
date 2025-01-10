@@ -14,7 +14,7 @@
 
 import base64
 import pathlib
-from typing import Any, Dict, AsyncGenerator,Optional, Union
+from typing import Any, Dict, AsyncGenerator, Optional, Union
 from fastapi import Request
 
 import struct
@@ -65,7 +65,9 @@ from kserve.protocol.rest.openai.types import (
 )
 
 
-class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-extension-no-member
+class HuggingfaceEncoderModel(
+    Model, OpenAIEncoderModel
+):  # pylint:disable=c-extension-no-member
     task: MLTask
     model_config: PretrainedConfig
     model_id_or_path: Union[pathlib.Path, str]
@@ -356,10 +358,10 @@ class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-ex
                 request_id,
                 prompt=prompt,
             )
-    
+
     async def create_embedding(
-        self, 
-        request: EmbeddingRequest, 
+        self,
+        request: EmbeddingRequest,
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
@@ -398,7 +400,9 @@ class HuggingfaceEncoderModel(Model, OpenAIEncoderModel):  # pylint:disable=c-ex
 
             # Call the inference to determine the embedding values
             context = {}
-            instances = request.input if isinstance(request.input, list) else [request.input]
+            instances = (
+                request.input if isinstance(request.input, list) else [request.input]
+            )
             inference_out, _ = await self({"instances": instances}, context)
             embedding_out = inference_out["predictions"]
 
