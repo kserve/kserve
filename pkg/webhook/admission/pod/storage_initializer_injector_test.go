@@ -557,6 +557,89 @@ func TestStorageInitializerInjector(t *testing.T) {
 	}
 }
 
+func TestCustomSpecStorageMountPathInjection(t *testing.T) {
+	scenarios := map[string]struct {
+		original                       *v1.Pod
+		expectedStorageMountPathEnvVar *v1.EnvVar
+		expectedMountPath              string
+	}{
+		"CustomSpecStorageMountPathSet": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  constants.CustomSpecStorageMountPathKey,
+									Value: "/custom/models",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedStorageMountPathEnvVar: &v1.EnvVar{
+				Name:  constants.CustomSpecStorageMountPathKey,
+				Value: "/custom/models",
+			},
+			expectedMountPath: "/custom/models",
+		},
+		"CustomSpecStorageMountPathNotSet": {
+			original: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+							Env: []v1.EnvVar{
+								{
+									Name:  "SomeOtherEnv",
+									Value: "someValue",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedStorageMountPathEnvVar: nil,
+			expectedMountPath:              constants.DefaultModelLocalMountPath,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		injector := &StorageInitializerInjector{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+				Data: map[string]string{},
+			}),
+			config: storageInitializerConfig,
+			client: c,
+		}
+		if err := injector.InjectStorageInitializer(scenario.original); err != nil {
+			t.Errorf("Test %q unexpected result: %s", name, err)
+		}
+
+		var originalEnvVar *v1.EnvVar
+		for _, envVar := range scenario.original.Spec.Containers[0].Env {
+			if envVar.Name == constants.CustomSpecStorageMountPathKey {
+				originalEnvVar = &envVar
+			}
+		}
+		if diff, _ := kmp.SafeDiff(scenario.expectedStorageMountPathEnvVar, originalEnvVar); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+
+	}
+}
 func TestStorageInitializerFailureCases(t *testing.T) {
 	scenarios := map[string]struct {
 		original            *v1.Pod
