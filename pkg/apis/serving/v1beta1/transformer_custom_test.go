@@ -159,7 +159,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
+					fmt.Sprintf("%s.%s", constants.PredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 				},
@@ -219,7 +219,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
+					fmt.Sprintf("%s.%s", constants.PredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 					"--workers",
@@ -315,7 +315,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 			transformer := scenario.isvc.Spec.Transformer.GetImplementation()
 			transformer.Default(nil)
 			res := transformer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Transformer.ComponentExtensionSpec,
-				nil, constants.DefaultPredictorServiceName("someName"))
+				nil, constants.PredictorServiceName("someName"))
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}

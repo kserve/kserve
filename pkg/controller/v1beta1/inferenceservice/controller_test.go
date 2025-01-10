@@ -679,7 +679,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			err := k8sClient.Update(context.TODO(), expectedService, client.DryRunAll)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(actualService.Spec).To(BeComparableTo(expectedService.Spec))
-			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			// update predictor
 			{
 				updatedService := actualService.DeepCopy()
@@ -1968,7 +1968,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				err := k8sClient.Update(ctx, expectedService, client.DryRunAll)
 				Expect(err).ShouldNot(HaveOccurred())
 				Expect(actualService.Spec).To(BeComparableTo(expectedService.Spec))
-				predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+				predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 				// update predictor
 				{
 					updatedService := actualService.DeepCopy()
@@ -2280,7 +2280,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				err := k8sClient.Update(ctx, expectedService, client.DryRunAll)
 				Expect(err).ShouldNot(HaveOccurred())
 				Expect(actualService.Spec).To(BeComparableTo(expectedService.Spec))
-				predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+				predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 				// update predictor
 				{
 					updatedService := actualService.DeepCopy()
@@ -2611,7 +2611,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				err := k8sClient.Update(ctx, expectedService, client.DryRunAll)
 				Expect(err).ShouldNot(HaveOccurred())
 				Expect(actualService.Spec).To(BeComparableTo(expectedService.Spec))
-				predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+				predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 				// update predictor
 				{
 					updatedService := actualService.DeepCopy()
@@ -2887,7 +2887,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				err := k8sClient.Update(ctx, expectedService, client.DryRunAll)
 				Expect(err).ShouldNot(HaveOccurred())
 				Expect(actualService.Spec).To(BeComparableTo(expectedService.Spec))
-				predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+				predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 				// update predictor
 				{
 					updatedService := actualService.DeepCopy()
@@ -3435,7 +3435,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			expectedPredictorService := &knservingv1.Service{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.DefaultPredictorServiceName(serviceName),
+					Name:      constants.PredictorServiceName(serviceName),
 					Namespace: instance.Namespace,
 				},
 				Spec: knservingv1.ServiceSpec{
