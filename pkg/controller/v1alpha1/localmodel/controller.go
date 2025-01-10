@@ -65,7 +65,7 @@ var (
 	ownerKey         = ".metadata.controller"
 	localModelKey    = ".localmodel"
 	apiGVStr         = v1alpha1.SchemeGroupVersion.String()
-	modelCacheCRName = "LocalModelcache"
+	modelCacheCRName = "LocalModelCache"
 	finalizerName    = "localmodel.kserve.io/finalizer"
 )
 
