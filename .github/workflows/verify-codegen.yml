@@ -58,6 +58,6 @@ jobs:
               for x in $(git diff-index --name-only HEAD -- ./pkg ./python ./charts); do
                   echo "::error file=$x::Please run make generate.%0A$(git diff $x | urlencode)"
               done
-              echo "${{ github.repository }} is out of date. Please run make generate"
+              echo "${{ github.repository }} is out of date. Please run make generate | manifest"
               exit 1
           fi

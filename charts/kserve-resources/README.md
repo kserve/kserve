@@ -37,8 +37,10 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.controller.imagePullSecrets | list | `[]` | Reference to one or more secrets to be used when pulling images. For more information, see [Pull an Image from a Private Registry](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/).  For example:  imagePullSecrets:    - name: "image-pull-secret" |
 | kserve.controller.knativeAddressableResolver | object | `{"enabled":false}` | Indicates whether to create an addressable resolver ClusterRole for Knative Eventing. This ClusterRole grants the necessary permissions for the Knative's DomainMapping reconciler to resolve InferenceService addressables. |
 | kserve.controller.labels | object | `{}` | Optional additional labels to add to the controller deployment. |
+| kserve.controller.metricsBindAddress | string | `"127.0.0.1"` | Metrics bind address |
+| kserve.controller.metricsBindPort | string | `"8080"` | Metrics bind port |
 | kserve.controller.nodeSelector | object | `{}` | The nodeSelector on Pods tells Kubernetes to schedule Pods on the nodes with matching labels. For more information, see [Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).  |
-| kserve.controller.podAnnotations | object | `{}` | Optional additional labels to add to the controller Pods. |
+| kserve.controller.podAnnotations | object | `{}` | Optional additional annotations to add to the controller Pods. |
 | kserve.controller.podLabels | object | `{}` | Optional additional labels to add to the controller Pods. |
 | kserve.controller.rbacProxy.resources.limits.cpu | string | `"100m"` |  |
 | kserve.controller.rbacProxy.resources.limits.memory | string | `"300Mi"` |  |
@@ -52,18 +54,22 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.18.0"` | KServe controller manager rbac proxy contrainer image |
 | kserve.controller.resources | object | `{"limits":{"cpu":"100m","memory":"300Mi"},"requests":{"cpu":"100m","memory":"300Mi"}}` | Resources to provide to the kserve controller pod.  For example:  requests:    cpu: 10m    memory: 32Mi  For more information, see [Resource Management for Pods and Containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/). |
 | kserve.controller.securityContext | object | `{"runAsNonRoot":true}` | Pod Security Context. For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/). |
+| kserve.controller.serviceAnnotations | object | `{}` | Optional additional annotations to add to the controller service. |
 | kserve.controller.tag | string | `"v0.14.0"` | KServe controller contrainer image tag. |
 | kserve.controller.tolerations | list | `[]` | A list of Kubernetes Tolerations, if required. For more information, see [Toleration v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#toleration-v1-core).  For example:   tolerations:   - key: foo.bar.com/role     operator: Equal     value: master     effect: NoSchedule |
 | kserve.controller.topologySpreadConstraints | list | `[]` | A list of Kubernetes TopologySpreadConstraints, if required. For more information, see [Topology spread constraint v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#topologyspreadconstraint-v1-core  For example:   topologySpreadConstraints:   - maxSkew: 2     topologyKey: topology.kubernetes.io/zone     whenUnsatisfiable: ScheduleAnyway     labelSelector:       matchLabels:         app.kubernetes.io/instance: kserve-controller-manager         app.kubernetes.io/component: controller |
+| kserve.controller.webhookServiceAnnotations | object | `{}` | Optional additional annotations to add to the webhook service. |
 | kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
 | kserve.localmodel.agent.nodeSelector | object | `{}` |  |
+| kserve.localmodel.agent.reconcilationFrequencyInSecs | int | `60` |  |
 | kserve.localmodel.agent.tag | string | `"v0.14.0"` |  |
 | kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.tag | string | `"v0.14.0"` |  |
 | kserve.localmodel.enabled | bool | `false` |  |
 | kserve.localmodel.jobNamespace | string | `"kserve-localmodel-jobs"` |  |
-| kserve.localmodel.securityContext.FSGroup | int | `1000` |  |
+| kserve.localmodel.jobTTLSecondsAfterFinished | int | `3600` |  |
+| kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
 | kserve.metricsaggregator.enableMetricAggregation | string | `"false"` | configures metric aggregation annotation. This adds the annotation serving.kserve.io/enable-metric-aggregation to every service with the specified boolean value. If true enables metric aggregation in queue-proxy by setting env vars in the queue proxy container to configure scraping ports. |
 | kserve.metricsaggregator.enablePrometheusScraping | string | `"false"` | If true, prometheus annotations are added to the pod to scrape the metrics. If serving.kserve.io/enable-metric-aggregation is false, the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port. |
 | kserve.modelmesh.config.modelmeshImage | string | `"kserve/modelmesh"` |  |
@@ -88,6 +94,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.router.image | string | `"kserve/router"` |  |
 | kserve.router.tag | string | `"v0.14.0"` |  |
 | kserve.security.autoMountServiceAccountToken | bool | `true` |  |
+| kserve.service.serviceClusterIPNone | bool | `false` |  |
 | kserve.servingruntime.art.defaultVersion | string | `"v0.14.0"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
 | kserve.servingruntime.art.imagePullSecrets | list | `[]` |  |

@@ -430,7 +430,20 @@ data:
          # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/
          "defaultDeploymentMode": "Serverless"
        }
-     
+    
+     # ====================================== SERVICE CONFIGURATION ======================================
+     # Example
+     service: |-
+       {
+         "serviceClusterIPNone":  false
+       }
+     service: |-
+       {
+          # ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None.
+          # If the DeploymentMode is Raw, the default value for ServiceClusterIPNone if not set is false
+          # "serviceClusterIPNone":  false
+       }
+
      # ====================================== METRICS CONFIGURATION ======================================
      # Example
      metricsAggregator: |-
@@ -462,7 +475,12 @@ data:
          # defaultJobImage specifies the default image used for the download job.
          "defaultJobImage" : "kserve/storage-initializer:latest",
          # Kubernetes modifies the filesystem group ID on the attached volume.
-         "FSGroup": 1000
+         "fsGroup": 1000,
+         # TTL for the download job after it is finished.
+         "jobTTLSecondsAfterFinished": 3600,
+         # The frequency at which the local model agent reconciles the local models
+         # This is to detect if models are missing from local disk
+         "reconcilationFrequencyInSecs": 60
        }
 
   explainers: |-
@@ -577,10 +595,15 @@ data:
       "enabled": false,
       "jobNamespace": "kserve-localmodel-jobs",
       "defaultJobImage" : "kserve/storage-initializer:latest",
-      "FSGroup": 1000
+      "fsGroup": 1000
     }
   
   security: |-
     {
       "autoMountServiceAccountToken": true
+    }
+
+  service: |-
+    {
+        "serviceClusterIPNone": true
     }

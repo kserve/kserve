@@ -49,17 +49,18 @@ func NewServiceReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, multiNodeEnabled bool) *ServiceReconciler {
+	podSpec *corev1.PodSpec, multiNodeEnabled bool,
+	serviceConfig *v1beta1.ServiceConfig) *ServiceReconciler {
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
-		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled),
+		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
 		componentExt: componentExt,
 	}
 }
 
 func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, multiNodeEnabled bool) []*corev1.Service {
+	podSpec *corev1.PodSpec, multiNodeEnabled bool, serviceConfig *v1beta1.ServiceConfig) []*corev1.Service {
 	var svcList []*corev1.Service
 	var isWorkerContainer bool
 
@@ -73,11 +74,11 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 
 	if !multiNodeEnabled {
 		// If multiNodeEnabled is false, only defaultSvc will be created.
-		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec)
+		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec, serviceConfig)
 		svcList = append(svcList, defaultSvc)
 	} else if multiNodeEnabled && !isWorkerContainer {
 		// If multiNodeEnabled is true, both defaultSvc and headSvc will be created.
-		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec)
+		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec, serviceConfig)
 		svcList = append(svcList, defaultSvc)
 
 		headSvc := createHeadlessSvc(componentMeta)
@@ -88,7 +89,7 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 }
 
 func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec) *corev1.Service {
+	podSpec *corev1.PodSpec, serviceConfig *v1beta1.ServiceConfig) *corev1.Service {
 	var servicePorts []corev1.ServicePort
 
 	if len(podSpec.Containers) != 0 {
@@ -165,12 +166,9 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 				"app": constants.GetRawServiceLabel(componentMeta.Name),
 			},
 			Ports: servicePorts,
-			// TODO - add a control flag
-			// Need to add a control flag to properly set it, enable/disable this behavior.
-			// Follow up issue to align with upstream: https://issues.redhat.com/browse/RHOAIENG-5077
-			ClusterIP: corev1.ClusterIPNone,
 		},
 	}
+
 	if val, ok := componentMeta.Labels[constants.ODHKserveRawAuth]; ok && val == "true" {
 		if service.ObjectMeta.Annotations == nil {
 			service.ObjectMeta.Annotations = make(map[string]string)
@@ -198,6 +196,11 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 		}
 		service.Spec.Ports = ports
 	}
+
+	if serviceConfig != nil && serviceConfig.ServiceClusterIPNone {
+		service.Spec.ClusterIP = corev1.ClusterIPNone
+	}
+
 	return service
 }
 

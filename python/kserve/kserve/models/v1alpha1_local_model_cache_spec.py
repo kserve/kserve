@@ -48,29 +48,29 @@ class V1alpha1LocalModelCacheSpec(object):
     """
     openapi_types = {
         'model_size': 'ResourceQuantity',
-        'node_group': 'str',
+        'node_groups': 'list[str]',
         'source_model_uri': 'str'
     }
 
     attribute_map = {
         'model_size': 'modelSize',
-        'node_group': 'nodeGroup',
+        'node_groups': 'nodeGroups',
         'source_model_uri': 'sourceModelUri'
     }
 
-    def __init__(self, model_size=None, node_group='', source_model_uri='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, model_size=None, node_groups=None, source_model_uri='', local_vars_configuration=None):  # noqa: E501
         """V1alpha1LocalModelCacheSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._model_size = None
-        self._node_group = None
+        self._node_groups = None
         self._source_model_uri = None
         self.discriminator = None
 
         self.model_size = model_size
-        self.node_group = node_group
+        self.node_groups = node_groups
         self.source_model_uri = source_model_uri
 
     @property
@@ -97,29 +97,29 @@ class V1alpha1LocalModelCacheSpec(object):
         self._model_size = model_size
 
     @property
-    def node_group(self):
-        """Gets the node_group of this V1alpha1LocalModelCacheSpec.  # noqa: E501
+    def node_groups(self):
+        """Gets the node_groups of this V1alpha1LocalModelCacheSpec.  # noqa: E501
 
-        group of nodes to cache the model on.  # noqa: E501
+        group of nodes to cache the model on. Todo: support more than 1 node groups  # noqa: E501
 
-        :return: The node_group of this V1alpha1LocalModelCacheSpec.  # noqa: E501
-        :rtype: str
+        :return: The node_groups of this V1alpha1LocalModelCacheSpec.  # noqa: E501
+        :rtype: list[str]
         """
-        return self._node_group
+        return self._node_groups
 
-    @node_group.setter
-    def node_group(self, node_group):
-        """Sets the node_group of this V1alpha1LocalModelCacheSpec.
+    @node_groups.setter
+    def node_groups(self, node_groups):
+        """Sets the node_groups of this V1alpha1LocalModelCacheSpec.
 
-        group of nodes to cache the model on.  # noqa: E501
+        group of nodes to cache the model on. Todo: support more than 1 node groups  # noqa: E501
 
-        :param node_group: The node_group of this V1alpha1LocalModelCacheSpec.  # noqa: E501
-        :type: str
+        :param node_groups: The node_groups of this V1alpha1LocalModelCacheSpec.  # noqa: E501
+        :type: list[str]
         """
-        if self.local_vars_configuration.client_side_validation and node_group is None:  # noqa: E501
-            raise ValueError("Invalid value for `node_group`, must not be `None`")  # noqa: E501
+        if self.local_vars_configuration.client_side_validation and node_groups is None:  # noqa: E501
+            raise ValueError("Invalid value for `node_groups`, must not be `None`")  # noqa: E501
 
-        self._node_group = node_group
+        self._node_groups = node_groups
 
     @property
     def source_model_uri(self):
