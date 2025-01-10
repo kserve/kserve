@@ -154,7 +154,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
+					fmt.Sprintf("%s.%s", constants.PredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 				},
@@ -214,7 +214,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 					"--model_name",
 					"someName",
 					"--predictor_host",
-					fmt.Sprintf("%s.%s", constants.DefaultPredictorServiceName("someName"), "default"),
+					fmt.Sprintf("%s.%s", constants.PredictorServiceName("someName"), "default"),
 					"--http_port",
 					"8080",
 					"--workers",
@@ -234,7 +234,7 @@ func TestCreateCustomExplainerContainer(t *testing.T) {
 			explainer := scenario.isvc.Spec.Explainer.GetImplementation()
 			explainer.Default(&config)
 			res := explainer.GetContainer(metav1.ObjectMeta{Name: "someName", Namespace: "default"}, &scenario.isvc.Spec.Explainer.ComponentExtensionSpec,
-				&config, constants.DefaultPredictorServiceName("someName"))
+				&config, constants.PredictorServiceName("someName"))
 			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
 				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
