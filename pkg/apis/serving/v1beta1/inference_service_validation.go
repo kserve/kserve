@@ -28,12 +28,13 @@ import (
 
 	"regexp"
 
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // regular expressions for validation of isvc name
@@ -93,12 +94,6 @@ func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, obj runt
 	}
 	validatorLogger.Info("validate delete", "name", isvc.Name)
 	return nil, nil
-}
-
-// GetIntReference returns the pointer for the integer input
-func GetIntReference(number int) *int {
-	num := number
-	return &num
 }
 
 func validateInferenceService(isvc *InferenceService) (admission.Warnings, error) {

@@ -20,11 +20,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var (
@@ -172,8 +173,10 @@ func TestInferenceServiceDisallowedLists(t *testing.T) {
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(isvcConfigWithData).ShouldNot(gomega.BeNil())
 
+	// nolint:gocritic
 	annotations := append(constants.ServiceAnnotationDisallowedList, []string{"my.custom.annotation/1", "my.custom.annotation/2"}...)
 	g.Expect(isvcConfigWithData.ServiceAnnotationDisallowedList).To(gomega.Equal(annotations))
+	// nolint:gocritic
 	labels := append(constants.RevisionTemplateLabelDisallowedList, []string{"my.custom.label.1", "my.custom.label.2"}...)
 	g.Expect(isvcConfigWithData.ServiceLabelDisallowedList).To(gomega.Equal(labels))
 

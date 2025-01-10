@@ -21,10 +21,11 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 type DomainTemplateValues struct {
