@@ -909,7 +909,7 @@ jobs:
   test-llm:
     runs-on: ubuntu-22.04
     needs:
-      [ kserve-image-build, predictor-runtime-build]
+      [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -969,7 +969,7 @@ jobs:
   test-huggingface-server-vllm:
     runs-on: ubuntu-22.04
     needs:
-      [ kserve-image-build, predictor-runtime-build]
+      [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -1024,4 +1024,129 @@ jobs:
       - name: Check system status
         if: always()
         run: |
+          ./test/scripts/gh-actions/status-check.sh
+  
+  test-modelcache:
+    runs-on: ubuntu-22.04
+    needs:
+      [kserve-image-build, predictor-runtime-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      
+      - name: Create tmp-images directory
+        run: |
+          sudo mkdir -p /tmp-images
+          sudo chown -R $USER /tmp-images
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+        with:
+          nodes: 3
+          driver: "docker"
+          start-args: "--mount --mount-string=/tmp-images:/tmp-images"
+      
+      - name: Create minikube tunnel
+        run: |
+          nohup minikube tunnel > minikube-tunnel.log 2>&1 &
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp-images
+          pattern: ${{ env.BASE_ARTIFACT_PREFIX }}-*
+          merge-multiple: true
+
+      - name: Load base docker images
+        run: |
+          ls -l /tmp-images
+          minikube ssh -n minikube -- ls -l /tmp-images
+          files=$(find /tmp-images -maxdepth 1 -type f)
+          for file in ${files[@]};do
+            echo "Loading image $(basename ${file})"
+            minikube ssh -n minikube -- docker image load -i ${file}
+            minikube ssh -n minikube-m02 -- docker image load -i ${file}
+            minikube ssh -n minikube-m03 -- docker image load -i ${file}
+          done
+          sudo rm -rf /tmp-images/*
+          minikube ssh -n minikube -- docker image ls
+          minikube ssh -n minikube-m02 -- docker image ls
+          minikube ssh -n minikube-m03 -- docker image ls
+
+      - name: Download huggingface server image
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ github.sha }}
+          path: /tmp-images
+
+      - name: Load runtime docker images
+        run: |
+          files=$(find /tmp-images -maxdepth 1 -type f)
+          for file in ${files[@]};do
+            echo "Loading image $(basename ${file})"
+            minikube ssh -n minikube-m02 -- docker image load -i ${file}
+          done
+          sudo rm -rf tmp-images/*
+          minikube ssh -n minikube-m02 -- docker image ls
+      
+      - name: Create model root directory
+        run: |
+          minikube ssh -n minikube-m02 -- sudo mkdir -p -m=777 /models
+          minikube ssh -n minikube-m03 -- sudo mkdir -p -m=777 /models
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
+      - name: Install KServe
+        run: |
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+      
+      - name: Enable modelcache
+        run: |
+          sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Create localmodel job namespace
+        run: |
+          kubectl create ns kserve-localmodel-jobs
+      
+      - name: Label worker nodes for modelcache
+        run: |
+          kubectl label nodes -l '!node-role.kubernetes.io/control-plane' kserve/localmodel=worker
+      
+      - name: Enable nodeselector in knative
+        run: |
+          kubectl patch configmaps -n knative-serving config-features --patch '{"data": {"kubernetes.podspec-nodeselector": "enabled"}}'
+      
+      - name: Run E2E tests
+        timeout-minutes: 15
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "modelcache" "1"
+
+      - name: Check system status
+        if: always()
+        run: |
+          echo "::group::Minikube tunnel logs"
+          cat minikube-tunnel.log
+          echo "::endgroup::"
           ./test/scripts/gh-actions/status-check.sh

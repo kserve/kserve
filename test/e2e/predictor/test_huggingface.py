@@ -65,7 +65,7 @@ def test_huggingface_openai_chat_completions():
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -118,7 +118,7 @@ async def test_huggingface_v2_sequence_classification(rest_v2_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -166,7 +166,7 @@ async def test_huggingface_v1_fill_mask(rest_v1_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -219,7 +219,7 @@ async def test_huggingface_v2_token_classification(rest_v2_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -268,7 +268,7 @@ def test_huggingface_openai_text_2_text():
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -324,7 +324,7 @@ async def test_huggingface_v2_text_embedding(rest_v2_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -379,7 +379,7 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
