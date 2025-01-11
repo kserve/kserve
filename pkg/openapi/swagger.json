@@ -1294,10 +1294,18 @@
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
+        "scaleMetricType": {
+          "description": "Type of metric to use. Options are Utilization, or AverageValue.",
+          "type": "string"
+        },
         "scaleTarget": {
           "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
+        },
+        "scaler": {
+          "description": "Specs for Scaling",
+          "$ref": "#/definitions/v1beta1.ScalerSpec"
         },
         "timeout": {
           "description": "TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.",
@@ -2617,10 +2625,18 @@
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
+        "scaleMetricType": {
+          "description": "Type of metric to use. Options are Utilization, or AverageValue.",
+          "type": "string"
+        },
         "scaleTarget": {
           "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
+        },
+        "scaler": {
+          "description": "Specs for Scaling",
+          "$ref": "#/definitions/v1beta1.ScalerSpec"
         },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
@@ -3361,6 +3377,17 @@
         },
         "url": {
           "description": "URL to send logging events",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.MetricsConfig": {
+      "type": "object",
+      "properties": {
+        "metricsBackend": {
+          "type": "string"
+        },
+        "serverAddress": {
           "type": "string"
         }
       }
@@ -4848,10 +4875,18 @@
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
+        "scaleMetricType": {
+          "description": "Type of metric to use. Options are Utilization, or AverageValue.",
+          "type": "string"
+        },
         "scaleTarget": {
           "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
+        },
+        "scaler": {
+          "description": "Specs for Scaling",
+          "$ref": "#/definitions/v1beta1.ScalerSpec"
         },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",
@@ -5137,6 +5172,54 @@
         },
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.ScalerSpec": {
+      "type": "object",
+      "properties": {
+        "maxReplicas": {
+          "description": "Maximum number of replicas for autoscaling.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "metricBackend": {
+          "description": "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
+          "type": "string"
+        },
+        "metricQuery": {
+          "description": "Query to run to get metrics from MetricsBackend",
+          "type": "string"
+        },
+        "minReplicas": {
+          "description": "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "queryParameters": {
+          "description": "A comma-separated list of query Parameters to include while querying the MetricsBackend endpoint.",
+          "type": "string"
+        },
+        "queryTime": {
+          "description": "queryTime is relative time range to execute query against. specialized for graphite (https://graphite-api.readthedocs.io/en/latest/api.html#from-until)",
+          "type": "string"
+        },
+        "scaleMetric": {
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "type": "string"
+        },
+        "scaleMetricType": {
+          "description": "Type of metric to use. Options are Utilization, or AverageValue.",
+          "type": "string"
+        },
+        "scaleTarget": {
+          "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
+          "type": "integer",
+          "format": "int32"
+        },
+        "serverAddress": {
+          "description": "Address of MetricsBackend server.",
           "type": "string"
         }
       }
@@ -5767,10 +5850,18 @@
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
+        "scaleMetricType": {
+          "description": "Type of metric to use. Options are Utilization, or AverageValue.",
+          "type": "string"
+        },
         "scaleTarget": {
           "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
+        },
+        "scaler": {
+          "description": "Specs for Scaling",
+          "$ref": "#/definitions/v1beta1.ScalerSpec"
         },
         "schedulerName": {
           "description": "If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.",

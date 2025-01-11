@@ -38,6 +38,7 @@ const (
 	LocalModelConfigName          = "localModel"
 	SecurityConfigName            = "security"
 	ServiceConfigName             = "service"
+	MetricsConfigName             = "metrics"
 )
 
 const (
@@ -89,6 +90,12 @@ type IngressConfig struct {
 // +kubebuilder:object:generate=false
 type DeployConfig struct {
 	DefaultDeploymentMode string `json:"defaultDeploymentMode,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type MetricsConfig struct {
+	MetricBackend string `json:"metricsBackend,omitempty"`
+	ServerAddress string `json:"serverAddress,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -209,6 +216,21 @@ func getComponentConfig(key string, configMap *v1.ConfigMap, componentConfig int
 		}
 	}
 	return nil
+}
+
+func NewMetricsConfig(clientset kubernetes.Interface) (*MetricsConfig, error) {
+	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	metricsConfig := &MetricsConfig{}
+	if metrics, ok := configMap.Data[MetricsConfigName]; ok {
+		err := json.Unmarshal([]byte(metrics), &metricsConfig)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse metrics config json: %w", err)
+		}
+	}
+	return metricsConfig, nil
 }
 
 func NewDeployConfig(clientset kubernetes.Interface) (*DeployConfig, error) {
