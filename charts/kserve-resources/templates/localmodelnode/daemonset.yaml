@@ -27,6 +27,14 @@ spec:
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.kserve.localmodel.agent.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.kserve.localmodel.agent.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       serviceAccountName: kserve-localmodelnode-agent
       securityContext:
         runAsNonRoot: true
@@ -43,7 +51,8 @@ spec:
               - ALL
           privileged: false
           readOnlyRootFilesystem: true
-          runAsNonRoot: true
+          runAsNonRoot: {{ .Values.kserve.localmodel.agent.securityContext.runAsNonRoot }}
+          runAsUser: {{ .Values.kserve.localmodel.agent.securityContext.runAsUser }}
         env:
           - name: POD_NAMESPACE
             valueFrom:

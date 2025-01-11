@@ -47,23 +47,33 @@ class V1beta1InferenceServicesConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'explainers': 'V1beta1ExplainersConfig'
+        'explainers': 'V1beta1ExplainersConfig',
+        'service_annotation_disallowed_list': 'list[str]',
+        'service_label_disallowed_list': 'list[str]'
     }
 
     attribute_map = {
-        'explainers': 'explainers'
+        'explainers': 'explainers',
+        'service_annotation_disallowed_list': 'serviceAnnotationDisallowedList',
+        'service_label_disallowed_list': 'serviceLabelDisallowedList'
     }
 
-    def __init__(self, explainers=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, explainers=None, service_annotation_disallowed_list=None, service_label_disallowed_list=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServicesConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._explainers = None
+        self._service_annotation_disallowed_list = None
+        self._service_label_disallowed_list = None
         self.discriminator = None
 
         self.explainers = explainers
+        if service_annotation_disallowed_list is not None:
+            self.service_annotation_disallowed_list = service_annotation_disallowed_list
+        if service_label_disallowed_list is not None:
+            self.service_label_disallowed_list = service_label_disallowed_list
 
     @property
     def explainers(self):
@@ -87,6 +97,52 @@ class V1beta1InferenceServicesConfig(object):
             raise ValueError("Invalid value for `explainers`, must not be `None`")  # noqa: E501
 
         self._explainers = explainers
+
+    @property
+    def service_annotation_disallowed_list(self):
+        """Gets the service_annotation_disallowed_list of this V1beta1InferenceServicesConfig.  # noqa: E501
+
+        ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative revisions  # noqa: E501
+
+        :return: The service_annotation_disallowed_list of this V1beta1InferenceServicesConfig.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._service_annotation_disallowed_list
+
+    @service_annotation_disallowed_list.setter
+    def service_annotation_disallowed_list(self, service_annotation_disallowed_list):
+        """Sets the service_annotation_disallowed_list of this V1beta1InferenceServicesConfig.
+
+        ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative revisions  # noqa: E501
+
+        :param service_annotation_disallowed_list: The service_annotation_disallowed_list of this V1beta1InferenceServicesConfig.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._service_annotation_disallowed_list = service_annotation_disallowed_list
+
+    @property
+    def service_label_disallowed_list(self):
+        """Gets the service_label_disallowed_list of this V1beta1InferenceServicesConfig.  # noqa: E501
+
+        ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions  # noqa: E501
+
+        :return: The service_label_disallowed_list of this V1beta1InferenceServicesConfig.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._service_label_disallowed_list
+
+    @service_label_disallowed_list.setter
+    def service_label_disallowed_list(self, service_label_disallowed_list):
+        """Sets the service_label_disallowed_list of this V1beta1InferenceServicesConfig.
+
+        ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions  # noqa: E501
+
+        :param service_label_disallowed_list: The service_label_disallowed_list of this V1beta1InferenceServicesConfig.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._service_label_disallowed_list = service_label_disallowed_list
 
     def to_dict(self):
         """Returns the model properties as a dict"""
