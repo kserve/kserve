@@ -35,12 +35,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-
+	flag "github.com/spf13/pflag"
 	"github.com/tidwall/gjson"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	flag "github.com/spf13/pflag"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -338,11 +336,11 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 	return compiled, goerrors.Join(allErrors...)
 }
 
-// Mainly used for kubernetes readiness probe. It responds with "500 shutting down" if server is shutting down,
+// Mainly used for kubernetes readiness probe. It responds with "503 shutting down" if server is shutting down,
 // otherwise returns "200 OK".
 func readyHandler(w http.ResponseWriter, req *http.Request) {
 	if isShuttingDown {
-		http.Error(w, "shutting down", http.StatusInternalServerError)
+		http.Error(w, "shutting down", http.StatusServiceUnavailable)
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}

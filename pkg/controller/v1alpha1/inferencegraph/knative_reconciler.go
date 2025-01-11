@@ -35,7 +35,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -204,23 +203,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 											Drop: []v1.Capability{v1.Capability("ALL")},
 										},
 									},
-									ReadinessProbe: &v1.Probe{
-										ProbeHandler: v1.ProbeHandler{
-											HTTPGet: &v1.HTTPGetAction{
-												Path: constants.RouterReadinessEndpoint,
-												Port: intstr.IntOrString{
-													Type:   intstr.Int,
-													IntVal: constants.RouterPort,
-												},
-												Scheme: v1.URISchemeHTTP,
-											},
-										},
-										InitialDelaySeconds: 5,
-										TimeoutSeconds:      1,
-										PeriodSeconds:       10,
-										SuccessThreshold:    1,
-										FailureThreshold:    3,
-									},
+									ReadinessProbe: constants.GetRouterReadinessProbe(),
 								},
 							},
 							Affinity:                     graph.Spec.Affinity,

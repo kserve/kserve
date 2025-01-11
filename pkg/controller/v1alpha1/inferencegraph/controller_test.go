@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/kmp"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -67,23 +66,7 @@ var _ = Describe("Inference Graph controller test", func() {
 		}
 	)
 
-	var expectedReadinessProbe = &v1.Probe{
-		ProbeHandler: v1.ProbeHandler{
-			HTTPGet: &v1.HTTPGetAction{
-				Path: constants.RouterReadinessEndpoint,
-				Port: intstr.IntOrString{
-					Type:   intstr.Int,
-					IntVal: constants.RouterPort,
-				},
-				Scheme: v1.URISchemeHTTP,
-			},
-		},
-		InitialDelaySeconds: 5,
-		TimeoutSeconds:      1,
-		PeriodSeconds:       10,
-		SuccessThreshold:    1,
-		FailureThreshold:    3,
-	}
+	var expectedReadinessProbe = constants.GetRouterReadinessProbe()
 
 	Context("When creating an inferencegraph with headers in global config", func() {
 		It("Should create a knative service with headers as env var of podspec", func() {
