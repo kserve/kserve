@@ -34,6 +34,18 @@ echo "::group::Kserve Controller Logs"
 kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager --tail -1
 echo "::endgroup::"
 
+echo "::group::Kserve ModelCache Controller Logs"
+kubectl logs -l control-plane=kserve-localmodel-controller-manager -n kserve -c manager --tail -1
+echo "::endgroup::"
+
+echo "::group::Kserve ModelCache Agent Logs"
+for pod in $(kubectl get pods -l control-plane=kserve-localmodelnode-agent -o jsonpath='{.items[*].metadata.name}' -n kserve); do
+    echo "=====================================  Logs for modelcache agent: $pod  ========================================="
+    kubectl logs "$pod" -c manager -n kserve --tail -1
+    echo "================================================================================================================"
+done
+echo "::endgroup::"
+
 echo "::group::Predictor Pod logs"
 for pod in $(kubectl get pods -l 'component in (predictor)' -o jsonpath='{.items[*].metadata.name}' -n kserve-ci-e2e-test); do
     echo "=====================================  Logs for Predictor Pod: $pod  ========================================="
