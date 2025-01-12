@@ -1,6 +1,20 @@
 name: 'Minikube setup action'
 description: 'Sets up minikube on the github runner'
 
+inputs:
+  nodes:
+    description: 'Number of nodes to start minikube with'
+    required: false
+    default: '1'
+  driver:
+    description: 'Driver to use for minikube'
+    required: false
+    default: 'none'
+  start-args:
+    description: 'Additional arguments to pass to minikube start'
+    required: false
+    default: ''
+
 runs:
   using: "composite"
   steps:
@@ -16,7 +30,9 @@ runs:
         kubernetes-version: 'v1.30.7'
         driver: 'none'
         wait: 'all'
-        start-args: --wait-timeout=6m0s
+        cpus: 'max'
+        memory: 'max'
+        start-args: --wait-timeout=6m0s --nodes=${{ inputs.nodes }} ${{ inputs.start-args }}
 
     - name: Check Kubernetes pods
       shell: bash

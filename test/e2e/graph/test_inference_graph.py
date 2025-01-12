@@ -64,7 +64,7 @@ async def test_inference_graph(rest_v1_client):
     )
     sklearn_isvc_1 = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=sklearn_name_1, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -72,7 +72,7 @@ async def test_inference_graph(rest_v1_client):
     )
     sklearn_isvc_2 = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=sklearn_name_2, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -91,7 +91,7 @@ async def test_inference_graph(rest_v1_client):
     )
     xgb_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(name=xgb_name, namespace=KSERVE_TEST_NAMESPACE),
         spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
     )
@@ -187,7 +187,7 @@ def construct_isvc_to_submit(service_name, image, model_name):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -946,7 +946,7 @@ async def test_inference_graph_raw_mode(rest_v1_client, network_layer):
     )
     sklearn_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=sklearn_name,
             namespace=KSERVE_TEST_NAMESPACE,
@@ -967,7 +967,7 @@ async def test_inference_graph_raw_mode(rest_v1_client, network_layer):
     )
     xgb_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=xgb_name,
             namespace=KSERVE_TEST_NAMESPACE,
@@ -1106,7 +1106,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer):
     )
     sklearn_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=sklearn_name,
             namespace=KSERVE_TEST_NAMESPACE,
@@ -1127,7 +1127,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer):
     )
     xgb_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=xgb_name,
             namespace=KSERVE_TEST_NAMESPACE,
