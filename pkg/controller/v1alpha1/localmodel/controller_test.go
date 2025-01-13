@@ -102,32 +102,9 @@ var _ = Describe("CachedModel controller", func() {
 	)
 	Context("When creating a local model", func() {
 		It("Should create pv, pvc, localmodelnode, and update status from localmodelnode", func() {
-			var configMap = &v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KServeNamespace,
-				},
-				Data: configs,
-			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			configMap, clusterStorageContainer, nodeGroup := genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 			defer k8sClient.Delete(context.TODO(), configMap)
-
-			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: clusterStorageContainerSpec,
-			}
-			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
 			defer k8sClient.Delete(ctx, clusterStorageContainer)
-
-			nodeGroup := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu",
-				},
-				Spec: localModelNodeGroupSpec,
-			}
-			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
 			defer k8sClient.Delete(ctx, nodeGroup)
 
 			cachedModel := &v1alpha1.LocalModelCache{
@@ -221,32 +198,9 @@ var _ = Describe("CachedModel controller", func() {
 		})
 
 		It("Should create pvs and pvcs for inference services", func() {
-			var configMap = &v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KServeNamespace,
-				},
-				Data: configs,
-			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			configMap, clusterStorageContainer, nodeGroup := genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 			defer k8sClient.Delete(context.TODO(), configMap)
-
-			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: clusterStorageContainerSpec,
-			}
-			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
 			defer k8sClient.Delete(ctx, clusterStorageContainer)
-
-			nodeGroup := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu",
-				},
-				Spec: localModelNodeGroupSpec,
-			}
-			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
 			defer k8sClient.Delete(ctx, nodeGroup)
 
 			modelName := "iris2"
@@ -463,32 +417,9 @@ var _ = Describe("CachedModel controller", func() {
 	Context("When creating multiple localModels", func() {
 		// With two nodes and two local models, each node should have both local models
 		It("Should create localModelNode correctly", func() {
-			var configMap = &v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KServeNamespace,
-				},
-				Data: configs,
-			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			configMap, clusterStorageContainer, nodeGroup := genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 			defer k8sClient.Delete(context.TODO(), configMap)
-
-			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: clusterStorageContainerSpec,
-			}
-			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
 			defer k8sClient.Delete(ctx, clusterStorageContainer)
-
-			nodeGroup := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu",
-				},
-				Spec: localModelNodeGroupSpec,
-			}
-			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
 			defer k8sClient.Delete(ctx, nodeGroup)
 
 			node1 := &v1.Node{

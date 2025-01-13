@@ -30,7 +30,6 @@ package localmodel
 import (
 	"context"
 	"reflect"
-	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -303,12 +302,8 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		c.Log.Error(err, "Create PVC err", "name", pv.Name)
 	}
 
-	c.Log.Info("CHECKING IF DELETION HAPPENS")
 	disableReconcileForIsvcs, ok := localModel.Labels["disableReconcileForIsvcs"]
-	c.Log.Info("OK is", "ok", ok)
 	if ok && disableReconcileForIsvcs == "true" {
-		fmt.Println("DISABLE CALLED")
-		c.Log.Info("NOT RUNNING RECONCILEFORISVCS!")
 		return ctrl.Result{}, nil
 	}
 	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
