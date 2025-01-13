@@ -211,6 +211,8 @@ var _ = Describe("CachedModel controller", func() {
 			// Now let's test deletion
 			Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
 
+			// Expect(1).Should(Equal(2))
+			
 			newLocalModel := &v1alpha1.LocalModelCache{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, newLocalModel)
@@ -349,6 +351,186 @@ var _ = Describe("CachedModel controller", func() {
 				return false
 			}, timeout, interval).Should(BeTrue())
 		})
+		It("Should NOT create/delete pvs and pvcs if disableReconcileForIsvcs label is true", func() {
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: clusterStorageContainerSpec,
+			}
+			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
+			defer k8sClient.Delete(ctx, clusterStorageContainer)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu",
+				},
+				Spec: localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			testNamespace := "test-namespace"
+			namespaceObj := createTestNamespace(ctx, testNamespace)
+			defer k8sClient.Delete(ctx, namespaceObj)
+			
+			modelName := "iris3"
+			cachedModel := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: modelName,
+					Labels: map[string]string{
+						"disableReconcileForIsvcs": "true",
+					},
+				},
+				Spec: localModelSpec,
+			}
+			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
+			defer k8sClient.Delete(ctx, cachedModel)
+
+
+			pvcName := "test-pvc"
+			pvName := pvcName + "-" + testNamespace
+
+			pv := createTestPV(ctx, pvName, testNamespace, cachedModel)
+			defer k8sClient.Delete(ctx, pv)
+			
+			pvc := &v1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      pvcName,
+					Namespace: testNamespace,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "serving.kserve.io/v1alpha1",
+							Kind:       "LocalModelCache",
+							Name:       modelName,
+							UID:        cachedModel.UID,
+							Controller: ptrToBool(true),
+						},
+					},
+				},
+				Spec: v1.PersistentVolumeClaimSpec{
+					AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+					Resources: v1.VolumeResourceRequirements{
+						Requests: v1.ResourceList{
+							v1.ResourceStorage: resource.MustParse("2Gi"),
+						},
+					},
+					VolumeName: pvName,
+				},
+			}
+
+			Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, pvc)
+
+			// Expects test-pv and test-pvc to not get deleted
+			pvLookupKey := types.NamespacedName{Name: pvName}
+			pvcLookupKey := types.NamespacedName{Name: pvcName, Namespace: testNamespace}
+
+			persistentVolume := &v1.PersistentVolume{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, pvLookupKey, persistentVolume)
+				return err == nil && persistentVolume != nil
+			}, timeout, interval).Should(BeTrue())
+
+			persistentVolumeClaim := &v1.PersistentVolumeClaim{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, pvcLookupKey, persistentVolumeClaim)
+				return err == nil && persistentVolumeClaim != nil
+			}, timeout, interval).Should(BeTrue())
+		})
+		It("Should delete pvs and pvcs if disableReconcileForIsvcs label does not exist", func() {
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: clusterStorageContainerSpec,
+			}
+			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
+			defer k8sClient.Delete(ctx, clusterStorageContainer)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu",
+				},
+				Spec: localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			testNamespace := "test-namespace-2"
+			namespaceObj := createTestNamespace(ctx, testNamespace)
+			defer k8sClient.Delete(ctx, namespaceObj)
+			
+			modelName := "iris4"
+			cachedModel := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: modelName,
+					Labels: map[string]string{}, // no labels
+				},
+				Spec: localModelSpec,
+			}
+			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
+			defer k8sClient.Delete(ctx, cachedModel)
+
+
+			pvcName := "test-pvc-2"
+			pvName := pvcName + "-" + testNamespace
+
+			// create a test-pv and a test-pvc in a namespace
+			pv := createTestPV(ctx, pvName, testNamespace, cachedModel)
+			defer k8sClient.Delete(ctx, pv)
+
+			pvc := createTestPVC(ctx, pvcName, testNamespace, pvName, cachedModel)
+			defer k8sClient.Delete(ctx, pvc)
+
+			// Expects test-pv and test-pvc to get deleted
+			pvLookupKey := types.NamespacedName{Name: pvName}
+			pvcLookupKey := types.NamespacedName{Name: pvcName, Namespace: testNamespace}
+
+			persistentVolume := &v1.PersistentVolume{}
+			persistentVolumeClaim := &v1.PersistentVolumeClaim{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, pvLookupKey, persistentVolume)
+				if err != nil {
+					return false
+				}
+				if persistentVolume.DeletionTimestamp != nil {
+					return true
+				}
+				return false
+			}, timeout, interval).Should(BeTrue())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, pvcLookupKey, persistentVolumeClaim)
+				if err != nil {
+					return false
+				}
+				if persistentVolumeClaim.DeletionTimestamp != nil {
+					return true
+				}
+				return false
+			}, timeout, interval).Should(BeTrue())
+		})
 	})
 	Context("When creating multiple localModels", func() {
 		// With two nodes and two local models, each node should have both local models
@@ -467,3 +649,78 @@ var _ = Describe("CachedModel controller", func() {
 		})
 	})
 })
+
+
+func ptrToBool(b bool) *bool {
+	return &b
+}
+
+func createTestNamespace(ctx context.Context, name string) *v1.Namespace {
+	namespace := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	Expect(k8sClient.Create(ctx, namespace)).Should(Succeed())
+	return namespace
+}
+
+func createTestPV(ctx context.Context, pvName, namespace string, cachedModel *v1alpha1.LocalModelCache) *v1.PersistentVolume {
+	pv := &v1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: pvName,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "serving.kserve.io/v1alpha1",
+					Kind:       "LocalModelCache",
+					Name:       cachedModel.Name,
+					UID:        cachedModel.UID,
+					Controller: ptrToBool(true),
+				},
+			},
+		},
+		Spec: v1.PersistentVolumeSpec{
+			AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+			Capacity: v1.ResourceList{
+				v1.ResourceStorage: resource.MustParse("2Gi"),
+			},
+			PersistentVolumeSource: v1.PersistentVolumeSource{
+				HostPath: &v1.HostPathVolumeSource{
+					Path: "/mnt/data",
+					Type: ptr.To(v1.HostPathDirectoryOrCreate),
+				},
+			},
+		},
+	}
+	Expect(k8sClient.Create(ctx, pv)).Should(Succeed())
+	return pv
+}
+
+func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cachedModel *v1alpha1.LocalModelCache) *v1.PersistentVolumeClaim {
+	pvc := &v1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: pvcName,
+			Namespace: namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "serving.kserve.io/v1alpha1",
+					Kind:       "LocalModelCache",
+					Name:       cachedModel.Name,
+					UID:        cachedModel.UID,
+					Controller: ptrToBool(true),
+				},
+			},
+		},
+		Spec: v1.PersistentVolumeClaimSpec{
+			AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+			Resources: v1.VolumeResourceRequirements{
+				Requests: v1.ResourceList{
+					v1.ResourceStorage: resource.MustParse("2Gi"),
+				},
+			},
+			VolumeName: pvName,
+		},
+	}
+	Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+	return pvc
+}
