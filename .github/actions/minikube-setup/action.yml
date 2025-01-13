@@ -28,7 +28,7 @@ runs:
       with:
         minikube-version: '1.33.1'
         kubernetes-version: 'v1.30.7'
-        driver: 'none'
+        driver: ${{ inputs.driver }}
         wait: 'all'
         cpus: 'max'
         memory: 'max'
