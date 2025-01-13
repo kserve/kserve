@@ -36,7 +36,7 @@ def isvc_watch(name=None, namespace=None, timeout_seconds=600, generation=0):
         constants.KSERVE_GROUP,
         constants.KSERVE_V1BETA1_VERSION,
         namespace,
-        constants.KSERVE_PLURAL,
+        constants.KSERVE_PLURAL_INFERENCESERVICE,
         timeout_seconds=timeout_seconds,
     )
 
