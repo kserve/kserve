@@ -158,7 +158,6 @@ func (c *LocalModelReconciler) createPVC(ctx context.Context, spec v1.Persistent
 
 // ReconcileForIsvcs Get all isvcs with model cache enabled, create pvs and pvcs, remove pvs and pvcs in namespaces without isvcs.
 func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel *v1alpha1api.LocalModelCache, nodeGroup *v1alpha1api.LocalModelNodeGroup, jobNamespace string) error {
-	c.Log.Info("RECONCILEFORISVCS CALLED", "name", localModel.Name)
 	isvcs := &v1beta1.InferenceServiceList{}
 	if err := c.Client.List(ctx, isvcs, client.MatchingFields{localModelKey: localModel.Name}); err != nil {
 		c.Log.Error(err, "List isvc error")
@@ -177,7 +176,11 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 		c.Log.Error(err, "cannot update status", "name", localModel.Name)
 	}
 
-	// Remove PVs and PVCs if the namespace does not have isvcs
+	/* 
+		Remove PVs and PVCs if the namespace does not have isvcs
+	 	It only deletes the pvc and pvs with ownerReference as the localModel which is linked to the localmodel
+	 	And the pv must be of the format pvc.Name+"-"+pvc.Namespace
+	*/
 	pvcs := v1.PersistentVolumeClaimList{}
 	if err := c.List(ctx, &pvcs, client.MatchingFields{ownerKey: localModel.Name}); err != nil {
 		c.Log.Error(err, "unable to list PVCs", "name", localModel.Name)
@@ -185,8 +188,6 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	}
 	for _, pvc := range pvcs.Items {
 		if _, ok := namespaces[pvc.Namespace]; !ok {
-			c.Log.Info("PVC NAMESPACE", "name", pvc.Namespace)
-			c.Log.Info("PVC NAME", "name", pvc.Name)
 			if pvc.Namespace == jobNamespace {
 				// Keep PVCs in modelCacheNamespace as they don't have a corresponding inference service
 				continue
@@ -198,7 +199,6 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 			}
 			c.Log.Info("deleting pv", "name", pvc.Name+"-"+pvc.Namespace)
 			persistentVolumes := c.Clientset.CoreV1().PersistentVolumes()
-			// it only deletes the pv which is linked to the localmodel and has the name format pvc.Name + "-" + pvc.Namespace
 			if err := persistentVolumes.Delete(ctx, pvc.Name+"-"+pvc.Namespace, metav1.DeleteOptions{}); err != nil {
 				c.Log.Error(err, "deleting PV err")
 			}
@@ -240,7 +240,6 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 // Step 4 - Creates PV & PVCs for namespaces with isvcs using this cached model
 func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconciling localmodel", "name", req.Name)
-	c.Log.Info("RECONCILE CALLED")
 
 	localModelConfig, err := v1beta1.NewLocalModelConfig(c.Clientset)
 	if err != nil {
