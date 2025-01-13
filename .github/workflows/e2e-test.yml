@@ -732,7 +732,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        network-layer: ["istio", "envoy"] # Test with Ingress and Gateway API
+        # Test with Ingress and Gateway API
+        network-layer: ["istio-ingress", "envoy-gatewayapi", "istio-gatewayapi"]
     needs:
       [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:

@@ -67,7 +67,7 @@ def pytest_addoption(parser):
         "--network-layer",
         default="istio",
         type=str,
-        help="Network layer to used for testing. Default is istio. Allowed values are istio, envoy",
+        help="Network layer to used for testing. Default is istio. Allowed values are istio-ingress, envoy-gatewayapi, istio-gatewayapi",
     )
 
 

@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# For debugging purpose: The KServe webhook is failing randomly in the GH Actions environment. This is to check if the webhook cert is ready at 
-# the time of failure. Once the issue is resolved, the following line can be removed.
-kubectl describe cert -n kserve serving-cert
-
 sleep 10
 echo "::group::Free Space"
 df -hT
@@ -79,8 +75,13 @@ done
 echo "::endgroup::"
 
 echo "::group::envoy gateway"
-kubectl get pods -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gateway -n envoy-gateway-system
-kubectl get svc -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gateway -n envoy-gateway-system
+kubectl describe pods -l serving.kserve.io/gateway=kserve-ingress-gateway -n envoy-gateway-system
+kubectl describe svc -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gateway -n envoy-gateway-system
+echo "::endgroup::"
+
+echo "::group::istio gateway"
+kubectl describe pods -l serving.kserve.io/gateway=kserve-ingress-gateway -n kserve
+kubectl describe svc -l serving.kserve.io/gateway=kserve-ingress-gateway -n kserve
 echo "::endgroup::"
 
 shopt -s nocasematch

@@ -24,6 +24,10 @@ set -o pipefail
 DEPLOYMENT_MODE="${1:-'serverless'}"
 NETWORK_LAYER="${2:-'istio'}"
 
+# Replace gatewayclass name
+if [[ $NETWORK_LAYER == "istio-gatewayapi" ]]; then
+  sed -i 's/envoy/istio/g' config/gateways/ingress-gateway.yaml
+fi
 make deploy-ci
 
 shopt -s nocasematch
@@ -31,9 +35,12 @@ if [[ $DEPLOYMENT_MODE == "raw" ]];then
   echo "Patching default deployment mode to raw deployment"
   kubectl patch cm -n kserve inferenceservice-config --patch='{"data": {"deploy": "{\"defaultDeploymentMode\": \"RawDeployment\"}"}}'
 
-  if [[ $NETWORK_LAYER == "envoy" ]]; then
+  if [[ $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
     echo "Waiting for envoy gateway to be ready ..."
-    kubectl wait --timeout=5m -n envoy-gateway-system pod -l gateway.envoyproxy.io/owning-gateway-name=kserve-ingress-gateway --for=condition=Ready
+    kubectl wait --timeout=5m -n envoy-gateway-system pod -l serving.kserve.io/gateway=kserve-ingress-gateway --for=condition=Ready
+  elif [[ $NETWORK_LAYER == "istio-gatewayapi" ]]; then
+    echo "Waiting for istio gateway to be ready ..."
+    kubectl wait --timeout=5m -n kserve pod -l serving.kserve.io/gateway=kserve-ingress-gateway --for=condition=Ready
   fi
 fi
 shopt -u nocasematch

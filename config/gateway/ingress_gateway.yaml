@@ -4,7 +4,7 @@ metadata:
   name: kserve-ingress-gateway
   namespace: $(kserveNamespace)
 spec:
-  gatewayClassName: envoy
+  gatewayClassName: istio
   listeners:
    - name: http
      port: 80
@@ -12,3 +12,6 @@ spec:
      allowedRoutes:
        namespaces:
          from: All
+  infrastructure:
+    labels:
+      serving.kserve.io/gateway: kserve-ingress-gateway

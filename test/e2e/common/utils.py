@@ -314,14 +314,17 @@ def get_isvc_endpoint(isvc, network_layer: str = "istio"):
     path = urlparse(isvc["status"]["url"]).path
     if os.environ.get("CI_USE_ISVC_HOST") == "1":
         cluster_ip = host
-    elif network_layer == "istio":
+    elif network_layer == "istio" or network_layer == "istio-ingress":
         cluster_ip = get_cluster_ip()
-    elif network_layer == "envoy":
+    elif network_layer == "envoy-gatewayapi":
         cluster_ip = get_cluster_ip(
             namespace="envoy-gateway-system",
-            labels={
-                "gateway.envoyproxy.io/owning-gateway-name": "kserve-ingress-gateway"
-            },
+            labels={"serving.kserve.io/gateway": "kserve-ingress-gateway"},
+        )
+    elif network_layer == "istio-gatewayapi":
+        cluster_ip = get_cluster_ip(
+            namespace="istio-system",
+            labels={"serving.kserve.io/gateway": "kserve-ingress-gateway"},
         )
     else:
         raise ValueError(f"Unknown network layer {network_layer}")
