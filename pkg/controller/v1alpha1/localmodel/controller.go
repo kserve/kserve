@@ -170,7 +170,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 		isvcNames = append(isvcNames, v1alpha1.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace})
 		namespaces[isvc.Namespace] = struct{}{}
 	}
-	// c.Log.Info("NAMESPACES with ISVCS", "namespaces", namespaces)
+
 	localModel.Status.InferenceServices = isvcNames
 	if err := c.Status().Update(ctx, localModel); err != nil {
 		c.Log.Error(err, "cannot update status", "name", localModel.Name)
