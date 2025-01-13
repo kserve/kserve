@@ -4,7 +4,7 @@ metadata:
   name: kserve-ingress-gateway
   namespace: $(kserveNamespace)
 spec:
-  gatewayClassName: istio
+  gatewayClassName: envoy
   listeners:
    - name: http
      port: 80

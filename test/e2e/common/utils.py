@@ -323,7 +323,7 @@ def get_isvc_endpoint(isvc, network_layer: str = "istio"):
         )
     elif network_layer == "istio-gatewayapi":
         cluster_ip = get_cluster_ip(
-            namespace="istio-system",
+            namespace="kserve",
             labels={"serving.kserve.io/gateway": "kserve-ingress-gateway"},
         )
     else:

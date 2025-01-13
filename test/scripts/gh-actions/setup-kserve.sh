@@ -26,7 +26,7 @@ NETWORK_LAYER="${2:-'istio'}"
 
 # Replace gatewayclass name
 if [[ $NETWORK_LAYER == "istio-gatewayapi" ]]; then
-  sed -i 's/envoy/istio/g' config/gateways/ingress-gateway.yaml
+  sed -i 's/envoy/istio/g' config/gateway/ingress_gateway.yaml
 fi
 make deploy-ci
 
