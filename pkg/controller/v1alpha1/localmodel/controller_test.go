@@ -352,32 +352,9 @@ var _ = Describe("CachedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 		It("Should NOT create/delete pvs and pvcs if disableReconcileForIsvcs label is true", func() {
-			var configMap = &v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KServeNamespace,
-				},
-				Data: configs,
-			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			configMap, clusterStorageContainer, nodeGroup := genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 			defer k8sClient.Delete(context.TODO(), configMap)
-
-			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: clusterStorageContainerSpec,
-			}
-			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
 			defer k8sClient.Delete(ctx, clusterStorageContainer)
-
-			nodeGroup := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu",
-				},
-				Spec: localModelNodeGroupSpec,
-			}
-			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
 			defer k8sClient.Delete(ctx, nodeGroup)
 
 			testNamespace := "test-namespace"
@@ -397,39 +374,13 @@ var _ = Describe("CachedModel controller", func() {
 			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
 			defer k8sClient.Delete(ctx, cachedModel)
 
-
 			pvcName := "test-pvc"
 			pvName := pvcName + "-" + testNamespace
 
 			pv := createTestPV(ctx, pvName, testNamespace, cachedModel)
 			defer k8sClient.Delete(ctx, pv)
 			
-			pvc := &v1.PersistentVolumeClaim{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      pvcName,
-					Namespace: testNamespace,
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							APIVersion: "serving.kserve.io/v1alpha1",
-							Kind:       "LocalModelCache",
-							Name:       modelName,
-							UID:        cachedModel.UID,
-							Controller: ptrToBool(true),
-						},
-					},
-				},
-				Spec: v1.PersistentVolumeClaimSpec{
-					AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-					Resources: v1.VolumeResourceRequirements{
-						Requests: v1.ResourceList{
-							v1.ResourceStorage: resource.MustParse("2Gi"),
-						},
-					},
-					VolumeName: pvName,
-				},
-			}
-
-			Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+			pvc := createTestPVC(ctx, pvcName, testNamespace, pvName, cachedModel)
 			defer k8sClient.Delete(ctx, pvc)
 
 			// Expects test-pv and test-pvc to not get deleted
@@ -449,32 +400,9 @@ var _ = Describe("CachedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 		It("Should delete pvs and pvcs if disableReconcileForIsvcs label does not exist", func() {
-			var configMap = &v1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      constants.InferenceServiceConfigMapName,
-					Namespace: constants.KServeNamespace,
-				},
-				Data: configs,
-			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			configMap, clusterStorageContainer, nodeGroup := genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 			defer k8sClient.Delete(context.TODO(), configMap)
-
-			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: clusterStorageContainerSpec,
-			}
-			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
 			defer k8sClient.Delete(ctx, clusterStorageContainer)
-
-			nodeGroup := &v1alpha1.LocalModelNodeGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "gpu",
-				},
-				Spec: localModelNodeGroupSpec,
-			}
-			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
 			defer k8sClient.Delete(ctx, nodeGroup)
 
 			testNamespace := "test-namespace-2"
@@ -723,4 +651,33 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 	}
 	Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
 	return pvc
+}
+
+func genericSetup(configs map[string]string, clusterStorageContainerSpec v1alpha1.StorageContainerSpec, localModelNodeGroupSpec v1alpha1.LocalModelNodeGroupSpec) (*v1.ConfigMap, *v1alpha1.ClusterStorageContainer, *v1alpha1.LocalModelNodeGroup) {
+	var configMap = &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.InferenceServiceConfigMapName,
+			Namespace: constants.KServeNamespace,
+		},
+		Data: configs,
+	}
+	Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+
+	clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test",
+		},
+		Spec: clusterStorageContainerSpec,
+	}
+	Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
+
+	nodeGroup := &v1alpha1.LocalModelNodeGroup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gpu",
+		},
+		Spec: localModelNodeGroupSpec,
+	}
+	Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+	
+	return configMap, clusterStorageContainer, nodeGroup
 }
