@@ -189,7 +189,7 @@ var _ = Describe("CachedModel controller", func() {
 			Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
 
 			// Expect(1).Should(Equal(2))
-			
+
 			newLocalModel := &v1alpha1.LocalModelCache{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, newLocalModel)
@@ -314,7 +314,7 @@ var _ = Describe("CachedModel controller", func() {
 			testNamespace := "test-namespace"
 			namespaceObj := createTestNamespace(ctx, testNamespace)
 			defer k8sClient.Delete(ctx, namespaceObj)
-			
+
 			modelName := "iris3"
 			cachedModel := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
@@ -333,7 +333,7 @@ var _ = Describe("CachedModel controller", func() {
 
 			pv := createTestPV(ctx, pvName, testNamespace, cachedModel)
 			defer k8sClient.Delete(ctx, pv)
-			
+
 			pvc := createTestPVC(ctx, pvcName, testNamespace, pvName, cachedModel)
 			defer k8sClient.Delete(ctx, pvc)
 
@@ -362,18 +362,17 @@ var _ = Describe("CachedModel controller", func() {
 			testNamespace := "test-namespace-2"
 			namespaceObj := createTestNamespace(ctx, testNamespace)
 			defer k8sClient.Delete(ctx, namespaceObj)
-			
+
 			modelName := "iris4"
 			cachedModel := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: modelName,
+					Name:   modelName,
 					Labels: map[string]string{}, // no labels
 				},
 				Spec: localModelSpec,
 			}
 			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
 			defer k8sClient.Delete(ctx, cachedModel)
-
 
 			pvcName := "test-pvc-2"
 			pvName := pvcName + "-" + testNamespace
@@ -509,7 +508,6 @@ var _ = Describe("CachedModel controller", func() {
 	})
 })
 
-
 func ptrToBool(b bool) *bool {
 	return &b
 }
@@ -558,7 +556,7 @@ func createTestPV(ctx context.Context, pvName, namespace string, cachedModel *v1
 func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cachedModel *v1alpha1.LocalModelCache) *v1.PersistentVolumeClaim {
 	pvc := &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: pvcName,
+			Name:      pvcName,
 			Namespace: namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
@@ -609,6 +607,6 @@ func genericSetup(configs map[string]string, clusterStorageContainerSpec v1alpha
 		Spec: localModelNodeGroupSpec,
 	}
 	Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
-	
+
 	return configMap, clusterStorageContainer, nodeGroup
 }

@@ -170,16 +170,15 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 		isvcNames = append(isvcNames, v1alpha1.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace})
 		namespaces[isvc.Namespace] = struct{}{}
 	}
-
 	localModel.Status.InferenceServices = isvcNames
 	if err := c.Status().Update(ctx, localModel); err != nil {
 		c.Log.Error(err, "cannot update status", "name", localModel.Name)
 	}
 
-	/* 
-		Remove PVs and PVCs if the namespace does not have isvcs
-	 	It only deletes the pvc and pvs with ownerReference as the localModel which is linked to the localmodel
-	 	And the pv must be of the format pvc.Name+"-"+pvc.Namespace
+	/*
+			Remove PVs and PVCs if the namespace does not have isvcs
+		 	It only deletes the pvc and pvs with ownerReference as the localModel
+		 	And the pv must be of the format pvc.Name+"-"+pvc.Namespace
 	*/
 	pvcs := v1.PersistentVolumeClaimList{}
 	if err := c.List(ctx, &pvcs, client.MatchingFields{ownerKey: localModel.Name}); err != nil {
