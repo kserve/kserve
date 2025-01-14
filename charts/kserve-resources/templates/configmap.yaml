@@ -588,7 +588,7 @@ data:
       "defaultJobImage": "kserve/storage-initializer:latest",
       "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }},
       "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }},
-      "disableIsvcReconciliation":" {{ .Values.kserve.localmodel.disableIsvcReconciliation }}
+      "disableIsvcReconciliation": {{ .Values.kserve.localmodel.disableIsvcReconciliation }}
     }
   security: |-
     {
