@@ -324,14 +324,7 @@ def test_target_download_path_and_name(mock_storage):
 
     # then
     arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
-    assert (
-        arg_list[0]
-        == expected_call_args_list("model", "dest_path", paths)[0]
-    )
-
-    assert (
-        arg_list[1]
-        == expected_call_args_list("model", "dest_path", paths)[1]
-    )
+    assert arg_list[0] == expected_call_args_list("model", "dest_path", paths)[0]
+    assert arg_list[1] == expected_call_args_list("model", "dest_path", paths)[1]
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="model")
