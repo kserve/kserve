@@ -188,8 +188,6 @@ var _ = Describe("CachedModel controller", func() {
 			// Now let's test deletion
 			Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
 
-			// Expect(1).Should(Equal(2))
-
 			newLocalModel := &v1alpha1.LocalModelCache{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, newLocalModel)
