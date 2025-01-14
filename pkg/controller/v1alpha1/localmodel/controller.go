@@ -300,10 +300,10 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		c.Log.Error(err, "Create PVC err", "name", pv.Name)
 	}
 
-	disableIsvcReconciliation, ok := localModel.Labels[constants.DisableIsvcReconciliation]
-	if ok && disableIsvcReconciliation == "true" {
+	if localModelConfig.DisableIsvcReconciliation == true {
 		return ctrl.Result{}, nil
 	}
+
 	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
 	err = c.ReconcileForIsvcs(ctx, localModel, nodeGroup, localModelConfig.JobNamespace)
 	return ctrl.Result{}, err

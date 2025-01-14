@@ -61,7 +61,8 @@ class V1beta1LocalModelConfig(object):
         'fs_group': 'fsGroup',
         'job_namespace': 'jobNamespace',
         'job_ttl_seconds_after_finished': 'jobTTLSecondsAfterFinished',
-        'reconcilation_frequency_in_secs': 'reconcilationFrequencyInSecs'
+        'reconcilation_frequency_in_secs': 'reconcilationFrequencyInSecs',
+        'disable_isvc_reconciliation':  'disableIsvcReconciliation'
     }
 
     def __init__(self, default_job_image=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, reconcilation_frequency_in_secs=None, local_vars_configuration=None):  # noqa: E501

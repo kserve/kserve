@@ -3321,6 +3321,9 @@
         "defaultJobImage": {
           "type": "string"
         },
+        "disableIsvcReconciliation": {
+          "type": "boolean"
+        },
         "enabled": {
           "type": "boolean",
           "default": false
