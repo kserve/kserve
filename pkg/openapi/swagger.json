@@ -3067,6 +3067,11 @@
           "default": {},
           "$ref": "#/definitions/v1beta1.ExplainersConfig"
         },
+        "resource": {
+          "description": "Resource configurations",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.ResourceConfig"
+        },
         "serviceAnnotationDisallowedList": {
           "description": "ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative revisions",
           "type": "array",
