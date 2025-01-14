@@ -13,11 +13,14 @@
 # limitations under the License.
 
 import time
+from typing import List
 from urllib.parse import urlparse
 
 import requests
 from kubernetes import client, config
 
+from ..models.v1alpha1_local_model_cache import V1alpha1LocalModelCache
+from ..models.v1alpha1_local_model_node_group import V1alpha1LocalModelNodeGroup
 from .creds_utils import set_gcs_credentials, set_s3_credentials, set_azure_credentials
 from .watch import isvc_watch
 from ..constants import constants
@@ -141,7 +144,7 @@ class KServeClient(object):
                 constants.KSERVE_GROUP,
                 version,
                 namespace,
-                constants.KSERVE_PLURAL,
+                constants.KSERVE_PLURAL_INFERENCESERVICE,
                 inferenceservice,
             )
         except client.rest.ApiException as e:
@@ -192,7 +195,7 @@ class KServeClient(object):
                         constants.KSERVE_GROUP,
                         version,
                         namespace,
-                        constants.KSERVE_PLURAL,
+                        constants.KSERVE_PLURAL_INFERENCESERVICE,
                         name,
                     )
                 except client.rest.ApiException as e:
@@ -210,7 +213,7 @@ class KServeClient(object):
                         constants.KSERVE_GROUP,
                         version,
                         namespace,
-                        constants.KSERVE_PLURAL,
+                        constants.KSERVE_PLURAL_INFERENCESERVICE,
                     )
                 except client.rest.ApiException as e:
                     raise RuntimeError(
@@ -241,7 +244,7 @@ class KServeClient(object):
                 constants.KSERVE_GROUP,
                 version,
                 namespace,
-                constants.KSERVE_PLURAL,
+                constants.KSERVE_PLURAL_INFERENCESERVICE,
                 name,
                 inferenceservice,
             )
@@ -291,7 +294,7 @@ class KServeClient(object):
                 constants.KSERVE_GROUP,
                 version,
                 namespace,
-                constants.KSERVE_PLURAL,
+                constants.KSERVE_PLURAL_INFERENCESERVICE,
                 name,
                 inferenceservice,
             )
@@ -328,7 +331,7 @@ class KServeClient(object):
                 constants.KSERVE_GROUP,
                 version,
                 namespace,
-                constants.KSERVE_PLURAL,
+                constants.KSERVE_PLURAL_INFERENCESERVICE,
                 name,
             )
         except client.rest.ApiException as e:
@@ -645,4 +648,187 @@ class KServeClient(object):
                             The InferenceGraph is as following: {}".format(
                 name, current_ig
             )
+        )
+
+    def create_local_model_node_group(
+        self, localmodelnodegroup: V1alpha1LocalModelNodeGroup
+    ):
+        """
+        Create a local model node group
+
+        :param localmodelnodegroup: local model node group object
+        :return: created local model node group object
+        """
+        version = localmodelnodegroup.api_version.split("/")[1]
+
+        try:
+            output = self.api_instance.create_cluster_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                constants.KSERVE_PLURAL_LOCALMODELNODEGROUP,
+                localmodelnodegroup,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->create_cluster_custom_object:{e}%s\n"
+            ) from e
+        return output
+
+    def get_local_model_node_group(
+        self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION
+    ) -> object:
+        """
+        Get the local model node group
+
+        :param name: existing local model node group name
+        :param version: api group version. Default to v1alpha
+        :return: local model node group object
+        """
+        try:
+            return self.api_instance.get_cluster_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                constants.KSERVE_PLURAL_LOCALMODELNODEGROUP,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->get_cluster_custom_object:{e}%s\n"
+            ) from e
+
+    def delete_local_model_node_group(
+        self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION
+    ):
+        """
+        Delete the local model node group
+
+        :param name: local model node group name
+        :param version: api group version. Default to v1alpha
+        """
+        try:
+            self.api_instance.delete_cluster_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                constants.KSERVE_PLURAL_LOCALMODELNODEGROUP,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->delete_cluster_custom_object:{e}%s\n"
+            ) from e
+
+    def create_local_model_cache(
+        self, localmodelcache: V1alpha1LocalModelCache
+    ) -> object:
+        """
+        Create a local model cache
+
+        :param localmodelcache: local model cache object
+        :return: created local model cache object
+        """
+        version = localmodelcache.api_version.split("/")[1]
+
+        try:
+            output = self.api_instance.create_cluster_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                constants.KSERVE_PLURAL_LOCALMODELCACHE,
+                localmodelcache,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->create_cluster_custom_object:{e}%s\n"
+            ) from e
+        return output
+
+    def get_local_model_cache(
+        self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION
+    ) -> object:
+        """
+        Get the local model cache
+
+        :param name: existing local model cache name
+        :param version: api group version. Default to v1alpha1
+        :return: local model cache object
+        """
+        try:
+            return self.api_instance.get_cluster_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                constants.KSERVE_PLURAL_LOCALMODELCACHE,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->get_cluster_custom_object:{e}%s\n"
+            ) from e
+
+    def delete_local_model_cache(
+        self, name: str, version: str = constants.KSERVE_V1ALPHA1_VERSION
+    ):
+        """
+        Delete the local model cache
+
+        :param name: local model cache name
+        :param version: api group version. Default to v1alpha1
+        """
+        try:
+            self.api_instance.delete_cluster_custom_object(
+                constants.KSERVE_GROUP,
+                version,
+                constants.KSERVE_PLURAL_LOCALMODELCACHE,
+                name,
+            )
+        except client.rest.ApiException as e:
+            raise RuntimeError(
+                f"Exception when calling CustomObjectsApi->delete_cluster_custom_object:{e}%s\n"
+            ) from e
+
+    def is_local_model_cache_ready(
+        self,
+        name: str,
+        nodes: List[str],
+        version: str = constants.KSERVE_V1ALPHA1_VERSION,
+    ) -> bool:
+        """
+        Verify if the model is successfully cached on the specified node.
+
+        :param name: local model cache name
+        :param node_name: name of the node to check if the model is cached
+        :param version: api group version
+        :return: true if the model is successfully cached, else false.
+        """
+        local_model_cache = self.get_local_model_cache(name, version=version)
+        node_status = local_model_cache.get("status", {}).get("nodeStatus", {})
+        for node in nodes:
+            if node_status.get(node, "") != "NodeDownloaded":
+                return False
+        return True
+
+    def wait_local_model_cache_ready(
+        self,
+        name: str,
+        nodes: List[str],
+        version: str = constants.KSERVE_V1ALPHA1_VERSION,
+        timeout_seconds: int = 600,
+        polling_interval: int = 10,
+    ):
+        """
+        Wait for model to be cached locally for specified nodes until timeout.
+
+        :param name: local model cache name
+        :param nodes: list of node names to check if the model is cached
+        :param version: api group version
+        :param timeout_seconds: timeout seconds for waiting, default to 600s.
+        :param polling_interval: The time interval to poll status
+        :return:
+        """
+        for _ in range(round(timeout_seconds / polling_interval)):
+            time.sleep(polling_interval)
+            if self.is_local_model_cache_ready(name, nodes, version=version):
+                return
+
+        current_local_model_cache = self.get_local_model_cache(name, version=version)
+        raise RuntimeError(
+            f"Timeout while caching the model. The current state of LocalModelCache is: {current_local_model_cache}"
         )
