@@ -308,7 +308,7 @@ var _ = Describe("CachedModel controller", func() {
 				"localModel": `{
 					"jobNamespace": "kserve-localmodel-jobs",
 					"defaultJobImage": "kserve/storage-initializer:latest",
-					"disableIsvcReconciliation": "true"
+					"disableIsvcReconciliation": true
 				}`,
 			}
 

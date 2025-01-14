@@ -3322,7 +3322,8 @@
           "type": "string"
         },
         "disableIsvcReconciliation": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": false
         },
         "enabled": {
           "type": "boolean",
