@@ -327,9 +327,6 @@ var _ = Describe("CachedModel controller", func() {
 			cachedModel := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: modelName,
-					Labels: map[string]string{
-						constants.DisableIsvcReconciliation: "true",
-					},
 				},
 				Spec: localModelSpec,
 			}

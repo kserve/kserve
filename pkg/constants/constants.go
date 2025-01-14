@@ -157,11 +157,6 @@ var (
 	IstioSidecarStatusAnnotation    = "sidecar.istio.io/status"
 )
 
-// LocalModelCache Labels
-var (
-	DisableIsvcReconciliation = "disable-isvc-reconciliation"
-)
-
 type AutoscalerClassType string
 type AutoscalerMetricsType string
 type AutoScalerKPAMetricsType string
