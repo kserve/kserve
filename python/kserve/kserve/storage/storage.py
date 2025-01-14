@@ -176,6 +176,17 @@ class Storage(object):
         if accelerate:
             c = c.merge(Config(s3={"use_accelerate_endpoint": accelerate}))
 
+        # NOTE: If endpoint_url provided is legacy ("https://s3.amazonaws.com") and region is not global (us-east-1), set to virtual addressing style
+        # So that request would not return PermanentRedirect due to region not in the endpoint url
+        # AWS SDK retries under the hood to set the correct region when the valid virtual addressing style endpoint url is provided
+        endpoint_url = os.getenv("AWS_ENDPOINT_URL")
+        region = os.getenv("AWS_DEFAULT_REGION")
+        if endpoint_url == "https://s3.amazonaws.com" and region not in (
+            None,
+            "us-east-1",
+        ):
+            c = c.merge(Config(s3={"addressing_style": "virtual"}))
+
         return c
 
     @staticmethod
@@ -252,6 +263,7 @@ class Storage(object):
             if bucket_path == obj.key:
                 target_key = obj.key.rsplit("/", 1)[-1]
                 exact_obj_found = True
+
             else:
                 target_key = re.sub(r"^" + re.escape(bucket_path) + r"/?", "", obj.key)
 

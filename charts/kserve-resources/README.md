@@ -59,6 +59,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.controller.tolerations | list | `[]` | A list of Kubernetes Tolerations, if required. For more information, see [Toleration v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#toleration-v1-core).  For example:   tolerations:   - key: foo.bar.com/role     operator: Equal     value: master     effect: NoSchedule |
 | kserve.controller.topologySpreadConstraints | list | `[]` | A list of Kubernetes TopologySpreadConstraints, if required. For more information, see [Topology spread constraint v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#topologyspreadconstraint-v1-core  For example:   topologySpreadConstraints:   - maxSkew: 2     topologyKey: topology.kubernetes.io/zone     whenUnsatisfiable: ScheduleAnyway     labelSelector:       matchLabels:         app.kubernetes.io/instance: kserve-controller-manager         app.kubernetes.io/component: controller |
 | kserve.controller.webhookServiceAnnotations | object | `{}` | Optional additional annotations to add to the webhook service. |
+| kserve.localmodel.agent.affinity | object | `{}` |  |
 | kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
 | kserve.localmodel.agent.nodeSelector | object | `{}` |  |
@@ -66,6 +67,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.localmodel.agent.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.localmodel.agent.securityContext.runAsUser | int | `1000` |  |
 | kserve.localmodel.agent.tag | string | `"v0.14.0"` |  |
+| kserve.localmodel.agent.tolerations | list | `[]` |  |
 | kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.tag | string | `"v0.14.0"` |  |
 | kserve.localmodel.enabled | bool | `false` |  |
