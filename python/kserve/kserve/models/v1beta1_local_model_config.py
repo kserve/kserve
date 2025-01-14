@@ -66,7 +66,7 @@ class V1beta1LocalModelConfig(object):
         'reconcilation_frequency_in_secs': 'reconcilationFrequencyInSecs'
     }
 
-    def __init__(self, default_job_image=None, disable_isvc_reconciliation=False, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, reconcilation_frequency_in_secs=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_job_image=None, disable_isvc_reconciliation=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, reconcilation_frequency_in_secs=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LocalModelConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
