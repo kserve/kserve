@@ -300,7 +300,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		c.Log.Error(err, "Create PVC err", "name", pv.Name)
 	}
 
-	if localModelConfig.DisableIsvcReconciliation == true {
+	if localModelConfig.DisableIsvcReconciliation {
 		return ctrl.Result{}, nil
 	}
 
