@@ -305,7 +305,7 @@ var _ = Describe("CachedModel controller", func() {
 				return false
 			}, timeout, interval).Should(BeTrue())
 		})
-		It("Should NOT create/delete pvs and pvcs if disableReconcileForIsvcs label is true", func() {
+		It("Should NOT create/delete pvs and pvcs if disable-isvc-reconciliation label is true", func() {
 			configMap, clusterStorageContainer, nodeGroup := genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 			defer k8sClient.Delete(context.TODO(), configMap)
 			defer k8sClient.Delete(ctx, clusterStorageContainer)
@@ -320,7 +320,7 @@ var _ = Describe("CachedModel controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: modelName,
 					Labels: map[string]string{
-						"disableReconcileForIsvcs": "true",
+						constants.DisableIsvcReconciliation: "true",
 					},
 				},
 				Spec: localModelSpec,
@@ -353,7 +353,7 @@ var _ = Describe("CachedModel controller", func() {
 				return err == nil && persistentVolumeClaim != nil
 			}, timeout, interval).Should(BeTrue())
 		})
-		It("Should delete pvs and pvcs if disableReconcileForIsvcs label does not exist", func() {
+		It("Should delete pvs and pvcs if disable-isvc-reconciliation label does not exist", func() {
 			configMap, clusterStorageContainer, nodeGroup := genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 			defer k8sClient.Delete(context.TODO(), configMap)
 			defer k8sClient.Delete(ctx, clusterStorageContainer)

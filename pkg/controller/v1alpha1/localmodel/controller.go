@@ -300,7 +300,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		c.Log.Error(err, "Create PVC err", "name", pv.Name)
 	}
 
-	disableReconcileForIsvcs, ok := localModel.Labels["disableReconcileForIsvcs"]
+	disableReconcileForIsvcs, ok := localModel.Labels[constants.DisableIsvcReconciliation]
 	if ok && disableReconcileForIsvcs == "true" {
 		return ctrl.Result{}, nil
 	}
