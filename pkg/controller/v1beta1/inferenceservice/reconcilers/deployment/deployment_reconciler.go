@@ -269,15 +269,24 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 }
 
 func GetKServeContainerPort(podSpec *corev1.PodSpec) string {
+	var kserveContainerPort string
+
 	for _, container := range podSpec.Containers {
-		if container.Name == "kserve-container" {
+		if container.Name == "transformer-container" {
 			if len(container.Ports) > 0 {
 				return strconv.Itoa(int(container.Ports[0].ContainerPort))
 			}
 		}
+		if container.Name == "kserve-container" {
+			if len(container.Ports) > 0 {
+				kserveContainerPort = strconv.Itoa(int(container.Ports[0].ContainerPort))
+			}
+		}
 	}
-	return ""
+
+	return kserveContainerPort
 }
+
 func generateOauthProxyContainer(clientset kubernetes.Interface, isvc string, namespace string, upstreamPort string, sa string) (*corev1.Container, error) {
 	isvcConfigMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {

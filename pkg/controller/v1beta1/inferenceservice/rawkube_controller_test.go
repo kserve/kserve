@@ -425,10 +425,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						URL: &apis.URL{
-							Scheme: "http",
-							Host:   "raw-foo-predictor-default.example.com",
-						},
+						//URL: &apis.URL{
+						//	Scheme: "http",
+						//	Host:   "raw-foo-predictor-default.example.com",
+						//},
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
@@ -840,10 +840,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						URL: &apis.URL{
-							Scheme: "http",
-							Host:   "raw-foo-customized-predictor-default.example.com",
-						},
+						//URL: &apis.URL{
+						//	Scheme: "http",
+						//	Host:   "raw-foo-customized-predictor-default.example.com",
+						//},
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
@@ -1246,10 +1246,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						URL: &apis.URL{
-							Scheme: "http",
-							Host:   "raw-foo-2-predictor-default.example.com",
-						},
+						//URL: &apis.URL{
+						//	Scheme: "http",
+						//	Host:   "raw-foo-2-predictor-default.example.com",
+						//},
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
@@ -1723,10 +1723,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						URL: &apis.URL{
-							Scheme: "http",
-							Host:   fmt.Sprintf("%s-predictor-default.example.com", serviceName),
-						},
+						//URL: &apis.URL{
+						//	Scheme: "http",
+						//	Host:   fmt.Sprintf("%s-predictor-default.example.com", serviceName),
+						//},
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
@@ -2156,10 +2156,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						URL: &apis.URL{
-							Scheme: "http",
-							Host:   fmt.Sprintf("%s-predictor.%s.%s", serviceName, serviceKey.Namespace, domain),
-						},
+						//URL: &apis.URL{
+						//	Scheme: "http",
+						//	Host:   fmt.Sprintf("%s-predictor.%s.%s", serviceName, serviceKey.Namespace, domain),
+						//},
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
@@ -2652,17 +2652,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
-						Scheme: "http",
+						Scheme: "https",
 						Host:   fmt.Sprintf("%s-predictor.%s.svc.cluster.local:8443", serviceKey.Name, serviceKey.Namespace),
 					},
 				},
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						URL: &apis.URL{
-							Scheme: "http",
-							Host:   "raw-auth-predictor-default.example.com",
-						},
+						//URL: &apis.URL{
+						//	Scheme: "http",
+						//	Host:   "raw-auth-predictor-default.example.com",
+						//},
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
