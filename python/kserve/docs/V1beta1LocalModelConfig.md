@@ -4,7 +4,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **default_job_image** | **str** |  | [optional] 
-**disable_isvc_reconciliation** | **bool** |  | [optional] 
+**disable_volume_management** | **bool** |  | [optional] 
 **enabled** | **bool** |  | [default to False]
 **fs_group** | **int** |  | [optional] 
 **job_namespace** | **str** |  | [default to '']

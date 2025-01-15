@@ -513,7 +513,7 @@ data:
          # This is to detect if models are missing from local disk
          "reconcilationFrequencyInSecs": 60,
          # This is to disable reconciliation for isvcs for namespaces without isvcs
-         "disableIsvcReconciliation": false
+         "disableVolumeManagement": false
        }
 
   explainers: |-

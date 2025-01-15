@@ -99,7 +99,7 @@ type LocalModelConfig struct {
 	FSGroup                      *int64 `json:"fsGroup,omitempty"`
 	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
-	DisableIsvcReconciliation    bool   `json:"disableIsvcReconciliation,omitempty"`
+	DisableVolumeManagement      bool   `json:"disableVolumeManagement,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

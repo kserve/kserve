@@ -48,7 +48,7 @@ class V1beta1LocalModelConfig(object):
     """
     openapi_types = {
         'default_job_image': 'str',
-        'disable_isvc_reconciliation': 'bool',
+        'disable_volume_management': 'bool',
         'enabled': 'bool',
         'fs_group': 'int',
         'job_namespace': 'str',
@@ -58,7 +58,7 @@ class V1beta1LocalModelConfig(object):
 
     attribute_map = {
         'default_job_image': 'defaultJobImage',
-        'disable_isvc_reconciliation': 'disableIsvcReconciliation',
+        'disable_volume_management': 'disableVolumeManagement',
         'enabled': 'enabled',
         'fs_group': 'fsGroup',
         'job_namespace': 'jobNamespace',
@@ -66,14 +66,14 @@ class V1beta1LocalModelConfig(object):
         'reconcilation_frequency_in_secs': 'reconcilationFrequencyInSecs'
     }
 
-    def __init__(self, default_job_image=None, disable_isvc_reconciliation=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, reconcilation_frequency_in_secs=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_job_image=None, disable_volume_management=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, reconcilation_frequency_in_secs=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LocalModelConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._default_job_image = None
-        self._disable_isvc_reconciliation = None
+        self._disable_volume_management = None
         self._enabled = None
         self._fs_group = None
         self._job_namespace = None
@@ -83,8 +83,8 @@ class V1beta1LocalModelConfig(object):
 
         if default_job_image is not None:
             self.default_job_image = default_job_image
-        if disable_isvc_reconciliation is not None:
-            self.disable_isvc_reconciliation = disable_isvc_reconciliation
+        if disable_volume_management is not None:
+            self.disable_volume_management = disable_volume_management
         self.enabled = enabled
         if fs_group is not None:
             self.fs_group = fs_group
@@ -116,25 +116,25 @@ class V1beta1LocalModelConfig(object):
         self._default_job_image = default_job_image
 
     @property
-    def disable_isvc_reconciliation(self):
-        """Gets the disable_isvc_reconciliation of this V1beta1LocalModelConfig.  # noqa: E501
+    def disable_volume_management(self):
+        """Gets the disable_volume_management of this V1beta1LocalModelConfig.  # noqa: E501
 
 
-        :return: The disable_isvc_reconciliation of this V1beta1LocalModelConfig.  # noqa: E501
+        :return: The disable_volume_management of this V1beta1LocalModelConfig.  # noqa: E501
         :rtype: bool
         """
-        return self._disable_isvc_reconciliation
+        return self._disable_volume_management
 
-    @disable_isvc_reconciliation.setter
-    def disable_isvc_reconciliation(self, disable_isvc_reconciliation):
-        """Sets the disable_isvc_reconciliation of this V1beta1LocalModelConfig.
+    @disable_volume_management.setter
+    def disable_volume_management(self, disable_volume_management):
+        """Sets the disable_volume_management of this V1beta1LocalModelConfig.
 
 
-        :param disable_isvc_reconciliation: The disable_isvc_reconciliation of this V1beta1LocalModelConfig.  # noqa: E501
+        :param disable_volume_management: The disable_volume_management of this V1beta1LocalModelConfig.  # noqa: E501
         :type: bool
         """
 
-        self._disable_isvc_reconciliation = disable_isvc_reconciliation
+        self._disable_volume_management = disable_volume_management
 
     @property
     def enabled(self):

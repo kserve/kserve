@@ -471,7 +471,7 @@ data:
          # This is to detect if models are missing from local disk
          "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }}
          # This is to disable localmodel isvc reconciliation for namespaces without isvcs
-         "disableIsvcReconciliation": false
+         "disableVolumeManagement": false
        }
 
   agent: |-
@@ -588,7 +588,7 @@ data:
       "defaultJobImage": "kserve/storage-initializer:latest",
       "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }},
       "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }},
-      "disableIsvcReconciliation": {{ .Values.kserve.localmodel.disableIsvcReconciliation }}
+      "disableVolumeManagement": {{ .Values.kserve.localmodel.disableVolumeManagement }}
     }
   security: |-
     {

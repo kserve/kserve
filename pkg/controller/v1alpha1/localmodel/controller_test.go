@@ -303,12 +303,12 @@ var _ = Describe("CachedModel controller", func() {
 				return false
 			}, timeout, interval).Should(BeTrue())
 		})
-		It("Should NOT create/delete pvs and pvcs if localmodel config value DisableIsvcReconciliation is true", func() {
+		It("Should NOT create/delete pvs and pvcs if localmodel config value DisableVolumeManagement is true", func() {
 			configs = map[string]string{
 				"localModel": `{
 					"jobNamespace": "kserve-localmodel-jobs",
 					"defaultJobImage": "kserve/storage-initializer:latest",
-					"disableIsvcReconciliation": true
+					"disableVolumeManagement": true
 				}`,
 			}
 
@@ -356,7 +356,7 @@ var _ = Describe("CachedModel controller", func() {
 				return err == nil && persistentVolumeClaim != nil
 			}, timeout, interval).Should(BeTrue())
 		})
-		It("Should delete pvs and pvcs if localmodel config value DisableIsvcReconciliation does not exist", func() {
+		It("Should delete pvs and pvcs if localmodel config value DisableVolumeManagement does not exist", func() {
 			configs = map[string]string{
 				"localModel": `{
 					"jobNamespace": "kserve-localmodel-jobs",

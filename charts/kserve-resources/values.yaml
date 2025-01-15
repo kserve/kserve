@@ -418,7 +418,7 @@ kserve:
       jobTTLSecondsAfterFinished: 3600
       securityContext:
         fsGroup: 1000
-      disableIsvcReconciliation: false
+      disableVolumeManagement: false
       agent:
         nodeSelector: {}
         affinity: {}

@@ -3321,7 +3321,7 @@
         "defaultJobImage": {
           "type": "string"
         },
-        "disableIsvcReconciliation": {
+        "disableVolumeManagement": {
           "type": "boolean"
         },
         "enabled": {
