@@ -140,8 +140,8 @@ var _ = Describe("CachedModel controller", func() {
 			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
 
 			modelLookupKey := types.NamespacedName{Name: "iris"}
-			pvLookupKey := types.NamespacedName{Name: "iris-download"}
-			pvcLookupKey := types.NamespacedName{Name: "iris", Namespace: modelCacheNamespace}
+			pvLookupKey := types.NamespacedName{Name: "iris-gpu-download"}
+			pvcLookupKey := types.NamespacedName{Name: "iris-gpu", Namespace: modelCacheNamespace}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
 				return err == nil
@@ -235,8 +235,9 @@ var _ = Describe("CachedModel controller", func() {
 
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo",
-					Namespace: isvcNamespace,
+					Name:        "foo",
+					Namespace:   isvcNamespace,
+					Annotations: map[string]string{constants.NodeGroupAnnotationKey: "gpu"},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{

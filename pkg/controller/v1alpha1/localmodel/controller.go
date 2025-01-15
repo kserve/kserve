@@ -169,13 +169,19 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	namespaceToNodeGroups := make(map[string]map[*v1alpha1api.LocalModelNodeGroup]struct{})
 	for _, isvc := range isvcs.Items {
 		isvcNames = append(isvcNames, v1alpha1.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace})
+		// isvc has nodegroup annotation
 		if isvcNodeGroup, ok := isvc.ObjectMeta.Annotations[constants.NodeGroupAnnotationKey]; ok {
 			if nodeGroup, ok := localModelNodeGroups[isvcNodeGroup]; ok {
+				if _, ok := namespaceToNodeGroups[isvc.Namespace]; !ok {
+					namespaceToNodeGroups[isvc.Namespace] = map[*v1alpha1api.LocalModelNodeGroup]struct{}{}
+				}
 				namespaceToNodeGroups[isvc.Namespace][nodeGroup] = struct{}{}
 			} else {
 				c.Log.Info("Didn't find isvc node group in model cache node groups", "isvc name", isvc.Name, "isvc node group", isvcNodeGroup, "model cache node groups", maps.Keys(localModelNodeGroups))
 			}
+			// isvc does not have nodegroup annotation. Still add it's namespace
 		} else if _, ok := namespaceToNodeGroups[isvc.Namespace]; !ok {
+			c.Log.Info("Isvc does not have node group annotation", "isvc name", isvc.Name, "nodegroup annotation", constants.NodeGroupAnnotationKey)
 			namespaceToNodeGroups[isvc.Namespace] = map[*v1alpha1api.LocalModelNodeGroup]struct{}{}
 		}
 	}
