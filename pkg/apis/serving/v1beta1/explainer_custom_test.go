@@ -253,10 +253,6 @@ func TestCustomExplainerIsMMS(t *testing.T) {
 	config := InferenceServicesConfig{
 		Explainers: ExplainersConfig{},
 	}
-	// var defaultResource = v1.ResourceList{
-	// 	v1.ResourceCPU:    resource.MustParse("1"),
-	// 	v1.ResourceMemory: resource.MustParse("2Gi"),
-	// }
 	mmsCase := false
 	scenarios := map[string]struct {
 		spec     ExplainerSpec
