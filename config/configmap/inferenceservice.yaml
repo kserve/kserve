@@ -512,7 +512,7 @@ data:
          # The frequency at which the local model agent reconciles the local models
          # This is to detect if models are missing from local disk
          "reconcilationFrequencyInSecs": 60,
-         # This is to disable reconciliation for isvcs for namespaces without isvcs
+         # This is to disable localmodel pv and pvc management for namespaces without isvcs
          "disableVolumeManagement": false
        }
 
