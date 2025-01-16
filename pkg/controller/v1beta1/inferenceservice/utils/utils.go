@@ -44,7 +44,7 @@ import (
 
 // Constants
 var (
-	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "oci://"}
+	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "oci://", "hf://"}
 )
 
 const (
