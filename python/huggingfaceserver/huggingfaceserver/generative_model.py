@@ -220,10 +220,13 @@ class HuggingfaceGenerativeModel(
                 self.model_config, trust_remote_code=self.trust_remote_code
             )
 
-        device_map = self._device
+        device_map = self._device 
 
         if self._model._no_split_modules:
             device_map = "auto"
+
+        print("HERE")
+        print(device_map)
 
         tokenizer_kwargs = {}
         model_kwargs = {}
@@ -302,6 +305,7 @@ class HuggingfaceGenerativeModel(
             req["loop"],
             req["context"],
         )
+        print(f'kwargs {kwargs}')
 
         def queue_put(outputs):
             loop.call_soon_threadsafe(response_queue.put_nowait, outputs)

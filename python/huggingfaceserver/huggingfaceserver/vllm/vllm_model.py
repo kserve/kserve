@@ -66,7 +66,7 @@ class VLLMModel(
         super().__init__(model_name, predictor_config)
         self.args = args
         validate_parsed_serve_args(args)
-        engine_args = build_vllm_engine_args(args)  # Only for easy to write tests
+        engine_args = build_vllm_engine_args(args) 
         self.vllm_engine_args = engine_args
         self.request_logger = request_logger
         self.model_name = model_name
@@ -85,12 +85,11 @@ class VLLMModel(
                 f"(chose from {{ {','.join(valide_tool_parses)} }})"
             )
 
-        engine_args = AsyncEngineArgs.from_cli_args(self.args)
         if torch.cuda.is_available():
-            engine_args.tensor_parallel_size = torch.cuda.device_count()
+            self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
 
         async with build_async_engine_client_from_engine_args(
-            engine_args, disable_frontend_multiprocessing=True
+            self.vllm_engine_args, disable_frontend_multiprocessing=True
         ) as engine_client:
             self.engine_client = engine_client
             if self.args.served_model_name is not None:
@@ -183,12 +182,9 @@ class VLLMModel(
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
-        response = await self.openai_serving_completion.create_completion(
+        return await self.openai_serving_completion.create_completion(
             request, raw_request
         )
-
-        if isinstance(response, ErrorResponse):
-            raise OpenAIError(response)
 
     async def create_chat_completion(
         self,

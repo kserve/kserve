@@ -16,7 +16,7 @@ import pytest
 from kserve import ModelRepository, Model
 from kserve.protocol.rest.openai import (
     CompletionRequest,
-    OpenAICompletionModel,
+    OpenAIGenerativeModel,
     EmbeddingRequest,
     OpenAIEmbeddingModel,
 )
@@ -30,7 +30,7 @@ from kserve.protocol.rest.openai.types.openapi import (
 from typing import AsyncIterator, Union
 
 
-class DummyOpenAICompletionModel(OpenAICompletionModel):
+class DummyOpenAIGenerativeModel(OpenAIGenerativeModel):
     async def create_completion(
         self, params: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
@@ -60,12 +60,12 @@ def test_adding_kserve_model():
 
 def test_adding_openai_completion_model():
     repo = ModelRepository()
-    repo.update(DummyOpenAICompletionModel(name="openai-completion-model"))
+    repo.update(DummyOpenAIGenerativeModel(name="openai-completion-model"))
 
     actual = repo.get_model("openai-completion-model")
 
     assert actual is not None
-    assert isinstance(actual, OpenAICompletionModel)
+    assert isinstance(actual, OpenAIGenerativeModel)
     assert actual.name == "openai-completion-model"
 
 
@@ -105,7 +105,7 @@ async def test_is_model_ready_kserve_model():
 @pytest.mark.asyncio
 async def test_is_model_ready_openai_model():
     repo = ModelRepository()
-    model = DummyOpenAICompletionModel(name="openai-model")
+    model = DummyOpenAIGenerativeModel(name="openai-model")
     repo.update(model)
 
     actual = await repo.is_model_ready("openai-model")

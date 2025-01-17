@@ -41,12 +41,12 @@ from kserve.protocol.rest.openai.errors import OpenAIError
 
 FIXTURES_PATH = Path(__file__).parent / "fixtures" / "openai"
 
-# Since vllm must support Python 3.8, we can't use str.removeprefix(prefix)
-# introduced in Python 3.9
-def remove_prefix(text: str, prefix: str) -> str:
-    if text.startswith(prefix):
-        return text[len(prefix) :]
-    return text
+# # Since vllm must support Python 3.8, we can't use str.removeprefix(prefix)
+# # introduced in Python 3.9
+# def remove_prefix(text: str, prefix: str) -> str:
+#     if text.startswith(prefix):
+#         return text[len(prefix) :]
+#     return text
 
 class ChunkIterator:
     """Yields chunks"""
@@ -222,7 +222,7 @@ class TestOpenAICreateCompletion:
         assert isinstance(c, AsyncGenerator)
         num_chunks_consumed = 0
         async for chunk in c:
-            chunk = remove_prefix(chunk, "data: ")
+            chunk = chunk.removeprefix("data: ")
             if chunk == "[DONE]\n\n":
                 return
             assert (
@@ -269,7 +269,7 @@ class TestOpenAICreateChatCompletion:
         assert isinstance(c, AsyncGenerator)
         num_chunks_consumed = 0
         async for chunk in c:
-            chunk = remove_prefix(chunk, "data: ")
+            chunk = chunk.removeprefix("data: ")
             if chunk == "[DONE]\n\n":
                 return
             assert (

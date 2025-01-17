@@ -13,11 +13,8 @@ kserve = { path = "../kserve", extras = ["storage"], develop = true }
 transformers = ">=4.47.0"
 accelerate = "~0.32.0"
 torch = "~2.5.0"
-vllm = { version = "^0.6.6.post1", optional = true }
+vllm = "^0.6.6.post1"
 setuptools = { version = ">=70.0.0" }
-
-[tool.poetry.extras]
-vllm = ["vllm"]
 
 [tool.poetry.group.test]
 optional = true

@@ -22,7 +22,7 @@ from pydantic import ValidationError
 
 
 from .openai_model import (
-    OpenAIModel,
+    OpenAIGenerativeModel,
     AsyncMappingIterator,
     CompletionRequest,
     ChatCompletionRequest,
@@ -91,7 +91,7 @@ def error_handler(f):
     return wrapper
 
 
-class OpenAIProxyModel(OpenAICompletionModel):
+class OpenAIProxyModel(OpenAIGenerativeModel):
     """
     An implementation of OpenAIModel that proxies requests to a backend server exposing Open AI endpoints.
 

@@ -16,11 +16,9 @@ from .openai_model import (
     ChatPrompt,
     CompletionRequest,
     ChatCompletionRequest,
-    OpenAIEncoderModel,
-    OpenAIGenerativeModel,
     OpenAIModel,
-    OpenAICompletionModel,
-    OpenAIEmbeddingModel,
+    OpenAIGenerativeModel,
+    OpenAIEncoderModel,
 )
 
 from .openai_proxy_model import OpenAIProxyModel
@@ -32,8 +30,8 @@ __all__ = [
     "OpenAIGenerativeModel",
     "OpenAIModel",
     "OpenAIChatAdapterModel",
-    "OpenAICompletionModel",
-    "OpenAIEmbeddingModel",
+    "OpenAIGenerativeModel",
+    "OpenAIEncoderModel",
     "OpenAIProxyModel",
     "ChatPrompt",
     "CompletionRequest",

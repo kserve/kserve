@@ -26,7 +26,7 @@ from kserve.protocol.rest.openai.types import CompletionRequest, Completion
 from kserve.protocol.rest.openai.types import EmbeddingRequest, Embedding
 
 from ...dataplane import DataPlane
-from .openai_model import OpenAIModel
+from .openai_model import OpenAIModel, OpenAIGenerativeModel, OpenAIEncoderModel
 
 
 class OpenAIDataPlane(DataPlane):
@@ -55,7 +55,7 @@ class OpenAIDataPlane(DataPlane):
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = await self.get_model(model_name)
-        if not isinstance(model, OpenAICompletionModel):
+        if not isinstance(model, OpenAIGenerativeModel):
             raise RuntimeError(f"Model {model_name} does not support completion")
 
         context = {"headers": dict(headers), "response": response}
@@ -85,7 +85,7 @@ class OpenAIDataPlane(DataPlane):
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = await self.get_model(model_name)
-        if not isinstance(model, OpenAICompletionModel):
+        if not isinstance(model, OpenAIGenerativeModel):
             raise RuntimeError(f"Model {model_name} does not support chat completion")
 
         context = {"headers": dict(headers), "response": response}
@@ -116,44 +116,13 @@ class OpenAIDataPlane(DataPlane):
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = await self.get_model(model_name)
-        if not isinstance(model, OpenAIModel):
+        if not isinstance(model, OpenAIEncoderModel):
             raise RuntimeError(f"Model {model_name} does not support embedding")
 
         context = {"headers": dict(headers), "response": response}
         return await model.create_embedding(
             request=request, raw_request=raw_request, context=context
         )
-
-    async def create_embedding(
-        self,
-        model_name: str,
-        request: CreateEmbeddingRequest,
-        headers: Headers,
-        response: Response,
-    ) -> Embedding:
-        """Creates an embedding vector representing the input text.
-
-        Args:
-            model_name (str): Model name.
-            request (CreateEmbeddingRequest): Params to create the embedding.
-            headers: (Optional[Dict[str, str]]): Request headers.
-
-        Returns:
-            response: A non-streaming embedding response
-
-        Raises:
-            InvalidInput: An error when the body bytes can't be decoded as JSON.
-        """
-        model = await self.get_model(model_name)
-        if not isinstance(model, OpenAIEmbeddingModel):
-            raise RuntimeError(f"Model {model_name} does not support embeddings")
-
-        embedding_request = EmbeddingRequest(
-            request_id=headers.get("x-request-id", None),
-            params=request,
-            context={"headers": dict(headers), "response": response},
-        )
-        return await model.create_embedding(embedding_request)
 
     async def models(self) -> List[OpenAIModel]:
         """Retrieve a list of models

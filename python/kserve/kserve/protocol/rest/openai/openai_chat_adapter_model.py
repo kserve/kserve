@@ -41,12 +41,12 @@ from kserve.errors import InvalidInput
 from kserve.protocol.rest.openai.openai_model import AsyncMappingIterator
 
 from .openai_model import (
-    OpenAICompletionModel,
+    OpenAIGenerativeModel,
     ChatPrompt,
 )
 
 
-class OpenAIChatAdapterModel(OpenAICompletionModel):
+class OpenAIChatAdapterModel(OpenAIGenerativeModel):
     """
     A helper on top the OpenAI model that automatically maps chat completion requests (/v1/chat/completions)
     to completion requests (/v1/completions).
@@ -222,16 +222,16 @@ class OpenAIChatAdapterModel(OpenAICompletionModel):
                 completion_params, raw_request
             )
 
-            # Since vllm must support Python 3.8, we can't use str.removeprefix(prefix)
-            # introduced in Python 3.9
-            def remove_prefix(text: str, prefix: str) -> str:
-                if text.startswith(prefix):
-                    return text[len(prefix) :]
-                return text
+            # # Since vllm must support Python 3.8, we can't use str.removeprefix(prefix)
+            # # introduced in Python 3.9
+            # def remove_prefix(text: str, prefix: str) -> str:
+            #     if text.startswith(prefix):
+            #         return text[len(prefix) :]
+            #     return text
 
             def mapper(completion_str: str) -> ChatCompletionChunk:
 
-                chunk = remove_prefix(completion_str, "data: ")
+                chunk = completion_str.removeprefix("data: ")
                 if chunk == "[DONE]\n\n":
                     return
 
