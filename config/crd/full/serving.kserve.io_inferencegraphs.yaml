@@ -527,6 +527,8 @@ spec:
                       properties:
                         name:
                           type: string
+                        request:
+                          type: string
                       required:
                       - name
                       type: object
@@ -592,6 +594,8 @@ spec:
                   - type
                   type: object
                 type: array
+              deploymentMode:
+                type: string
               observedGeneration:
                 format: int64
                 type: integer

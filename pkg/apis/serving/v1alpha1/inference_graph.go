@@ -304,6 +304,8 @@ type InferenceGraphStatus struct {
 	// Url for the InferenceGraph
 	// +optional
 	URL *apis.URL `json:"url,omitempty"`
+	// InferenceGraph DeploymentMode
+	DeploymentMode string `json:"deploymentMode,omitempty"`
 }
 
 // InferenceGraphList contains a list of InferenceGraph
