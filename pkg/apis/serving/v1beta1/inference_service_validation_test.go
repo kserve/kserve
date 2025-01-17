@@ -1343,6 +1343,32 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 	}
 }
 
+func TestDeploymentModeUpdate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	oldIsvc := makeTestInferenceService()
+	oldIsvc.Status = InferenceServiceStatus{
+		DeploymentMode: "Serverless",
+	}
+	updatedIsvc := oldIsvc.DeepCopy()
+	updatedIsvc.Annotations = map[string]string{
+		constants.DeploymentMode: "RawDeployment",
+	}
+	validator := InferenceServiceValidator{}
+	warnings, err := validator.ValidateUpdate(context.Background(), &oldIsvc, updatedIsvc)
+	// Annotation does not match status, update should be rejected
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
+
+	updatedIsvc1 := oldIsvc.DeepCopy()
+	updatedIsvc1.Annotations = map[string]string{
+		constants.DeploymentMode: "Serverless",
+	}
+	warnings, err = validator.ValidateUpdate(context.Background(), &oldIsvc, updatedIsvc1)
+	// Annotation matches status, update is accepted
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+}
+
 func intPtr(i int) *int {
 	return &i
 }
