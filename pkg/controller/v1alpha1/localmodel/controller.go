@@ -158,7 +158,7 @@ func (c *LocalModelReconciler) createPVC(ctx context.Context, spec v1.Persistent
 }
 
 // ReconcileForIsvcs Get all isvcs with model cache enabled, create pvs and pvcs, remove pvs and pvcs in namespaces without isvcs.
-func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel *v1alpha1api.LocalModelCache, localModelNodeGroups map[string]*v1alpha1api.LocalModelNodeGroup, jobNamespace string) error {
+func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel *v1alpha1api.LocalModelCache, localModelNodeGroups map[string]*v1alpha1api.LocalModelNodeGroup, defaultNodeGroup *v1alpha1api.LocalModelNodeGroup, jobNamespace string) error {
 	isvcs := &v1beta1.InferenceServiceList{}
 	if err := c.Client.List(ctx, isvcs, client.MatchingFields{localModelKey: localModel.Name}); err != nil {
 		c.Log.Error(err, "List isvc error")
@@ -179,10 +179,12 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 			} else {
 				c.Log.Info("Didn't find isvc node group in model cache node groups", "isvc name", isvc.Name, "isvc node group", isvcNodeGroup, "model cache node groups", maps.Keys(localModelNodeGroups))
 			}
-			// isvc does not have nodegroup annotation. Still add it's namespace
+			// isvc does not have nodegroup annotation. Use default nodegroup
 		} else if _, ok := namespaceToNodeGroups[isvc.Namespace]; !ok {
 			c.Log.Info("Isvc does not have node group annotation", "isvc name", isvc.Name, "nodegroup annotation", constants.NodeGroupAnnotationKey)
-			namespaceToNodeGroups[isvc.Namespace] = map[*v1alpha1api.LocalModelNodeGroup]struct{}{}
+			namespaceToNodeGroups[isvc.Namespace] = map[*v1alpha1api.LocalModelNodeGroup]struct{}{defaultNodeGroup: {}}
+		} else {
+			namespaceToNodeGroups[isvc.Namespace][defaultNodeGroup] = struct{}{}
 		}
 	}
 	localModel.Status.InferenceServices = isvcNames
@@ -268,14 +270,18 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 	// Get all node groups of the local model
+	defaultNodeGroup := &v1alpha1api.LocalModelNodeGroup{}
 	nodeGroups := map[string]*v1alpha1api.LocalModelNodeGroup{}
-	for _, nodeGroupName := range localModel.Spec.NodeGroups {
+	for idx, nodeGroupName := range localModel.Spec.NodeGroups {
 		nodeGroup := &v1alpha1api.LocalModelNodeGroup{}
 		nodeGroupNamespacedName := types.NamespacedName{Name: nodeGroupName}
 		if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
 			return reconcile.Result{}, err
 		}
 		nodeGroups[nodeGroupName] = nodeGroup
+		if idx == 0 {
+			defaultNodeGroup = nodeGroup
+		}
 	}
 
 	// Step 1 - Checks if the CR is in the deletion process
@@ -327,7 +333,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 
 	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
-	err = c.ReconcileForIsvcs(ctx, localModel, nodeGroups, localModelConfig.JobNamespace)
+	err = c.ReconcileForIsvcs(ctx, localModel, nodeGroups, defaultNodeGroup, localModelConfig.JobNamespace)
 	return ctrl.Result{}, err
 }
 
