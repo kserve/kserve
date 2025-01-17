@@ -362,12 +362,12 @@ var _ = Describe("CachedModel controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
 			defer k8sClient.Delete(ctx, cachedModel)
-
+			// No nodegroup annotation, should pick the default nodegroup,
+			// which is the first one in the model cache nodegroup list
 			isvc1 := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:        isvcName1,
-					Namespace:   isvcNamespace,
-					Annotations: map[string]string{constants.NodeGroupAnnotationKey: "gpu1"},
+					Name:      isvcName1,
+					Namespace: isvcNamespace,
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
@@ -380,6 +380,7 @@ var _ = Describe("CachedModel controller", func() {
 					},
 				},
 			}
+			// Has nodegroup annotation, should pick the specified nodegroup
 			isvc2 := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        isvcName2,
