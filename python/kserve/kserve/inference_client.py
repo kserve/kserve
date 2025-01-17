@@ -426,7 +426,7 @@ class InferenceRESTClient:
             relative_url = "/" + relative_url
         return base_url.join(base_url.path + relative_url)
 
-    def _consturct_http_status_error(
+    def _construct_http_status_error(
         self, response: httpx.Response
     ) -> httpx.HTTPStatusError:
         message = (
@@ -506,7 +506,7 @@ class InferenceRESTClient:
                 "response code: %s, content: %s", response.status_code, response.text
             )
         if not response.is_success:
-            raise self._consturct_http_status_error(response)
+            raise self._construct_http_status_error(response)
         if response_headers is not None:
             response_headers.update(response.headers)
         # If inference graph result, return it as dict
@@ -561,7 +561,7 @@ class InferenceRESTClient:
                 "response code: %s, content: %s", response.status_code, response.text
             )
         if not response.is_success:
-            raise self._consturct_http_status_error(response)
+            raise self._construct_http_status_error(response)
         return orjson.loads(response.content)
 
     async def is_server_ready(
@@ -593,7 +593,7 @@ class InferenceRESTClient:
                 "response code: %s, content: %s", response.status_code, response.text
             )
         if not response.is_success:
-            raise self._consturct_http_status_error(response)
+            raise self._construct_http_status_error(response)
         return response.json().get("ready")
 
     async def is_server_live(
@@ -627,7 +627,7 @@ class InferenceRESTClient:
                 "response code: %s, content: %s", response.status_code, response.text
             )
         if not response.is_success:
-            raise self._consturct_http_status_error(response)
+            raise self._construct_http_status_error(response)
         if is_v1(self._config.protocol):
             is_live = response.json().get("status").lower() == "alive"
         elif is_v2(self._config.protocol):
@@ -678,7 +678,7 @@ class InferenceRESTClient:
             return False
         # Raise for other status codes
         if not response.is_success:
-            raise self._consturct_http_status_error(response)
+            raise self._construct_http_status_error(response)
         return response.json().get("ready")
 
     async def close(self):

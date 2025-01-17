@@ -35,7 +35,7 @@ from ..model_repository import ModelRepository
 from ..utils.inference_client_factory import InferenceClientFactory
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
-from .rest.openai import OpenAIModel
+from .rest.openai import OpenAICompletionModel
 
 JSON_HEADERS = [
     "application/json",
@@ -432,8 +432,8 @@ class DataPlane:
         # call model locally or remote model workers
         response_headers = {}
         model = await self.get_model(model_name)
-        if isinstance(model, OpenAIModel):
-            error_msg = f"Model {model_name} is of type OpenAIModel. It does not support the infer method."
+        if isinstance(model, OpenAICompletionModel):
+            error_msg = f"Model {model_name} is of type OpenAICompletionModel. It does not support the infer method."
             raise InvalidInput(reason=error_msg)
         if not isinstance(model, InferenceModel):
             raise ValueError(
@@ -466,9 +466,9 @@ class DataPlane:
         # call model locally or remote model workers
         response_headers = headers if headers else {}
         model = await self.get_model(model_name)
-        if isinstance(model, OpenAIModel):
+        if isinstance(model, OpenAICompletionModel):
             logger.warning(
-                f"Model {model_name} is of type OpenAIModel. It does not support the explain method."
+                f"Model {model_name} is of type OpenAICompletionModel. It does not support the explain method."
                 " A request exercised this path and will cause a server crash."
             )
         if not isinstance(model, InferenceModel):
