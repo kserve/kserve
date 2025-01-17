@@ -20719,6 +20719,8 @@ spec:
                       - type
                     type: object
                   type: array
+                deploymentMode:
+                  type: string
                 modelStatus:
                   properties:
                     copies:
