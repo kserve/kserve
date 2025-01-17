@@ -470,7 +470,7 @@ data:
          # The frequency at which the local model agent reconciles the local models
          # This is to detect if models are missing from local disk
          "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }}
-         # This is to disable localmodel isvc reconciliation for namespaces without isvcs
+         # This is to disable localmodel pv and pvc management for namespaces without isvcs
          "disableVolumeManagement": false
        }
 

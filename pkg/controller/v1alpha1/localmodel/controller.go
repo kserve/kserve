@@ -30,6 +30,7 @@ package localmodel
 import (
 	"context"
 	"reflect"
+	"fmt"
 
 	"github.com/go-logr/logr"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -300,6 +301,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		c.Log.Error(err, "Create PVC err", "name", pv.Name)
 	}
 
+	fmt.Println("FLAG", localModelConfig.DisableVolumeManagement)
 	if localModelConfig.DisableVolumeManagement {
 		return ctrl.Result{}, nil
 	}
@@ -380,6 +382,13 @@ func (c *LocalModelReconciler) localmodelNodeFunc(ctx context.Context, obj clien
 }
 
 func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	fmt.Println("SETUPWITHMANAGER called")
+	localModelConfig, err := v1beta1.NewLocalModelConfig(c.Clientset)
+	if err != nil {
+		c.Log.Error(err, "Failed to get local model config during controller manager setup")
+		return err
+	}
+
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1.PersistentVolumeClaim{}, ownerKey, func(rawObj client.Object) []string {
 		pvc := rawObj.(*v1.PersistentVolumeClaim)
 		owner := metav1.GetControllerOf(pvc)
@@ -461,19 +470,44 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	controllerBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1api.LocalModelCache{}).
 		// Ownes PersistentVolumes and PersistentVolumeClaims that is created by this local model controller
 		Owns(&v1.PersistentVolume{}).
-		Owns(&v1.PersistentVolumeClaim{}).
-		// Creates or deletes pv/pvcs when isvcs got created or deleted
-		Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates)).
-		// Downloads models to new nodes
+		Owns(&v1.PersistentVolumeClaim{})
+	
+	if !localModelConfig.DisableVolumeManagement {
+		controllerBuilder.Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates))
+	}
+
+	return controllerBuilder.
 		Watches(&v1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc), builder.WithPredicates(nodePredicates)).
 		// Updates model status when localmodelnode status changes
 		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFunc), builder.WithPredicates(localModelNodePredicates)).
 		Complete(c)
+	
+	// return ctrl.NewControllerManagedBy(mgr).
+	// 	For(&v1alpha1api.LocalModelCache{}).
+	// 	// Ownes PersistentVolumes and PersistentVolumeClaims that is created by this local model controller
+	// 	Owns(&v1.PersistentVolume{}).
+	// 	Owns(&v1.PersistentVolumeClaim{}).
+	// 	// Creates or deletes pv/pvcs when isvcs got created or deleted
+	// 	Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates)).
+	// 	// Downloads models to new nodes
+	// 	Watches(&v1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc), builder.WithPredicates(nodePredicates)).
+	// 	// Updates model status when localmodelnode status changes
+	// 	Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFunc), builder.WithPredicates(localModelNodePredicates)).
+	// 	Complete(c)
 }
+
+// func (c *LocalModelReconciler) disableVolumeManagementCheck() (bool, error) {
+// 	localModelConfig, err := v1beta1.NewLocalModelConfig(c.Clientset)
+// 	if err != nil {
+// 		c.Log.Error(err, "Failed to get local model config during controller manager setup")
+// 		return 
+// 	}
+// 	return localModelConfig.DisableVolumeManagement
+// }
 
 func isNodeReady(node v1.Node) bool {
 	for _, condition := range node.Status.Conditions {
