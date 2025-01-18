@@ -477,7 +477,10 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&v1.PersistentVolumeClaim{})
 	
 	if !localModelConfig.DisableVolumeManagement {
+		fmt.Println("#######\n\nYES VOLUME MGMT enabled\n\n########")
 		controllerBuilder.Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates))
+	} else {
+		fmt.Println("#######\n\nYES VOLUME MGMT DISABLED\n\n########")
 	}
 
 	return controllerBuilder.

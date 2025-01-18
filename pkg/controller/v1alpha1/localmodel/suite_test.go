@@ -128,6 +128,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	// fmt.Println("AFTER SUITE CALLED")
 	cancel()
 	By("tearing down the test environment")
 	err := testEnv.Stop()
