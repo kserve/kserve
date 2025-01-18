@@ -19,8 +19,6 @@ package localmodel
 import (
 	"context"
 	"time"
-	"fmt"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -32,9 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"k8s.io/client-go/rest"
-	
-	// "k8s.io/apimachinery/pkg/api/errors"
-	
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -117,49 +112,18 @@ var _ = Describe("CachedModel controller", func() {
             nodeGroup                *v1alpha1.LocalModelNodeGroup
         )
 		BeforeEach(func() {
-			fmt.Println("BEFORE EACH CALLED")
 			configMap, clusterStorageContainer, nodeGroup = genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 			initializeManager(ctx, cfg)
-			// clientset, err := kubernetes.NewForConfig(cfg)
-			// Expect(err).ToNot(HaveOccurred())
-			// Expect(clientset).ToNot(BeNil())
-
-			// k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-			// 	Scheme: scheme.Scheme,
-			// 	Metrics: metricsserver.Options{
-			// 		BindAddress: "0",
-			// 	},
-			// })
-			// Expect(err).ToNot(HaveOccurred())
-
-			// fmt.Println("K8sManager done")
-			
-			// err = (&LocalModelReconciler{
-			// 	Client:    k8sManager.GetClient(),
-			// 	Clientset: clientset,
-			// 	Scheme:    scheme.Scheme,
-			// 	Log:       ctrl.Log.WithName("v1alpha1LocalModelController"),
-			// }).SetupWithManager(k8sManager)
-			
-			// Expect(err).ToNot(HaveOccurred())
-			// defer GinkgoRecover()
-			
-			// go func() {
-			// 	err = k8sManager.Start(ctx)
-			// 	Expect(err).ToNot(HaveOccurred())
-			// }()
 		})
 
 		AfterEach(func() {
 			defer k8sClient.Delete(ctx, configMap)
 			defer k8sClient.Delete(ctx, clusterStorageContainer)
 			defer k8sClient.Delete(ctx, nodeGroup)
-			// cancel()
 		})
 
 		It("Should create pv, pvc, localmodelnode, and update status from localmodelnode", func() {
 			defer GinkgoRecover()
-			fmt.Println("Starting first test")
 			configMap := &v1.ConfigMap{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
 			Expect(err).ToNot(HaveOccurred(), "InferenceService ConfigMap should exist")
@@ -423,7 +387,6 @@ var _ = Describe("CachedModel controller", func() {
             nodeGroup                *v1alpha1.LocalModelNodeGroup
         )
 		BeforeEach(func() {
-			fmt.Println("BEFORE EACH CALLED")
 			configs = map[string]string{
 				"localModel": `{
 					"jobNamespace": "kserve-localmodel-jobs",
@@ -433,40 +396,12 @@ var _ = Describe("CachedModel controller", func() {
 			}
 			configMap, clusterStorageContainer, nodeGroup = genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 			initializeManager(ctx, cfg)
-			// clientset, err := kubernetes.NewForConfig(cfg)
-			// Expect(err).ToNot(HaveOccurred())
-			// Expect(clientset).ToNot(BeNil())
-
-			// k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-			// 	Scheme: scheme.Scheme,
-			// 	Metrics: metricsserver.Options{
-			// 		BindAddress: "0",
-			// 	},
-			// })
-			// Expect(err).ToNot(HaveOccurred())
-
-			// fmt.Println("K8sManager done")
-			// err = (&LocalModelReconciler{
-			// 	Client:    k8sManager.GetClient(),
-			// 	Clientset: clientset,
-			// 	Scheme:    scheme.Scheme,
-			// 	Log:       ctrl.Log.WithName("v1alpha1LocalModelController"),
-			// }).SetupWithManager(k8sManager)
-			// Expect(err).ToNot(HaveOccurred())
-			// defer GinkgoRecover()
-			
-			// go func() {
-			// 	err = k8sManager.Start(ctx)
-			// 	Expect(err).ToNot(HaveOccurred())
-			// }()
 		})
 
 		AfterEach(func() {
-			// fmt.Println("AFTER EACH CALLED", ctx, configMap)
 			defer k8sClient.Delete(ctx, configMap)
 			defer k8sClient.Delete(ctx, clusterStorageContainer)
 			defer k8sClient.Delete(ctx, nodeGroup)
-			// cancel()
 		})
 
 		It("Should NOT create/delete pvs and pvcs if localmodel config value DisableVolumeManagement is true", func() {
@@ -526,49 +461,20 @@ var _ = Describe("CachedModel controller", func() {
 			}
         )
 		BeforeEach(func() {
-			fmt.Println("BEFORE EACH CALLED")
 			configMap, clusterStorageContainer, nodeGroup = genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 
 			initializeManager(ctx, cfg)
-			// clientset, err := kubernetes.NewForConfig(cfg)
-			// Expect(err).ToNot(HaveOccurred())
-			// Expect(clientset).ToNot(BeNil())
-
-			// k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-			// 	Scheme: scheme.Scheme,
-			// 	Metrics: metricsserver.Options{
-			// 		BindAddress: "0",
-			// 	},
-			// })
-			// Expect(err).ToNot(HaveOccurred())
-
-			// fmt.Println("K8sManager done")
-			// err = (&LocalModelReconciler{
-			// 	Client:    k8sManager.GetClient(),
-			// 	Clientset: clientset,
-			// 	Scheme:    scheme.Scheme,
-			// 	Log:       ctrl.Log.WithName("v1alpha1LocalModelController"),
-			// }).SetupWithManager(k8sManager)
-			// Expect(err).ToNot(HaveOccurred())
-			// defer GinkgoRecover()
-			
-			// go func() {
-			// 	err = k8sManager.Start(ctx)
-			// 	Expect(err).ToNot(HaveOccurred())
-			// }()
 		})
 
 		AfterEach(func() {
 			defer k8sClient.Delete(ctx, configMap)
 			defer k8sClient.Delete(ctx, clusterStorageContainer)
 			defer k8sClient.Delete(ctx, nodeGroup)
-			// cancel()
 		})
 
 		// With two nodes and two local models, each node should have both local models
 		It("Should create localModelNode correctly", func() {
 			defer GinkgoRecover()
-			fmt.Println("CONFIGMAP IN THIS CASE", configMap)
 
 			node1 := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
@@ -760,7 +666,6 @@ func genericSetup(configs map[string]string, clusterStorageContainerSpec v1alpha
 	return configMap, clusterStorageContainer, nodeGroup
 }
 
-
 func initializeManager(ctx context.Context, cfg *rest.Config) {
 	clientset, err := kubernetes.NewForConfig(cfg)
 	Expect(err).ToNot(HaveOccurred())
@@ -771,10 +676,7 @@ func initializeManager(ctx context.Context, cfg *rest.Config) {
 			BindAddress: "0",
 		},
 	})
-	Expect(err).ToNot(HaveOccurred())
-
-	fmt.Println("K8sManager done")
-	
+	Expect(err).ToNot(HaveOccurred())	
 	err = (&LocalModelReconciler{
 		Client:    k8sManager.GetClient(),
 		Clientset: clientset,
@@ -783,7 +685,6 @@ func initializeManager(ctx context.Context, cfg *rest.Config) {
 	}).SetupWithManager(k8sManager)
 	
 	Expect(err).ToNot(HaveOccurred())
-	// defer GinkgoRecover()
 	
 	go func() {
 		err = k8sManager.Start(ctx)

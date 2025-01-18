@@ -159,6 +159,7 @@ func (c *LocalModelReconciler) createPVC(ctx context.Context, spec v1.Persistent
 
 // ReconcileForIsvcs Get all isvcs with model cache enabled, create pvs and pvcs, remove pvs and pvcs in namespaces without isvcs.
 func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel *v1alpha1api.LocalModelCache, nodeGroup *v1alpha1api.LocalModelNodeGroup, jobNamespace string) error {
+	fmt.Println("RECONCILEFORISVCS CALLED")
 	isvcs := &v1beta1.InferenceServiceList{}
 	if err := c.Client.List(ctx, isvcs, client.MatchingFields{localModelKey: localModel.Name}); err != nil {
 		c.Log.Error(err, "List isvc error")
@@ -303,6 +304,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	fmt.Println("FLAG", localModelConfig.DisableVolumeManagement)
 	if localModelConfig.DisableVolumeManagement {
+		fmt.Println("RETURNING AS IT IS")
 		return ctrl.Result{}, nil
 	}
 
