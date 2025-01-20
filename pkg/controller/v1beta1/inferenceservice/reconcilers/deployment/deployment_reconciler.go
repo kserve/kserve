@@ -359,11 +359,10 @@ func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
 				return nil, err
 			}
 
-			modDeployment := deployment.DeepCopy()
-			
 			// To avoid the conflict between HPA and Deployment,
 			// we need to remove the Replicas field from the deployment spec
 			// For external autoscaler, it should not remove replicas
+			modDeployment := deployment.DeepCopy()
 			if modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
 				modDeployment.Spec.Replicas = nil
 			}
