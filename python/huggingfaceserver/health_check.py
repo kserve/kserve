@@ -13,41 +13,75 @@
 # limitations under the License.
 
 import argparse
+import sys
+import time
+import os
+
 import ray
 import requests
-import sys
 from kserve.logging import logger
 
 
-def initialize_ray_cluster():
-    if not ray.is_initialized():  # Check if Ray is already initialized
-        ray.init(address="auto")
-        return "Ray initialized"
-    else:
-        return "Ray already initialized"
+def initialize_ray_cluster(ray_address="auto"):
+    try:
+        if ray.is_initialized():  # Check if Ray is already initialized
+            return
+        else:
+            ray.init(address=ray_address)
+            return
+    except Exception as e:
+        logger.error(f"Failed to initialize Ray: {e}")
+        sys.exit(1)
 
 
-def verify_status(result):
-    if result == "Healthy":
+def show_ray_cluster_status(ray_address="auto"):
+    initialize_ray_cluster(ray_address)
+    try:
+        resources = ray.cluster_resources()
+        logger.info("Cluster resources:", resources)
+    except Exception as e:
+        logger.error(f"Error getting Ray nodes status: {e}")
+
+
+def verify_status(result, probe_type):
+    if result in ("Healthy", True):
+        logger.info(f"{probe_type} Probe: Healthy")
         sys.exit(0)
     else:
+        logger.error(f"{probe_type} Probe: Unhealthy")
         sys.exit(1)
 
 
 # Function for startup check using Ray API
-def check_startup():
-    try:
-        initialize_ray_cluster()
-        logger.info("Ray is accessible")
+def check_registered_node_and_runtime_health(pipeline_parallel_size, health_check_url, ray_address="auto"):
+    initialize_ray_cluster(ray_address)
+    # Check if the registered nodes count matches PIPELINE_PARALLEL_SIZE
+    check_registered_nodes_status = check_registered_nodes(pipeline_parallel_size, ray_address)
+
+    # Check if server health return 200
+    check_runtime_health_status = check_runtime_health(health_check_url)
+    logger.debug(f"check_registered_nodes_status: {check_registered_nodes_status},check_runtime_health_status: {check_runtime_health_status}")
+
+    if check_registered_nodes_status == "Healthy" and check_runtime_health_status == "Healthy":
         return "Healthy"
-    except Exception as e:
-        logger.error(f"Ray is NOT accessible: {e}")
+    else:
         return "Unhealthy"
 
 
-def check_gpu_usage(probe_type):
+def check_registered_node_and_runtime_models(pipeline_parallel_size, runtime_url, ray_address, isvc_name):
+    result1 = check_registered_nodes(pipeline_parallel_size, ray_address)
+    result2 = check_runtime_models(runtime_url, isvc_name)
+    logger.debug(f"check_registered_nodes: {result1}, check_runtime_models: {result2}")
+    # Check both results
+    if (result1 == "Healthy" or result1 is True) and (result2 == "Healthy" or result2 is True):
+        return "Healthy"
+    else:
+        return "Unhealthy"
+
+
+def check_gpu_usage(ray_address="auto"):
     try:
-        initialize_ray_cluster()
+        initialize_ray_cluster(ray_address)
         nodes = ray.nodes()
         total_gpus = 0
         used_gpus = 0
@@ -57,131 +91,139 @@ def check_gpu_usage(probe_type):
 
         # Determine health status based on GPU usage
         if total_gpus == 0 or total_gpus != used_gpus:
-            logger.error(
-                f"{probe_type}: Unhealthy - Used: {used_gpus}, Total: {total_gpus}"
-            )
+            logger.error(f"GPU Usage: Unhealthy - Used: {used_gpus}, Total: {total_gpus}")
             return "Unhealthy"
         else:
-            logger.info(
-                f"{probe_type}: Healthy - Used: {used_gpus}, Total: {total_gpus}"
-            )
+            logger.info(f"GPU Usage: Healthy - Used: {used_gpus}, Total: {total_gpus}")
             return "Healthy"
     except Exception as e:
-        logger.error(f"{probe_type}: Error - Failed to get GPU status: {str(e)}")
+        logger.error(f"GPU Usage: Error - Failed to get GPU status: {str(e)}")
         return "Unhealthy"
 
 
-def check_registered_nodes(pipeline_parallel_size):
+def check_registered_nodes(pipeline_parallel_size, ray_address="auto", retries=0, interval=2):
     try:
-        initialize_ray_cluster()
-        # Get list of alive nodes
-        nodes = ray.nodes()
-        registered_node_count = len([node for node in nodes if node["Alive"]])
-
-        # Check if the registered nodes count matches PIPELINE_PARALLEL_SIZE
-        if registered_node_count != int(pipeline_parallel_size):
-            logger.error(
-                f"Unhealthy - Registered nodes count ({registered_node_count}) does not match PIPELINE_PARALLEL_SIZE ({pipeline_parallel_size})."
-            )
-            return "Unhealthy"
-        else:
-            logger.info(
-                f"Healthy - Registered nodes count ({registered_node_count}) match PIPELINE_PARALLEL_SIZE ({pipeline_parallel_size})."
-            )
-            return "Healthy"
-    except Exception as e:
-        logger.error(f"Error checking registered nodes: {str(e)}")
+        pipeline_parallel_size = int(pipeline_parallel_size)  # Ensure it's an integer
+    except ValueError:
+        logger.error(f"Invalid pipeline_parallel_size: {pipeline_parallel_size}")
         return "Unhealthy"
 
+    for attempt in range(1, retries + 2):
+        try:
+            initialize_ray_cluster(ray_address)
+            # Get list of alive nodes
+            nodes = ray.nodes()
+            registered_node_count = len([node for node in nodes if node["Alive"]])
+            logger.debug(f"registered_node_count: {registered_node_count}, pipeline_parallel_size: {pipeline_parallel_size}")
+            # Check if the registered nodes count matches PIPELINE_PARALLEL_SIZE
+            if not registered_node_count >= pipeline_parallel_size:
+                logger.error(f"Waiting - Registered nodes count ({registered_node_count}) does not match PIPELINE_PARALLEL_SIZE ({pipeline_parallel_size}).")
+            else:
+                logger.info(f"Success - Registered nodes count ({registered_node_count}) matches PIPELINE_PARALLEL_SIZE ({pipeline_parallel_size}).")
+                return "Healthy"
 
-def check_runtime_health(health_check_url):
-    # Check if Huggingface server health
-    try:
-        response = requests.get(health_check_url, timeout=5)
-        if response.status_code != 200:
-            logger.error(f"Hugging Face server({health_check_url}) is not reachable.")
-            return "Unhealthy"
-        else:
-            logger.info(f"Hugging Face server({health_check_url}) is reachable.")
-            return "Healthy"
-    except requests.RequestException:
-        logger.error(f"Hugging Face server({health_check_url}) is not reachable.")
-        return "Unhealthy"
+        except Exception as e:
+            logger.error(f"Error checking registered nodes: {str(e)}")
+
+        if attempt < retries:
+            time.sleep(interval)
+    logger.error("Max retries reached. Node count did not match the expected pipeline parallel size.")
+    return "Unhealthy"
 
 
-def check_readiness(pipeline_parallel_size, health_check_url):
-    # Check if the registered nodes count matches PIPELINE_PARALLEL_SIZE
-    check_registered_nodes_status = check_registered_nodes(pipeline_parallel_size)
+def check_runtime_health(health_check_url, retries=1, interval=1):
+    # Check if runtime server health
+    for attempt in range(1, retries + 2):
+        try:
+            response = requests.get(health_check_url, timeout=5)
+            if response.status_code != 200:
+                logger.error(f"Server({health_check_url}) did not return 200 code.")
+            else:
+                logger.info(f"Server({health_check_url}) is reachable.")
+                return "Healthy"
+        except requests.RequestException:
+            logger.error(f"Server({health_check_url}) is not reachable.")
 
-    # Check GPU usage
-    check_gpu_usage_status = check_gpu_usage("Readiness Probe")
+        if attempt < retries:
+            time.sleep(interval)
 
-    # Check if Huggingface server health
-    check_runtime_health_status = check_runtime_health(health_check_url)
+    return "Unhealthy"
 
-    if (
-        check_registered_nodes_status == "Healthy"
-        and check_gpu_usage_status == "Healthy"
-        and check_runtime_health_status == "Healthy"
-    ):
-        logger.info("Readiness Probe: Healthy")
-        return "Healthy"
-    else:
-        logger.error("Readiness Probe: Unhealthy")
-        return "Unhealthy"
+
+def check_runtime_models(health_check_url, isvc_name, retries=1, interval=1):
+    # Check if runtime server health
+    for attempt in range(1, retries + 2):
+        try:
+            response = requests.get(health_check_url, timeout=5)
+            if isvc_name in response.text:
+                logger.info(f"Model({isvc_name}) is Ready to serve")
+                return True
+            else:
+                logger.error(f"Model({isvc_name}) is Not ready to serve")
+        except requests.RequestException:
+            logger.error(f"Server({health_check_url}) is not reachable.")
+
+        if attempt < retries:
+            time.sleep(interval)
+
+    return False
 
 
 # Main logic to handle CLI commands using argparse
 def main():
-    # Create the top-level parser
-    parser = argparse.ArgumentParser(description="Perform multinode health checks.")
+    # Get default values from environment variables if available
+    default_ray_address = os.getenv("RAY_ADDRESS", "auto")
+    default_isvc_name = os.getenv("ISVC_NAME", "")
+    default_pipeline_parallel_size = int(os.getenv("PIPELINE_PARALLEL_SIZE", 2))  # Default to 2 if not set
 
-    # Define subcommands (readiness, startup, gpu_usage, registered_nodes)
+    # Create the top-level parser
+    parser = argparse.ArgumentParser(description="Perform multinode operations")
+    parser.add_argument("--ray_address", default=default_ray_address, help="Ray head address")
+    parser.add_argument("--isvc_name", default=default_isvc_name, help="InferenceService name")
+
+    # Define subcommands (readiness,,liveness, startup, gpu_usage, registered_nodes)
     subparsers = parser.add_subparsers(dest="command", help="Sub-command to run")
 
-    # Readiness subcommand
-    readiness_parser = subparsers.add_parser(
-        "readiness", help="Perform readiness check"
-    )
-    readiness_parser.add_argument(
-        "pipeline_parallel_size", type=int, help="Pipeline parallel size"
-    )
-    readiness_parser.add_argument("health_check_url", help="Health check URL")
+    # Check runtime health subcommand
+    runtime_health_parser = subparsers.add_parser("runtime_health", help="Check runtime health")
+    runtime_health_parser.add_argument("--health_check_url", help="Health check URL")
+    runtime_health_parser.add_argument("--probe_name", help="Probe name")
 
-    # Liveness subcommand
-    subparsers.add_parser("liveness", help="Perform liveness check")
-    # Startup subcommand
-    subparsers.add_parser("startup", help="Perform startup check")
-    # GPU Usage subcommand
-    subparsers.add_parser("gpu_usage", help="Check GPU usage")
+    # Check if registered node is the same as pipelineParalleSize
+    reigstered_node_parser = subparsers.add_parser("registered_nodes", help="Check if registered nodes are the same as pipeline parallel size")
+    reigstered_node_parser.add_argument("--pipeline_parallel_size", type=int, default=default_pipeline_parallel_size, help="Pipeline parallel size")
+    reigstered_node_parser.add_argument("--retries", type=int, default=0, help="Pipeline parallel size")
+    reigstered_node_parser.add_argument("--probe_name", help="Probe name")
 
-    # Registered Nodes subcommand
-    registered_nodes_parser = subparsers.add_parser(
-        "registered_nodes", help="Check registered nodes"
-    )
-    registered_nodes_parser.add_argument(
-        "pipeline_parallel_size", type=int, help="Pipeline parallel size"
-    )
+    # Check if registered node is the same as pipelineParalleSize/ runtime health subcommand
+    registered_node_and_runtime_health_parser = subparsers.add_parser("registered_node_and_runtime_health", help="Check node counts and runtime health")
+    registered_node_and_runtime_health_parser.add_argument("--pipeline_parallel_size", type=int, default=default_pipeline_parallel_size, help="Pipeline parallel size")
+    registered_node_and_runtime_health_parser.add_argument("--health_check_url", help="Health check URL")
+    registered_node_and_runtime_health_parser.add_argument("--probe_name", help="Probe name")
+    
+
+    # Check if registered node is the same as pipelineParalleSize/ model loaded on runtime subcommand
+    registered_node_and_runtime_models_parser = subparsers.add_parser("registered_node_and_runtime_models", help="Check node counts and loaded model on runtime")
+    registered_node_and_runtime_models_parser.add_argument("--pipeline_parallel_size", type=int, default=default_pipeline_parallel_size, help="Pipeline parallel size")
+    registered_node_and_runtime_models_parser.add_argument("--runtime_url", help="Health check URL")
+    registered_node_and_runtime_models_parser.add_argument("--probe_name", help="Probe name")
 
     # Parse the arguments
     args = parser.parse_args()
 
     # Route to appropriate function based on command using if-elif-else
-    if args.command == "readiness":
-        result = check_readiness(args.pipeline_parallel_size, args.health_check_url)
-        verify_status(result)
-    elif args.command == "startup":
-        result = check_startup()
-        verify_status(result)
-    elif args.command == "liveness":
-        result = check_gpu_usage("Liveness Probe")
-        verify_status(result)
-    elif args.command == "gpu_usage":
-        result = check_gpu_usage("GPU Usage")
-        verify_status(result)
+    if args.command == "runtime_health":
+        result = check_runtime_health(args.health_check_url)
+        verify_status(result, args.probe_name)
+    elif args.command == "registered_node_and_runtime_health":
+        result = check_registered_node_and_runtime_health(args.pipeline_parallel_size, args.health_check_url, args.ray_address)
+        verify_status(result, args.probe_name)
+    elif args.command == "registered_node_and_runtime_models":
+        result = check_registered_node_and_runtime_models(args.pipeline_parallel_size, args.runtime_url, args.ray_address, args.isvc_name)
+        verify_status(result, args.probe_name)
     elif args.command == "registered_nodes":
-        result = check_registered_nodes(args.pipeline_parallel_size)
-        verify_status(result)
+        result = check_registered_nodes(args.pipeline_parallel_size, args.ray_address, args.retries)
+        verify_status(result, args.probe_name)
     else:
         parser.print_help()
 
