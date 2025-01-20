@@ -11,6 +11,7 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
 	github.com/gofrs/uuid/v5 v5.3.0
+	github.com/golang/mock v1.4.4
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/googleapis/google-cloud-go-testing v0.0.0-20210719221736-1c9a4c676720
