@@ -7,22 +7,35 @@ FROM ${BASE_IMAGE} AS builder
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.8.3
+# Instal Rust
+ARG CARGO_HOME=/opt/.cargo/
 
-# Required for building packages for arm64 arch
-RUN apt-get update && apt-get install -y --no-install-recommends python3-dev build-essential && apt-get clean && \
+# Required for building packages for arm64 and s390x arch
+RUN apt-get update && apt-get install -y --no-install-recommends python3-dev build-essential && \
+    if [ "$(uname -m)" = "s390x" ]; then \
+       echo "Installing packages and rust " && \
+       apt-get install -y  libssl-dev pkg-config curl libhdf5-dev git  && \
+       curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > sh.rustup.rs && \
+       export CARGO_HOME=${CARGO_HOME} && sh ./sh.rustup.rs -y && export PATH=$PATH:${CARGO_HOME}/bin && . "${CARGO_HOME}/env"; \
+    fi && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
-ENV PATH="$PATH:${POETRY_HOME}/bin"
+ENV PATH="$PATH:${POETRY_HOME}/bin:${CARGO_HOME}/bin"
+RUN python3 -m venv ${POETRY_HOME} && \
+    ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION};
 
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+# To allow GRPCIO to build build via openssl
+ENV GRPC_PYTHON_BUILD_SYSTEM_OPENSSL 1
 
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache --extras "storage"
+RUN cd kserve && \
+    poetry install --no-root --no-interaction --no-cache --extras "storage"
 COPY kserve kserve
 RUN cd kserve && poetry install --no-interaction --no-cache --extras "storage"
 
@@ -33,7 +46,6 @@ RUN apt-get update && apt-get install -y \
     libkrb5-dev \
     krb5-config \
     && rm -rf /var/lib/apt/lists/*
-
 RUN pip install --no-cache-dir krbcontext==0.10 hdfs~=2.6.0 requests-kerberos==0.14.0
 
 
