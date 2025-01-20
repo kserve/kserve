@@ -61,7 +61,7 @@ async def test_kserve_logger(rest_v1_client):
             ),
         ),
     )
-    base_test(msg_dumper, service_name, predictor, rest_v1_client)
+    await base_test(msg_dumper, service_name, predictor, rest_v1_client)
 
 
 @pytest.mark.rawcipn
