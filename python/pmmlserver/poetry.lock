@@ -1261,7 +1261,6 @@ uvicorn = {version = "^0.30.6", extras = ["standard"]}
 llm = ["vllm (>=0.7.3,<0.8.0)"]
 logging = ["asgi-logger (>=0.1.0,<0.2.0)"]
 ray = ["ray[serve] (>=2.40.0,<2.41.0)"]
-storage = ["storage @ file:///Users/fspolti/data/dev/sources/kserve/python/storage"]
 
 [package.source]
 type = "directory"
@@ -2366,11 +2365,12 @@ azure-storage-file-share = "^12.16.0"
 boto3 = "^1.29.0"
 google-cloud-storage = "^2.14.0"
 huggingface-hub = {version = "^0.24.5", extras = ["hf-transfer"]}
+pyyaml = {version = "^6.0.0", markers = "python_full_version > \"3.8.0\" and python_version < \"3.12\""}
 requests = "^2.32.2"
 urllib3 = ">=1.25.4,<1.27"
 
 [package.extras]
-logging = ["asgi-logger (>=0.1.0,<0.2.0)", "pyyaml (>=6.0.0,<7.0.0)"]
+logging = ["asgi-logger (>=0.1.0,<0.2.0)"]
 
 [package.source]
 type = "directory"
