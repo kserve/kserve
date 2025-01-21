@@ -53,8 +53,6 @@ pandas =  "^2.2.0"
 pydantic = [{ version = "^2.5.0", python = "3.12" }, { version = ">1.0,<3", python = ">=3.9,<3.12" }]
 pyyaml = "^6.0.0"
 
-# KServe Storage module. They can be opted into by apps.
-storage = { path = "../storage", optional = true, develop = true }
 # Logging dependencies. They can be opted into by apps.
 asgi-logger = { version = "^0.1.0", optional = true }
 
@@ -62,11 +60,6 @@ asgi-logger = { version = "^0.1.0", optional = true }
 ray = { version = "~2.35.0", extras = ["serve"], optional = true }
 
 [tool.poetry.extras]
-# The storage module will be migrated to its own model and removed from here on new releses,
-# please update it accordingly.
-storage = [
-    "storage"
-]
 logging = [
     "asgi-logger"
 ]

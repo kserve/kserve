@@ -26,7 +26,7 @@ jobs:
         run: |
           pip install pytest
           cd python/kserve
-          poetry install --with=test --no-interaction --extras "ray"
+          poetry install --with test --no-interaction --extras "ray"
 
       - name: Run tests without storage module
         run: |
@@ -52,7 +52,8 @@ jobs:
         run: |
           pip install pytest 
           cd python/kserve
-          poetry install --with=test --no-interaction --extras "storage ray"
+          poetry add --editable ../storage
+          poetry install --with test --no-interaction --extras "ray"
 
       - name: Run tests with storage module
         run: |
