@@ -3067,6 +3067,11 @@
           "default": {},
           "$ref": "#/definitions/v1beta1.ExplainersConfig"
         },
+        "resource": {
+          "description": "Resource configurations",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.ResourceConfig"
+        },
         "serviceAnnotationDisallowedList": {
           "description": "ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative revisions",
           "type": "array",
@@ -4957,6 +4962,23 @@
         "xgboost": {
           "description": "Spec for XGBoost model server",
           "$ref": "#/definitions/v1beta1.XGBoostSpec"
+        }
+      }
+    },
+    "v1beta1.ResourceConfig": {
+      "type": "object",
+      "properties": {
+        "cpuLimit": {
+          "type": "string"
+        },
+        "cpuRequest": {
+          "type": "string"
+        },
+        "memoryLimit": {
+          "type": "string"
+        },
+        "memoryRequest": {
+          "type": "string"
         }
       }
     },
