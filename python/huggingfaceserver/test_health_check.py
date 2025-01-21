@@ -15,7 +15,6 @@
 import unittest
 import requests
 from unittest.mock import patch, MagicMock
-from unittest.mock import call
 import health_check as health_check
 
 
