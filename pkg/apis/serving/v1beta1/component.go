@@ -27,6 +27,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -90,6 +91,9 @@ type ComponentExtensionSpec struct {
 	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
 	// +optional
 	ScaleTarget *int `json:"scaleTarget,omitempty"`
+	// Metrics to be used for autoscaling
+	// +optional
+	Metrics []v2.MetricSpec `json:"metrics,omitempty"`
 	// ScaleMetric defines the scaling metric type watched by autoscaler
 	// possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
@@ -128,6 +132,94 @@ type ComponentExtensionSpec struct {
 	// The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.
 	// +optional
 	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`
+}
+
+// MetricSpec specifies how to scale based on a single metric
+// (only `type` and one other matching field should be set at once).
+type MetricSpec struct {
+
+	// resource refers to a resource metric (such as those specified in
+	// requests and limits) known to Kubernetes describing each pod in the
+	// current scale target (e.g. CPU or memory). Such metrics are built in to
+	// Kubernetes, and have special scaling options on top of those available
+	// to normal per-pod metrics using the "pods" source.
+	// +optional
+	Resource *ResourceMetricSource `json:"resource,omitempty"`
+
+	// external refers to a global metric that is not associated
+	// with any Kubernetes object. It allows autoscaling based on information
+	// coming from components running outside of cluster
+	// (for example length of queue in cloud messaging service, or
+	// QPS from loadbalancer running outside of cluster).
+	// +optional
+	External *ExternalMetricSource `json:"external,omitempty"`
+}
+
+type ResourceMetricSource struct {
+	// name is the name of the resource in question.
+	Name v1.ResourceName `json:"name" protobuf:"bytes,1,name=name"`
+
+	// target specifies the target value for the given metric
+	Target MetricTarget `json:"target" protobuf:"bytes,2,name=target"`
+}
+
+type ExternalMetricSource struct {
+	// metric identifies the target metric by name and selector
+	Metric MetricIdentifier `json:"metric" protobuf:"bytes,1,name=metric"`
+
+	// target specifies the target value for the given metric
+	Target MetricTarget `json:"target" protobuf:"bytes,2,name=target"`
+}
+
+// MetricTarget defines the target value, average value, or average utilization of a specific metric
+type MetricTarget struct {
+	// type represents whether the metric type is Utilization, Value, or AverageValue
+	Type MetricTargetType `json:"type"`
+
+	// value is the target value of the metric (as a quantity).
+	// +optional
+	Value *resource.Quantity `json:"value,omitempty"`
+
+	// averageValue is the target value of the average of the
+	// metric across all relevant pods (as a quantity)
+	// +optional
+	AverageValue *resource.Quantity `json:"averageValue,omitempty"`
+
+	// averageUtilization is the target value of the average of the
+	// resource metric across all relevant pods, represented as a percentage of
+	// the requested value of the resource for the pods.
+	// Currently only valid for Resource metric source type
+	// +optional
+	AverageUtilization *int32 `json:"averageUtilization,omitempty"`
+}
+
+// MetricTargetType specifies the type of metric being targeted, and should be either
+// "Value", "AverageValue", or "Utilization"
+type MetricTargetType string
+
+const (
+	// UtilizationMetricType declares a MetricTarget is an AverageUtilization value
+	UtilizationMetricType MetricTargetType = "Utilization"
+	// ValueMetricType declares a MetricTarget is a raw value
+	ValueMetricType MetricTargetType = "Value"
+	// AverageValueMetricType declares a MetricTarget is an
+	AverageValueMetricType MetricTargetType = "AverageValue"
+)
+
+type MetricIdentifier struct {
+	// MetricsBackend defines the scaling metric type watched by autoscaler
+	// possible values are prometheus, graphite.
+	// +optional
+	MetricsBackend *MetricsBackend `json:"metricBackend,omitempty"`
+	// Address of MetricsBackend server.
+	// +optional
+	ServerAddress string `json:"serverAddress,omitempty"`
+	// Query to run to get metrics from MetricsBackend
+	// +optional
+	MetricQuery string `json:"metricQuery,omitempty"`
+	// A comma-separated list of query Parameters to include while querying the MetricsBackend endpoint.
+	// +optional
+	QueryParameters string `json:"queryParameters,omitempty"`
 }
 
 // ScaleMetric enum
