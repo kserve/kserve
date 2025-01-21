@@ -62,9 +62,17 @@ func TestTritonValidation(t *testing.T) {
 func TestTritonDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	defaultResource = v1.ResourceList{
+	defaultResource := v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	config := &InferenceServicesConfig{
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
+		},
 	}
 	scenarios := map[string]struct {
 		spec     PredictorSpec
@@ -97,7 +105,7 @@ func TestTritonDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.Triton.Default(nil)
+			scenario.spec.Triton.Default(config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
@@ -144,6 +152,14 @@ func TestTritonSpec_GetContainer(t *testing.T) {
 func TestTritonSpec_Default(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
+	config := &InferenceServicesConfig{
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
+		},
+	}
 	scenarios := map[string]struct {
 		spec     PredictorSpec
 		expected *TritonSpec
@@ -189,7 +205,7 @@ func TestTritonSpec_Default(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.Triton.Default(nil)
+			scenario.spec.Triton.Default(config)
 			if !g.Expect(scenario.spec.Triton).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec.Triton, scenario.expected)
 			}
