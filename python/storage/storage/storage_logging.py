@@ -75,7 +75,7 @@ trace_logger = logging.getLogger(STORAGE_INITIALIZER_TRACE_LOGGER_NAME)
 
 def configure_logging(log_config: Optional[Union[Dict, str]] = None):
     """
-    Configures Kserve and Uvicorn loggers.
+    Configures Kserve storage loggers.
     This function should be called before loading the model / starting the model
     server for consistent logging format.
 
