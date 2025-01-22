@@ -34,7 +34,7 @@ if [[ $DEPLOYMENT_MODE == "raw" ]];then
   if [[ $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
     echo "Creating Envoy Gateway ..."
     kubectl apply -f config/overlays/test/gateway/ingress_gateway.yaml
-
+    sleep 10
     echo "Waiting for envoy gateway to be ready ..."
     kubectl wait --timeout=5m -n envoy-gateway-system pod -l serving.kserve.io/gateway=kserve-ingress-gateway --for=condition=Ready
   elif [[ $NETWORK_LAYER == "istio-gatewayapi" ]]; then
@@ -42,7 +42,7 @@ if [[ $DEPLOYMENT_MODE == "raw" ]];then
     # Replace gatewayclass name
     sed -i 's/envoy/istio/g' config/overlays/test/gateway/ingress_gateway.yaml
     kubectl apply -f config/overlays/test/gateway/ingress_gateway.yaml
-
+    sleep 10
     echo "Waiting for istio gateway to be ready ..."
     kubectl wait --timeout=5m -n kserve pod -l serving.kserve.io/gateway=kserve-ingress-gateway --for=condition=Ready
   fi
