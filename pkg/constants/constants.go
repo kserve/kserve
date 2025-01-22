@@ -165,6 +165,7 @@ type AutoscalerClassType string
 type AutoscalerMetricsType string
 type AutoscalerKedaMetricsType string
 type AutoScalerKPAMetricsType string
+type AutoScalerType string
 
 var (
 	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
@@ -196,6 +197,11 @@ var (
 	AutoScalerMetricsGraphite   AutoscalerMetricsType = "graphite"
 )
 
+var (
+	AutoScalerResource AutoScalerType = "resource"
+	AutoScalerExternal AutoScalerType = "external"
+)
+
 // Autoscaler Class Allowed List
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
@@ -219,6 +225,9 @@ var AutoScalerKPAMetricsAllowedList = []AutoScalerKPAMetricsType{
 var AutoscalerAllowedKEDAMetricsList = []AutoscalerMetricsType{
 	AutoScalerMetricsCPU,
 	AutoScalerMetricsMemory,
+}
+
+var AutoscalerAllowedKEDAMetricBackendList = []AutoscalerMetricsType{
 	AutoScalerMetricsPrometheus,
 	AutoScalerMetricsGraphite,
 }

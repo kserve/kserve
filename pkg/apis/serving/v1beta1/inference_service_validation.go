@@ -31,6 +31,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -244,11 +245,34 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 						return nil
 					}
 				case constants.AutoscalerClassKeda:
-					metric := isvc.Spec.Predictor.ComponentExtensionSpec.ScaleMetric
-					if metric == nil {
-						metric = isvc.Spec.Predictor.ComponentExtensionSpec.ScalerSpec.ScaleMetric
+					// TODO: for loop
+					componentExtensionSpec := isvc.Spec.Predictor.ComponentExtensionSpec
+					// checks for conflicts between ScaleMetric and AutoScaling configurations
+					if componentExtensionSpec.ScaleMetric != nil {
+						if componentExtensionSpec.AutoScaling != nil {
+							return fmt.Errorf("There is a conflicts between ScaleMetric and AutoScaling." +
+								"Please use AutoScaling if you want to use KEDA")
+						}
 					}
-					return validateKEDAMetrics(*metric)
+
+					if componentExtensionSpec.ScaleMetric != nil {
+						metric := componentExtensionSpec.ScaleMetric
+						return validateKEDAMetrics(*metric)
+					}
+
+					if componentExtensionSpec.AutoScaling != nil {
+						autoScalingType := componentExtensionSpec.AutoScaling[0].Type
+						if autoScalingType == MetricSourceType(constants.AutoScalerResource) {
+							resourceName := componentExtensionSpec.AutoScaling[0].Resource.Name
+							return validateKEDAMetrics(ScaleMetric(*resourceName))
+						} else if autoScalingType == MetricSourceType(constants.AutoScalerExternal) {
+							metricBackend := componentExtensionSpec.AutoScaling[0].External.Metric.Backend
+							return validateKEDAMetricBackends(MetricsBackend(*metricBackend))
+						} else {
+							return fmt.Errorf("unknown auto scaling type class [%s] with value [%s]."+
+								"Valid types are Resource and External", class, autoScalingType)
+						}
+					}
 				case constants.AutoscalerClassExternal:
 					return nil
 				default:
@@ -268,6 +292,14 @@ func validateKEDAMetrics(metric ScaleMetric) error {
 		return nil
 	}
 	return fmt.Errorf("[%s] is not a supported metric in KEDA.\n", metric)
+}
+
+// Validate of autoscaler KEDA metrics
+func validateKEDAMetricBackends(backend MetricsBackend) error {
+	if slices.Contains(constants.AutoscalerAllowedKEDAMetricBackendList, constants.AutoscalerMetricsType(backend)) {
+		return nil
+	}
+	return fmt.Errorf("[%s] is not a supported metric backend in KEDA.\n", backend)
 }
 
 // Validate of autoscaler HPA metrics
@@ -320,13 +352,43 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 }
 
 func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error {
-	metric := *compExtSpec.ScaleMetric
-	if compExtSpec.ScalerSpec != nil && compExtSpec.ScalerSpec.ScaleMetric != nil {
-		metric = *compExtSpec.ScalerSpec.ScaleMetric
+	metric := MetricCPU
+	if compExtSpec.ScaleMetric != nil {
+		metric = *compExtSpec.ScaleMetric
 	}
-	err := validateKEDAMetrics(metric)
-	if err != nil {
-		return err
+
+	if compExtSpec.ScaleTarget != nil {
+		target := *compExtSpec.ScaleTarget
+		if metric == MetricCPU && target < 1 || target > 100 {
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
+		}
+
+		if metric == MetricMemory && target < 1 {
+			return fmt.Errorf("the target memory should be greater than 1 MiB")
+		}
+	}
+	// TODO: recheck this
+	if compExtSpec.AutoScaling != nil {
+		for _, autoScaling := range compExtSpec.AutoScaling {
+			if autoScaling.Type == MetricSourceType(constants.AutoScalerResource) {
+				resourceName := autoScaling.Resource.Name
+				if *resourceName == MetricCPU && *autoScaling.Resource.Target.AverageUtilization < 1 ||
+					*autoScaling.Resource.Target.AverageUtilization > 100 {
+					return fmt.Errorf("the target utilization percentage should be a [1-100] intege")
+				} else if *resourceName == MetricMemory && autoScaling.Resource.Target.AverageValue.Cmp(resource.MustParse("1Mi")) < 0 {
+					return fmt.Errorf("the target memory should be greater than 1 MiB")
+				}
+
+			} else if autoScaling.Type == MetricSourceType(constants.AutoScalerExternal) {
+				// TODO: add validation for queryTime for graphite
+				if autoScaling.External.Metric.Query == "" {
+					return fmt.Errorf("the query should not be empty")
+				}
+				if autoScaling.External.Target.Value == nil {
+					return fmt.Errorf("the Thresold value should not be empty")
+				}
+			}
+		}
 	}
 	return nil
 }
