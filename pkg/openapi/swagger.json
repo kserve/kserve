@@ -3332,6 +3332,9 @@
         "defaultJobImage": {
           "type": "string"
         },
+        "disableVolumeManagement": {
+          "type": "boolean"
+        },
         "enabled": {
           "type": "boolean",
           "default": false
