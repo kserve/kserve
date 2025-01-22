@@ -247,7 +247,7 @@ var _ = Describe("CachedModel controller", func() {
 			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
 			defer k8sClient.Delete(ctx, nodeGroup)
 
-			modelName := "iris2"
+			modelName := "iris"
 			isvcNamespace := "default"
 			isvcName := "foo"
 			cachedModel := &v1alpha1.LocalModelCache{
