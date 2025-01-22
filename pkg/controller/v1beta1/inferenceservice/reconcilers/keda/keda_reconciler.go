@@ -60,101 +60,81 @@ func NewKedaReconciler(client client.Client,
 	}
 }
 
-func getKedaMetrics(metricConfig *v1beta1.MetricsConfig, metadata metav1.ObjectMeta,
+func getKedaMetrics(metadata metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec) []kedav1alpha1.ScaleTriggers {
 	var triggers []kedav1alpha1.ScaleTriggers
-	var serverAddress string
 
 	// Default values
 	triggerType := string(corev1.ResourceCPU)
 	metricType := autoscalingv2.UtilizationMetricType
-	scaleTarget := int(constants.DefaultCPUUtilization)
+	targetValue := int(constants.DefaultCPUUtilization)
 
-	// Get metric configuration from metricConfig (configmap)
-	if metricConfig != nil && metricConfig.MetricBackend != "" {
-		triggerType = metricConfig.MetricBackend
-		serverAddress = metricConfig.ServerAddress
-	}
-	// override metric configuration from componentExtension if it is set
-	if componentExt.ScaleMetric != nil {
+	// override default metric configuration from componentExtension.AutoScaling if it is set
+	if componentExt.AutoScaling != nil {
+		for _, autoScaling := range componentExt.AutoScaling {
+			if autoScaling.Type == v1beta1.MetricSourceType(constants.AutoScalerResource) {
+				triggerType = string(*autoScaling.Resource.Name)
+				metricType = autoscalingv2.MetricTargetType(autoScaling.Resource.Target.Type)
+				if metricType == autoscalingv2.UtilizationMetricType {
+					targetValue = int(*autoScaling.Resource.Target.AverageUtilization)
+				} else if metricType == autoscalingv2.AverageValueMetricType {
+					targetValue = int(autoScaling.Resource.Target.AverageValue.MilliValue()) // TODO: check if this is correct
+				}
+
+				// create a trigger for the resource
+				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
+					Type:       triggerType,
+					Metadata:   map[string]string{"value": strconv.Itoa(targetValue)},
+					MetricType: metricType,
+				})
+
+			} else if autoScaling.Type == v1beta1.MetricSourceType(constants.AutoScalerExternal) {
+				triggerType = string(*autoScaling.External.Metric.Backend)
+				serverAddress := autoScaling.External.Metric.ServerAddress
+				query := autoScaling.External.Metric.Query
+				targetValue = int(autoScaling.Resource.Target.Value.MilliValue()) // TODO: check if this is correct
+
+				// TODO: queryTime is required for graphite trigger?
+
+				// create a trigger for the external metric
+				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
+					Type: triggerType,
+					Metadata: map[string]string{
+						"serverAddress": serverAddress,
+						"query":         query,
+						"threshold":     strconv.Itoa(targetValue),
+					},
+				})
+
+			}
+
+		}
+	} else if componentExt.ScaleMetric != nil {
 		triggerType = string(*componentExt.ScaleMetric)
-	}
-	if componentExt.ScaleMetricType != nil {
-		metricType = *componentExt.ScaleMetricType
-	}
-	if componentExt.ScaleTarget != nil {
-		scaleTarget = *componentExt.ScaleTarget
-	}
-	// override metric configuration from componentExtension.ScalerSpec if it is set
-	if componentExt.ScalerSpec != nil {
-		if componentExt.ScalerSpec.ScaleMetric != nil {
-			triggerType = string(*componentExt.ScalerSpec.ScaleMetric)
+		if componentExt.ScaleMetricType != nil {
+			metricType = *componentExt.ScaleMetricType
 		}
-		if componentExt.ScalerSpec.ServerAddress != "" {
-			serverAddress = componentExt.ScalerSpec.ServerAddress
+		if componentExt.ScaleTarget != nil {
+			targetValue = *componentExt.ScaleTarget
 		}
-		if componentExt.ScalerSpec.ScaleMetricType != nil {
-			scaleTarget = *componentExt.ScalerSpec.ScaleTarget
-		}
-		if componentExt.ScalerSpec.ScaleMetricType != nil {
-			metricType = *componentExt.ScalerSpec.ScaleMetricType
-		}
+		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
+			Type:       triggerType,
+			Metadata:   map[string]string{"value": strconv.Itoa(targetValue)},
+			MetricType: metricType,
+		})
 	}
 
-	trigger := kedav1alpha1.ScaleTriggers{
-		Type:     triggerType,
-		Metadata: map[string]string{},
-	}
-
-	// set trigger metadata for prometheus and graphite triggers
-	if triggerType == "prometheus" || triggerType == "graphite" {
-		if serverAddress != "" {
-			trigger.Metadata["serverAddress"] = serverAddress
-		}
-		if componentExt.ScalerSpec != nil {
-			if componentExt.ScalerSpec.MetricQuery != "" {
-				trigger.Metadata["query"] = componentExt.ScalerSpec.MetricQuery
-			}
-			if componentExt.ScalerSpec.QueryParameters != "" {
-				trigger.Metadata["queryParameters"] = componentExt.ScalerSpec.QueryParameters
-			}
-			if componentExt.ScalerSpec.ServerAddress != "" {
-				trigger.Metadata["threshold"] = strconv.Itoa((scaleTarget))
-			}
-		}
-	} else {
-		// set trigger metadata for other triggerTypes
-		trigger.Metadata["value"] = strconv.Itoa((scaleTarget))
-		trigger.MetricType = metricType
-	}
-
-	// set queryTime for graphite trigger (if set)
-	if triggerType == "graphite" {
-		if componentExt.ScalerSpec.QueryTime != "" {
-			trigger.Metadata["queryTime"] = componentExt.ScalerSpec.QueryTime
-		}
-	}
-
-	triggers = append(triggers, trigger)
 	return triggers
 }
 
 func createKedaScaledObject(clientset kubernetes.Interface, componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec) *kedav1alpha1.ScaledObject {
-	metricConfig, err := v1beta1.NewMetricsConfig(clientset)
-	if err != nil {
-		return nil
-	}
 
-	triggers := getKedaMetrics(metricConfig, componentMeta, componentExtension)
+	triggers := getKedaMetrics(componentMeta, componentExtension)
 	annotations := componentMeta.GetAnnotations()
 
 	MinReplicas := componentExtension.MinReplicas
 	MaxReplicas := componentExtension.MaxReplicas
-	if componentExtension.ScalerSpec != nil {
-		MinReplicas = componentExtension.ScalerSpec.MinReplicas
-		MaxReplicas = componentExtension.ScalerSpec.MaxReplicas
-	}
 
 	if MinReplicas == nil {
 		MinReplicas = &constants.DefaultMinReplicas

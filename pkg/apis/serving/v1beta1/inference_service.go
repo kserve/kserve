@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	v2 "k8s.io/api/autoscaling/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -65,45 +64,6 @@ type LoggerSpec struct {
 	// Matched metadata HTTP headers for propagating to inference logger cloud events.
 	// +optional
 	MetadataHeaders []string `json:"metadataHeaders,omitempty"`
-}
-
-type ScalerSpec struct {
-	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
-	// +optional
-	MinReplicas *int `json:"minReplicas,omitempty"`
-	// Maximum number of replicas for autoscaling.
-	// +optional
-	MaxReplicas int `json:"maxReplicas,omitempty"`
-	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
-	// concurrency and rps targets are supported by Knative Pod Autoscaler
-	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
-	// +optional
-	ScaleTarget *int `json:"scaleTarget,omitempty"`
-	// ScaleMetric defines the scaling metric type watched by autoscaler
-	// possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via
-	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
-	// +optional
-	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
-	// Type of metric to use. Options are Utilization, or AverageValue.
-	// +optional
-	ScaleMetricType *v2.MetricTargetType `json:"scaleMetricType,omitempty"`
-	// MetricsBackend defines the scaling metric type watched by autoscaler
-	// possible values are prometheus, graphite.
-	// +optional
-	MetricsBackend *MetricsBackend `json:"metricBackend,omitempty"`
-	// Address of MetricsBackend server.
-	// +optional
-	ServerAddress string `json:"serverAddress,omitempty"`
-	// Query to run to get metrics from MetricsBackend
-	// +optional
-	MetricQuery string `json:"metricQuery,omitempty"`
-	// A comma-separated list of query Parameters to include while querying the MetricsBackend endpoint.
-	// +optional
-	QueryParameters string `json:"queryParameters,omitempty"`
-	// queryTime is relative time range to execute query against.
-	// specialized for graphite (https://graphite-api.readthedocs.io/en/latest/api.html#from-until)
-	// +optional
-	QueryTime string `json:"queryTime,omitempty"`
 }
 
 // MetricsBackend enum
