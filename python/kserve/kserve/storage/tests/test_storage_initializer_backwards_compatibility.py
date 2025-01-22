@@ -25,6 +25,7 @@ def test_kserve_module_not_installed():
 def test_kserve_module_installed():
     import kserve.storage as Storage
 
-    # it should return TypeError: Storage.download() missing 1 required positional argument: 'uri'
-    with pytest.raises(TypeError):
+    with pytest.raises(
+        TypeError, match="missing 1 required positional argument: 'uri'"
+    ):
         Storage.download()
