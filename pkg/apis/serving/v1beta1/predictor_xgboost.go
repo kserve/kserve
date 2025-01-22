@@ -43,7 +43,7 @@ func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {
 		x.ProtocolVersion = &defaultProtocol
 	}
 
-	setResourceRequirementDefaults(&x.Resources)
+	setResourceRequirementDefaults(config, &x.Resources)
 }
 
 // nolint: unused

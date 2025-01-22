@@ -594,3 +594,13 @@ data:
     {
       "autoMountServiceAccountToken": {{ .Values.kserve.security.autoMountServiceAccountToken }}
     }
+
+  inferenceservice: |-
+    {
+      "resource": {
+        "cpuLimit": "{{ .Values.kserve.inferenceservice.resources.limits.cpu }}",
+        "cpuRequest": "{{ .Values.kserve.inferenceservice.resources.requests.cpu }}",
+        "memoryLimit": "{{ .Values.kserve.inferenceservice.resources.limits.memory }}",
+        "memoryRequest": "{{ .Values.kserve.inferenceservice.resources.requests.memory }}"
+      }
+    }
