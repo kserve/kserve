@@ -127,11 +127,6 @@ replacements:
         options:
           delimiter: '/'
           index: 0
-      - select:
-          kind: Gateway
-          name: kserve-ingress-gateway
-        fieldPaths:
-          - metadata.namespace 
 patches:
 - path: patches/statefulset.yaml
 - path: patches/namespace.yaml

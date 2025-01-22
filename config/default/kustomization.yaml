@@ -190,11 +190,6 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: localmodelcache.serving.kserve.io
-  - fieldPaths:
-    - metadata.namespace
-    select:
-      kind: Gateway
-      name: kserve-ingress-gateway
 
     # Protect the /metrics endpoint by putting it behind auth.
     # Only one of manager_auth_proxy_patch.yaml and
