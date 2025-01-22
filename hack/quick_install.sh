@@ -87,7 +87,7 @@ if [ "$(get_kube_version)" -lt 24 ]; then
    exit 1
 fi
 
-echo "Installing Gateway CRDs ..."
+echo "Installing Gateway API CRDs ..."
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 
 helm repo add istio https://istio-release.storage.googleapis.com/charts --force-update

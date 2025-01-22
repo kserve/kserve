@@ -35,10 +35,12 @@ ENVOY_GATEWAY_VERSION="v1.2.2"
 echo "Installing yq ..."
 wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
-echo "Installing Gateway CRDs ..."
-kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
+if [[ $NETWORK_LAYER == "istio-gatewayapi" || $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
+  echo "Installing Gateway CRDs ..."
+  kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
+fi
 
-if [[ $NETWORK_LAYER == "istio" ]]; then
+if [[ $NETWORK_LAYER == "istio-ingress" || $NETWORK_LAYER == "istio-gatewayapi" || $NETWORK_LAYER == "istio" ]]; then
   echo "Installing Istio ..."
   mkdir istio_tmp
   pushd istio_tmp >/dev/null
@@ -48,21 +50,11 @@ if [[ $NETWORK_LAYER == "istio" ]]; then
   istioctl manifest generate --set meshConfig.accessLogFile=/dev/stdout >${SCRIPT_DIR}/../../overlays/istio/generated-manifest.yaml
   popd
   kubectl create ns istio-system
-  for i in 1 2 3; do kubectl apply -k test/overlays/istio && break || sleep 15; done
-
-  echo "Creating istio ingress class"
-  cat <<EOF | kubectl apply -f -
-  apiVersion: networking.k8s.io/v1
-  kind: IngressClass
-  metadata:
-    name: istio
-  spec:
-    controller: istio.io/ingress-controller
-EOF
+  for i in {1..3}; do kubectl apply -k test/overlays/istio && break || sleep 15; done
 
   echo "Waiting for Istio to be ready ..."
   kubectl wait --for=condition=Ready pods --all --timeout=240s -n istio-system
-elif [[ $NETWORK_LAYER == "envoy" ]]; then
+elif [[ $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
   echo "Installing Envoy Gateway ..."
   helm install eg oci://docker.io/envoyproxy/gateway-helm --version ${ENVOY_GATEWAY_VERSION} -n envoy-gateway-system --create-namespace --wait
   kubectl wait --timeout=5m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
@@ -75,6 +67,18 @@ elif [[ $NETWORK_LAYER == "envoy" ]]; then
     name: envoy
   spec:
     controllerName: gateway.envoyproxy.io/gatewayclass-controller  
+EOF
+fi
+
+if [[ $NETWORK_LAYER == "istio-ingress" ]]; then
+  echo "Creating istio ingress class"
+  cat <<EOF | kubectl apply -f -
+  apiVersion: networking.k8s.io/v1
+  kind: IngressClass
+  metadata:
+    name: istio
+  spec:
+    controller: istio.io/ingress-controller
 EOF
 fi
 

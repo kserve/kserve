@@ -16,7 +16,6 @@ resources:
 - ../certmanager
 - ../localmodels
 - ../localmodelnodes
-- ../gateway
 
 generatorOptions:
   disableNameSuffixHash: true

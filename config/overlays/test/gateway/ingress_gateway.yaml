@@ -2,7 +2,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: kserve-ingress-gateway
-  namespace: $(kserveNamespace)
+  namespace: kserve
 spec:
   gatewayClassName: envoy
   listeners:
