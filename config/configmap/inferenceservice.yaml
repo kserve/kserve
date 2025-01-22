@@ -508,23 +508,6 @@ data:
          "enablePrometheusScraping" : "false"
        }
 
-     # Example
-     metrics: |-
-       {
-         "metricBackend": "prometheus"
-         "ServerAddress": "http://prometheus:9090"
-       } 
-     metrics: |-
-       {
-         # metricBackend specifies the metric backend to use for collecting metrics.
-         # The supported values are prometheus, graphite. User can override the metric backend at service level 
-         # by adding "metricBackend" in the ScalerSpec.
-         "metricBackend": ""
-
-         # ServerAddress specifies the address of the metric backend.
-          "ServerAddress": ""
-       }
-      
      # ====================================== LOCALMODEL CONFIGURATION ======================================
      # Example
      localModel: |-
