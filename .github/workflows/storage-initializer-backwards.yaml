@@ -52,6 +52,8 @@ jobs:
         run: |
           pip install pytest 
           cd python/kserve
+          # little hack to install the storage module in the same venv than used to install kserve
+          # or we can do poetry run pip install ../storage
           poetry add --editable ../storage
           poetry install --with test --no-interaction --extras "ray"
 
