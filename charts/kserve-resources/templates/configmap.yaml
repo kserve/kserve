@@ -470,6 +470,8 @@ data:
          # The frequency at which the local model agent reconciles the local models
          # This is to detect if models are missing from local disk
          "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }}
+         # This is to disable localmodel pv and pvc management for namespaces without isvcs
+         "disableVolumeManagement": false
        }
 
   agent: |-
@@ -585,7 +587,8 @@ data:
       "jobTTLSecondsAfterFinished": {{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }},
       "defaultJobImage": "kserve/storage-initializer:latest",
       "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }},
-      "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }}
+      "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }},
+      "disableVolumeManagement": {{ .Values.kserve.localmodel.disableVolumeManagement }}
     }
   security: |-
     {

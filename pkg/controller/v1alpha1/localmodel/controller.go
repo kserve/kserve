@@ -175,7 +175,11 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 		c.Log.Error(err, "cannot update status", "name", localModel.Name)
 	}
 
-	// Remove PVs and PVCs if the namespace does not have isvcs
+	/*
+		Remove PVs and PVCs if the namespace does not have isvcs
+		It only deletes the pvc and pvs with ownerReference as the localModel
+		And the pv must be of the format pvc.Name+"-"+pvc.Namespace
+	*/
 	pvcs := v1.PersistentVolumeClaimList{}
 	if err := c.List(ctx, &pvcs, client.MatchingFields{ownerKey: localModel.Name}); err != nil {
 		c.Log.Error(err, "unable to list PVCs", "name", localModel.Name)
@@ -296,6 +300,10 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		c.Log.Error(err, "Create PVC err", "name", pv.Name)
 	}
 
+	if localModelConfig.DisableVolumeManagement {
+		return ctrl.Result{}, nil
+	}
+
 	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
 	err = c.ReconcileForIsvcs(ctx, localModel, nodeGroup, localModelConfig.JobNamespace)
 	return ctrl.Result{}, err
@@ -372,6 +380,12 @@ func (c *LocalModelReconciler) localmodelNodeFunc(ctx context.Context, obj clien
 }
 
 func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	localModelConfig, err := v1beta1.NewLocalModelConfig(c.Clientset)
+	if err != nil {
+		c.Log.Error(err, "Failed to get local model config during controller manager setup")
+		return err
+	}
+
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1.PersistentVolumeClaim{}, ownerKey, func(rawObj client.Object) []string {
 		pvc := rawObj.(*v1.PersistentVolumeClaim)
 		owner := metav1.GetControllerOf(pvc)
@@ -453,14 +467,17 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	controllerBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1api.LocalModelCache{}).
 		// Ownes PersistentVolumes and PersistentVolumeClaims that is created by this local model controller
 		Owns(&v1.PersistentVolume{}).
-		Owns(&v1.PersistentVolumeClaim{}).
-		// Creates or deletes pv/pvcs when isvcs got created or deleted
-		Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates)).
-		// Downloads models to new nodes
+		Owns(&v1.PersistentVolumeClaim{})
+
+	if !localModelConfig.DisableVolumeManagement {
+		controllerBuilder.Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates))
+	}
+
+	return controllerBuilder.
 		Watches(&v1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc), builder.WithPredicates(nodePredicates)).
 		// Updates model status when localmodelnode status changes
 		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFunc), builder.WithPredicates(localModelNodePredicates)).
