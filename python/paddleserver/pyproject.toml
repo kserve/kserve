@@ -11,7 +11,8 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
-kserve = {path = "../kserve", extras = ["storage"], develop = true}
+storage = {path = "../storage", develop = true}
+kserve = {path = "../kserve", develop = true}
 paddlepaddle = {version="^2.6.1", markers = "platform_system != 'Windows'"}
 setuptools =  {version = "^70.0.0", python = "3.12"} # setuptools is not part of python 3.12
 

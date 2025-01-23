@@ -1,0 +1,64 @@
+name: Test KServe Module
+
+on:
+  push:
+    branches: [master, release*]
+  pull_request:
+    branches: []
+  workflow_dispatch:
+
+jobs:
+  test-without-storage-module:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
+      - name: Install dependencies
+        run: |
+          pip install pytest
+          cd python/kserve
+          poetry install --with test --no-interaction --extras "ray"
+
+      - name: Run tests without storage module
+        run: |
+          cd python/kserve
+          poetry run pytest -k "test_kserve_module_not_installed" kserve/storage/tests/test_storage_initializer_backwards_compatibility.py
+
+
+  test-with-storage-module:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'
+
+      - name: Install Poetry and version plugin
+        run: ./test/scripts/gh-actions/setup-poetry.sh
+
+      - name: Install dependencies
+        run: |
+          pip install pytest 
+          cd python/kserve
+          # little hack to install the storage module in the same venv than used to install kserve
+          # or we can do poetry run pip install ../storage
+          poetry add --editable ../storage
+          poetry install --with test --no-interaction --extras "ray"
+
+      - name: Run tests with storage module
+        run: |
+          cd python/kserve
+          poetry run pytest -k "test_kserve_module_installed" kserve/storage/tests/test_storage_initializer_backwards_compatibility.py
+        
