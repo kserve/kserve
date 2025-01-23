@@ -262,13 +262,14 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 
 					if componentExtensionSpec.AutoScaling != nil {
 						autoScalingType := componentExtensionSpec.AutoScaling[0].Type
-						if autoScalingType == MetricSourceType(constants.AutoScalerResource) {
+						switch autoScalingType {
+						case MetricSourceType(constants.AutoScalerResource):
 							resourceName := componentExtensionSpec.AutoScaling[0].Resource.Name
-							return validateKEDAMetrics(ScaleMetric(*resourceName))
-						} else if autoScalingType == MetricSourceType(constants.AutoScalerExternal) {
+							return validateKEDAMetrics(*resourceName)
+						case MetricSourceType(constants.AutoScalerExternal):
 							metricBackend := componentExtensionSpec.AutoScaling[0].External.Metric.Backend
-							return validateKEDAMetricBackends(MetricsBackend(*metricBackend))
-						} else {
+							return validateKEDAMetricBackends(*metricBackend)
+						default:
 							return fmt.Errorf("unknown auto scaling type class [%s] with value [%s]."+
 								"Valid types are Resource and External", class, autoScalingType)
 						}
@@ -378,7 +379,6 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 				} else if *resourceName == MetricMemory && autoScaling.Resource.Target.AverageValue.Cmp(resource.MustParse("1Mi")) < 0 {
 					return fmt.Errorf("the target memory should be greater than 1 MiB")
 				}
-
 			} else if autoScaling.Type == MetricSourceType(constants.AutoScalerExternal) {
 				// TODO: add validation for queryTime for graphite
 				if autoScaling.External.Metric.Query == "" {
