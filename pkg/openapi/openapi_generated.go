@@ -6038,6 +6038,12 @@ func schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref common.ReferenceCallba
 							Format: "int64",
 						},
 					},
+					"disableVolumeManagement": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"enabled", "jobNamespace"},
 			},
