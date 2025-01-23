@@ -142,6 +142,7 @@ func (h *HTTPSDownloader) extractHeaders() (headers map[string]string, err error
 }
 
 func createNewFile(fileFullName string) (*os.File, error) {
+	fileFullName = filepath.Clean(fileFullName)
 	if FileExists(fileFullName) {
 		if err := os.Remove(fileFullName); err != nil {
 			return nil, fmt.Errorf("file is unable to be deleted: %w", err)
