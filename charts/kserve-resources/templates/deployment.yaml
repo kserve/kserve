@@ -97,14 +97,14 @@ spec:
             value: kserve-webhook-server-cert
         livenessProbe:
           failureThreshold: 5
-          initialDelaySeconds: 10
+          initialDelaySeconds: 30
           httpGet:
             path: /healthz
             port: 8081
           timeoutSeconds: 5
         readinessProbe:
-          initialDelaySeconds: 10
-          failureThreshold: 10
+          initialDelaySeconds: 30
+          failureThreshold: 5
           periodSeconds: 5
           httpGet:
             path: /readyz

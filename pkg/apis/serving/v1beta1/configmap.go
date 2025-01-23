@@ -38,6 +38,7 @@ const (
 	LocalModelConfigName          = "localModel"
 	SecurityConfigName            = "security"
 	ServiceConfigName             = "service"
+	ResourceConfigName            = "resource"
 )
 
 const (
@@ -68,6 +69,8 @@ type InferenceServicesConfig struct {
 	ServiceAnnotationDisallowedList []string `json:"serviceAnnotationDisallowedList,omitempty"`
 	// ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions
 	ServiceLabelDisallowedList []string `json:"serviceLabelDisallowedList,omitempty"`
+	// Resource configurations
+	Resource ResourceConfig `json:"resource,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -99,6 +102,15 @@ type LocalModelConfig struct {
 	FSGroup                      *int64 `json:"fsGroup,omitempty"`
 	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
+	DisableVolumeManagement      bool   `json:"disableVolumeManagement,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type ResourceConfig struct {
+	CPULimit      string `json:"cpuLimit,omitempty"`
+	MemoryLimit   string `json:"memoryLimit,omitempty"`
+	CPURequest    string `json:"cpuRequest,omitempty"`
+	MemoryRequest string `json:"memoryRequest,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -123,6 +135,7 @@ func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServi
 	icfg := &InferenceServicesConfig{}
 	for _, err := range []error{
 		getComponentConfig(ExplainerConfigKeyName, configMap, &icfg.Explainers),
+		getComponentConfig(InferenceServiceConfigKeyName, configMap, &icfg),
 	} {
 		if err != nil {
 			return nil, err
