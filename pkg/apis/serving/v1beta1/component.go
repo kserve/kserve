@@ -155,6 +155,7 @@ type AutoScalingSpec struct {
 }
 
 // MetricSourceType indicates the type of metric.
+// +kubebuilder:validation:Enum=Resource;External
 type MetricSourceType string
 
 const (
@@ -212,6 +213,7 @@ type MetricTarget struct {
 
 // MetricTargetType specifies the type of metric being targeted, and should be either
 // "Value", "AverageValue", or "Utilization"
+// +kubebuilder:validation:Enum=Utilization;Value;AverageValue
 type MetricTargetType string
 
 const (
