@@ -231,6 +231,11 @@ func extractTarFiles(reader io.Reader, dest string) error {
 		}
 
 		fileFullPath := filepath.Join(dest, header.Name) // #nosec G305
+		// Verify that the resulting filepath is within the ``dest`` folder
+		if !strings.HasPrefix(dest, filepath.Clean(fileFullPath)+string(os.PathSeparator)) {
+			return fmt.Errorf("%s: illegal file path", fileFullPath)
+		}
+
 		if header.Typeflag == tar.TypeDir {
 			err = os.MkdirAll(fileFullPath, 0755)
 			if err != nil {
