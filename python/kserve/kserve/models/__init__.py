@@ -62,6 +62,7 @@ from kserve.models.v1alpha1_trained_model import V1alpha1TrainedModel
 from kserve.models.v1alpha1_trained_model_list import V1alpha1TrainedModelList
 from kserve.models.v1alpha1_trained_model_spec import V1alpha1TrainedModelSpec
 from kserve.models.v1beta1_art_explainer_spec import V1beta1ARTExplainerSpec
+from kserve.models.v1beta1_auto_scaling_spec import V1beta1AutoScalingSpec
 from kserve.models.v1beta1_batcher import V1beta1Batcher
 from kserve.models.v1beta1_component_extension_spec import V1beta1ComponentExtensionSpec
 from kserve.models.v1beta1_component_status_spec import V1beta1ComponentStatusSpec
@@ -73,6 +74,7 @@ from kserve.models.v1beta1_explainer_config import V1beta1ExplainerConfig
 from kserve.models.v1beta1_explainer_extension_spec import V1beta1ExplainerExtensionSpec
 from kserve.models.v1beta1_explainer_spec import V1beta1ExplainerSpec
 from kserve.models.v1beta1_explainers_config import V1beta1ExplainersConfig
+from kserve.models.v1beta1_external_metric_source import V1beta1ExternalMetricSource
 from kserve.models.v1beta1_failure_info import V1beta1FailureInfo
 from kserve.models.v1beta1_hugging_face_runtime_spec import V1beta1HuggingFaceRuntimeSpec
 from kserve.models.v1beta1_inference_service import V1beta1InferenceService
@@ -84,7 +86,8 @@ from kserve.models.v1beta1_ingress_config import V1beta1IngressConfig
 from kserve.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
 from kserve.models.v1beta1_local_model_config import V1beta1LocalModelConfig
 from kserve.models.v1beta1_logger_spec import V1beta1LoggerSpec
-from kserve.models.v1beta1_metrics_config import V1beta1MetricsConfig
+from kserve.models.v1beta1_metric_identifier import V1beta1MetricIdentifier
+from kserve.models.v1beta1_metric_target import V1beta1MetricTarget
 from kserve.models.v1beta1_model_copies import V1beta1ModelCopies
 from kserve.models.v1beta1_model_format import V1beta1ModelFormat
 from kserve.models.v1beta1_model_revision_states import V1beta1ModelRevisionStates
@@ -97,8 +100,8 @@ from kserve.models.v1beta1_pod_spec import V1beta1PodSpec
 from kserve.models.v1beta1_predictor_extension_spec import V1beta1PredictorExtensionSpec
 from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kserve.models.v1beta1_resource_config import V1beta1ResourceConfig
+from kserve.models.v1beta1_resource_metric_source import V1beta1ResourceMetricSource
 from kserve.models.v1beta1_sk_learn_spec import V1beta1SKLearnSpec
-from kserve.models.v1beta1_scaler_spec import V1beta1ScalerSpec
 from kserve.models.v1beta1_security_config import V1beta1SecurityConfig
 from kserve.models.v1beta1_service_config import V1beta1ServiceConfig
 from kserve.models.v1beta1_storage_spec import V1beta1StorageSpec

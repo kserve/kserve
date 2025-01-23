@@ -50,6 +50,7 @@ class V1beta1TransformerSpec(object):
         'active_deadline_seconds': 'int',
         'affinity': 'V1Affinity',
         'annotations': 'dict(str, str)',
+        'auto_scaling': 'list[V1beta1AutoScalingSpec]',
         'automount_service_account_token': 'bool',
         'batcher': 'V1beta1Batcher',
         'canary_traffic_percent': 'int',
@@ -87,7 +88,6 @@ class V1beta1TransformerSpec(object):
         'scale_metric': 'str',
         'scale_metric_type': 'str',
         'scale_target': 'int',
-        'scaler': 'V1beta1ScalerSpec',
         'scheduler_name': 'str',
         'scheduling_gates': 'list[V1PodSchedulingGate]',
         'security_context': 'V1PodSecurityContext',
@@ -107,6 +107,7 @@ class V1beta1TransformerSpec(object):
         'active_deadline_seconds': 'activeDeadlineSeconds',
         'affinity': 'affinity',
         'annotations': 'annotations',
+        'auto_scaling': 'autoScaling',
         'automount_service_account_token': 'automountServiceAccountToken',
         'batcher': 'batcher',
         'canary_traffic_percent': 'canaryTrafficPercent',
@@ -144,7 +145,6 @@ class V1beta1TransformerSpec(object):
         'scale_metric': 'scaleMetric',
         'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
-        'scaler': 'scaler',
         'scheduler_name': 'schedulerName',
         'scheduling_gates': 'schedulingGates',
         'security_context': 'securityContext',
@@ -169,6 +169,7 @@ class V1beta1TransformerSpec(object):
         self._active_deadline_seconds = None
         self._affinity = None
         self._annotations = None
+        self._auto_scaling = None
         self._automount_service_account_token = None
         self._batcher = None
         self._canary_traffic_percent = None
@@ -206,7 +207,6 @@ class V1beta1TransformerSpec(object):
         self._scale_metric = None
         self._scale_metric_type = None
         self._scale_target = None
-        self._scaler = None
         self._scheduler_name = None
         self._scheduling_gates = None
         self._security_context = None
@@ -228,6 +228,8 @@ class V1beta1TransformerSpec(object):
             self.affinity = affinity
         if annotations is not None:
             self.annotations = annotations
+        if auto_scaling is not None:
+            self.auto_scaling = auto_scaling
         if automount_service_account_token is not None:
             self.automount_service_account_token = automount_service_account_token
         if batcher is not None:
@@ -302,8 +304,6 @@ class V1beta1TransformerSpec(object):
             self.scale_metric_type = scale_metric_type
         if scale_target is not None:
             self.scale_target = scale_target
-        if scaler is not None:
-            self.scaler = scaler
         if scheduler_name is not None:
             self.scheduler_name = scheduler_name
         if scheduling_gates is not None:
@@ -397,6 +397,29 @@ class V1beta1TransformerSpec(object):
         """
 
         self._annotations = annotations
+
+    @property
+    def auto_scaling(self):
+        """Gets the auto_scaling of this V1beta1TransformerSpec.  # noqa: E501
+
+        AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.  # noqa: E501
+
+        :return: The auto_scaling of this V1beta1TransformerSpec.  # noqa: E501
+        :rtype: list[V1beta1AutoScalingSpec]
+        """
+        return self._auto_scaling
+
+    @auto_scaling.setter
+    def auto_scaling(self, auto_scaling):
+        """Sets the auto_scaling of this V1beta1TransformerSpec.
+
+        AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.  # noqa: E501
+
+        :param auto_scaling: The auto_scaling of this V1beta1TransformerSpec.  # noqa: E501
+        :type: list[V1beta1AutoScalingSpec]
+        """
+
+        self._auto_scaling = auto_scaling
 
     @property
     def automount_service_account_token(self):
@@ -1236,27 +1259,6 @@ class V1beta1TransformerSpec(object):
         """
 
         self._scale_target = scale_target
-
-    @property
-    def scaler(self):
-        """Gets the scaler of this V1beta1TransformerSpec.  # noqa: E501
-
-
-        :return: The scaler of this V1beta1TransformerSpec.  # noqa: E501
-        :rtype: V1beta1ScalerSpec
-        """
-        return self._scaler
-
-    @scaler.setter
-    def scaler(self, scaler):
-        """Sets the scaler of this V1beta1TransformerSpec.
-
-
-        :param scaler: The scaler of this V1beta1TransformerSpec.  # noqa: E501
-        :type: V1beta1ScalerSpec
-        """
-
-        self._scaler = scaler
 
     @property
     def scheduler_name(self):

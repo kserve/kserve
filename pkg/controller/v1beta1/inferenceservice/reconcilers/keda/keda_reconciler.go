@@ -26,7 +26,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
-	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,7 +64,7 @@ func getKedaMetrics(metadata metav1.ObjectMeta,
 	var triggers []kedav1alpha1.ScaleTriggers
 
 	// Default values
-	triggerType := string(corev1.ResourceCPU)
+	// triggerType := string(corev1.ResourceCPU)
 	metricType := autoscalingv2.UtilizationMetricType
 	targetValue := int(constants.DefaultCPUUtilization)
 
@@ -73,7 +72,7 @@ func getKedaMetrics(metadata metav1.ObjectMeta,
 	if componentExt.AutoScaling != nil {
 		for _, autoScaling := range componentExt.AutoScaling {
 			if autoScaling.Type == v1beta1.MetricSourceType(constants.AutoScalerResource) {
-				triggerType = string(*autoScaling.Resource.Name)
+				triggerType := string(*autoScaling.Resource.Name)
 				metricType = autoscalingv2.MetricTargetType(autoScaling.Resource.Target.Type)
 				if metricType == autoscalingv2.UtilizationMetricType {
 					targetValue = int(*autoScaling.Resource.Target.AverageUtilization)
@@ -87,9 +86,8 @@ func getKedaMetrics(metadata metav1.ObjectMeta,
 					Metadata:   map[string]string{"value": strconv.Itoa(targetValue)},
 					MetricType: metricType,
 				})
-
 			} else if autoScaling.Type == v1beta1.MetricSourceType(constants.AutoScalerExternal) {
-				triggerType = string(*autoScaling.External.Metric.Backend)
+				triggerType := string(*autoScaling.External.Metric.Backend)
 				serverAddress := autoScaling.External.Metric.ServerAddress
 				query := autoScaling.External.Metric.Query
 				targetValue = int(autoScaling.Resource.Target.Value.MilliValue()) // TODO: check if this is correct
@@ -105,12 +103,10 @@ func getKedaMetrics(metadata metav1.ObjectMeta,
 						"threshold":     strconv.Itoa(targetValue),
 					},
 				})
-
 			}
-
 		}
 	} else if componentExt.ScaleMetric != nil {
-		triggerType = string(*componentExt.ScaleMetric)
+		triggerType := string(*componentExt.ScaleMetric)
 		if componentExt.ScaleMetricType != nil {
 			metricType = *componentExt.ScaleMetricType
 		}
@@ -123,13 +119,11 @@ func getKedaMetrics(metadata metav1.ObjectMeta,
 			MetricType: metricType,
 		})
 	}
-
 	return triggers
 }
 
 func createKedaScaledObject(clientset kubernetes.Interface, componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec) *kedav1alpha1.ScaledObject {
-
 	triggers := getKedaMetrics(componentMeta, componentExtension)
 	annotations := componentMeta.GetAnnotations()
 

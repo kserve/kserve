@@ -63,6 +63,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelList":            schema_pkg_apis_serving_v1alpha1_TrainedModelList(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.TrainedModelSpec":            schema_pkg_apis_serving_v1alpha1_TrainedModelSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec":             schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec":              schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher":                      schema_pkg_apis_serving_v1beta1_Batcher(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentExtensionSpec":       schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec":          schema_pkg_apis_serving_v1beta1_ComponentStatusSpec(ref),
@@ -74,6 +75,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerExtensionSpec":       schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec":                schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig":             schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource":         schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.FailureInfo":                  schema_pkg_apis_serving_v1beta1_FailureInfo(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec":       schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceService":             schema_pkg_apis_serving_v1beta1_InferenceService(ref),
@@ -85,7 +87,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                 schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":             schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                   schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsConfig":                schema_pkg_apis_serving_v1beta1_MetricsConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricIdentifier":             schema_pkg_apis_serving_v1beta1_MetricIdentifier(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget":                 schema_pkg_apis_serving_v1beta1_MetricTarget(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelCopies":                  schema_pkg_apis_serving_v1beta1_ModelCopies(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat":                  schema_pkg_apis_serving_v1beta1_ModelFormat(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelRevisionStates":          schema_pkg_apis_serving_v1beta1_ModelRevisionStates(ref),
@@ -98,8 +101,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":       schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig":               schema_pkg_apis_serving_v1beta1_ResourceConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource":         schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec":                  schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec":                   schema_pkg_apis_serving_v1beta1_ScalerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SecurityConfig":               schema_pkg_apis_serving_v1beta1_SecurityConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ServiceConfig":                schema_pkg_apis_serving_v1beta1_ServiceConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec":                  schema_pkg_apis_serving_v1beta1_StorageSpec(ref),
@@ -2273,6 +2276,40 @@ func schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref common.ReferenceCallba
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AutoScalingSpec specifies how to scale based on a single metric (only `type` and one other matching field should be set at once).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"Resource\" or \"External\" each mapping to a matching field in the object.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resource refers to a resource metric (such as those specified in requests and limits) known to Kubernetes describing each pod in the current scale target (e.g. CPU or memory). Such metrics are built in to Kubernetes, and have special scaling options on top of those available to normal per-pod metrics using the \"pods\" source.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource"),
+						},
+					},
+					"external": {
+						SchemaProps: spec.SchemaProps{
+							Description: "external refers to a global metric that is not associated with any Kubernetes object. It allows autoscaling based on information coming from components running outside of cluster (for example length of queue in cloud messaging service, or QPS from loadbalancer running outside of cluster).",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource"},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_Batcher(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2335,6 +2372,20 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 							Format:      "int32",
 						},
 					},
+					"autoScaling": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
+									},
+								},
+							},
+						},
+					},
 					"scaleMetric": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
@@ -2368,12 +2419,6 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 							Description: "CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision",
 							Type:        []string{"integer"},
 							Format:      "int64",
-						},
-					},
-					"scaler": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Specs for Scaling",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec"),
 						},
 					},
 					"logger": {
@@ -2430,7 +2475,7 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec", "k8s.io/api/apps/v1.DeploymentStrategy"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "k8s.io/api/apps/v1.DeploymentStrategy"},
 	}
 }
 
@@ -4841,6 +4886,20 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Format:      "int32",
 						},
 					},
+					"autoScaling": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
+									},
+								},
+							},
+						},
+					},
 					"scaleMetric": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
@@ -4874,12 +4933,6 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Description: "CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision",
 							Type:        []string{"integer"},
 							Format:      "int64",
-						},
-					},
-					"scaler": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Specs for Scaling",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec"),
 						},
 					},
 					"logger": {
@@ -4957,6 +5010,34 @@ func schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerConfig"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metric": {
+						SchemaProps: spec.SchemaProps{
+							Description: "metric identifies the target metric by name and selector",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricIdentifier"),
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Description: "target specifies the target value for the given metric",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricIdentifier", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
 	}
 }
 
@@ -6157,27 +6238,79 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 	}
 }
 
-func schema_pkg_apis_serving_v1beta1_MetricsConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_serving_v1beta1_MetricIdentifier(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"metricsBackend": {
+					"backend": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"serverAddress": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Address of MetricsBackend server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query to run to get metrics from MetricsBackend",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_MetricTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MetricTarget defines the target value, average value, or average utilization of a specific metric",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "type represents whether the metric type is Utilization, Value, or AverageValue",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Description: "value is the target value of the metric (as a quantity).",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"averageValue": {
+						SchemaProps: spec.SchemaProps{
+							Description: "averageValue is the target value of the average of the metric across all relevant pods (as a quantity)",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"averageUtilization": {
+						SchemaProps: spec.SchemaProps{
+							Description: "averageUtilization is the target value of the average of the resource metric across all relevant pods, represented as a percentage of the requested value of the resource for the pods. Currently only valid for Resource metric source type",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"type"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -8942,6 +9075,20 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Format:      "int32",
 						},
 					},
+					"autoScaling": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
+									},
+								},
+							},
+						},
+					},
 					"scaleMetric": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
@@ -8975,12 +9122,6 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Description: "CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision",
 							Type:        []string{"integer"},
 							Format:      "int64",
-						},
-					},
-					"scaler": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Specs for Scaling",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec"),
 						},
 					},
 					"logger": {
@@ -9074,6 +9215,34 @@ func schema_pkg_apis_serving_v1beta1_ResourceConfig(ref common.ReferenceCallback
 				},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of the resource in question.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Description: "target specifies the target value for the given metric",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
 	}
 }
 
@@ -9400,88 +9569,6 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
-	}
-}
-
-func schema_pkg_apis_serving_v1beta1_ScalerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"minReplicas": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"maxReplicas": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Maximum number of replicas for autoscaling.",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"scaleTarget": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
-					"scaleMetric": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"scaleMetricType": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metricBackend": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"serverAddress": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Address of MetricsBackend server.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metricQuery": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Query to run to get metrics from MetricsBackend",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"queryParameters": {
-						SchemaProps: spec.SchemaProps{
-							Description: "A comma-separated list of query Parameters to include while querying the MetricsBackend endpoint.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"queryTime": {
-						SchemaProps: spec.SchemaProps{
-							Description: "queryTime is relative time range to execute query against. specialized for graphite (https://graphite-api.readthedocs.io/en/latest/api.html#from-until)",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
 	}
 }
 
@@ -10693,6 +10780,20 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							Format:      "int32",
 						},
 					},
+					"autoScaling": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
+									},
+								},
+							},
+						},
+					},
 					"scaleMetric": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
@@ -10726,12 +10827,6 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							Description: "CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision",
 							Type:        []string{"integer"},
 							Format:      "int64",
-						},
-					},
-					"scaler": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Specs for Scaling",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ScalerSpec"),
 						},
 					},
 					"logger": {
