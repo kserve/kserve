@@ -19,6 +19,7 @@ package knative
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -83,13 +84,13 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	annotations := componentMeta.GetAnnotations()
 
 	if componentExtension.MinReplicas == nil {
-		annotations[constants.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
+		annotations[constants.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
 	} else {
-		annotations[constants.MinScaleAnnotationKey] = fmt.Sprint(*componentExtension.MinReplicas)
+		annotations[constants.MinScaleAnnotationKey] = strconv.Itoa(int(*componentExtension.MinReplicas))
 	}
 
 	if componentExtension.MaxReplicas != 0 {
-		annotations[constants.MaxScaleAnnotationKey] = fmt.Sprint(componentExtension.MaxReplicas)
+		annotations[constants.MaxScaleAnnotationKey] = strconv.Itoa(int(componentExtension.MaxReplicas))
 	}
 
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
@@ -98,7 +99,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	}
 
 	if componentExtension.ScaleTarget != nil {
-		annotations[autoscaling.TargetAnnotationKey] = fmt.Sprint(*componentExtension.ScaleTarget)
+		annotations[autoscaling.TargetAnnotationKey] = strconv.Itoa(int(*componentExtension.ScaleTarget))
 	}
 
 	if componentExtension.ScaleMetric != nil {

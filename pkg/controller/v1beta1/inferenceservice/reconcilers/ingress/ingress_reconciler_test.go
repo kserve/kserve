@@ -2183,7 +2183,7 @@ func TestGetHostPrefix(t *testing.T) {
 			},
 			disableVirtualHost: true,
 			useDefault:         false,
-			matcher:            gomega.Equal(fmt.Sprintf("%s-predictor", serviceName)),
+			matcher:            gomega.Equal(serviceName + "-predictor"),
 		},
 		"istio is disabled and useDefault is false with transformer": {
 			isvc: &v1beta1.InferenceService{
@@ -2211,7 +2211,7 @@ func TestGetHostPrefix(t *testing.T) {
 			},
 			disableVirtualHost: true,
 			useDefault:         false,
-			matcher:            gomega.Equal(fmt.Sprintf("%s-transformer", serviceName)),
+			matcher:            gomega.Equal(serviceName + "-transformer"),
 		},
 		"istio is disabled and useDefault is true": {
 			isvc: &v1beta1.InferenceService{
@@ -2229,7 +2229,7 @@ func TestGetHostPrefix(t *testing.T) {
 			},
 			disableVirtualHost: true,
 			useDefault:         true,
-			matcher:            gomega.Equal(fmt.Sprintf("%s-predictor-default", serviceName)),
+			matcher:            gomega.Equal(serviceName + "-predictor-default"),
 		},
 		"istio is disabled and useDefault is true with transformer": {
 			isvc: &v1beta1.InferenceService{
@@ -2257,7 +2257,7 @@ func TestGetHostPrefix(t *testing.T) {
 			},
 			disableVirtualHost: true,
 			useDefault:         true,
-			matcher:            gomega.Equal(fmt.Sprintf("%s-transformer-default", serviceName)),
+			matcher:            gomega.Equal(serviceName + "-transformer-default"),
 		},
 	}
 

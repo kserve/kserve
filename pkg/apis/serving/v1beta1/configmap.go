@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"text/template"
 
@@ -177,7 +178,7 @@ func NewIngressConfig(isvcConfigMap *v1.ConfigMap) (*IngressConfig, error) {
 		}
 
 		if ingressConfig.IngressGateway == "" {
-			return nil, fmt.Errorf("invalid ingress config - ingressGateway is required")
+			return nil, errors.New("invalid ingress config - ingressGateway is required")
 		}
 		if ingressConfig.PathTemplate != "" {
 			// TODO: ensure that the generated path is valid, that is:
@@ -189,7 +190,7 @@ func NewIngressConfig(isvcConfigMap *v1.ConfigMap) (*IngressConfig, error) {
 				return nil, fmt.Errorf("invalid ingress config, unable to parse pathTemplate: %w", err)
 			}
 			if ingressConfig.IngressDomain == "" {
-				return nil, fmt.Errorf("invalid ingress config - ingressDomain is required if pathTemplate is given")
+				return nil, errors.New("invalid ingress config - ingressDomain is required if pathTemplate is given")
 			}
 		}
 
@@ -232,13 +233,13 @@ func NewDeployConfig(isvcConfigMap *v1.ConfigMap) (*DeployConfig, error) {
 		}
 
 		if deployConfig.DefaultDeploymentMode == "" {
-			return nil, fmt.Errorf("invalid deploy config, defaultDeploymentMode is required")
+			return nil, errors.New("invalid deploy config, defaultDeploymentMode is required")
 		}
 
 		if deployConfig.DefaultDeploymentMode != string(constants.Serverless) &&
 			deployConfig.DefaultDeploymentMode != string(constants.RawDeployment) &&
 			deployConfig.DefaultDeploymentMode != string(constants.ModelMeshDeployment) {
-			return nil, fmt.Errorf("invalid deployment mode. Supported modes are Serverless," +
+			return nil, errors.New("invalid deployment mode. Supported modes are Serverless," +
 				" RawDeployment and ModelMesh")
 		}
 	}

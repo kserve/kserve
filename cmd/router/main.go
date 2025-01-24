@@ -244,7 +244,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 
 			if step.Condition != "" {
 				if !gjson.ValidBytes(responseBytes) {
-					return nil, 500, fmt.Errorf("invalid response")
+					return nil, 500, errors.New("invalid response")
 				}
 				// if the condition does not match for the step in the sequence we stop and return the response
 				if !gjson.GetBytes(responseBytes, step.Condition).Exists() {

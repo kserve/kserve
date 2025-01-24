@@ -18,7 +18,6 @@ package agent
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -32,7 +31,7 @@ import (
 
 type FileError error
 
-var ErrNoSuccessFile FileError = fmt.Errorf("no success file can be found")
+var ErrNoSuccessFile FileError = errors.New("no success file can be found")
 
 func SyncModelDir(modelDir string, logger *zap.SugaredLogger) (map[string]modelWrapper, error) {
 	logger.Infof("Syncing from model dir %s", modelDir)

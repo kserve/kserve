@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -95,7 +96,7 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 		if err == nil {
 			clientCertPool := x509.NewCertPool()
 			if !clientCertPool.AppendCertsFromPEM(caCertFile) {
-				return fmt.Errorf("while parsing CA certificate")
+				return errors.New("while parsing CA certificate")
 			}
 
 			tlsTransport := &http.Transport{

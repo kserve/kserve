@@ -177,7 +177,7 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 				return strings.Replace(transformerStatus.URL.Host, fmt.Sprintf("-%s-default", string(constants.Transformer)), "",
 					1)
 			} else {
-				return strings.Replace(transformerStatus.URL.Host, fmt.Sprintf("-%s", string(constants.Transformer)), "",
+				return strings.Replace(transformerStatus.URL.Host, "-"+string(constants.Transformer), "",
 					1)
 			}
 		}
@@ -192,7 +192,7 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 			return strings.Replace(predictorStatus.URL.Host, fmt.Sprintf("-%s-default", string(constants.Predictor)), "",
 				1)
 		} else {
-			return strings.Replace(predictorStatus.URL.Host, fmt.Sprintf("-%s", string(constants.Predictor)), "",
+			return strings.Replace(predictorStatus.URL.Host, "-"+string(constants.Predictor), "",
 				1)
 		}
 	}
@@ -279,7 +279,7 @@ func getHostBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.Ingr
 				if strings.Contains(urlString, "-default") {
 					return strings.Replace(urlString, fmt.Sprintf("-%s-default", string(constants.Transformer)), "", 1)
 				} else {
-					return strings.Replace(urlString, fmt.Sprintf("-%s", string(constants.Transformer)), "", 1)
+					return strings.Replace(urlString, "-"+string(constants.Transformer), "", 1)
 				}
 			}
 			return urlString
@@ -298,7 +298,7 @@ func getHostBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.Ingr
 			if strings.Contains(urlString, "-default") {
 				return strings.Replace(urlString, fmt.Sprintf("-%s-default", string(constants.Predictor)), "", 1)
 			} else {
-				return strings.Replace(urlString, fmt.Sprintf("-%s", string(constants.Predictor)), "", 1)
+				return strings.Replace(urlString, "-"+string(constants.Predictor), "", 1)
 			}
 		}
 		return urlString

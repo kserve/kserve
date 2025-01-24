@@ -34,6 +34,7 @@ import (
 	"github.com/go-logr/zapr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -318,7 +319,7 @@ var _ = Describe("Watcher", func() {
 				logger.Printf("Using temp dir %v\n", modelDir)
 				var errs []s3manager.Error
 				errs = append(errs, s3manager.Error{
-					OrigErr: fmt.Errorf("failed to download"),
+					OrigErr: errors.New("failed to download"),
 					Bucket:  aws.String("modelRepo"),
 					Key:     aws.String("model1/model.pt"),
 				})

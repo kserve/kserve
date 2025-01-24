@@ -236,7 +236,7 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 		if container.Name == "kserve-container" {
 			containerPort := constants.InferenceServiceDefaultHttpPort
 			if len(container.Ports) > 0 {
-				containerPort = fmt.Sprint(container.Ports[0].ContainerPort)
+				containerPort = strconv.Itoa(int(container.Ports[0].ContainerPort))
 			}
 
 			args = append(args, "--component-port", containerPort)

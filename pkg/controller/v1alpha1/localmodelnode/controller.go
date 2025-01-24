@@ -368,7 +368,7 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// TODO we need a way to ensure that the local path on persistent volume is the same as the local path of the node agent DaemonSet.
 		err := fsHelper.ensureModelRootFolderExists()
 		if err != nil {
-			panic(fmt.Sprintf("Failed to ensure model root folder exists: %s", err.Error()))
+			panic("Failed to ensure model root folder exists: " + err.Error())
 		}
 	}
 

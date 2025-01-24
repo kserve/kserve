@@ -19,6 +19,7 @@ package pod
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -806,7 +807,7 @@ func getParentDirectory(path string) string {
 // Use container name from defaultContainer spec, crdContainer takes precedence for other fields.
 func mergeContainerSpecs(defaultContainer *v1.Container, crdContainer *v1.Container) (*v1.Container, error) {
 	if defaultContainer == nil {
-		return nil, fmt.Errorf("defaultContainer is nil")
+		return nil, errors.New("defaultContainer is nil")
 	}
 
 	containerName := defaultContainer.Name

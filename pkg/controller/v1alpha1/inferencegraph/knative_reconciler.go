@@ -19,8 +19,8 @@ package inferencegraph
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -156,7 +156,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.Infer
 	}
 
 	if _, ok := annotations[autoscaling.MinScaleAnnotationKey]; !ok {
-		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
+		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
 	}
 
 	// ksvc metadata.annotations

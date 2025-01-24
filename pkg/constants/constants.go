@@ -595,7 +595,7 @@ func ModelConfigName(inferenceserviceName string, shardId int) string {
 }
 
 func InferenceServicePrefix(name string) string {
-	return fmt.Sprintf("/v1/models/%s", name)
+	return "/v1/models/" + name
 }
 
 func PredictPath(name string, protocol InferenceServiceProtocol) string {

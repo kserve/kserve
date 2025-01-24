@@ -137,7 +137,14 @@ linters:
     # Reports constructs that checks for err != nil, but returns a different nil value error. 
     # Powered by nilness and nilerr.
     - nilnesserr
-    
+   
+    # TODO: Do it later
+    # # Reports ill-formed or insufficient nolint directives.
+    # - nolintlint
+
+    # Checks that fmt.Sprintf can be replaced with a faster alternative.
+    - perfsprint
+
     # - revive
     - staticcheck
     # - stylecheck

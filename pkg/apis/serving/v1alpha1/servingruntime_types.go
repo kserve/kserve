@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
+	"errors"
 
 	"gopkg.in/go-playground/validator.v9"
 	corev1 "k8s.io/api/core/v1"
@@ -339,7 +339,7 @@ func (srSpec *ServingRuntimeSpec) validatePodSpecAndWorkerSpec() error {
 	// Additional validation for WorkerSpec
 	if srSpec.WorkerSpec != nil {
 		if len(srSpec.WorkerSpec.Containers) == 0 {
-			return fmt.Errorf("spec.workerSpec.containers: Required value")
+			return errors.New("spec.workerSpec.containers: Required value")
 		}
 	}
 

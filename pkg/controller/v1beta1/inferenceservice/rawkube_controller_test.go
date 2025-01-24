@@ -311,7 +311,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": fmt.Sprintf("isvc.%s", constants.PredictorServiceName(serviceName)),
+						"app": "isvc." + constants.PredictorServiceName(serviceName),
 					},
 				},
 			}
@@ -732,7 +732,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": fmt.Sprintf("isvc.%s", constants.PredictorServiceName(serviceName)),
+						"app": "isvc." + constants.PredictorServiceName(serviceName),
 					},
 				},
 			}
@@ -1545,7 +1545,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": fmt.Sprintf("isvc.%s", constants.PredictorServiceName(serviceName)),
+						"app": "isvc." + constants.PredictorServiceName(serviceName),
 					},
 				},
 			}
@@ -1579,7 +1579,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: netv1.IngressSpec{
 					Rules: []netv1.IngressRule{
 						{
-							Host: fmt.Sprintf("%s-default.example.com", serviceName),
+							Host: serviceName + "-default.example.com",
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -1588,7 +1588,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-predictor", serviceName),
+													Name: serviceName + "-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -1600,7 +1600,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						{
-							Host: fmt.Sprintf("%s-predictor-default.example.com", serviceName),
+							Host: serviceName + "-predictor-default.example.com",
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -1609,7 +1609,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-predictor", serviceName),
+													Name: serviceName + "-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -1644,7 +1644,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				URL: &apis.URL{
 					Scheme: "http",
-					Host:   fmt.Sprintf("%s-default.example.com", serviceName),
+					Host:   serviceName + "-default.example.com",
 				},
 				Address: &duckv1.Addressable{
 					URL: &apis.URL{
@@ -1657,7 +1657,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						LatestCreatedRevision: "",
 						URL: &apis.URL{
 							Scheme: "http",
-							Host:   fmt.Sprintf("%s-predictor-default.example.com", serviceName),
+							Host:   serviceName + "-predictor-default.example.com",
 						},
 					},
 				},
@@ -1983,7 +1983,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": fmt.Sprintf("isvc.%s", constants.PredictorServiceName(serviceName)),
+						"app": "isvc." + constants.PredictorServiceName(serviceName),
 					},
 				},
 			}
@@ -2026,7 +2026,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-predictor", serviceName),
+													Name: serviceName + "-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -2047,7 +2047,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-predictor", serviceName),
+													Name: serviceName + "-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},

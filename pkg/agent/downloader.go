@@ -19,7 +19,6 @@ package agent
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -44,7 +43,7 @@ func (d *Downloader) DownloadModel(modelName string, modelSpec *v1alpha1.ModelSp
 	if modelSpec != nil {
 		sha256 := storage.AsSha256(modelSpec)
 		successFile := filepath.Join(d.ModelDir, modelName,
-			fmt.Sprintf("SUCCESS.%s", sha256))
+			"SUCCESS."+sha256)
 		d.Logger.Infof("Downloading %s to model dir %s", modelSpec.StorageURI, d.ModelDir)
 		// Download if the event there is a success file and the event is one which we wish to Download
 		_, err := os.Stat(successFile)
@@ -108,11 +107,11 @@ func hash(s string) string {
 
 func extractProtocol(storageURI string) (storage.Protocol, error) {
 	if storageURI == "" {
-		return "", fmt.Errorf("there is no storageUri supplied")
+		return "", errors.New("there is no storageUri supplied")
 	}
 
 	if !regexp.MustCompile(`\w+?://`).MatchString(storageURI) {
-		return "", fmt.Errorf("there is no protocol specified for the storageUri")
+		return "", errors.New("there is no protocol specified for the storageUri")
 	}
 
 	for _, prefix := range storage.SupportedProtocols {
@@ -120,5 +119,5 @@ func extractProtocol(storageURI string) (storage.Protocol, error) {
 			return prefix, nil
 		}
 	}
-	return "", fmt.Errorf("protocol not supported for storageUri")
+	return "", errors.New("protocol not supported for storageUri")
 }
