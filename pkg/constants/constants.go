@@ -198,8 +198,8 @@ var (
 )
 
 var (
-	AutoScalerResource AutoScalerType = "resource"
-	AutoScalerExternal AutoScalerType = "external"
+	AutoScalerResource AutoScalerType = "Resource"
+	AutoScalerExternal AutoScalerType = "External"
 )
 
 // Autoscaler Class Allowed List
