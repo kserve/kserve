@@ -26,6 +26,7 @@ mypy = "^0.991"
 pytest-asyncio = ">=0.23.4, <1.0.0"
 pytest_httpx = "^v0.30.0"
 einops = "^0.8.0"
+openai = "^1.59.9"
 
 [tool.poetry.group.dev]
 optional = true

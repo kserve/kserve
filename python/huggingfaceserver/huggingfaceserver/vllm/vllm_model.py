@@ -18,7 +18,6 @@ from argparse import Namespace
 from fastapi import Request  # TODO: Double check if it's installed here
 
 from kserve import Model
-from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.errors import ModelNotReady
 from kserve.model import PredictorConfig
 from kserve.protocol.rest.openai import OpenAIEncoderModel, OpenAIGenerativeModel
@@ -66,7 +65,7 @@ class VLLMModel(
         super().__init__(model_name, predictor_config)
         self.args = args
         validate_parsed_serve_args(args)
-        engine_args = build_vllm_engine_args(args) 
+        engine_args = build_vllm_engine_args(args)
         self.vllm_engine_args = engine_args
         self.request_logger = request_logger
         self.model_name = model_name

@@ -25,7 +25,6 @@ from kserve import Model
 from kserve.logging import logger
 from kserve.model import PredictorConfig
 from kserve.protocol.infer_type import InferInput, InferRequest, InferResponse
-from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
 from kserve.utils.utils import (
     from_np_dtype,
     get_predict_input,

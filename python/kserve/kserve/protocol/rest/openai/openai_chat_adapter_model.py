@@ -56,7 +56,8 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
 
     @abstractmethod
     def apply_chat_template(
-        self, request: ChatCompletionRequest,
+        self,
+        request: ChatCompletionRequest,
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
@@ -221,13 +222,6 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
             completion_iterator = await self.create_completion(
                 completion_params, raw_request
             )
-
-            # # Since vllm must support Python 3.8, we can't use str.removeprefix(prefix)
-            # # introduced in Python 3.9
-            # def remove_prefix(text: str, prefix: str) -> str:
-            #     if text.startswith(prefix):
-            #         return text[len(prefix) :]
-            #     return text
 
             def mapper(completion_str: str) -> ChatCompletionChunk:
 

@@ -14,7 +14,17 @@
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncGenerator, AsyncIterator, Callable, Iterable, List, Tuple, Union, cast, Optional
+from typing import (
+    AsyncGenerator,
+    AsyncIterator,
+    Callable,
+    Iterable,
+    List,
+    Tuple,
+    Union,
+    cast,
+    Optional,
+)
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -41,12 +51,6 @@ from kserve.protocol.rest.openai.errors import OpenAIError
 
 FIXTURES_PATH = Path(__file__).parent / "fixtures" / "openai"
 
-# # Since vllm must support Python 3.8, we can't use str.removeprefix(prefix)
-# # introduced in Python 3.9
-# def remove_prefix(text: str, prefix: str) -> str:
-#     if text.startswith(prefix):
-#         return text[len(prefix) :]
-#     return text
 
 class ChunkIterator:
     """Yields chunks"""
@@ -146,6 +150,7 @@ def chat_completion_create_params():
     with open(FIXTURES_PATH / "chat_completion_create_params.json") as f:
         return ChatCompletionRequest.model_validate_json(f.read())
 
+
 @pytest.fixture
 def completion_request(completion_create_params: CompletionRequest):
     return completion_create_params
@@ -154,6 +159,7 @@ def completion_request(completion_create_params: CompletionRequest):
 @pytest.fixture
 def chat_completion_request(chat_completion_create_params: ChatCompletionRequest):
     return chat_completion_create_params
+
 
 @pytest.fixture
 def dummy_model(completion: Completion, completion_partial: Completion):
@@ -315,7 +321,7 @@ class TestOpenAIParamsConversion:
         converted_params = (
             OpenAIChatAdapterModel.chat_completion_params_to_completion_params(
                 chat_completion_create_params,
-                prompt=chat_completion_create_params.messages[0]['content'],
+                prompt=chat_completion_create_params.messages[0]["content"],
             )
         )
         assert converted_params == completion_create_params
@@ -524,7 +530,9 @@ class TestOpenAIProxyModelCompletion:
             ):
                 cast(
                     MagicMock, OpenAIProxyModel.postprocess_chat_completion_chunk
-                ).assert_called_with(chat_completion_chunk, chat_completion_request, None)
+                ).assert_called_with(
+                    chat_completion_chunk, chat_completion_request, None
+                )
             cast(
                 MagicMock, OpenAIProxyModel.preprocess_chat_completion_request
             ).assert_called_once_with(chat_completion_request, None)
