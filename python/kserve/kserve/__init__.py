@@ -106,3 +106,8 @@ from .models.v1beta1_transformers_config import V1beta1TransformersConfig
 from .models.v1beta1_triton_spec import V1beta1TritonSpec
 from .models.v1beta1_xg_boost_spec import V1beta1XGBoostSpec
 from .models.v1beta1_storage_spec import V1beta1StorageSpec
+from .models.v1beta1_auto_scaling_spec import V1beta1AutoScalingSpec
+from .models.v1beta1_external_metric_source import V1beta1ExternalMetricSource
+from .models.v1beta1_resource_metric_source import V1beta1ResourceMetricSource
+from .models.v1beta1_metric_identifier import V1beta1MetricIdentifier
+from .models.v1beta1_metric_target import V1beta1MetricTarget

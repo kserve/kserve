@@ -26,6 +26,9 @@ from kserve import (
     V1beta1InferenceServiceSpec,
     V1beta1PredictorSpec,
     V1beta1SKLearnSpec,
+    V1beta1AutoScalingSpec,
+    V1beta1ResourceMetricSource,
+    V1beta1MetricTarget,
 )
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict_isvc
@@ -295,7 +298,10 @@ async def test_sklearn_rolling_update():
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_keda_scale_raw(rest_v1_client):
+async def test_sklearn_keda_scale_existing_spec(rest_v1_client):
+    """
+    Test KEDA autoscaling with existing InferenceService spec
+    """
     service_name = "isvc-sklearn-keda-scale"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -303,6 +309,74 @@ async def test_sklearn_keda_scale_raw(rest_v1_client):
         scale_metric="memory",
         scale_metric_type="Utilization",
         scale_target=50,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri=MODEL,
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+
+    annotations = dict()
+    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    annotations["serving.kserve.io/autoscalerClass"] = "keda"
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    api_instance = kserve_client.api_instance
+
+    scaledobject_resp = api_instance.list_namespaced_custom_object(
+        group="keda.sh",
+        version="v1alpha1",
+        namespace=KSERVE_TEST_NAMESPACE,
+        label_selector=f"serving.kserve.io/inferenceservice={service_name}",
+        plural="scaledobjects",
+    )
+
+    assert (
+        scaledobject_resp["items"][0]["spec"]["triggers"][0]["metricType"]
+        == "Utilization"
+    )
+    assert scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"] == "memory"
+    res = await predict_isvc(rest_v1_client, service_name, INPUT)
+    assert res["predictions"] == [1, 1]
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_keda_scale_new_spec(rest_v1_client):
+    """
+    Test KEDA autoscaling with new InferenceService (auto_scaling) spec
+    """
+    service_name = "isvc-sklearn-keda-scale-new-spec"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        max_replicas=5,
+        auto_scaling=[
+            V1beta1AutoScalingSpec(
+                type="Resource",
+                resource=V1beta1ResourceMetricSource(
+                    name="memory",
+                    target=V1beta1MetricTarget(
+                        type="Utilization", average_utilization=50
+                    ),
+                ),
+            )
+        ],
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
