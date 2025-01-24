@@ -78,7 +78,7 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 	}
 
 	ExistingRuntimes := &v1alpha1.ServingRuntimeList{}
-	if err := sr.Client.List(context.TODO(), ExistingRuntimes, client.InNamespace(servingRuntime.Namespace)); err != nil {
+	if err := sr.Client.List(ctx, ExistingRuntimes, client.InNamespace(servingRuntime.Namespace)); err != nil {
 		log.Error(err, "Failed to get serving runtime list", "namespace", servingRuntime.Namespace)
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
@@ -117,7 +117,7 @@ func (csr *ClusterServingRuntimeValidator) Handle(ctx context.Context, req admis
 	}
 
 	ExistingRuntimes := &v1alpha1.ClusterServingRuntimeList{}
-	if err := csr.Client.List(context.TODO(), ExistingRuntimes); err != nil {
+	if err := csr.Client.List(ctx, ExistingRuntimes); err != nil {
 		log.Error(err, "Failed to get cluster serving runtime list")
 		return admission.Errored(http.StatusInternalServerError, err)
 	}

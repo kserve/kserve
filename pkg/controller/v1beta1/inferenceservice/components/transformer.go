@@ -69,7 +69,7 @@ func NewTransformer(client client.Client, clientset kubernetes.Interface, scheme
 }
 
 // Reconcile observes the world and attempts to drive the status towards the desired state.
-func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error) {
+func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	p.Log.Info("Reconciling Transformer", "TransformerSpec", isvc.Spec.Transformer)
 	transformer := isvc.Spec.Transformer.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
@@ -79,7 +79,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := transformer.GetStorageUri(); sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
-		err := isvcutils.ValidateStorageURI(sourceURI, p.client)
+		err := isvcutils.ValidateStorageURI(ctx, sourceURI, p.client)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
 		}
@@ -91,14 +91,14 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	predictorName := constants.PredictorServiceName(isvc.Name)
 	if p.deploymentMode == constants.RawDeployment {
 		existing := &corev1.Service{}
-		err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		err := p.client.Get(ctx, types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 		}
 	} else {
 		existing := &knservingv1.Service{}
-		err := p.client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		err := p.client.Get(ctx, types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
@@ -170,7 +170,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 
 	// Here we allow switch between knative and vanilla deployment
 	if p.deploymentMode == constants.RawDeployment {
-		r, err := raw.NewRawKubeReconciler(p.client, p.clientset, p.scheme, objectMeta, metav1.ObjectMeta{},
+		r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, objectMeta, metav1.ObjectMeta{},
 			&isvc.Spec.Transformer.ComponentExtensionSpec, &podSpec, nil)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for transformer")
@@ -192,7 +192,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set autoscaler owner references for transformer")
 		}
 
-		deployment, err := r.Reconcile()
+		deployment, err := r.Reconcile(ctx)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile transformer")
 		}
@@ -203,7 +203,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 		if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set owner reference for transformer")
 		}
-		status, err := r.Reconcile()
+		status, err := r.Reconcile(ctx)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile transformer")
 		}

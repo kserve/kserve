@@ -17,6 +17,7 @@ limitations under the License.
 package autoscaler
 
 import (
+	"context"
 	"fmt"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -31,14 +32,14 @@ import (
 
 // Autoscaler Interface implemented by all autoscalers
 type Autoscaler interface {
-	Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error)
+	Reconcile(ctx context.Context) (*autoscalingv2.HorizontalPodAutoscaler, error)
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
 }
 
 // NoOpAutoscaler Autoscaler that does nothing. Can be used to disable creation of autoscaler resources.
 type NoOpAutoscaler struct{}
 
-func (*NoOpAutoscaler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error) {
+func (*NoOpAutoscaler) Reconcile(ctx context.Context) (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	return nil, nil
 }
 
@@ -92,9 +93,9 @@ func createAutoscaler(client client.Client,
 }
 
 // Reconcile ...
-func (r *AutoscalerReconciler) Reconcile() error {
+func (r *AutoscalerReconciler) Reconcile(ctx context.Context) error {
 	// reconcile Autoscaler
-	_, err := r.Autoscaler.Reconcile()
+	_, err := r.Autoscaler.Reconcile(ctx)
 	if err != nil {
 		return err
 	}

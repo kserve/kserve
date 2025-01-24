@@ -125,24 +125,27 @@ type ServiceConfig struct {
 	ServiceClusterIPNone bool `json:"serviceClusterIPNone,omitempty"`
 }
 
-func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServicesConfig, error) {
-	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(
-		context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
-
-	if err != nil {
+func GetInferenceServiceConfigMap(ctx context.Context, clientset kubernetes.Interface) (*v1.ConfigMap, error) {
+	if configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(
+		ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{}); err != nil {
 		return nil, err
+	} else {
+		return configMap, nil
 	}
+}
+
+func NewInferenceServicesConfig(isvcConfigMap *v1.ConfigMap) (*InferenceServicesConfig, error) {
 	icfg := &InferenceServicesConfig{}
 	for _, err := range []error{
-		getComponentConfig(ExplainerConfigKeyName, configMap, &icfg.Explainers),
-		getComponentConfig(InferenceServiceConfigKeyName, configMap, &icfg),
+		getComponentConfig(ExplainerConfigKeyName, isvcConfigMap, &icfg.Explainers),
+		getComponentConfig(InferenceServiceConfigKeyName, isvcConfigMap, &icfg),
 	} {
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if isvc, ok := configMap.Data[InferenceServiceConfigKeyName]; ok {
+	if isvc, ok := isvcConfigMap.Data[InferenceServiceConfigKeyName]; ok {
 		errisvc := json.Unmarshal([]byte(isvc), &icfg)
 		if errisvc != nil {
 			return nil, fmt.Errorf("unable to parse isvc config json: %w", errisvc)
@@ -165,13 +168,9 @@ func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServi
 	return icfg, nil
 }
 
-func NewIngressConfig(clientset kubernetes.Interface) (*IngressConfig, error) {
-	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
+func NewIngressConfig(isvcConfigMap *v1.ConfigMap) (*IngressConfig, error) {
 	ingressConfig := &IngressConfig{}
-	if ingress, ok := configMap.Data[IngressConfigKeyName]; ok {
+	if ingress, ok := isvcConfigMap.Data[IngressConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(ingress), &ingressConfig)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse ingress config json: %w", err)
@@ -224,13 +223,9 @@ func getComponentConfig(key string, configMap *v1.ConfigMap, componentConfig int
 	return nil
 }
 
-func NewDeployConfig(clientset kubernetes.Interface) (*DeployConfig, error) {
-	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
+func NewDeployConfig(isvcConfigMap *v1.ConfigMap) (*DeployConfig, error) {
 	deployConfig := &DeployConfig{}
-	if deploy, ok := configMap.Data[DeployConfigName]; ok {
+	if deploy, ok := isvcConfigMap.Data[DeployConfigName]; ok {
 		err := json.Unmarshal([]byte(deploy), &deployConfig)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse deploy config json: %w", err)
@@ -250,13 +245,9 @@ func NewDeployConfig(clientset kubernetes.Interface) (*DeployConfig, error) {
 	return deployConfig, nil
 }
 
-func NewLocalModelConfig(clientset kubernetes.Interface) (*LocalModelConfig, error) {
-	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
+func NewLocalModelConfig(isvcConfigMap *v1.ConfigMap) (*LocalModelConfig, error) {
 	localModelConfig := &LocalModelConfig{}
-	if localModel, ok := configMap.Data[LocalModelConfigName]; ok {
+	if localModel, ok := isvcConfigMap.Data[LocalModelConfigName]; ok {
 		err := json.Unmarshal([]byte(localModel), &localModelConfig)
 		if err != nil {
 			return nil, err
@@ -265,13 +256,9 @@ func NewLocalModelConfig(clientset kubernetes.Interface) (*LocalModelConfig, err
 	return localModelConfig, nil
 }
 
-func NewSecurityConfig(clientset kubernetes.Interface) (*SecurityConfig, error) {
-	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
+func NewSecurityConfig(isvcConfigMap *v1.ConfigMap) (*SecurityConfig, error) {
 	securityConfig := &SecurityConfig{}
-	if security, ok := configMap.Data[SecurityConfigName]; ok {
+	if security, ok := isvcConfigMap.Data[SecurityConfigName]; ok {
 		err := json.Unmarshal([]byte(security), &securityConfig)
 		if err != nil {
 			return nil, err
@@ -280,14 +267,9 @@ func NewSecurityConfig(clientset kubernetes.Interface) (*SecurityConfig, error) 
 	return securityConfig, nil
 }
 
-func NewServiceConfig(clientset kubernetes.Interface) (*ServiceConfig, error) {
-	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
-
-	if err != nil {
-		return nil, err
-	}
+func NewServiceConfig(isvcConfigMap *v1.ConfigMap) (*ServiceConfig, error) {
 	serviceConfig := &ServiceConfig{}
-	if service, ok := configMap.Data[ServiceConfigName]; ok {
+	if service, ok := isvcConfigMap.Data[ServiceConfigName]; ok {
 		err := json.Unmarshal([]byte(service), &serviceConfig)
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse service config json: %w", err)

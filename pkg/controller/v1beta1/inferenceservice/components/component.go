@@ -17,6 +17,7 @@ limitations under the License.
 package components
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -33,7 +34,7 @@ import (
 
 // Component can be reconciled to create underlying resources for an InferenceService
 type Component interface {
-	Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error)
+	Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error)
 }
 
 func addStorageSpecAnnotations(storageSpec *v1beta1.StorageSpec, annotations map[string]string) bool {

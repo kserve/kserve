@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -68,7 +69,9 @@ func TestNewInferenceServiceConfig(t *testing.T) {
 	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 	})
-	isvcConfig, err := NewInferenceServicesConfig(clientset)
+	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).Should(gomega.BeNil())
+	isvcConfig, err := NewInferenceServicesConfig(isvcConfigMap)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(isvcConfig).ShouldNot(gomega.BeNil())
 }
@@ -81,7 +84,9 @@ func TestNewIngressConfig(t *testing.T) {
 			IngressConfigKeyName: IngressConfigData,
 		},
 	})
-	ingressCfg, err := NewIngressConfig(clientset)
+	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).Should(gomega.BeNil())
+	ingressCfg, err := NewIngressConfig(configMap)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(ingressCfg).ShouldNot(gomega.BeNil())
 
@@ -110,7 +115,9 @@ func TestNewIngressConfigDefaultKnativeService(t *testing.T) {
 				AdditionalDomain, AdditionalDomainExtra),
 		},
 	})
-	ingressCfg, err := NewIngressConfig(clientset)
+	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).Should(gomega.BeNil())
+	ingressCfg, err := NewIngressConfig(configMap)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(ingressCfg).ShouldNot(gomega.BeNil())
 	g.Expect(ingressCfg.KnativeLocalGatewayService).To(gomega.Equal(LocalGatewayService))
@@ -121,7 +128,9 @@ func TestNewDeployConfig(t *testing.T) {
 	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 	})
-	deployConfig, err := NewDeployConfig(clientset)
+	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).Should(gomega.BeNil())
+	deployConfig, err := NewDeployConfig(isvcConfigMap)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(deployConfig).ShouldNot(gomega.BeNil())
 }
@@ -132,7 +141,9 @@ func TestNewServiceConfig(t *testing.T) {
 	empty := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 	})
-	emp, err := NewServiceConfig(empty)
+	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), empty)
+	g.Expect(err).Should(gomega.BeNil())
+	emp, err := NewServiceConfig(isvcConfigMap)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(emp).ShouldNot(gomega.BeNil())
 
@@ -143,7 +154,10 @@ func TestNewServiceConfig(t *testing.T) {
 			ServiceConfigName: ServiceConfigData,
 		},
 	})
-	wt, err := NewServiceConfig(withTrue)
+	isvcConfigMap, err = GetInferenceServiceConfigMap(context.Background(), withTrue)
+	g.Expect(err).Should(gomega.BeNil())
+	wt, err := NewServiceConfig(isvcConfigMap)
+
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(wt).ShouldNot(gomega.BeNil())
 	g.Expect(wt.ServiceClusterIPNone).Should(gomega.BeTrue())
@@ -155,7 +169,9 @@ func TestNewServiceConfig(t *testing.T) {
 			ServiceConfigName: `{}`,
 		},
 	})
-	nv, err := NewServiceConfig(noValue)
+	isvcConfigMap, err = GetInferenceServiceConfigMap(context.Background(), noValue)
+	g.Expect(err).Should(gomega.BeNil())
+	nv, err := NewServiceConfig(isvcConfigMap)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(nv).ShouldNot(gomega.BeNil())
 	g.Expect(nv.ServiceClusterIPNone).Should(gomega.BeFalse())
@@ -163,13 +179,15 @@ func TestNewServiceConfig(t *testing.T) {
 
 func TestInferenceServiceDisallowedLists(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	withData := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 		Data: map[string]string{
 			InferenceServiceConfigKeyName: ISCVWithData,
 		},
 	})
-	isvcConfigWithData, err := NewInferenceServicesConfig(withData)
+	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).Should(gomega.BeNil())
+	isvcConfigWithData, err := NewInferenceServicesConfig(isvcConfigMap)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(isvcConfigWithData).ShouldNot(gomega.BeNil())
 
@@ -181,13 +199,15 @@ func TestInferenceServiceDisallowedLists(t *testing.T) {
 	g.Expect(isvcConfigWithData.ServiceLabelDisallowedList).To(gomega.Equal(labels))
 
 	// with no data
-	withoutData := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+	clientsetWithoutData := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 		Data: map[string]string{
 			InferenceServiceConfigKeyName: ISCVNoData,
 		},
 	})
-	isvcConfigWithoutData, err := NewInferenceServicesConfig(withoutData)
+	isvcConfigMap, err = GetInferenceServiceConfigMap(context.Background(), clientsetWithoutData)
+	g.Expect(err).Should(gomega.BeNil())
+	isvcConfigWithoutData, err := NewInferenceServicesConfig(isvcConfigMap)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(isvcConfigWithoutData).ShouldNot(gomega.BeNil())
 	g.Expect(isvcConfigWithoutData.ServiceAnnotationDisallowedList).To(gomega.Equal(constants.ServiceAnnotationDisallowedList))

@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"net/http"
 	"os"
@@ -150,12 +151,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	deployConfig, err := v1beta1.NewDeployConfig(clientSet)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(context.Background(), clientSet)
+	if err != nil {
+		setupLog.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		os.Exit(1)
+	}
+	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
 	if err != nil {
 		setupLog.Error(err, "unable to get deploy config.")
 		os.Exit(1)
 	}
-	ingressConfig, err := v1beta1.NewIngressConfig(clientSet)
+	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
 	if err != nil {
 		setupLog.Error(err, "unable to get ingress config.")
 		os.Exit(1)

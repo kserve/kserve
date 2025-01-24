@@ -100,7 +100,7 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 		return fmt.Errorf("URI: %s returned a %d response code", h.StorageUri, resp.StatusCode)
 	}
 	// Write content into file(s)
-	contentType := resp.Header.Get("Content-type")
+	contentType := resp.Header.Get("Content-Type")
 	fileDirectory := filepath.Join(h.ModelDir, h.ModelName)
 
 	switch {

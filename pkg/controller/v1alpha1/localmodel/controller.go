@@ -239,8 +239,12 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 // Step 4 - Creates PV & PVCs for namespaces with isvcs using this cached model
 func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	c.Log.Info("Reconciling localmodel", "name", req.Name)
-
-	localModelConfig, err := v1beta1.NewLocalModelConfig(c.Clientset)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.Clientset)
+	if err != nil {
+		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		return reconcile.Result{}, err
+	}
+	localModelConfig, err := v1beta1.NewLocalModelConfig(isvcConfigMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get local model config")
 		return reconcile.Result{}, err
@@ -266,7 +270,7 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if !utils.Includes(localModel.ObjectMeta.Finalizers, finalizerName) {
 			patch := client.MergeFrom(localModel.DeepCopy())
 			localModel.ObjectMeta.Finalizers = append(localModel.ObjectMeta.Finalizers, finalizerName)
-			if err := c.Patch(context.Background(), localModel, patch); err != nil {
+			if err := c.Patch(ctx, localModel, patch); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -339,7 +343,7 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 	node := obj.(*v1.Node)
 	requests := []reconcile.Request{}
 	models := &v1alpha1.LocalModelCacheList{}
-	if err := c.Client.List(context.TODO(), models); err != nil {
+	if err := c.Client.List(ctx, models); err != nil {
 		c.Log.Error(err, "list models error when reconciling nodes")
 		return []reconcile.Request{}
 	}
@@ -380,7 +384,12 @@ func (c *LocalModelReconciler) localmodelNodeFunc(ctx context.Context, obj clien
 }
 
 func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	localModelConfig, err := v1beta1.NewLocalModelConfig(c.Clientset)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(context.Background(), c.Clientset)
+	if err != nil {
+		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		return err
+	}
+	localModelConfig, err := v1beta1.NewLocalModelConfig(isvcConfigMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get local model config during controller manager setup")
 		return err

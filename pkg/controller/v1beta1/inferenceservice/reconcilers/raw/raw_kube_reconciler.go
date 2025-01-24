@@ -17,6 +17,7 @@ limitations under the License.
 package raw
 
 import (
+	"context"
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -48,7 +49,7 @@ type RawKubeReconciler struct {
 }
 
 // NewRawKubeReconciler creates raw kubernetes resource reconciler.
-func NewRawKubeReconciler(client client.Client,
+func NewRawKubeReconciler(ctx context.Context, client client.Client,
 	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
@@ -59,8 +60,15 @@ func NewRawKubeReconciler(client client.Client,
 	if err != nil {
 		return nil, err
 	}
-
-	url, err := createRawURL(clientset, componentMeta)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
+	if err != nil {
+		return nil, err
+	}
+	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
+	if err != nil {
+		return nil, err
+	}
+	url, err := createRawURL(ingressConfig, componentMeta)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +79,7 @@ func NewRawKubeReconciler(client client.Client,
 	}
 
 	// do not return error as service config is optional
-	serviceConfig, err1 := v1beta1.NewServiceConfig(clientset)
+	serviceConfig, err1 := v1beta1.NewServiceConfig(isvcConfigMap)
 	if err1 != nil {
 		log.Error(err1, "failed to get service config")
 	}
@@ -86,36 +94,30 @@ func NewRawKubeReconciler(client client.Client,
 	}, nil
 }
 
-func createRawURL(clientset kubernetes.Interface, metadata metav1.ObjectMeta) (*knapis.URL, error) {
-	ingressConfig, err := v1beta1.NewIngressConfig(clientset)
-	if err != nil {
-		return nil, err
-	}
-
+func createRawURL(ingressConfig *v1beta1.IngressConfig, metadata metav1.ObjectMeta) (*knapis.URL, error) {
 	url := &knapis.URL{}
 	url.Scheme = "http"
-	url.Host, err = ingress.GenerateDomainName(metadata.Name, metadata, ingressConfig)
-	if err != nil {
+	var err error
+	if url.Host, err = ingress.GenerateDomainName(metadata.Name, metadata, ingressConfig); err != nil {
 		return nil, fmt.Errorf("failed creating host name: %w", err)
 	}
-
 	return url, nil
 }
 
 // Reconcile ...
-func (r *RawKubeReconciler) Reconcile() ([]*appsv1.Deployment, error) {
+func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
 	// reconcile Deployment
-	deploymentList, err := r.Deployment.Reconcile()
+	deploymentList, err := r.Deployment.Reconcile(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// reconcile Service
-	_, err = r.Service.Reconcile()
+	_, err = r.Service.Reconcile(ctx)
 	if err != nil {
 		return nil, err
 	}
 	// reconcile HPA
-	err = r.Scaler.Reconcile()
+	err = r.Scaler.Reconcile(ctx)
 	if err != nil {
 		return nil, err
 	}

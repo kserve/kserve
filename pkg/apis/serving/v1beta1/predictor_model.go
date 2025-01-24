@@ -86,12 +86,12 @@ func (ss stringSet) contains(s string) bool {
 // support the given model. If the `isMMS` argument is true, this function will only return ServingRuntimes that are
 // ModelMesh compatible, otherwise only single-model serving compatible runtimes will be returned.
 // If `isMultinode` is true, this function will only return ServingRuntimes configured with workers.
-func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool, isMultinode bool) ([]v1alpha1.SupportedRuntime, error) {
+func (m *ModelSpec) GetSupportingRuntimes(ctx context.Context, cl client.Client, namespace string, isMMS bool, isMultinode bool) ([]v1alpha1.SupportedRuntime, error) {
 	modelProtocolVersion := m.GetProtocol()
 
 	// List all namespace-scoped runtimes.
 	runtimes := &v1alpha1.ServingRuntimeList{}
-	if err := cl.List(context.TODO(), runtimes, client.InNamespace(namespace)); err != nil {
+	if err := cl.List(ctx, runtimes, client.InNamespace(namespace)); err != nil {
 		return nil, err
 	}
 	// Sort namespace-scoped runtimes by created timestamp desc and name asc.
@@ -99,7 +99,7 @@ func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, is
 
 	// List all cluster-scoped runtimes.
 	clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{}
-	if err := cl.List(context.TODO(), clusterRuntimes); err != nil {
+	if err := cl.List(ctx, clusterRuntimes); err != nil {
 		return nil, err
 	}
 	// Sort cluster-scoped runtimes by created timestamp desc and name asc.

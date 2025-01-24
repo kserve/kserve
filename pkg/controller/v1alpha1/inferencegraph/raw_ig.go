@@ -17,6 +17,7 @@ limitations under the License.
 package inferencegraph
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -137,7 +138,7 @@ Handles bulk of raw deployment logic for Inference graph controller
 4. Set controller references
 5. Finally reconcile
 */
-func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
+func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
 	graph *v1alpha1.InferenceGraph, routerConfig *RouterConfig) (*appsv1.Deployment, *knapis.URL, error) {
 	// create desired service object.
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
@@ -145,7 +146,7 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 	objectMeta, componentExtSpec := constructForRawDeployment(graph)
 
 	// create the reconciler
-	reconciler, err := raw.NewRawKubeReconciler(cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
+	reconciler, err := raw.NewRawKubeReconciler(ctx, cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
 
 	if err != nil {
 		return nil, reconciler.URL, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
@@ -169,7 +170,7 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 	}
 
 	// reconcile
-	deployment, err := reconciler.Reconcile()
+	deployment, err := reconciler.Reconcile(ctx)
 	logger.Info("Result of inference graph raw reconcile", "deployment", deployment[0]) // only 1 deployment exist (default deployment)
 	logger.Info("Result of reconcile", "err", err)
 

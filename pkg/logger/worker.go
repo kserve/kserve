@@ -69,7 +69,6 @@ func NewWorker(id int, workerQueue chan chan LogRequest, logger *zap.SugaredLogg
 		Work:        make(chan LogRequest),
 		WorkerQueue: workerQueue,
 		QuitChan:    make(chan bool),
-		CeCtx:       cloudevents.WithEncodingBinary(context.Background()),
 	}
 }
 
@@ -79,7 +78,6 @@ type Worker struct {
 	Work        chan LogRequest
 	WorkerQueue chan chan LogRequest
 	QuitChan    chan bool
-	CeCtx       context.Context
 }
 
 func (w *Worker) sendCloudEvent(logReq LogRequest) error {
@@ -139,8 +137,8 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	if err := event.SetData(logReq.ContentType, *logReq.Bytes); err != nil {
 		return fmt.Errorf("while setting cloudevents data: %w", err)
 	}
-
-	res := c.Send(w.CeCtx, event)
+	ceCtx := cloudevents.WithEncodingBinary(context.Background())
+	res := c.Send(ceCtx, event)
 	if cloudevents.IsUndelivered(res) {
 		return fmt.Errorf("while sending event: %w", res)
 	} else {

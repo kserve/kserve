@@ -59,7 +59,7 @@ func NewRawIngressReconciler(client client.Client,
 	}, nil
 }
 
-func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
+func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	var err error
 	isInternal := false
 	// disable ingress creation if service is labelled with cluster local or kserve domain is cluster local
@@ -70,7 +70,7 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		isInternal = true
 	}
 	if !isInternal && !r.ingressConfig.DisableIngressCreation {
-		ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig, r.client, r.isvcConfig)
+		ingress, err := createRawIngress(ctx, r.scheme, isvc, r.ingressConfig, r.client, r.isvcConfig)
 		if ingress == nil {
 			return nil
 		}
@@ -79,20 +79,20 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 		// reconcile ingress
 		existingIngress := &netv1.Ingress{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{
+		err = r.client.Get(ctx, types.NamespacedName{
 			Namespace: isvc.Namespace,
 			Name:      isvc.Name,
 		}, existingIngress)
 		if err != nil {
 			if apierr.IsNotFound(err) {
-				err = r.client.Create(context.TODO(), ingress)
+				err = r.client.Create(ctx, ingress)
 				log.Info("creating ingress", "ingressName", isvc.Name, "err", err)
 			} else {
 				return err
 			}
 		} else {
 			if !semanticIngressEquals(ingress, existingIngress) {
-				err = r.client.Update(context.TODO(), ingress)
+				err = r.client.Update(ctx, ingress)
 				log.Info("updating ingress", "ingressName", isvc.Name, "err", err)
 			}
 		}
@@ -106,7 +106,7 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	}
 	isvc.Status.Address = &duckv1.Addressable{
 		URL: &apis.URL{
-			Host:   getRawServiceHost(isvc, r.client),
+			Host:   getRawServiceHost(ctx, isvc, r.client),
 			Scheme: r.ingressConfig.UrlScheme,
 			Path:   "",
 		},
@@ -131,13 +131,13 @@ func createRawURL(isvc *v1beta1.InferenceService,
 	return url, nil
 }
 
-func getRawServiceHost(isvc *v1beta1.InferenceService, client client.Client) string {
+func getRawServiceHost(ctx context.Context, isvc *v1beta1.InferenceService, client client.Client) string {
 	existingService := &corev1.Service{}
 	if isvc.Spec.Transformer != nil {
 		transformerName := constants.TransformerServiceName(isvc.Name)
 
 		// Check if existing transformer service name has default suffix
-		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existingService)
+		err := client.Get(ctx, types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existingService)
 		if err == nil {
 			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
 		}
@@ -147,7 +147,7 @@ func getRawServiceHost(isvc *v1beta1.InferenceService, client client.Client) str
 	predictorName := constants.PredictorServiceName(isvc.Name)
 
 	// Check if existing predictor service name has default suffix
-	err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existingService)
+	err := client.Get(ctx, types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existingService)
 	if err == nil {
 		predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 	}
@@ -214,7 +214,7 @@ func generateIngressHost(ingressConfig *v1beta1.IngressConfig,
 	}
 }
 
-func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
+func createRawIngress(ctx context.Context, scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 	ingressConfig *v1beta1.IngressConfig, client client.Client,
 	isvcConfig *v1beta1.InferenceServicesConfig) (*netv1.Ingress, error) {
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
@@ -240,7 +240,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 		}
 		transformerName := constants.TransformerServiceName(isvc.Name)
 		explainerName := constants.ExplainerServiceName(isvc.Name)
-		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		err := client.Get(ctx, types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
@@ -274,7 +274,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 			return nil, nil
 		}
 		explainerName := constants.ExplainerServiceName(isvc.Name)
-		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		err := client.Get(ctx, types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			explainerName = constants.DefaultExplainerServiceName(isvc.Name)
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
@@ -291,7 +291,7 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 		rules = append(rules, generateRule(host, predictorName, "/", constants.CommonDefaultHttpPort))
 		rules = append(rules, generateRule(explainerHost, explainerName, "/", constants.CommonDefaultHttpPort))
 	default:
-		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		err := client.Get(ctx, types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 		}

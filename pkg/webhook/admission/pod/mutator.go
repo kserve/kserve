@@ -21,12 +21,12 @@ import (
 	"net/http"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 )
@@ -54,8 +54,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 		return admission.ValidationResponse(true, "")
 	}
 
-	configMap, err := mutator.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(),
-		constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	configMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, mutator.Clientset)
 	if err != nil {
 		log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return admission.Errored(http.StatusInternalServerError, err)

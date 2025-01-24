@@ -255,9 +255,9 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 
 // GetServingRuntime Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.
 // If a resource of the specified name is not found, then ClusterServingRuntimes will be checked.
-func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alpha1.ServingRuntimeSpec, error) {
+func GetServingRuntime(ctx context.Context, cl client.Client, name string, namespace string) (*v1alpha1.ServingRuntimeSpec, error) {
 	runtime := &v1alpha1.ServingRuntime{}
-	err := cl.Get(context.TODO(), client.ObjectKey{Name: name, Namespace: namespace}, runtime)
+	err := cl.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, runtime)
 	if err == nil {
 		return &runtime.Spec, nil
 	} else if !apierrors.IsNotFound(err) {
@@ -265,7 +265,7 @@ func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alph
 	}
 
 	clusterRuntime := &v1alpha1.ClusterServingRuntime{}
-	err = cl.Get(context.TODO(), client.ObjectKey{Name: name}, clusterRuntime)
+	err = cl.Get(ctx, client.ObjectKey{Name: name}, clusterRuntime)
 	if err == nil {
 		return &clusterRuntime.Spec, nil
 	} else if !apierrors.IsNotFound(err) {
@@ -315,13 +315,13 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, servingRunt
 }
 
 // ListPodsByLabel Get a PodList by label.
-func ListPodsByLabel(cl client.Client, namespace string, labelKey string, labelVal string) (*v1.PodList, error) {
+func ListPodsByLabel(ctx context.Context, cl client.Client, namespace string, labelKey string, labelVal string) (*v1.PodList, error) {
 	podList := &v1.PodList{}
 	opts := []client.ListOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels{labelKey: labelVal},
 	}
-	err := cl.List(context.TODO(), podList, opts...)
+	err := cl.List(ctx, podList, opts...)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}
@@ -335,13 +335,13 @@ func sortPodsByCreatedTimestampDesc(pods *v1.PodList) {
 	})
 }
 
-func ValidateStorageURI(storageURI *string, client client.Client) error {
+func ValidateStorageURI(ctx context.Context, storageURI *string, client client.Client) error {
 	if storageURI == nil {
 		return nil
 	}
 
 	// Step 1: Passes the validation if we have a storage container CR that supports this storageURI.
-	storageContainerSpec, err := pod.GetContainerSpecForStorageUri(*storageURI, client)
+	storageContainerSpec, err := pod.GetContainerSpecForStorageUri(ctx, *storageURI, client)
 	if err != nil {
 		return err
 	}

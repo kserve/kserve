@@ -133,10 +133,10 @@ func createHPA(componentMeta metav1.ObjectMeta,
 }
 
 // checkHPAExist checks if the hpa exists?
-func (r *HPAReconciler) checkHPAExist(client client.Client) (constants.CheckResultType, *autoscalingv2.HorizontalPodAutoscaler, error) {
+func (r *HPAReconciler) checkHPAExist(ctx context.Context, client client.Client) (constants.CheckResultType, *autoscalingv2.HorizontalPodAutoscaler, error) {
 	// get hpa
 	existingHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-	err := client.Get(context.TODO(), types.NamespacedName{
+	err := client.Get(ctx, types.NamespacedName{
 		Namespace: r.HPA.ObjectMeta.Namespace,
 		Name:      r.HPA.ObjectMeta.Name,
 	}, existingHPA)
@@ -184,9 +184,9 @@ func shouldCreateHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
 }
 
 // Reconcile ...
-func (r *HPAReconciler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error) {
+func (r *HPAReconciler) Reconcile(ctx context.Context) (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	// reconcile HorizontalPodAutoscaler
-	checkResult, existingHPA, err := r.checkHPAExist(r.client)
+	checkResult, existingHPA, err := r.checkHPAExist(ctx, r.client)
 	log.Info("HorizontalPodAutoscaler reconcile", "checkResult", checkResult, "err", err)
 	if err != nil {
 		return nil, err
@@ -195,11 +195,11 @@ func (r *HPAReconciler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, err
 	var opErr error
 	switch checkResult {
 	case constants.CheckResultCreate:
-		opErr = r.client.Create(context.TODO(), r.HPA)
+		opErr = r.client.Create(ctx, r.HPA)
 	case constants.CheckResultUpdate:
-		opErr = r.client.Update(context.TODO(), r.HPA)
+		opErr = r.client.Update(ctx, r.HPA)
 	case constants.CheckResultDelete:
-		opErr = r.client.Delete(context.TODO(), r.HPA)
+		opErr = r.client.Delete(ctx, r.HPA)
 	default:
 		return existingHPA, nil
 	}

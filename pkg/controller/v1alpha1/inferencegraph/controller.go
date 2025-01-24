@@ -118,8 +118,6 @@ func getRouterConfigs(configMap *v1.ConfigMap) (*RouterConfig, error) {
 }
 
 func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-
 	// Fetch the InferenceService instance
 	graph := &v1alpha1.InferenceGraph{}
 	if err := r.Get(ctx, req.NamespacedName, graph); err != nil {
@@ -132,7 +130,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	r.Log.Info("Reconciling inference graph", "apiVersion", graph.APIVersion, "graph", graph.Name)
-	configMap, err := r.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	configMap, err := r.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		r.Log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return reconcile.Result{}, err
@@ -164,7 +162,12 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 		}
 	}
-	deployConfig, err := v1beta1.NewDeployConfig(r.Clientset)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
+	if err != nil {
+		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		return reconcile.Result{}, err
+	}
+	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
 	}
@@ -173,7 +176,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	r.Log.Info("Inference graph deployment ", "deployment mode ", deploymentMode)
 	if deploymentMode == constants.RawDeployment {
 		// Create inference graph resources such as deployment, service, hpa in raw deployment mode
-		deployment, url, err := handleInferenceGraphRawDeployment(r.Client, r.Clientset, r.Scheme, graph, routerConfig)
+		deployment, url, err := handleInferenceGraphRawDeployment(ctx, r.Client, r.Clientset, r.Scheme, graph, routerConfig)
 
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile inference graph raw deployment")
@@ -213,7 +216,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return reconcile.Result{}, err
 		}
 		knativeReconciler := NewGraphKnativeServiceReconciler(r.Client, r.Scheme, desired)
-		ksvcStatus, err := knativeReconciler.Reconcile()
+		ksvcStatus, err := knativeReconciler.Reconcile(ctx)
 		if err != nil {
 			r.Log.Error(err, "failed to reconcile inference graph ksvc", "name", graph.GetName())
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile inference graph ksvc")
@@ -233,7 +236,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	if err := r.updateStatus(graph); err != nil {
+	if err := r.updateStatus(ctx, graph); err != nil {
 		r.Recorder.Eventf(graph, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
@@ -241,10 +244,10 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, nil
 }
 
-func (r *InferenceGraphReconciler) updateStatus(desiredGraph *v1alpha1.InferenceGraph) error {
+func (r *InferenceGraphReconciler) updateStatus(ctx context.Context, desiredGraph *v1alpha1.InferenceGraph) error {
 	graph := &v1alpha1.InferenceGraph{}
 	namespacedName := types.NamespacedName{Name: desiredGraph.Name, Namespace: desiredGraph.Namespace}
-	if err := r.Get(context.TODO(), namespacedName, graph); err != nil {
+	if err := r.Get(ctx, namespacedName, graph); err != nil {
 		return err
 	}
 
@@ -254,7 +257,7 @@ func (r *InferenceGraphReconciler) updateStatus(desiredGraph *v1alpha1.Inference
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if err := r.Status().Update(context.TODO(), desiredGraph); err != nil {
+	} else if err := r.Status().Update(ctx, desiredGraph); err != nil {
 		r.Log.Error(err, "Failed to update InferenceGraph status", "InferenceGraph", desiredGraph.Name)
 		r.Recorder.Eventf(desiredGraph, v1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceGraph %q: %v", desiredGraph.Name, err)

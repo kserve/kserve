@@ -114,20 +114,24 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 		mutatorLogger.Error(err, "unable to create clientSet")
 		return err
 	}
-	// Todo: call api server only once to get all configs
-	configMap, err := NewInferenceServicesConfig(clientSet)
+	configMap, err := GetInferenceServiceConfigMap(ctx, clientSet)
+	if err != nil {
+		mutatorLogger.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		return err
+	}
+	isvcConfig, err := NewInferenceServicesConfig(configMap)
 	if err != nil {
 		return err
 	}
-	deployConfig, err := NewDeployConfig(clientSet)
+	deployConfig, err := NewDeployConfig(configMap)
 	if err != nil {
 		return err
 	}
-	localModelConfig, err := NewLocalModelConfig(clientSet)
+	localModelConfig, err := NewLocalModelConfig(configMap)
 	if err != nil {
 		return err
 	}
-	securityConfig, err := NewSecurityConfig(clientSet)
+	securityConfig, err := NewSecurityConfig(configMap)
 	if err != nil {
 		return err
 	}
@@ -148,7 +152,7 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 	}
 
 	// Pass a list of LocalModelCache resources to set the local model label if there is a match
-	isvc.DefaultInferenceService(configMap, deployConfig, securityConfig, models)
+	isvc.DefaultInferenceService(isvcConfig, deployConfig, securityConfig, models)
 	return nil
 }
 

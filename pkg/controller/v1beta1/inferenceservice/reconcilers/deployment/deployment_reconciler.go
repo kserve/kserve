@@ -187,10 +187,10 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 }
 
 // checkDeploymentExist checks if the deployment exists?
-func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client, deployment *appsv1.Deployment) (constants.CheckResultType, *appsv1.Deployment, error) {
+func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client kclient.Client, deployment *appsv1.Deployment) (constants.CheckResultType, *appsv1.Deployment, error) {
 	// get deployment
 	existingDeployment := &appsv1.Deployment{}
-	err := client.Get(context.TODO(), types.NamespacedName{
+	err := client.Get(ctx, types.NamespacedName{
 		Namespace: deployment.ObjectMeta.Namespace,
 		Name:      deployment.ObjectMeta.Name,
 	}, existingDeployment)
@@ -212,7 +212,7 @@ func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client, deplo
 
 	// Do a dry-run update. This will populate our local deployment object with any default values
 	// that are present on the remote version.
-	if err := client.Update(context.TODO(), deployment, kclient.DryRunAll); err != nil {
+	if err := client.Update(ctx, deployment, kclient.DryRunAll); err != nil {
 		log.Error(err, "Failed to perform dry-run update of deployment", "Deployment", deployment.Name)
 		return constants.CheckResultUnknown, nil, err
 	}
@@ -353,10 +353,10 @@ func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerNa
 }
 
 // Reconcile ...
-func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
+func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
 	for _, deployment := range r.DeploymentList {
 		// Reconcile Deployment
-		checkResult, _, err := r.checkDeploymentExist(r.client, deployment)
+		checkResult, _, err := r.checkDeploymentExist(ctx, r.client, deployment)
 		if err != nil {
 			return nil, err
 		}
@@ -365,7 +365,7 @@ func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
 		var opErr error
 		switch checkResult {
 		case constants.CheckResultCreate:
-			opErr = r.client.Create(context.TODO(), deployment)
+			opErr = r.client.Create(ctx, deployment)
 		case constants.CheckResultUpdate:
 			curJson, err := json.Marshal(deployment)
 			if err != nil {
@@ -391,7 +391,7 @@ func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
 			}
 
 			// Patch the deployment object with the strategic merge patch
-			opErr = r.client.Patch(context.TODO(), deployment, client.RawPatch(types.StrategicMergePatchType, patchByte))
+			opErr = r.client.Patch(ctx, deployment, client.RawPatch(types.StrategicMergePatchType, patchByte))
 		}
 
 		if opErr != nil {

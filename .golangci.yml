@@ -26,8 +26,25 @@ output:
 linters:
   disable-all: true
   enable:
-    - errorlint
+     # Check for pass []any as any in variadic func(...any).
+    - asasalint
+
+    # Dangerous unicode characters
+    - bidichk
+
+    # Checks whether HTTP response body is closed successfully.
     - bodyclose
+
+     # Canonicalheader checks whether net/http.Header uses canonical header.
+    - canonicalheader
+
+    # Containedctx is a linter that detects struct contained context.Context
+    # field.
+    - containedctx
+
+    # Check whether the function uses a non-inherited context.
+    - contextcheck
+    - errorlint
     - dogsled
     - copyloopvar
     - gocritic
