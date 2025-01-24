@@ -118,9 +118,8 @@ linters:
     # Checks key value pairs for common logger libraries (kitlog,klog,logr,zap).
     - loggercheck
 
-    # TODO: Do it later
     # Finds slice declarations with non-zero initial length.
-    # - makezero
+    - makezero
 
     # Reports use of unnecessary []byte/string conversion calls
     - mirror

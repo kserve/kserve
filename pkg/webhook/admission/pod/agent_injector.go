@@ -227,8 +227,8 @@ func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	queueProxyAvailable := false
 	for _, container := range pod.Spec.Containers {
 		if container.Name == "queue-proxy" {
-			agentEnvs = make([]v1.EnvVar, len(container.Env))
-			copy(agentEnvs, container.Env)
+			agentEnvs = make([]v1.EnvVar, 0, len(container.Env))
+			agentEnvs = append(agentEnvs, container.Env...)
 			queueProxyEnvs = container.Env
 			queueProxyAvailable = true
 		}
