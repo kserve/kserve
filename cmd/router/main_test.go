@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"knative.dev/pkg/apis"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -561,7 +562,7 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 	// Propagating only 1 header "Test-Header-Key"
 	headersToPropagate := []string{"Test-Header-Key"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	if err != nil {
@@ -628,7 +629,7 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 	// Propagating multiple headers "Test-Header-Key"
 	headersToPropagate := []string{"Test-Header-Key", "Authorization"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	if err != nil {
@@ -706,7 +707,7 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 	// Propagating multiple headers "Test-Header-Key"
 	headersToPropagate := []string{"Test-Header-*", "Auth*"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	if err != nil {
@@ -778,7 +779,7 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 	// Using invalid regex pattern
 	headersToPropagate := []string{"Test-Header-[0-9", "Auth*"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	if err != nil {

@@ -160,7 +160,7 @@ func main() {
 	}
 	logger.Info("Starting agent http server...")
 	ctx := signals.NewContext()
-	mainServer, drain := buildServer(ctx, *port, *componentPort, loggerArgs, batcherArgs, probe, logger)
+	mainServer, drain := buildServer(*port, *componentPort, loggerArgs, batcherArgs, probe, logger)
 	servers := map[string]*http.Server{
 		"main": mainServer,
 	}
@@ -331,7 +331,7 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string, autodetectHTTP2 boo
 	return newProbe
 }
 
-func buildServer(ctx context.Context, port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs, // nolint unparam
+func buildServer(port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
 	probeContainer func() bool, logging *zap.SugaredLogger,
 ) (server *http.Server, drain func()) {
 	logging.Infof("Building server user port %d port %s", userPort, port)

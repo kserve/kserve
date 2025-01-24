@@ -177,7 +177,10 @@ linters:
     - testifylint
 
     - typecheck
+
+    # Remove unnecessary type conversions.
     - unconvert
+    
     - unused
     - whitespace
 

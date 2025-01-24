@@ -25,6 +25,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -3100,7 +3101,7 @@ func TestModelcarVolumeMounts(t *testing.T) {
 func checkVolumeMounts(t *testing.T, pod *v1.Pod, containerNames []string) {
 	injector := &StorageInitializerInjector{config: &StorageInitializerConfig{}}
 	err := injector.InjectModelcar(pod)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	for _, containerName := range containerNames {
 		container := getContainerWithName(pod, containerName)
@@ -3121,13 +3122,13 @@ func TestModelcarIdempotency(t *testing.T) {
 
 		// Inject modelcar twice
 		err := injector.InjectModelcar(pod)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		err = injector.InjectModelcar(pod)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Reference modelcar
 		err = injector.InjectModelcar(podReference)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// It should not make a difference if the modelcar is injected once or twice
 		assert.True(t, reflect.DeepEqual(podReference, pod))
@@ -3141,7 +3142,7 @@ func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {
 
 		pod := createTestPodForModelcar()
 		err := injector.InjectModelcar(pod)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Assertions
 		modelcarContainer := getContainerWithName(pod, ModelcarContainerName)
@@ -3159,7 +3160,7 @@ func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {
 
 		pod := createTestPodForModelcar()
 		err := injector.InjectModelcar(pod)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Assertions
 		modelcarContainer := getContainerWithName(pod, ModelcarContainerName)
@@ -3176,7 +3177,7 @@ func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {
 
 		pod := createTestPodForModelcar()
 		err := injector.InjectModelcar(pod)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// Assertions
 		modelcarContainer := getContainerWithName(pod, ModelcarContainerName)

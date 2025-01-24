@@ -36,7 +36,7 @@ type MetricsAggregator struct {
 	EnablePrometheusScraping string `json:"enablePrometheusScraping"`
 }
 
-func newMetricsAggregator(configMap *v1.ConfigMap) (*MetricsAggregator, error) { //nolint:unparam
+func newMetricsAggregator(configMap *v1.ConfigMap) (*MetricsAggregator, error) {
 	ma := &MetricsAggregator{}
 
 	if maConfigVal, ok := configMap.Data[MetricsAggregatorConfigMapKeyName]; ok {

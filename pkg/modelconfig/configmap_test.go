@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	testify "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -119,9 +120,9 @@ func TestProcessAddOrUpdate(t *testing.T) {
 	for _, tc := range testCases {
 		mConfig := NewConfigsDelta(tc.modelConfigs, nil)
 		err := mConfig.Process(tc.configMap)
-		testify.NoError(t, err)
+		require.NoError(t, err)
 		data, err := getSortedConfigData(tc.configMap.Data[constants.ModelConfigFileName])
-		testify.NoError(t, err)
+		require.NoError(t, err)
 		expected, _ := getSortedConfigData(tc.expected)
 		testify.Equal(t, expected, data)
 	}
@@ -185,9 +186,9 @@ func TestProcessDelete(t *testing.T) {
 	for _, tc := range testCases {
 		mConfig := NewConfigsDelta(nil, tc.modelConfigs)
 		err := mConfig.Process(tc.configMap)
-		testify.NoError(t, err)
+		require.NoError(t, err)
 		data, err := getSortedConfigData(tc.configMap.Data[constants.ModelConfigFileName])
-		testify.NoError(t, err)
+		require.NoError(t, err)
 		expected, _ := getSortedConfigData(tc.expected)
 		testify.Equal(t, expected, data)
 	}
@@ -227,9 +228,9 @@ func TestProcess(t *testing.T) {
 	for _, tc := range testCases {
 		mConfig := NewConfigsDelta(tc.updated, tc.deleted)
 		err := mConfig.Process(tc.configMap)
-		testify.NoError(t, err)
+		require.NoError(t, err)
 		data, err := getSortedConfigData(tc.configMap.Data[constants.ModelConfigFileName])
-		testify.NoError(t, err)
+		require.NoError(t, err)
 		expected, _ := getSortedConfigData(tc.expected)
 		testify.Equal(t, expected, data)
 	}
@@ -278,6 +279,6 @@ func TestCreateEmptyModelConfig(t *testing.T) {
 	}
 
 	configMap, err := CreateEmptyModelConfig(isvc, shardId)
-	testify.NoError(t, err)
+	require.NoError(t, err)
 	testify.Equal(t, expected, configMap)
 }
