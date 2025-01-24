@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	corev1 "k8s.io/api/core/v1"
@@ -216,9 +215,9 @@ func (r *ServiceReconciler) cleanHeadSvc(ctx context.Context) error {
 		if err == nil {
 			err := r.client.Delete(ctx, existingService)
 			if err != nil {
-				fmt.Printf("Failed to delete service %s: %v\n", existingService.Name, err)
+				log.Error(err, "Failed to delete service", "name", existingService.Name)
 			} else {
-				fmt.Printf("Deleted service %s in namespace %s\n", existingService.Name, existingService.Namespace)
+				log.Info("Deleted service", "name", existingService.Name, "namespace", existingService.Namespace)
 			}
 		}
 	}

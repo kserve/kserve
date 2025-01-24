@@ -47,7 +47,6 @@ func serveRequest(batchHandler *BatchHandler, wg *sync.WaitGroup, index int) {
 	b2, _ := io.ReadAll(resp.Body)
 	var res Response
 	_ = json.Unmarshal(b2, &res)
-	fmt.Printf("Got response %v\n", res)
 }
 
 func TestBatcher(t *testing.T) {

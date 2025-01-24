@@ -1851,22 +1851,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Eventually(func() bool {
 				err := k8sClient.Create(context.TODO(), pod)
-				if err != nil {
-					fmt.Printf("Error #%v\n", err)
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout).Should(BeTrue())
 			defer k8sClient.Delete(context.TODO(), pod)
 
 			podStatusPatch := []byte(`{"status":{"containerStatuses":[{"image":"tensorflow/serving:1.14.0","name":"kserve-container","lastState":{},"state":{"waiting":{"reason":"PodInitializing"}}}],"initContainerStatuses":[{"image":"kserve/storage-initializer:latest","name":"storage-initializer","lastState":{"terminated":{"exitCode":1,"message":"Invalid Storage URI provided","reason":"Error"}},"state":{"waiting":{"reason":"CrashLoopBackOff"}}}]}}`)
 			Eventually(func() bool {
 				err := k8sClient.Status().Patch(context.TODO(), pod, client.RawPatch(types.StrategicMergePatchType, podStatusPatch))
-				if err != nil {
-					fmt.Printf("Error #%v\n", err)
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout).Should(BeTrue())
 
 			actualService := &knservingv1.Service{}
@@ -1894,7 +1886,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, inferenceServiceKey, inferenceService)
 				if err != nil {
-					fmt.Printf("Error %#v\n", err)
 					return false
 				}
 				if inferenceService.Status.ModelStatus.LastFailureInfo == nil {

@@ -50,6 +50,9 @@ linters:
 
      # Check declaration order of types, consts, vars and funcs.
     - decorder
+    
+    # Checks assignments with too many blank identifiers (e.g. x, , , _, := f()).
+    - dogsled
 
     # Checks for duplicate words in the source code.
     - dupword
@@ -67,8 +70,11 @@ linters:
 
     # Detects functions from golang.org/x/exp/ that can be replaced by std functions.
     - exptostd
-    
-    - dogsled
+
+    # TODO: Do it later
+    # # Detects nested contexts in loops. https://gabnotes.org/fat-contexts/
+    # - fatcontext
+
     - gocritic
     - goimports
     - gosec

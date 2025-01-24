@@ -175,7 +175,7 @@ func (w *Worker) Start() {
 
 			case <-w.QuitChan:
 				// We have been asked to stop.
-				fmt.Printf("worker %d stopping\n", w.ID)
+				w.Log.Infof("worker %d stopping\n", w.ID)
 				return
 			}
 		}

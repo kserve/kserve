@@ -18,7 +18,6 @@ package inferencegraph
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -558,7 +557,6 @@ var _ = Describe("Inference Graph controller test", func() {
 				if err := k8sClient.Get(ctx, serviceKey, actualK8sDeploymentCreated); err != nil {
 					return false
 				}
-				fmt.Println(actualK8sDeploymentCreated)
 				By("K8s Deployment retrieved")
 				return true
 			}, timeout, interval).Should(BeTrue())

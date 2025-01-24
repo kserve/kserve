@@ -364,7 +364,7 @@ var _ = Describe("CachedModel controller", func() {
 			pvcName := "test-pvc"
 			pvName := pvcName + "-" + testNamespace
 
-			pv := createTestPV(ctx, pvName, testNamespace, cachedModel)
+			pv := createTestPV(ctx, pvName, cachedModel)
 			defer k8sClient.Delete(ctx, pv)
 
 			pvc := createTestPVC(ctx, pvcName, testNamespace, pvName, cachedModel)
@@ -518,7 +518,7 @@ func createTestNamespace(ctx context.Context, name string) *v1.Namespace {
 	return namespace
 }
 
-func createTestPV(ctx context.Context, pvName, namespace string, cachedModel *v1alpha1.LocalModelCache) *v1.PersistentVolume {
+func createTestPV(ctx context.Context, pvName string, cachedModel *v1alpha1.LocalModelCache) *v1.PersistentVolume {
 	pv := &v1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: pvName,
