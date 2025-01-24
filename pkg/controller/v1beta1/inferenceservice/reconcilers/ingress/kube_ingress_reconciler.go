@@ -156,7 +156,7 @@ func getRawServiceHost(ctx context.Context, isvc *v1beta1.InferenceService, clie
 	return network.GetServiceHostname(predictorName, isvc.Namespace)
 }
 
-func generateRule(ingressHost string, componentName string, path string, port int32) netv1.IngressRule {
+func generateRule(ingressHost string, componentName string, path string, port int32) netv1.IngressRule {   //nolint:unparam
 	pathType := netv1.PathTypePrefix
 	rule := netv1.IngressRule{
 		Host: ingressHost,

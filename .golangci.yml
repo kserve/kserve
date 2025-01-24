@@ -180,6 +180,9 @@ linters:
 
     # Remove unnecessary type conversions.
     - unconvert
+  
+    # Reports unused function parameters and results in your code.
+    - unparam
     
     - unused
     - whitespace

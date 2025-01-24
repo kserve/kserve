@@ -293,6 +293,8 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalMod
 	entries, err := fsHelper.getModelFolders()
 	if err != nil {
 		c.Log.Error(err, "Failed to list model folder")
+		// TODO Reviewer: Is the err ignored intentionally?
+		return err
 	}
 	for _, entry := range entries {
 		// Models could only exist in sub dir
@@ -313,6 +315,8 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalMod
 			c.Log.Info("Removing model", "model", modelName)
 			if err := fsHelper.removeModel(modelName); err != nil {
 				c.Log.Error(err, "Failed to remove model directory", "model", modelName)
+				// TODO Reviewer: Is the err ignored intentionally?
+				return err
 			}
 		}
 	}

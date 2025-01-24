@@ -36,7 +36,7 @@ type MetricsAggregator struct {
 	EnablePrometheusScraping string `json:"enablePrometheusScraping"`
 }
 
-func newMetricsAggregator(configMap *v1.ConfigMap) (*MetricsAggregator, error) {
+func newMetricsAggregator(configMap *v1.ConfigMap) *MetricsAggregator {
 	ma := &MetricsAggregator{}
 
 	if maConfigVal, ok := configMap.Data[MetricsAggregatorConfigMapKeyName]; ok {
@@ -46,7 +46,7 @@ func newMetricsAggregator(configMap *v1.ConfigMap) (*MetricsAggregator, error) {
 		}
 	}
 
-	return ma, nil
+	return ma
 }
 
 func setMetricAggregationEnvVarsAndPorts(pod *v1.Pod) error {

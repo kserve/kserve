@@ -323,10 +323,7 @@ func TestInjectMetricsAggregator(t *testing.T) {
 	}
 
 	cfgMap := v1.ConfigMap{Data: map[string]string{"enableMetricAggregation": "false", "enablePrometheusScraping": "false"}}
-	ma, err := newMetricsAggregator(&cfgMap)
-	if err != nil {
-		t.Errorf("Error creating the metrics aggregator %v", err)
-	}
+	ma := newMetricsAggregator(&cfgMap)
 
 	for name, scenario := range scenarios {
 		ma.InjectMetricsAggregator(scenario.original)

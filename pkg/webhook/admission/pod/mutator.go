@@ -113,10 +113,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 		batcherConfig:     batcherConfig,
 	}
 
-	metricsAggregator, err := newMetricsAggregator(configMap)
-	if err != nil {
-		return err
-	}
+	metricsAggregator := newMetricsAggregator(configMap)
 
 	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
