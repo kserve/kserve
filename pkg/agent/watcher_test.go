@@ -382,11 +382,11 @@ var _ = Describe("Watcher", func() {
 				modelName := "model1"
 				modelStorageURI := "gs://testBucket/"
 				err := cl.DownloadModel(modelDir, modelName, modelStorageURI)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 
 				testFile := filepath.Join(modelDir, modelName, "testModel1")
 				dat, err := os.ReadFile(testFile)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(string(dat)).To(Equal(modelContents))
 			})
 		})
@@ -447,7 +447,7 @@ var _ = Describe("Watcher", func() {
 
 				modelStorageURI := "gs://testBucket/"
 				err := cl.DownloadModel(modelDir, "", modelStorageURI)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 			})
 		})
 
@@ -556,7 +556,7 @@ var _ = Describe("Watcher", func() {
 				watcher.parseConfig(modelConfigs, true)
 				go puller.processCommands(watcher.ModelEvents)
 				puller.waitGroup.wg.Wait()
-				Expect(len(puller.channelMap)).To(Equal(0))
+				Expect(puller.channelMap).To(BeEmpty())
 				Expect(puller.opStats["model1"][Add]).Should(Equal(1))
 				Expect(puller.opStats["model2"][Add]).Should(Equal(1))
 			})
@@ -595,11 +595,11 @@ var _ = Describe("Watcher", func() {
 					}
 
 					err := cl.DownloadModel(modelDir, modelName, modelStorageURI)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 
 					testFile := filepath.Join(modelDir, modelName, modelFile)
 					dat, err := os.ReadFile(testFile)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					Expect(string(dat)).To(Equal(modelContents + "\n"))
 				}
 			})
@@ -617,7 +617,7 @@ var _ = Describe("Watcher", func() {
 				}
 
 				actualErr := cl.DownloadModel(modelDir, modelName, invalidModelStorageURI)
-				Expect(actualErr).NotTo(Equal(nil))
+				Expect(actualErr).To(HaveOccurred())
 			})
 		})
 
@@ -677,9 +677,9 @@ var _ = Describe("Watcher", func() {
 					}
 
 					err := zipcl.DownloadModel(modelDir, zipModel, zipStorageURI)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					err = tarcl.DownloadModel(modelDir, tarModel, tarStorageURI)
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 				}
 			})
 		})

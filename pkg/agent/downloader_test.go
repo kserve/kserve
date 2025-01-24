@@ -68,7 +68,7 @@ var _ = Describe("Downloader", func() {
 				},
 			}
 			err := downloader.DownloadModel(modelConfig.Name, &modelConfig.Spec)
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).Should(HaveOccurred())
 		})
 	})
 
@@ -82,7 +82,7 @@ var _ = Describe("Downloader", func() {
 				},
 			}
 			err := downloader.DownloadModel(modelConfig.Name, &modelConfig.Spec)
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).Should(HaveOccurred())
 		})
 	})
 
@@ -96,7 +96,7 @@ var _ = Describe("Downloader", func() {
 				},
 			}
 			err := downloader.DownloadModel(modelConfig.Name, &modelConfig.Spec)
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).Should(HaveOccurred())
 		})
 	})
 })

@@ -83,7 +83,7 @@ func TestStorageContainerSpec_IsStorageUriSupported(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			supported, err := tc.spec.IsStorageUriSupported(tc.storageUri)
-			g.Expect(err).To(gomega.BeNil())
+			g.Expect(err).ToNot(gomega.HaveOccurred())
 			g.Expect(supported).To(gomega.Equal(tc.supported))
 		})
 	}

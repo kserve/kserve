@@ -70,9 +70,9 @@ func TestNewInferenceServiceConfig(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 	})
 	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	isvcConfig, err := NewInferenceServicesConfig(isvcConfigMap)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(isvcConfig).ShouldNot(gomega.BeNil())
 }
 
@@ -85,9 +85,9 @@ func TestNewIngressConfig(t *testing.T) {
 		},
 	})
 	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	ingressCfg, err := NewIngressConfig(configMap)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(ingressCfg).ShouldNot(gomega.BeNil())
 
 	g.Expect(ingressCfg.IngressGateway).To(gomega.Equal(KnativeIngressGateway))
@@ -116,9 +116,9 @@ func TestNewIngressConfigDefaultKnativeService(t *testing.T) {
 		},
 	})
 	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	ingressCfg, err := NewIngressConfig(configMap)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(ingressCfg).ShouldNot(gomega.BeNil())
 	g.Expect(ingressCfg.KnativeLocalGatewayService).To(gomega.Equal(LocalGatewayService))
 }
@@ -129,9 +129,9 @@ func TestNewDeployConfig(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 	})
 	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	deployConfig, err := NewDeployConfig(isvcConfigMap)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(deployConfig).ShouldNot(gomega.BeNil())
 }
 
@@ -142,9 +142,9 @@ func TestNewServiceConfig(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 	})
 	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), empty)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	emp, err := NewServiceConfig(isvcConfigMap)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(emp).ShouldNot(gomega.BeNil())
 
 	// with value
@@ -155,10 +155,10 @@ func TestNewServiceConfig(t *testing.T) {
 		},
 	})
 	isvcConfigMap, err = GetInferenceServiceConfigMap(context.Background(), withTrue)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	wt, err := NewServiceConfig(isvcConfigMap)
 
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(wt).ShouldNot(gomega.BeNil())
 	g.Expect(wt.ServiceClusterIPNone).Should(gomega.BeTrue())
 
@@ -170,9 +170,9 @@ func TestNewServiceConfig(t *testing.T) {
 		},
 	})
 	isvcConfigMap, err = GetInferenceServiceConfigMap(context.Background(), noValue)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	nv, err := NewServiceConfig(isvcConfigMap)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(nv).ShouldNot(gomega.BeNil())
 	g.Expect(nv.ServiceClusterIPNone).Should(gomega.BeFalse())
 }
@@ -186,9 +186,9 @@ func TestInferenceServiceDisallowedLists(t *testing.T) {
 		},
 	})
 	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	isvcConfigWithData, err := NewInferenceServicesConfig(isvcConfigMap)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(isvcConfigWithData).ShouldNot(gomega.BeNil())
 
 	// nolint:gocritic
@@ -206,9 +206,9 @@ func TestInferenceServiceDisallowedLists(t *testing.T) {
 		},
 	})
 	isvcConfigMap, err = GetInferenceServiceConfigMap(context.Background(), clientsetWithoutData)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	isvcConfigWithoutData, err := NewInferenceServicesConfig(isvcConfigMap)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(isvcConfigWithoutData).ShouldNot(gomega.BeNil())
 	g.Expect(isvcConfigWithoutData.ServiceAnnotationDisallowedList).To(gomega.Equal(constants.ServiceAnnotationDisallowedList))
 	g.Expect(isvcConfigWithoutData.ServiceLabelDisallowedList).To(gomega.Equal(constants.RevisionTemplateLabelDisallowedList))

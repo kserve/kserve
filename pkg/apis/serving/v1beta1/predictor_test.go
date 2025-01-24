@@ -38,12 +38,12 @@ func TestGetPredictorImplementations(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	spec := makeTestPredictorSpec()
 	implementations := spec.GetPredictorImplementations()
-	g.Expect(len(implementations)).ShouldNot(gomega.BeZero())
+	g.Expect(implementations).ShouldNot(gomega.BeEmpty())
 	g.Expect(implementations[0]).Should(gomega.Equal(spec.PyTorch))
 
 	spec.PyTorch = nil
 	implementations = spec.GetPredictorImplementations()
-	g.Expect(len(implementations)).Should(gomega.BeZero())
+	g.Expect(implementations).Should(gomega.BeEmpty())
 
 	spec.PodSpec.Containers = []v1.Container{
 		{
@@ -52,7 +52,7 @@ func TestGetPredictorImplementations(t *testing.T) {
 		},
 	}
 	implementations = spec.GetPredictorImplementations()
-	g.Expect(len(implementations)).ShouldNot(gomega.BeZero())
+	g.Expect(implementations).ShouldNot(gomega.BeEmpty())
 	g.Expect(implementations[0]).Should(gomega.Equal(NewCustomPredictor(&spec.PodSpec)))
 }
 

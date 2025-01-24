@@ -227,7 +227,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 			inferenceService.Status.Status = readyConditions
 			inferenceService.Status.ModelStatus = modelStatus
-			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
+			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(Succeed())
 
 			// Create modelConfig
 			modelConfig := &v1.ConfigMap{
@@ -340,7 +340,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}
 			inferenceService.Status.Status = readyConditions
 			inferenceService.Status.ModelStatus = modelStatus
-			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
+			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(Succeed())
 
 			tmInstance := &v1alpha1.TrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
@@ -480,7 +480,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 			inferenceService.Status.Status = readyConditions
 			inferenceService.Status.ModelStatus = modelStatus
-			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
+			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(Succeed())
 
 			tmInstance := &v1alpha1.TrainedModel{
 				ObjectMeta: metav1.ObjectMeta{
@@ -606,7 +606,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 			inferenceService.Status.Status = readyConditions
 			inferenceService.Status.ModelStatus = modelStatus
-			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
+			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(Succeed())
 
 			// Create modelConfig
 			modelConfig := &v1.ConfigMap{
@@ -734,7 +734,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 			inferenceService.Status.Status = readyConditions
 			inferenceService.Status.ModelStatus = modelStatus
-			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(BeNil())
+			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(Succeed())
 
 			// Create modelConfig
 			modelConfig := &v1.ConfigMap{

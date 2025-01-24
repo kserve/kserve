@@ -75,6 +75,10 @@ linters:
     # # Detects nested contexts in loops. https://gabnotes.org/fat-contexts/
     # - fatcontext
 
+    # Enforces standards of using ginkgo and gomega.	
+    - ginkgolinter
+
+
     - gocritic
     - goimports
     - gosec

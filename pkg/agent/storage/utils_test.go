@@ -45,7 +45,7 @@ func TestCreate(t *testing.T) {
 	}
 	defer f.Close()
 
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(folderPath).To(gomega.BeADirectory())
 
 	info, _ := os.Stat(folderPath)
@@ -62,7 +62,7 @@ func TestFileExists(t *testing.T) {
 
 	// Test case for existing file
 	f, err := os.CreateTemp(tmpDir, "tmpfile")
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(FileExists(f.Name())).To(gomega.BeTrue())
 	f.Close()
 
@@ -89,13 +89,13 @@ func TestRemoveDir(t *testing.T) {
 	os.CreateTemp(tmpDir, "tmp")
 
 	err = RemoveDir(tmpDir)
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	_, err = os.Stat(tmpDir)
 	g.Expect(os.IsNotExist(err)).To(gomega.BeTrue())
 
 	// Test case for non existing directory
 	err = RemoveDir("directoryNotExist")
-	g.Expect(err).NotTo(gomega.BeNil())
+	g.Expect(err).To(gomega.HaveOccurred())
 }
 
 func TestGetProvider(t *testing.T) {
@@ -109,13 +109,13 @@ func TestGetProvider(t *testing.T) {
 		},
 	}
 	provider, err := GetProvider(mockProviders, S3)
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	g.Expect(provider).Should(gomega.Equal(mockProviders[S3]))
 
 	// When providers map does not have specified provider
 	for _, protocol := range SupportedProtocols {
 		provider, err = GetProvider(map[Protocol]Provider{}, protocol)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		g.Expect(provider).ShouldNot(gomega.BeNil())
 	}
 }

@@ -58,25 +58,25 @@ func TestBatcher(t *testing.T) {
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		var request Request
 		err = json.Unmarshal(b, &request)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		logger.Infof("Get request %v", string(b))
 		response := Response{
 			Predictions: request.Instances,
 		}
 		responseChan <- response
 		responseBytes, err := json.Marshal(response)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		_, err = rw.Write(responseBytes)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 	}))
 	// Close the server when test finishes
 	defer predictor.Close()
 	predictorSvcUrl, err := url.Parse(predictor.URL)
 	logger.Infof("predictor url %s", predictorSvcUrl)
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	httpProxy := httputil.NewSingleHostReverseProxy(predictorSvcUrl)
 	batchHandler := New(32, 50, httpProxy, logger)
 	var wg sync.WaitGroup
@@ -99,24 +99,24 @@ func TestBatcherFail(t *testing.T) {
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		var request Request
 		err = json.Unmarshal(b, &request)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		logger.Infof("Get request %v", string(b))
 		response := Response{}
 		responseChan <- response
 		responseBytes, err := json.Marshal(response)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		rw.WriteHeader(500)
 		_, err = rw.Write(responseBytes)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 	}))
 	// Close the server when test finishes
 	defer predictor.Close()
 	predictorSvcUrl, err := url.Parse(predictor.URL)
 	logger.Infof("predictor url %s", predictorSvcUrl)
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	httpProxy := httputil.NewSingleHostReverseProxy(predictorSvcUrl)
 	batchHandler := New(32, 50, httpProxy, logger)
 	var wg sync.WaitGroup
@@ -139,26 +139,26 @@ func TestBatcherDefaults(t *testing.T) {
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		var request Request
 		err = json.Unmarshal(b, &request)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		logger.Infof("Get request %v", string(b))
 		response := Response{
 			Predictions: request.Instances,
 		}
 		responseChan <- response
 		responseBytes, err := json.Marshal(response)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		rw.WriteHeader(500)
 		_, err = rw.Write(responseBytes)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 	}))
 	// Close the server when test finishes
 	defer predictor.Close()
 	predictorSvcUrl, err := url.Parse(predictor.URL)
 	logger.Infof("predictor url %s", predictorSvcUrl)
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	httpProxy := httputil.NewSingleHostReverseProxy(predictorSvcUrl)
 	batchHandler := New(-1, -1, httpProxy, logger)
 	var wg sync.WaitGroup

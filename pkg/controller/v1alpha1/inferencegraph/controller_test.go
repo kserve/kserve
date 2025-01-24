@@ -187,7 +187,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			// Do a dry-run update. This will populate our local knative service object with any default values
 			// that are present on the remote version.
 			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
 		})
 	})
@@ -323,7 +323,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			// Do a dry-run update. This will populate our local knative service object with any default values
 			// that are present on the remote version.
 			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
 		})
 	})
@@ -496,7 +496,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			// Do a dry-run update. This will populate our local knative service object with any default values
 			// that are present on the remote version.
 			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
 		})
 	})
@@ -604,7 +604,7 @@ var _ = Describe("Inference Graph controller test", func() {
 		It("Should fail if Knative Serving is not installed", func() {
 			// Simulate Knative Serving is absent by setting to false the relevant item in utils.gvResourcesCache variable
 			servingResources, getServingResourcesErr := utils.GetAvailableResourcesForApi(cfg, knservingv1.SchemeGroupVersion.String())
-			Expect(getServingResourcesErr).To(BeNil())
+			Expect(getServingResourcesErr).ToNot(HaveOccurred())
 			defer utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), servingResources)
 			utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), nil)
 

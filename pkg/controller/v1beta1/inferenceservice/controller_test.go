@@ -278,7 +278,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Do a dry-run update. This will populate our local knative service object with any default values
 			// that are present on the remote version.
 			err := k8sClient.Update(context.TODO(), expectedService, client.DryRunAll)
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(kmp.SafeDiff(actualService.Spec, expectedService.Spec)).To(Equal(""))
 			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			// update predictor
@@ -394,7 +394,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("Should fail if Knative Serving is not installed", func() {
 			// Simulate Knative Serving is absent by setting to false the relevant item in utils.gvResourcesCache variable
 			servingResources, getServingResourcesErr := utils.GetAvailableResourcesForApi(cfg, knservingv1.SchemeGroupVersion.String())
-			Expect(getServingResourcesErr).To(BeNil())
+			Expect(getServingResourcesErr).ToNot(HaveOccurred())
 			defer utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), servingResources)
 			utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), nil)
 
@@ -657,7 +657,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Do a dry-run update. This will populate our local knative service object with any default values
 			// that are present on the remote version.
 			err := k8sClient.Update(context.TODO(), expectedTransformerService, client.DryRunAll)
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(cmp.Diff(transformerService.Spec, expectedTransformerService.Spec)).To(Equal(""))
 
 			// mock update knative service status since knative serving controller is not running in test
@@ -1277,7 +1277,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Do a dry-run update. This will populate our local knative service object with any default values
 			// that are present on the remote version.
 			err := k8sClient.Update(context.TODO(), predictorService, client.DryRunAll)
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(cmp.Diff(predictorService.Spec, expectedPredictorService.Spec)).To(Equal(""))
 
 		})
