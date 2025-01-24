@@ -470,7 +470,7 @@ func TestPropagateRawStatus(t *testing.T) {
 		expected *InferenceGraphStatus
 	}{
 		{
-			name: "Basic Inference graph with with graph status as ready and deployment available",
+			name: "Basic Inference graph with graph status as ready and deployment available",
 			args: args{
 				graphStatus: &InferenceGraphStatus{
 					Status: duckv1.Status{
@@ -505,7 +505,7 @@ func TestPropagateRawStatus(t *testing.T) {
 		},
 
 		{
-			name: "Basic Inference graph with with Inferencegraph status as not ready and deployment unavailable",
+			name: "Basic Inference graph with Inferencegraph status as not ready and deployment unavailable",
 			args: args{
 				graphStatus: &InferenceGraphStatus{
 					Status: duckv1.Status{

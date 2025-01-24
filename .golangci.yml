@@ -44,9 +44,21 @@ linters:
 
     # Check whether the function uses a non-inherited context.
     - contextcheck
+
+     # Copyloopvar is a linter detects places where loop variables are copied.
+    - copyloopvar
+
+     # Check declaration order of types, consts, vars and funcs.
+    - decorder
+
+    # Checks for duplicate words in the source code.
+    - dupword
+
+    # Check for two durations multiplied together.
+    - durationcheck
+
     - errorlint
     - dogsled
-    - copyloopvar
     - gocritic
     - goimports
     - gosec
