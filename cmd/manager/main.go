@@ -52,9 +52,7 @@ import (
 	"github.com/kserve/kserve/pkg/webhook/admission/servingruntime"
 )
 
-var (
-	setupLog = ctrl.Log.WithName("setup")
-)
+var setupLog = ctrl.Log.WithName("setup")
 
 const (
 	LeaderLockName = "kserve-controller-manager-leader-lock"

@@ -38,9 +38,7 @@ import (
 	localmodelnodecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodelnode"
 )
 
-var (
-	setupLog = ctrl.Log.WithName("setup")
-)
+var setupLog = ctrl.Log.WithName("setup")
 
 const (
 	LeaderLockName = "kserve-local-model-node-manager-leader-lock"

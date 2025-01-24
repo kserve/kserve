@@ -191,10 +191,10 @@ func TestInferenceServiceDisallowedLists(t *testing.T) {
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(isvcConfigWithData).ShouldNot(gomega.BeNil())
 
-	// nolint:gocritic
+	//nolint:gocritic
 	annotations := append(constants.ServiceAnnotationDisallowedList, []string{"my.custom.annotation/1", "my.custom.annotation/2"}...)
 	g.Expect(isvcConfigWithData.ServiceAnnotationDisallowedList).To(gomega.Equal(annotations))
-	// nolint:gocritic
+	//nolint:gocritic
 	labels := append(constants.RevisionTemplateLabelDisallowedList, []string{"my.custom.label.1", "my.custom.label.2"}...)
 	g.Expect(isvcConfigWithData.ServiceLabelDisallowedList).To(gomega.Equal(labels))
 

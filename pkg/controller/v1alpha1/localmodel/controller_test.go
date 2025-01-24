@@ -618,7 +618,7 @@ func initializeManager(ctx context.Context, cfg *rest.Config) {
 		},
 	})
 	Expect(err).ToNot(HaveOccurred())
-	// nolint: contextcheck
+	//nolint: contextcheck
 	err = (&LocalModelReconciler{
 		Client:    k8sManager.GetClient(),
 		Clientset: clientset,

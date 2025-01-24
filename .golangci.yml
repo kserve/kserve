@@ -7,7 +7,7 @@ issues:
   max-same-issues: 0
   max-issues-per-linter: 0
   uniq-by-line: true
-  exclude-dirs:  # skip auto gen folders
+  exclude-dirs: # skip auto gen folders
     - "client/*"
     - "tools/tf2openapi/generated/*"
     - "openapi/"
@@ -15,7 +15,7 @@ issues:
     - "zz_generated.*.go"
 
 output:
-  formats: 
+  formats:
     - format: "colored-line-number"
   print-issued-lines: true
   print-linter-name: true
@@ -26,7 +26,7 @@ output:
 linters:
   disable-all: true
   enable:
-     # Check for pass []any as any in variadic func(...any).
+    # Check for pass []any as any in variadic func(...any).
     - asasalint
 
     # Dangerous unicode characters
@@ -35,7 +35,7 @@ linters:
     # Checks whether HTTP response body is closed successfully.
     - bodyclose
 
-     # Canonicalheader checks whether net/http.Header uses canonical header.
+      # Canonicalheader checks whether net/http.Header uses canonical header.
     - canonicalheader
 
     # Containedctx is a linter that detects struct contained context.Context
@@ -45,12 +45,12 @@ linters:
     # Check whether the function uses a non-inherited context.
     - contextcheck
 
-     # Copyloopvar is a linter detects places where loop variables are copied.
+      # Copyloopvar is a linter detects places where loop variables are copied.
     - copyloopvar
 
-     # Check declaration order of types, consts, vars and funcs.
+      # Check declaration order of types, consts, vars and funcs.
     - decorder
-    
+
     # Checks assignments with too many blank identifiers (e.g. x, , , _, := f()).
     - dogsled
 
@@ -75,7 +75,7 @@ linters:
     # # Detects nested contexts in loops. https://gabnotes.org/fat-contexts/
     # - fatcontext
 
-    # Enforces standards of using ginkgo and gomega.	
+    # Enforces standards of using ginkgo and gomega.
     - ginkgolinter
 
     # Provides diagnostics that check for bugs, performance and style issues.
@@ -100,8 +100,8 @@ linters:
 
     # Linter that specializes in simplifying code.
     - gosimple
-    
-    # Vet examines Go source code and reports suspicious constructs. 
+
+    # Vet examines Go source code and reports suspicious constructs.
     # It is roughly the same as 'go vet' and uses its passes.
     - govet
 
@@ -134,13 +134,12 @@ linters:
     # Finds the code that returns nil even if it checks that the error is not nil.
     - nilerr
 
-    # Reports constructs that checks for err != nil, but returns a different nil value error. 
+    # Reports constructs that checks for err != nil, but returns a different nil value error.
     # Powered by nilness and nilerr.
     - nilnesserr
-   
-    # TODO: Do it later
-    # # Reports ill-formed or insufficient nolint directives.
-    # - nolintlint
+
+    # Reports ill-formed or insufficient nolint directives.
+    - nolintlint
 
     # Checks that fmt.Sprintf can be replaced with a faster alternative.
     - perfsprint
@@ -156,7 +155,7 @@ linters:
 
     # Checks for receiver type consistency.
     - recvcheck
-    
+
     # Fast, configurable, extensible, flexible, and beautiful linter for Go. Drop-in replacement of golint.
     # - revive
 
@@ -173,14 +172,14 @@ linters:
     # since Go1.17.
     - tenv
 
-    # Checks usage of github.com/stretchr/testify.	
+    # Checks usage of github.com/stretchr/testify.
     - testifylint
 
     - typecheck
 
     # Remove unnecessary type conversions.
     - unconvert
-  
+
     # Reports unused function parameters and results in your code.
     - unparam
 

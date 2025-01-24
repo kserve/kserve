@@ -35,14 +35,11 @@ func StartDispatcher(nworkers int, logger *zap.SugaredLogger) {
 
 	go func() {
 		for {
-			select {
-			case work := <-WorkQueue:
-				go func() {
-					worker := <-WorkerQueue
-
-					worker <- work
-				}()
-			}
+			work := <-WorkQueue
+			go func() {
+				worker := <-WorkerQueue
+				worker <- work
+			}()
 		}
 	}()
 }
