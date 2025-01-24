@@ -82,7 +82,6 @@ __all__ = [
     "ErrorResponse",
     "CompletionLogProbs",
     "UsageInfo",
-    "ChatCompletionMessageParam",
     "ChatCompletionLogProbsContent",
     "Embedding",
     "EmbeddingCompletionRequest",

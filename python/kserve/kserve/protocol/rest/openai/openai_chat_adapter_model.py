@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import Any, Dict, Iterable, Optional, cast, AsyncGenerator, Union
+from typing import Any, Dict, Optional, cast, AsyncGenerator, Union
 from fastapi import Request
 
 from kserve.protocol.rest.openai.types import (
@@ -24,7 +24,6 @@ from kserve.protocol.rest.openai.types import (
     ChatCompletionLogProb,
     ChatCompletionLogProbs,
     ChatCompletionChunk,
-    ChatCompletionMessageParam,
     ChatMessage,
     ChatCompletionLogProbsContent,
     ChoiceDelta,

@@ -17,15 +17,15 @@ from kserve import ModelRepository, Model
 from kserve.protocol.rest.openai import (
     CompletionRequest,
     OpenAIGenerativeModel,
-    EmbeddingRequest,
-    OpenAIEmbeddingModel,
+    OpenAIEncoderModel,
 )
 from unittest.mock import patch
-from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionResponse as ChatCompletion,
-    CreateChatCompletionStreamResponse as ChatCompletionChunk,
-    CreateCompletionResponse as Completion,
+from kserve.protocol.rest.openai.types import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    Completion,
     Embedding,
+    EmbeddingRequest,
 )
 from typing import AsyncIterator, Union
 
@@ -42,7 +42,7 @@ class DummyOpenAIGenerativeModel(OpenAIGenerativeModel):
         pass
 
 
-class DummyOpenAIEmbeddingModel(OpenAIEmbeddingModel):
+class DummyOpenAIEmbeddingModel(OpenAIEncoderModel):
     async def create_embedding(self, params: EmbeddingRequest) -> Embedding:
         pass
 
@@ -76,7 +76,7 @@ def test_adding_openai_embedding_model():
     actual = repo.get_model("openai-embedding-model")
 
     assert actual is not None
-    assert isinstance(actual, OpenAIEmbeddingModel)
+    assert isinstance(actual, OpenAIEncoderModel)
     assert actual.name == "openai-embedding-model"
 
 
