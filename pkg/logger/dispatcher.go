@@ -27,7 +27,7 @@ func StartDispatcher(nworkers int, logger *zap.SugaredLogger) {
 	WorkerQueue = make(chan chan LogRequest, nworkers)
 
 	// Now, create all of our workers.
-	for i := 0; i < nworkers; i++ {
+	for i := range nworkers {
 		logger.Info("Starting worker ", i+1)
 		worker := NewWorker(i+1, WorkerQueue, logger)
 		worker.Start()

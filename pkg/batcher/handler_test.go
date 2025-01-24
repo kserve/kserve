@@ -80,7 +80,7 @@ func TestBatcher(t *testing.T) {
 	httpProxy := httputil.NewSingleHostReverseProxy(predictorSvcUrl)
 	batchHandler := New(32, 50, httpProxy, logger)
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		wg.Add(1)
 		go serveRequest(batchHandler, &wg, i)
 	}
@@ -120,7 +120,7 @@ func TestBatcherFail(t *testing.T) {
 	httpProxy := httputil.NewSingleHostReverseProxy(predictorSvcUrl)
 	batchHandler := New(32, 50, httpProxy, logger)
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		wg.Add(1)
 		go serveRequest(batchHandler, &wg, i)
 	}
@@ -162,7 +162,7 @@ func TestBatcherDefaults(t *testing.T) {
 	httpProxy := httputil.NewSingleHostReverseProxy(predictorSvcUrl)
 	batchHandler := New(-1, -1, httpProxy, logger)
 	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		wg.Add(1)
 		go serveRequest(batchHandler, &wg, i)
 	}

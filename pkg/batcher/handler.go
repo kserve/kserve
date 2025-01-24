@@ -167,7 +167,7 @@ func (handler *BatchHandler) batch() {
 			handler.batcherInfo.CurrentInputLen = len(handler.batcherInfo.Instances)
 			handler.batcherInfo.Instances = append(handler.batcherInfo.Instances, *req.Instances...)
 			index := make([]int, 0)
-			for i := 0; i < len(*req.Instances); i++ {
+			for i := range len(*req.Instances) {
 				index = append(index, handler.batcherInfo.CurrentInputLen+i)
 			}
 			handler.batcherInfo.ContextMap[req.ContextInput] = InputInfo{
