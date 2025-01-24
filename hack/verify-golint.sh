@@ -18,7 +18,11 @@ set -o errexit
 set -o pipefail
 
 # golangci-lint binary path
+# Check if GOBIN is set, if not use GOPATH/bin
 golangci_lint_binary="$(go env GOPATH)/bin/golangci-lint"
+if [ -n "$(go env GOBIN)" ]; then
+    golangci_lint_binary="$(go env GOBIN)/golangci-lint"
+fi
 
 # Check if golangci-lint is already installed
 if ! command -v golangci-lint &> /dev/null; then

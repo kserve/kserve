@@ -34,6 +34,10 @@ import (
 
 func TestInferenceServiceDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	defaultResource := v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
 	scenarios := map[string]struct {
 		config       *InferenceServicesConfig
 		deployConfig *DeployConfig
@@ -48,6 +52,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
+				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
 				},
 			},
 			deployConfig: &DeployConfig{
@@ -101,6 +111,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
+				},
 			},
 			deployConfig: &DeployConfig{
 				DefaultDeploymentMode: string(constants.RawDeployment),
@@ -152,6 +168,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
+				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
 				},
 			},
 			deployConfig: &DeployConfig{
@@ -205,6 +227,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
+				},
 			},
 			deployConfig: &DeployConfig{
 				DefaultDeploymentMode: "Serverless",
@@ -256,6 +284,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
+				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
 				},
 			},
 			deployConfig: &DeployConfig{
@@ -320,7 +354,11 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	}
 }
 
-func TestCustomPredictorDefaults(t *testing.T) {
+func TestCustomPredictorDefaultsConfig(t *testing.T) {
+	expectedResource := v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("2"),
+		v1.ResourceMemory: resource.MustParse("4Gi"),
+	}
 	g := gomega.NewGomegaWithT(t)
 	config := &InferenceServicesConfig{
 		Explainers: ExplainersConfig{
@@ -328,6 +366,63 @@ func TestCustomPredictorDefaults(t *testing.T) {
 				ContainerImage:      "art",
 				DefaultImageVersion: "v0.4.0",
 			},
+		},
+		Resource: ResourceConfig{
+			CPULimit:      "2",
+			MemoryLimit:   "4Gi",
+			CPURequest:    "2",
+			MemoryRequest: "4Gi",
+		},
+	}
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://transformer",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	resources := v1.ResourceRequirements{Requests: expectedResource, Limits: expectedResource}
+	isvc.Spec.DeepCopy()
+	isvc.DefaultInferenceService(config, deployConfig, nil, nil)
+	g.Expect(isvc.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
+}
+
+func TestCustomPredictorDefaults(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	var defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	config := &InferenceServicesConfig{
+		Explainers: ExplainersConfig{
+			ARTExplainer: ExplainerConfig{
+				ContainerImage:      "art",
+				DefaultImageVersion: "v0.4.0",
+			},
+		},
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
 		},
 	}
 	deployConfig := &DeployConfig{

@@ -33,8 +33,14 @@ func TestCustomExplainerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Explainers: ExplainersConfig{},
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
+		},
 	}
-	defaultResource = v1.ResourceList{
+	defaultResource := v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
@@ -246,10 +252,6 @@ func TestCustomExplainerIsMMS(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	config := InferenceServicesConfig{
 		Explainers: ExplainersConfig{},
-	}
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 	mmsCase := false
 	scenarios := map[string]struct {

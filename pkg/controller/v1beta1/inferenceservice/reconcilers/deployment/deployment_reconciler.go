@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -149,6 +150,10 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
+	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassExternal) {
+		deployment.Spec.Replicas = utils.ToPointer(*componentExt.MinReplicas)
+	}
+
 	return deployment
 }
 func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
@@ -197,7 +202,14 @@ func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client, deplo
 	}
 	// existed, check equivalence
 	// for HPA scaling, we should ignore Replicas of Deployment
-	ignoreFields := cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
+	// for external scaler, we should not ignore Replicas.
+	var ignoreFields cmp.Option = nil // Initialize to nil by default
+
+	// Set ignoreFields if the condition is met
+	if existingDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+		ignoreFields = cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
+	}
+
 	// Do a dry-run update. This will populate our local deployment object with any default values
 	// that are present on the remote version.
 	if err := client.Update(context.TODO(), deployment, kclient.DryRunAll); err != nil {
@@ -362,8 +374,11 @@ func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
 
 			// To avoid the conflict between HPA and Deployment,
 			// we need to remove the Replicas field from the deployment spec
+			// For external autoscaler, it should not remove replicas
 			modDeployment := deployment.DeepCopy()
-			modDeployment.Spec.Replicas = nil
+			if modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+				modDeployment.Spec.Replicas = nil
+			}
 
 			modJson, err := json.Marshal(modDeployment)
 			if err != nil {

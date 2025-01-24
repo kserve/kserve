@@ -44,7 +44,7 @@ func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 		k.ProtocolVersion = &defaultProtocol
 	}
 
-	setResourceRequirementDefaults(&k.Resources)
+	setResourceRequirementDefaults(config, &k.Resources)
 }
 
 // nolint: unused

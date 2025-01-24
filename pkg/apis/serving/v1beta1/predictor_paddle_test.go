@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/onsi/gomega"
@@ -60,6 +61,18 @@ func TestPaddleValidation(t *testing.T) {
 
 func TestPaddleDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	defaultResource := v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	config := &InferenceServicesConfig{
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
+		},
+	}
 
 	scenarios := map[string]struct {
 		spec     PredictorSpec
@@ -89,7 +102,7 @@ func TestPaddleDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.Paddle.Default(nil)
+			scenario.spec.Paddle.Default(config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}

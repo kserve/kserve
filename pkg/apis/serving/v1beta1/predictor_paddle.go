@@ -30,7 +30,7 @@ type PaddleServerSpec struct {
 func (p *PaddleServerSpec) Default(config *InferenceServicesConfig) {
 	// TODO: add GPU support
 	p.Container.Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&p.Resources)
+	setResourceRequirementDefaults(config, &p.Resources)
 }
 
 func (p *PaddleServerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {

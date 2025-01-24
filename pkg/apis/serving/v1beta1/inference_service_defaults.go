@@ -41,10 +41,6 @@ import (
 )
 
 var (
-	defaultResource = v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
-	}
 	// logger for the mutating webhook.
 	mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook")
 )
@@ -62,20 +58,39 @@ type InferenceServiceDefaulter struct {
 // +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kserve-webhook-server.defaulter
 var _ webhook.CustomDefaulter = &InferenceServiceDefaulter{}
 
-func setResourceRequirementDefaults(requirements *v1.ResourceRequirements) {
+func setResourceRequirementDefaults(config *InferenceServicesConfig, requirements *v1.ResourceRequirements) {
+	var defaultResourceRequests = v1.ResourceList{}
+	var defaultResourceLimits = v1.ResourceList{}
+
+	if config != nil {
+		if config.Resource.CPURequest != "" {
+			defaultResourceRequests[v1.ResourceCPU] = resource.MustParse(config.Resource.CPURequest)
+		}
+		if config.Resource.MemoryRequest != "" {
+			defaultResourceRequests[v1.ResourceMemory] = resource.MustParse(config.Resource.MemoryRequest)
+		}
+		if config.Resource.CPULimit != "" {
+			defaultResourceLimits[v1.ResourceCPU] = resource.MustParse(config.Resource.CPULimit)
+		}
+		if config.Resource.MemoryLimit != "" {
+			defaultResourceLimits[v1.ResourceMemory] = resource.MustParse(config.Resource.MemoryLimit)
+		}
+	}
 	if requirements.Requests == nil {
 		requirements.Requests = v1.ResourceList{}
 	}
-	for k, v := range defaultResource {
+	for k, v := range defaultResourceRequests {
 		if _, ok := requirements.Requests[k]; !ok {
 			requirements.Requests[k] = v
 		}
 	}
 
+	logf.Log.Info("Setting default resource requirements -----------------", "requests", requirements.Requests, "limits", requirements.Limits)
+
 	if requirements.Limits == nil {
 		requirements.Limits = v1.ResourceList{}
 	}
-	for k, v := range defaultResource {
+	for k, v := range defaultResourceLimits {
 		if _, ok := requirements.Limits[k]; !ok {
 			requirements.Limits[k] = v
 		}

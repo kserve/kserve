@@ -35,7 +35,7 @@ from kserve.protocol.rest.openai.types import (
 
 from ....errors import InvalidInput
 from .openai_model import (
-    OpenAIModel,
+    OpenAICompletionModel,
     ChatPrompt,
     CompletionRequest,
     ChatCompletionRequest,
@@ -43,7 +43,7 @@ from .openai_model import (
 )
 
 
-class OpenAIChatAdapterModel(OpenAIModel):
+class OpenAIChatAdapterModel(OpenAICompletionModel):
     """
     A helper on top the OpenAI model that automatically maps chat completion requests (/v1/chat/completions)
     to completion requests (/v1/completions).
