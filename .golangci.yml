@@ -100,8 +100,24 @@ linters:
 
     # Linter that specializes in simplifying code.
     - gosimple
+    
+    # Vet examines Go source code and reports suspicious constructs. 
+    # It is roughly the same as 'go vet' and uses its passes.
     - govet
+
+    # Enforces consistent import aliases.
+    - importas
+
+    # Detects when assignments to existing variables are not used.
     - ineffassign
+
+    # Intrange is a linter to find places where for loops could make use of
+    # an integer range.
+    - intrange
+
+    # Checks key value pairs for common logger libraries (kitlog,klog,logr,zap).
+    - loggercheck
+
     - misspell
     - nakedret
     # - revive

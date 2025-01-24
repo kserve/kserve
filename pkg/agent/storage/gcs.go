@@ -92,7 +92,7 @@ func (g *GCSObjectDownloader) Download(ctx context.Context, client stiface.Clien
 
 		foundObject = true
 		if FileExists(fileName) {
-			log.Info("Deleting", fileName)
+			log.Info("Deleting file", "name", fileName)
 			if err := os.Remove(fileName); err != nil {
 				return fmt.Errorf("file is unable to be deleted: %w", err)
 			}
