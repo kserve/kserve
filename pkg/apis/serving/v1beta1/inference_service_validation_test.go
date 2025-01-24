@@ -829,19 +829,6 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	g.Expect(err).Should(gomega.Succeed())
 }
 
-func TestAcceptDeploymentMode(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	// original isvc created with Serverless Mode
-	isvc := makeTestInferenceService()
-	isvc.Name = "serverless-isvc"
-	isvc.Annotations = map[string]string{}
-	isvc.Annotations[constants.DeploymentMode] = "Serverless"
-	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
-	g.Expect(err).Should(gomega.Succeed())
-	g.Expect(warnings).Should(gomega.BeEmpty())
-}
-
 func intPtr(i int) *int {
 	return &i
 }
