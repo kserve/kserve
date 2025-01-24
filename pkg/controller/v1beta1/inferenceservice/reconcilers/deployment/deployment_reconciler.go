@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -84,9 +83,9 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 		for _, container := range podSpec.Containers {
 			if container.Name == constants.InferenceServiceContainerName {
 				if value, exists := utils.GetEnvVarValue(container.Env, constants.PipelineParallelSizeEnvName); exists {
-					if parsedValue, err := strconv.Atoi(value); err == nil {
+					if parsedValue, err := utils.StringToInt32(value); err == nil {
 						// Set pipelineParallelSize to workerNodeSize + 1 (head)
-						workerNodeReplicas = int32(parsedValue - 1) // nolint  #nosec G109
+						workerNodeReplicas = parsedValue - 1
 					} else {
 						log.Error(err, "Failed to convert pipelineParallelSize to int")
 					}
