@@ -118,8 +118,26 @@ linters:
     # Checks key value pairs for common logger libraries (kitlog,klog,logr,zap).
     - loggercheck
 
+    # TODO: Do it later
+    # Finds slice declarations with non-zero initial length.
+    # - makezero
+
+    # Reports use of unnecessary []byte/string conversion calls
+    - mirror
+
+    # Finds commonly misspelled English words.
     - misspell
+
+    # Checks that functions with naked returns are not longer than a maximum size (can be zero).
     - nakedret
+
+    # Finds the code that returns nil even if it checks that the error is not nil.
+    - nilerr
+
+    # Reports constructs that checks for err != nil, but returns a different nil value error. 
+    # Powered by nilness and nilerr.
+    - nilnesserr
+    
     # - revive
     - staticcheck
     # - stylecheck

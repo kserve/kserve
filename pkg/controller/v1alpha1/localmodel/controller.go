@@ -513,9 +513,9 @@ func checkNodeAffinity(pvSpec *v1.PersistentVolumeSpec, node v1.Node) (bool, err
 
 	terms := pvSpec.NodeAffinity.Required
 	if matches, err := corev1.MatchNodeSelectorTerms(&node, terms); err != nil {
-		return matches, nil
-	} else {
 		return matches, err
+	} else {
+		return matches, nil
 	}
 }
 
