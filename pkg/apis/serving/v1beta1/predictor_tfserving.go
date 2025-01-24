@@ -42,9 +42,7 @@ type TFServingSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &TFServingSpec{}
-)
+var _ ComponentImplementation = &TFServingSpec{}
 
 // Validate returns an error if invalid
 func (t *TFServingSpec) Validate() error {

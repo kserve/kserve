@@ -56,7 +56,8 @@ type Explainer struct {
 }
 
 func NewExplainer(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType) Component {
+	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType,
+) Component {
 	return &Explainer{
 		client:                 client,
 		clientset:              clientset,

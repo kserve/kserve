@@ -31,9 +31,7 @@ type XGBoostSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &XGBoostSpec{}
-)
+var _ ComponentImplementation = &XGBoostSpec{}
 
 // Default sets defaults on the resource
 func (x *XGBoostSpec) Default(config *InferenceServicesConfig) {

@@ -102,10 +102,12 @@ func getRouterConfigs(configMap *v1.ConfigMap) (*RouterConfig, error) {
 	}
 
 	// Ensure that we set proper values for CPU/Memory Limit/Request
-	resourceDefaults := []string{routerConfig.MemoryRequest,
+	resourceDefaults := []string{
+		routerConfig.MemoryRequest,
 		routerConfig.MemoryLimit,
 		routerConfig.CpuRequest,
-		routerConfig.CpuLimit}
+		routerConfig.CpuLimit,
+	}
 	for _, key := range resourceDefaults {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {
@@ -177,7 +179,6 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if deploymentMode == constants.RawDeployment {
 		// Create inference graph resources such as deployment, service, hpa in raw deployment mode
 		deployment, url, err := handleInferenceGraphRawDeployment(ctx, r.Client, r.Clientset, r.Scheme, graph, routerConfig)
-
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile inference graph raw deployment")
 		}

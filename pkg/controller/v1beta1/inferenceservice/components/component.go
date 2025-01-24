@@ -51,9 +51,8 @@ func addStorageSpecAnnotations(storageSpec *v1beta1.StorageSpec, annotations map
 		annotations[constants.StorageSpecKeyAnnotationKey] = *storageSpec.StorageKey
 	}
 	if storageSpec.Path != nil {
-		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] =
-			fmt.Sprintf("%s://%s", credentials.UriSchemePlaceholder,
-				strings.TrimPrefix(*storageSpec.Path, "/"))
+		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = fmt.Sprintf("%s://%s", credentials.UriSchemePlaceholder,
+			strings.TrimPrefix(*storageSpec.Path, "/"))
 	}
 	return true
 }

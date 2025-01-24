@@ -93,7 +93,7 @@ func TestXGBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						//RuntimeVersion:  proto.String("v0.4.0"),
+						// RuntimeVersion:  proto.String("v0.4.0"),
 						ProtocolVersion: &protocolV1,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
@@ -117,7 +117,7 @@ func TestXGBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						//RuntimeVersion:  proto.String("v0.1.2"),
+						// RuntimeVersion:  proto.String("v0.1.2"),
 						ProtocolVersion: &protocolV2,
 						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
@@ -167,7 +167,7 @@ func TestXGBoostDefaulter(t *testing.T) {
 }
 
 func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
-	var requestedResource = v1.ResourceRequirements{
+	requestedResource := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.MustParse("100m"),
 		},
@@ -175,7 +175,7 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 			"cpu": resource.MustParse("90m"),
 		},
 	}
-	var config = InferenceServicesConfig{}
+	config := InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
@@ -306,7 +306,7 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 	protocolV2 := constants.ProtocolV2
 
-	var requestedResource = v1.ResourceRequirements{
+	requestedResource := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
@@ -318,7 +318,7 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 			},
 		},
 	}
-	var config = InferenceServicesConfig{}
+	config := InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService

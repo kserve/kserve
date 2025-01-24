@@ -78,10 +78,27 @@ linters:
     # Enforces standards of using ginkgo and gomega.	
     - ginkgolinter
 
-
+    # Provides diagnostics that check for bugs, performance and style issues.
+    # Extensible without recompilation through dynamic rules.
+    # Dynamic rules are written declaratively with AST patterns, filters,
+    # report message and optional suggestion.
     - gocritic
+
+    # Gofmt checks whether code was gofmt-ed. By default this tool runs
+    # with -s option to check for code simplification.
+    - gofmt
+
+    # Gofumpt checks whether code was gofumpt-ed.
+    - gofumpt
+
+    # Check import statements are formatted according to the 'goimport'
+    # command. Reformat imports in autofix mode.
     - goimports
+
+    # Inspects source code for security problems.
     - gosec
+
+    # Linter that specializes in simplifying code.
     - gosimple
     - govet
     - ineffassign
@@ -95,7 +112,6 @@ linters:
     - unused
     - whitespace
     # - prealloc
-    - gofmt
 
 linters-settings:
   goimports:

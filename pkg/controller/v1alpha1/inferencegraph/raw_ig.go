@@ -139,7 +139,8 @@ Handles bulk of raw deployment logic for Inference graph controller
 5. Finally reconcile
 */
 func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	graph *v1alpha1.InferenceGraph, routerConfig *RouterConfig) (*appsv1.Deployment, *knapis.URL, error) {
+	graph *v1alpha1.InferenceGraph, routerConfig *RouterConfig,
+) (*appsv1.Deployment, *knapis.URL, error) {
 	// create desired service object.
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
 
@@ -147,7 +148,6 @@ func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, cl
 
 	// create the reconciler
 	reconciler, err := raw.NewRawKubeReconciler(ctx, cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
-
 	if err != nil {
 		return nil, reconciler.URL, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
 	}
@@ -186,7 +186,8 @@ PropagateRawStatus Propagates deployment status onto Inference graph status.
 In raw deployment mode, deployment available denotes the ready status for IG
 */
 func PropagateRawStatus(graphStatus *v1alpha1.InferenceGraphStatus, deployment *appsv1.Deployment,
-	url *apis.URL) {
+	url *apis.URL,
+) {
 	for _, con := range deployment.Status.Conditions {
 		if con.Type == appsv1.DeploymentAvailable {
 			graphStatus.URL = url

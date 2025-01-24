@@ -85,10 +85,12 @@ func getStorageInitializerConfigs(configMap *v1.ConfigMap) (*StorageInitializerC
 		}
 	}
 	// Ensure that we set proper values for CPU/Memory Limit/Request
-	resourceDefaults := []string{storageInitializerConfig.MemoryRequest,
+	resourceDefaults := []string{
+		storageInitializerConfig.MemoryRequest,
 		storageInitializerConfig.MemoryLimit,
 		storageInitializerConfig.CpuRequest,
-		storageInitializerConfig.CpuLimit}
+		storageInitializerConfig.CpuLimit,
+	}
 	for _, key := range resourceDefaults {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {

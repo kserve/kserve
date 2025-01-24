@@ -303,7 +303,8 @@ func (ss *InferenceServiceStatus) PropagateRawStatusWithMessages(
 	component ComponentType,
 	reason string,
 	msg string,
-	targetStatus v1.ConditionStatus) {
+	targetStatus v1.ConditionStatus,
+) {
 	if len(ss.Components) == 0 {
 		ss.Components = make(map[ComponentType]ComponentStatusSpec)
 	}
@@ -327,7 +328,8 @@ func (ss *InferenceServiceStatus) PropagateRawStatusWithMessages(
 func (ss *InferenceServiceStatus) PropagateRawStatus(
 	component ComponentType,
 	deploymentList []*appsv1.Deployment,
-	url *apis.URL) {
+	url *apis.URL,
+) {
 	if len(ss.Components) == 0 {
 		ss.Components = make(map[ComponentType]ComponentStatusSpec)
 	}

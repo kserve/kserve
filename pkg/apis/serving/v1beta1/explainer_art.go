@@ -51,8 +51,9 @@ func (s *ARTExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
 }
 
 func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
-	predictorHost ...string) *v1.Container {
-	var args = []string{
+	predictorHost ...string,
+) *v1.Container {
+	args := []string{
 		constants.ArgumentModelName, metadata.Name,
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}

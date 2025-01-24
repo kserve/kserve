@@ -97,7 +97,7 @@ func TestTransformerDefaulter(t *testing.T) {
 }
 
 func TestCreateTransformerContainer(t *testing.T) {
-	var requestedResource = v1.ResourceRequirements{
+	requestedResource := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",

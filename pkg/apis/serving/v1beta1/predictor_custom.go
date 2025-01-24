@@ -91,7 +91,8 @@ func (c *CustomPredictor) GetStorageSpec() *StorageSpec {
 
 // GetContainer transforms the resource into a container spec
 func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
-	predictorHost ...string) *v1.Container {
+	predictorHost ...string,
+) *v1.Container {
 	for _, container := range c.Containers {
 		if container.Name == constants.InferenceServiceContainerName {
 			return &container

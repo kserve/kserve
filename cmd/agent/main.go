@@ -332,7 +332,8 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string, autodetectHTTP2 boo
 }
 
 func buildServer(ctx context.Context, port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs, // nolint unparam
-	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
+	probeContainer func() bool, logging *zap.SugaredLogger,
+) (server *http.Server, drain func()) {
 	logging.Infof("Building server user port %d port %s", userPort, port)
 	target := &url.URL{
 		Scheme: "http",

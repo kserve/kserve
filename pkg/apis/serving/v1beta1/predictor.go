@@ -27,8 +27,7 @@ import (
 
 // PredictorImplementation defines common functions for all predictors e.g Tensorflow, Triton, etc
 // +kubebuilder:object:generate=false
-type PredictorImplementation interface {
-}
+type PredictorImplementation interface{}
 
 // PredictorSpec defines the configuration for a predictor,
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.

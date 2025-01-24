@@ -63,7 +63,8 @@ func NewKsvcReconciler(client client.Client,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
-	disallowedLabelList []string) *KsvcReconciler {
+	disallowedLabelList []string,
+) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:          client,
 		scheme:          scheme,
@@ -77,7 +78,8 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
-	disallowedLabelList []string) *knservingv1.Service {
+	disallowedLabelList []string,
+) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
 	if componentExtension.MinReplicas == nil {

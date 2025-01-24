@@ -32,9 +32,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-var (
-	storageURI = "gs://testbucket/testmodel"
-)
+var storageURI = "gs://testbucket/testmodel"
 
 func makeTestInferenceService() v1beta1.InferenceService {
 	inferenceservice := v1beta1.InferenceService{

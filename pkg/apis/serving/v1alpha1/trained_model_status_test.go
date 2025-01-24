@@ -298,72 +298,73 @@ func TestTrainedModelStatus_SetCondition(t *testing.T) {
 		condition     *apis.Condition
 		conditionType apis.ConditionType
 		expected      *apis.Condition
-	}{{
-		name:          "set condition on empty status",
-		serviceStatus: TrainedModelStatus{},
-		condition: &apis.Condition{
-			Type:   "Foo",
-			Status: v1.ConditionTrue,
-		},
-		conditionType: "Foo",
-		expected: &apis.Condition{
-			Type:   "Foo",
-			Status: v1.ConditionTrue,
-		},
-	}, {
-		name: "modify existing condition",
-		serviceStatus: TrainedModelStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   "Foo",
-					Status: v1.ConditionTrue,
-				}},
+	}{
+		{
+			name:          "set condition on empty status",
+			serviceStatus: TrainedModelStatus{},
+			condition: &apis.Condition{
+				Type:   "Foo",
+				Status: v1.ConditionTrue,
 			},
-		},
-		condition: &apis.Condition{
-			Type:   "Foo",
-			Status: v1.ConditionFalse,
-		},
-		conditionType: "Foo",
-		expected: &apis.Condition{
-			Type:   "Foo",
-			Status: v1.ConditionFalse,
-		},
-	}, {
-		name: "set condition unknown",
-		serviceStatus: TrainedModelStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   "Foo",
-					Status: v1.ConditionFalse,
-				}},
+			conditionType: "Foo",
+			expected: &apis.Condition{
+				Type:   "Foo",
+				Status: v1.ConditionTrue,
 			},
-		},
-		condition: &apis.Condition{
-			Type:   "Foo",
-			Status: v1.ConditionUnknown,
-			Reason: "For testing purpose",
-		},
-		conditionType: "Foo",
-		expected: &apis.Condition{
-			Type:   "Foo",
-			Status: v1.ConditionUnknown,
-			Reason: "For testing purpose",
-		},
-	}, {
-		name: "condition is nil",
-		serviceStatus: TrainedModelStatus{
-			Status: duckv1.Status{
-				Conditions: duckv1.Conditions{{
-					Type:   knservingv1.ServiceConditionReady,
-					Status: v1.ConditionTrue,
-				}},
+		}, {
+			name: "modify existing condition",
+			serviceStatus: TrainedModelStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   "Foo",
+						Status: v1.ConditionTrue,
+					}},
+				},
 			},
+			condition: &apis.Condition{
+				Type:   "Foo",
+				Status: v1.ConditionFalse,
+			},
+			conditionType: "Foo",
+			expected: &apis.Condition{
+				Type:   "Foo",
+				Status: v1.ConditionFalse,
+			},
+		}, {
+			name: "set condition unknown",
+			serviceStatus: TrainedModelStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   "Foo",
+						Status: v1.ConditionFalse,
+					}},
+				},
+			},
+			condition: &apis.Condition{
+				Type:   "Foo",
+				Status: v1.ConditionUnknown,
+				Reason: "For testing purpose",
+			},
+			conditionType: "Foo",
+			expected: &apis.Condition{
+				Type:   "Foo",
+				Status: v1.ConditionUnknown,
+				Reason: "For testing purpose",
+			},
+		}, {
+			name: "condition is nil",
+			serviceStatus: TrainedModelStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{{
+						Type:   knservingv1.ServiceConditionReady,
+						Status: v1.ConditionTrue,
+					}},
+				},
+			},
+			condition:     nil,
+			conditionType: "Foo",
+			expected:      nil,
 		},
-		condition:     nil,
-		conditionType: "Foo",
-		expected:      nil,
-	},
 	}
 
 	for _, tc := range cases {

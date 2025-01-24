@@ -50,7 +50,8 @@ func NewServiceReconciler(client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, multiNodeEnabled bool,
-	serviceConfig *v1beta1.ServiceConfig) *ServiceReconciler {
+	serviceConfig *v1beta1.ServiceConfig,
+) *ServiceReconciler {
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
@@ -60,7 +61,8 @@ func NewServiceReconciler(client client.Client,
 }
 
 func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, multiNodeEnabled bool, serviceConfig *v1beta1.ServiceConfig) []*corev1.Service {
+	podSpec *corev1.PodSpec, multiNodeEnabled bool, serviceConfig *v1beta1.ServiceConfig,
+) []*corev1.Service {
 	var svcList []*corev1.Service
 	var isWorkerContainer bool
 
@@ -89,7 +91,8 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 }
 
 func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, serviceConfig *v1beta1.ServiceConfig) *corev1.Service {
+	podSpec *corev1.PodSpec, serviceConfig *v1beta1.ServiceConfig,
+) *corev1.Service {
 	var servicePorts []corev1.ServicePort
 
 	if len(podSpec.Containers) != 0 {

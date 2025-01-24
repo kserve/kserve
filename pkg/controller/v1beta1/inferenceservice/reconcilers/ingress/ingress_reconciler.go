@@ -52,9 +52,7 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-var (
-	log = logf.Log.WithName("IngressReconciler")
-)
+var log = logf.Log.WithName("IngressReconciler")
 
 type IngressReconciler struct {
 	// client is the client that is used to access the custom resources
@@ -67,7 +65,8 @@ type IngressReconciler struct {
 }
 
 func NewIngressReconciler(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	ingressConfig *v1beta1.IngressConfig, isvcConfig *v1beta1.InferenceServicesConfig) *IngressReconciler {
+	ingressConfig *v1beta1.IngressConfig, isvcConfig *v1beta1.InferenceServicesConfig,
+) *IngressReconciler {
 	return &IngressReconciler{
 		client:        client,
 		clientset:     clientset,
@@ -448,7 +447,8 @@ func gatewaysEqual(matchRequest, matchRequestDest *istiov1beta1.HTTPMatchRequest
 }
 
 func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig,
-	domainList *[]string, isvcConfig *v1beta1.InferenceServicesConfig) *istioclientv1beta1.VirtualService {
+	domainList *[]string, isvcConfig *v1beta1.InferenceServicesConfig,
+) *istioclientv1beta1.VirtualService {
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		status := corev1.ConditionFalse
 		if isvc.Status.IsConditionUnknown(v1beta1.PredictorReady) {

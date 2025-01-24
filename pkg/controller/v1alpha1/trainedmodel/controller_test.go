@@ -110,7 +110,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			// Create InferenceService configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -121,8 +121,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Create the parent InferenceService
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -180,7 +180,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			// Create InferenceService configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -191,8 +191,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Create the parent InferenceService
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -286,7 +286,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			// Create InferenceService configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -297,8 +297,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Create the parent InferenceService
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -433,7 +433,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			// Create InferenceService configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -444,8 +444,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Create the parent InferenceService
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -559,7 +559,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			// Create InferenceService configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -570,8 +570,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Create the parent InferenceService
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -655,7 +655,6 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 				// Condition for MemoryResourceAvailable should be false
 				return !tmInstanceUpdate.Status.IsConditionReady(v1alpha1.MemoryResourceAvailable)
-
 			}, timeout).Should(BeTrue())
 
 			// Verify that the model configmap is updated with the TrainedModel
@@ -686,7 +685,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			// Create InferenceService configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -697,8 +696,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Create the parent InferenceService
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: parentInferenceService, Namespace: namespace}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -778,9 +777,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 
 				// Condition for IsMMSPredictor should be true
 				return !tmInstanceUpdate.Status.IsConditionReady(v1alpha1.IsMMSPredictor)
-
 			}, timeout).Should(BeTrue())
-
 		})
 	})
 })

@@ -45,7 +45,8 @@ type HPAReconciler struct {
 func NewHPAReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) (*HPAReconciler, error) {
+	componentExt *v1beta1.ComponentExtensionSpec,
+) (*HPAReconciler, error) {
 	hpa, err := createHPA(componentMeta, componentExt)
 	if err != nil {
 		return nil, err
@@ -99,7 +100,8 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 }
 
 func createHPA(componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) (*autoscalingv2.HorizontalPodAutoscaler, error) {
+	componentExt *v1beta1.ComponentExtensionSpec,
+) (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	var minReplicas int32
 	if componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas {
 		minReplicas = constants.DefaultMinReplicas

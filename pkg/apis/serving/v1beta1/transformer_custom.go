@@ -33,10 +33,8 @@ type CustomTransformer struct {
 	v1.PodSpec `json:",inline"`
 }
 
-var (
-	// logger for the custom transformer
-	customTransformerLogger = logf.Log.WithName("inferenceservice-v1beta1-custom-transformer")
-)
+// logger for the custom transformer
+var customTransformerLogger = logf.Log.WithName("inferenceservice-v1beta1-custom-transformer")
 
 var _ ComponentImplementation = &CustomTransformer{}
 
@@ -74,7 +72,8 @@ func (c *CustomTransformer) GetStorageSpec() *StorageSpec {
 
 // GetContainer transforms the resource into a container spec
 func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
-	predictorHost ...string) *v1.Container {
+	predictorHost ...string,
+) *v1.Container {
 	container := &c.Containers[0]
 	argumentPredictorHost := fmt.Sprintf("%s.%s", predictorHost[0], metadata.Namespace)
 	deploymentMode, ok := metadata.Annotations[constants.DeploymentMode]

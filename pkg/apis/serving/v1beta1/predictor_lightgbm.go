@@ -29,9 +29,7 @@ type LightGBMSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &LightGBMSpec{}
-)
+var _ ComponentImplementation = &LightGBMSpec{}
 
 // Default sets defaults on the resource
 func (x *LightGBMSpec) Default(config *InferenceServicesConfig) {

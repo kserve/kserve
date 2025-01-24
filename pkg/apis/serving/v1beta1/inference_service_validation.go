@@ -21,12 +21,11 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"regexp"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -279,7 +278,6 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 	}
 
 	err := validateHPAMetrics(metric)
-
 	if err != nil {
 		return err
 	}
@@ -317,7 +315,6 @@ func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 	}
 
 	err := validateKPAMetrics(metric)
-
 	if err != nil {
 		return err
 	}

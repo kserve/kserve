@@ -47,9 +47,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-					},
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
 						{
 							Name:  "queue-proxy",
 							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
@@ -66,9 +67,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-					},
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
 						{
 							Name: "queue-proxy",
 							Env: []v1.EnvVar{
@@ -92,9 +94,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-					},
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
 						{
 							Name:  "queue-proxy",
 							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
@@ -111,9 +114,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-					},
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
 						{
 							Name:  "queue-proxy",
 							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
@@ -132,9 +136,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-					},
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
 						{
 							Name:  "queue-proxy",
 							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
@@ -151,9 +156,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-					},
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
 						{
 							Name:  "queue-proxy",
 							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
@@ -173,9 +179,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-					},
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
 						{
 							Name:  "queue-proxy",
 							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
@@ -195,9 +202,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-					},
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
 						{
 							Name: "queue-proxy",
 							Env: []v1.EnvVar{
@@ -225,9 +233,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-					},
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
 						{
 							Name:  "queue-proxy",
 							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
@@ -247,9 +256,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-					},
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
 						{
 							Name:  "queue-proxy",
 							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
@@ -269,9 +279,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-					},
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
 						{
 							Name:  "queue-proxy",
 							Ports: []v1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
@@ -289,9 +300,10 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					},
 				},
 				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
-						Name: "sklearn",
-					},
+					Containers: []v1.Container{
+						{
+							Name: "sklearn",
+						},
 						{
 							Name: "queue-proxy",
 							Env: []v1.EnvVar{

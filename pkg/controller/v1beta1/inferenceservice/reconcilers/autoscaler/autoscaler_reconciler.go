@@ -58,7 +58,8 @@ type AutoscalerReconciler struct {
 func NewAutoscalerReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) (*AutoscalerReconciler, error) {
+	componentExt *v1beta1.ComponentExtensionSpec,
+) (*AutoscalerReconciler, error) {
 	as, err := createAutoscaler(client, scheme, componentMeta, componentExt)
 	if err != nil {
 		return nil, err
@@ -82,7 +83,8 @@ func getAutoscalerClass(metadata metav1.ObjectMeta) constants.AutoscalerClassTyp
 
 func createAutoscaler(client client.Client,
 	scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) (Autoscaler, error) {
+	componentExt *v1beta1.ComponentExtensionSpec,
+) (Autoscaler, error) {
 	ac := getAutoscalerClass(componentMeta)
 	switch ac {
 	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal:

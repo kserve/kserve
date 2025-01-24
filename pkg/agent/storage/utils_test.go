@@ -50,7 +50,7 @@ func TestCreate(t *testing.T) {
 
 	info, _ := os.Stat(folderPath)
 	mode := info.Mode()
-	expectedMode := os.FileMode(0777)
+	expectedMode := os.FileMode(0o777)
 	g.Expect(mode.Perm()).To(gomega.Equal(expectedMode))
 }
 

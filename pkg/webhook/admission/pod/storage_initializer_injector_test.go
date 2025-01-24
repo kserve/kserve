@@ -1119,7 +1119,7 @@ func TestCredentialInjection(t *testing.T) {
 		},
 	}
 
-	var configMap = &v1.ConfigMap{
+	configMap := &v1.ConfigMap{
 		Data: map[string]string{
 			"credentials": `{
 				"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
@@ -1362,7 +1362,7 @@ func TestParsePvcURI(t *testing.T) {
 
 func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	var configMap = &v1.ConfigMap{
+	configMap := &v1.ConfigMap{
 		Data: map[string]string{
 			"credentials": `{
 				"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
@@ -2959,7 +2959,6 @@ func TestInjectModelcar(t *testing.T) {
 		pod := &v1.Pod{}
 		mi := &StorageInitializerInjector{}
 		err := mi.InjectModelcar(pod)
-
 		if err != nil {
 			t.Errorf("Expected nil error but got %v", err)
 		}
@@ -2979,7 +2978,6 @@ func TestInjectModelcar(t *testing.T) {
 		}
 		mi := &StorageInitializerInjector{}
 		err := mi.InjectModelcar(pod)
-
 		if err != nil {
 			t.Errorf("Expected nil error but got %v", err)
 		}
@@ -2995,7 +2993,6 @@ func TestInjectModelcar(t *testing.T) {
 			config: &StorageInitializerConfig{},
 		}
 		err := mi.InjectModelcar(pod)
-
 		if err != nil {
 			t.Errorf("Expected nil error but got %v", err)
 		}

@@ -41,9 +41,7 @@ type TorchServeSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &TorchServeSpec{}
-)
+var _ ComponentImplementation = &TorchServeSpec{}
 
 // Validate returns an error if invalid
 func (t *TorchServeSpec) Validate() error {

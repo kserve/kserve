@@ -52,18 +52,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		interval = time.Millisecond * 250
 		domain   = "example.com"
 	)
-	var (
-		defaultResource = v1.ResourceRequirements{
-			Limits: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse("1"),
-				v1.ResourceMemory: resource.MustParse("2Gi"),
-			},
-			Requests: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse("1"),
-				v1.ResourceMemory: resource.MustParse("2Gi"),
-			},
-		}
-	)
+	defaultResource := v1.ResourceRequirements{
+		Limits: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("1"),
+			v1.ResourceMemory: resource.MustParse("2Gi"),
+		},
+		Requests: v1.ResourceList{
+			v1.ResourceCPU:    resource.MustParse("1"),
+			v1.ResourceMemory: resource.MustParse("2Gi"),
+		},
+	}
 
 	Context("When creating inference service with raw kube predictor", func() {
 		configs := map[string]string{
@@ -93,7 +91,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("Should have ingress/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -138,9 +136,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-foo"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "s3://test/mnist/export"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -183,8 +181,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
 				Should(Succeed())
 			var replicas int32 = 1
@@ -287,8 +287,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check service
 			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
 
@@ -333,8 +335,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
+			predictorIngressKey := types.NamespacedName{
+				Name:      serviceKey.Name,
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
 				Should(Succeed())
 			expectedIngress := netv1.Ingress{
@@ -443,8 +447,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var stabilizationWindowSeconds int32 = 0
 			selectPolicy := autoscalingv2.MaxChangePolicySelect
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorHPAKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(Succeed())
 			expectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
@@ -504,7 +510,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("Should have ingress/service/deployment/hpa created with DeploymentStrategy", func() {
 			By("By creating a new InferenceService with DeploymentStrategy in PredictorSpec")
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -549,11 +555,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-foo-customized"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "s3://test/mnist/export"
-			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			var replicas int32 = 1
 			var revisionHistory int32 = 10
 			var progressDeadlineSeconds int32 = 600
@@ -577,7 +585,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							MaxReplicas: 3,
 							DeploymentStrategy: &appsv1.DeploymentStrategy{
 								Type: appsv1.RecreateDeploymentStrategyType,
-							}},
+							},
+						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
@@ -699,8 +708,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check service
 			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
 
@@ -745,8 +756,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
+			predictorIngressKey := types.NamespacedName{
+				Name:      serviceKey.Name,
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
 				Should(Succeed())
 			expectedIngress := netv1.Ingress{
@@ -855,8 +868,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var stabilizationWindowSeconds int32 = 0
 			selectPolicy := autoscalingv2.MaxChangePolicySelect
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorHPAKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(Succeed())
 			expectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
@@ -916,7 +931,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("Should have ingress/service/deployment created", func() {
 			By("By creating a new InferenceService with AutoscalerClassExternal")
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -961,9 +976,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-foo-2"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "s3://test/mnist/export"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1000,8 +1015,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
 				Should(Succeed())
 			var replicas int32 = 1
@@ -1102,8 +1119,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check service
 			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
 
@@ -1148,8 +1167,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
+			predictorIngressKey := types.NamespacedName{
+				Name:      serviceKey.Name,
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
 				Should(Succeed())
 			expectedIngress := netv1.Ingress{
@@ -1253,8 +1274,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check HPA is not created
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			predictorHPAKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorHPAKey := types.NamespacedName{
+				Name:      constants.DefaultPredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(HaveOccurred())
 
@@ -1280,7 +1303,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return false
 				}
 			}, timeout, interval).Should(BeTrue())
-
 		})
 	})
 	Context("When creating inference service with raw kube predictor and empty ingressClassName", func() {
@@ -1302,7 +1324,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("Should have ingress/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -1348,9 +1370,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			// Create InferenceService
 			serviceName := "raw-foo-no-ingress-class"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "s3://test/mnist/export"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1393,8 +1415,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
 				Should(Succeed())
 			var replicas int32 = 1
@@ -1497,8 +1521,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check service
 			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
 
@@ -1543,8 +1569,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
+			predictorIngressKey := types.NamespacedName{
+				Name:      serviceKey.Name,
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
 				Should(Succeed())
 			expectedIngress := netv1.Ingress{
@@ -1653,8 +1681,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var stabilizationWindowSeconds int32 = 0
 			selectPolicy := autoscalingv2.MaxChangePolicySelect
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorHPAKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(Succeed())
 			expectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
@@ -1732,7 +1762,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("Should have ingress/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -1778,9 +1808,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			// Create InferenceService
 			serviceName := "model"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "s3://test/mnist/export"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1823,8 +1853,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
 				Should(Succeed())
 			var replicas int32 = 1
@@ -1927,8 +1959,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// check service
 			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
 
@@ -1973,8 +2007,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
+			predictorIngressKey := types.NamespacedName{
+				Name:      serviceKey.Name,
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
 				Should(Succeed())
 			expectedIngress := netv1.Ingress{
@@ -2083,8 +2119,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var stabilizationWindowSeconds int32 = 0
 			selectPolicy := autoscalingv2.MaxChangePolicySelect
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorHPAKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(Succeed())
 			expectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
@@ -2322,8 +2360,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Verify there if the default autoscaler(HPA) is not created.
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(isvcName),
-				Namespace: isvcNamespace}
+			predictorHPAKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(isvcName),
+				Namespace: isvcNamespace,
+			}
 
 			Eventually(func() error {
 				err := k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA)
@@ -2555,6 +2595,7 @@ func verifyTensorParallelSizeDeployments(actualDefaultDeployment *appsv1.Deploym
 	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[gpuResourceType]).Should(Equal(gpuResourceQuantity))
 	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[gpuResourceType]).Should(Equal(gpuResourceQuantity))
 }
+
 func int32Ptr(i int32) *int32 {
 	return &i
 }

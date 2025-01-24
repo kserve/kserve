@@ -65,7 +65,7 @@ func TestARTExplainer(t *testing.T) {
 }
 
 func TestCreateARTExplainerContainer(t *testing.T) {
-	var requestedResource = v1.ResourceRequirements{
+	requestedResource := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
@@ -88,7 +88,7 @@ func TestCreateARTExplainerContainer(t *testing.T) {
 	ComponentExtensionSpec := ComponentExtensionSpec{
 		MaxReplicas: 2,
 	}
-	var spec = ARTExplainerSpec{
+	spec := ARTExplainerSpec{
 		Type: "SquareAttack",
 		ExplainerExtensionSpec: ExplainerExtensionSpec{
 			StorageURI: "gs://someUri",
@@ -125,7 +125,7 @@ func TestCreateARTExplainerContainer(t *testing.T) {
 }
 
 func TestCreateARTExplainerContainerWithConfig(t *testing.T) {
-	var requestedResource = v1.ResourceRequirements{
+	requestedResource := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
@@ -148,7 +148,7 @@ func TestCreateARTExplainerContainerWithConfig(t *testing.T) {
 	ComponentExtensionSpec := ComponentExtensionSpec{
 		MaxReplicas: 2,
 	}
-	var spec = ARTExplainerSpec{
+	spec := ARTExplainerSpec{
 		Type: "SquareAttack",
 		ExplainerExtensionSpec: ExplainerExtensionSpec{
 			StorageURI: "gs://someUri",

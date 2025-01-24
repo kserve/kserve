@@ -22,8 +22,7 @@ import (
 )
 
 // TODO MemoryStrategy will be implemented in another PR
-type MemoryStrategy struct {
-}
+type MemoryStrategy struct{}
 
 // Return a TrainedModel's shardId
 func (v *MemoryStrategy) GetOrAssignShard(tm *v1alpha1.TrainedModel) int {

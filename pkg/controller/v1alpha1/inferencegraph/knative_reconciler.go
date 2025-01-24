@@ -55,7 +55,8 @@ type GraphKnativeServiceReconciler struct {
 
 func NewGraphKnativeServiceReconciler(client client.Client,
 	scheme *runtime.Scheme,
-	ksvc *knservingv1.Service) *GraphKnativeServiceReconciler {
+	ksvc *knservingv1.Service,
+) *GraphKnativeServiceReconciler {
 	return &GraphKnativeServiceReconciler{
 		client:  client,
 		scheme:  scheme,

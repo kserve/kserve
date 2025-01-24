@@ -88,7 +88,8 @@ func NewCredentialBuilder(client client.Client, clientset kubernetes.Interface, 
 }
 
 func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annotations map[string]string, storageKey string,
-	overrideParams map[string]string, container *v1.Container) error {
+	overrideParams map[string]string, container *v1.Container,
+) error {
 	stype := overrideParams["type"]
 	bucket := overrideParams["bucket"]
 
@@ -195,7 +196,8 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 }
 
 func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotations map[string]string, serviceAccountName string,
-	container *v1.Container, volumes *[]v1.Volume) error {
+	container *v1.Container, volumes *[]v1.Volume,
+) error {
 	if serviceAccountName == "" {
 		serviceAccountName = "default"
 	}
@@ -238,7 +240,8 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotatio
 }
 
 func (c *CredentialBuilder) mountSecretCredential(secretName string, namespace string,
-	container *v1.Container, volumes *[]v1.Volume) error {
+	container *v1.Container, volumes *[]v1.Volume,
+) error {
 	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "Failed to find secret", "SecretName", secretName)
@@ -265,8 +268,7 @@ func (c *CredentialBuilder) mountSecretCredential(secretName string, namespace s
 		log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
 		volume, volumeMount := gcs.BuildSecretVolume(secret)
 		*volumes = utils.AppendVolumeIfNotExists(*volumes, volume)
-		container.VolumeMounts =
-			append(container.VolumeMounts, volumeMount)
+		container.VolumeMounts = append(container.VolumeMounts, volumeMount)
 		container.Env = append(container.Env,
 			v1.EnvVar{
 				Name:  gcs.GCSCredentialEnvKey,

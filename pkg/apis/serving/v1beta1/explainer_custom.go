@@ -68,7 +68,8 @@ func (c *CustomExplainer) GetStorageSpec() *StorageSpec {
 
 // GetContainer transforms the resource into a container spec
 func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
-	predictorHost ...string) *v1.Container {
+	predictorHost ...string,
+) *v1.Container {
 	container := &c.Containers[0]
 	if !utils.IncludesArg(container.Args, constants.ArgumentModelName) {
 		container.Args = append(container.Args, []string{

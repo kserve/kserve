@@ -59,10 +59,12 @@ func getBatcherConfigs(configMap *v1.ConfigMap) (*BatcherConfig, error) {
 	}
 
 	// Ensure that we set proper values for CPU/Memory Limit/Request
-	resourceDefaults := []string{batcherConfig.MemoryRequest,
+	resourceDefaults := []string{
+		batcherConfig.MemoryRequest,
 		batcherConfig.MemoryLimit,
 		batcherConfig.CpuRequest,
-		batcherConfig.CpuLimit}
+		batcherConfig.CpuLimit,
+	}
 	for _, key := range resourceDefaults {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {

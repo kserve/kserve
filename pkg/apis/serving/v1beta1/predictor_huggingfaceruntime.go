@@ -30,9 +30,7 @@ type HuggingFaceRuntimeSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &HuggingFaceRuntimeSpec{}
-)
+var _ ComponentImplementation = &HuggingFaceRuntimeSpec{}
 
 // Validate returns an error if invalid
 func (o *HuggingFaceRuntimeSpec) Validate() error {

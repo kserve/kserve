@@ -30,9 +30,7 @@ type PMMLSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &PMMLSpec{}
-)
+var _ ComponentImplementation = &PMMLSpec{}
 
 // Validate returns an error if invalid
 func (p *PMMLSpec) Validate() error {

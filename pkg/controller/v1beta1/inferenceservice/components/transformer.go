@@ -57,7 +57,8 @@ type Transformer struct {
 }
 
 func NewTransformer(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType) Component {
+	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType,
+) Component {
 	return &Transformer{
 		client:                 client,
 		clientset:              clientset,

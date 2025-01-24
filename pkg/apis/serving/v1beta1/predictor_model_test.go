@@ -343,7 +343,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		},
 	}
 
-	var storageUri = "s3://test/model"
+	storageUri := "s3://test/model"
 	scenarios := map[string]struct {
 		spec        *ModelSpec
 		isMMS       bool
@@ -500,7 +500,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 
 func TestModelPredictorGetContainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	var storageUri = "s3://test/model"
+	storageUri := "s3://test/model"
 	isvcConfig := &InferenceServicesConfig{}
 	objectMeta := metav1.ObjectMeta{
 		Name:      "foo",

@@ -39,7 +39,6 @@ import (
 )
 
 var _ = Describe("Inference Graph controller test", func() {
-
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
 		timeout  = time.Second * 10
@@ -47,9 +46,8 @@ var _ = Describe("Inference Graph controller test", func() {
 		domain   = "example.com"
 	)
 
-	var (
-		configs = map[string]string{
-			"router": `{
+	configs := map[string]string{
+		"router": `{
 					  "image": "kserve/router:v0.10.0",
 					  "memoryRequest": "100Mi",
 					  "memoryLimit": "500Mi",
@@ -62,13 +60,12 @@ var _ = Describe("Inference Graph controller test", func() {
 						]
 					  }
 				}`,
-		}
-	)
+	}
 
 	Context("When creating an inferencegraph with headers in global config", func() {
 		It("Should create a knative service with headers as env var of podspec", func() {
 			By("By creating a new InferenceGraph")
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -78,8 +75,8 @@ var _ = Describe("Inference Graph controller test", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 			graphName := "singlenode1"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			ig := &v1alpha1.InferenceGraph{
 				ObjectMeta: metav1.ObjectMeta{
@@ -194,7 +191,7 @@ var _ = Describe("Inference Graph controller test", func() {
 
 	Context("When creating an IG with resource requirements in the spec", func() {
 		It("Should propagate to underlying pod", func() {
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -204,8 +201,8 @@ var _ = Describe("Inference Graph controller test", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 			graphName := "singlenode2"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			ig := &v1alpha1.InferenceGraph{
 				ObjectMeta: metav1.ObjectMeta{
@@ -330,7 +327,7 @@ var _ = Describe("Inference Graph controller test", func() {
 
 	Context("When creating an IG with podaffinity in the spec", func() {
 		It("Should propagate to underlying pod", func() {
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -340,8 +337,8 @@ var _ = Describe("Inference Graph controller test", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 			graphName := "singlenode3"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			ig := &v1alpha1.InferenceGraph{
 				ObjectMeta: metav1.ObjectMeta{
@@ -504,7 +501,7 @@ var _ = Describe("Inference Graph controller test", func() {
 	Context("When creating an inferencegraph in Raw deployment mode with annotations", func() {
 		It("Should create a raw k8s resources with podspec", func() {
 			By("By creating a new InferenceGraph")
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -514,8 +511,8 @@ var _ = Describe("Inference Graph controller test", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 			graphName := "igraw1"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			ig := &v1alpha1.InferenceGraph{
 				ObjectMeta: metav1.ObjectMeta{
@@ -591,7 +588,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			}, timeout).
 				Should(BeFalse())
 
-			var result = int32(1)
+			result := int32(1)
 			Expect(actualK8sDeploymentCreated.Name).To(Equal(graphName))
 			Expect(actualK8sDeploymentCreated.Spec.Replicas).To(Equal(&result))
 			Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers).To(Not(BeNil()))
@@ -609,7 +606,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), nil)
 
 			By("By creating a new InferenceGraph")
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -620,8 +617,8 @@ var _ = Describe("Inference Graph controller test", func() {
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			graphName := "singlenode1"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			ig := &v1alpha1.InferenceGraph{
 				ObjectMeta: metav1.ObjectMeta{

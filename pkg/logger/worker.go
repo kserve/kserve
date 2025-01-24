@@ -38,7 +38,7 @@ const (
 	CEInferenceResponse = "org.kubeflow.serving.inference.response"
 
 	// cloud events extension attributes have to be lowercase alphanumeric
-	//TODO: ideally request id would have its own header but make do with ce-id for now
+	// TODO: ideally request id would have its own header but make do with ce-id for now
 	InferenceServiceAttr = "inferenceservicename"
 	NamespaceAttr        = "namespace"
 	ComponentAttr        = "component"
@@ -84,7 +84,6 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	t, err := cloudevents.NewHTTP(
 		cloudevents.WithTarget(logReq.Url.String()),
 	)
-
 	if err != nil {
 		return fmt.Errorf("while creating http transport: %w", err)
 	}

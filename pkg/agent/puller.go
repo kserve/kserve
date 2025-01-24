@@ -146,7 +146,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 	// this is important for handling Load --> Unload requests sent in tandem
 	// Load --> Unload = 0 (cancel first load)
 	// Load --> Unload --> Load = 1 Load (cancel second load?)
-	var processOp = func(modelOp *ModelOp) {
+	processOp := func(modelOp *ModelOp) {
 		switch modelOp.Op {
 		case Add:
 			p.logger.Infof("Downloading model from %s", modelOp.Spec.StorageURI)

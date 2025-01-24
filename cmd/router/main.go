@@ -18,10 +18,12 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	goerrors "errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"os"
 	"regexp"
@@ -36,9 +38,6 @@ import (
 	"github.com/tidwall/gjson"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	"crypto/rand"
-	"math/big"
 
 	flag "github.com/spf13/pflag"
 
@@ -75,7 +74,6 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 		req.Header.Add("Content-Type", "application/json")
 	}
 	resp, err := http.DefaultClient.Do(req)
-
 	if err != nil {
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
 		return nil, 500, err
@@ -371,7 +369,6 @@ func main() {
 		IdleTimeout:  3 * time.Minute,                // set the maximum amount of time to wait for the next request when keep-alives are enabled
 	}
 	err = server.ListenAndServe()
-
 	if err != nil {
 		log.Error(err, "failed to listen on 8080")
 		os.Exit(1)

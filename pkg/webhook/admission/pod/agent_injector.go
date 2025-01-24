@@ -85,10 +85,12 @@ func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 	}
 
 	// Ensure that we set proper values
-	resourceDefaults := []string{agentConfig.MemoryRequest,
+	resourceDefaults := []string{
+		agentConfig.MemoryRequest,
 		agentConfig.MemoryLimit,
 		agentConfig.CpuRequest,
-		agentConfig.CpuLimit}
+		agentConfig.CpuLimit,
+	}
 	for _, key := range resourceDefaults {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {
@@ -110,10 +112,12 @@ func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
 	}
 
 	// Ensure that we set proper values for CPU/Memory Limit/Request
-	resourceDefaults := []string{loggerConfig.MemoryRequest,
+	resourceDefaults := []string{
+		loggerConfig.MemoryRequest,
 		loggerConfig.MemoryLimit,
 		loggerConfig.CpuRequest,
-		loggerConfig.CpuLimit}
+		loggerConfig.CpuLimit,
+	}
 	for _, key := range resourceDefaults {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {

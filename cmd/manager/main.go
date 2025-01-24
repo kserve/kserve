@@ -125,9 +125,11 @@ func main() {
 	setupLog.Info("Setting up manager")
 	mgr, err := manager.New(cfg, manager.Options{
 		Metrics: metricsserver.Options{
-			BindAddress: options.metricsAddr},
+			BindAddress: options.metricsAddr,
+		},
 		WebhookServer: webhook.NewServer(webhook.Options{
-			Port: options.webhookPort}),
+			Port: options.webhookPort,
+		}),
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,

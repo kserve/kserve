@@ -31,10 +31,8 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-var (
-	// logger for the validation webhook.
-	localModelCacheValidatorLogger = logf.Log.WithName("localmodelcache-v1alpha1-validation-webhook")
-)
+// logger for the validation webhook.
+var localModelCacheValidatorLogger = logf.Log.WithName("localmodelcache-v1alpha1-validation-webhook")
 
 // +kubebuilder:object:generate=false
 // +k8s:openapi-gen=false

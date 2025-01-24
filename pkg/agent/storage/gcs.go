@@ -77,7 +77,7 @@ func (g *GCSObjectDownloader) GetObjectIterator(ctx context.Context, client stif
 func (g *GCSObjectDownloader) Download(ctx context.Context, client stiface.Client, it stiface.ObjectIterator) error {
 	var errs []error
 	// flag to help determine if query prefix returned an empty iterator
-	var foundObject = false
+	foundObject := false
 
 	for {
 		attrs, err := it.Next()

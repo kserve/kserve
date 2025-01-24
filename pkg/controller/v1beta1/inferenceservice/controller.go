@@ -281,7 +281,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredService *v1beta1.InferenceService,
-	deploymentMode constants.DeploymentModeType) error {
+	deploymentMode constants.DeploymentModeType,
+) error {
 	existingService := &v1beta1.InferenceService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
 	if err := r.Get(ctx, namespacedName, existingService); err != nil {

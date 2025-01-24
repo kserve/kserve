@@ -407,7 +407,7 @@ func TestCustomPredictorDefaultsConfig(t *testing.T) {
 
 func TestCustomPredictorDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	var defaultResource = v1.ResourceList{
+	defaultResource := v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}

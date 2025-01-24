@@ -41,7 +41,7 @@ import (
 
 func TestIsMMSPredictor(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	var requestedResource = v1.ResourceRequirements{
+	requestedResource := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.MustParse("100m"),
 		},
@@ -109,7 +109,8 @@ func TestIsMMSPredictor(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						HuggingFace: &HuggingFaceRuntimeSpec{
-							PredictorExtensionSpec: PredictorExtensionSpec{RuntimeVersion: proto.String("latest")}},
+							PredictorExtensionSpec: PredictorExtensionSpec{RuntimeVersion: proto.String("latest")},
+						},
 					},
 				},
 			},
@@ -124,7 +125,8 @@ func TestIsMMSPredictor(t *testing.T) {
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
 							Containers: []v1.Container{
-								{Name: constants.InferenceServiceContainerName,
+								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "some-image",
 									Env:   []v1.EnvVar{{Name: constants.CustomSpecMultiModelServerEnvVarKey, Value: strconv.FormatBool(true)}},
 								},
@@ -144,11 +146,13 @@ func TestIsMMSPredictor(t *testing.T) {
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
 							Containers: []v1.Container{
-								{Name: constants.InferenceServiceContainerName,
+								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "some-image",
 									Env: []v1.EnvVar{
 										{Name: constants.CustomSpecMultiModelServerEnvVarKey, Value: strconv.FormatBool(false)},
-										{Name: constants.CustomSpecStorageUriEnvVarKey, Value: "gs://some-uri"}},
+										{Name: constants.CustomSpecStorageUriEnvVarKey, Value: "gs://some-uri"},
+									},
 								},
 							},
 						},
@@ -166,7 +170,8 @@ func TestIsMMSPredictor(t *testing.T) {
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
 							Containers: []v1.Container{
-								{Name: constants.InferenceServiceContainerName,
+								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "some-image",
 								},
 							},
@@ -696,6 +701,7 @@ func TestIsMemoryResourceAvailable(t *testing.T) {
 		}
 	}
 }
+
 func TestMergeRuntimeContainers(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -1302,7 +1308,7 @@ func TestGetDeploymentMode(t *testing.T) {
 
 func TestModelName(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	var requestedResource = v1.ResourceRequirements{
+	requestedResource := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.MustParse("100m"),
 		},
@@ -1371,7 +1377,8 @@ func TestModelName(t *testing.T) {
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
 							Containers: []v1.Container{
-								{Name: constants.InferenceServiceContainerName,
+								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "some-image",
 								},
 							},
@@ -1390,7 +1397,8 @@ func TestModelName(t *testing.T) {
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
 							Containers: []v1.Container{
-								{Name: constants.InferenceServiceContainerName,
+								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "some-image",
 									Args:  []string{"--model_name=custom-model"},
 								},
@@ -1433,7 +1441,8 @@ func TestModelName(t *testing.T) {
 					Transformer: &TransformerSpec{
 						PodSpec: PodSpec{
 							Containers: []v1.Container{
-								{Name: constants.InferenceServiceContainerName,
+								{
+									Name:  constants.InferenceServiceContainerName,
 									Image: "some-image",
 									Args:  []string{"--model_name=custom-model"},
 								},
@@ -1545,7 +1554,7 @@ func TestModelName(t *testing.T) {
 
 func TestGetPredictorEndpoint(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	var requestedResource = v1.ResourceRequirements{
+	requestedResource := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.MustParse("100m"),
 		},
@@ -2199,14 +2208,18 @@ func TestMergeServingRuntimeAndInferenceServiceSpecs(t *testing.T) {
 			srContainers: []v1.Container{
 				{Name: "containerA"},
 			},
-			isvcContainer: v1.Container{Name: "containerA",
-				Env: []v1.EnvVar{{Name: "test", Value: "test"}}},
+			isvcContainer: v1.Container{
+				Name: "containerA",
+				Env:  []v1.EnvVar{{Name: "test", Value: "test"}},
+			},
 			isvc:                &InferenceService{},
 			targetContainerName: "containerA",
 			srPodSpec:           v1alpha1.ServingRuntimePodSpec{},
 			isvcPodSpec:         PodSpec{},
-			expectedContainer: &v1.Container{Name: "containerA",
-				Env: []v1.EnvVar{{Name: "test", Value: "test"}}},
+			expectedContainer: &v1.Container{
+				Name: "containerA",
+				Env:  []v1.EnvVar{{Name: "test", Value: "test"}},
+			},
 			expectedPodSpec: &v1.PodSpec{},
 			expectedErr:     gomega.BeNil(),
 		},

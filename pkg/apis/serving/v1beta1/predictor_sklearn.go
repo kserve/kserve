@@ -31,9 +31,7 @@ type SKLearnSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &SKLearnSpec{}
-)
+var _ ComponentImplementation = &SKLearnSpec{}
 
 // Default sets defaults on the resource
 func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {

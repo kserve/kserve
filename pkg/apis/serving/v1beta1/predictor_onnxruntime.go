@@ -27,9 +27,7 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-var (
-	ONNXFileExt = ".onnx"
-)
+var ONNXFileExt = ".onnx"
 
 // ONNXRuntimeSpec defines arguments for configuring ONNX model serving.
 type ONNXRuntimeSpec struct {
@@ -37,9 +35,7 @@ type ONNXRuntimeSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &ONNXRuntimeSpec{}
-)
+var _ ComponentImplementation = &ONNXRuntimeSpec{}
 
 // Validate returns an error if invalid
 func (o *ONNXRuntimeSpec) Validate() error {

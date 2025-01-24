@@ -19,7 +19,6 @@ package servingruntime
 import (
 	"errors"
 	"fmt"
-
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -1809,6 +1808,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 		})
 	}
 }
+
 func intPtr(i int) *int {
 	return &i
 }

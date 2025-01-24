@@ -157,9 +157,11 @@ var (
 	IstioSidecarStatusAnnotation          = "sidecar.istio.io/status"
 )
 
-type AutoscalerClassType string
-type AutoscalerMetricsType string
-type AutoScalerKPAMetricsType string
+type (
+	AutoscalerClassType      string
+	AutoscalerMetricsType    string
+	AutoScalerKPAMetricsType string
+)
 
 var (
 	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
@@ -224,9 +226,7 @@ const (
 	GaudiGPUResourceType  = "habana.ai/gaudi"
 )
 
-var (
-	CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
-)
+var CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
 
 var GPUResourceTypeList = []string{
 	NvidiaGPUResourceType,

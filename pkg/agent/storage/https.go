@@ -175,7 +175,7 @@ func extractZipFiles(reader io.Reader, dest string) error {
 		}
 
 		if zipFile.Mode().IsDir() {
-			err = os.MkdirAll(fileFullPath, 0755)
+			err = os.MkdirAll(fileFullPath, 0o755)
 			if err != nil {
 				return fmt.Errorf("unable to create new directory %s", fileFullPath)
 			}
@@ -235,7 +235,7 @@ func extractTarFiles(reader io.Reader, dest string) error {
 		dest = filepath.Clean(dest)
 		fileFullPath := filepath.Clean(filepath.Join(dest, filepath.Clean(header.Name)))
 		if header.Typeflag == tar.TypeDir {
-			err = os.MkdirAll(fileFullPath, 0755)
+			err = os.MkdirAll(fileFullPath, 0o755)
 			if err != nil {
 				return fmt.Errorf("unable to create new directory %s", fileFullPath)
 			}

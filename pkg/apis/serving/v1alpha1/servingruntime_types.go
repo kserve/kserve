@@ -175,8 +175,7 @@ type ServingRuntimeSpec struct {
 
 // ServingRuntimeStatus defines the observed state of ServingRuntime
 // +k8s:openapi-gen=true
-type ServingRuntimeStatus struct {
-}
+type ServingRuntimeStatus struct{}
 
 // ServerType constant for specifying the runtime name
 // +k8s:openapi-gen=true

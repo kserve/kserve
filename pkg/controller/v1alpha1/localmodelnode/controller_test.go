@@ -180,7 +180,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			ctx := context.Background()
 			fsMock.clear()
 			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -268,7 +268,7 @@ var _ = Describe("LocalModelNode controller", func() {
 		It("Should recreate download jobs if the model is missing from local disk", func() {
 			fsMock.clear()
 
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -354,7 +354,7 @@ var _ = Describe("LocalModelNode controller", func() {
 		})
 		It("Should delete models from local disk if the model is not in the spec", func() {
 			fsMock.clear()
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -396,7 +396,7 @@ var _ = Describe("LocalModelNode controller", func() {
 		// This test creates a LocalModelNode with a model, then deletes the model from the spec and checks if the job is deleted
 		It("Should delete jobs if the model is not present", func() {
 			fsMock.clear()
-			var configMap = &v1.ConfigMap{
+			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,

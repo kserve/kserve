@@ -181,7 +181,7 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 }
 
 func TestCreateCustomPredictorContainer(t *testing.T) {
-	var requestedResource = v1.ResourceRequirements{
+	requestedResource := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
@@ -195,7 +195,7 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 			"memory": resource.MustParse("1Gi"),
 		},
 	}
-	var config = InferenceServicesConfig{}
+	config := InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService

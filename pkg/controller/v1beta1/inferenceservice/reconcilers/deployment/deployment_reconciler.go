@@ -59,7 +59,8 @@ func NewDeploymentReconciler(client kclient.Client,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) *DeploymentReconciler {
+	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+) *DeploymentReconciler {
 	return &DeploymentReconciler{
 		client:         client,
 		scheme:         scheme,
@@ -67,9 +68,11 @@ func NewDeploymentReconciler(client kclient.Client,
 		componentExt:   componentExt,
 	}
 }
+
 func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) []*appsv1.Deployment {
+	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+) []*appsv1.Deployment {
 	var deploymentList []*appsv1.Deployment
 	var workerNodeReplicas int32
 	var tensorParallelSize string
@@ -128,7 +131,8 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 
 func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec) *appsv1.Deployment {
+	podSpec *corev1.PodSpec,
+) *appsv1.Deployment {
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
 	setDefaultPodSpec(podSpec)
@@ -156,9 +160,11 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 
 	return deployment
 }
+
 func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, predictorName string, replicas int32) *appsv1.Deployment {
+	podSpec *corev1.PodSpec, predictorName string, replicas int32,
+) *appsv1.Deployment {
 	podMetadata := componentMeta
 	workerPredictorName := constants.GetRawWorkerServiceLabel(predictorName)
 	podMetadata.Labels["app"] = workerPredictorName

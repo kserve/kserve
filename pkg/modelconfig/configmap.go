@@ -29,8 +29,10 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-var logger = log.Log.WithName("ModelConfig")
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
+var (
+	logger = log.Log.WithName("ModelConfig")
+	json   = jsoniter.ConfigCompatibleWithStandardLibrary
+)
 
 type ModelConfig struct {
 	Name string             `json:"modelName"`

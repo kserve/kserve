@@ -579,7 +579,7 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 }
 
 func genericSetup(configs map[string]string, clusterStorageContainerSpec v1alpha1.StorageContainerSpec, localModelNodeGroupSpec v1alpha1.LocalModelNodeGroupSpec) (*v1.ConfigMap, *v1alpha1.ClusterStorageContainer, *v1alpha1.LocalModelNodeGroup) {
-	var configMap = &v1.ConfigMap{
+	configMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.InferenceServiceConfigMapName,
 			Namespace: constants.KServeNamespace,

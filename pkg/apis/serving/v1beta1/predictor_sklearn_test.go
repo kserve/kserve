@@ -143,7 +143,7 @@ func TestSKLearnDefaulter(t *testing.T) {
 }
 
 func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
-	var requestedResource = v1.ResourceRequirements{
+	requestedResource := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
@@ -155,7 +155,7 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 			},
 		},
 	}
-	var config = InferenceServicesConfig{}
+	config := InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
@@ -309,7 +309,7 @@ func TestCreateSKLearnModelServingContainerV1(t *testing.T) {
 func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 	protocolV2 := constants.ProtocolV2
 
-	var requestedResource = v1.ResourceRequirements{
+	requestedResource := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
@@ -321,7 +321,7 @@ func TestCreateSKLearnModelServingContainerV2(t *testing.T) {
 			},
 		},
 	}
-	var config = InferenceServicesConfig{}
+	config := InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService

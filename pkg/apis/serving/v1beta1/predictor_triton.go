@@ -29,9 +29,7 @@ type TritonSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &TritonSpec{}
-)
+var _ ComponentImplementation = &TritonSpec{}
 
 // Default sets defaults on the resource
 func (t *TritonSpec) Default(config *InferenceServicesConfig) {

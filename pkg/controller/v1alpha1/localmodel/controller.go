@@ -335,7 +335,8 @@ func (c *LocalModelReconciler) isvcFunc(ctx context.Context, obj client.Object) 
 	return []reconcile.Request{{
 		NamespacedName: types.NamespacedName{
 			Name: modelName,
-		}}}
+		},
+	}}
 }
 
 // Given a node object, checks if it matches any node group CR, then reconcile all local models that has this node group to create download jobs.
@@ -364,7 +365,8 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name: model.Name,
-				}})
+				},
+			})
 		}
 	}
 	return requests
@@ -378,7 +380,8 @@ func (c *LocalModelReconciler) localmodelNodeFunc(ctx context.Context, obj clien
 		requests = append(requests, reconcile.Request{
 			NamespacedName: types.NamespacedName{
 				Name: modelInfo.ModelName,
-			}})
+			},
+		})
 	}
 	return requests
 }

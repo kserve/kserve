@@ -59,7 +59,8 @@ type Predictor struct {
 }
 
 func NewPredictor(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType) Component {
+	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType,
+) Component {
 	return &Predictor{
 		client:                 client,
 		clientset:              clientset,

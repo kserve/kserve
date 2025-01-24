@@ -40,10 +40,8 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-var (
-	// logger for the mutating webhook.
-	mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook")
-)
+// logger for the mutating webhook.
+var mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook")
 
 // +kubebuilder:object:generate=false
 // +k8s:openapi-gen=false
@@ -52,15 +50,14 @@ var (
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as it is used only for temporary operations and does not need to be deeply copied.
-type InferenceServiceDefaulter struct {
-}
+type InferenceServiceDefaulter struct{}
 
 // +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kserve-webhook-server.defaulter
 var _ webhook.CustomDefaulter = &InferenceServiceDefaulter{}
 
 func setResourceRequirementDefaults(config *InferenceServicesConfig, requirements *v1.ResourceRequirements) {
-	var defaultResourceRequests = v1.ResourceList{}
-	var defaultResourceLimits = v1.ResourceList{}
+	defaultResourceRequests := v1.ResourceList{}
+	defaultResourceLimits := v1.ResourceList{}
 
 	if config != nil {
 		if config.Resource.CPURequest != "" {

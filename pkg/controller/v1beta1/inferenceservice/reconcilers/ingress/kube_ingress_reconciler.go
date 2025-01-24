@@ -50,7 +50,8 @@ type RawIngressReconciler struct {
 func NewRawIngressReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	ingressConfig *v1beta1.IngressConfig,
-	isvcConfig *v1beta1.InferenceServicesConfig) (*RawIngressReconciler, error) {
+	isvcConfig *v1beta1.InferenceServicesConfig,
+) (*RawIngressReconciler, error) {
 	return &RawIngressReconciler{
 		client:        client,
 		scheme:        scheme,
@@ -119,7 +120,8 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 }
 
 func createRawURL(isvc *v1beta1.InferenceService,
-	ingressConfig *v1beta1.IngressConfig) (*knapis.URL, error) {
+	ingressConfig *v1beta1.IngressConfig,
+) (*knapis.URL, error) {
 	var err error
 	url := &knapis.URL{}
 	url.Scheme = ingressConfig.UrlScheme
@@ -182,7 +184,8 @@ func generateRule(ingressHost string, componentName string, path string, port in
 
 func generateMetadata(isvc *v1beta1.InferenceService,
 	componentType constants.InferenceServiceComponent, name string,
-	isvcConfig *v1beta1.InferenceServicesConfig) metav1.ObjectMeta {
+	isvcConfig *v1beta1.InferenceServicesConfig,
+) metav1.ObjectMeta {
 	// get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
@@ -205,7 +208,8 @@ func generateIngressHost(ingressConfig *v1beta1.IngressConfig,
 	isvcConfig *v1beta1.InferenceServicesConfig,
 	componentType string,
 	topLevelFlag bool,
-	name string) (string, error) {
+	name string,
+) (string, error) {
 	metadata := generateMetadata(isvc, constants.InferenceServiceComponent(componentType), name, isvcConfig)
 	if !topLevelFlag {
 		return GenerateDomainName(metadata.Name, isvc.ObjectMeta, ingressConfig)
@@ -216,7 +220,8 @@ func generateIngressHost(ingressConfig *v1beta1.IngressConfig,
 
 func createRawIngress(ctx context.Context, scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 	ingressConfig *v1beta1.IngressConfig, client client.Client,
-	isvcConfig *v1beta1.InferenceServicesConfig) (*netv1.Ingress, error) {
+	isvcConfig *v1beta1.InferenceServicesConfig,
+) (*netv1.Ingress, error) {
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 			Type:   v1beta1.IngressReady,

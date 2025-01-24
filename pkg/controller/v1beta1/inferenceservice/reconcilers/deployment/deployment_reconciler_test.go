@@ -786,6 +786,7 @@ func int32Ptr(i int32) *int32 {
 	val := i
 	return &val
 }
+
 func BoolPtr(b bool) *bool {
 	val := b
 	return &val

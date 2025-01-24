@@ -70,8 +70,10 @@ func setMetricAggregationEnvVarsAndPorts(pod *v1.Pod) error {
 			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, v1.EnvVar{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: kserveContainerPromPath})
 
 			// Set the port that queue-proxy will use to expose the aggregate metrics.
-			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, v1.EnvVar{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey,
-				Value: constants.QueueProxyAggregatePrometheusMetricsPort})
+			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, v1.EnvVar{
+				Name:  constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey,
+				Value: constants.QueueProxyAggregatePrometheusMetricsPort,
+			})
 			aggrPort, err := utils.StringToInt32(constants.QueueProxyAggregatePrometheusMetricsPort)
 			if err != nil {
 				return err

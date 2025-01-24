@@ -166,7 +166,7 @@ func (handler *BatchHandler) batch() {
 			handler.batcherInfo.Path = req.Path
 			handler.batcherInfo.CurrentInputLen = len(handler.batcherInfo.Instances)
 			handler.batcherInfo.Instances = append(handler.batcherInfo.Instances, *req.Instances...)
-			var index = make([]int, 0)
+			index := make([]int, 0)
 			for i := 0; i < len(*req.Instances); i++ {
 				index = append(index, handler.batcherInfo.CurrentInputLen+i)
 			}
@@ -221,7 +221,7 @@ func New(maxBatchSize int, maxLatency int, handler http.Handler, logger *zap.Sug
 
 func (handler *BatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// only batch predict requests
-	var predictVerb = regexp.MustCompile(`:predict$`)
+	predictVerb := regexp.MustCompile(`:predict$`)
 	if !predictVerb.MatchString(r.URL.Path) {
 		handler.next.ServeHTTP(w, r)
 		return
@@ -243,8 +243,8 @@ func (handler *BatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	handler.log.Infof("serving request %s", r.URL.Path)
-	var ctx = context.Background()
-	var chl = make(chan Response)
+	ctx := context.Background()
+	chl := make(chan Response)
 	handler.channelIn <- Input{
 		&ctx,
 		r.URL.Path,

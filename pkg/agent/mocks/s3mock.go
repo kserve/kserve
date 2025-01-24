@@ -40,8 +40,7 @@ func (m *MockS3Client) ListObjects(*s3.ListObjectsInput) (*s3.ListObjectsOutput,
 	}, nil
 }
 
-type MockS3Downloader struct {
-}
+type MockS3Downloader struct{}
 
 func (m *MockS3Downloader) DownloadWithIterator(aws.Context, s3manager.BatchDownloadIterator, ...func(*s3manager.Downloader)) error {
 	return nil

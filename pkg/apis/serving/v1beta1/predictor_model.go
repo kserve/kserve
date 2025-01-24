@@ -51,9 +51,7 @@ type ModelSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &ModelSpec{}
-)
+var _ ComponentImplementation = &ModelSpec{}
 
 // Here, the ComponentImplementation interface is implemented in order to maintain the
 // component validation logic. This will probably be refactored out eventually.

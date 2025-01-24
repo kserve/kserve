@@ -114,7 +114,7 @@ func TestLightGBMDefaulter(t *testing.T) {
 }
 
 func TestCreateLightGBMModelServingContainer(t *testing.T) {
-	var requestedResource = v1.ResourceRequirements{
+	requestedResource := v1.ResourceRequirements{
 		Limits: v1.ResourceList{
 			"cpu": resource.MustParse("100m"),
 		},
@@ -122,7 +122,7 @@ func TestCreateLightGBMModelServingContainer(t *testing.T) {
 			"cpu": resource.MustParse("90m"),
 		},
 	}
-	var config = InferenceServicesConfig{}
+	config := InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
