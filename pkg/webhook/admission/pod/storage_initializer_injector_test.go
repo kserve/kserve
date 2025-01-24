@@ -3100,7 +3100,7 @@ func TestModelcarVolumeMounts(t *testing.T) {
 func checkVolumeMounts(t *testing.T, pod *v1.Pod, containerNames []string) {
 	injector := &StorageInitializerInjector{config: &StorageInitializerConfig{}}
 	err := injector.InjectModelcar(pod)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	for _, containerName := range containerNames {
 		container := getContainerWithName(pod, containerName)
@@ -3121,13 +3121,13 @@ func TestModelcarIdempotency(t *testing.T) {
 
 		// Inject modelcar twice
 		err := injector.InjectModelcar(pod)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		err = injector.InjectModelcar(pod)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		// Reference modelcar
 		err = injector.InjectModelcar(podReference)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		// It should not make a difference if the modelcar is injected once or twice
 		assert.True(t, reflect.DeepEqual(podReference, pod))
@@ -3141,7 +3141,7 @@ func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {
 
 		pod := createTestPodForModelcar()
 		err := injector.InjectModelcar(pod)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		// Assertions
 		modelcarContainer := getContainerWithName(pod, ModelcarContainerName)
@@ -3159,7 +3159,7 @@ func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {
 
 		pod := createTestPodForModelcar()
 		err := injector.InjectModelcar(pod)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		// Assertions
 		modelcarContainer := getContainerWithName(pod, ModelcarContainerName)
@@ -3176,7 +3176,7 @@ func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {
 
 		pod := createTestPodForModelcar()
 		err := injector.InjectModelcar(pod)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		// Assertions
 		modelcarContainer := getContainerWithName(pod, ModelcarContainerName)

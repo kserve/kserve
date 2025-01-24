@@ -119,11 +119,11 @@ func TestProcessAddOrUpdate(t *testing.T) {
 	for _, tc := range testCases {
 		mConfig := NewConfigsDelta(tc.modelConfigs, nil)
 		err := mConfig.Process(tc.configMap)
-		testify.Nil(t, err)
+		testify.NoError(t, err)
 		data, err := getSortedConfigData(tc.configMap.Data[constants.ModelConfigFileName])
-		testify.Nil(t, err)
+		testify.NoError(t, err)
 		expected, _ := getSortedConfigData(tc.expected)
-		testify.Equal(t, data, expected)
+		testify.Equal(t, expected, data)
 	}
 }
 
@@ -185,11 +185,11 @@ func TestProcessDelete(t *testing.T) {
 	for _, tc := range testCases {
 		mConfig := NewConfigsDelta(nil, tc.modelConfigs)
 		err := mConfig.Process(tc.configMap)
-		testify.Nil(t, err)
+		testify.NoError(t, err)
 		data, err := getSortedConfigData(tc.configMap.Data[constants.ModelConfigFileName])
-		testify.Nil(t, err)
+		testify.NoError(t, err)
 		expected, _ := getSortedConfigData(tc.expected)
-		testify.Equal(t, data, expected)
+		testify.Equal(t, expected, data)
 	}
 }
 
@@ -227,11 +227,11 @@ func TestProcess(t *testing.T) {
 	for _, tc := range testCases {
 		mConfig := NewConfigsDelta(tc.updated, tc.deleted)
 		err := mConfig.Process(tc.configMap)
-		testify.Nil(t, err)
+		testify.NoError(t, err)
 		data, err := getSortedConfigData(tc.configMap.Data[constants.ModelConfigFileName])
-		testify.Nil(t, err)
+		testify.NoError(t, err)
 		expected, _ := getSortedConfigData(tc.expected)
-		testify.Equal(t, data, expected)
+		testify.Equal(t, expected, data)
 	}
 }
 
@@ -278,6 +278,6 @@ func TestCreateEmptyModelConfig(t *testing.T) {
 	}
 
 	configMap, err := CreateEmptyModelConfig(isvc, shardId)
-	testify.Nil(t, err)
-	testify.Equal(t, configMap, expected)
+	testify.NoError(t, err)
+	testify.Equal(t, expected, configMap)
 }

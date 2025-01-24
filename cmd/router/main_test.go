@@ -561,7 +561,7 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 	// Propagating only 1 header "Test-Header-Key"
 	headersToPropagate := []string{"Test-Header-Key"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	if err != nil {
@@ -628,7 +628,7 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 	// Propagating multiple headers "Test-Header-Key"
 	headersToPropagate := []string{"Test-Header-Key", "Authorization"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	if err != nil {
@@ -706,7 +706,7 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 	// Propagating multiple headers "Test-Header-Key"
 	headersToPropagate := []string{"Test-Header-*", "Auth*"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	if err != nil {
@@ -778,7 +778,7 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 	// Using invalid regex pattern
 	headersToPropagate := []string{"Test-Header-[0-9", "Auth*"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
 	if err != nil {
