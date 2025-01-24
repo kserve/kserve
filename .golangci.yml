@@ -183,7 +183,11 @@ linters:
   
     # Reports unused function parameters and results in your code.
     - unparam
-    
+
+    # A linter that detect the possibility to use variables/constants from the
+    # Go standard library.
+    - usestdlibvars
+
     - unused
     - whitespace
 

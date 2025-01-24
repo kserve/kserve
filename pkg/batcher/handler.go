@@ -101,7 +101,7 @@ func (handler *BatchHandler) batchPredict() {
 		handler.batcherInfo.Instances,
 	})
 	reader := bytes.NewReader(jsonStr)
-	r := httptest.NewRequest("POST", handler.batcherInfo.Path, reader)
+	r := httptest.NewRequest(http.MethodPost, handler.batcherInfo.Path, reader)
 	rr := httptest.NewRecorder()
 	handler.next.ServeHTTP(rr, r)
 	responseBody := rr.Body.Bytes()

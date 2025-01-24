@@ -49,7 +49,7 @@ var log = logf.Log.WithName("InferenceGraphRouter")
 func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, int, error) {
 	defer timeTrack(time.Now(), "step", serviceUrl)
 	log.Info("Entering callService", "url", serviceUrl)
-	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
+	req, err := http.NewRequest(http.MethodPost, serviceUrl, bytes.NewBuffer(input))
 	if err != nil {
 		log.Error(err, "An error occurred while preparing request object with serviceUrl.", "serviceUrl", serviceUrl)
 		return nil, 500, err

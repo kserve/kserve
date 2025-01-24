@@ -38,7 +38,7 @@ func serveRequest(batchHandler *BatchHandler, wg *sync.WaitGroup, index int) {
 	predictorRequest := []byte(instances)
 	reader := bytes.NewReader(predictorRequest)
 	path := "/v1/models/test:predict"
-	r := httptest.NewRequest("POST", path, reader)
+	r := httptest.NewRequest(http.MethodPost, path, reader)
 	w := httptest.NewRecorder()
 	batchHandler.ServeHTTP(w, r)
 
@@ -108,7 +108,7 @@ func TestBatcherFail(t *testing.T) {
 		responseChan <- response
 		responseBytes, err := json.Marshal(response)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
-		rw.WriteHeader(500)
+		rw.WriteHeader(http.StatusInternalServerError)
 		_, err = rw.Write(responseBytes)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 	}))
@@ -150,7 +150,7 @@ func TestBatcherDefaults(t *testing.T) {
 		responseChan <- response
 		responseBytes, err := json.Marshal(response)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
-		rw.WriteHeader(500)
+		rw.WriteHeader(http.StatusInternalServerError)
 		_, err = rw.Write(responseBytes)
 		g.Expect(err).ToNot(gomega.HaveOccurred())
 	}))

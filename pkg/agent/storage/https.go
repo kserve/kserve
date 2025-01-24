@@ -68,7 +68,7 @@ type HTTPSDownloader struct {
 
 func (h *HTTPSDownloader) Download(client http.Client) error {
 	// Create request
-	req, err := http.NewRequest("GET", h.StorageUri, nil)
+	req, err := http.NewRequest(http.MethodGet, h.StorageUri, nil)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (h *HTTPSDownloader) Download(client http.Client) error {
 		}
 	}()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("URI: %s returned a %d response code", h.StorageUri, resp.StatusCode)
 	}
 	// Write content into file(s)

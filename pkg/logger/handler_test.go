@@ -65,7 +65,7 @@ func TestLogger(t *testing.T) {
 	defer predictor.Close()
 
 	reader := bytes.NewReader(predictorRequest)
-	r := httptest.NewRequest("POST", "http://a", reader)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
 	logf.SetLogger(zap.New())
@@ -133,7 +133,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 	defer predictor.Close()
 
 	reader := bytes.NewReader(predictorRequest)
-	r := httptest.NewRequest("POST", "http://a", reader)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	r.Header.Add("Foo", "bar")
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
@@ -179,7 +179,7 @@ func TestBadResponse(t *testing.T) {
 	defer predictor.Close()
 
 	reader := bytes.NewReader(predictorRequest)
-	r := httptest.NewRequest("POST", "http://a", reader)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
 	logf.SetLogger(zap.New())

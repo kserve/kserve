@@ -173,7 +173,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 						}
 					}
 				}()
-				if resp.StatusCode == 200 {
+				if resp.StatusCode == http.StatusOK {
 					p.logger.Infof("Successfully loaded model %s", modelName)
 				} else {
 					body, err := io.ReadAll(resp.Body)
@@ -205,7 +205,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 						}
 					}()
 				}
-				if resp.StatusCode == 200 {
+				if resp.StatusCode == http.StatusOK {
 					p.logger.Infof("Successfully unloaded model %s", modelName)
 				} else {
 					body, err := io.ReadAll(resp.Body)
