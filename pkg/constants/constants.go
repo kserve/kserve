@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"strings"
 
+	"knative.dev/pkg/kmeta"
 	"knative.dev/serving/pkg/apis/autoscaling"
 
 	"knative.dev/pkg/network"
@@ -543,51 +544,51 @@ func InferenceServiceHostName(name string, namespace string, domain string) stri
 }
 
 func DefaultPredictorServiceName(name string) string {
-	return name + "-" + string(Predictor) + "-" + InferenceServiceDefault
+	return kmeta.ChildName(name, "-"+string(Predictor)+"-"+InferenceServiceDefault)
 }
 
 func PredictorServiceName(name string) string {
-	return name + "-" + string(Predictor)
+	return kmeta.ChildName(name, "-"+string(Predictor))
 }
 
 func PredictorWorkerServiceName(name string) string {
-	return name + "-" + string(Predictor) + "-" + WorkerNodeSuffix
+	return kmeta.ChildName(name, "-"+string(Predictor)+"-"+WorkerNodeSuffix)
 }
 
 func CanaryPredictorServiceName(name string) string {
-	return name + "-" + string(Predictor) + "-" + InferenceServiceCanary
+	return kmeta.ChildName(name, "-"+string(Predictor)+"-"+InferenceServiceCanary)
 }
 
 func DefaultExplainerServiceName(name string) string {
-	return name + "-" + string(Explainer) + "-" + InferenceServiceDefault
+	return kmeta.ChildName(name, "-"+string(Explainer)+"-"+InferenceServiceDefault)
 }
 
 func ExplainerServiceName(name string) string {
-	return name + "-" + string(Explainer)
+	return kmeta.ChildName(name, "-"+string(Explainer))
 }
 
 func CanaryExplainerServiceName(name string) string {
-	return name + "-" + string(Explainer) + "-" + InferenceServiceCanary
+	return kmeta.ChildName(name, "-"+string(Explainer)+"-"+InferenceServiceCanary)
 }
 
 func DefaultTransformerServiceName(name string) string {
-	return name + "-" + string(Transformer) + "-" + InferenceServiceDefault
+	return kmeta.ChildName(name, "-"+string(Transformer)+"-"+InferenceServiceDefault)
 }
 
 func TransformerServiceName(name string) string {
-	return name + "-" + string(Transformer)
+	return kmeta.ChildName(name, "-"+string(Transformer))
 }
 
 func CanaryTransformerServiceName(name string) string {
-	return name + "-" + string(Transformer) + "-" + InferenceServiceCanary
+	return kmeta.ChildName(name, "-"+string(Transformer)+"-"+InferenceServiceCanary)
 }
 
 func DefaultServiceName(name string, component InferenceServiceComponent) string {
-	return name + "-" + component.String() + "-" + InferenceServiceDefault
+	return kmeta.ChildName(name, "-"+component.String()+"-"+InferenceServiceDefault)
 }
 
 func CanaryServiceName(name string, component InferenceServiceComponent) string {
-	return name + "-" + component.String() + "-" + InferenceServiceCanary
+	return kmeta.ChildName(name, "-"+component.String()+"-"+InferenceServiceCanary)
 }
 
 func ModelConfigName(inferenceserviceName string, shardId int) string {
