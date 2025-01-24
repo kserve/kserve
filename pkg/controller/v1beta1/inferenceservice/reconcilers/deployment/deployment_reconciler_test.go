@@ -174,6 +174,13 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							constants.RawDeploymentAppLabel: "isvc.default-predictor",
 						},
 					},
+					Strategy: appsv1.DeploymentStrategy{
+						Type: appsv1.RollingUpdateDeploymentStrategyType,
+						RollingUpdate: &appsv1.RollingUpdateDeployment{
+							MaxUnavailable: intStrPtr("25%"),
+							MaxSurge:       intStrPtr("25%"),
+						},
+					},
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      "default-predictor",
@@ -238,6 +245,13 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"app": "isvc.default-predictor",
+						},
+					},
+					Strategy: appsv1.DeploymentStrategy{
+						Type: appsv1.RollingUpdateDeploymentStrategyType,
+						RollingUpdate: &appsv1.RollingUpdateDeployment{
+							MaxUnavailable: intStrPtr("25%"),
+							MaxSurge:       intStrPtr("25%"),
 						},
 					},
 					Template: corev1.PodTemplateSpec{
@@ -312,6 +326,13 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
+						},
+					},
+					Strategy: appsv1.DeploymentStrategy{
+						Type: appsv1.RollingUpdateDeploymentStrategyType,
+						RollingUpdate: &appsv1.RollingUpdateDeployment{
+							MaxUnavailable: intStrPtr("0%"),
+							MaxSurge:       intStrPtr("100%"),
 						},
 					},
 					Template: corev1.PodTemplateSpec{
@@ -397,8 +418,6 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.DNSPolicy"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.AutomountServiceAccountToken"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.SchedulerName"),
-					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Strategy.Type"),
-					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Strategy.RollingUpdate"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.RevisionHistoryLimit"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.ProgressDeadlineSeconds")); diff != "" {
 					t.Errorf("Test %q unexpected deployment (-want +got): %v", tt.name, diff)
@@ -469,8 +488,6 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.DNSPolicy"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.AutomountServiceAccountToken"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.SchedulerName"),
-					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Strategy.Type"),
-					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Strategy.RollingUpdate"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.RevisionHistoryLimit"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.ProgressDeadlineSeconds")); diff != "" {
 					t.Errorf("Test %q unexpected deployment (-want +got): %v", tt.name, diff)
@@ -772,8 +789,6 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.DNSPolicy"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.AutomountServiceAccountToken"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Template.Spec.SchedulerName"),
-					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Strategy.Type"),
-					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.Strategy.RollingUpdate"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.RevisionHistoryLimit"),
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.ProgressDeadlineSeconds")); diff != "" {
 					t.Errorf("Test %q unexpected deployment (-want +got): %v", tt.name, diff)
@@ -781,6 +796,11 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			}
 		})
 	}
+}
+
+func intStrPtr(s string) *intstr.IntOrString {
+	v := intstr.FromString(s)
+	return &v
 }
 
 func int32Ptr(i int32) *int32 {
