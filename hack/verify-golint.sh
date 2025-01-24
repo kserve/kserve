@@ -27,9 +27,12 @@ fi
 # Check if golangci-lint is already installed
 if ! command -v golangci-lint &> /dev/null; then
     echo "installing golangci-lint"
-    go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61
-	# Verify golangci-lint installation
-	$golangci_lint_binary --version
+    go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63
+    # Verify golangci-lint installation
+    $golangci_lint_binary --version
+elif ! $golangci_lint_binary --version | grep -q "1.63"; then
+    echo "golangci-lint version 1.63 is required"
+    exit 1
 fi
 
 # Run golangci-lint

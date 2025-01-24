@@ -32,7 +32,7 @@ import (
 
 type FileError error
 
-var NoSuccessFile FileError = fmt.Errorf("no success file can be found")
+var ErrNoSuccessFile FileError = fmt.Errorf("no success file can be found")
 
 func SyncModelDir(modelDir string, logger *zap.SugaredLogger) (map[string]modelWrapper, error) {
 	logger.Infof("Syncing from model dir %s", modelDir)

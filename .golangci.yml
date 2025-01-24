@@ -6,6 +6,7 @@ run:
 issues:
   max-same-issues: 0
   max-issues-per-linter: 0
+  uniq-by-line: true
   exclude-dirs:  # skip auto gen folders
     - "client/*"
     - "tools/tf2openapi/generated/*"
@@ -18,7 +19,6 @@ output:
     - format: "colored-line-number"
   print-issued-lines: true
   print-linter-name: true
-  uniq-by-line: true
   path-prefix: ""
   sort-results: true
 
@@ -57,7 +57,17 @@ linters:
     # Check for two durations multiplied together.
     - durationcheck
 
+    # Checks that sentinel errors are prefixed with the Err- and error types
+    # are suffixed with the -Error.
+    - errname
+
+    # Errorlint is a linter for that can be used to find code that will cause
+    # problems with the error wrapping scheme introduced in Go 1.13.
     - errorlint
+
+    # Detects functions from golang.org/x/exp/ that can be replaced by std functions.
+    - exptostd
+    
     - dogsled
     - gocritic
     - goimports
