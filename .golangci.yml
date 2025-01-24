@@ -145,6 +145,11 @@ linters:
     # Checks that fmt.Sprintf can be replaced with a faster alternative.
     - perfsprint
 
+    # Finds slice declarations that could potentially be pre-allocated.
+    - prealloc
+
+    # Reports direct reads from proto message fields when getters should be used.
+    - protogetter
     # - revive
     - staticcheck
     # - stylecheck
@@ -152,7 +157,6 @@ linters:
     - unconvert
     - unused
     - whitespace
-    # - prealloc
 
 linters-settings:
   goimports:

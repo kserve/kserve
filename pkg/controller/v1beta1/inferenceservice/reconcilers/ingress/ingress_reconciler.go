@@ -424,8 +424,8 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, additionalH
 func containsHTTPMatchRequest(matchRequest *istiov1beta1.HTTPMatchRequest, matchRequests []*istiov1beta1.HTTPMatchRequest) bool {
 	for _, matchRequestEle := range matchRequests {
 		// If authority, gateways and uri are all equal, two HTTPMatchRequests will be equal.
-		if stringMatchEqual(matchRequest.Authority, matchRequestEle.Authority) && gatewaysEqual(matchRequest, matchRequestEle) &&
-			stringMatchEqual(matchRequest.Uri, matchRequestEle.Uri) {
+		if stringMatchEqual(matchRequest.GetAuthority(), matchRequestEle.GetAuthority()) && gatewaysEqual(matchRequest, matchRequestEle) &&
+			stringMatchEqual(matchRequest.GetUri(), matchRequestEle.GetUri()) {
 			return true
 		}
 	}
@@ -434,7 +434,7 @@ func containsHTTPMatchRequest(matchRequest *istiov1beta1.HTTPMatchRequest, match
 
 func stringMatchEqual(stringMatch, stringMatchDest *istiov1beta1.StringMatch) bool {
 	if stringMatch != nil && stringMatchDest != nil {
-		return equality.Semantic.DeepEqual(stringMatch.MatchType, stringMatchDest.MatchType)
+		return equality.Semantic.DeepEqual(stringMatch.GetMatchType(), stringMatchDest.GetMatchType())
 	}
 	if stringMatch == nil && stringMatchDest == nil {
 		return true
@@ -443,7 +443,7 @@ func stringMatchEqual(stringMatch, stringMatchDest *istiov1beta1.StringMatch) bo
 }
 
 func gatewaysEqual(matchRequest, matchRequestDest *istiov1beta1.HTTPMatchRequest) bool {
-	return equality.Semantic.DeepEqual(matchRequest.Gateways, matchRequestDest.Gateways)
+	return equality.Semantic.DeepEqual(matchRequest.GetGateways(), matchRequestDest.GetGateways())
 }
 
 func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig,
