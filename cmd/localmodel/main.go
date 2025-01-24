@@ -21,7 +21,6 @@ import (
 	"os"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -40,7 +39,6 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme() //nolint: unused
 	setupLog = ctrl.Log.WithName("setup")
 )
 

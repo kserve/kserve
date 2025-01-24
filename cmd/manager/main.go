@@ -25,7 +25,6 @@ import (
 	istio_networking "istio.io/api/networking/v1alpha3"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -54,7 +53,6 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme() //nolint: unused
 	setupLog = ctrl.Log.WithName("setup")
 )
 

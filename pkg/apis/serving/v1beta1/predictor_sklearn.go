@@ -17,8 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"strconv"
-
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -43,67 +41,6 @@ func (k *SKLearnSpec) Default(config *InferenceServicesConfig) {
 	}
 
 	setResourceRequirementDefaults(config, &k.Resources)
-}
-
-// nolint: unused
-func (k *SKLearnSpec) getEnvVarsV2() []v1.EnvVar {
-	vars := []v1.EnvVar{
-		{
-			Name:  constants.MLServerHTTPPortEnv,
-			Value: strconv.Itoa(int(constants.MLServerISRestPort)),
-		},
-		{
-			Name:  constants.MLServerGRPCPortEnv,
-			Value: strconv.Itoa(int(constants.MLServerISGRPCPort)),
-		},
-		{
-			Name:  constants.MLServerModelsDirEnv,
-			Value: constants.DefaultModelLocalMountPath,
-		},
-	}
-
-	if k.StorageURI == nil {
-		vars = append(
-			vars,
-			v1.EnvVar{
-				Name:  constants.MLServerLoadModelsStartupEnv,
-				Value: strconv.FormatBool(false),
-			},
-		)
-	}
-
-	return vars
-}
-
-// nolint: unused
-func (k *SKLearnSpec) getDefaultsV2(metadata metav1.ObjectMeta) []v1.EnvVar {
-	// These env vars set default parameters that can always be overridden
-	// individually through `model-settings.json` config files.
-	// These will be used as fallbacks for any missing properties and / or to run
-	// without a `model-settings.json` file in place.
-	vars := []v1.EnvVar{
-		{
-			Name:  constants.MLServerModelImplementationEnv,
-			Value: constants.MLServerSKLearnImplementation,
-		},
-	}
-
-	if k.StorageURI != nil {
-		// These env vars only make sense as a default for non-MMS servers
-		vars = append(
-			vars,
-			v1.EnvVar{
-				Name:  constants.MLServerModelNameEnv,
-				Value: metadata.Name,
-			},
-			v1.EnvVar{
-				Name:  constants.MLServerModelURIEnv,
-				Value: constants.DefaultModelLocalMountPath,
-			},
-		)
-	}
-
-	return vars
 }
 
 func (k *SKLearnSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {

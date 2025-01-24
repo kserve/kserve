@@ -17,7 +17,6 @@ limitations under the License.
 package agent
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -95,14 +94,6 @@ func (d *Downloader) download(modelName string, storageUri string) error {
 		return errors.Wrapf(err, "failed to download model")
 	}
 	return nil
-}
-
-// nolint: unused
-func hash(s string) string {
-	src := []byte(s)
-	dst := make([]byte, hex.EncodedLen(len(src)))
-	hex.Encode(dst, src)
-	return string(dst)
 }
 
 func extractProtocol(storageURI string) (storage.Protocol, error) {

@@ -191,7 +191,8 @@ linters:
     # Finds wasted assignment statements.
     - wastedassign
 
-    - unused
+    # Whitespace is a linter that checks for unnecessary newlines at the start
+    # and end of functions, if, for, etc.
     - whitespace
 
 linters-settings:

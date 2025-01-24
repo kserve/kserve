@@ -529,11 +529,6 @@ func getEnvOrDefault(key string, fallback string) string {
 	return fallback
 }
 
-// nolint: unused
-func isEnvVarMatched(envVar, matchtedValue string) bool {
-	return getEnvOrDefault(envVar, "") == matchtedValue
-}
-
 func InferenceServiceURL(scheme, name, namespace, domain string) string {
 	return fmt.Sprintf("%s://%s.%s.%s%s", scheme, name, namespace, domain, InferenceServicePrefix(name))
 }

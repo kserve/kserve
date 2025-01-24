@@ -33,7 +33,6 @@ func StartDispatcher(nworkers int, logger *zap.SugaredLogger) {
 		worker.Start()
 	}
 
-	// nolint: gosimple
 	go func() {
 		for {
 			select {
