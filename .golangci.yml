@@ -188,6 +188,9 @@ linters:
     # Go standard library.
     - usestdlibvars
 
+    # Finds wasted assignment statements.
+    - wastedassign
+
     - unused
     - whitespace
 

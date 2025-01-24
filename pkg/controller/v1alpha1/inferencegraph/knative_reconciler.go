@@ -146,10 +146,6 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.Infer
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
-	labels := componentMeta.GetLabels()
-	if labels == nil {
-		labels = make(map[string]string) //nolint:ineffassign, staticcheck
-	}
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
@@ -167,7 +163,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.Infer
 		delete(annotations, constants.KnativeOpenshiftEnablePassthroughKey)
 	}
 
-	labels = utils.Filter(componentMeta.Labels, func(key string) bool {
+	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
 		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
 	})
 	labels[constants.InferenceGraphLabel] = componentMeta.Name
