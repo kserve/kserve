@@ -267,7 +267,8 @@ var _ = Describe("LocalModelNode controller", func() {
 		})
 		It("Should recreate download jobs if the model is missing from local disk", func() {
 			fsMock.clear()
-
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
@@ -275,8 +276,8 @@ var _ = Describe("LocalModelNode controller", func() {
 				},
 				Data: configs,
 			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
 
 			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
 				ObjectMeta: metav1.ObjectMeta{
@@ -353,6 +354,8 @@ var _ = Describe("LocalModelNode controller", func() {
 			}, timeout, interval).Should(BeTrue(), "New job should be created")
 		})
 		It("Should delete models from local disk if the model is not in the spec", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			fsMock.clear()
 			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -395,6 +398,8 @@ var _ = Describe("LocalModelNode controller", func() {
 		})
 		// This test creates a LocalModelNode with a model, then deletes the model from the spec and checks if the job is deleted
 		It("Should delete jobs if the model is not present", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			fsMock.clear()
 			configMap := &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{

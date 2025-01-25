@@ -1304,6 +1304,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 	Context("When creating an inference service with a ServingRuntime which does not exists", func() {
 		It("Should fail with reason RuntimeNotRecognized", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			serviceName := "svc-with-unknown-servingruntime"
 			servingRuntimeName := "tf-serving-unknown"
 			namespace := "default"
@@ -1373,6 +1375,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 	Context("When creating an inference service with a ServingRuntime which is disabled", func() {
 		It("Should fail with reason RuntimeDisabled", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			serviceName := "svc-with-disabled-servingruntime"
 			servingRuntimeName := "tf-serving-disabled"
 			namespace := "default"
@@ -1478,6 +1482,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 	Context("When creating an inference service with a ServingRuntime which does not support specified model format", func() {
 		It("Should fail with reason NoSupportingRuntime", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			serviceName := "svc-with-unsupported-servingruntime"
 			servingRuntimeName := "tf-serving-unsupported"
 			namespace := "default"
@@ -1652,7 +1658,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: proto.Bool(false),
 				},
 			}
-			Expect(k8sClient.Create(ctx, servingRuntime)).NotTo(HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
 			return servingRuntime
 		}
 
@@ -1670,6 +1676,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		}
 
 		It("should have the readonly annotation set to true in the knative serving pod spec", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			configMap := createInferenceServiceConfigMap()
 			defer k8sClient.Delete(ctx, configMap)
 
@@ -1704,6 +1712,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 
 		It("should have the readonly annotation set to false in the knative serving pod spec", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			configMap := createInferenceServiceConfigMap()
 			defer k8sClient.Delete(ctx, configMap)
 
@@ -1740,6 +1750,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 	Context("When creating an inference service with invalid Storage URI", func() {
 		It("Should fail with reason ModelLoadFailed", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			serviceName := "servingruntime-test"
 			servingRuntimeName := "tf-serving"
 			namespace := "default"

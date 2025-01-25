@@ -32,7 +32,6 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -51,10 +50,6 @@ import (
 var (
 	cfg       *rest.Config
 	k8sClient client.Client
-	testEnv   *envtest.Environment
-	cancel    context.CancelFunc
-	ctx       context.Context
-	clientset kubernetes.Interface
 )
 
 func TestAPIs(t *testing.T) {
@@ -65,16 +60,23 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-	ctx, cancel = context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(context.TODO())
 	By("bootstrapping test environment")
 	crdDirectoryPaths := []string{
 		filepath.Join("..", "..", "..", "..", "test", "crds"),
 	}
-	testEnv = pkgtest.SetupEnvTest(crdDirectoryPaths)
+	testEnv := pkgtest.SetupEnvTest(crdDirectoryPaths)
 	var err error
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
+
+	DeferCleanup(func() {
+		cancel()
+		By("tearing down the test environment")
+		err := testEnv.Stop()
+		Expect(err).ToNot(HaveOccurred())
+	})
 
 	err = kfservingv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -88,7 +90,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
 
-	clientset, err = kubernetes.NewForConfig(cfg)
+	clientset, err := kubernetes.NewForConfig(cfg)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(clientset).ToNot(BeNil())
 
@@ -124,11 +126,4 @@ var _ = BeforeSuite(func() {
 
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
-})
-
-var _ = AfterSuite(func() {
-	cancel()
-	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).ToNot(HaveOccurred())
 })

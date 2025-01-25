@@ -2182,7 +2182,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 	Context("When creating inference service with raw kube predictor with workerSpec", func() {
 		var (
-			ctx        context.Context
 			serviceKey types.NamespacedName
 			storageUri string
 			isvc       *v1beta1.InferenceService
@@ -2193,7 +2192,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		actualWorkerDeployment := &appsv1.Deployment{}
 
 		BeforeEach(func() {
-			ctx = context.Background()
+			ctx := context.Background()
 			storageUri = "pvc://llama-3-8b-pvc/hf/8b_instruction_tuned"
 
 			// Create a ConfigMap
@@ -2254,8 +2253,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					WorkerSpec: &v1alpha1.WorkerSpec{
-						PipelineParallelSize: intPtr(2),
-						TensorParallelSize:   intPtr(1),
+						PipelineParallelSize: utils.ToPointer(2),
+						TensorParallelSize:   utils.ToPointer(1),
 						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 							Containers: []v1.Container{
 								{
@@ -2279,6 +2278,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			})
 		})
 		It("Should have services/deployments for head/worker without an autoscaler when workerSpec is set in isvc", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			By("creating a new InferenceService")
 			isvcName := "raw-huggingface-multinode-1"
 			predictorDeploymentName := constants.PredictorServiceName(isvcName)
@@ -2330,7 +2331,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// Verify deployments details
-			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "2", int32Ptr(1))
+			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "2", utils.ToPointer(int32(1)))
 
 			// Check Services
 			actualService := &v1.Service{}
@@ -2374,6 +2375,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).Should(Succeed())
 		})
 		It("Should use WorkerSpec.PipelineParallelSize value in isvc when it is set", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			By("By creating a new InferenceService")
 			isvcName := "raw-huggingface-multinode-4"
 			predictorDeploymentName := constants.PredictorServiceName(isvcName)
@@ -2400,7 +2403,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						WorkerSpec: &v1beta1.WorkerSpec{
-							PipelineParallelSize: intPtr(3),
+							PipelineParallelSize: utils.ToPointer(3),
 						},
 					},
 				},
@@ -2427,9 +2430,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// Verify deployments details
-			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", int32Ptr(2))
+			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", utils.ToPointer(int32(2)))
 		})
 		It("Should use WorkerSpec.TensorParallelSize value in isvc when it is set", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			By("creating a new InferenceService")
 			isvcName := "raw-huggingface-multinode-5"
 			predictorDeploymentName := constants.PredictorServiceName(isvcName)
@@ -2457,7 +2462,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						WorkerSpec: &v1beta1.WorkerSpec{
-							TensorParallelSize: intPtr(3),
+							TensorParallelSize: utils.ToPointer(3),
 						},
 					},
 				},
@@ -2481,6 +2486,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			verifyTensorParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", constants.NvidiaGPUResourceType)
 		})
 		It("Should not set nil to replicas when multinode isvc(external autoscaler) is updated", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			By("creating a new InferenceService")
 			isvcName := "raw-huggingface-multinode-6"
 			predictorDeploymentName := constants.PredictorServiceName(isvcName)
@@ -2508,7 +2515,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						WorkerSpec: &v1beta1.WorkerSpec{
-							PipelineParallelSize: intPtr(3),
+							PipelineParallelSize: utils.ToPointer(3),
 						},
 					},
 				},
@@ -2529,7 +2536,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// Verify deployments details
-			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", int32Ptr(2))
+			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", utils.ToPointer(int32(2)))
 
 			// Update a infereceService
 			By("updating the InferenceService")
@@ -2594,12 +2601,4 @@ func verifyTensorParallelSizeDeployments(actualDefaultDeployment *appsv1.Deploym
 	// worker node deployment
 	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[gpuResourceType]).Should(Equal(gpuResourceQuantity))
 	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[gpuResourceType]).Should(Equal(gpuResourceQuantity))
-}
-
-func int32Ptr(i int32) *int32 {
-	return &i
-}
-
-func intPtr(i int) *int {
-	return &i
 }

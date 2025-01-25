@@ -36,6 +36,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ = Describe("CachedModel controller", func() {
@@ -114,18 +115,23 @@ var _ = Describe("CachedModel controller", func() {
 			nodeGroup               *v1alpha1.LocalModelNodeGroup
 		)
 		BeforeEach(func() {
-			configMap, clusterStorageContainer, nodeGroup = genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
+			ctx, cancel := context.WithCancel(context.Background())
+			configMap, clusterStorageContainer, nodeGroup = genericSetup(ctx, configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 			initializeManager(ctx, cfg)
-		})
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, nodeGroup)
+				k8sClient.Delete(ctx, clusterStorageContainer)
+				k8sClient.Delete(ctx, configMap)
 
-		AfterEach(func() {
-			defer k8sClient.Delete(ctx, configMap)
-			defer k8sClient.Delete(ctx, clusterStorageContainer)
-			defer k8sClient.Delete(ctx, nodeGroup)
+				By("canceling the context")
+				cancel()
+			})
 		})
 
 		It("Should create pv, pvc, localmodelnode, and update status from localmodelnode", func() {
 			defer GinkgoRecover()
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			configMap := &v1.ConfigMap{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
 			Expect(err).ToNot(HaveOccurred(), "InferenceService ConfigMap should exist")
@@ -220,6 +226,8 @@ var _ = Describe("CachedModel controller", func() {
 
 		It("Should create pvs and pvcs for inference services", func() {
 			defer GinkgoRecover()
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			modelName := "iris2"
 			isvcNamespace := "default"
 			isvcName := "foo"
@@ -327,7 +335,9 @@ var _ = Describe("CachedModel controller", func() {
 			clusterStorageContainer *v1alpha1.ClusterStorageContainer
 			nodeGroup               *v1alpha1.LocalModelNodeGroup
 		)
+
 		BeforeEach(func() {
+			ctx, cancel := context.WithCancel(context.Background())
 			configs = map[string]string{
 				"localModel": `{
 					"jobNamespace": "kserve-localmodel-jobs",
@@ -335,18 +345,22 @@ var _ = Describe("CachedModel controller", func() {
 					"disableVolumeManagement": true
 				}`,
 			}
-			configMap, clusterStorageContainer, nodeGroup = genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
+			configMap, clusterStorageContainer, nodeGroup = genericSetup(ctx, configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 			initializeManager(ctx, cfg)
-		})
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, nodeGroup)
+				k8sClient.Delete(ctx, clusterStorageContainer)
+				k8sClient.Delete(ctx, configMap)
 
-		AfterEach(func() {
-			defer k8sClient.Delete(ctx, configMap)
-			defer k8sClient.Delete(ctx, clusterStorageContainer)
-			defer k8sClient.Delete(ctx, nodeGroup)
+				By("canceling the context")
+				cancel()
+			})
 		})
 
 		It("Should NOT create/delete pvs and pvcs if localmodel config value DisableVolumeManagement is true", func() {
 			defer GinkgoRecover()
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			testNamespace := "test-namespace"
 			namespaceObj := createTestNamespace(ctx, testNamespace)
 			defer k8sClient.Delete(ctx, namespaceObj)
@@ -402,20 +416,25 @@ var _ = Describe("CachedModel controller", func() {
 			}
 		)
 		BeforeEach(func() {
-			configMap, clusterStorageContainer, nodeGroup = genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
+			ctx, cancel := context.WithCancel(context.TODO())
+			configMap, clusterStorageContainer, nodeGroup = genericSetup(ctx, configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
 
 			initializeManager(ctx, cfg)
-		})
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, nodeGroup)
+				k8sClient.Delete(ctx, clusterStorageContainer)
+				k8sClient.Delete(ctx, configMap)
 
-		AfterEach(func() {
-			defer k8sClient.Delete(ctx, configMap)
-			defer k8sClient.Delete(ctx, clusterStorageContainer)
-			defer k8sClient.Delete(ctx, nodeGroup)
+				By("canceling the context")
+				cancel()
+			})
 		})
 
 		// With two nodes and two local models, each node should have both local models
 		It("Should create localModelNode correctly", func() {
 			defer GinkgoRecover()
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 
 			node1 := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
@@ -504,10 +523,6 @@ var _ = Describe("CachedModel controller", func() {
 	})
 })
 
-func ptrToBool(b bool) *bool {
-	return &b
-}
-
 func createTestNamespace(ctx context.Context, name string) *v1.Namespace {
 	namespace := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -528,7 +543,7 @@ func createTestPV(ctx context.Context, pvName string, cachedModel *v1alpha1.Loca
 					Kind:       "LocalModelCache",
 					Name:       cachedModel.Name,
 					UID:        cachedModel.UID,
-					Controller: ptrToBool(true),
+					Controller: utils.ToPointer(true),
 				},
 			},
 		},
@@ -560,7 +575,7 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 					Kind:       "LocalModelCache",
 					Name:       cachedModel.Name,
 					UID:        cachedModel.UID,
-					Controller: ptrToBool(true),
+					Controller: utils.ToPointer(true),
 				},
 			},
 		},
@@ -578,7 +593,7 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 	return pvc
 }
 
-func genericSetup(configs map[string]string, clusterStorageContainerSpec v1alpha1.StorageContainerSpec, localModelNodeGroupSpec v1alpha1.LocalModelNodeGroupSpec) (*v1.ConfigMap, *v1alpha1.ClusterStorageContainer, *v1alpha1.LocalModelNodeGroup) {
+func genericSetup(ctx context.Context, configs map[string]string, clusterStorageContainerSpec v1alpha1.StorageContainerSpec, localModelNodeGroupSpec v1alpha1.LocalModelNodeGroupSpec) (*v1.ConfigMap, *v1alpha1.ClusterStorageContainer, *v1alpha1.LocalModelNodeGroup) {
 	configMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.InferenceServiceConfigMapName,
@@ -586,7 +601,7 @@ func genericSetup(configs map[string]string, clusterStorageContainerSpec v1alpha
 		},
 		Data: configs,
 	}
-	Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+	Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
 
 	clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
 		ObjectMeta: metav1.ObjectMeta{

@@ -71,9 +71,8 @@ linters:
     # Detects functions from golang.org/x/exp/ that can be replaced by std functions.
     - exptostd
 
-    # TODO: Do it later
-    # # Detects nested contexts in loops. https://gabnotes.org/fat-contexts/
-    # - fatcontext
+    # Detects nested contexts in loops. https://gabnotes.org/fat-contexts/
+    - fatcontext
 
     # Enforces standards of using ginkgo and gomega.
     - ginkgolinter

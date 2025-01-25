@@ -24,20 +24,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	kfservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
@@ -49,43 +46,45 @@ import (
 var (
 	cfg       *rest.Config
 	k8sClient client.Client
-	testEnv   *envtest.Environment
-	cancel    context.CancelFunc
-	ctx       context.Context
-	clientset kubernetes.Interface
 )
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "inferencegraph Controller Suite")
+	RunSpecs(t, "InferenceGraph Controller Suite")
 }
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-	ctx, cancel = context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(context.Background())
 	By("bootstrapping test environment")
 	crdDirectoryPaths := []string{
 		filepath.Join("..", "..", "..", "..", "test", "crds"),
 	}
-	testEnv = pkgtest.SetupEnvTest(crdDirectoryPaths)
-	cfg, err := testEnv.Start()
+	testEnv := pkgtest.SetupEnvTest(crdDirectoryPaths)
+	var err error
+	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	err = kfservingv1alpha1.AddToScheme(scheme.Scheme)
+	DeferCleanup(func() {
+		By("canceling the context")
+		cancel()
+
+		By("tearing down the test environment")
+		err := testEnv.Stop()
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	err = v1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = v1beta1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = knservingv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = netv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
 
-	clientset, err = kubernetes.NewForConfig(cfg)
+	clientset, err := kubernetes.NewForConfig(cfg)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(clientset).ToNot(BeNil())
 
@@ -116,6 +115,7 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager, deployConfig)
 	Expect(err).ToNot(HaveOccurred())
 
+	// Start the manager in a separate goroutine
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -124,11 +124,4 @@ var _ = BeforeSuite(func() {
 
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
-})
-
-var _ = AfterSuite(func() {
-	cancel()
-	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).ToNot(HaveOccurred())
 })
