@@ -5,7 +5,8 @@ metadata:
   namespace: kserve
 data:
   ingress: |-
-    { 
+    {  
+       "enableGatewayApi": true,
        "kserveIngressGateway": "kserve/kserve-ingress-gateway",
        "ingressGateway" : "knative-serving/knative-ingress-gateway",
        "localGateway" : "knative-serving/knative-local-gateway",
@@ -14,5 +15,5 @@ data:
        "ingressClassName" : "istio",
        "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
        "urlScheme": "http",
-       "disableIstioVirtualHost": true
+       "disableIstioVirtualHost": false
     }
