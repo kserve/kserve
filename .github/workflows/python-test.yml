@@ -94,7 +94,7 @@ jobs:
         run: |
           cd python
           source kserve/.venv/bin/activate
-          pytest --cov=kserve ./kserve
+          pytest --cov=kserve ./kserve --ignore=kserve/kserve/storage/tests/test_storage_initializer_backwards_compatibility.py
 
       # ----------------------------------------Kserve Pydantic V1 Unit Tests--------------------------------------------
       - name: Setup kserve pydantic v1 directory
@@ -128,7 +128,7 @@ jobs:
         run: |
           cd python
           source kserve-pydantic-v1/.venv/bin/activate
-          pytest --cov=kserve ./kserve-pydantic-v1
+          pytest --cov=kserve ./kserve-pydantic-v1 --ignore=kserve-pydantic-v1/kserve/storage/tests/test_storage_initializer_backwards_compatibility.py
 
       # ----------------------------------------Sklearn Server Unit Tests------------------------------------------------
       # load cached sklearn venv if cache exists

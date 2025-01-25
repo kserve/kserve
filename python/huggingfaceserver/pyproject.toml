@@ -9,7 +9,8 @@ packages = [{ include = "huggingfaceserver" }]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
-kserve = { path = "../kserve", extras = ["storage"], develop = true }
+storage = { path = "../storage", develop = true }
+kserve = { path = "../kserve", develop = true }
 transformers = ">=4.45.0"
 accelerate = "~0.32.0"
 torch = "~2.5.0"
