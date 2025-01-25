@@ -16,10 +16,10 @@ limitations under the License.
 
 package s3
 
-import v1 "k8s.io/api/core/v1"
+import corev1 "k8s.io/api/core/v1"
 
-func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvVar {
-	envs := []v1.EnvVar{}
+func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []corev1.EnvVar {
+	envs := []corev1.EnvVar{}
 
 	if s3Endpoint, ok := annotations[InferenceServiceS3SecretEndpointAnnotation]; ok {
 		s3EndpointUrl := "https://" + s3Endpoint
@@ -27,16 +27,16 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 			if s3UseHttps == "0" {
 				s3EndpointUrl = "http://" + annotations[InferenceServiceS3SecretEndpointAnnotation]
 			}
-			envs = append(envs, v1.EnvVar{
+			envs = append(envs, corev1.EnvVar{
 				Name:  S3UseHttps,
 				Value: s3UseHttps,
 			})
 		}
-		envs = append(envs, v1.EnvVar{
+		envs = append(envs, corev1.EnvVar{
 			Name:  S3Endpoint,
 			Value: s3Endpoint,
 		})
-		envs = append(envs, v1.EnvVar{
+		envs = append(envs, corev1.EnvVar{
 			Name:  AWSEndpointUrl,
 			Value: s3EndpointUrl,
 		})
@@ -44,16 +44,16 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		s3EndpointUrl := "https://" + s3Config.S3Endpoint
 		if s3Config.S3UseHttps == "0" {
 			s3EndpointUrl = "http://" + s3Config.S3Endpoint
-			envs = append(envs, v1.EnvVar{
+			envs = append(envs, corev1.EnvVar{
 				Name:  S3UseHttps,
 				Value: s3Config.S3UseHttps,
 			})
 		}
-		envs = append(envs, v1.EnvVar{
+		envs = append(envs, corev1.EnvVar{
 			Name:  S3Endpoint,
 			Value: s3Config.S3Endpoint,
 		})
-		envs = append(envs, v1.EnvVar{
+		envs = append(envs, corev1.EnvVar{
 			Name:  AWSEndpointUrl,
 			Value: s3EndpointUrl,
 		})
@@ -65,7 +65,7 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		verifySsl = s3Config.S3VerifySSL
 	}
 	if verifySsl != "" {
-		envs = append(envs, v1.EnvVar{
+		envs = append(envs, corev1.EnvVar{
 			Name:  S3VerifySSL,
 			Value: verifySsl,
 		})
@@ -76,7 +76,7 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		useAnonymousCredential = s3Config.S3UseAnonymousCredential
 	}
 	if useAnonymousCredential != "" {
-		envs = append(envs, v1.EnvVar{
+		envs = append(envs, corev1.EnvVar{
 			Name:  AWSAnonymousCredential,
 			Value: useAnonymousCredential,
 		})
@@ -87,7 +87,7 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		s3Region = s3Config.S3Region
 	}
 	if s3Region != "" {
-		envs = append(envs, v1.EnvVar{
+		envs = append(envs, corev1.EnvVar{
 			Name:  AWSRegion,
 			Value: s3Region,
 		})
@@ -98,7 +98,7 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		useVirtualBucket = s3Config.S3UseVirtualBucket
 	}
 	if useVirtualBucket != "" {
-		envs = append(envs, v1.EnvVar{
+		envs = append(envs, corev1.EnvVar{
 			Name:  S3UseVirtualBucket,
 			Value: useVirtualBucket,
 		})
@@ -109,7 +109,7 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		useAccelerate = s3Config.S3UseAccelerate
 	}
 	if useAccelerate != "" {
-		envs = append(envs, v1.EnvVar{
+		envs = append(envs, corev1.EnvVar{
 			Name:  S3UseAccelerate,
 			Value: useAccelerate,
 		})
@@ -120,7 +120,7 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		customCABundle = s3Config.S3CABundle
 	}
 	if customCABundle != "" {
-		envs = append(envs, v1.EnvVar{
+		envs = append(envs, corev1.EnvVar{
 			Name:  AWSCABundle,
 			Value: customCABundle,
 		})
@@ -131,7 +131,7 @@ func BuildS3EnvVars(annotations map[string]string, s3Config *S3Config) []v1.EnvV
 		customCABundleConfigMap = s3Config.S3CABundleConfigMap
 	}
 	if customCABundleConfigMap != "" {
-		envs = append(envs, v1.EnvVar{
+		envs = append(envs, corev1.EnvVar{
 			Name:  AWSCABundleConfigMap,
 			Value: customCABundleConfigMap,
 		})

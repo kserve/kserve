@@ -19,16 +19,19 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/stretchr/testify/assert"
 	"io"
-	"knative.dev/pkg/apis"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"knative.dev/pkg/apis"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"testing"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
 func init() {
@@ -44,7 +47,13 @@ func TestSimpleModelChainer(t *testing.T) {
 		}
 		response := map[string]interface{}{"predictions": "1"}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model1Url, err := apis.ParseURL(model1.URL)
 	if err != nil {
@@ -58,7 +67,13 @@ func TestSimpleModelChainer(t *testing.T) {
 		}
 		response := map[string]interface{}{"predictions": "2"}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model2Url, err := apis.ParseURL(model2.URL)
 	if err != nil {
@@ -100,8 +115,14 @@ func TestSimpleModelChainer(t *testing.T) {
 	}
 
 	res, _, err := routeStep("root", graphSpec, jsonBytes, headers)
+	if err != nil {
+		t.Fatalf("routeStep failed: %v", err)
+	}
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
+	if err != nil {
+		t.Fatalf("json.Unmarshal failed: %v", err)
+	}
 	expectedResponse := map[string]interface{}{
 		"predictions": "2",
 	}
@@ -118,7 +139,13 @@ func TestSimpleModelEnsemble(t *testing.T) {
 		}
 		response := map[string]interface{}{"predictions": "1"}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model1Url, err := apis.ParseURL(model1.URL)
 	if err != nil {
@@ -128,11 +155,17 @@ func TestSimpleModelEnsemble(t *testing.T) {
 	model2 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		_, err := io.ReadAll(req.Body)
 		if err != nil {
-			return
+			t.Fatalf("failed to read request body: %v", err)
 		}
 		response := map[string]interface{}{"predictions": "2"}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model2Url, err := apis.ParseURL(model2.URL)
 	if err != nil {
@@ -172,8 +205,14 @@ func TestSimpleModelEnsemble(t *testing.T) {
 		"Authorization": {"Bearer Token"},
 	}
 	res, _, err := routeStep("root", graphSpec, jsonBytes, headers)
+	if err != nil {
+		t.Fatalf("routeStep failed: %v", err)
+	}
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
+	if err != nil {
+		t.Fatalf("json.Unmarshal failed: %v", err)
+	}
 	expectedResponse := map[string]interface{}{
 		"model1": map[string]interface{}{
 			"predictions": "1",
@@ -204,7 +243,13 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 			},
 		}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model1Url, err := apis.ParseURL(model1.URL)
 	if err != nil {
@@ -227,7 +272,13 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 			},
 		}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model2Url, err := apis.ParseURL(model2.URL)
 	if err != nil {
@@ -252,7 +303,16 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 			},
 		}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model3Url, err := apis.ParseURL(model3.URL)
 	if err != nil {
@@ -275,7 +335,13 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 			},
 		}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model4Url, err := apis.ParseURL(model4.URL)
 	if err != nil {
@@ -351,8 +417,14 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 		"Authorization": {"Bearer Token"},
 	}
 	res, _, err := routeStep("root", graphSpec, jsonBytes, headers)
+	if err != nil {
+		t.Fatalf("routeStep failed: %v", err)
+	}
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
+	if err != nil {
+		t.Fatalf("json.Unmarshal failed: %v", err)
+	}
 	expectedModel3Response := map[string]interface{}{
 		"predictions": []interface{}{
 			map[string]interface{}{
@@ -399,7 +471,13 @@ func TestCallServiceWhenNoneHeadersToPropagateIsEmpty(t *testing.T) {
 			}
 		}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model1Url, err := apis.ParseURL(model1.URL)
 	if err != nil {
@@ -421,8 +499,14 @@ func TestCallServiceWhenNoneHeadersToPropagateIsEmpty(t *testing.T) {
 	// Propagating no header
 	compiledHeaderPatterns = []*regexp.Regexp{}
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
+	if err != nil {
+		t.Fatalf("callService failed: %v", err)
+	}
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
+	if err != nil {
+		t.Fatalf("json.Unmarshal failed: %v", err)
+	}
 	expectedResponse := map[string]interface{}{
 		"predictions": "1",
 	}
@@ -450,7 +534,13 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 			}
 		}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model1Url, err := apis.ParseURL(model1.URL)
 	if err != nil {
@@ -472,11 +562,17 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 	// Propagating only 1 header "Test-Header-Key"
 	headersToPropagate := []string{"Test-Header-Key"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
+	if err != nil {
+		t.Fatalf("callService failed: %v", err)
+	}
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
+	if err != nil {
+		t.Fatalf("json.Unmarshal failed: %v", err)
+	}
 	expectedResponse := map[string]interface{}{
 		"predictions":     "1",
 		"Test-Header-Key": "Test-Header-Value",
@@ -505,7 +601,13 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 			}
 		}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model1Url, err := apis.ParseURL(model1.URL)
 	if err != nil {
@@ -527,11 +629,17 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 	// Propagating multiple headers "Test-Header-Key"
 	headersToPropagate := []string{"Test-Header-Key", "Authorization"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
+	if err != nil {
+		t.Fatalf("callService failed: %v", err)
+	}
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
+	if err != nil {
+		t.Fatalf("json.Unmarshal failed: %v", err)
+	}
 	expectedResponse := map[string]interface{}{
 		"predictions":     "1",
 		"Test-Header-Key": "Test-Header-Value",
@@ -569,7 +677,13 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 			}
 		}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model1Url, err := apis.ParseURL(model1.URL)
 	if err != nil {
@@ -593,11 +707,17 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 	// Propagating multiple headers "Test-Header-Key"
 	headersToPropagate := []string{"Test-Header-*", "Auth*"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
+	if err != nil {
+		t.Fatalf("callService failed: %v", err)
+	}
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
+	if err != nil {
+		t.Fatalf("json.Unmarshal failed: %v", err)
+	}
 	expectedResponse := map[string]interface{}{
 		"predictions":   "1",
 		"Test-Header-1": "Test-Header-1",
@@ -629,7 +749,13 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 			}
 		}
 		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
 		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
 	}))
 	model1Url, err := apis.ParseURL(model1.URL)
 	if err != nil {
@@ -653,11 +779,17 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 	// Using invalid regex pattern
 	headersToPropagate := []string{"Test-Header-[0-9", "Auth*"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
-	assert.NotNil(t, err)
+	require.Error(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
+	if err != nil {
+		t.Fatalf("callService failed: %v", err)
+	}
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
+	if err != nil {
+		t.Fatalf("json.Unmarshal failed: %v", err)
+	}
 	// Invalid pattern should be ignored.
 	expectedResponse := map[string]interface{}{
 		"predictions":   "1",

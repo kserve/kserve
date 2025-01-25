@@ -17,7 +17,7 @@ limitations under the License.
 package s3
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 /*
@@ -26,8 +26,8 @@ AWS Cli: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.
 Boto: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#using-environment-variables
 */
 
-func BuildServiceAccountEnvs(serviceAccount *v1.ServiceAccount, s3Config *S3Config) []v1.EnvVar {
-	envs := []v1.EnvVar{}
+func BuildServiceAccountEnvs(serviceAccount *corev1.ServiceAccount, s3Config *S3Config) []corev1.EnvVar {
+	envs := []corev1.EnvVar{}
 
 	envs = append(envs, BuildS3EnvVars(serviceAccount.Annotations, s3Config)...)
 

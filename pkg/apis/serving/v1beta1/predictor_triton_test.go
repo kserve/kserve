@@ -23,11 +23,12 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestTritonValidation(t *testing.T) {
@@ -62,9 +63,9 @@ func TestTritonValidation(t *testing.T) {
 func TestTritonDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	defaultResource := v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
+	defaultResource := corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("1"),
+		corev1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 	config := &InferenceServicesConfig{
 		Resource: ResourceConfig{
@@ -90,9 +91,9 @@ func TestTritonDefaulter(t *testing.T) {
 				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion: proto.String("20.05-py3"),
-						Container: v1.Container{
+						Container: corev1.Container{
 							Name: constants.InferenceServiceContainerName,
-							Resources: v1.ResourceRequirements{
+							Resources: corev1.ResourceRequirements{
 								Requests: defaultResource,
 								Limits:   defaultResource,
 							},
@@ -125,12 +126,12 @@ func TestTritonSpec_GetContainer(t *testing.T) {
 				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						StorageURI: proto.String("s3://modelzoo"),
-						Container: v1.Container{
+						Container: corev1.Container{
 							Name:      constants.InferenceServiceContainerName,
 							Image:     "image:0.1",
 							Args:      nil,
 							Env:       nil,
-							Resources: v1.ResourceRequirements{},
+							Resources: corev1.ResourceRequirements{},
 						},
 					},
 				},
@@ -169,11 +170,11 @@ func TestTritonSpec_Default(t *testing.T) {
 				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						StorageURI: proto.String("s3://modelzoo"),
-						Container: v1.Container{
+						Container: corev1.Container{
 							Image:     "image:0.1",
 							Args:      nil,
 							Env:       nil,
-							Resources: v1.ResourceRequirements{},
+							Resources: corev1.ResourceRequirements{},
 						},
 					},
 				},
@@ -182,17 +183,17 @@ func TestTritonSpec_Default(t *testing.T) {
 			expected: &TritonSpec{
 				PredictorExtensionSpec: PredictorExtensionSpec{
 					StorageURI: proto.String("s3://modelzoo"),
-					Container: v1.Container{
+					Container: corev1.Container{
 						Name:  constants.InferenceServiceContainerName,
 						Image: "image:0.1",
 						Args:  nil,
 						Env:   nil,
-						Resources: v1.ResourceRequirements{
-							Limits: v1.ResourceList{
+						Resources: corev1.ResourceRequirements{
+							Limits: corev1.ResourceList{
 								"cpu":    resource.MustParse("1"),
 								"memory": resource.MustParse("2Gi"),
 							},
-							Requests: v1.ResourceList{
+							Requests: corev1.ResourceList{
 								"memory": resource.MustParse("2Gi"),
 								"cpu":    resource.MustParse("1"),
 							},
@@ -225,11 +226,11 @@ func TestTritonSpec_GetProtocol(t *testing.T) {
 				Triton: &TritonSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						StorageURI: proto.String("s3://modelzoo"),
-						Container: v1.Container{
+						Container: corev1.Container{
 							Image:     "image:0.1",
 							Args:      nil,
 							Env:       nil,
-							Resources: v1.ResourceRequirements{},
+							Resources: corev1.ResourceRequirements{},
 						},
 					},
 				},
@@ -243,11 +244,11 @@ func TestTritonSpec_GetProtocol(t *testing.T) {
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
 						StorageURI:      proto.String("s3://modelzoo"),
-						Container: v1.Container{
+						Container: corev1.Container{
 							Image:     "image:0.1",
 							Args:      nil,
 							Env:       nil,
-							Resources: v1.ResourceRequirements{},
+							Resources: corev1.ResourceRequirements{},
 						},
 					},
 				},

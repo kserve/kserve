@@ -17,6 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -24,6 +25,8 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestComponentExtensionSpec_Validate(t *testing.T) {
@@ -35,7 +38,7 @@ func TestComponentExtensionSpec_Validate(t *testing.T) {
 	}{
 		"InvalidReplica": {
 			spec: ComponentExtensionSpec{
-				MinReplicas: GetIntReference(3),
+				MinReplicas: utils.ToPointer(int32(3)),
 				MaxReplicas: 2,
 			},
 			matcher: gomega.Not(gomega.BeNil()),
@@ -149,7 +152,7 @@ func TestComponentExtensionSpec_validateLogger(t *testing.T) {
 			logger: &LoggerSpec{
 				Mode: "InvalidMode",
 			},
-			matcher: gomega.MatchError(fmt.Errorf(InvalidLoggerType)),
+			matcher: gomega.MatchError(errors.New(InvalidLoggerType)),
 		},
 		"LoggerIsNil": {
 			logger:  nil,
