@@ -27,16 +27,16 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestInferenceServiceDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	defaultResource := v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
+	defaultResource := corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("1"),
+		corev1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 	scenarios := map[string]struct {
 		config       *InferenceServicesConfig
@@ -78,9 +78,9 @@ func TestInferenceServiceDefaults(t *testing.T) {
 					},
 					Transformer: &TransformerSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "s3://transformer",
@@ -136,9 +136,9 @@ func TestInferenceServiceDefaults(t *testing.T) {
 					},
 					Transformer: &TransformerSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "s3://transformer",
@@ -194,9 +194,9 @@ func TestInferenceServiceDefaults(t *testing.T) {
 					},
 					Transformer: &TransformerSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "s3://transformer",
@@ -252,9 +252,9 @@ func TestInferenceServiceDefaults(t *testing.T) {
 					},
 					Transformer: &TransformerSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "s3://transformer",
@@ -310,9 +310,9 @@ func TestInferenceServiceDefaults(t *testing.T) {
 					},
 					Transformer: &TransformerSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "s3://transformer",
@@ -338,7 +338,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
-		resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
+		resources := corev1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 		scenario.isvc.Spec.DeepCopy()
 		scenario.isvc.DefaultInferenceService(scenario.config, scenario.deployConfig, nil, nil)
 
@@ -355,9 +355,9 @@ func TestInferenceServiceDefaults(t *testing.T) {
 }
 
 func TestCustomPredictorDefaultsConfig(t *testing.T) {
-	expectedResource := v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("2"),
-		v1.ResourceMemory: resource.MustParse("4Gi"),
+	expectedResource := corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("2"),
+		corev1.ResourceMemory: resource.MustParse("4Gi"),
 	}
 	g := gomega.NewGomegaWithT(t)
 	config := &InferenceServicesConfig{
@@ -385,9 +385,9 @@ func TestCustomPredictorDefaultsConfig(t *testing.T) {
 		Spec: InferenceServiceSpec{
 			Predictor: PredictorSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "s3://transformer",
@@ -399,7 +399,7 @@ func TestCustomPredictorDefaultsConfig(t *testing.T) {
 			},
 		},
 	}
-	resources := v1.ResourceRequirements{Requests: expectedResource, Limits: expectedResource}
+	resources := corev1.ResourceRequirements{Requests: expectedResource, Limits: expectedResource}
 	isvc.Spec.DeepCopy()
 	isvc.DefaultInferenceService(config, deployConfig, nil, nil)
 	g.Expect(isvc.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
@@ -407,9 +407,9 @@ func TestCustomPredictorDefaultsConfig(t *testing.T) {
 
 func TestCustomPredictorDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	defaultResource := v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
+	defaultResource := corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("1"),
+		corev1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 	config := &InferenceServicesConfig{
 		Explainers: ExplainersConfig{
@@ -436,9 +436,9 @@ func TestCustomPredictorDefaults(t *testing.T) {
 		Spec: InferenceServiceSpec{
 			Predictor: PredictorSpec{
 				PodSpec: PodSpec{
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "s3://transformer",
@@ -450,7 +450,7 @@ func TestCustomPredictorDefaults(t *testing.T) {
 			},
 		},
 	}
-	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
+	resources := corev1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 	isvc.Spec.DeepCopy()
 	isvc.DefaultInferenceService(config, deployConfig, nil, nil)
 	g.Expect(isvc.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
@@ -730,7 +730,7 @@ func TestMlServerDefaults(t *testing.T) {
 				},
 			},
 			matcher: map[string]types.GomegaMatcher{
-				"env": gomega.ContainElement(v1.EnvVar{
+				"env": gomega.ContainElement(corev1.EnvVar{
 					Name:  constants.MLServerLoadModelsStartupEnv,
 					Value: strconv.FormatBool(false),
 				}),
@@ -757,11 +757,11 @@ func TestMlServerDefaults(t *testing.T) {
 			},
 			matcher: map[string]types.GomegaMatcher{
 				"env": gomega.ContainElements(
-					v1.EnvVar{
+					corev1.EnvVar{
 						Name:  constants.MLServerModelNameEnv,
 						Value: "foo",
 					},
-					v1.EnvVar{
+					corev1.EnvVar{
 						Name:  constants.MLServerModelURIEnv,
 						Value: constants.DefaultModelLocalMountPath,
 					}),
@@ -788,11 +788,11 @@ func TestMlServerDefaults(t *testing.T) {
 			},
 			matcher: map[string]types.GomegaMatcher{
 				"env": gomega.ContainElements(
-					v1.EnvVar{
+					corev1.EnvVar{
 						Name:  constants.MLServerModelNameEnv,
 						Value: "foo",
 					},
-					v1.EnvVar{
+					corev1.EnvVar{
 						Name:  constants.MLServerModelURIEnv,
 						Value: constants.DefaultModelLocalMountPath,
 					}),
@@ -822,11 +822,11 @@ func TestMlServerDefaults(t *testing.T) {
 			},
 			matcher: map[string]types.GomegaMatcher{
 				"env": gomega.ContainElements(
-					v1.EnvVar{
+					corev1.EnvVar{
 						Name:  constants.MLServerModelNameEnv,
 						Value: "foo",
 					},
-					v1.EnvVar{
+					corev1.EnvVar{
 						Name:  constants.MLServerModelURIEnv,
 						Value: constants.DefaultModelLocalMountPath,
 					}),

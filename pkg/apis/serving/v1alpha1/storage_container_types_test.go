@@ -20,29 +20,29 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestStorageContainerSpec_IsStorageUriSupported(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	customSpec := StorageContainerSpec{
-		Container: v1.Container{
+		Container: corev1.Container{
 			Image: "kserve/custom:latest",
-			Resources: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
-					v1.ResourceMemory: resource.MustParse("200Mi"),
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("200Mi"),
 				},
 			},
 		},
 		SupportedUriFormats: []SupportedUriFormat{{Prefix: "custom://"}},
 	}
 	s3AzureSpec := StorageContainerSpec{
-		Container: v1.Container{
+		Container: corev1.Container{
 			Image: "kserve/storage-initializer:latest",
-			Resources: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
-					v1.ResourceMemory: resource.MustParse("200Mi"),
+			Resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("200Mi"),
 				},
 			},
 		},

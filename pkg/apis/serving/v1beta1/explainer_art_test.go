@@ -22,7 +22,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -65,13 +65,13 @@ func TestARTExplainer(t *testing.T) {
 }
 
 func TestCreateARTExplainerContainer(t *testing.T) {
-	requestedResource := v1.ResourceRequirements{
-		Limits: v1.ResourceList{
+	requestedResource := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
 			},
 		},
-		Requests: v1.ResourceList{
+		Requests: corev1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "90",
 			},
@@ -92,7 +92,7 @@ func TestCreateARTExplainerContainer(t *testing.T) {
 		Type: "SquareAttack",
 		ExplainerExtensionSpec: ExplainerExtensionSpec{
 			StorageURI: "gs://someUri",
-			Container: v1.Container{
+			Container: corev1.Container{
 				Resources: requestedResource,
 			},
 			RuntimeVersion: proto.String("0.5.0"),
@@ -100,7 +100,7 @@ func TestCreateARTExplainerContainer(t *testing.T) {
 	}
 	g := gomega.NewGomegaWithT(t)
 
-	expectedContainer := &v1.Container{
+	expectedContainer := &corev1.Container{
 		Image:     "kfserving/art-server:0.5.0",
 		Name:      constants.InferenceServiceContainerName,
 		Resources: requestedResource,
@@ -125,13 +125,13 @@ func TestCreateARTExplainerContainer(t *testing.T) {
 }
 
 func TestCreateARTExplainerContainerWithConfig(t *testing.T) {
-	requestedResource := v1.ResourceRequirements{
-		Limits: v1.ResourceList{
+	requestedResource := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
 			},
 		},
-		Requests: v1.ResourceList{
+		Requests: corev1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "90",
 			},
@@ -152,7 +152,7 @@ func TestCreateARTExplainerContainerWithConfig(t *testing.T) {
 		Type: "SquareAttack",
 		ExplainerExtensionSpec: ExplainerExtensionSpec{
 			StorageURI: "gs://someUri",
-			Container: v1.Container{
+			Container: corev1.Container{
 				Resources: requestedResource,
 			},
 			RuntimeVersion: proto.String("0.5.0"),
@@ -165,7 +165,7 @@ func TestCreateARTExplainerContainerWithConfig(t *testing.T) {
 	}
 	g := gomega.NewGomegaWithT(t)
 
-	expectedContainer := &v1.Container{
+	expectedContainer := &corev1.Container{
 		Image:     "kfserving/art-server:0.5.0",
 		Name:      constants.InferenceServiceContainerName,
 		Resources: requestedResource,

@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -36,7 +36,7 @@ type MetricsAggregator struct {
 	EnablePrometheusScraping string `json:"enablePrometheusScraping"`
 }
 
-func newMetricsAggregator(configMap *v1.ConfigMap) *MetricsAggregator {
+func newMetricsAggregator(configMap *corev1.ConfigMap) *MetricsAggregator {
 	ma := &MetricsAggregator{}
 
 	if maConfigVal, ok := configMap.Data[MetricsAggregatorConfigMapKeyName]; ok {
@@ -49,7 +49,7 @@ func newMetricsAggregator(configMap *v1.ConfigMap) *MetricsAggregator {
 	return ma
 }
 
-func setMetricAggregationEnvVarsAndPorts(pod *v1.Pod) error {
+func setMetricAggregationEnvVarsAndPorts(pod *corev1.Pod) error {
 	for i, container := range pod.Spec.Containers {
 		if container.Name == "queue-proxy" {
 			// The kserve-container prometheus port/path is inherited from the ClusterServingRuntime YAML.
@@ -66,11 +66,11 @@ func setMetricAggregationEnvVarsAndPorts(pod *v1.Pod) error {
 
 			// The kserve container port/path is set as an EnvVar in the queue-proxy container
 			// so that it knows which port/path to scrape from the kserve-container.
-			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, v1.EnvVar{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: kserveContainerPromPort})
-			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, v1.EnvVar{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: kserveContainerPromPath})
+			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, corev1.EnvVar{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: kserveContainerPromPort})
+			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, corev1.EnvVar{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: kserveContainerPromPath})
 
 			// Set the port that queue-proxy will use to expose the aggregate metrics.
-			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, v1.EnvVar{
+			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, corev1.EnvVar{
 				Name:  constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey,
 				Value: constants.QueueProxyAggregatePrometheusMetricsPort,
 			})
@@ -78,7 +78,7 @@ func setMetricAggregationEnvVarsAndPorts(pod *v1.Pod) error {
 			if err != nil {
 				return err
 			}
-			pod.Spec.Containers[i].Ports = utils.AppendPortIfNotExists(pod.Spec.Containers[i].Ports, v1.ContainerPort{
+			pod.Spec.Containers[i].Ports = utils.AppendPortIfNotExists(pod.Spec.Containers[i].Ports, corev1.ContainerPort{
 				Name:          constants.AggregateMetricsPortName,
 				ContainerPort: aggrPort,
 				Protocol:      "TCP",
@@ -90,7 +90,7 @@ func setMetricAggregationEnvVarsAndPorts(pod *v1.Pod) error {
 
 // InjectMetricsAggregator looks for the annotations to enable aggregate kserve-container and queue-proxy metrics and
 // if specified, sets port-related EnvVars in queue-proxy and the aggregate prometheus annotation.
-func (ma *MetricsAggregator) InjectMetricsAggregator(pod *v1.Pod) error {
+func (ma *MetricsAggregator) InjectMetricsAggregator(pod *corev1.Pod) error {
 	// Only set metric configs if the required annotations are set
 	enableMetricAggregation, ok := pod.ObjectMeta.Annotations[constants.EnableMetricAggregation]
 	if !ok {

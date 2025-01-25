@@ -24,7 +24,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -71,9 +71,9 @@ func NewPredictor(client client.Client, clientset kubernetes.Interface, scheme *
 
 // Reconcile observes the predictor and attempts to drive the status towards the desired state.
 func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
-	var container *v1.Container
-	var podSpec v1.PodSpec
-	var workerPodSpec *v1.PodSpec
+	var container *corev1.Container
+	var podSpec corev1.PodSpec
+	var workerPodSpec *corev1.PodSpec
 	var workerObjectMeta metav1.ObjectMeta
 	var sRuntime v1alpha1.ServingRuntimeSpec
 	var sRuntimeLabels map[string]string
@@ -203,7 +203,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 			return ctrl.Result{}, errors.New("no container configuration found in selected serving runtime")
 		}
 		var kserveContainerIdx int
-		var mergedPodSpec *v1.PodSpec
+		var mergedPodSpec *corev1.PodSpec
 		kserveContainerIdx, container, mergedPodSpec, err = isvcutils.MergeServingRuntimeAndInferenceServiceSpecs(sRuntime.Containers, isvc.Spec.Predictor.Model.Container, isvc, constants.InferenceServiceContainerName, sRuntime.ServingRuntimePodSpec, isvc.Spec.Predictor.PodSpec)
 		if err != nil {
 			return ctrl.Result{}, err
@@ -222,7 +222,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		isvcutils.UpdateImageTag(container, isvc.Spec.Predictor.Model.RuntimeVersion, isvc.Spec.Predictor.Model.Runtime)
 
 		podSpec = *mergedPodSpec
-		podSpec.Containers = []v1.Container{
+		podSpec.Containers = []corev1.Container{
 			*container,
 		}
 		podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[:kserveContainerIdx]...)
@@ -236,9 +236,9 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	} else {
 		container = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 
-		podSpec = v1.PodSpec(isvc.Spec.Predictor.PodSpec)
+		podSpec = corev1.PodSpec(isvc.Spec.Predictor.PodSpec)
 		if len(podSpec.Containers) == 0 {
-			podSpec.Containers = []v1.Container{
+			podSpec.Containers = []corev1.Container{
 				*container,
 			}
 		} else {
@@ -248,7 +248,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 
 	predictorName := constants.PredictorServiceName(isvc.Name)
 	if p.deploymentMode == constants.RawDeployment {
-		existing := &v1.Service{}
+		existing := &corev1.Service{}
 		err := p.client.Get(ctx, types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
@@ -400,10 +400,10 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	}
 }
 
-func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.InferenceService, podSpec *v1.PodSpec, annotations map[string]string, isvcGeneration string) (*v1.PodSpec, error) {
+func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.InferenceService, podSpec *corev1.PodSpec, annotations map[string]string, isvcGeneration string) (*corev1.PodSpec, error) {
 	if sRuntime.WorkerSpec == nil {
 		errMsg := "you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec"
-		isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidWorkerSpecNotSet, errMsg, v1.ConditionFalse)
+		isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidWorkerSpecNotSet, errMsg, corev1.ConditionFalse)
 		return nil, errors.New(errMsg)
 	}
 	// Check if workerSpec in ServingRuntime does not have worker containers information, it should return errors
@@ -416,11 +416,11 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 		return nil, errors.New(errMsg)
 	}
 
-	var workerContainer *v1.Container
-	var mergedWorkerPodSpec *v1.PodSpec
+	var workerContainer *corev1.Container
+	var mergedWorkerPodSpec *corev1.PodSpec
 	var err error
 
-	targetisvcContainer := v1.Container{}
+	targetisvcContainer := corev1.Container{}
 	if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
 		targetisvcContainer = isvc.Spec.Predictor.WorkerSpec.Containers[0]
 	}
@@ -439,7 +439,7 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 		sRuntime.WorkerSpec.TensorParallelSize = isvc.Spec.Predictor.WorkerSpec.TensorParallelSize
 	}
 
-	mergedWorkerPodSpec.Containers = []v1.Container{
+	mergedWorkerPodSpec.Containers = []corev1.Container{
 		*workerContainer,
 	}
 

@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 
@@ -66,7 +66,7 @@ var (
 
 func TestNewInferenceServiceConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 	})
 	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
@@ -78,7 +78,7 @@ func TestNewInferenceServiceConfig(t *testing.T) {
 
 func TestNewIngressConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 		Data: map[string]string{
 			IngressConfigKeyName: IngressConfigData,
@@ -101,7 +101,7 @@ func TestNewIngressConfig(t *testing.T) {
 
 func TestNewIngressConfigDefaultKnativeService(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 		Data: map[string]string{
 			IngressConfigKeyName: fmt.Sprintf(`{
@@ -125,7 +125,7 @@ func TestNewIngressConfigDefaultKnativeService(t *testing.T) {
 
 func TestNewDeployConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 	})
 	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
@@ -138,7 +138,7 @@ func TestNewDeployConfig(t *testing.T) {
 func TestNewServiceConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	// nothing declared
-	empty := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+	empty := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 	})
 	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), empty)
@@ -148,7 +148,7 @@ func TestNewServiceConfig(t *testing.T) {
 	g.Expect(emp).ShouldNot(gomega.BeNil())
 
 	// with value
-	withTrue := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+	withTrue := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 		Data: map[string]string{
 			ServiceConfigName: ServiceConfigData,
@@ -163,7 +163,7 @@ func TestNewServiceConfig(t *testing.T) {
 	g.Expect(wt.ServiceClusterIPNone).Should(gomega.BeTrue())
 
 	// no value, should be nil
-	noValue := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+	noValue := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 		Data: map[string]string{
 			ServiceConfigName: `{}`,
@@ -179,7 +179,7 @@ func TestNewServiceConfig(t *testing.T) {
 
 func TestInferenceServiceDisallowedLists(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 		Data: map[string]string{
 			InferenceServiceConfigKeyName: ISCVWithData,
@@ -199,7 +199,7 @@ func TestInferenceServiceDisallowedLists(t *testing.T) {
 	g.Expect(isvcConfigWithData.ServiceLabelDisallowedList).To(gomega.Equal(labels))
 
 	// with no data
-	clientsetWithoutData := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+	clientsetWithoutData := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 		Data: map[string]string{
 			InferenceServiceConfigKeyName: ISCVNoData,

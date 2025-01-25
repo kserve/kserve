@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"text/template"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -126,7 +126,7 @@ type ServiceConfig struct {
 	ServiceClusterIPNone bool `json:"serviceClusterIPNone,omitempty"`
 }
 
-func GetInferenceServiceConfigMap(ctx context.Context, clientset kubernetes.Interface) (*v1.ConfigMap, error) {
+func GetInferenceServiceConfigMap(ctx context.Context, clientset kubernetes.Interface) (*corev1.ConfigMap, error) {
 	if configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(
 		ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{}); err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func GetInferenceServiceConfigMap(ctx context.Context, clientset kubernetes.Inte
 	}
 }
 
-func NewInferenceServicesConfig(isvcConfigMap *v1.ConfigMap) (*InferenceServicesConfig, error) {
+func NewInferenceServicesConfig(isvcConfigMap *corev1.ConfigMap) (*InferenceServicesConfig, error) {
 	icfg := &InferenceServicesConfig{}
 	for _, err := range []error{
 		getComponentConfig(ExplainerConfigKeyName, isvcConfigMap, &icfg.Explainers),
@@ -169,7 +169,7 @@ func NewInferenceServicesConfig(isvcConfigMap *v1.ConfigMap) (*InferenceServices
 	return icfg, nil
 }
 
-func NewIngressConfig(isvcConfigMap *v1.ConfigMap) (*IngressConfig, error) {
+func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 	ingressConfig := &IngressConfig{}
 	if ingress, ok := isvcConfigMap.Data[IngressConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(ingress), &ingressConfig)
@@ -214,7 +214,7 @@ func NewIngressConfig(isvcConfigMap *v1.ConfigMap) (*IngressConfig, error) {
 	return ingressConfig, nil
 }
 
-func getComponentConfig(key string, configMap *v1.ConfigMap, componentConfig interface{}) error {
+func getComponentConfig(key string, configMap *corev1.ConfigMap, componentConfig interface{}) error {
 	if data, ok := configMap.Data[key]; ok {
 		err := json.Unmarshal([]byte(data), componentConfig)
 		if err != nil {
@@ -224,7 +224,7 @@ func getComponentConfig(key string, configMap *v1.ConfigMap, componentConfig int
 	return nil
 }
 
-func NewDeployConfig(isvcConfigMap *v1.ConfigMap) (*DeployConfig, error) {
+func NewDeployConfig(isvcConfigMap *corev1.ConfigMap) (*DeployConfig, error) {
 	deployConfig := &DeployConfig{}
 	if deploy, ok := isvcConfigMap.Data[DeployConfigName]; ok {
 		err := json.Unmarshal([]byte(deploy), &deployConfig)
@@ -246,7 +246,7 @@ func NewDeployConfig(isvcConfigMap *v1.ConfigMap) (*DeployConfig, error) {
 	return deployConfig, nil
 }
 
-func NewLocalModelConfig(isvcConfigMap *v1.ConfigMap) (*LocalModelConfig, error) {
+func NewLocalModelConfig(isvcConfigMap *corev1.ConfigMap) (*LocalModelConfig, error) {
 	localModelConfig := &LocalModelConfig{}
 	if localModel, ok := isvcConfigMap.Data[LocalModelConfigName]; ok {
 		err := json.Unmarshal([]byte(localModel), &localModelConfig)
@@ -257,7 +257,7 @@ func NewLocalModelConfig(isvcConfigMap *v1.ConfigMap) (*LocalModelConfig, error)
 	return localModelConfig, nil
 }
 
-func NewSecurityConfig(isvcConfigMap *v1.ConfigMap) (*SecurityConfig, error) {
+func NewSecurityConfig(isvcConfigMap *corev1.ConfigMap) (*SecurityConfig, error) {
 	securityConfig := &SecurityConfig{}
 	if security, ok := isvcConfigMap.Data[SecurityConfigName]; ok {
 		err := json.Unmarshal([]byte(security), &securityConfig)
@@ -268,7 +268,7 @@ func NewSecurityConfig(isvcConfigMap *v1.ConfigMap) (*SecurityConfig, error) {
 	return securityConfig, nil
 }
 
-func NewServiceConfig(isvcConfigMap *v1.ConfigMap) (*ServiceConfig, error) {
+func NewServiceConfig(isvcConfigMap *corev1.ConfigMap) (*ServiceConfig, error) {
 	serviceConfig := &ServiceConfig{}
 	if service, ok := isvcConfigMap.Data[ServiceConfigName]; ok {
 		err := json.Unmarshal([]byte(service), &serviceConfig)

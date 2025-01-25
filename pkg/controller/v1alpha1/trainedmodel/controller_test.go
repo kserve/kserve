@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -49,14 +49,14 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 	)
 
 	var (
-		defaultResource = v1.ResourceRequirements{
-			Limits: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse("1"),
-				v1.ResourceMemory: resource.MustParse("2Gi"),
+		defaultResource = corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
 			},
-			Requests: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse("1"),
-				v1.ResourceMemory: resource.MustParse("2Gi"),
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
 			},
 		}
 		configs = map[string]string{
@@ -80,17 +80,17 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			Conditions: duckv1.Conditions{
 				{
 					Type:               knservingv1.ServiceConditionReady,
-					Status:             v1.ConditionTrue,
+					Status:             corev1.ConditionTrue,
 					LastTransitionTime: apis.VolatileTime{Inner: metav1.NewTime(time.Now())},
 				},
 				{
 					Type:               v1beta1.PredictorReady,
-					Status:             v1.ConditionTrue,
+					Status:             corev1.ConditionTrue,
 					LastTransitionTime: apis.VolatileTime{Inner: metav1.NewTime(time.Now())},
 				},
 				{
 					Type:               v1beta1.IngressReady,
-					Status:             v1.ConditionTrue,
+					Status:             corev1.ConditionTrue,
 					LastTransitionTime: apis.VolatileTime{Inner: metav1.NewTime(time.Now())},
 				},
 			},
@@ -110,7 +110,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			// Create InferenceService configmap
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -162,8 +162,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				// Condition for IsMMSPredictor should be false as isvc is not ready
 				isMMSPredictorCondition := tmInstanceUpdate.Status.GetCondition(v1alpha1.IsMMSPredictor)
 
-				if isvcReadyCondition != nil && isvcReadyCondition.Status == v1.ConditionFalse {
-					return isMMSPredictorCondition != nil && isMMSPredictorCondition.Status == v1.ConditionFalse
+				if isvcReadyCondition != nil && isvcReadyCondition.Status == corev1.ConditionFalse {
+					return isMMSPredictorCondition != nil && isMMSPredictorCondition.Status == corev1.ConditionFalse
 				}
 
 				return false
@@ -180,7 +180,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			// Create InferenceService configmap
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -208,7 +208,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -230,7 +230,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(Succeed())
 
 			// Create modelConfig
-			modelConfig := &v1.ConfigMap{
+			modelConfig := &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{
@@ -259,9 +259,9 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), tmInstance)
 
 			// Verify that the model configmap is updated with the TrainedModel
-			configmapActual := &v1.ConfigMap{}
+			configmapActual := &corev1.ConfigMap{}
 			tmActual := &v1alpha1.TrainedModel{}
-			expected := &v1.ConfigMap{
+			expected := &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{
@@ -286,7 +286,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			// Create InferenceService configmap
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -314,7 +314,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -357,7 +357,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				},
 			}
 
-			modelConfig := &v1.ConfigMap{
+			modelConfig := &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{
@@ -404,9 +404,9 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), tmInstanceUpdate)
 
 			// Verify that the model configmap is updated with the TrainedModel
-			configmapActual := &v1.ConfigMap{}
+			configmapActual := &corev1.ConfigMap{}
 			tmActual := &v1alpha1.TrainedModel{}
-			expected := &v1.ConfigMap{
+			expected := &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{
@@ -433,7 +433,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			// Create InferenceService configmap
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -461,7 +461,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -497,7 +497,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				},
 			}
 
-			modelConfig := &v1.ConfigMap{
+			modelConfig := &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{
@@ -511,9 +511,9 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), tmInstance)
 			// tmInstanceUpdate := &v1beta1.TrainedModel{}
 			// Verify that the model configmap is updated with the new TrainedModel
-			configmapActual := &v1.ConfigMap{}
+			configmapActual := &corev1.ConfigMap{}
 			tmActual := &v1alpha1.TrainedModel{}
-			expected := &v1.ConfigMap{
+			expected := &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{
@@ -532,9 +532,9 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			defer k8sClient.Delete(context.TODO(), tmActual)
 
 			// Verify that the model is removed from the configmap
-			configmapActual = &v1.ConfigMap{}
+			configmapActual = &corev1.ConfigMap{}
 			tmActual = &v1alpha1.TrainedModel{}
-			expected = &v1.ConfigMap{
+			expected = &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{
@@ -559,7 +559,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			// Create InferenceService configmap
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -587,7 +587,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -609,7 +609,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(Succeed())
 
 			// Create modelConfig
-			modelConfig := &v1.ConfigMap{
+			modelConfig := &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{
@@ -658,9 +658,9 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}, timeout).Should(BeTrue())
 
 			// Verify that the model configmap is updated with the TrainedModel
-			configmapActual := &v1.ConfigMap{}
+			configmapActual := &corev1.ConfigMap{}
 			tmActual := &v1alpha1.TrainedModel{}
-			expected := &v1.ConfigMap{
+			expected := &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{
@@ -685,7 +685,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			tmKey := types.NamespacedName{Name: modelName, Namespace: namespace}
 
 			// Create InferenceService configmap
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -713,7 +713,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -736,7 +736,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), inferenceService)).To(Succeed())
 
 			// Create modelConfig
-			modelConfig := &v1.ConfigMap{
+			modelConfig := &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"},
 				ObjectMeta: metav1.ObjectMeta{Name: modelConfigName, Namespace: namespace},
 				Data: map[string]string{

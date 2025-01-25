@@ -21,7 +21,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func makeTestPredictorSpec() *PredictorSpec {
@@ -45,7 +45,7 @@ func TestGetPredictorImplementations(t *testing.T) {
 	implementations = spec.GetPredictorImplementations()
 	g.Expect(implementations).Should(gomega.BeEmpty())
 
-	spec.PodSpec.Containers = []v1.Container{
+	spec.PodSpec.Containers = []corev1.Container{
 		{
 			Name:  "Test-Container",
 			Image: "test/predictor",

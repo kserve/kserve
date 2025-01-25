@@ -23,7 +23,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -62,7 +62,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1, constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: tfRuntime + "-image:latest",
@@ -82,7 +82,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1, constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: sklearnRuntime + "-image:latest",
@@ -101,7 +101,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1, constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: pmmlRuntime + "-image:latest",
@@ -133,7 +133,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: pmmlRuntime + "-image:latest",
@@ -161,7 +161,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: mlserverRuntime + "-image:latest",
@@ -182,7 +182,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: sklearnRuntime + "-image:latest",
@@ -212,7 +212,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: mlserverRuntime + "-image:latest",
@@ -232,7 +232,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: mlserverRuntime + "-image:latest",
@@ -253,7 +253,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1, constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: huggingfaceMultinodeRuntime + "-image:latest",
@@ -512,7 +512,7 @@ func TestModelPredictorGetContainer(t *testing.T) {
 	}
 	scenarios := map[string]struct {
 		spec     *ModelSpec
-		expected v1.Container
+		expected corev1.Container
 	}{
 		"ContainerSpecified": {
 			spec: &ModelSpec{
@@ -521,9 +521,9 @@ func TestModelPredictorGetContainer(t *testing.T) {
 				},
 				PredictorExtensionSpec: PredictorExtensionSpec{
 					StorageURI: &storageUri,
-					Container: v1.Container{
+					Container: corev1.Container{
 						Name: "foo",
-						Env: []v1.EnvVar{
+						Env: []corev1.EnvVar{
 							{
 								Name:  "STORAGE_URI",
 								Value: storageUri,
@@ -532,9 +532,9 @@ func TestModelPredictorGetContainer(t *testing.T) {
 					},
 				},
 			},
-			expected: v1.Container{
+			expected: corev1.Container{
 				Name: "foo",
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_URI",
 						Value: storageUri,

@@ -22,7 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -43,7 +43,7 @@ func TestTrainedModelStatus_IsReady(t *testing.T) {
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   "Foo",
-					Status: v1.ConditionTrue,
+					Status: corev1.ConditionTrue,
 				}},
 			},
 		},
@@ -54,7 +54,7 @@ func TestTrainedModelStatus_IsReady(t *testing.T) {
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   knservingv1.ServiceConditionReady,
-					Status: v1.ConditionFalse,
+					Status: corev1.ConditionFalse,
 				}},
 			},
 		},
@@ -65,7 +65,7 @@ func TestTrainedModelStatus_IsReady(t *testing.T) {
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   knservingv1.ServiceConditionReady,
-					Status: v1.ConditionUnknown,
+					Status: corev1.ConditionUnknown,
 				}},
 			},
 		},
@@ -87,15 +87,15 @@ func TestTrainedModelStatus_IsReady(t *testing.T) {
 				Conditions: duckv1.Conditions{
 					{
 						Type:   "ConfigurationsReady",
-						Status: v1.ConditionTrue,
+						Status: corev1.ConditionTrue,
 					},
 					{
 						Type:   "RoutesReady",
-						Status: v1.ConditionTrue,
+						Status: corev1.ConditionTrue,
 					},
 					{
 						Type:   knservingv1.ServiceConditionReady,
-						Status: v1.ConditionTrue,
+						Status: corev1.ConditionTrue,
 					},
 				},
 			},
@@ -108,11 +108,11 @@ func TestTrainedModelStatus_IsReady(t *testing.T) {
 				Conditions: duckv1.Conditions{
 					{
 						Type:   "Foo",
-						Status: v1.ConditionTrue,
+						Status: corev1.ConditionTrue,
 					},
 					{
 						Type:   knservingv1.ConfigurationConditionReady,
-						Status: v1.ConditionFalse,
+						Status: corev1.ConditionFalse,
 					},
 				},
 			},
@@ -147,14 +147,14 @@ func TestTrainedModelStatus_GetCondition(t *testing.T) {
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   "Foo",
-					Status: v1.ConditionFalse,
+					Status: corev1.ConditionFalse,
 				}},
 			},
 		},
 		Condition: "Foo",
 		matcher: &apis.Condition{
 			Type:   "Foo",
-			Status: v1.ConditionFalse,
+			Status: corev1.ConditionFalse,
 		},
 	}, {
 		name: "Get Ready condition",
@@ -162,14 +162,14 @@ func TestTrainedModelStatus_GetCondition(t *testing.T) {
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   knservingv1.ServiceConditionReady,
-					Status: v1.ConditionUnknown,
+					Status: corev1.ConditionUnknown,
 				}},
 			},
 		},
 		Condition: knservingv1.ServiceConditionReady,
 		matcher: &apis.Condition{
 			Type:   knservingv1.ServiceConditionReady,
-			Status: v1.ConditionUnknown,
+			Status: corev1.ConditionUnknown,
 		},
 	}}
 
@@ -198,7 +198,7 @@ func TestTrainedModelStatus_IsConditionReady(t *testing.T) {
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   "Foo",
-					Status: v1.ConditionTrue,
+					Status: corev1.ConditionTrue,
 				}},
 			},
 		},
@@ -210,7 +210,7 @@ func TestTrainedModelStatus_IsConditionReady(t *testing.T) {
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   knservingv1.ServiceConditionReady,
-					Status: v1.ConditionFalse,
+					Status: corev1.ConditionFalse,
 				}},
 			},
 		},
@@ -222,7 +222,7 @@ func TestTrainedModelStatus_IsConditionReady(t *testing.T) {
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   knservingv1.ServiceConditionReady,
-					Status: v1.ConditionUnknown,
+					Status: corev1.ConditionUnknown,
 				}},
 			},
 		},
@@ -246,15 +246,15 @@ func TestTrainedModelStatus_IsConditionReady(t *testing.T) {
 				Conditions: duckv1.Conditions{
 					{
 						Type:   "ConfigurationsReady",
-						Status: v1.ConditionTrue,
+						Status: corev1.ConditionTrue,
 					},
 					{
 						Type:   "RoutesReady",
-						Status: v1.ConditionTrue,
+						Status: corev1.ConditionTrue,
 					},
 					{
 						Type:   knservingv1.ServiceConditionReady,
-						Status: v1.ConditionTrue,
+						Status: corev1.ConditionTrue,
 					},
 				},
 			},
@@ -268,11 +268,11 @@ func TestTrainedModelStatus_IsConditionReady(t *testing.T) {
 				Conditions: duckv1.Conditions{
 					{
 						Type:   "Foo",
-						Status: v1.ConditionTrue,
+						Status: corev1.ConditionTrue,
 					},
 					{
 						Type:   knservingv1.ConfigurationConditionReady,
-						Status: v1.ConditionFalse,
+						Status: corev1.ConditionFalse,
 					},
 				},
 			},
@@ -304,12 +304,12 @@ func TestTrainedModelStatus_SetCondition(t *testing.T) {
 			serviceStatus: TrainedModelStatus{},
 			condition: &apis.Condition{
 				Type:   "Foo",
-				Status: v1.ConditionTrue,
+				Status: corev1.ConditionTrue,
 			},
 			conditionType: "Foo",
 			expected: &apis.Condition{
 				Type:   "Foo",
-				Status: v1.ConditionTrue,
+				Status: corev1.ConditionTrue,
 			},
 		}, {
 			name: "modify existing condition",
@@ -317,18 +317,18 @@ func TestTrainedModelStatus_SetCondition(t *testing.T) {
 				Status: duckv1.Status{
 					Conditions: duckv1.Conditions{{
 						Type:   "Foo",
-						Status: v1.ConditionTrue,
+						Status: corev1.ConditionTrue,
 					}},
 				},
 			},
 			condition: &apis.Condition{
 				Type:   "Foo",
-				Status: v1.ConditionFalse,
+				Status: corev1.ConditionFalse,
 			},
 			conditionType: "Foo",
 			expected: &apis.Condition{
 				Type:   "Foo",
-				Status: v1.ConditionFalse,
+				Status: corev1.ConditionFalse,
 			},
 		}, {
 			name: "set condition unknown",
@@ -336,19 +336,19 @@ func TestTrainedModelStatus_SetCondition(t *testing.T) {
 				Status: duckv1.Status{
 					Conditions: duckv1.Conditions{{
 						Type:   "Foo",
-						Status: v1.ConditionFalse,
+						Status: corev1.ConditionFalse,
 					}},
 				},
 			},
 			condition: &apis.Condition{
 				Type:   "Foo",
-				Status: v1.ConditionUnknown,
+				Status: corev1.ConditionUnknown,
 				Reason: "For testing purpose",
 			},
 			conditionType: "Foo",
 			expected: &apis.Condition{
 				Type:   "Foo",
-				Status: v1.ConditionUnknown,
+				Status: corev1.ConditionUnknown,
 				Reason: "For testing purpose",
 			},
 		}, {
@@ -357,7 +357,7 @@ func TestTrainedModelStatus_SetCondition(t *testing.T) {
 				Status: duckv1.Status{
 					Conditions: duckv1.Conditions{{
 						Type:   knservingv1.ServiceConditionReady,
-						Status: v1.ConditionTrue,
+						Status: corev1.ConditionTrue,
 					}},
 				},
 			},

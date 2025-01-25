@@ -27,7 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
 	batchv1 "k8s.io/api/batch/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -122,38 +122,38 @@ var _ = Describe("LocalModelNode controller", func() {
 		}
 		clusterStorageContainerSpec = v1alpha1.StorageContainerSpec{
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}},
-			Container: v1.Container{
+			Container: corev1.Container{
 				Name:  "name",
 				Image: "image",
 				Args: []string{
 					"srcURI",
 					constants.DefaultModelLocalMountPath,
 				},
-				TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
-				VolumeMounts:             []v1.VolumeMount{},
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				VolumeMounts:             []corev1.VolumeMount{},
 			},
 		}
 		localModelNodeGroupSpec = v1alpha1.LocalModelNodeGroupSpec{
-			PersistentVolumeSpec: v1.PersistentVolumeSpec{
-				AccessModes:                   []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-				VolumeMode:                    ptr.To(v1.PersistentVolumeFilesystem),
-				Capacity:                      v1.ResourceList{v1.ResourceStorage: resource.MustParse("2Gi")},
+			PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+				AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				VolumeMode:                    ptr.To(corev1.PersistentVolumeFilesystem),
+				Capacity:                      corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")},
 				StorageClassName:              "standard",
-				PersistentVolumeReclaimPolicy: v1.PersistentVolumeReclaimDelete,
-				PersistentVolumeSource: v1.PersistentVolumeSource{
-					HostPath: &v1.HostPathVolumeSource{
+				PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+				PersistentVolumeSource: corev1.PersistentVolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
 						Path: "/models",
-						Type: ptr.To(v1.HostPathDirectory),
+						Type: ptr.To(corev1.HostPathDirectory),
 					},
 				},
-				NodeAffinity: &v1.VolumeNodeAffinity{
-					Required: &v1.NodeSelector{
-						NodeSelectorTerms: []v1.NodeSelectorTerm{
+				NodeAffinity: &corev1.VolumeNodeAffinity{
+					Required: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{
 							{
-								MatchExpressions: []v1.NodeSelectorRequirement{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
 									{
 										Key:      "node.kubernetes.io/instance-type",
-										Operator: v1.NodeSelectorOpIn,
+										Operator: corev1.NodeSelectorOpIn,
 										Values:   []string{"gpu"},
 									},
 								},
@@ -162,9 +162,9 @@ var _ = Describe("LocalModelNode controller", func() {
 					},
 				},
 			},
-			PersistentVolumeClaimSpec: v1.PersistentVolumeClaimSpec{
-				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-				Resources:   v1.VolumeResourceRequirements{Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse("2Gi")}},
+			PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources:   corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")}},
 			},
 		}
 		configs = map[string]string{
@@ -180,7 +180,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			ctx := context.Background()
 			fsMock.clear()
 			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -269,7 +269,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			fsMock.clear()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -357,7 +357,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			fsMock.clear()
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -401,7 +401,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			fsMock.clear()
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,

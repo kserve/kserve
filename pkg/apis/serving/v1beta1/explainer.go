@@ -17,7 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -48,7 +48,7 @@ type ExplainerExtensionSpec struct {
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	// +optional
-	v1.Container `json:",inline"`
+	corev1.Container `json:",inline"`
 	// Storage Spec for model location
 	// +optional
 	Storage *StorageSpec `json:"storage,omitempty"`

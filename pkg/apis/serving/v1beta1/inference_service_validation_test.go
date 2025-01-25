@@ -28,7 +28,7 @@ import (
 
 	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -223,7 +223,7 @@ func TestBadReplicaValues(t *testing.T) {
 
 	isvc.Spec.Transformer = &TransformerSpec{}
 	isvc.Spec.Transformer.PodSpec = PodSpec{
-		Containers: []v1.Container{
+		Containers: []corev1.Container{
 			{
 				Image: "some-image",
 			},
@@ -279,7 +279,7 @@ func TestCustomOK(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.Tensorflow = nil
 	isvc.Spec.Predictor.PodSpec = PodSpec{
-		Containers: []v1.Container{
+		Containers: []corev1.Container{
 			{
 				Image: "some-image",
 			},
@@ -372,11 +372,11 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name:  constants.InferenceServiceContainerName,
 									Image: "test/predictor:latest",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  constants.CustomSpecStorageUriEnvVarKey,
 											Value: "gs://test/model",
@@ -386,7 +386,7 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 								{
 									Name:  constants.TransformerContainerName,
 									Image: "test/transformer:latest",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  constants.CustomSpecStorageUriEnvVarKey,
 											Value: "gs://test/model",
@@ -409,7 +409,7 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name:  constants.InferenceServiceContainerName,
 									Image: "test/predictor:latest",
@@ -434,11 +434,11 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name:  constants.InferenceServiceContainerName,
 									Image: "test/predictor:latest",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  constants.CustomSpecStorageUriEnvVarKey,
 											Value: "gs://test/model",
@@ -484,11 +484,11 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name:  constants.InferenceServiceContainerName,
 									Image: "test/predictor:latest",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  constants.CustomSpecStorageUriEnvVarKey,
 											Value: "gs://test/model",
@@ -537,8 +537,8 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: &pvcStorageUri,
-								Container: v1.Container{
-									Env: []v1.EnvVar{
+								Container: corev1.Container{
+									Env: []corev1.EnvVar{
 										{Name: constants.TensorParallelSizeEnvName, Value: "2"},
 									},
 								},
@@ -567,8 +567,8 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: &pvcStorageUri,
-								Container: v1.Container{
-									Env: []v1.EnvVar{
+								Container: corev1.Container{
+									Env: []corev1.EnvVar{
 										{Name: constants.PipelineParallelSizeEnvName, Value: "3"},
 									},
 								},
@@ -653,12 +653,12 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: &pvcStorageUri,
-								Container: v1.Container{
-									Resources: v1.ResourceRequirements{
-										Limits: v1.ResourceList{
+								Container: corev1.Container{
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
 											"unknownGPU.com/gpu": resource.MustParse("1"),
 										},
-										Requests: v1.ResourceList{
+										Requests: corev1.ResourceList{
 											"unknownGPU.com/gpu": resource.MustParse("1"),
 										},
 									},
@@ -692,13 +692,13 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 						},
 						WorkerSpec: &WorkerSpec{
 							PodSpec: PodSpec{
-								Containers: []v1.Container{
+								Containers: []corev1.Container{
 									{
-										Resources: v1.ResourceRequirements{
-											Limits: v1.ResourceList{
+										Resources: corev1.ResourceRequirements{
+											Limits: corev1.ResourceList{
 												"unknownGPU.com/gpu": resource.MustParse("1"),
 											},
-											Requests: v1.ResourceList{
+											Requests: corev1.ResourceList{
 												"unknownGPU.com/gpu": resource.MustParse("1"),
 											},
 										},
@@ -782,7 +782,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 						},
 						WorkerSpec: &WorkerSpec{
 							PodSpec: PodSpec{
-								Containers: []v1.Container{
+								Containers: []corev1.Container{
 									{},
 									{},
 								},

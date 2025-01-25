@@ -24,7 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -155,50 +155,50 @@ func TestContainsUtil(t *testing.T) {
 
 func TestAppendVolumeIfNotExists(t *testing.T) {
 	scenarios := map[string]struct {
-		volumes         []v1.Volume
-		volume          v1.Volume
-		expectedVolumes []v1.Volume
+		volumes         []corev1.Volume
+		volume          corev1.Volume
+		expectedVolumes []corev1.Volume
 	}{
 		"DuplicateVolume": {
-			volumes: []v1.Volume{
+			volumes: []corev1.Volume{
 				{
 					Name: gcs.GCSCredentialVolumeName,
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
 							SecretName: "user-gcp-sa",
 						},
 					},
 				},
 				{
 					Name: "blue",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
 							SecretName: "user-gcp-sa",
 						},
 					},
 				},
 			},
-			volume: v1.Volume{
+			volume: corev1.Volume{
 				Name: gcs.GCSCredentialVolumeName,
-				VolumeSource: v1.VolumeSource{
-					Secret: &v1.SecretVolumeSource{
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
 						SecretName: "user-gcp-sa",
 					},
 				},
 			},
-			expectedVolumes: []v1.Volume{
+			expectedVolumes: []corev1.Volume{
 				{
 					Name: gcs.GCSCredentialVolumeName,
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
 							SecretName: "user-gcp-sa",
 						},
 					},
 				},
 				{
 					Name: "blue",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
 							SecretName: "user-gcp-sa",
 						},
 					},
@@ -206,53 +206,53 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 			},
 		},
 		"NotDuplicateVolume": {
-			volumes: []v1.Volume{
+			volumes: []corev1.Volume{
 				{
 					Name: gcs.GCSCredentialVolumeName,
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
 							SecretName: "user-gcp-sa",
 						},
 					},
 				},
 				{
 					Name: "blue",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
 							SecretName: "user-gcp-sa",
 						},
 					},
 				},
 			},
-			volume: v1.Volume{
+			volume: corev1.Volume{
 				Name: "green",
-				VolumeSource: v1.VolumeSource{
-					Secret: &v1.SecretVolumeSource{
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
 						SecretName: "user-gcp-sa",
 					},
 				},
 			},
-			expectedVolumes: []v1.Volume{
+			expectedVolumes: []corev1.Volume{
 				{
 					Name: gcs.GCSCredentialVolumeName,
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
 							SecretName: "user-gcp-sa",
 						},
 					},
 				},
 				{
 					Name: "blue",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
 							SecretName: "user-gcp-sa",
 						},
 					},
 				},
 				{
 					Name: "green",
-					VolumeSource: v1.VolumeSource{
-						Secret: &v1.SecretVolumeSource{
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
 							SecretName: "user-gcp-sa",
 						},
 					},
@@ -272,19 +272,19 @@ func TestAppendVolumeIfNotExists(t *testing.T) {
 
 func TestMergeEnvs(t *testing.T) {
 	scenarios := map[string]struct {
-		baseEnvs     []v1.EnvVar
-		overrideEnvs []v1.EnvVar
-		expectedEnvs []v1.EnvVar
+		baseEnvs     []corev1.EnvVar
+		overrideEnvs []corev1.EnvVar
+		expectedEnvs []corev1.EnvVar
 	}{
 		"EmptyOverrides": {
-			baseEnvs: []v1.EnvVar{
+			baseEnvs: []corev1.EnvVar{
 				{
 					Name:  "name1",
 					Value: "value1",
 				},
 			},
-			overrideEnvs: []v1.EnvVar{},
-			expectedEnvs: []v1.EnvVar{
+			overrideEnvs: []corev1.EnvVar{},
+			expectedEnvs: []corev1.EnvVar{
 				{
 					Name:  "name1",
 					Value: "value1",
@@ -292,14 +292,14 @@ func TestMergeEnvs(t *testing.T) {
 			},
 		},
 		"EmptyBase": {
-			baseEnvs: []v1.EnvVar{},
-			overrideEnvs: []v1.EnvVar{
+			baseEnvs: []corev1.EnvVar{},
+			overrideEnvs: []corev1.EnvVar{
 				{
 					Name:  "name1",
 					Value: "value1",
 				},
 			},
-			expectedEnvs: []v1.EnvVar{
+			expectedEnvs: []corev1.EnvVar{
 				{
 					Name:  "name1",
 					Value: "value1",
@@ -307,19 +307,19 @@ func TestMergeEnvs(t *testing.T) {
 			},
 		},
 		"NoOverlap": {
-			baseEnvs: []v1.EnvVar{
+			baseEnvs: []corev1.EnvVar{
 				{
 					Name:  "name1",
 					Value: "value1",
 				},
 			},
-			overrideEnvs: []v1.EnvVar{
+			overrideEnvs: []corev1.EnvVar{
 				{
 					Name:  "name2",
 					Value: "value2",
 				},
 			},
-			expectedEnvs: []v1.EnvVar{
+			expectedEnvs: []corev1.EnvVar{
 				{
 					Name:  "name1",
 					Value: "value1",
@@ -331,19 +331,19 @@ func TestMergeEnvs(t *testing.T) {
 			},
 		},
 		"SingleOverlap": {
-			baseEnvs: []v1.EnvVar{
+			baseEnvs: []corev1.EnvVar{
 				{
 					Name:  "name1",
 					Value: "value1",
 				},
 			},
-			overrideEnvs: []v1.EnvVar{
+			overrideEnvs: []corev1.EnvVar{
 				{
 					Name:  "name1",
 					Value: "value2",
 				},
 			},
-			expectedEnvs: []v1.EnvVar{
+			expectedEnvs: []corev1.EnvVar{
 				{
 					Name:  "name1",
 					Value: "value2",
@@ -351,7 +351,7 @@ func TestMergeEnvs(t *testing.T) {
 			},
 		},
 		"MultiOverlap": {
-			baseEnvs: []v1.EnvVar{
+			baseEnvs: []corev1.EnvVar{
 				{
 					Name:  "name1",
 					Value: "value1",
@@ -365,7 +365,7 @@ func TestMergeEnvs(t *testing.T) {
 					Value: "value3",
 				},
 			},
-			overrideEnvs: []v1.EnvVar{
+			overrideEnvs: []corev1.EnvVar{
 				{
 					Name:  "name1",
 					Value: "value3",
@@ -379,7 +379,7 @@ func TestMergeEnvs(t *testing.T) {
 					Value: "value4",
 				},
 			},
-			expectedEnvs: []v1.EnvVar{
+			expectedEnvs: []corev1.EnvVar{
 				{
 					Name:  "name1",
 					Value: "value3",
@@ -438,18 +438,18 @@ func TestIncludesArg(t *testing.T) {
 func TestIsGpuEnabled(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
-		resource v1.ResourceRequirements
+		resource corev1.ResourceRequirements
 		expected bool
 	}{
 		"GpuEnabled": {
-			resource: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
+			resource: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
 					"cpu": resource.Quantity{
 						Format: "100",
 					},
 					constants.NvidiaGPUResourceType: resource.MustParse("1"),
 				},
-				Requests: v1.ResourceList{
+				Requests: corev1.ResourceList{
 					"cpu": resource.Quantity{
 						Format: "90",
 					},
@@ -459,13 +459,13 @@ func TestIsGpuEnabled(t *testing.T) {
 			expected: true,
 		},
 		"GPUDisabled": {
-			resource: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
+			resource: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
 					"cpu": resource.Quantity{
 						Format: "100",
 					},
 				},
-				Requests: v1.ResourceList{
+				Requests: corev1.ResourceList{
 					"cpu": resource.Quantity{
 						Format: "90",
 					},
@@ -561,13 +561,13 @@ func TestIsPrefixSupported(t *testing.T) {
 func TestGetEnvVarValue(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
-		envList          []v1.EnvVar
+		envList          []corev1.EnvVar
 		targetEnvName    string
 		expectedEnvValue string
 		expectedExist    bool
 	}{
 		"EnvExist": {
-			envList: []v1.EnvVar{
+			envList: []corev1.EnvVar{
 				{Name: "test-name", Value: "test-value"},
 			},
 			targetEnvName:    "test-name",
@@ -575,7 +575,7 @@ func TestGetEnvVarValue(t *testing.T) {
 			expectedExist:    true,
 		},
 		"EnvDoesNotExist": {
-			envList: []v1.EnvVar{
+			envList: []corev1.EnvVar{
 				{Name: "test-name", Value: "test-value"},
 			},
 			targetEnvName:    "wrong",
@@ -597,71 +597,71 @@ func TestIsUnknownGpuResourceType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	scenarios := map[string]struct {
-		resources       v1.ResourceRequirements
+		resources       corev1.ResourceRequirements
 		expectedUnknown bool
 	}{
 		"OnlyBasicResources": {
-			resources: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
-					v1.ResourceCPU:    resource.MustParse("1"),
-					v1.ResourceMemory: resource.MustParse("1Gi"),
+			resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1"),
+					corev1.ResourceMemory: resource.MustParse("1Gi"),
 				},
-				Requests: v1.ResourceList{
-					v1.ResourceCPU:    resource.MustParse("1"),
-					v1.ResourceMemory: resource.MustParse("1Gi"),
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("1"),
+					corev1.ResourceMemory: resource.MustParse("1Gi"),
 				},
 			},
 			expectedUnknown: false,
 		},
 		"ValidGpuResource": {
-			resources: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
-					v1.ResourceCPU:                    resource.MustParse("1"),
-					v1.ResourceMemory:                 resource.MustParse("1Gi"),
-					v1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+			resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:                    resource.MustParse("1"),
+					corev1.ResourceMemory:                 resource.MustParse("1Gi"),
+					corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
 				},
-				Requests: v1.ResourceList{
-					v1.ResourceCPU:                    resource.MustParse("1"),
-					v1.ResourceMemory:                 resource.MustParse("1Gi"),
-					v1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:                    resource.MustParse("1"),
+					corev1.ResourceMemory:                 resource.MustParse("1Gi"),
+					corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
 				},
 			},
 			expectedUnknown: false,
 		},
 		"UnknownGpuResource": {
-			resources: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
-					v1.ResourceCPU:                     resource.MustParse("1"),
-					v1.ResourceMemory:                  resource.MustParse("1Gi"),
-					v1.ResourceName("unknown.com/gpu"): resource.MustParse("1"),
+			resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:                     resource.MustParse("1"),
+					corev1.ResourceMemory:                  resource.MustParse("1Gi"),
+					corev1.ResourceName("unknown.com/gpu"): resource.MustParse("1"),
 				},
-				Requests: v1.ResourceList{
-					v1.ResourceCPU:                     resource.MustParse("1"),
-					v1.ResourceMemory:                  resource.MustParse("1Gi"),
-					v1.ResourceName("unknown.com/gpu"): resource.MustParse("1"),
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:                     resource.MustParse("1"),
+					corev1.ResourceMemory:                  resource.MustParse("1Gi"),
+					corev1.ResourceName("unknown.com/gpu"): resource.MustParse("1"),
 				},
 			},
 			expectedUnknown: true,
 		},
 		"MixedResources": {
-			resources: v1.ResourceRequirements{
-				Limits: v1.ResourceList{
-					v1.ResourceCPU:                    resource.MustParse("1"),
-					v1.ResourceMemory:                 resource.MustParse("1Gi"),
-					v1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+			resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:                    resource.MustParse("1"),
+					corev1.ResourceMemory:                 resource.MustParse("1Gi"),
+					corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
 				},
-				Requests: v1.ResourceList{
-					v1.ResourceCPU:                     resource.MustParse("1"),
-					v1.ResourceMemory:                  resource.MustParse("1Gi"),
-					v1.ResourceName("unknown.com/gpu"): resource.MustParse("1"),
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:                     resource.MustParse("1"),
+					corev1.ResourceMemory:                  resource.MustParse("1Gi"),
+					corev1.ResourceName("unknown.com/gpu"): resource.MustParse("1"),
 				},
 			},
 			expectedUnknown: true,
 		},
 		"EmptyResources": {
-			resources: v1.ResourceRequirements{
-				Limits:   v1.ResourceList{},
-				Requests: v1.ResourceList{},
+			resources: corev1.ResourceRequirements{
+				Limits:   corev1.ResourceList{},
+				Requests: corev1.ResourceList{},
 			},
 			expectedUnknown: false,
 		},
@@ -708,55 +708,55 @@ func TestIsValidCustomGPUArray(t *testing.T) {
 
 func TestAppendEnvVarIfNotExists(t *testing.T) {
 	scenarios := map[string]struct {
-		initialEnvs  []v1.EnvVar
-		newEnvs      []v1.EnvVar
-		expectedEnvs []v1.EnvVar
+		initialEnvs  []corev1.EnvVar
+		newEnvs      []corev1.EnvVar
+		expectedEnvs []corev1.EnvVar
 	}{
 		"EnvVarAlreadyExists": {
-			initialEnvs: []v1.EnvVar{
+			initialEnvs: []corev1.EnvVar{
 				{Name: "ENV1", Value: "value1"},
 				{Name: "ENV2", Value: "value2"},
 			},
-			newEnvs: []v1.EnvVar{
+			newEnvs: []corev1.EnvVar{
 				{Name: "ENV1", Value: "new_value1"},
 			},
-			expectedEnvs: []v1.EnvVar{
+			expectedEnvs: []corev1.EnvVar{
 				{Name: "ENV1", Value: "value1"},
 				{Name: "ENV2", Value: "value2"},
 			},
 		},
 		"EnvVarDoesNotExist": {
-			initialEnvs: []v1.EnvVar{
+			initialEnvs: []corev1.EnvVar{
 				{Name: "ENV1", Value: "value1"},
 			},
-			newEnvs: []v1.EnvVar{
+			newEnvs: []corev1.EnvVar{
 				{Name: "ENV2", Value: "value2"},
 			},
-			expectedEnvs: []v1.EnvVar{
+			expectedEnvs: []corev1.EnvVar{
 				{Name: "ENV1", Value: "value1"},
 				{Name: "ENV2", Value: "value2"},
 			},
 		},
 		"MultipleNewEnvVars": {
-			initialEnvs: []v1.EnvVar{
+			initialEnvs: []corev1.EnvVar{
 				{Name: "ENV1", Value: "value1"},
 			},
-			newEnvs: []v1.EnvVar{
+			newEnvs: []corev1.EnvVar{
 				{Name: "ENV2", Value: "value2"},
 				{Name: "ENV3", Value: "value3"},
 			},
-			expectedEnvs: []v1.EnvVar{
+			expectedEnvs: []corev1.EnvVar{
 				{Name: "ENV1", Value: "value1"},
 				{Name: "ENV2", Value: "value2"},
 				{Name: "ENV3", Value: "value3"},
 			},
 		},
 		"NoInitialEnvVars": {
-			initialEnvs: []v1.EnvVar{},
-			newEnvs: []v1.EnvVar{
+			initialEnvs: []corev1.EnvVar{},
+			newEnvs: []corev1.EnvVar{
 				{Name: "ENV1", Value: "value1"},
 			},
-			expectedEnvs: []v1.EnvVar{
+			expectedEnvs: []corev1.EnvVar{
 				{Name: "ENV1", Value: "value1"},
 			},
 		},
@@ -774,55 +774,55 @@ func TestAppendEnvVarIfNotExists(t *testing.T) {
 
 func TestAppendPortIfNotExists(t *testing.T) {
 	scenarios := map[string]struct {
-		initialPorts  []v1.ContainerPort
-		newPorts      []v1.ContainerPort
-		expectedPorts []v1.ContainerPort
+		initialPorts  []corev1.ContainerPort
+		newPorts      []corev1.ContainerPort
+		expectedPorts []corev1.ContainerPort
 	}{
 		"PortAlreadyExists": {
-			initialPorts: []v1.ContainerPort{
+			initialPorts: []corev1.ContainerPort{
 				{Name: "port1", ContainerPort: 8080},
 				{Name: "port2", ContainerPort: 9090},
 			},
-			newPorts: []v1.ContainerPort{
+			newPorts: []corev1.ContainerPort{
 				{Name: "port1", ContainerPort: 8081},
 			},
-			expectedPorts: []v1.ContainerPort{
+			expectedPorts: []corev1.ContainerPort{
 				{Name: "port1", ContainerPort: 8080},
 				{Name: "port2", ContainerPort: 9090},
 			},
 		},
 		"PortDoesNotExist": {
-			initialPorts: []v1.ContainerPort{
+			initialPorts: []corev1.ContainerPort{
 				{Name: "port1", ContainerPort: 8080},
 			},
-			newPorts: []v1.ContainerPort{
+			newPorts: []corev1.ContainerPort{
 				{Name: "port2", ContainerPort: 9090},
 			},
-			expectedPorts: []v1.ContainerPort{
+			expectedPorts: []corev1.ContainerPort{
 				{Name: "port1", ContainerPort: 8080},
 				{Name: "port2", ContainerPort: 9090},
 			},
 		},
 		"MultipleNewPorts": {
-			initialPorts: []v1.ContainerPort{
+			initialPorts: []corev1.ContainerPort{
 				{Name: "port1", ContainerPort: 8080},
 			},
-			newPorts: []v1.ContainerPort{
+			newPorts: []corev1.ContainerPort{
 				{Name: "port2", ContainerPort: 9090},
 				{Name: "port3", ContainerPort: 10090},
 			},
-			expectedPorts: []v1.ContainerPort{
+			expectedPorts: []corev1.ContainerPort{
 				{Name: "port1", ContainerPort: 8080},
 				{Name: "port2", ContainerPort: 9090},
 				{Name: "port3", ContainerPort: 10090},
 			},
 		},
 		"NoInitialPorts": {
-			initialPorts: []v1.ContainerPort{},
-			newPorts: []v1.ContainerPort{
+			initialPorts: []corev1.ContainerPort{},
+			newPorts: []corev1.ContainerPort{
 				{Name: "port1", ContainerPort: 8080},
 			},
-			expectedPorts: []v1.ContainerPort{
+			expectedPorts: []corev1.ContainerPort{
 				{Name: "port1", ContainerPort: 8080},
 			},
 		},

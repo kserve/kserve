@@ -20,7 +20,7 @@ import (
 	"flag"
 	"os"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -127,7 +127,7 @@ func main() {
 	}
 
 	setupLog.Info("Setting up core scheme")
-	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := corev1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Core APIs to scheme")
 		os.Exit(1)
 	}

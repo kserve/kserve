@@ -28,7 +28,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/kserve/kserve/pkg/agent/storage"
-	v1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
 type OpType string
@@ -51,7 +51,7 @@ type ModelOp struct {
 	OnStartup bool
 	ModelName string
 	Op        OpType
-	Spec      *v1.ModelSpec
+	Spec      *v1alpha1.ModelSpec
 }
 
 type WaitGroupWrapper struct {

@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -43,7 +43,7 @@ type Mutator struct {
 
 // Handle decodes the incoming Pod and executes mutation logic.
 func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admission.Response {
-	pod := &v1.Pod{}
+	pod := &corev1.Pod{}
 
 	if err := mutator.Decoder.Decode(req, pod); err != nil {
 		log.Error(err, "Failed to decode pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
@@ -77,7 +77,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
 }
 
-func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
+func (mutator *Mutator) mutate(pod *corev1.Pod, configMap *corev1.ConfigMap) error {
 	credentialBuilder := credentials.NewCredentialBuilder(mutator.Client, mutator.Clientset, configMap)
 
 	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
@@ -115,7 +115,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 
 	metricsAggregator := newMetricsAggregator(configMap)
 
-	mutators := []func(pod *v1.Pod) error{
+	mutators := []func(pod *corev1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
 		storageInitializer.SetIstioCniSecurityContext,
@@ -136,7 +136,7 @@ func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 	return nil
 }
 
-func needMutate(pod *v1.Pod) bool {
+func needMutate(pod *corev1.Pod) bool {
 	// Skip webhook if pod not managed by kserve
 	_, ok := pod.Labels[constants.InferenceServicePodLabelKey]
 	return ok

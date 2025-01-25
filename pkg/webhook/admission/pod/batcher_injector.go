@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -49,7 +49,7 @@ type BatcherInjector struct {
 	config *BatcherConfig
 }
 
-func getBatcherConfigs(configMap *v1.ConfigMap) (*BatcherConfig, error) {
+func getBatcherConfigs(configMap *corev1.ConfigMap) (*BatcherConfig, error) {
 	batcherConfig := &BatcherConfig{}
 	if batcherConfigValue, ok := configMap.Data[BatcherConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(batcherConfigValue), &batcherConfig)
@@ -76,7 +76,7 @@ func getBatcherConfigs(configMap *v1.ConfigMap) (*BatcherConfig, error) {
 	return batcherConfig, nil
 }
 
-func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
+func (il *BatcherInjector) InjectBatcher(pod *corev1.Pod) error {
 	// Only inject if the required annotations are set
 	_, ok := pod.ObjectMeta.Annotations[constants.BatcherInternalAnnotationKey]
 	if !ok {
@@ -113,18 +113,18 @@ func (il *BatcherInjector) InjectBatcher(pod *v1.Pod) error {
 	// Make sure securityContext is initialized and valid
 	securityContext := pod.Spec.Containers[0].SecurityContext.DeepCopy()
 
-	batcherContainer := &v1.Container{
+	batcherContainer := &corev1.Container{
 		Name:  BatcherContainerName,
 		Image: il.config.Image,
 		Args:  args,
-		Resources: v1.ResourceRequirements{
-			Limits: map[v1.ResourceName]resource.Quantity{
-				v1.ResourceCPU:    resource.MustParse(il.config.CpuLimit),
-				v1.ResourceMemory: resource.MustParse(il.config.MemoryLimit),
+		Resources: corev1.ResourceRequirements{
+			Limits: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse(il.config.CpuLimit),
+				corev1.ResourceMemory: resource.MustParse(il.config.MemoryLimit),
 			},
-			Requests: map[v1.ResourceName]resource.Quantity{
-				v1.ResourceCPU:    resource.MustParse(il.config.CpuRequest),
-				v1.ResourceMemory: resource.MustParse(il.config.MemoryRequest),
+			Requests: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse(il.config.CpuRequest),
+				corev1.ResourceMemory: resource.MustParse(il.config.MemoryRequest),
 			},
 		},
 		SecurityContext: securityContext,

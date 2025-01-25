@@ -23,7 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -91,12 +91,12 @@ var _ = BeforeSuite(func() {
 	Expect(clientset).ToNot(BeNil())
 
 	// Creates namespace
-	kserveNamespaceObj := &v1.Namespace{
+	kserveNamespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.KServeNamespace,
 		},
 	}
-	jobsNamespaceObj := &v1.Namespace{
+	jobsNamespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "kserve-localmodel-jobs",
 		},

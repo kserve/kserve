@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -65,7 +65,7 @@ var _ = Describe("Inference Graph controller test", func() {
 	Context("When creating an inferencegraph with headers in global config", func() {
 		It("Should create a knative service with headers as env var of podspec", func() {
 			By("By creating a new InferenceGraph")
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -136,11 +136,11 @@ var _ = Describe("Inference Graph controller test", func() {
 							Spec: knservingv1.RevisionSpec{
 								ContainerConcurrency: nil,
 								TimeoutSeconds:       nil,
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
+								PodSpec: corev1.PodSpec{
+									Containers: []corev1.Container{
 										{
 											Image: "kserve/router:v0.10.0",
-											Env: []v1.EnvVar{
+											Env: []corev1.EnvVar{
 												{
 													Name:  "PROPAGATE_HEADERS",
 													Value: "Authorization,Intuit_tid",
@@ -150,23 +150,23 @@ var _ = Describe("Inference Graph controller test", func() {
 												"--graph-json",
 												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{}}",
 											},
-											Resources: v1.ResourceRequirements{
-												Limits: v1.ResourceList{
-													v1.ResourceCPU:    resource.MustParse("100m"),
-													v1.ResourceMemory: resource.MustParse("500Mi"),
+											Resources: corev1.ResourceRequirements{
+												Limits: corev1.ResourceList{
+													corev1.ResourceCPU:    resource.MustParse("100m"),
+													corev1.ResourceMemory: resource.MustParse("500Mi"),
 												},
-												Requests: v1.ResourceList{
-													v1.ResourceCPU:    resource.MustParse("100m"),
-													v1.ResourceMemory: resource.MustParse("100Mi"),
+												Requests: corev1.ResourceList{
+													corev1.ResourceCPU:    resource.MustParse("100m"),
+													corev1.ResourceMemory: resource.MustParse("100Mi"),
 												},
 											},
-											SecurityContext: &v1.SecurityContext{
+											SecurityContext: &corev1.SecurityContext{
 												Privileged:               proto.Bool(false),
 												RunAsNonRoot:             proto.Bool(true),
 												ReadOnlyRootFilesystem:   proto.Bool(true),
 												AllowPrivilegeEscalation: proto.Bool(false),
-												Capabilities: &v1.Capabilities{
-													Drop: []v1.Capability{v1.Capability("ALL")},
+												Capabilities: &corev1.Capabilities{
+													Drop: []corev1.Capability{corev1.Capability("ALL")},
 												},
 											},
 										},
@@ -191,7 +191,7 @@ var _ = Describe("Inference Graph controller test", func() {
 
 	Context("When creating an IG with resource requirements in the spec", func() {
 		It("Should propagate to underlying pod", func() {
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -213,14 +213,14 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 				Spec: v1alpha1.InferenceGraphSpec{
-					Resources: v1.ResourceRequirements{
-						Limits: v1.ResourceList{
-							v1.ResourceCPU:    resource.MustParse("123m"),
-							v1.ResourceMemory: resource.MustParse("123Mi"),
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("123m"),
+							corev1.ResourceMemory: resource.MustParse("123Mi"),
 						},
-						Requests: v1.ResourceList{
-							v1.ResourceCPU:    resource.MustParse("123m"),
-							v1.ResourceMemory: resource.MustParse("123Mi"),
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("123m"),
+							corev1.ResourceMemory: resource.MustParse("123Mi"),
 						},
 					},
 					Nodes: map[string]v1alpha1.InferenceRouter{
@@ -272,11 +272,11 @@ var _ = Describe("Inference Graph controller test", func() {
 							Spec: knservingv1.RevisionSpec{
 								ContainerConcurrency: nil,
 								TimeoutSeconds:       nil,
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
+								PodSpec: corev1.PodSpec{
+									Containers: []corev1.Container{
 										{
 											Image: "kserve/router:v0.10.0",
-											Env: []v1.EnvVar{
+											Env: []corev1.EnvVar{
 												{
 													Name:  "PROPAGATE_HEADERS",
 													Value: "Authorization,Intuit_tid",
@@ -286,23 +286,23 @@ var _ = Describe("Inference Graph controller test", func() {
 												"--graph-json",
 												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"},\"requests\":{\"cpu\":\"123m\",\"memory\":\"123Mi\"}}}",
 											},
-											Resources: v1.ResourceRequirements{
-												Limits: v1.ResourceList{
-													v1.ResourceCPU:    resource.MustParse("123m"),
-													v1.ResourceMemory: resource.MustParse("123Mi"),
+											Resources: corev1.ResourceRequirements{
+												Limits: corev1.ResourceList{
+													corev1.ResourceCPU:    resource.MustParse("123m"),
+													corev1.ResourceMemory: resource.MustParse("123Mi"),
 												},
-												Requests: v1.ResourceList{
-													v1.ResourceCPU:    resource.MustParse("123m"),
-													v1.ResourceMemory: resource.MustParse("123Mi"),
+												Requests: corev1.ResourceList{
+													corev1.ResourceCPU:    resource.MustParse("123m"),
+													corev1.ResourceMemory: resource.MustParse("123Mi"),
 												},
 											},
-											SecurityContext: &v1.SecurityContext{
+											SecurityContext: &corev1.SecurityContext{
 												Privileged:               proto.Bool(false),
 												RunAsNonRoot:             proto.Bool(true),
 												ReadOnlyRootFilesystem:   proto.Bool(true),
 												AllowPrivilegeEscalation: proto.Bool(false),
-												Capabilities: &v1.Capabilities{
-													Drop: []v1.Capability{v1.Capability("ALL")},
+												Capabilities: &corev1.Capabilities{
+													Drop: []corev1.Capability{corev1.Capability("ALL")},
 												},
 											},
 										},
@@ -327,7 +327,7 @@ var _ = Describe("Inference Graph controller test", func() {
 
 	Context("When creating an IG with podaffinity in the spec", func() {
 		It("Should propagate to underlying pod", func() {
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -350,12 +350,12 @@ var _ = Describe("Inference Graph controller test", func() {
 				},
 
 				Spec: v1alpha1.InferenceGraphSpec{
-					Affinity: &v1.Affinity{
-						PodAffinity: &v1.PodAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
+					Affinity: &corev1.Affinity{
+						PodAffinity: &corev1.PodAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
 								{
 									Weight: 100,
-									PodAffinityTerm: v1.PodAffinityTerm{
+									PodAffinityTerm: corev1.PodAffinityTerm{
 										LabelSelector: &metav1.LabelSelector{
 											MatchExpressions: []metav1.LabelSelectorRequirement{
 												{
@@ -422,11 +422,11 @@ var _ = Describe("Inference Graph controller test", func() {
 							Spec: knservingv1.RevisionSpec{
 								ContainerConcurrency: nil,
 								TimeoutSeconds:       nil,
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
+								PodSpec: corev1.PodSpec{
+									Containers: []corev1.Container{
 										{
 											Image: "kserve/router:v0.10.0",
-											Env: []v1.EnvVar{
+											Env: []corev1.EnvVar{
 												{
 													Name:  "PROPAGATE_HEADERS",
 													Value: "Authorization,Intuit_tid",
@@ -436,33 +436,33 @@ var _ = Describe("Inference Graph controller test", func() {
 												"--graph-json",
 												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{},\"affinity\":{\"podAffinity\":{\"preferredDuringSchedulingIgnoredDuringExecution\":[{\"weight\":100,\"podAffinityTerm\":{\"labelSelector\":{\"matchExpressions\":[{\"key\":\"serving.kserve.io/inferencegraph\",\"operator\":\"In\",\"values\":[\"singlenode3\"]}]},\"topologyKey\":\"topology.kubernetes.io/zone\"}}]}}}",
 											},
-											Resources: v1.ResourceRequirements{
-												Limits: v1.ResourceList{
-													v1.ResourceCPU:    resource.MustParse("100m"),
-													v1.ResourceMemory: resource.MustParse("500Mi"),
+											Resources: corev1.ResourceRequirements{
+												Limits: corev1.ResourceList{
+													corev1.ResourceCPU:    resource.MustParse("100m"),
+													corev1.ResourceMemory: resource.MustParse("500Mi"),
 												},
-												Requests: v1.ResourceList{
-													v1.ResourceCPU:    resource.MustParse("100m"),
-													v1.ResourceMemory: resource.MustParse("100Mi"),
+												Requests: corev1.ResourceList{
+													corev1.ResourceCPU:    resource.MustParse("100m"),
+													corev1.ResourceMemory: resource.MustParse("100Mi"),
 												},
 											},
-											SecurityContext: &v1.SecurityContext{
+											SecurityContext: &corev1.SecurityContext{
 												Privileged:               proto.Bool(false),
 												RunAsNonRoot:             proto.Bool(true),
 												ReadOnlyRootFilesystem:   proto.Bool(true),
 												AllowPrivilegeEscalation: proto.Bool(false),
-												Capabilities: &v1.Capabilities{
-													Drop: []v1.Capability{v1.Capability("ALL")},
+												Capabilities: &corev1.Capabilities{
+													Drop: []corev1.Capability{corev1.Capability("ALL")},
 												},
 											},
 										},
 									},
-									Affinity: &v1.Affinity{
-										PodAffinity: &v1.PodAffinity{
-											PreferredDuringSchedulingIgnoredDuringExecution: []v1.WeightedPodAffinityTerm{
+									Affinity: &corev1.Affinity{
+										PodAffinity: &corev1.PodAffinity{
+											PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
 												{
 													Weight: 100,
-													PodAffinityTerm: v1.PodAffinityTerm{
+													PodAffinityTerm: corev1.PodAffinityTerm{
 														LabelSelector: &metav1.LabelSelector{
 															MatchExpressions: []metav1.LabelSelectorRequirement{
 																{
@@ -501,7 +501,7 @@ var _ = Describe("Inference Graph controller test", func() {
 	Context("When creating an inferencegraph in Raw deployment mode with annotations", func() {
 		It("Should create a raw k8s resources with podspec", func() {
 			By("By creating a new InferenceGraph")
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -558,7 +558,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 
-			actualK8sServiceCreated := &v1.Service{}
+			actualK8sServiceCreated := &corev1.Service{}
 			Eventually(func() bool {
 				if err := k8sClient.Get(ctx, serviceKey, actualK8sServiceCreated); err != nil {
 					return false
@@ -606,7 +606,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			utils.SetAvailableResourcesForApi(knservingv1.SchemeGroupVersion.String(), nil)
 
 			By("By creating a new InferenceGraph")
-			configMap := &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -647,7 +647,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			defer k8sClient.Delete(ctx, ig)
 
 			Eventually(func() bool {
-				events := &v1.EventList{}
+				events := &corev1.EventList{}
 				err := k8sClient.List(ctx, events, client.InNamespace(serviceKey.Namespace))
 				if err != nil {
 					return false

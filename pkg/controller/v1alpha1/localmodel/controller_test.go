@@ -22,7 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -55,38 +55,38 @@ var _ = Describe("CachedModel controller", func() {
 		}
 		clusterStorageContainerSpec = v1alpha1.StorageContainerSpec{
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}},
-			Container: v1.Container{
+			Container: corev1.Container{
 				Name:  "name",
 				Image: "image",
 				Args: []string{
 					"srcURI",
 					constants.DefaultModelLocalMountPath,
 				},
-				TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
-				VolumeMounts:             []v1.VolumeMount{},
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				VolumeMounts:             []corev1.VolumeMount{},
 			},
 		}
 		localModelNodeGroupSpec = v1alpha1.LocalModelNodeGroupSpec{
-			PersistentVolumeSpec: v1.PersistentVolumeSpec{
-				AccessModes:                   []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-				VolumeMode:                    ptr.To(v1.PersistentVolumeFilesystem),
-				Capacity:                      v1.ResourceList{v1.ResourceStorage: resource.MustParse("2Gi")},
+			PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+				AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				VolumeMode:                    ptr.To(corev1.PersistentVolumeFilesystem),
+				Capacity:                      corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")},
 				StorageClassName:              "standard",
-				PersistentVolumeReclaimPolicy: v1.PersistentVolumeReclaimDelete,
-				PersistentVolumeSource: v1.PersistentVolumeSource{
-					HostPath: &v1.HostPathVolumeSource{
+				PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+				PersistentVolumeSource: corev1.PersistentVolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
 						Path: "/models",
-						Type: ptr.To(v1.HostPathDirectory),
+						Type: ptr.To(corev1.HostPathDirectory),
 					},
 				},
-				NodeAffinity: &v1.VolumeNodeAffinity{
-					Required: &v1.NodeSelector{
-						NodeSelectorTerms: []v1.NodeSelectorTerm{
+				NodeAffinity: &corev1.VolumeNodeAffinity{
+					Required: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{
 							{
-								MatchExpressions: []v1.NodeSelectorRequirement{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
 									{
 										Key:      "node.kubernetes.io/instance-type",
-										Operator: v1.NodeSelectorOpIn,
+										Operator: corev1.NodeSelectorOpIn,
 										Values:   []string{"gpu"},
 									},
 								},
@@ -95,9 +95,9 @@ var _ = Describe("CachedModel controller", func() {
 					},
 				},
 			},
-			PersistentVolumeClaimSpec: v1.PersistentVolumeClaimSpec{
-				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-				Resources:   v1.VolumeResourceRequirements{Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse("2Gi")}},
+			PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources:   corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")}},
 			},
 		}
 		configs = map[string]string{
@@ -110,7 +110,7 @@ var _ = Describe("CachedModel controller", func() {
 
 	Context("When creating a local model", func() {
 		var (
-			configMap               *v1.ConfigMap
+			configMap               *corev1.ConfigMap
 			clusterStorageContainer *v1alpha1.ClusterStorageContainer
 			nodeGroup               *v1alpha1.LocalModelNodeGroup
 		)
@@ -132,7 +132,7 @@ var _ = Describe("CachedModel controller", func() {
 			defer GinkgoRecover()
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
-			configMap := &v1.ConfigMap{}
+			configMap := &corev1.ConfigMap{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
 			Expect(err).ToNot(HaveOccurred(), "InferenceService ConfigMap should exist")
 
@@ -156,31 +156,31 @@ var _ = Describe("CachedModel controller", func() {
 				return err == nil && cachedModel.Status.ModelCopies != nil
 			}, timeout, interval).Should(BeTrue())
 
-			persistentVolume := &v1.PersistentVolume{}
+			persistentVolume := &corev1.PersistentVolume{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, pvLookupKey, persistentVolume)
 				return err == nil && persistentVolume != nil
 			}, timeout, interval).Should(BeTrue())
 
-			persistentVolumeClaim := &v1.PersistentVolumeClaim{}
+			persistentVolumeClaim := &corev1.PersistentVolumeClaim{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, pvcLookupKey, persistentVolumeClaim)
 				return err == nil && persistentVolumeClaim != nil
 			}, timeout, interval).Should(BeTrue())
 
 			nodeName := "node-1"
-			node1 := &v1.Node{
+			node1 := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nodeName,
 					Labels: map[string]string{
 						"node.kubernetes.io/instance-type": "gpu",
 					},
 				},
-				Status: v1.NodeStatus{
-					Conditions: []v1.NodeCondition{
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
 						{
-							Type:   v1.NodeReady,
-							Status: v1.ConditionTrue,
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
@@ -273,13 +273,13 @@ var _ = Describe("CachedModel controller", func() {
 			pvLookupKey := types.NamespacedName{Name: modelName + "-" + nodeGroup.Name + "-" + isvcNamespace}
 			pvcLookupKey := types.NamespacedName{Name: modelName + "-" + nodeGroup.Name, Namespace: isvcNamespace}
 
-			persistentVolume := &v1.PersistentVolume{}
+			persistentVolume := &corev1.PersistentVolume{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, pvLookupKey, persistentVolume)
 				return err == nil && persistentVolume != nil
 			}, timeout, interval).Should(BeTrue())
 
-			persistentVolumeClaim := &v1.PersistentVolumeClaim{}
+			persistentVolumeClaim := &corev1.PersistentVolumeClaim{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, pvcLookupKey, persistentVolumeClaim)
 				return err == nil && persistentVolumeClaim != nil
@@ -303,8 +303,8 @@ var _ = Describe("CachedModel controller", func() {
 			// Next we delete the isvc and make sure the pv and pvc are deleted
 			Expect(k8sClient.Delete(ctx, isvc)).Should(Succeed())
 
-			newPersistentVolume := &v1.PersistentVolume{}
-			newPersistentVolumeClaim := &v1.PersistentVolumeClaim{}
+			newPersistentVolume := &corev1.PersistentVolume{}
+			newPersistentVolumeClaim := &corev1.PersistentVolumeClaim{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, pvLookupKey, newPersistentVolume)
 				if err != nil {
@@ -331,7 +331,7 @@ var _ = Describe("CachedModel controller", func() {
 
 	Context("When DisableVolumeManagement is set to true", func() {
 		var (
-			configMap               *v1.ConfigMap
+			configMap               *corev1.ConfigMap
 			clusterStorageContainer *v1alpha1.ClusterStorageContainer
 			nodeGroup               *v1alpha1.LocalModelNodeGroup
 		)
@@ -388,13 +388,13 @@ var _ = Describe("CachedModel controller", func() {
 			pvLookupKey := types.NamespacedName{Name: pvName}
 			pvcLookupKey := types.NamespacedName{Name: pvcName, Namespace: testNamespace}
 
-			persistentVolume := &v1.PersistentVolume{}
+			persistentVolume := &corev1.PersistentVolume{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, pvLookupKey, persistentVolume)
 				return err == nil && persistentVolume != nil
 			}, timeout, interval).Should(BeTrue())
 
-			persistentVolumeClaim := &v1.PersistentVolumeClaim{}
+			persistentVolumeClaim := &corev1.PersistentVolumeClaim{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, pvcLookupKey, persistentVolumeClaim)
 				return err == nil && persistentVolumeClaim != nil
@@ -404,7 +404,7 @@ var _ = Describe("CachedModel controller", func() {
 
 	Context("When creating multiple localModels", func() {
 		var (
-			configMap               *v1.ConfigMap
+			configMap               *corev1.ConfigMap
 			clusterStorageContainer *v1alpha1.ClusterStorageContainer
 			nodeGroup               *v1alpha1.LocalModelNodeGroup
 
@@ -436,41 +436,41 @@ var _ = Describe("CachedModel controller", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
-			node1 := &v1.Node{
+			node1 := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "node1",
 					Labels: map[string]string{
 						"node.kubernetes.io/instance-type": "gpu",
 					},
 				},
-				Status: v1.NodeStatus{
-					Conditions: []v1.NodeCondition{
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
 						{
-							Type:   v1.NodeReady,
-							Status: v1.ConditionTrue,
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
 			}
 
-			node2 := &v1.Node{
+			node2 := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "node2",
 					Labels: map[string]string{
 						"node.kubernetes.io/instance-type": "gpu",
 					},
 				},
-				Status: v1.NodeStatus{
-					Conditions: []v1.NodeCondition{
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
 						{
-							Type:   v1.NodeReady,
-							Status: v1.ConditionTrue,
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
 			}
 
-			nodes := []*v1.Node{node1, node2}
+			nodes := []*corev1.Node{node1, node2}
 			for _, node := range nodes {
 				Expect(k8sClient.Create(ctx, node)).Should(Succeed())
 				defer k8sClient.Delete(ctx, node)
@@ -523,8 +523,8 @@ var _ = Describe("CachedModel controller", func() {
 	})
 })
 
-func createTestNamespace(ctx context.Context, name string) *v1.Namespace {
-	namespace := &v1.Namespace{
+func createTestNamespace(ctx context.Context, name string) *corev1.Namespace {
+	namespace := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
@@ -533,8 +533,8 @@ func createTestNamespace(ctx context.Context, name string) *v1.Namespace {
 	return namespace
 }
 
-func createTestPV(ctx context.Context, pvName string, cachedModel *v1alpha1.LocalModelCache) *v1.PersistentVolume {
-	pv := &v1.PersistentVolume{
+func createTestPV(ctx context.Context, pvName string, cachedModel *v1alpha1.LocalModelCache) *corev1.PersistentVolume {
+	pv := &corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: pvName,
 			OwnerReferences: []metav1.OwnerReference{
@@ -547,15 +547,15 @@ func createTestPV(ctx context.Context, pvName string, cachedModel *v1alpha1.Loca
 				},
 			},
 		},
-		Spec: v1.PersistentVolumeSpec{
-			AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-			Capacity: v1.ResourceList{
-				v1.ResourceStorage: resource.MustParse("2Gi"),
+		Spec: corev1.PersistentVolumeSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			Capacity: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("2Gi"),
 			},
-			PersistentVolumeSource: v1.PersistentVolumeSource{
-				HostPath: &v1.HostPathVolumeSource{
+			PersistentVolumeSource: corev1.PersistentVolumeSource{
+				HostPath: &corev1.HostPathVolumeSource{
 					Path: "/mnt/data",
-					Type: ptr.To(v1.HostPathDirectoryOrCreate),
+					Type: ptr.To(corev1.HostPathDirectoryOrCreate),
 				},
 			},
 		},
@@ -564,8 +564,8 @@ func createTestPV(ctx context.Context, pvName string, cachedModel *v1alpha1.Loca
 	return pv
 }
 
-func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cachedModel *v1alpha1.LocalModelCache) *v1.PersistentVolumeClaim {
-	pvc := &v1.PersistentVolumeClaim{
+func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cachedModel *v1alpha1.LocalModelCache) *corev1.PersistentVolumeClaim {
+	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
 			Namespace: namespace,
@@ -579,11 +579,11 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 				},
 			},
 		},
-		Spec: v1.PersistentVolumeClaimSpec{
-			AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-			Resources: v1.VolumeResourceRequirements{
-				Requests: v1.ResourceList{
-					v1.ResourceStorage: resource.MustParse("2Gi"),
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse("2Gi"),
 				},
 			},
 			VolumeName: pvName,
@@ -593,8 +593,8 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 	return pvc
 }
 
-func genericSetup(ctx context.Context, configs map[string]string, clusterStorageContainerSpec v1alpha1.StorageContainerSpec, localModelNodeGroupSpec v1alpha1.LocalModelNodeGroupSpec) (*v1.ConfigMap, *v1alpha1.ClusterStorageContainer, *v1alpha1.LocalModelNodeGroup) {
-	configMap := &v1.ConfigMap{
+func genericSetup(ctx context.Context, configs map[string]string, clusterStorageContainerSpec v1alpha1.StorageContainerSpec, localModelNodeGroupSpec v1alpha1.LocalModelNodeGroupSpec) (*corev1.ConfigMap, *v1alpha1.ClusterStorageContainer, *v1alpha1.LocalModelNodeGroup) {
+	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.InferenceServiceConfigMapName,
 			Namespace: constants.KServeNamespace,

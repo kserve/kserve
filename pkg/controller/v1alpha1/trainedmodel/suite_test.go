@@ -23,7 +23,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -36,8 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	kfservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	kfservingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
@@ -78,9 +78,9 @@ var _ = BeforeSuite(func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	err = kfservingv1alpha1.AddToScheme(scheme.Scheme)
+	err = v1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = kfservingv1beta1.AddToScheme(scheme.Scheme)
+	err = v1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = knservingv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -95,7 +95,7 @@ var _ = BeforeSuite(func() {
 	Expect(clientset).ToNot(BeNil())
 
 	// Create namespace
-	kfservingNamespaceObj := &v1.Namespace{
+	kfservingNamespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.KServeNamespace,
 		},
@@ -114,7 +114,7 @@ var _ = BeforeSuite(func() {
 		Clientset:             clientset,
 		Scheme:                scheme.Scheme,
 		Log:                   ctrl.Log.WithName("v1beta1TrainedModelController"),
-		Recorder:              record.NewBroadcaster().NewRecorder(scheme.Scheme, v1.EventSource{Component: "v1betaController"}),
+		Recorder:              record.NewBroadcaster().NewRecorder(scheme.Scheme, corev1.EventSource{Component: "v1betaController"}),
 		ModelConfigReconciler: modelconfig.NewModelConfigReconciler(k8sManager.GetClient(), clientset, scheme.Scheme),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())

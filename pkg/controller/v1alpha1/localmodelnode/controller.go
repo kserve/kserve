@@ -35,7 +35,7 @@ import (
 
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -82,7 +82,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	}
 
 	container.Args = []string{modelInfo.SourceModelUri, MountPath}
-	container.VolumeMounts = []v1.VolumeMount{
+	container.VolumeMounts = []corev1.VolumeMount{
 		{
 			MountPath: MountPath,
 			Name:      PvcSourceMountName,
@@ -98,22 +98,22 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		},
 		Spec: batchv1.JobSpec{
 			TTLSecondsAfterFinished: &jobTTLSecondsAfterFinished,
-			Template: v1.PodTemplateSpec{
-				Spec: v1.PodSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
 					NodeName:      nodeName,
-					Containers:    []v1.Container{*container},
-					RestartPolicy: v1.RestartPolicyNever,
-					Volumes: []v1.Volume{
+					Containers:    []corev1.Container{*container},
+					RestartPolicy: corev1.RestartPolicyNever,
+					Volumes: []corev1.Volume{
 						{
 							Name: PvcSourceMountName,
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: modelInfo.ModelName,
 								},
 							},
 						},
 					},
-					SecurityContext: &v1.PodSecurityContext{
+					SecurityContext: &corev1.PodSecurityContext{
 						FSGroup: FSGroup,
 					},
 				},
@@ -136,7 +136,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 }
 
 // Fetches container spec for model download container, use the default KServe image if not found
-func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*v1.Container, error) {
+func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*corev1.Container, error) {
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
 	if err := c.Client.List(ctx, storageContainers); err != nil {
 		return nil, err
@@ -158,10 +158,10 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 		}
 	}
 
-	defaultContainer := &v1.Container{
+	defaultContainer := &corev1.Container{
 		Name:                     DownloadContainerName,
 		Image:                    defaultJobImage,
-		TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 	}
 	return defaultContainer, nil
 }

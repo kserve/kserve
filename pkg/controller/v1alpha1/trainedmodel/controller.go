@@ -30,7 +30,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -203,7 +203,7 @@ func (r *TrainedModelReconciler) updateStatus(ctx context.Context, req ctrl.Requ
 	} else {
 		// Try to update model
 		if err := r.Status().Update(ctx, desiredModel); err != nil {
-			r.Recorder.Eventf(desiredModel, v1.EventTypeWarning, "UpdateFailed",
+			r.Recorder.Eventf(desiredModel, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update status for TrainedModel %q: %v", desiredModel.Name, err)
 		}
 	}
@@ -223,13 +223,13 @@ func (r *TrainedModelReconciler) updateConditions(ctx context.Context, req ctrl.
 	if isvc.Status.IsReady() {
 		log.Info("Parent InferenceService is ready", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
 		tm.Status.SetCondition(v1alpha1.InferenceServiceReady, &apis.Condition{
-			Status: v1.ConditionTrue,
+			Status: corev1.ConditionTrue,
 		})
 	} else {
 		log.Info("Parent InferenceService is not ready", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
 		tm.Status.SetCondition(v1alpha1.InferenceServiceReady, &apis.Condition{
 			Type:    v1alpha1.InferenceServiceReady,
-			Status:  v1.ConditionFalse,
+			Status:  corev1.ConditionFalse,
 			Reason:  "InferenceServiceNotReady",
 			Message: "Inference Service needs to be ready before Trained Model can be ready",
 		})
@@ -241,12 +241,12 @@ func (r *TrainedModelReconciler) updateConditions(ctx context.Context, req ctrl.
 	implementations := isvc.Spec.Predictor.GetImplementations()
 	if len(implementations) > 0 && v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor) {
 		tm.Status.SetCondition(v1alpha1.IsMMSPredictor, &apis.Condition{
-			Status: v1.ConditionTrue,
+			Status: corev1.ConditionTrue,
 		})
 	} else {
 		tm.Status.SetCondition(v1alpha1.IsMMSPredictor, &apis.Condition{
 			Type:    v1alpha1.IsMMSPredictor,
-			Status:  v1.ConditionFalse,
+			Status:  corev1.ConditionFalse,
 			Reason:  "IsNotMMSPredictor",
 			Message: "Inference Service predictor is not configured for multi-model serving",
 		})
@@ -277,13 +277,13 @@ func (r *TrainedModelReconciler) updateConditions(ctx context.Context, req ctrl.
 		}
 
 		tm.Status.SetCondition(v1alpha1.MemoryResourceAvailable, &apis.Condition{
-			Status: v1.ConditionTrue,
+			Status: corev1.ConditionTrue,
 		})
 	} else {
 		log.Info("Parent InferenceService memory resources are not available", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
 		tm.Status.SetCondition(v1alpha1.MemoryResourceAvailable, &apis.Condition{
 			Type:    v1alpha1.MemoryResourceAvailable,
-			Status:  v1.ConditionFalse,
+			Status:  corev1.ConditionFalse,
 			Reason:  "MemoryResourceNotAvailable",
 			Message: "Inference Service does not have enough memory resources for Trained Model",
 		})
@@ -293,7 +293,7 @@ func (r *TrainedModelReconciler) updateConditions(ctx context.Context, req ctrl.
 
 	if statusErr := r.Status().Update(ctx, tm); statusErr != nil {
 		r.Log.Error(statusErr, "Failed to update TrainedModel condition", "TrainedModel", tm.Name)
-		r.Recorder.Eventf(tm, v1.EventTypeWarning, "UpdateFailed",
+		r.Recorder.Eventf(tm, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update conditions for TrainedModel: %v", statusErr)
 		return statusErr
 	}

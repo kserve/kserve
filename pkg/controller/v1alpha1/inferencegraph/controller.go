@@ -29,7 +29,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -92,7 +92,7 @@ type RouterConfig struct {
 	Headers map[string][]string `json:"headers"`
 }
 
-func getRouterConfigs(configMap *v1.ConfigMap) (*RouterConfig, error) {
+func getRouterConfigs(configMap *corev1.ConfigMap) (*RouterConfig, error) {
 	routerConfig := &RouterConfig{}
 	if agentConfigValue, ok := configMap.Data["router"]; ok {
 		err := json.Unmarshal([]byte(agentConfigValue), &routerConfig)
@@ -206,7 +206,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		if !ksvcAvailable {
-			r.Recorder.Event(graph, v1.EventTypeWarning, "ServerlessModeRejected",
+			r.Recorder.Event(graph, corev1.EventTypeWarning, "ServerlessModeRejected",
 				"It is not possible to use Serverless deployment mode when Knative Services are not available")
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative Serving is not available", graph.Name))
 		}
@@ -238,7 +238,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if err := r.updateStatus(ctx, graph); err != nil {
-		r.Recorder.Eventf(graph, v1.EventTypeWarning, "InternalError", err.Error())
+		r.Recorder.Eventf(graph, corev1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
 
@@ -260,7 +260,7 @@ func (r *InferenceGraphReconciler) updateStatus(ctx context.Context, desiredGrap
 		// to status with this stale state.
 	} else if err := r.Status().Update(ctx, desiredGraph); err != nil {
 		r.Log.Error(err, "Failed to update InferenceGraph status", "InferenceGraph", desiredGraph.Name)
-		r.Recorder.Eventf(desiredGraph, v1.EventTypeWarning, "UpdateFailed",
+		r.Recorder.Eventf(desiredGraph, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceGraph %q: %v", desiredGraph.Name, err)
 		return errors.Wrapf(err, "fails to update InferenceGraph status")
 	} else {
@@ -268,10 +268,10 @@ func (r *InferenceGraphReconciler) updateStatus(ctx context.Context, desiredGrap
 		// If there was a difference and there was no error.
 		isReady := inferenceGraphReadiness(desiredGraph.Status)
 		if wasReady && !isReady { // Moved to NotReady State
-			r.Recorder.Eventf(desiredGraph, v1.EventTypeWarning, string(InferenceGraphNotReadyState),
+			r.Recorder.Eventf(desiredGraph, corev1.EventTypeWarning, string(InferenceGraphNotReadyState),
 				fmt.Sprintf("InferenceGraph [%v] is no longer Ready", desiredGraph.GetName()))
 		} else if !wasReady && isReady { // Moved to Ready State
-			r.Recorder.Eventf(desiredGraph, v1.EventTypeNormal, string(InferenceGraphReadyState),
+			r.Recorder.Eventf(desiredGraph, corev1.EventTypeNormal, string(InferenceGraphReadyState),
 				fmt.Sprintf("InferenceGraph [%v] is Ready", desiredGraph.GetName()))
 		}
 	}
@@ -281,7 +281,7 @@ func (r *InferenceGraphReconciler) updateStatus(ctx context.Context, desiredGrap
 func inferenceGraphReadiness(status v1alpha1.InferenceGraphStatus) bool {
 	return status.Conditions != nil &&
 		status.GetCondition(apis.ConditionReady) != nil &&
-		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
+		status.GetCondition(apis.ConditionReady).Status == corev1.ConditionTrue
 }
 
 func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig) error {

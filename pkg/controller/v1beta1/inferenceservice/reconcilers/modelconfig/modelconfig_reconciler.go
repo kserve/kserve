@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
@@ -50,7 +50,7 @@ func NewModelConfigReconciler(client client.Client, clientset kubernetes.Interfa
 	}
 }
 
-func (c *ModelConfigReconciler) Reconcile(ctx context.Context, isvc *v1beta1api.InferenceService) error {
+func (c *ModelConfigReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	if v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor) {
 		// Create an empty modelConfig for every InferenceService shard
 		// An InferenceService without storageUri is an empty model server with for multi-model serving so a modelConfig configmap should be created

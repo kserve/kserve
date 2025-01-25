@@ -24,7 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -48,15 +48,15 @@ Also propagates headers onto podspec container environment variables.
 
 This function makes sense to be used in raw k8s deployment mode
 */
-func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterConfig) *v1.PodSpec {
+func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterConfig) *corev1.PodSpec {
 	bytes, err := json.Marshal(graph.Spec)
 	if err != nil {
 		return nil
 	}
 
 	// Pod spec with 'router container with resource requirements' and 'affinity' as well
-	podSpec := &v1.PodSpec{
-		Containers: []v1.Container{
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
 			{
 				Name:  graph.ObjectMeta.Name,
 				Image: config.Image,
@@ -65,13 +65,13 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 					string(bytes),
 				},
 				Resources: constructResourceRequirements(*graph, *config),
-				SecurityContext: &v1.SecurityContext{
+				SecurityContext: &corev1.SecurityContext{
 					Privileged:               proto.Bool(false),
 					RunAsNonRoot:             proto.Bool(true),
 					ReadOnlyRootFilesystem:   proto.Bool(true),
 					AllowPrivilegeEscalation: proto.Bool(false),
-					Capabilities: &v1.Capabilities{
-						Drop: []v1.Capability{v1.Capability("ALL")},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{corev1.Capability("ALL")},
 					},
 				},
 			},
@@ -83,7 +83,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
 	value, exists := config.Headers["propagate"]
 	if exists {
-		podSpec.Containers[0].Env = []v1.EnvVar{
+		podSpec.Containers[0].Env = []corev1.EnvVar{
 			{
 				Name:  constants.RouterHeadersPropagateEnvVar,
 				Value: strings.Join(value, ","),
@@ -195,7 +195,7 @@ func PropagateRawStatus(graphStatus *v1alpha1.InferenceGraphStatus, deployment *
 			conditions := []apis.Condition{
 				{
 					Type:   apis.ConditionReady,
-					Status: v1.ConditionTrue,
+					Status: corev1.ConditionTrue,
 				},
 			}
 			graphStatus.SetConditions(conditions)

@@ -21,7 +21,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/ptr"
 
@@ -124,7 +124,7 @@ func TestCreateHPA(t *testing.T) {
 					{
 						Type: autoscalingv2.ResourceMetricSourceType,
 						Resource: &autoscalingv2.ResourceMetricSource{
-							Name: v1.ResourceName("cpu"),
+							Name: corev1.ResourceName("cpu"),
 							Target: autoscalingv2.MetricTarget{
 								Type:               "Utilization",
 								AverageUtilization: &defaultutilization,
@@ -149,7 +149,7 @@ func TestCreateHPA(t *testing.T) {
 					{
 						Type: autoscalingv2.ResourceMetricSourceType,
 						Resource: &autoscalingv2.ResourceMetricSource{
-							Name: v1.ResourceName("cpu"),
+							Name: corev1.ResourceName("cpu"),
 							Target: autoscalingv2.MetricTarget{
 								Type:               "Utilization",
 								AverageUtilization: &igutilization,
@@ -173,7 +173,7 @@ func TestCreateHPA(t *testing.T) {
 					{
 						Type: autoscalingv2.ResourceMetricSourceType,
 						Resource: &autoscalingv2.ResourceMetricSource{
-							Name: v1.ResourceName("memory"),
+							Name: corev1.ResourceName("memory"),
 							Target: autoscalingv2.MetricTarget{
 								Type:               "Utilization",
 								AverageUtilization: &defaultutilization,
@@ -197,7 +197,7 @@ func TestCreateHPA(t *testing.T) {
 					{
 						Type: autoscalingv2.ResourceMetricSourceType,
 						Resource: &autoscalingv2.ResourceMetricSource{
-							Name: v1.ResourceName("cpu"),
+							Name: corev1.ResourceName("cpu"),
 							Target: autoscalingv2.MetricTarget{
 								Type:               "Utilization",
 								AverageUtilization: &predictorutilization,

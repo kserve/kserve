@@ -33,7 +33,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	kservev1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
@@ -54,7 +53,7 @@ func NewCaBundleConfigMapReconciler(client client.Client, clientset kubernetes.I
 	}
 }
 
-func (c *CaBundleConfigMapReconciler) Reconcile(ctx context.Context, isvc *kservev1beta1.InferenceService) error {
+func (c *CaBundleConfigMapReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	log.Info("Reconciling CaBundleConfigMap", "namespace", isvc.Namespace)
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.clientset)
 	if err != nil {

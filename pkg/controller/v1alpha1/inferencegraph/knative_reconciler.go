@@ -25,7 +25,7 @@ import (
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -183,8 +183,8 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.Infer
 					},
 					Spec: knservingv1.RevisionSpec{
 						TimeoutSeconds: graph.Spec.TimeoutSeconds,
-						PodSpec: v1.PodSpec{
-							Containers: []v1.Container{
+						PodSpec: corev1.PodSpec{
+							Containers: []corev1.Container{
 								{
 									Image: config.Image,
 									Args: []string{
@@ -192,13 +192,13 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.Infer
 										string(bytes),
 									},
 									Resources: constructResourceRequirements(*graph, *config),
-									SecurityContext: &v1.SecurityContext{
+									SecurityContext: &corev1.SecurityContext{
 										Privileged:               proto.Bool(false),
 										RunAsNonRoot:             proto.Bool(true),
 										ReadOnlyRootFilesystem:   proto.Bool(true),
 										AllowPrivilegeEscalation: proto.Bool(false),
-										Capabilities: &v1.Capabilities{
-											Drop: []v1.Capability{v1.Capability("ALL")},
+										Capabilities: &corev1.Capabilities{
+											Drop: []corev1.Capability{corev1.Capability("ALL")},
 										},
 									},
 								},
@@ -215,7 +215,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.Infer
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
 	value, exists := config.Headers["propagate"]
 	if exists {
-		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env = []v1.EnvVar{
+		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env = []corev1.EnvVar{
 			{
 				Name:  constants.RouterHeadersPropagateEnvVar,
 				Value: strings.Join(value, ","),
@@ -225,23 +225,23 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.Infer
 	return service
 }
 
-func constructResourceRequirements(graph v1alpha1.InferenceGraph, config RouterConfig) v1.ResourceRequirements {
-	var specResources v1.ResourceRequirements
+func constructResourceRequirements(graph v1alpha1.InferenceGraph, config RouterConfig) corev1.ResourceRequirements {
+	var specResources corev1.ResourceRequirements
 	if !reflect.ValueOf(graph.Spec.Resources).IsZero() {
 		log.Info("Ignoring defaults for ResourceRequirements as spec has resources mentioned", "specResources", graph.Spec.Resources)
-		specResources = v1.ResourceRequirements{
+		specResources = corev1.ResourceRequirements{
 			Limits:   graph.Spec.Resources.Limits,
 			Requests: graph.Spec.Resources.Requests,
 		}
 	} else {
-		specResources = v1.ResourceRequirements{
-			Limits: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse(config.CpuLimit),
-				v1.ResourceMemory: resource.MustParse(config.MemoryLimit),
+		specResources = corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(config.CpuLimit),
+				corev1.ResourceMemory: resource.MustParse(config.MemoryLimit),
 			},
-			Requests: v1.ResourceList{
-				v1.ResourceCPU:    resource.MustParse(config.CpuRequest),
-				v1.ResourceMemory: resource.MustParse(config.MemoryRequest),
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(config.CpuRequest),
+				corev1.ResourceMemory: resource.MustParse(config.MemoryRequest),
 			},
 		}
 	}

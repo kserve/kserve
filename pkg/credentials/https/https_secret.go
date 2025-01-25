@@ -17,7 +17,7 @@ limitations under the License.
 package https
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // Create constants -- baseURI
@@ -33,8 +33,8 @@ var (
 )
 
 // Can be used for http and https uris
-func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
-	envs := []v1.EnvVar{}
+func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
+	envs := []corev1.EnvVar{}
 	uriHost, ok := secret.Data[HTTPSHost]
 
 	if !ok {
@@ -47,7 +47,7 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 		return envs
 	}
 
-	envs = append(envs, v1.EnvVar{
+	envs = append(envs, corev1.EnvVar{
 		Name:  string(uriHost) + HeadersSuffix,
 		Value: string(headers),
 	})

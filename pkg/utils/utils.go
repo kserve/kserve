@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
@@ -81,7 +81,7 @@ func IncludesArg(slice []string, arg string) bool {
 	return false
 }
 
-func AppendVolumeIfNotExists(slice []v1.Volume, volume v1.Volume) []v1.Volume {
+func AppendVolumeIfNotExists(slice []corev1.Volume, volume corev1.Volume) []corev1.Volume {
 	for i := range slice {
 		if slice[i].Name == volume.Name {
 			return slice
@@ -90,7 +90,7 @@ func AppendVolumeIfNotExists(slice []v1.Volume, volume v1.Volume) []v1.Volume {
 	return append(slice, volume)
 }
 
-func IsGPUEnabled(requirements v1.ResourceRequirements) bool {
+func IsGPUEnabled(requirements corev1.ResourceRequirements) bool {
 	_, ok := requirements.Limits[constants.NvidiaGPUResourceType]
 	return ok
 }
@@ -130,8 +130,8 @@ func IsPrefixSupported(input string, prefixes []string) bool {
 // 1. If an EnvVar is present in B but not in O, value remains unchanged in the result
 // 2. If an EnvVar is present in `O` but not in `B`, appends to the result
 // 3. If an EnvVar is present in both O and B, uses the value from O in the result
-func MergeEnvs(baseEnvs []v1.EnvVar, overrideEnvs []v1.EnvVar) []v1.EnvVar {
-	var extra []v1.EnvVar
+func MergeEnvs(baseEnvs []corev1.EnvVar, overrideEnvs []corev1.EnvVar) []corev1.EnvVar {
+	var extra []corev1.EnvVar
 
 	for _, override := range overrideEnvs {
 		inBase := false
@@ -152,7 +152,7 @@ func MergeEnvs(baseEnvs []v1.EnvVar, overrideEnvs []v1.EnvVar) []v1.EnvVar {
 	return append(baseEnvs, extra...)
 }
 
-func AppendEnvVarIfNotExists(slice []v1.EnvVar, elems ...v1.EnvVar) []v1.EnvVar {
+func AppendEnvVarIfNotExists(slice []corev1.EnvVar, elems ...corev1.EnvVar) []corev1.EnvVar {
 	for _, elem := range elems {
 		isElemExists := false
 		for _, item := range slice {
@@ -168,7 +168,7 @@ func AppendEnvVarIfNotExists(slice []v1.EnvVar, elems ...v1.EnvVar) []v1.EnvVar 
 	return slice
 }
 
-func AppendPortIfNotExists(slice []v1.ContainerPort, elems ...v1.ContainerPort) []v1.ContainerPort {
+func AppendPortIfNotExists(slice []corev1.ContainerPort, elems ...corev1.ContainerPort) []corev1.ContainerPort {
 	for _, elem := range elems {
 		isElemExists := false
 		for _, item := range slice {
@@ -243,7 +243,7 @@ func SetAvailableResourcesForApi(groupVersion string, resources *metav1.APIResou
 	gvResourcesCache[groupVersion] = resources
 }
 
-func GetEnvVarValue(envVars []v1.EnvVar, key string) (string, bool) {
+func GetEnvVarValue(envVars []corev1.EnvVar, key string) (string, bool) {
 	for _, envVar := range envVars {
 		if envVar.Name == key {
 			return envVar.Value, true // if key exist, return value, true
@@ -253,18 +253,18 @@ func GetEnvVarValue(envVars []v1.EnvVar, key string) (string, bool) {
 }
 
 // IsUnknownGpuResourceType check if the provided gpu resource type is unknown one
-func IsUnknownGpuResourceType(resources v1.ResourceRequirements, customGpuResourceTypes string) bool {
-	basicResourceTypes := map[v1.ResourceName]struct{}{
-		v1.ResourceCPU:              {},
-		v1.ResourceMemory:           {},
-		v1.ResourceStorage:          {},
-		v1.ResourceEphemeralStorage: {},
+func IsUnknownGpuResourceType(resources corev1.ResourceRequirements, customGpuResourceTypes string) bool {
+	basicResourceTypes := map[corev1.ResourceName]struct{}{
+		corev1.ResourceCPU:              {},
+		corev1.ResourceMemory:           {},
+		corev1.ResourceStorage:          {},
+		corev1.ResourceEphemeralStorage: {},
 	}
 
-	possibleGPUResourceType := map[v1.ResourceName]struct{}{}
+	possibleGPUResourceType := map[corev1.ResourceName]struct{}{}
 
 	// Helper function to add non-basic resources from the provided ResourceList
-	addNonBasicResources := func(resources v1.ResourceList) {
+	addNonBasicResources := func(resources corev1.ResourceList) {
 		for resourceType := range resources {
 			if _, exists := basicResourceTypes[resourceType]; !exists {
 				possibleGPUResourceType[resourceType] = struct{}{}
@@ -283,7 +283,7 @@ func IsUnknownGpuResourceType(resources v1.ResourceRequirements, customGpuResour
 	}
 
 	for _, gpuType := range constants.GPUResourceTypeList {
-		allowedGPUResourceName := v1.ResourceName(gpuType)
+		allowedGPUResourceName := corev1.ResourceName(gpuType)
 		delete(possibleGPUResourceType, allowedGPUResourceName) // Remove allowed GPU resource if exists
 	}
 

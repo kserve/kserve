@@ -32,13 +32,13 @@ import (
 	"reflect"
 
 	"github.com/go-logr/logr"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/component-helpers/scheduling/corev1"
+	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -115,7 +115,7 @@ func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localMo
 }
 
 // Creates a PV and set the localModel as its controller
-func (c *LocalModelReconciler) createPV(ctx context.Context, spec v1.PersistentVolume, localModel *v1alpha1.LocalModelCache) error {
+func (c *LocalModelReconciler) createPV(ctx context.Context, spec corev1.PersistentVolume, localModel *v1alpha1.LocalModelCache) error {
 	persistentVolumes := c.Clientset.CoreV1().PersistentVolumes()
 	if _, err := persistentVolumes.Get(ctx, spec.Name, metav1.GetOptions{}); err != nil {
 		if !apierr.IsNotFound(err) {
@@ -136,7 +136,7 @@ func (c *LocalModelReconciler) createPV(ctx context.Context, spec v1.PersistentV
 }
 
 // Creates a PVC and sets the localModel as its controller
-func (c *LocalModelReconciler) createPVC(ctx context.Context, spec v1.PersistentVolumeClaim, namespace string, localModel *v1alpha1.LocalModelCache) error {
+func (c *LocalModelReconciler) createPVC(ctx context.Context, spec corev1.PersistentVolumeClaim, namespace string, localModel *v1alpha1.LocalModelCache) error {
 	persistentVolumeClaims := c.Clientset.CoreV1().PersistentVolumeClaims(namespace)
 	if _, err := persistentVolumeClaims.Get(ctx, spec.Name, metav1.GetOptions{}); err != nil {
 		if !apierr.IsNotFound(err) {
@@ -180,7 +180,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 		It only deletes the pvc and pvs with ownerReference as the localModel
 		And the pv must be of the format pvc.Name+"-"+pvc.Namespace
 	*/
-	pvcs := v1.PersistentVolumeClaimList{}
+	pvcs := corev1.PersistentVolumeClaimList{}
 	if err := c.List(ctx, &pvcs, client.MatchingFields{ownerKey: localModel.Name}); err != nil {
 		c.Log.Error(err, "unable to list PVCs", "name", localModel.Name)
 		return err
@@ -207,7 +207,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	for namespace := range namespaces {
 		// TODO: node group needs to be retrieved from isvc node group annotation when we support multiple node groups
 		pvcName := localModel.Name + "-" + localModel.Spec.NodeGroups[0]
-		pv := v1.PersistentVolume{
+		pv := corev1.PersistentVolume{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: pvcName + "-" + namespace,
 			},
@@ -217,7 +217,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 			c.Log.Error(err, "Create PV err", "name", pv.Name)
 		}
 
-		pvc := v1.PersistentVolumeClaim{
+		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      pvcName,
 				Namespace: namespace,
@@ -285,14 +285,14 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 
 	// Step 3 - Creates PV & PVC for model download
 	pvSpec := nodeGroup.Spec.PersistentVolumeSpec
-	pv := v1.PersistentVolume{Spec: pvSpec, ObjectMeta: metav1.ObjectMeta{
+	pv := corev1.PersistentVolume{Spec: pvSpec, ObjectMeta: metav1.ObjectMeta{
 		Name: localModel.Name + "-download",
 	}}
 	if err := c.createPV(ctx, pv, localModel); err != nil {
 		c.Log.Error(err, "Create PV err", "name", pv.Name)
 	}
 
-	pvc := v1.PersistentVolumeClaim{
+	pvc := corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: localModel.Name,
 		},
@@ -341,7 +341,7 @@ func (c *LocalModelReconciler) isvcFunc(ctx context.Context, obj client.Object) 
 
 // Given a node object, checks if it matches any node group CR, then reconcile all local models that has this node group to create download jobs.
 func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
-	node := obj.(*v1.Node)
+	node := obj.(*corev1.Node)
 	requests := []reconcile.Request{}
 	models := &v1alpha1.LocalModelCacheList{}
 	if err := c.Client.List(ctx, models); err != nil {
@@ -398,8 +398,8 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1.PersistentVolumeClaim{}, ownerKey, func(rawObj client.Object) []string {
-		pvc := rawObj.(*v1.PersistentVolumeClaim)
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.PersistentVolumeClaim{}, ownerKey, func(rawObj client.Object) []string {
+		pvc := rawObj.(*corev1.PersistentVolumeClaim)
 		owner := metav1.GetControllerOf(pvc)
 		if owner == nil {
 			return nil
@@ -445,8 +445,8 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			// Only reconciles the local model crs when the node becomes ready from not ready
 			// Todo: add tests
-			oldNode := e.ObjectNew.(*v1.Node)
-			newNode := e.ObjectNew.(*v1.Node)
+			oldNode := e.ObjectNew.(*corev1.Node)
+			newNode := e.ObjectNew.(*corev1.Node)
 			return !isNodeReady(*oldNode) && isNodeReady(*newNode)
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
@@ -482,23 +482,23 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	controllerBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.LocalModelCache{}).
 		// Ownes PersistentVolumes and PersistentVolumeClaims that is created by this local model controller
-		Owns(&v1.PersistentVolume{}).
-		Owns(&v1.PersistentVolumeClaim{})
+		Owns(&corev1.PersistentVolume{}).
+		Owns(&corev1.PersistentVolumeClaim{})
 
 	if !localModelConfig.DisableVolumeManagement {
 		controllerBuilder.Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates))
 	}
 
 	return controllerBuilder.
-		Watches(&v1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc), builder.WithPredicates(nodePredicates)).
+		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc), builder.WithPredicates(nodePredicates)).
 		// Updates model status when localmodelnode status changes
 		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFunc), builder.WithPredicates(localModelNodePredicates)).
 		Complete(c)
 }
 
-func isNodeReady(node v1.Node) bool {
+func isNodeReady(node corev1.Node) bool {
 	for _, condition := range node.Status.Conditions {
-		if condition.Type == v1.NodeReady && condition.Status == v1.ConditionTrue {
+		if condition.Type == corev1.NodeReady && condition.Status == corev1.ConditionTrue {
 			return true
 		}
 	}
@@ -506,13 +506,13 @@ func isNodeReady(node v1.Node) bool {
 }
 
 // Returns true if the node matches the node affinity specified in the PV Spec
-func checkNodeAffinity(pvSpec *v1.PersistentVolumeSpec, node v1.Node) (bool, error) {
+func checkNodeAffinity(pvSpec *corev1.PersistentVolumeSpec, node corev1.Node) (bool, error) {
 	if pvSpec.NodeAffinity == nil || pvSpec.NodeAffinity.Required == nil {
 		return false, nil
 	}
 
 	terms := pvSpec.NodeAffinity.Required
-	if matches, err := corev1.MatchNodeSelectorTerms(&node, terms); err != nil {
+	if matches, err := corev1helpers.MatchNodeSelectorTerms(&node, terms); err != nil {
 		return matches, err
 	} else {
 		return matches, nil
@@ -520,10 +520,10 @@ func checkNodeAffinity(pvSpec *v1.PersistentVolumeSpec, node v1.Node) (bool, err
 }
 
 // Returns a list of ready nodes, and not ready nodes that matches the node selector in the node group
-func getNodesFromNodeGroup(ctx context.Context, nodeGroup *v1alpha1.LocalModelNodeGroup, c client.Client) (*v1.NodeList, *v1.NodeList, error) {
-	nodes := &v1.NodeList{}
-	readyNodes := &v1.NodeList{}
-	notReadyNodes := &v1.NodeList{}
+func getNodesFromNodeGroup(ctx context.Context, nodeGroup *v1alpha1.LocalModelNodeGroup, c client.Client) (*corev1.NodeList, *corev1.NodeList, error) {
+	nodes := &corev1.NodeList{}
+	readyNodes := &corev1.NodeList{}
+	notReadyNodes := &corev1.NodeList{}
 	if err := c.List(ctx, nodes); err != nil {
 		return nil, nil, err
 	}

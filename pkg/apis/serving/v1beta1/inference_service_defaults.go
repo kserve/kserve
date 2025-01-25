@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -55,26 +55,26 @@ type InferenceServiceDefaulter struct{}
 // +kubebuilder:webhook:path=/mutate-inferenceservices,mutating=true,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,verbs=create;update,versions=v1beta1,name=inferenceservice.kserve-webhook-server.defaulter
 var _ webhook.CustomDefaulter = &InferenceServiceDefaulter{}
 
-func setResourceRequirementDefaults(config *InferenceServicesConfig, requirements *v1.ResourceRequirements) {
-	defaultResourceRequests := v1.ResourceList{}
-	defaultResourceLimits := v1.ResourceList{}
+func setResourceRequirementDefaults(config *InferenceServicesConfig, requirements *corev1.ResourceRequirements) {
+	defaultResourceRequests := corev1.ResourceList{}
+	defaultResourceLimits := corev1.ResourceList{}
 
 	if config != nil {
 		if config.Resource.CPURequest != "" {
-			defaultResourceRequests[v1.ResourceCPU] = resource.MustParse(config.Resource.CPURequest)
+			defaultResourceRequests[corev1.ResourceCPU] = resource.MustParse(config.Resource.CPURequest)
 		}
 		if config.Resource.MemoryRequest != "" {
-			defaultResourceRequests[v1.ResourceMemory] = resource.MustParse(config.Resource.MemoryRequest)
+			defaultResourceRequests[corev1.ResourceMemory] = resource.MustParse(config.Resource.MemoryRequest)
 		}
 		if config.Resource.CPULimit != "" {
-			defaultResourceLimits[v1.ResourceCPU] = resource.MustParse(config.Resource.CPULimit)
+			defaultResourceLimits[corev1.ResourceCPU] = resource.MustParse(config.Resource.CPULimit)
 		}
 		if config.Resource.MemoryLimit != "" {
-			defaultResourceLimits[v1.ResourceMemory] = resource.MustParse(config.Resource.MemoryLimit)
+			defaultResourceLimits[corev1.ResourceMemory] = resource.MustParse(config.Resource.MemoryLimit)
 		}
 	}
 	if requirements.Requests == nil {
-		requirements.Requests = v1.ResourceList{}
+		requirements.Requests = corev1.ResourceList{}
 	}
 	for k, v := range defaultResourceRequests {
 		if _, ok := requirements.Requests[k]; !ok {
@@ -85,7 +85,7 @@ func setResourceRequirementDefaults(config *InferenceServicesConfig, requirement
 	logf.Log.Info("Setting default resource requirements -----------------", "requests", requirements.Requests, "limits", requirements.Limits)
 
 	if requirements.Limits == nil {
-		requirements.Limits = v1.ResourceList{}
+		requirements.Limits = corev1.ResourceList{}
 	}
 	for k, v := range defaultResourceLimits {
 		if _, ok := requirements.Limits[k]; !ok {
@@ -380,18 +380,18 @@ func (isvc *InferenceService) SetMlServerDefaults() {
 	// set environment variables based on storage uri
 	if isvc.Spec.Predictor.Model.StorageURI == nil && isvc.Spec.Predictor.Model.Storage == nil {
 		isvc.Spec.Predictor.Model.Env = utils.AppendEnvVarIfNotExists(isvc.Spec.Predictor.Model.Env,
-			v1.EnvVar{
+			corev1.EnvVar{
 				Name:  constants.MLServerLoadModelsStartupEnv,
 				Value: strconv.FormatBool(false),
 			},
 		)
 	} else {
 		isvc.Spec.Predictor.Model.Env = utils.AppendEnvVarIfNotExists(isvc.Spec.Predictor.Model.Env,
-			v1.EnvVar{
+			corev1.EnvVar{
 				Name:  constants.MLServerModelNameEnv,
 				Value: isvc.Name,
 			},
-			v1.EnvVar{
+			corev1.EnvVar{
 				Name:  constants.MLServerModelURIEnv,
 				Value: constants.DefaultModelLocalMountPath,
 			},
@@ -432,7 +432,7 @@ func (isvc *InferenceService) SetTorchServeDefaults() {
 
 	// set torchserve env variable "PROTOCOL_VERSION" based on ProtocolVersion
 	isvc.Spec.Predictor.Model.Env = append(isvc.Spec.Predictor.Model.Env,
-		v1.EnvVar{
+		corev1.EnvVar{
 			Name:  constants.ProtocolVersionENV,
 			Value: string(*isvc.Spec.Predictor.Model.ProtocolVersion),
 		})

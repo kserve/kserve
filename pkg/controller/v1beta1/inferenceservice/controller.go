@@ -26,7 +26,7 @@ import (
 	"github.com/pkg/errors"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -191,7 +191,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 
 		if !ksvcAvailable {
-			r.Recorder.Event(isvc, v1.EventTypeWarning, "ServerlessModeRejected",
+			r.Recorder.Event(isvc, corev1.EventTypeWarning, "ServerlessModeRejected",
 				"It is not possible to use Serverless deployment mode when Knative Services are not available")
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Serverless, but Knative Serving is not available", isvc.Name))
 		}
@@ -220,7 +220,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		result, err := reconciler.Reconcile(ctx, isvc)
 		if err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
-			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
+			r.Recorder.Eventf(isvc, corev1.EventTypeWarning, "InternalError", err.Error())
 			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
 				r.Log.Error(err, "Error updating status")
 				return result, err
@@ -273,7 +273,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if err = r.updateStatus(ctx, isvc, deploymentMode); err != nil {
-		r.Recorder.Event(isvc, v1.EventTypeWarning, "InternalError", err.Error())
+		r.Recorder.Event(isvc, corev1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
 
@@ -296,7 +296,7 @@ func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredSe
 		// to status with this stale state.
 	} else if err := r.Status().Update(ctx, desiredService); err != nil {
 		r.Log.Error(err, "Failed to update InferenceService status", "InferenceService", desiredService.Name)
-		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
+		r.Recorder.Eventf(desiredService, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceService %q: %v", desiredService.Name, err)
 		return errors.Wrapf(err, "fails to update InferenceService status")
 	} else {
@@ -304,10 +304,10 @@ func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredSe
 		isReady := inferenceServiceReadiness(desiredService.Status)
 		isReadyFalse := inferenceServiceReadinessFalse(desiredService.Status)
 		if wasReady && isReadyFalse { // Moved to NotReady State
-			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceServiceNotReadyState),
+			r.Recorder.Eventf(desiredService, corev1.EventTypeWarning, string(InferenceServiceNotReadyState),
 				fmt.Sprintf("InferenceService [%v] is no longer Ready because of: %v", desiredService.GetName(), r.GetFailConditions(desiredService)))
 		} else if !wasReady && isReady { // Moved to Ready State
-			r.Recorder.Eventf(desiredService, v1.EventTypeNormal, string(InferenceServiceReadyState),
+			r.Recorder.Eventf(desiredService, corev1.EventTypeNormal, string(InferenceServiceReadyState),
 				fmt.Sprintf("InferenceService [%v] is Ready", desiredService.GetName()))
 		}
 	}
@@ -317,12 +317,12 @@ func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredSe
 func inferenceServiceReadiness(status v1beta1.InferenceServiceStatus) bool {
 	return status.Conditions != nil &&
 		status.GetCondition(apis.ConditionReady) != nil &&
-		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
+		status.GetCondition(apis.ConditionReady).Status == corev1.ConditionTrue
 }
 
 func inferenceServiceReadinessFalse(status v1beta1.InferenceServiceStatus) bool {
 	readyCondition := status.GetCondition(apis.ConditionReady)
-	return readyCondition != nil && readyCondition.Status == v1.ConditionFalse
+	return readyCondition != nil && readyCondition.Status == corev1.ConditionFalse
 }
 
 func inferenceServiceStatusEqual(s1, s2 v1beta1.InferenceServiceStatus, deploymentMode constants.DeploymentModeType) bool {
