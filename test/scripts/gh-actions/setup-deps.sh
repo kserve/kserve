@@ -16,51 +16,76 @@
 
 # The script will install KServe dependencies in the GH Actions environment.
 # (Istio, Knative, cert-manager, kustomize, yq)
+# Usage: setup-deps.sh $DEPLOYMENT_MODE $NETWORK_LAYER
 
 set -o errexit
 set -o nounset
 set -o pipefail
 
-SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
 DEPLOYMENT_MODE="${1:-'serverless'}"
+NETWORK_LAYER="${2:-'istio'}"
 
-ISTIO_VERSION="1.20.4"
-CERT_MANAGER_VERSION="v1.15.1"
+ISTIO_VERSION="1.23.2"
+CERT_MANAGER_VERSION="v1.16.1"
 YQ_VERSION="v4.28.1"
+GATEWAY_API_VERSION="v1.2.1"
+ENVOY_GATEWAY_VERSION="v1.2.2"
 
 echo "Installing yq ..."
 wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
 
-echo "Installing Istio ..."
-mkdir istio_tmp
-pushd istio_tmp >/dev/null
+if [[ $NETWORK_LAYER == "istio-gatewayapi" || $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
+  echo "Installing Gateway CRDs ..."
+  kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
+fi
+
+if [[ $NETWORK_LAYER == "istio-ingress" || $NETWORK_LAYER == "istio-gatewayapi" || $NETWORK_LAYER == "istio" ]]; then
+  echo "Installing Istio ..."
+  mkdir istio_tmp
+  pushd istio_tmp >/dev/null
   curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} sh -
   cd istio-${ISTIO_VERSION}
   export PATH=$PWD/bin:$PATH
-  istioctl manifest generate --set meshConfig.accessLogFile=/dev/stdout > ${SCRIPT_DIR}/../../overlays/istio/generated-manifest.yaml
-popd
+  istioctl manifest generate --set meshConfig.accessLogFile=/dev/stdout >${SCRIPT_DIR}/../../overlays/istio/generated-manifest.yaml
+  popd
+  kubectl create ns istio-system
+  for i in {1..3}; do kubectl apply -k test/overlays/istio && break || sleep 15; done
 
-kubectl create ns istio-system
-for i in 1 2 3 ; do kubectl apply -k test/overlays/istio && break || sleep 15; done
+  echo "Waiting for Istio to be ready ..."
+  kubectl wait --for=condition=Ready pods --all --timeout=240s -n istio-system
+elif [[ $NETWORK_LAYER == "envoy-gatewayapi" ]]; then
+  echo "Installing Envoy Gateway ..."
+  helm install eg oci://docker.io/envoyproxy/gateway-helm --version ${ENVOY_GATEWAY_VERSION} -n envoy-gateway-system --create-namespace --wait
+  kubectl wait --timeout=5m -n envoy-gateway-system deployment/envoy-gateway --for=condition=Available
 
-echo "Waiting for Istio to be ready ..."
-kubectl wait --for=condition=Ready pods --all --timeout=240s -n istio-system
-
-# Necessary since istio is the default ingressClassName in kserve.yaml
-echo "Creating istio ingress class"
-cat <<EOF | kubectl apply -f -
-apiVersion: networking.k8s.io/v1
-kind: IngressClass
-metadata:
-  name: istio
-spec:
-  controller: istio.io/ingress-controller
+  echo "Creating envoy GatewayClass ..."
+  cat <<EOF | kubectl apply -f -
+  apiVersion: gateway.networking.k8s.io/v1
+  kind: GatewayClass
+  metadata:
+    name: envoy
+  spec:
+    controllerName: gateway.envoyproxy.io/gatewayclass-controller  
 EOF
+fi
+
+if [[ $NETWORK_LAYER == "istio-ingress" ]]; then
+  echo "Creating istio ingress class"
+  cat <<EOF | kubectl apply -f -
+  apiVersion: networking.k8s.io/v1
+  kind: IngressClass
+  metadata:
+    name: istio
+  spec:
+    controller: istio.io/ingress-controller
+EOF
+fi
 
 shopt -s nocasematch
-if [[ $DEPLOYMENT_MODE != "raw" ]];then
-  source  ./test/scripts/gh-actions/install-knative-operator.sh
-
+if [[ $DEPLOYMENT_MODE == "serverless" ]]; then
+  # Serverless mode
+  source ./test/scripts/gh-actions/install-knative-operator.sh
   echo "Installing Knative serving ..."
   kubectl apply -f ./test/overlays/knative/knative-serving-istio.yaml
   echo "Waiting for Knative to be ready ..."
