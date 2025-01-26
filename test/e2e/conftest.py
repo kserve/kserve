@@ -60,3 +60,17 @@ async def rest_v2_client():
     )
     yield v2_client
     await v2_client.close()
+
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--network-layer",
+        default="istio",
+        type=str,
+        help="Network layer to used for testing. Default is istio. Allowed values are istio-ingress, envoy-gatewayapi, istio-gatewayapi",
+    )
+
+
+@pytest.fixture(scope="session")
+def network_layer(request):
+    return request.config.getoption("--network-layer")

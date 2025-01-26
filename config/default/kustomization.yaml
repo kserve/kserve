@@ -74,6 +74,7 @@ replacements:
       kind: Certificate
       name: serving-cert
       namespace: kserve
+# Replace the namespace with the namespace of the controller manager.
 - source:
     fieldPath: metadata.namespace
     kind: Deployment

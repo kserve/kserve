@@ -22,6 +22,7 @@ export KNATIVE_OPERATOR_VERSION=v1.15.7
 export KNATIVE_SERVING_VERSION=1.15.2
 export KSERVE_VERSION=v0.14.0
 export CERT_MANAGER_VERSION=v1.16.1
+export GATEWAY_API_VERSION=v1.2.1
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 export SCRIPT_DIR
 
@@ -85,6 +86,9 @@ if [ "$(get_kube_version)" -lt 24 ]; then
    echo "😱 install requires at least Kubernetes 1.24"
    exit 1
 fi
+
+echo "Installing Gateway API CRDs ..."
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 
 helm repo add istio https://istio-release.storage.googleapis.com/charts --force-update
 helm install istio-base istio/base -n istio-system --wait --set defaultRevision=default --create-namespace --version ${ISTIO_VERSION}

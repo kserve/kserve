@@ -1708,7 +1708,7 @@ func TestGetServiceUrl(t *testing.T) {
 					Address: nil,
 					URL:     nil,
 					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{},
+						v1beta1.PredictorComponent: {},
 					},
 					ModelStatus: v1beta1.ModelStatus{},
 				},
@@ -1737,7 +1737,7 @@ func TestGetServiceUrl(t *testing.T) {
 					Address: nil,
 					URL:     nil,
 					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
 							URL: (*apis.URL)(defaultPredictorUrl),
 						},
 					},
@@ -1768,10 +1768,10 @@ func TestGetServiceUrl(t *testing.T) {
 					Address: nil,
 					URL:     nil,
 					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
 							URL: (*apis.URL)(defaultPredictorUrl),
 						},
-						v1beta1.TransformerComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.TransformerComponent: {
 							URL: (*apis.URL)(defaultTransformerUrl),
 						},
 					},
@@ -1824,7 +1824,7 @@ func TestGetServiceUrl(t *testing.T) {
 					Address: nil,
 					URL:     nil,
 					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
 							URL: (*apis.URL)(defaultPredictorUrl),
 						},
 					},
@@ -1855,10 +1855,10 @@ func TestGetServiceUrl(t *testing.T) {
 					Address: nil,
 					URL:     nil,
 					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
 							URL: (*apis.URL)(defaultPredictorUrl),
 						},
-						v1beta1.TransformerComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.TransformerComponent: {
 							URL: nil,
 						},
 					},
@@ -1889,10 +1889,10 @@ func TestGetServiceUrl(t *testing.T) {
 					Address: nil,
 					URL:     nil,
 					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
 							URL: (*apis.URL)(predictorUrl),
 						},
-						v1beta1.TransformerComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.TransformerComponent: {
 							URL: (*apis.URL)(transformerUrl),
 						},
 					},
@@ -1922,7 +1922,7 @@ func TestGetServiceUrl(t *testing.T) {
 					Address: nil,
 					URL:     nil,
 					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
 							URL: (*apis.URL)(predictorUrl),
 						},
 					},
@@ -1952,7 +1952,7 @@ func TestGetServiceUrl(t *testing.T) {
 					Address: nil,
 					URL:     nil,
 					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
 							URL: (*apis.URL)(predictorUrl),
 						},
 					},
@@ -1983,10 +1983,10 @@ func TestGetServiceUrl(t *testing.T) {
 					Address: nil,
 					URL:     nil,
 					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
 							URL: (*apis.URL)(predictorUrl),
 						},
-						v1beta1.TransformerComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.TransformerComponent: {
 							URL: (*apis.URL)(transformerUrl),
 						},
 					},
@@ -2058,7 +2058,7 @@ func TestGetServiceUrlPathBased(t *testing.T) {
 					Address: nil,
 					URL:     nil,
 					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{},
+						v1beta1.PredictorComponent: {},
 					},
 					ModelStatus: v1beta1.ModelStatus{},
 				},
@@ -2083,7 +2083,7 @@ func TestGetServiceUrlPathBased(t *testing.T) {
 					Address: nil,
 					URL:     nil,
 					Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
-						v1beta1.PredictorComponent: v1beta1.ComponentStatusSpec{
+						v1beta1.PredictorComponent: {
 							URL: (*apis.URL)(predictorUrl),
 						},
 					},

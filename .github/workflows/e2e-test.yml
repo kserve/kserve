@@ -598,7 +598,7 @@ jobs:
 
       - name: Patch inferenceservice config
         run: |
-          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-ingress.yaml
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-path-template.yaml
           kubectl describe configmaps -n kserve inferenceservice-config
 
       - name: Run E2E tests with path-based routing
@@ -729,8 +729,13 @@ jobs:
 
   test-raw:
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        # Test with Ingress and Gateway API
+        network-layer: ["istio-ingress", "envoy-gatewayapi", "istio-gatewayapi"]
     needs:
-      [kserve-image-build, predictor-runtime-build]
+      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -742,6 +747,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: "1.22"
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -754,6 +760,7 @@ jobs:
         uses: ./.github/actions/kserve-dep-setup
         with:
           deployment-mode: "raw"
+          network-layer: ${{ matrix.network-layer }}
 
       - name: Download base images
         uses: ./.github/actions/base-download
@@ -776,11 +783,12 @@ jobs:
           name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ github.sha }}
           path: ./tmp
 
-      - name: Download transformer image
+      - name: Download transformer and explainer artifacts
         uses: actions/download-artifact@v4
         with:
-          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ github.sha }}
           path: ./tmp
+          pattern: +(${{ env.TRANSFORMER_ARTIFACT_PREFIX }}|${{ env.EXPLAINER_ARTIFACT_PREFIX }})-*
+          merge-multiple: true
 
       - name: Load docker images
         uses: ./.github/actions/load-docker-images
@@ -792,7 +800,7 @@ jobs:
 
       - name: Install KServe
         run: |
-          ./test/scripts/gh-actions/setup-kserve.sh "raw"
+          ./test/scripts/gh-actions/setup-kserve.sh "raw" ${{ matrix.network-layer }}
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
@@ -801,10 +809,27 @@ jobs:
         run: |
           kubectl describe configmaps -n kserve inferenceservice-config
 
+      - name: Enable Gateway API
+        if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
+        run: |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-gateway-api.yaml
+
       - name: Run E2E tests
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
+      
+      - name: Patch inferenceservice config for path based routing
+        if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
+        run: |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-path-template.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+  
+      - name: Run E2E tests with path based routing
+        if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
 
       - name: Patch inferenceservice config for cluster ip none
         run: |
@@ -814,7 +839,7 @@ jobs:
       - name: Run E2E tests - cluster ip none
         timeout-minutes: 30
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "rawcipn" "1"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "rawcipn" "1" ${{ matrix.network-layer }}
 
       - name: Check system status
         if: always()

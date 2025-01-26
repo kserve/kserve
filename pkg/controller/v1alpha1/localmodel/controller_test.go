@@ -18,9 +18,12 @@ package localmodel
 
 import (
 	"context"
+	"time"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
@@ -32,8 +35,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	crconfig "sigs.k8s.io/controller-runtime/pkg/config"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"time"
 )
 
 var _ = Describe("CachedModel controller", func() {
@@ -616,6 +619,9 @@ func initializeManager(ctx context.Context, cfg *rest.Config) {
 		Scheme: scheme.Scheme,
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
+		},
+		Controller: crconfig.Controller{
+			SkipNameValidation: utils.ToPointer(true),
 		},
 	})
 	Expect(err).ToNot(HaveOccurred())
