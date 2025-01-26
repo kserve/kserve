@@ -18,31 +18,31 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"crypto/rand"
 	"encoding/json"
 	goerrors "errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
-
+	flag "github.com/spf13/pflag"
 	"github.com/tidwall/gjson"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"crypto/rand"
-	"math/big"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	flag "github.com/spf13/pflag"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var log = logf.Log.WithName("InferenceGraphRouter")
@@ -410,9 +410,21 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 	return compiled, goerrors.Join(allErrors...)
 }
 
+// Mainly used for kubernetes readiness probe. It responds with "503 shutting down" if server is shutting down,
+// otherwise returns "200 OK".
+func readyHandler(w http.ResponseWriter, req *http.Request) {
+	if isShuttingDown {
+		http.Error(w, "shutting down", http.StatusServiceUnavailable)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
 var (
 	jsonGraph              = flag.String("graph-json", "", "serialized json graph def")
 	compiledHeaderPatterns []*regexp.Regexp
+	isShuttingDown         = false
+	drainSleepDuration     = 30 * time.Second
 )
 
 func main() {
@@ -435,18 +447,44 @@ func main() {
 	}
 
 	http.HandleFunc("/", graphHandler)
+	http.HandleFunc(constants.RouterReadinessEndpoint, readyHandler)
 
 	server := &http.Server{
-		Addr:         ":8080",                        // specify the address and port
-		Handler:      http.HandlerFunc(graphHandler), // specify your HTTP handler
-		ReadTimeout:  time.Minute,                    // set the maximum duration for reading the entire request, including the body
-		WriteTimeout: time.Minute,                    // set the maximum duration before timing out writes of the response
-		IdleTimeout:  3 * time.Minute,                // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		Addr:         ":" + strconv.Itoa(constants.RouterPort),
+		Handler:      nil,             // default server mux
+		ReadTimeout:  time.Minute,     // https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
+		WriteTimeout: time.Minute,     // set the maximum duration before timing out writes of the response
+		IdleTimeout:  3 * time.Minute, // set the maximum amount of time to wait for the next request when keep-alives are enabled
 	}
-	err = server.ListenAndServe()
 
-	if err != nil {
-		log.Error(err, "failed to listen on 8080")
+	go func() {
+		err = server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error(err, fmt.Sprintf("Failed to serve on address %v", server.Addr))
+			os.Exit(1)
+		}
+	}()
+
+	// Blocks until SIGTERM or SIGINT is received
+	handleSignals(server)
+}
+
+func handleSignals(server *http.Server) {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	sig := <-signalChan
+	log.Info("Received shutdown signal", "signal", sig)
+	// Fail the readiness probe
+	isShuttingDown = true
+	log.Info("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
+	// Sleep to give networking a little bit more time to remove the pod
+	// from its configuration and propagate that to all loadbalancers and nodes.
+	time.Sleep(drainSleepDuration)
+	// Shut down the server gracefully
+	if err := server.Shutdown(context.Background()); err != nil {
+		log.Error(err, "Failed to shutdown the server gracefully")
 		os.Exit(1)
 	}
+	log.Info("Server gracefully shutdown")
 }
