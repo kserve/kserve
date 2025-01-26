@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/utils"
@@ -40,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -188,6 +190,12 @@ func main() {
 		}
 	}
 
+	setupLog.Info("Setting up gateway api scheme")
+	if err := gatewayapiv1.Install(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add Gateway APIs to scheme")
+		os.Exit(1)
+	}
+
 	setupLog.Info("Setting up core scheme")
 	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Core APIs to scheme")
@@ -280,6 +288,14 @@ func main() {
 		WithValidator(&v1beta1.InferenceServiceValidator{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "v1beta1")
+		os.Exit(1)
+	}
+
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.LocalModelCache{}).
+		WithValidator(&localmodelcache.LocalModelCacheValidator{Client: mgr.GetClient()}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "localmodelcache")
 		os.Exit(1)
 	}
 

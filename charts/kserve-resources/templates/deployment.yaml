@@ -86,7 +86,7 @@ spec:
           {{- toYaml . | nindent 10 }}
           {{- end }}
         args:
-        - "--metrics-addr=127.0.0.1:8080"
+        - "--metrics-addr={{ .Values.kserve.controller.metricsBindAddress }}:{{ .Values.kserve.controller.metricsBindPort }}"
         - "--leader-elect"
         env:
           - name: POD_NAMESPACE
@@ -97,14 +97,14 @@ spec:
             value: kserve-webhook-server-cert
         livenessProbe:
           failureThreshold: 5
-          initialDelaySeconds: 10
+          initialDelaySeconds: 30
           httpGet:
             path: /healthz
             port: 8081
           timeoutSeconds: 5
         readinessProbe:
-          initialDelaySeconds: 10
-          failureThreshold: 10
+          initialDelaySeconds: 30
+          failureThreshold: 5
           periodSeconds: 5
           httpGet:
             path: /readyz

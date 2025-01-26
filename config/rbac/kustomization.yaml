@@ -16,3 +16,6 @@ resources:
 - localmodel/role_binding.yaml
 - localmodel/role.yaml
 - localmodel/service_account.yaml
+- localmodelnode/role_binding.yaml
+- localmodelnode/role.yaml
+- localmodelnode/service_account.yaml

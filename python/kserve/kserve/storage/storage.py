@@ -39,11 +39,11 @@ _HDFS_PREFIX = "hdfs://"
 _WEBHDFS_PREFIX = "webhdfs://"
 _AZURE_BLOB_RE = [
     "https://(.+?).blob.core.windows.net/(.+)",
-    "https://(.+?).z[0-9]{2}.blob.storage.azure.net/(.+)",
+    "https://(.+?).z[0-9]{1,2}.blob.storage.azure.net/(.+)",
 ]
 _AZURE_FILE_RE = [
     "https://(.+?).file.core.windows.net/(.+)",
-    "https://(.+?).z[0-9]{2}.file.storage.azure.net/(.+)",
+    "https://(.+?).z[0-9]{1,2}.file.storage.azure.net/(.+)",
 ]
 _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
@@ -176,6 +176,17 @@ class Storage(object):
         if accelerate:
             c = c.merge(Config(s3={"use_accelerate_endpoint": accelerate}))
 
+        # NOTE: If endpoint_url provided is legacy ("https://s3.amazonaws.com") and region is not global (us-east-1), set to virtual addressing style
+        # So that request would not return PermanentRedirect due to region not in the endpoint url
+        # AWS SDK retries under the hood to set the correct region when the valid virtual addressing style endpoint url is provided
+        endpoint_url = os.getenv("AWS_ENDPOINT_URL")
+        region = os.getenv("AWS_DEFAULT_REGION")
+        if endpoint_url == "https://s3.amazonaws.com" and region not in (
+            None,
+            "us-east-1",
+        ):
+            c = c.merge(Config(s3={"addressing_style": "virtual"}))
+
         return c
 
     @staticmethod
@@ -258,8 +269,11 @@ class Storage(object):
                 bucket_path_last_part
             ):
                 target_key = object_last_path
+            elif obj.key.startswith(bucket_path):
+                # remove only the bucket_path prefix
+                target_key = obj.key[len(bucket_path) :].lstrip("/")
             else:
-                target_key = obj.key.replace(bucket_path, "").lstrip("/")
+                target_key = obj.key
 
             target = f"{temp_dir}/{target_key}"
             if not os.path.exists(os.path.dirname(target)):

@@ -95,7 +95,7 @@ func (s *ARTExplainerSpec) Default(config *InferenceServicesConfig) {
 	if s.RuntimeVersion == nil {
 		s.RuntimeVersion = proto.String(config.Explainers.ARTExplainer.DefaultImageVersion)
 	}
-	setResourceRequirementDefaults(&s.Resources)
+	setResourceRequirementDefaults(config, &s.Resources)
 }
 
 func (s *ARTExplainerSpec) GetProtocol() constants.InferenceServiceProtocol {

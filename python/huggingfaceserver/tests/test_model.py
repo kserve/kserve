@@ -565,3 +565,17 @@ async def test_tools_chat_completion(bloom_model: HuggingfaceGenerativeModel):
     response = await bloom_model.create_chat_completion(request)
 
     assert response.choices[0].message.content
+
+
+@pytest.mark.asyncio
+async def test_trust_remote_code_encoder_model():
+    model = HuggingfaceEncoderModel(
+        "nomic-embed-text",
+        model_id_or_path="nomic-ai/nomic-embed-text-v1.5",
+        max_length=1024,
+        dtype=torch.float32,
+        trust_remote_code=True,
+        task=MLTask.text_embedding,
+    )
+    model.load()
+    model.stop()

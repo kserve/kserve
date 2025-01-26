@@ -41,22 +41,24 @@ var trainedmodelsKind = v1alpha1.SchemeGroupVersion.WithKind("TrainedModel")
 
 // Get takes name of the trainedModel, and returns the corresponding trainedModel object, and an error if there is any.
 func (c *FakeTrainedModels) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.TrainedModel, err error) {
+	emptyResult := &v1alpha1.TrainedModel{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(trainedmodelsResource, c.ns, name), &v1alpha1.TrainedModel{})
+		Invokes(testing.NewGetActionWithOptions(trainedmodelsResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.TrainedModel), err
 }
 
 // List takes label and field selectors, and returns the list of TrainedModels that match those selectors.
 func (c *FakeTrainedModels) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.TrainedModelList, err error) {
+	emptyResult := &v1alpha1.TrainedModelList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(trainedmodelsResource, trainedmodelsKind, c.ns, opts), &v1alpha1.TrainedModelList{})
+		Invokes(testing.NewListActionWithOptions(trainedmodelsResource, trainedmodelsKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -75,40 +77,43 @@ func (c *FakeTrainedModels) List(ctx context.Context, opts v1.ListOptions) (resu
 // Watch returns a watch.Interface that watches the requested trainedModels.
 func (c *FakeTrainedModels) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(trainedmodelsResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(trainedmodelsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a trainedModel and creates it.  Returns the server's representation of the trainedModel, and an error, if there is any.
 func (c *FakeTrainedModels) Create(ctx context.Context, trainedModel *v1alpha1.TrainedModel, opts v1.CreateOptions) (result *v1alpha1.TrainedModel, err error) {
+	emptyResult := &v1alpha1.TrainedModel{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(trainedmodelsResource, c.ns, trainedModel), &v1alpha1.TrainedModel{})
+		Invokes(testing.NewCreateActionWithOptions(trainedmodelsResource, c.ns, trainedModel, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.TrainedModel), err
 }
 
 // Update takes the representation of a trainedModel and updates it. Returns the server's representation of the trainedModel, and an error, if there is any.
 func (c *FakeTrainedModels) Update(ctx context.Context, trainedModel *v1alpha1.TrainedModel, opts v1.UpdateOptions) (result *v1alpha1.TrainedModel, err error) {
+	emptyResult := &v1alpha1.TrainedModel{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(trainedmodelsResource, c.ns, trainedModel), &v1alpha1.TrainedModel{})
+		Invokes(testing.NewUpdateActionWithOptions(trainedmodelsResource, c.ns, trainedModel, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.TrainedModel), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeTrainedModels) UpdateStatus(ctx context.Context, trainedModel *v1alpha1.TrainedModel, opts v1.UpdateOptions) (*v1alpha1.TrainedModel, error) {
+func (c *FakeTrainedModels) UpdateStatus(ctx context.Context, trainedModel *v1alpha1.TrainedModel, opts v1.UpdateOptions) (result *v1alpha1.TrainedModel, err error) {
+	emptyResult := &v1alpha1.TrainedModel{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(trainedmodelsResource, "status", c.ns, trainedModel), &v1alpha1.TrainedModel{})
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(trainedmodelsResource, "status", c.ns, trainedModel, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.TrainedModel), err
 }
@@ -123,7 +128,7 @@ func (c *FakeTrainedModels) Delete(ctx context.Context, name string, opts v1.Del
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeTrainedModels) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(trainedmodelsResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(trainedmodelsResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.TrainedModelList{})
 	return err
@@ -131,11 +136,12 @@ func (c *FakeTrainedModels) DeleteCollection(ctx context.Context, opts v1.Delete
 
 // Patch applies the patch and returns the patched trainedModel.
 func (c *FakeTrainedModels) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.TrainedModel, err error) {
+	emptyResult := &v1alpha1.TrainedModel{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(trainedmodelsResource, c.ns, name, pt, data, subresources...), &v1alpha1.TrainedModel{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(trainedmodelsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.TrainedModel), err
 }

@@ -36,7 +36,7 @@ from typing import AsyncIterator, Union
 from kserve.errors import InvalidInput, ModelNotFound
 from kserve.model import PredictorProtocol, PredictorConfig
 from kserve.protocol.dataplane import DataPlane
-from kserve.protocol.rest.openai import CompletionRequest, OpenAIModel
+from kserve.protocol.rest.openai import CompletionRequest, OpenAICompletionModel
 from kserve.model_repository import ModelRepository
 from kserve.ray import RayModel
 from test.test_server import (
@@ -423,7 +423,7 @@ class TestDataPlaneAvroCloudEvent:
 class TestDataPlaneOpenAI:
     MODEL_NAME = "TestModel"
 
-    class DummyOpenAIModel(OpenAIModel):
+    class DummyOpenAIModel(OpenAICompletionModel):
         async def create_completion(
             self, params: CompletionRequest
         ) -> Union[Completion, AsyncIterator[Completion]]:
@@ -434,7 +434,7 @@ class TestDataPlaneOpenAI:
         ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
             pass
 
-    async def test_infer_on_openai_model_raises(self):
+    async def test_infer_on_openai_completion_model_raises(self):
         openai_model = self.DummyOpenAIModel(self.MODEL_NAME)
         repo = ModelRepository()
         repo.update(openai_model)
@@ -448,16 +448,13 @@ class TestDataPlaneOpenAI:
 
         assert (
             exc.value.reason
-            == "Model TestModel is of type OpenAIModel. It does not support the infer method."
+            == "Model TestModel is of type OpenAICompletionModel. It does not support the infer method."
         )
 
 
 @pytest.mark.asyncio
 class TestDataplaneTransformer:
 
-    @pytest.mark.skip(
-        "pytest_httpx requires python >= 3.9. It can be enabled once we remove the support for python 3.8"
-    )
     async def test_dataplane_rest_with_ssl_enabled(self, httpx_mock):
         # scenario: getting a 2xx response from predictor with ssl enabled
         predictor_host = "ready.host"
@@ -499,9 +496,6 @@ class TestDataplaneTransformer:
             url=predictor_host, timeout=5, retries=2, use_ssl=True
         )
 
-    @pytest.mark.skip(
-        "pytest_httpx requires python >= 3.9. It can be enabled once we remove the support for python 3.8"
-    )
     async def test_server_readiness_v1(self, httpx_mock):
         # scenario: getting a 2xx response from predictor
         predictor_host = "ready.host"
@@ -538,9 +532,6 @@ class TestDataplaneTransformer:
         with pytest.raises(httpx.HTTPStatusError):
             await dataplane.ready()
 
-    @pytest.mark.skip(
-        "pytest_httpx requires python >= 3.9. It can be enabled once we remove the support for python 3.8"
-    )
     async def test_server_readiness_v2(self, httpx_mock):
         # scenario: getting a 2xx response from predictor
         predictor_host = "ready.host"
@@ -634,9 +625,6 @@ class TestDataplaneTransformer:
             url=predictor_host, timeout=5, retries=2, use_ssl=False
         )
 
-    @pytest.mark.skip(
-        "pytest_httpx requires python >= 3.9. It can be enabled once we remove the support for python 3.8"
-    )
     async def test_model_readiness_v1(self, httpx_mock):
         # scenario: getting a 2xx response from predictor
         predictor_host = "ready.host"
@@ -698,9 +686,6 @@ class TestDataplaneTransformer:
         dataplane._model_registry.update(not_ready_model)
         assert await dataplane.model_ready(not_ready_model.name) is False
 
-    @pytest.mark.skip(
-        "pytest_httpx requires python >= 3.9. It can be enabled once we remove the support for python 3.8"
-    )
     async def test_model_readiness_v2(self, httpx_mock):
         # scenario: getting a 2xx response from predictor
         predictor_host = "ready.host"

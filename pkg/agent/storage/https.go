@@ -142,6 +142,7 @@ func (h *HTTPSDownloader) extractHeaders() (headers map[string]string, err error
 }
 
 func createNewFile(fileFullName string) (*os.File, error) {
+	fileFullName = filepath.Clean(fileFullName)
 	if FileExists(fileFullName) {
 		if err := os.Remove(fileFullName); err != nil {
 			return nil, fmt.Errorf("file is unable to be deleted: %w", err)
@@ -191,7 +192,7 @@ func extractZipFiles(reader io.Reader, dest string) error {
 			return fmt.Errorf("unable to open file: %w", err)
 		}
 
-		_, err = io.CopyN(file, rc, DEFAULT_MAX_DECOMPRESSION_SIZE) // gosec G110
+		_, ioErr := io.CopyN(file, rc, DEFAULT_MAX_DECOMPRESSION_SIZE) // gosec G110
 		closeErr := file.Close()
 		if closeErr != nil {
 			return closeErr
@@ -200,7 +201,7 @@ func extractZipFiles(reader io.Reader, dest string) error {
 		if closeErr != nil {
 			return closeErr
 		}
-		if err != nil {
+		if ioErr != nil && !errors.Is(ioErr, io.EOF) {
 			return fmt.Errorf("unable to copy file content: %w", err)
 		}
 	}
@@ -246,7 +247,8 @@ func extractTarFiles(reader io.Reader, dest string) error {
 		}
 
 		// gosec G110
-		if _, err := io.CopyN(newFile, tr, DEFAULT_MAX_DECOMPRESSION_SIZE); err != nil {
+		_, ioErr := io.CopyN(newFile, tr, DEFAULT_MAX_DECOMPRESSION_SIZE)
+		if ioErr != nil && !errors.Is(ioErr, io.EOF) {
 			return fmt.Errorf("unable to copy contents to %s: %w", header.Name, err)
 		}
 	}

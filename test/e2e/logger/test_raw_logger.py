@@ -13,15 +13,18 @@
 
 import asyncio
 import os
+import uuid
 from kubernetes import client
 
-from kserve import KServeClient
-from kserve import constants
-from kserve import V1beta1PredictorSpec
-from kserve import V1beta1SKLearnSpec
-from kserve import V1beta1InferenceServiceSpec
-from kserve import V1beta1InferenceService
-from kserve import V1beta1LoggerSpec
+from kserve import (
+    KServeClient,
+    constants,
+    V1beta1PredictorSpec,
+    V1beta1SKLearnSpec,
+    V1beta1InferenceServiceSpec,
+    V1beta1InferenceService,
+    V1beta1LoggerSpec,
+)
 from kubernetes.client import V1ResourceRequirements
 from kubernetes.client import V1Container
 import pytest
@@ -30,41 +33,17 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/config"))
+annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_kserve_logger(rest_v1_client):
-    msg_dumper = "message-dumper-raw"
-    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
+async def test_kserve_logger(rest_v1_client, network_layer):
+    suffix = str(uuid.uuid4())[1:6]
+    msg_dumper = "message-dumper-raw-" + suffix
+    before(msg_dumper)
 
-    predictor = V1beta1PredictorSpec(
-        min_replicas=1,
-        containers=[
-            V1Container(
-                name="kserve-container",
-                image="gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display",
-                resources=V1ResourceRequirements(
-                    requests={"cpu": "10m", "memory": "128Mi"},
-                    limits={"cpu": "100m", "memory": "256Mi"},
-                ),
-            )
-        ],
-    )
-
-    isvc = V1beta1InferenceService(
-        api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
-        metadata=client.V1ObjectMeta(
-            name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
-        ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor),
-    )
-
-    kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
-
-    service_name = "isvc-logger-raw"
+    service_name = "isvc-logger-raw-" + suffix
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         logger=V1beta1LoggerSpec(
@@ -84,10 +63,69 @@ async def test_kserve_logger(rest_v1_client):
             ),
         ),
     )
+    await base_test(msg_dumper, service_name, predictor, rest_v1_client, network_layer)
+
+
+@pytest.mark.rawcipn
+async def test_kserve_logger_cipn(rest_v1_client, network_layer):
+    msg_dumper = "message-dumper-raw-cipn"
+    before(msg_dumper)
+
+    service_name = "isvc-logger-raw-cipn"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        logger=V1beta1LoggerSpec(
+            mode="all",
+            url="http://"
+            + msg_dumper
+            + "-predictor"
+            + "."
+            + KSERVE_TEST_NAMESPACE
+            + ".svc.cluster.local:8080",
+        ),
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "10m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+    await base_test(msg_dumper, service_name, predictor, rest_v1_client, network_layer)
+
+
+def before(msg_dumper):
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        containers=[
+            V1Container(
+                name="kserve-container",
+                image="gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display",
+                resources=V1ResourceRequirements(
+                    requests={"cpu": "10m", "memory": "128Mi"},
+                    limits={"cpu": "100m", "memory": "256Mi"},
+                ),
+            )
+        ],
+    )
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
+
+
+async def base_test(msg_dumper, service_name, predictor, rest_v1_client, network_layer):
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
         ),
@@ -105,7 +143,12 @@ async def test_kserve_logger(rest_v1_client):
         for pod in pods.items:
             print(pod)
 
-    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/iris_input.json",
+        network_layer=network_layer,
+    )
     assert res["predictions"] == [1, 1]
     pods = kserve_client.core_api.list_namespaced_pod(
         KSERVE_TEST_NAMESPACE,
@@ -120,6 +163,7 @@ async def test_kserve_logger(rest_v1_client):
             container="kserve-container",
         )
         print(log)
+
     assert "org.kubeflow.serving.inference.request" in log
     assert "org.kubeflow.serving.inference.response" in log
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

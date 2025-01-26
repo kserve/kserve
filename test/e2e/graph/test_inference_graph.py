@@ -64,7 +64,7 @@ async def test_inference_graph(rest_v1_client):
     )
     sklearn_isvc_1 = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=sklearn_name_1, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -72,7 +72,7 @@ async def test_inference_graph(rest_v1_client):
     )
     sklearn_isvc_2 = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=sklearn_name_2, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -91,7 +91,7 @@ async def test_inference_graph(rest_v1_client):
     )
     xgb_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(name=xgb_name, namespace=KSERVE_TEST_NAMESPACE),
         spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
     )
@@ -187,7 +187,7 @@ def construct_isvc_to_submit(service_name, image, model_name):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -924,11 +924,12 @@ async def test_ig_scenario10(rest_v1_client):
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_inference_graph_raw_mode(rest_v1_client):
+async def test_inference_graph_raw_mode(rest_v1_client, network_layer):
     logger.info("Starting test test_inference_graph_raw_mode")
-    sklearn_name = "isvc-sklearn-graph-raw"
-    xgb_name = "isvc-xgboost-graph-raw"
-    graph_name = "model-chainer-raw"
+    suffix = str(uuid.uuid4())[1:6]
+    sklearn_name = "isvc-sklearn-graph-raw-" + suffix
+    xgb_name = "isvc-xgboost-graph-raw-" + suffix
+    graph_name = "model-chainer-raw-" + suffix
 
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
@@ -945,7 +946,7 @@ async def test_inference_graph_raw_mode(rest_v1_client):
     )
     sklearn_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=sklearn_name,
             namespace=KSERVE_TEST_NAMESPACE,
@@ -966,7 +967,7 @@ async def test_inference_graph_raw_mode(rest_v1_client):
     )
     xgb_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=xgb_name,
             namespace=KSERVE_TEST_NAMESPACE,
@@ -1068,6 +1069,7 @@ async def test_inference_graph_raw_mode(rest_v1_client):
     #    rest_v1_client,
     #     graph_name,
     #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
+    #     network_layer=network_layer,
     # )
     # assert res["predictions"] == [1, 1]
 
@@ -1078,11 +1080,12 @@ async def test_inference_graph_raw_mode(rest_v1_client):
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_inference_graph_raw_mode_with_hpa(rest_v1_client):
+async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer):
     logger.info("Starting test test_inference_graph_raw_mode_with_hpa")
-    sklearn_name = "isvc-sklearn-graph-raw-hpa"
-    xgb_name = "isvc-xgboost-graph-raw-hpa"
-    graph_name = "model-chainer-raw-hpa"
+    suffix = str(uuid.uuid4())[1:6]
+    sklearn_name = "isvc-sklearn-graph-raw-hpa-" + suffix
+    xgb_name = "isvc-xgboost-graph-raw-hpa-" + suffix
+    graph_name = "model-chainer-raw-hpa-" + suffix
 
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
@@ -1103,7 +1106,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client):
     )
     sklearn_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=sklearn_name,
             namespace=KSERVE_TEST_NAMESPACE,
@@ -1124,7 +1127,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client):
     )
     xgb_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=xgb_name,
             namespace=KSERVE_TEST_NAMESPACE,
@@ -1231,6 +1234,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client):
     #     rest_v1_client,
     #     graph_name,
     #     os.path.join(IG_TEST_RESOURCES_BASE_LOCATION, "iris_input.json"),
+    #     network_layer=network_layer,
     # )
     # assert res["predictions"] == [1, 1]
 

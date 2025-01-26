@@ -3,92 +3,6 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.2
-  name: clusterlocalmodels.serving.kserve.io
-spec:
-  group: serving.kserve.io
-  names:
-    kind: ClusterLocalModel
-    listKind: ClusterLocalModelList
-    plural: clusterlocalmodels
-    singular: clusterlocalmodel
-  scope: Cluster
-  versions:
-  - name: v1alpha1
-    schema:
-      openAPIV3Schema:
-        properties:
-          apiVersion:
-            type: string
-          kind:
-            type: string
-          metadata:
-            type: object
-          spec:
-            properties:
-              modelSize:
-                anyOf:
-                - type: integer
-                - type: string
-                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                x-kubernetes-int-or-string: true
-              nodeGroup:
-                type: string
-              sourceModelUri:
-                type: string
-                x-kubernetes-validations:
-                - message: StorageUri is immutable
-                  rule: self == oldSelf
-            required:
-            - modelSize
-            - nodeGroup
-            - sourceModelUri
-            type: object
-          status:
-            properties:
-              copies:
-                properties:
-                  available:
-                    type: integer
-                  failed:
-                    type: integer
-                  total:
-                    type: integer
-                type: object
-              inferenceServices:
-                items:
-                  properties:
-                    name:
-                      type: string
-                    namespace:
-                      type: string
-                  type: object
-                type: array
-              nodeStatus:
-                additionalProperties:
-                  enum:
-                  - ""
-                  - NodeNotReady
-                  - NodeDownloadPending
-                  - NodeDownloading
-                  - NodeDownloaded
-                  - NodeDownloadError
-                  - NodeDeleting
-                  - NodeDeletionError
-                  - NodeDeleted
-                  type: string
-                type: object
-            type: object
-        type: object
-    served: true
-    storage: true
-    subresources:
-      status: {}
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.16.2
   name: clusterservingruntimes.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -1087,6 +1001,8 @@ spec:
                             properties:
                               name:
                                 type: string
+                              request:
+                                type: string
                             required:
                             - name
                             type: object
@@ -1421,10 +1337,12 @@ spec:
                         diskURI:
                           type: string
                         fsType:
+                          default: ext4
                           type: string
                         kind:
                           type: string
                         readOnly:
+                          default: false
                           type: boolean
                       required:
                       - diskName
@@ -1784,6 +1702,13 @@ spec:
                       required:
                       - path
                       type: object
+                    image:
+                      properties:
+                        pullPolicy:
+                          type: string
+                        reference:
+                          type: string
+                      type: object
                     iscsi:
                       properties:
                         chapAuthDiscovery:
@@ -1797,6 +1722,7 @@ spec:
                         iqn:
                           type: string
                         iscsiInterface:
+                          default: default
                           type: string
                         lun:
                           format: int32
@@ -2045,6 +1971,7 @@ spec:
                         image:
                           type: string
                         keyring:
+                          default: /etc/ceph/keyring
                           type: string
                         monitors:
                           items:
@@ -2052,6 +1979,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         pool:
+                          default: rbd
                           type: string
                         readOnly:
                           type: boolean
@@ -2063,6 +1991,7 @@ spec:
                           type: object
                           x-kubernetes-map-type: atomic
                         user:
+                          default: admin
                           type: string
                       required:
                       - image
@@ -2071,6 +2000,7 @@ spec:
                     scaleIO:
                       properties:
                         fsType:
+                          default: xfs
                           type: string
                         gateway:
                           type: string
@@ -2088,6 +2018,7 @@ spec:
                         sslEnabled:
                           type: boolean
                         storageMode:
+                          default: ThinProvisioned
                           type: string
                         storagePool:
                           type: string
@@ -3049,6 +2980,8 @@ spec:
                                 properties:
                                   name:
                                     type: string
+                                  request:
+                                    type: string
                                 required:
                                 - name
                                 type: object
@@ -3349,10 +3282,12 @@ spec:
                             diskURI:
                               type: string
                             fsType:
+                              default: ext4
                               type: string
                             kind:
                               type: string
                             readOnly:
+                              default: false
                               type: boolean
                           required:
                           - diskName
@@ -3712,6 +3647,13 @@ spec:
                           required:
                           - path
                           type: object
+                        image:
+                          properties:
+                            pullPolicy:
+                              type: string
+                            reference:
+                              type: string
+                          type: object
                         iscsi:
                           properties:
                             chapAuthDiscovery:
@@ -3725,6 +3667,7 @@ spec:
                             iqn:
                               type: string
                             iscsiInterface:
+                              default: default
                               type: string
                             lun:
                               format: int32
@@ -3973,6 +3916,7 @@ spec:
                             image:
                               type: string
                             keyring:
+                              default: /etc/ceph/keyring
                               type: string
                             monitors:
                               items:
@@ -3980,6 +3924,7 @@ spec:
                               type: array
                               x-kubernetes-list-type: atomic
                             pool:
+                              default: rbd
                               type: string
                             readOnly:
                               type: boolean
@@ -3991,6 +3936,7 @@ spec:
                               type: object
                               x-kubernetes-map-type: atomic
                             user:
+                              default: admin
                               type: string
                           required:
                           - image
@@ -3999,6 +3945,7 @@ spec:
                         scaleIO:
                           properties:
                             fsType:
+                              default: xfs
                               type: string
                             gateway:
                               type: string
@@ -4016,6 +3963,7 @@ spec:
                             sslEnabled:
                               type: boolean
                             storageMode:
+                              default: ThinProvisioned
                               type: string
                             storagePool:
                               type: string
@@ -4572,6 +4520,8 @@ spec:
                         items:
                           properties:
                             name:
+                              type: string
+                            request:
                               type: string
                           required:
                           - name
@@ -5354,6 +5304,8 @@ spec:
                     items:
                       properties:
                         name:
+                          type: string
+                        request:
                           type: string
                       required:
                       - name
@@ -6369,6 +6321,8 @@ spec:
                               properties:
                                 name:
                                   type: string
+                                request:
+                                  type: string
                               required:
                               - name
                               type: object
@@ -7075,6 +7029,8 @@ spec:
                               items:
                                 properties:
                                   name:
+                                    type: string
+                                  request:
                                     type: string
                                 required:
                                 - name
@@ -7832,6 +7788,8 @@ spec:
                                 properties:
                                   name:
                                     type: string
+                                  request:
+                                    type: string
                                 required:
                                 - name
                                 type: object
@@ -8131,13 +8089,10 @@ spec:
                       properties:
                         name:
                           type: string
-                        source:
-                          properties:
-                            resourceClaimName:
-                              type: string
-                            resourceClaimTemplateName:
-                              type: string
-                          type: object
+                        resourceClaimName:
+                          type: string
+                        resourceClaimTemplateName:
+                          type: string
                       required:
                       - name
                       type: object
@@ -8222,6 +8177,8 @@ spec:
                           type: integer
                         type: array
                         x-kubernetes-list-type: atomic
+                      supplementalGroupsPolicy:
+                        type: string
                       sysctls:
                         items:
                           properties:
@@ -8363,10 +8320,12 @@ spec:
                             diskURI:
                               type: string
                             fsType:
+                              default: ext4
                               type: string
                             kind:
                               type: string
                             readOnly:
+                              default: false
                               type: boolean
                           required:
                           - diskName
@@ -8726,6 +8685,13 @@ spec:
                           required:
                           - path
                           type: object
+                        image:
+                          properties:
+                            pullPolicy:
+                              type: string
+                            reference:
+                              type: string
+                          type: object
                         iscsi:
                           properties:
                             chapAuthDiscovery:
@@ -8739,6 +8705,7 @@ spec:
                             iqn:
                               type: string
                             iscsiInterface:
+                              default: default
                               type: string
                             lun:
                               format: int32
@@ -8987,6 +8954,7 @@ spec:
                             image:
                               type: string
                             keyring:
+                              default: /etc/ceph/keyring
                               type: string
                             monitors:
                               items:
@@ -8994,6 +8962,7 @@ spec:
                               type: array
                               x-kubernetes-list-type: atomic
                             pool:
+                              default: rbd
                               type: string
                             readOnly:
                               type: boolean
@@ -9005,6 +8974,7 @@ spec:
                               type: object
                               x-kubernetes-map-type: atomic
                             user:
+                              default: admin
                               type: string
                           required:
                           - image
@@ -9013,6 +8983,7 @@ spec:
                         scaleIO:
                           properties:
                             fsType:
+                              default: xfs
                               type: string
                             gateway:
                               type: string
@@ -9030,6 +9001,7 @@ spec:
                             sslEnabled:
                               type: boolean
                             storageMode:
+                              default: ThinProvisioned
                               type: string
                             storagePool:
                               type: string
@@ -10008,6 +9980,8 @@ spec:
                                 properties:
                                   name:
                                     type: string
+                                  request:
+                                    type: string
                                 required:
                                 - name
                                 type: object
@@ -10748,6 +10722,8 @@ spec:
                               properties:
                                 name:
                                   type: string
+                                request:
+                                  type: string
                               required:
                               - name
                               type: object
@@ -11449,6 +11425,8 @@ spec:
                                 properties:
                                   name:
                                     type: string
+                                  request:
+                                    type: string
                                 required:
                                 - name
                                 type: object
@@ -12123,6 +12101,8 @@ spec:
                             items:
                               properties:
                                 name:
+                                  type: string
+                                request:
                                   type: string
                               required:
                               - name
@@ -12837,6 +12817,8 @@ spec:
                               properties:
                                 name:
                                   type: string
+                                request:
+                                  type: string
                               required:
                               - name
                               type: object
@@ -13530,6 +13512,8 @@ spec:
                             items:
                               properties:
                                 name:
+                                  type: string
+                                request:
                                   type: string
                               required:
                               - name
@@ -14229,6 +14213,8 @@ spec:
                               properties:
                                 name:
                                   type: string
+                                request:
+                                  type: string
                               required:
                               - name
                               type: object
@@ -14913,6 +14899,8 @@ spec:
                             items:
                               properties:
                                 name:
+                                  type: string
+                                request:
                                   type: string
                               required:
                               - name
@@ -15606,6 +15594,8 @@ spec:
                               properties:
                                 name:
                                   type: string
+                                request:
+                                  type: string
                               required:
                               - name
                               type: object
@@ -15869,13 +15859,10 @@ spec:
                       properties:
                         name:
                           type: string
-                        source:
-                          properties:
-                            resourceClaimName:
-                              type: string
-                            resourceClaimTemplateName:
-                              type: string
-                          type: object
+                        resourceClaimName:
+                          type: string
+                        resourceClaimTemplateName:
+                          type: string
                       required:
                       - name
                       type: object
@@ -15960,6 +15947,8 @@ spec:
                           type: integer
                         type: array
                         x-kubernetes-list-type: atomic
+                      supplementalGroupsPolicy:
+                        type: string
                       sysctls:
                         items:
                           properties:
@@ -16428,6 +16417,8 @@ spec:
                             items:
                               properties:
                                 name:
+                                  type: string
+                                request:
                                   type: string
                               required:
                               - name
@@ -17115,6 +17106,8 @@ spec:
                             items:
                               properties:
                                 name:
+                                  type: string
+                                request:
                                   type: string
                               required:
                               - name
@@ -17881,6 +17874,8 @@ spec:
                               properties:
                                 name:
                                   type: string
+                                request:
+                                  type: string
                               required:
                               - name
                               type: object
@@ -18156,10 +18151,12 @@ spec:
                             diskURI:
                               type: string
                             fsType:
+                              default: ext4
                               type: string
                             kind:
                               type: string
                             readOnly:
+                              default: false
                               type: boolean
                           required:
                           - diskName
@@ -18519,6 +18516,13 @@ spec:
                           required:
                           - path
                           type: object
+                        image:
+                          properties:
+                            pullPolicy:
+                              type: string
+                            reference:
+                              type: string
+                          type: object
                         iscsi:
                           properties:
                             chapAuthDiscovery:
@@ -18532,6 +18536,7 @@ spec:
                             iqn:
                               type: string
                             iscsiInterface:
+                              default: default
                               type: string
                             lun:
                               format: int32
@@ -18780,6 +18785,7 @@ spec:
                             image:
                               type: string
                             keyring:
+                              default: /etc/ceph/keyring
                               type: string
                             monitors:
                               items:
@@ -18787,6 +18793,7 @@ spec:
                               type: array
                               x-kubernetes-list-type: atomic
                             pool:
+                              default: rbd
                               type: string
                             readOnly:
                               type: boolean
@@ -18798,6 +18805,7 @@ spec:
                               type: object
                               x-kubernetes-map-type: atomic
                             user:
+                              default: admin
                               type: string
                           required:
                           - image
@@ -18806,6 +18814,7 @@ spec:
                         scaleIO:
                           properties:
                             fsType:
+                              default: xfs
                               type: string
                             gateway:
                               type: string
@@ -18823,6 +18832,7 @@ spec:
                             sslEnabled:
                               type: boolean
                             storageMode:
+                              default: ThinProvisioned
                               type: string
                             storagePool:
                               type: string
@@ -19785,6 +19795,8 @@ spec:
                                     properties:
                                       name:
                                         type: string
+                                      request:
+                                        type: string
                                     required:
                                     - name
                                     type: object
@@ -20489,6 +20501,8 @@ spec:
                                   items:
                                     properties:
                                       name:
+                                        type: string
+                                      request:
                                         type: string
                                     required:
                                     - name
@@ -21203,6 +21217,8 @@ spec:
                                     properties:
                                       name:
                                         type: string
+                                      request:
+                                        type: string
                                     required:
                                     - name
                                     type: object
@@ -21483,13 +21499,10 @@ spec:
                           properties:
                             name:
                               type: string
-                            source:
-                              properties:
-                                resourceClaimName:
-                                  type: string
-                                resourceClaimTemplateName:
-                                  type: string
-                              type: object
+                            resourceClaimName:
+                              type: string
+                            resourceClaimTemplateName:
+                              type: string
                           required:
                           - name
                           type: object
@@ -21565,6 +21578,8 @@ spec:
                               type: integer
                             type: array
                             x-kubernetes-list-type: atomic
+                          supplementalGroupsPolicy:
+                            type: string
                           sysctls:
                             items:
                               properties:
@@ -21705,10 +21720,12 @@ spec:
                                 diskURI:
                                   type: string
                                 fsType:
+                                  default: ext4
                                   type: string
                                 kind:
                                   type: string
                                 readOnly:
+                                  default: false
                                   type: boolean
                               required:
                               - diskName
@@ -22068,6 +22085,13 @@ spec:
                               required:
                               - path
                               type: object
+                            image:
+                              properties:
+                                pullPolicy:
+                                  type: string
+                                reference:
+                                  type: string
+                              type: object
                             iscsi:
                               properties:
                                 chapAuthDiscovery:
@@ -22081,6 +22105,7 @@ spec:
                                 iqn:
                                   type: string
                                 iscsiInterface:
+                                  default: default
                                   type: string
                                 lun:
                                   format: int32
@@ -22329,6 +22354,7 @@ spec:
                                 image:
                                   type: string
                                 keyring:
+                                  default: /etc/ceph/keyring
                                   type: string
                                 monitors:
                                   items:
@@ -22336,6 +22362,7 @@ spec:
                                   type: array
                                   x-kubernetes-list-type: atomic
                                 pool:
+                                  default: rbd
                                   type: string
                                 readOnly:
                                   type: boolean
@@ -22347,6 +22374,7 @@ spec:
                                   type: object
                                   x-kubernetes-map-type: atomic
                                 user:
+                                  default: admin
                                   type: string
                               required:
                               - image
@@ -22355,6 +22383,7 @@ spec:
                             scaleIO:
                               properties:
                                 fsType:
+                                  default: xfs
                                   type: string
                                 gateway:
                                   type: string
@@ -22372,6 +22401,7 @@ spec:
                                 sslEnabled:
                                   type: boolean
                                 storageMode:
+                                  default: ThinProvisioned
                                   type: string
                                 storagePool:
                                   type: string
@@ -22881,6 +22911,8 @@ spec:
                             items:
                               properties:
                                 name:
+                                  type: string
+                                request:
                                   type: string
                               required:
                               - name
@@ -24036,6 +24068,8 @@ spec:
                                 properties:
                                   name:
                                     type: string
+                                  request:
+                                    type: string
                                 required:
                                 - name
                                 type: object
@@ -24792,6 +24826,8 @@ spec:
                                 properties:
                                   name:
                                     type: string
+                                  request:
+                                    type: string
                                 required:
                                 - name
                                 type: object
@@ -25091,13 +25127,10 @@ spec:
                       properties:
                         name:
                           type: string
-                        source:
-                          properties:
-                            resourceClaimName:
-                              type: string
-                            resourceClaimTemplateName:
-                              type: string
-                          type: object
+                        resourceClaimName:
+                          type: string
+                        resourceClaimTemplateName:
+                          type: string
                       required:
                       - name
                       type: object
@@ -25182,6 +25215,8 @@ spec:
                           type: integer
                         type: array
                         x-kubernetes-list-type: atomic
+                      supplementalGroupsPolicy:
+                        type: string
                       sysctls:
                         items:
                           properties:
@@ -25323,10 +25358,12 @@ spec:
                             diskURI:
                               type: string
                             fsType:
+                              default: ext4
                               type: string
                             kind:
                               type: string
                             readOnly:
+                              default: false
                               type: boolean
                           required:
                           - diskName
@@ -25686,6 +25723,13 @@ spec:
                           required:
                           - path
                           type: object
+                        image:
+                          properties:
+                            pullPolicy:
+                              type: string
+                            reference:
+                              type: string
+                          type: object
                         iscsi:
                           properties:
                             chapAuthDiscovery:
@@ -25699,6 +25743,7 @@ spec:
                             iqn:
                               type: string
                             iscsiInterface:
+                              default: default
                               type: string
                             lun:
                               format: int32
@@ -25947,6 +25992,7 @@ spec:
                             image:
                               type: string
                             keyring:
+                              default: /etc/ceph/keyring
                               type: string
                             monitors:
                               items:
@@ -25954,6 +26000,7 @@ spec:
                               type: array
                               x-kubernetes-list-type: atomic
                             pool:
+                              default: rbd
                               type: string
                             readOnly:
                               type: boolean
@@ -25965,6 +26012,7 @@ spec:
                               type: object
                               x-kubernetes-map-type: atomic
                             user:
+                              default: admin
                               type: string
                           required:
                           - image
@@ -25973,6 +26021,7 @@ spec:
                         scaleIO:
                           properties:
                             fsType:
+                              default: xfs
                               type: string
                             gateway:
                               type: string
@@ -25990,6 +26039,7 @@ spec:
                             sslEnabled:
                               type: boolean
                             storageMode:
+                              default: ThinProvisioned
                               type: string
                             storagePool:
                               type: string
@@ -26243,6 +26293,93 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.2
+  name: localmodelcaches.serving.kserve.io
+spec:
+  group: serving.kserve.io
+  names:
+    kind: LocalModelCache
+    listKind: LocalModelCacheList
+    plural: localmodelcaches
+    singular: localmodelcache
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              modelSize:
+                anyOf:
+                - type: integer
+                - type: string
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              nodeGroups:
+                items:
+                  type: string
+                maxItems: 1
+                minItems: 1
+                type: array
+              sourceModelUri:
+                type: string
+                x-kubernetes-validations:
+                - message: StorageUri is immutable
+                  rule: self == oldSelf
+            required:
+            - modelSize
+            - nodeGroups
+            - sourceModelUri
+            type: object
+          status:
+            properties:
+              copies:
+                properties:
+                  available:
+                    type: integer
+                  failed:
+                    type: integer
+                  total:
+                    type: integer
+                type: object
+              inferenceServices:
+                items:
+                  properties:
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  type: object
+                type: array
+              nodeStatus:
+                additionalProperties:
+                  enum:
+                  - ""
+                  - NodeNotReady
+                  - NodeDownloadPending
+                  - NodeDownloading
+                  - NodeDownloaded
+                  - NodeDownloadError
+                  type: string
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.2
   name: localmodelnodegroups.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -26383,10 +26520,12 @@ spec:
                       diskURI:
                         type: string
                       fsType:
+                        default: ext4
                         type: string
                       kind:
                         type: string
                       readOnly:
+                        default: false
                         type: boolean
                     required:
                     - diskName
@@ -26635,6 +26774,7 @@ spec:
                       iqn:
                         type: string
                       iscsiInterface:
+                        default: default
                         type: string
                       lun:
                         format: int32
@@ -26786,6 +26926,7 @@ spec:
                       image:
                         type: string
                       keyring:
+                        default: /etc/ceph/keyring
                         type: string
                       monitors:
                         items:
@@ -26793,6 +26934,7 @@ spec:
                         type: array
                         x-kubernetes-list-type: atomic
                       pool:
+                        default: rbd
                         type: string
                       readOnly:
                         type: boolean
@@ -26805,6 +26947,7 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                       user:
+                        default: admin
                         type: string
                     required:
                     - image
@@ -26813,6 +26956,7 @@ spec:
                   scaleIO:
                     properties:
                       fsType:
+                        default: xfs
                         type: string
                       gateway:
                         type: string
@@ -26831,6 +26975,7 @@ spec:
                       sslEnabled:
                         type: boolean
                       storageMode:
+                        default: ThinProvisioned
                         type: string
                       storagePool:
                         type: string
@@ -26921,6 +27066,67 @@ spec:
         type: object
     served: true
     storage: true
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.2
+  name: localmodelnodes.serving.kserve.io
+spec:
+  group: serving.kserve.io
+  names:
+    kind: LocalModelNode
+    listKind: LocalModelNodeList
+    plural: localmodelnodes
+    singular: localmodelnode
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              localModels:
+                items:
+                  properties:
+                    modelName:
+                      type: string
+                    sourceModelUri:
+                      type: string
+                  required:
+                  - modelName
+                  - sourceModelUri
+                  type: object
+                type: array
+            required:
+            - localModels
+            type: object
+          status:
+            properties:
+              modelStatus:
+                additionalProperties:
+                  enum:
+                  - ""
+                  - ModelDownloadPending
+                  - ModelDownloading
+                  - ModelDownloaded
+                  - ModelDownloadError
+                  type: string
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -27925,6 +28131,8 @@ spec:
                             properties:
                               name:
                                 type: string
+                              request:
+                                type: string
                             required:
                             - name
                             type: object
@@ -28259,10 +28467,12 @@ spec:
                         diskURI:
                           type: string
                         fsType:
+                          default: ext4
                           type: string
                         kind:
                           type: string
                         readOnly:
+                          default: false
                           type: boolean
                       required:
                       - diskName
@@ -28622,6 +28832,13 @@ spec:
                       required:
                       - path
                       type: object
+                    image:
+                      properties:
+                        pullPolicy:
+                          type: string
+                        reference:
+                          type: string
+                      type: object
                     iscsi:
                       properties:
                         chapAuthDiscovery:
@@ -28635,6 +28852,7 @@ spec:
                         iqn:
                           type: string
                         iscsiInterface:
+                          default: default
                           type: string
                         lun:
                           format: int32
@@ -28883,6 +29101,7 @@ spec:
                         image:
                           type: string
                         keyring:
+                          default: /etc/ceph/keyring
                           type: string
                         monitors:
                           items:
@@ -28890,6 +29109,7 @@ spec:
                           type: array
                           x-kubernetes-list-type: atomic
                         pool:
+                          default: rbd
                           type: string
                         readOnly:
                           type: boolean
@@ -28901,6 +29121,7 @@ spec:
                           type: object
                           x-kubernetes-map-type: atomic
                         user:
+                          default: admin
                           type: string
                       required:
                       - image
@@ -28909,6 +29130,7 @@ spec:
                     scaleIO:
                       properties:
                         fsType:
+                          default: xfs
                           type: string
                         gateway:
                           type: string
@@ -28926,6 +29148,7 @@ spec:
                         sslEnabled:
                           type: boolean
                         storageMode:
+                          default: ThinProvisioned
                           type: string
                         storagePool:
                           type: string
@@ -29887,6 +30110,8 @@ spec:
                                 properties:
                                   name:
                                     type: string
+                                  request:
+                                    type: string
                                 required:
                                 - name
                                 type: object
@@ -30187,10 +30412,12 @@ spec:
                             diskURI:
                               type: string
                             fsType:
+                              default: ext4
                               type: string
                             kind:
                               type: string
                             readOnly:
+                              default: false
                               type: boolean
                           required:
                           - diskName
@@ -30550,6 +30777,13 @@ spec:
                           required:
                           - path
                           type: object
+                        image:
+                          properties:
+                            pullPolicy:
+                              type: string
+                            reference:
+                              type: string
+                          type: object
                         iscsi:
                           properties:
                             chapAuthDiscovery:
@@ -30563,6 +30797,7 @@ spec:
                             iqn:
                               type: string
                             iscsiInterface:
+                              default: default
                               type: string
                             lun:
                               format: int32
@@ -30811,6 +31046,7 @@ spec:
                             image:
                               type: string
                             keyring:
+                              default: /etc/ceph/keyring
                               type: string
                             monitors:
                               items:
@@ -30818,6 +31054,7 @@ spec:
                               type: array
                               x-kubernetes-list-type: atomic
                             pool:
+                              default: rbd
                               type: string
                             readOnly:
                               type: boolean
@@ -30829,6 +31066,7 @@ spec:
                               type: object
                               x-kubernetes-map-type: atomic
                             user:
+                              default: admin
                               type: string
                           required:
                           - image
@@ -30837,6 +31075,7 @@ spec:
                         scaleIO:
                           properties:
                             fsType:
+                              default: xfs
                               type: string
                             gateway:
                               type: string
@@ -30854,6 +31093,7 @@ spec:
                             sslEnabled:
                               type: boolean
                             storageMode:
+                              default: ThinProvisioned
                               type: string
                             storagePool:
                               type: string

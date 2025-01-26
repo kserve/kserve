@@ -61,11 +61,12 @@ func NewKsvcReconciler(client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
-	componentStatus v1beta1.ComponentStatusSpec) *KsvcReconciler {
+	componentStatus v1beta1.ComponentStatusSpec,
+	disallowedLabelList []string) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:          client,
 		scheme:          scheme,
-		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus),
+		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList),
 		componentExt:    componentExt,
 		componentStatus: componentStatus,
 	}
@@ -74,7 +75,8 @@ func NewKsvcReconciler(client client.Client,
 func createKnativeService(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
-	componentStatus v1beta1.ComponentStatusSpec) *knservingv1.Service {
+	componentStatus v1beta1.ComponentStatusSpec,
+	disallowedLabelList []string) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
 	if componentExtension.MinReplicas == nil {
@@ -113,7 +115,11 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 	lastRolledoutRevision := componentStatus.LatestRolledoutRevision
 
 	// Log component status and canary traffic percent
-	log.Info("revision status:", "LatestRolledoutRevision", componentStatus.LatestRolledoutRevision, "LatestReadyRevision", componentStatus.LatestReadyRevision, "LatestCreatedRevision", componentStatus.LatestCreatedRevision, "PreviousRolledoutRevision", componentStatus.PreviousRolledoutRevision, "CanaryTrafficPercent", componentExtension.CanaryTrafficPercent)
+	log.Info("revision status:", "LatestRolledoutRevision", componentStatus.LatestRolledoutRevision,
+		"LatestReadyRevision", componentStatus.LatestReadyRevision,
+		"LatestCreatedRevision", componentStatus.LatestCreatedRevision,
+		"PreviousRolledoutRevision", componentStatus.PreviousRolledoutRevision,
+		"CanaryTrafficPercent", componentExtension.CanaryTrafficPercent)
 
 	trafficTargets := []knservingv1.TrafficTarget{}
 	// Split traffic when canary traffic percent is specified
@@ -138,7 +144,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 			trafficTargets = append(trafficTargets, canaryTarget)
 		}
 	} else {
-		// blue green rollout
+		// blue-green rollout
 		latestTarget := knservingv1.TrafficTarget{
 			LatestRevision: proto.Bool(true),
 			Percent:        proto.Int64(100),
@@ -148,8 +154,9 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 		}
 		trafficTargets = append(trafficTargets, latestTarget)
 	}
+
 	labels := utils.Filter(componentMeta.Labels, func(key string) bool {
-		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
+		return !utils.Includes(disallowedLabelList, key)
 	})
 
 	service := &knservingv1.Service{

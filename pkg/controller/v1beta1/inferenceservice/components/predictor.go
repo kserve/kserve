@@ -90,8 +90,11 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	}
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 	})
+
+	p.Log.V(1).Info("Predictor custom annotations", "annotations", p.inferenceServiceConfig.ServiceAnnotationDisallowedList)
+	p.Log.V(1).Info("Predictor custom labels", "labels", p.inferenceServiceConfig.ServiceLabelDisallowedList)
 
 	addLoggerAnnotations(isvc.Spec.Predictor.Logger, annotations)
 	addBatcherAnnotations(isvc.Spec.Predictor.Batcher, annotations)
@@ -229,7 +232,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		// Label filter will be handled in ksvc_reconciler
 		sRuntimeLabels = sRuntime.ServingRuntimePodSpec.Labels
 		sRuntimeAnnotations = utils.Filter(sRuntime.ServingRuntimePodSpec.Annotations, func(key string) bool {
-			return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+			return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 		})
 	} else {
 		container = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
@@ -263,7 +266,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// Label filter will be handled in ksvc_reconciler
 	predictorLabels := isvc.Spec.Predictor.Labels
 	predictorAnnotations := utils.Filter(isvc.Spec.Predictor.Annotations, func(key string) bool {
-		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 	})
 
 	// Labels and annotations priority: predictor component > isvc > ServingRuntimePodSpec
@@ -332,6 +335,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	var podLabelValue string
 
 	// Here we allow switch between knative and vanilla deployment
+	kstatus := &knservingv1.ServiceStatus{}
 	if p.deploymentMode == constants.RawDeployment {
 		rawDeployment = true
 		podLabelKey = constants.RawDeploymentAppLabel
@@ -367,15 +371,17 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	} else {
 		podLabelKey = constants.RevisionLabel
 		r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
-			&podSpec, isvc.Status.Components[v1beta1.PredictorComponent])
+			&podSpec, isvc.Status.Components[v1beta1.PredictorComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList)
 		if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set owner reference for predictor")
 		}
-		status, err := r.Reconcile()
+
+		var err error
+		kstatus, err = r.Reconcile()
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile predictor")
 		}
-		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, status)
+		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, kstatus)
 	}
 
 	statusSpec := isvc.Status.Components[v1beta1.PredictorComponent]
@@ -388,8 +394,11 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "fails to list inferenceservice pods by label")
 	}
-	isvc.Status.PropagateModelStatus(statusSpec, predictorPods, rawDeployment)
-	return ctrl.Result{}, nil
+	if isvc.Status.PropagateModelStatus(statusSpec, predictorPods, rawDeployment, kstatus) {
+		return ctrl.Result{}, nil
+	} else {
+		return ctrl.Result{Requeue: true}, nil
+	}
 }
 
 func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.InferenceService, podSpec *v1.PodSpec, annotations map[string]string, isvcGeneration string) (*v1.PodSpec, error) {

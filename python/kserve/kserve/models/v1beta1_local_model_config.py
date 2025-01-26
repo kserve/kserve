@@ -48,36 +48,51 @@ class V1beta1LocalModelConfig(object):
     """
     openapi_types = {
         'default_job_image': 'str',
+        'disable_volume_management': 'bool',
         'enabled': 'bool',
         'fs_group': 'int',
-        'job_namespace': 'str'
+        'job_namespace': 'str',
+        'job_ttl_seconds_after_finished': 'int',
+        'reconcilation_frequency_in_secs': 'int'
     }
 
     attribute_map = {
         'default_job_image': 'defaultJobImage',
+        'disable_volume_management': 'disableVolumeManagement',
         'enabled': 'enabled',
         'fs_group': 'fsGroup',
-        'job_namespace': 'jobNamespace'
+        'job_namespace': 'jobNamespace',
+        'job_ttl_seconds_after_finished': 'jobTTLSecondsAfterFinished',
+        'reconcilation_frequency_in_secs': 'reconcilationFrequencyInSecs'
     }
 
-    def __init__(self, default_job_image=None, enabled=False, fs_group=None, job_namespace='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, default_job_image=None, disable_volume_management=None, enabled=False, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, reconcilation_frequency_in_secs=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LocalModelConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._default_job_image = None
+        self._disable_volume_management = None
         self._enabled = None
         self._fs_group = None
         self._job_namespace = None
+        self._job_ttl_seconds_after_finished = None
+        self._reconcilation_frequency_in_secs = None
         self.discriminator = None
 
         if default_job_image is not None:
             self.default_job_image = default_job_image
+        if disable_volume_management is not None:
+            self.disable_volume_management = disable_volume_management
         self.enabled = enabled
         if fs_group is not None:
             self.fs_group = fs_group
         self.job_namespace = job_namespace
+        if job_ttl_seconds_after_finished is not None:
+            self.job_ttl_seconds_after_finished = job_ttl_seconds_after_finished
+        if reconcilation_frequency_in_secs is not None:
+            self.reconcilation_frequency_in_secs = reconcilation_frequency_in_secs
 
     @property
     def default_job_image(self):
@@ -99,6 +114,27 @@ class V1beta1LocalModelConfig(object):
         """
 
         self._default_job_image = default_job_image
+
+    @property
+    def disable_volume_management(self):
+        """Gets the disable_volume_management of this V1beta1LocalModelConfig.  # noqa: E501
+
+
+        :return: The disable_volume_management of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._disable_volume_management
+
+    @disable_volume_management.setter
+    def disable_volume_management(self, disable_volume_management):
+        """Sets the disable_volume_management of this V1beta1LocalModelConfig.
+
+
+        :param disable_volume_management: The disable_volume_management of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._disable_volume_management = disable_volume_management
 
     @property
     def enabled(self):
@@ -166,6 +202,48 @@ class V1beta1LocalModelConfig(object):
             raise ValueError("Invalid value for `job_namespace`, must not be `None`")  # noqa: E501
 
         self._job_namespace = job_namespace
+
+    @property
+    def job_ttl_seconds_after_finished(self):
+        """Gets the job_ttl_seconds_after_finished of this V1beta1LocalModelConfig.  # noqa: E501
+
+
+        :return: The job_ttl_seconds_after_finished of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: int
+        """
+        return self._job_ttl_seconds_after_finished
+
+    @job_ttl_seconds_after_finished.setter
+    def job_ttl_seconds_after_finished(self, job_ttl_seconds_after_finished):
+        """Sets the job_ttl_seconds_after_finished of this V1beta1LocalModelConfig.
+
+
+        :param job_ttl_seconds_after_finished: The job_ttl_seconds_after_finished of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: int
+        """
+
+        self._job_ttl_seconds_after_finished = job_ttl_seconds_after_finished
+
+    @property
+    def reconcilation_frequency_in_secs(self):
+        """Gets the reconcilation_frequency_in_secs of this V1beta1LocalModelConfig.  # noqa: E501
+
+
+        :return: The reconcilation_frequency_in_secs of this V1beta1LocalModelConfig.  # noqa: E501
+        :rtype: int
+        """
+        return self._reconcilation_frequency_in_secs
+
+    @reconcilation_frequency_in_secs.setter
+    def reconcilation_frequency_in_secs(self, reconcilation_frequency_in_secs):
+        """Sets the reconcilation_frequency_in_secs of this V1beta1LocalModelConfig.
+
+
+        :param reconcilation_frequency_in_secs: The reconcilation_frequency_in_secs of this V1beta1LocalModelConfig.  # noqa: E501
+        :type: int
+        """
+
+        self._reconcilation_frequency_in_secs = reconcilation_frequency_in_secs
 
     def to_dict(self):
         """Returns the model properties as a dict"""

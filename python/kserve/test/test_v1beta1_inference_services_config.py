@@ -59,6 +59,10 @@ class TestV1beta1InferenceServicesConfig(unittest.TestCase):
                         image="0",
                     ),
                 ),
+                resource=kserve.models.v1beta1_resource_config.V1beta1ResourceConfig(
+                    cpu_limit="",
+                    memory_limit="",
+                ),
             )
         else:
             return V1beta1InferenceServicesConfig(
@@ -67,6 +71,10 @@ class TestV1beta1InferenceServicesConfig(unittest.TestCase):
                         default_image_version="0",
                         image="0",
                     ),
+                ),
+                resource=kserve.models.v1beta1_resource_config.V1beta1ResourceConfig(
+                    cpu_limit="",
+                    memory_limit="",
                 ),
             )
 

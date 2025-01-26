@@ -58,7 +58,7 @@ async def test_sklearn_modelmesh(rest_v1_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(name=service_name, annotations=annotations),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )

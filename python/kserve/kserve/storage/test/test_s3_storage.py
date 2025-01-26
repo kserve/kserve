@@ -253,6 +253,17 @@ def test_get_S3_config():
         == USE_ACCELERATE_CONFIG.s3["use_accelerate_endpoint"]
     )
 
+    # tests legacy endpoint url
+    with mock.patch.dict(
+        os.environ,
+        {
+            "AWS_ENDPOINT_URL": "https://s3.amazonaws.com",
+            "AWS_DEFAULT_REGION": "eu-west-1",
+        },
+    ):
+        config8 = Storage.get_S3_config()
+    assert config8.s3["addressing_style"] == VIRTUAL_CONFIG.s3["addressing_style"]
+
 
 def test_update_with_storage_spec_s3(monkeypatch):
     # save the environment and restore it after the test to avoid mutating it
@@ -318,3 +329,33 @@ def test_target_startswith_parent_folder_name(mock_storage):
         == expected_call_args_list("test/artifacts/model", "dest_path", paths)[0]
     )
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="test/artifacts/model")
+
+
+@mock.patch("boto3.resource")
+def test_file_name_preservation(mock_storage):
+    # given
+    bucket_name = "local-model"
+    paths = ["MLmodel"]
+    object_paths = ["model/" + p for p in paths]
+    expected_file_name = "MLmodel"  # Expected file name after download
+
+    # when
+    mock_boto3_bucket = create_mock_boto3_bucket(mock_storage, object_paths)
+    Storage._download_s3(f"s3://{bucket_name}/model", "dest_path")
+
+    # then
+    arg_list = get_call_args(mock_boto3_bucket.download_file.call_args_list)
+    assert len(arg_list) == 1  # Ensure only one file was downloaded
+    downloaded_source, downloaded_target = arg_list[0]
+
+    # Check if the source S3 key matches the original object key
+    assert (
+        downloaded_source == object_paths[0]
+    ), f"Expected {object_paths[0]}, got {downloaded_source}"
+
+    # Check if the target file path ends with the expected file name
+    assert downloaded_target.endswith(
+        expected_file_name
+    ), f"Expected file name to end with {expected_file_name}, got {downloaded_target}"
+
+    mock_boto3_bucket.objects.filter.assert_called_with(Prefix="model")

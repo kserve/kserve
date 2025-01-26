@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -49,17 +51,33 @@ func NewServiceReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, multiNodeEnabled bool) *ServiceReconciler {
+	podSpec *corev1.PodSpec, multiNodeEnabled bool,
+	serviceConfig *v1beta1.ServiceConfig) *ServiceReconciler {
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
-		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled),
+		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
 		componentExt: componentExt,
 	}
 }
 
+// isGrpcPort checks if the port is a grpc port or not by port name
+func isGrpcPort(port corev1.ContainerPort) bool {
+	if strings.Contains(port.Name, "grpc") || strings.Contains(port.Name, "h2c") {
+		return true
+	}
+	return false
+}
+
+func getAppProtocol(port corev1.ContainerPort) *string {
+	if isGrpcPort(port) {
+		return utils.ToPointer("kubernetes.io/h2c")
+	}
+	return nil
+}
+
 func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, multiNodeEnabled bool) []*corev1.Service {
+	podSpec *corev1.PodSpec, multiNodeEnabled bool, serviceConfig *v1beta1.ServiceConfig) []*corev1.Service {
 	var svcList []*corev1.Service
 	var isWorkerContainer bool
 
@@ -73,11 +91,11 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 
 	if !multiNodeEnabled {
 		// If multiNodeEnabled is false, only defaultSvc will be created.
-		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec)
+		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec, serviceConfig)
 		svcList = append(svcList, defaultSvc)
 	} else if multiNodeEnabled && !isWorkerContainer {
 		// If multiNodeEnabled is true, both defaultSvc and headSvc will be created.
-		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec)
+		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec, serviceConfig)
 		svcList = append(svcList, defaultSvc)
 
 		headSvc := createHeadlessSvc(componentMeta)
@@ -88,7 +106,7 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 }
 
 func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec) *corev1.Service {
+	podSpec *corev1.PodSpec, serviceConfig *v1beta1.ServiceConfig) *corev1.Service {
 	var servicePorts []corev1.ServicePort
 
 	if len(podSpec.Containers) != 0 {
@@ -108,7 +126,8 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 					Type:   intstr.Int,
 					IntVal: container.Ports[0].ContainerPort,
 				},
-				Protocol: container.Ports[0].Protocol,
+				Protocol:    container.Ports[0].Protocol,
+				AppProtocol: getAppProtocol(container.Ports[0]),
 			}
 			servicePorts = append(servicePorts, servicePort)
 
@@ -124,7 +143,8 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 						Type:   intstr.Int,
 						IntVal: port.ContainerPort,
 					},
-					Protocol: port.Protocol,
+					Protocol:    port.Protocol,
+					AppProtocol: getAppProtocol(port),
 				}
 				servicePorts = append(servicePorts, servicePort)
 			}
@@ -164,6 +184,11 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 			Ports: servicePorts,
 		},
 	}
+
+	if serviceConfig != nil && serviceConfig.ServiceClusterIPNone {
+		service.Spec.ClusterIP = corev1.ClusterIPNone
+	}
+
 	return service
 }
 

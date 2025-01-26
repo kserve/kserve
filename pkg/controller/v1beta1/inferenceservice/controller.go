@@ -20,12 +20,14 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +40,9 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/yaml"
 
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -49,6 +53,7 @@ import (
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
+	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices;inferenceservices/finalizers,verbs=get;list;watch;create;update;patch;delete
@@ -57,7 +62,7 @@ import (
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterservingruntimes;clusterservingruntimes/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterservingruntimes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterstoragecontainers,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterlocalmodels,verbs=get;list
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelcaches,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices/status,verbs=get;update;patch
@@ -76,6 +81,7 @@ import (
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=events,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
 
 // InferenceServiceState describes the Readiness of the InferenceService
 type InferenceServiceState string
@@ -107,9 +113,15 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return reconcile.Result{}, err
 	}
+
+	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Clientset)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
+	}
+
 	// get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(constants.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
 	})
 
 	deployConfig, err := v1beta1api.NewDeployConfig(r.Clientset)
@@ -139,15 +151,17 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then lets add the finalizer and update the object. This is equivalent
 		// registering our finalizer.
-		if !utils.Includes(isvc.ObjectMeta.Finalizers, finalizerName) {
-			isvc.ObjectMeta.Finalizers = append(isvc.ObjectMeta.Finalizers, finalizerName)
-			if err := r.Update(context.Background(), isvc); err != nil {
+		if !controllerutil.ContainsFinalizer(isvc, finalizerName) {
+			controllerutil.AddFinalizer(isvc, finalizerName)
+			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.ObjectMeta.Finalizers, ",") + "]"
+			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
+			if err := r.Patch(ctx, isvc, client.RawPatch(types.MergePatchType, patchJson)); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 	} else {
 		// The object is being deleted
-		if utils.Includes(isvc.ObjectMeta.Finalizers, finalizerName) {
+		if controllerutil.ContainsFinalizer(isvc, finalizerName) {
 			// our finalizer is present, so lets handle any external dependency
 			if err := r.deleteExternalResources(isvc); err != nil {
 				// if fail to delete the external dependency here, return with error
@@ -156,8 +170,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			}
 
 			// remove our finalizer from the list and update it.
-			isvc.ObjectMeta.Finalizers = utils.RemoveString(isvc.ObjectMeta.Finalizers, finalizerName)
-			if err := r.Update(context.Background(), isvc); err != nil {
+			controllerutil.RemoveFinalizer(isvc, finalizerName)
+			patchYaml := "metadata:\n  finalizers: [" + strings.Join(isvc.ObjectMeta.Finalizers, ",") + "]"
+			patchJson, _ := yaml.YAMLToJSON([]byte(patchYaml))
+			if err := r.Patch(ctx, isvc, client.RawPatch(types.MergePatchType, patchJson)); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -182,10 +198,6 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Setup reconcilers
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
-	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Clientset)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
-	}
 
 	// Reconcile cabundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset, r.Scheme)
@@ -238,15 +250,23 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// check raw deployment
 	if deploymentMode == constants.RawDeployment {
-		reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig)
-		if err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
-		}
-		if err := reconciler.Reconcile(isvc); err != nil {
-			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+		if ingressConfig.EnableGatewayAPI {
+			reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
+
+			if err := reconciler.Reconcile(ctx, isvc); err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+			}
+		} else {
+			reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
+			if err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+			}
+			if err := reconciler.Reconcile(isvc); err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+			}
 		}
 	} else {
-		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig)
+		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig, isvcConfig)
 		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
 		if err := reconciler.Reconcile(isvc); err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
@@ -350,6 +370,22 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Owns(&istioclientv1beta1.VirtualService{})
 	} else {
 		r.Log.Info("The InferenceService controller won't watch networking.istio.io/v1beta1/VirtualService resources because the CRD is not available.")
+	}
+
+	if ingressConfig.EnableGatewayAPI {
+		gatewayapiFound, err := utils.IsCrdAvailable(r.ClientConfig, gatewayapiv1.GroupVersion.String(), constants.HTTPRouteKind)
+		if err != nil {
+			return err
+		}
+
+		if gatewayapiFound {
+			ctrlBuilder = ctrlBuilder.Owns(&gatewayapiv1.HTTPRoute{})
+		} else {
+			r.Log.Info("The InferenceService controller won't watch gateway.networking.k8s.io/v1/HTTPRoute resources because the CRD is not available.")
+			panic("Gateway API CRD not available")
+		}
+	} else {
+		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
 	}
 
 	return ctrlBuilder.Complete(r)

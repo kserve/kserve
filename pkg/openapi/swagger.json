@@ -39,82 +39,6 @@
         }
       }
     },
-    "v1alpha1.ClusterLocalModel": {
-      "type": "object",
-      "properties": {
-        "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-          "type": "string"
-        },
-        "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-          "type": "string"
-        },
-        "metadata": {
-          "default": {},
-          "$ref": "#/definitions/v1.ObjectMeta"
-        },
-        "spec": {
-          "default": {},
-          "$ref": "#/definitions/v1alpha1.ClusterLocalModelSpec"
-        },
-        "status": {
-          "default": {},
-          "$ref": "#/definitions/v1alpha1.ClusterLocalModelStatus"
-        }
-      }
-    },
-    "v1alpha1.ClusterLocalModelList": {
-      "type": "object",
-      "required": [
-        "items"
-      ],
-      "properties": {
-        "apiVersion": {
-          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-          "type": "string"
-        },
-        "items": {
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/v1alpha1.ClusterLocalModel"
-          }
-        },
-        "kind": {
-          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-          "type": "string"
-        },
-        "metadata": {
-          "default": {},
-          "$ref": "#/definitions/v1.ListMeta"
-        }
-      }
-    },
-    "v1alpha1.ClusterLocalModelSpec": {
-      "type": "object",
-      "required": [
-        "sourceModelUri",
-        "modelSize",
-        "nodeGroup"
-      ],
-      "properties": {
-        "modelSize": {
-          "description": "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
-          "$ref": "#/definitions/resource.Quantity"
-        },
-        "nodeGroup": {
-          "description": "group of nodes to cache the model on.",
-          "type": "string",
-          "default": ""
-        },
-        "sourceModelUri": {
-          "description": "Original StorageUri",
-          "type": "string",
-          "default": ""
-        }
-      }
-    },
     "v1alpha1.ClusterServingRuntime": {
       "description": "ClusterServingRuntime is the Schema for the servingruntimes API",
       "type": "object",
@@ -432,6 +356,88 @@
         "serviceUrl": {
           "description": "InferenceService URL, mutually exclusive with ServiceName",
           "type": "string"
+        }
+      }
+    },
+    "v1alpha1.LocalModelCache": {
+      "description": "LocalModelCache",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LocalModelCacheSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.LocalModelCacheStatus"
+        }
+      }
+    },
+    "v1alpha1.LocalModelCacheList": {
+      "description": "LocalModelCacheList",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.LocalModelCache"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.LocalModelCacheSpec": {
+      "description": "LocalModelCacheSpec",
+      "type": "object",
+      "required": [
+        "sourceModelUri",
+        "modelSize",
+        "nodeGroups"
+      ],
+      "properties": {
+        "modelSize": {
+          "description": "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
+          "$ref": "#/definitions/resource.Quantity"
+        },
+        "nodeGroups": {
+          "description": "group of nodes to cache the model on. Todo: support more than 1 node groups",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "sourceModelUri": {
+          "description": "Original StorageUri",
+          "type": "string",
+          "default": ""
         }
       }
     },
@@ -1469,7 +1475,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "nodeName": {
-          "description": "NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements.",
+          "description": "NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename",
           "type": "string"
         },
         "nodeSelector": {
@@ -1482,7 +1488,7 @@
           "x-kubernetes-map-type": "atomic"
         },
         "os": {
-          "description": "Specifies the OS of the containers in the pod. Some pod and container fields are restricted if this is set.\n\nIf the OS field is set to linux, the following fields must be unset: -securityContext.windowsOptions\n\nIf the OS field is set to windows, following fields must be unset: - spec.hostPID - spec.hostIPC - spec.hostUsers - spec.securityContext.appArmorProfile - spec.securityContext.seLinuxOptions - spec.securityContext.seccompProfile - spec.securityContext.fsGroup - spec.securityContext.fsGroupChangePolicy - spec.securityContext.sysctls - spec.shareProcessNamespace - spec.securityContext.runAsUser - spec.securityContext.runAsGroup - spec.securityContext.supplementalGroups - spec.containers[*].securityContext.appArmorProfile - spec.containers[*].securityContext.seLinuxOptions - spec.containers[*].securityContext.seccompProfile - spec.containers[*].securityContext.capabilities - spec.containers[*].securityContext.readOnlyRootFilesystem - spec.containers[*].securityContext.privileged - spec.containers[*].securityContext.allowPrivilegeEscalation - spec.containers[*].securityContext.procMount - spec.containers[*].securityContext.runAsUser - spec.containers[*].securityContext.runAsGroup",
+          "description": "Specifies the OS of the containers in the pod. Some pod and container fields are restricted if this is set.\n\nIf the OS field is set to linux, the following fields must be unset: -securityContext.windowsOptions\n\nIf the OS field is set to windows, following fields must be unset: - spec.hostPID - spec.hostIPC - spec.hostUsers - spec.securityContext.appArmorProfile - spec.securityContext.seLinuxOptions - spec.securityContext.seccompProfile - spec.securityContext.fsGroup - spec.securityContext.fsGroupChangePolicy - spec.securityContext.sysctls - spec.shareProcessNamespace - spec.securityContext.runAsUser - spec.securityContext.runAsGroup - spec.securityContext.supplementalGroups - spec.securityContext.supplementalGroupsPolicy - spec.containers[*].securityContext.appArmorProfile - spec.containers[*].securityContext.seLinuxOptions - spec.containers[*].securityContext.seccompProfile - spec.containers[*].securityContext.capabilities - spec.containers[*].securityContext.readOnlyRootFilesystem - spec.containers[*].securityContext.privileged - spec.containers[*].securityContext.allowPrivilegeEscalation - spec.containers[*].securityContext.procMount - spec.containers[*].securityContext.runAsUser - spec.containers[*].securityContext.runAsGroup",
           "$ref": "#/definitions/v1.PodOS"
         },
         "overhead": {
@@ -1746,7 +1752,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "nodeName": {
-          "description": "NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements.",
+          "description": "NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename",
           "type": "string"
         },
         "nodeSelector": {
@@ -1759,7 +1765,7 @@
           "x-kubernetes-map-type": "atomic"
         },
         "os": {
-          "description": "Specifies the OS of the containers in the pod. Some pod and container fields are restricted if this is set.\n\nIf the OS field is set to linux, the following fields must be unset: -securityContext.windowsOptions\n\nIf the OS field is set to windows, following fields must be unset: - spec.hostPID - spec.hostIPC - spec.hostUsers - spec.securityContext.appArmorProfile - spec.securityContext.seLinuxOptions - spec.securityContext.seccompProfile - spec.securityContext.fsGroup - spec.securityContext.fsGroupChangePolicy - spec.securityContext.sysctls - spec.shareProcessNamespace - spec.securityContext.runAsUser - spec.securityContext.runAsGroup - spec.securityContext.supplementalGroups - spec.containers[*].securityContext.appArmorProfile - spec.containers[*].securityContext.seLinuxOptions - spec.containers[*].securityContext.seccompProfile - spec.containers[*].securityContext.capabilities - spec.containers[*].securityContext.readOnlyRootFilesystem - spec.containers[*].securityContext.privileged - spec.containers[*].securityContext.allowPrivilegeEscalation - spec.containers[*].securityContext.procMount - spec.containers[*].securityContext.runAsUser - spec.containers[*].securityContext.runAsGroup",
+          "description": "Specifies the OS of the containers in the pod. Some pod and container fields are restricted if this is set.\n\nIf the OS field is set to linux, the following fields must be unset: -securityContext.windowsOptions\n\nIf the OS field is set to windows, following fields must be unset: - spec.hostPID - spec.hostIPC - spec.hostUsers - spec.securityContext.appArmorProfile - spec.securityContext.seLinuxOptions - spec.securityContext.seccompProfile - spec.securityContext.fsGroup - spec.securityContext.fsGroupChangePolicy - spec.securityContext.sysctls - spec.shareProcessNamespace - spec.securityContext.runAsUser - spec.securityContext.runAsGroup - spec.securityContext.supplementalGroups - spec.securityContext.supplementalGroupsPolicy - spec.containers[*].securityContext.appArmorProfile - spec.containers[*].securityContext.seLinuxOptions - spec.containers[*].securityContext.seccompProfile - spec.containers[*].securityContext.capabilities - spec.containers[*].securityContext.readOnlyRootFilesystem - spec.containers[*].securityContext.privileged - spec.containers[*].securityContext.allowPrivilegeEscalation - spec.containers[*].securityContext.procMount - spec.containers[*].securityContext.runAsUser - spec.containers[*].securityContext.runAsGroup",
           "$ref": "#/definitions/v1.PodOS"
         },
         "overhead": {
@@ -2023,7 +2029,7 @@
           "x-kubernetes-patch-strategy": "merge"
         },
         "nodeName": {
-          "description": "NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements.",
+          "description": "NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename",
           "type": "string"
         },
         "nodeSelector": {
@@ -2036,7 +2042,7 @@
           "x-kubernetes-map-type": "atomic"
         },
         "os": {
-          "description": "Specifies the OS of the containers in the pod. Some pod and container fields are restricted if this is set.\n\nIf the OS field is set to linux, the following fields must be unset: -securityContext.windowsOptions\n\nIf the OS field is set to windows, following fields must be unset: - spec.hostPID - spec.hostIPC - spec.hostUsers - spec.securityContext.appArmorProfile - spec.securityContext.seLinuxOptions - spec.securityContext.seccompProfile - spec.securityContext.fsGroup - spec.securityContext.fsGroupChangePolicy - spec.securityContext.sysctls - spec.shareProcessNamespace - spec.securityContext.runAsUser - spec.securityContext.runAsGroup - spec.securityContext.supplementalGroups - spec.containers[*].securityContext.appArmorProfile - spec.containers[*].securityContext.seLinuxOptions - spec.containers[*].securityContext.seccompProfile - spec.containers[*].securityContext.capabilities - spec.containers[*].securityContext.readOnlyRootFilesystem - spec.containers[*].securityContext.privileged - spec.containers[*].securityContext.allowPrivilegeEscalation - spec.containers[*].securityContext.procMount - spec.containers[*].securityContext.runAsUser - spec.containers[*].securityContext.runAsGroup",
+          "description": "Specifies the OS of the containers in the pod. Some pod and container fields are restricted if this is set.\n\nIf the OS field is set to linux, the following fields must be unset: -securityContext.windowsOptions\n\nIf the OS field is set to windows, following fields must be unset: - spec.hostPID - spec.hostIPC - spec.hostUsers - spec.securityContext.appArmorProfile - spec.securityContext.seLinuxOptions - spec.securityContext.seccompProfile - spec.securityContext.fsGroup - spec.securityContext.fsGroupChangePolicy - spec.securityContext.sysctls - spec.shareProcessNamespace - spec.securityContext.runAsUser - spec.securityContext.runAsGroup - spec.securityContext.supplementalGroups - spec.securityContext.supplementalGroupsPolicy - spec.containers[*].securityContext.appArmorProfile - spec.containers[*].securityContext.seLinuxOptions - spec.containers[*].securityContext.seccompProfile - spec.containers[*].securityContext.capabilities - spec.containers[*].securityContext.readOnlyRootFilesystem - spec.containers[*].securityContext.privileged - spec.containers[*].securityContext.allowPrivilegeEscalation - spec.containers[*].securityContext.procMount - spec.containers[*].securityContext.runAsUser - spec.containers[*].securityContext.runAsGroup",
           "$ref": "#/definitions/v1.PodOS"
         },
         "overhead": {
@@ -3060,6 +3066,27 @@
           "description": "Explainer configurations",
           "default": {},
           "$ref": "#/definitions/v1beta1.ExplainersConfig"
+        },
+        "resource": {
+          "description": "Resource configurations",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.ResourceConfig"
+        },
+        "serviceAnnotationDisallowedList": {
+          "description": "ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative revisions",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "serviceLabelDisallowedList": {
+          "description": "ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
         }
       }
     },
@@ -3082,6 +3109,9 @@
         "domainTemplate": {
           "type": "string"
         },
+        "enableGatewayApi": {
+          "type": "boolean"
+        },
         "ingressClassName": {
           "type": "string"
         },
@@ -3092,6 +3122,9 @@
           "type": "string"
         },
         "knativeLocalGatewayService": {
+          "type": "string"
+        },
+        "kserveIngressGateway": {
           "type": "string"
         },
         "localGateway": {
@@ -3299,6 +3332,9 @@
         "defaultJobImage": {
           "type": "string"
         },
+        "disableVolumeManagement": {
+          "type": "boolean"
+        },
         "enabled": {
           "type": "boolean",
           "default": false
@@ -3310,6 +3346,14 @@
         "jobNamespace": {
           "type": "string",
           "default": ""
+        },
+        "jobTTLSecondsAfterFinished": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "reconcilationFrequencyInSecs": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
@@ -4930,6 +4974,23 @@
         }
       }
     },
+    "v1beta1.ResourceConfig": {
+      "type": "object",
+      "properties": {
+        "cpuLimit": {
+          "type": "string"
+        },
+        "cpuRequest": {
+          "type": "string"
+        },
+        "memoryLimit": {
+          "type": "string"
+        },
+        "memoryRequest": {
+          "type": "string"
+        }
+      }
+    },
     "v1beta1.SKLearnSpec": {
       "description": "SKLearnSpec defines arguments for configuring SKLearn model serving.",
       "type": "object",
@@ -5120,6 +5181,15 @@
         "autoMountServiceAccountToken": {
           "type": "boolean",
           "default": false
+        }
+      }
+    },
+    "v1beta1.ServiceConfig": {
+      "type": "object",
+      "properties": {
+        "serviceClusterIPNone": {
+          "description": "ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None. If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is false when the value is absent.",
+          "type": "boolean"
         }
       }
     },

@@ -41,7 +41,38 @@ data:
                "defaultImageVersion": "latest"
            }
        }
-     
+    # ====================================== ISVC CONFIGURATION ======================================
+    # Example   
+     inferenceService: |-
+      {
+        "serviceAnnotationDisallowedList": [
+          "my.custom.annotation/1"  
+        ],
+        "serviceLabelDisallowedList": [
+          "my.custom.label.1"  
+        ]
+       }
+    # Example of isvc configuration
+    inferenceService: |-
+      {
+        # ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative 
+        # revisions, which prevents the reconciliation loop to be triggered if the annotations is 
+        # configured here are used.
+        # Default values are:
+        #  "autoscaling.knative.dev/min-scale",
+        #  "autoscaling.knative.dev/max-scale",
+        #  "internal.serving.kserve.io/storage-initializer-sourceuri",
+        #  "kubectl.kubernetes.io/last-applied-configuration"
+        # Any new value will be appended to the list.
+        "serviceAnnotationDisallowedList": [
+          "my.custom.annotation/1"  
+        ],
+        # ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions
+        # which prevents the reconciliation loop to be triggered if the labels is configured here are used.
+        "serviceLabelDisallowedList": [
+          "my.custom.label.1"  
+        ]
+      }  
      # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
      # Example
      storageInitializer: |-
@@ -190,7 +221,9 @@ data:
      # ====================================== INGRESS CONFIGURATION ======================================
      # Example
      ingress: |-
-       {
+       {    
+           "enableGatewayApi": false,
+           "kserveIngressGateway": "kserve/kserve-ingress-gateway",
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
            "localGateway" : "knative-serving/knative-local-gateway",
            "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
@@ -203,7 +236,17 @@ data:
            "disableIngressCreation": false
        }
      ingress: |-
-       {
+       {   
+           # enableGatewayApi specifies whether to use Gateway API instead of Ingress to serve external traffic.
+           "enableGatewayApi": false,
+
+           # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/) to serve external traffic. 
+           # By default, KServe configures a default gateway to serve external traffic.
+           # But, KServe can be configured to use a custom gateway by modifying this configuration.
+           # The gateway should be specified in format <gateway namespace>/<gateway name>
+           # NOTE: This configuration only applicable for raw deployment.
+           "kserveIngressGateway": "kserve/kserve-ingress-gateway",
+     
            # ingressGateway specifies the ingress gateway to serve external traffic.
            # The gateway should be specified in format <gateway namespace>/<gateway name>
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
@@ -430,7 +473,20 @@ data:
          # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/
          "defaultDeploymentMode": "Serverless"
        }
-     
+    
+     # ====================================== SERVICE CONFIGURATION ======================================
+     # Example
+     service: |-
+       {
+         "serviceClusterIPNone":  false
+       }
+     service: |-
+       {
+          # ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None.
+          # If the DeploymentMode is Raw, the default value for ServiceClusterIPNone if not set is false
+          # "serviceClusterIPNone":  false
+       }
+
      # ====================================== METRICS CONFIGURATION ======================================
      # Example
      metricsAggregator: |-
@@ -462,8 +518,47 @@ data:
          # defaultJobImage specifies the default image used for the download job.
          "defaultJobImage" : "kserve/storage-initializer:latest",
          # Kubernetes modifies the filesystem group ID on the attached volume.
-         "FSGroup": 1000
+         "fsGroup": 1000,
+         # TTL for the download job after it is finished.
+         "jobTTLSecondsAfterFinished": 3600,
+         # The frequency at which the local model agent reconciles the local models
+         # This is to detect if models are missing from local disk
+         "reconcilationFrequencyInSecs": 60,
+         # This is to disable localmodel pv and pvc management for namespaces without isvcs
+         "disableVolumeManagement": false
        }
+      
+     # ====================================== LOCALMODEL CONFIGURATION ======================================
+     # Example
+     inferenceservice: |-
+       {
+         "resource": {
+             "cpuLimit": "1",
+             "memoryLimit": "2Gi",
+             "cpuRequest": "1",
+             "memoryRequest": "2Gi"
+           }
+       }
+      inferenceservice: |-
+        {
+          # resource contains the default resource configuration for the inference service.
+          # you can override this configuration by specifying the resources in the inference service yaml.
+          # If you want to unbound the resource (limits and requests), you can set the value to null or "" 
+          # or just remove the specific field from the config.
+          "resource": {
+              # cpuLimit is the limits.cpu to set for the inference service.
+              "cpuLimit": "1",
+              
+              # memoryLimit is the limits.memory to set for the inference service.
+              "memoryLimit": "2Gi",
+              
+              # cpuRequest is the requests.cpu to set for the inference service.
+              "cpuRequest": "1",
+              
+              # memoryRequest is the requests.memory to set for the inference service.
+              "memoryRequest": "2Gi"
+            }
+        }
 
   explainers: |-
     {
@@ -510,7 +605,9 @@ data:
     }
 
   ingress: |-
-    {
+    {   
+        "enableGatewayApi": false,
+        "kserveIngressGateway": "kserve/kserve-ingress-gateway",
         "ingressGateway" : "knative-serving/knative-ingress-gateway",
         "localGateway" : "knative-serving/knative-local-gateway",
         "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
@@ -577,10 +674,20 @@ data:
       "enabled": false,
       "jobNamespace": "kserve-localmodel-jobs",
       "defaultJobImage" : "kserve/storage-initializer:latest",
-      "FSGroup": 1000
+      "fsGroup": 1000
     }
   
   security: |-
     {
       "autoMountServiceAccountToken": true
+    }
+    
+  inferenceservice: |-
+    {
+      "resource": {
+          "cpuLimit": "1",
+          "memoryLimit": "2Gi",
+          "cpuRequest": "1",
+          "memoryRequest": "2Gi"
+        }
     }

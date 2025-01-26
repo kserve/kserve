@@ -11,10 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import base64
 import pathlib
-from typing import Any, Dict, Optional, Union
+import struct
+from http import HTTPStatus
+from typing import Any, Dict, Optional, Union, List
 
+import pydantic
 import torch
 import torch.nn.functional as F
 from accelerate import init_empty_weights
@@ -23,6 +26,13 @@ from kserve.errors import InferenceError
 from kserve.logging import logger
 from kserve.model import PredictorConfig
 from kserve.protocol.infer_type import InferInput, InferRequest, InferResponse
+from kserve.protocol.rest.openai import (
+    EmbeddingRequest,
+    OpenAIEmbeddingModel,
+)
+from kserve.protocol.rest.openai.errors import OpenAIError, create_error_response
+from kserve.protocol.rest.openai.types import Embedding, EmbeddingObject
+from kserve.protocol.rest.openai.types.openapi import Usage
 from kserve.utils.utils import (
     from_np_dtype,
     get_predict_input,
@@ -49,7 +59,9 @@ from .task import (
 from .utils import _get_and_verify_max_len, _mean_pooling
 
 
-class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
+class HuggingfaceEncoderModel(
+    Model, OpenAIEmbeddingModel
+):  # pylint:disable=c-extension-no-member
     task: MLTask
     model_config: PretrainedConfig
     model_id_or_path: Union[pathlib.Path, str]
@@ -103,7 +115,9 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         if model_config:
             self.model_config = model_config
         else:
-            self.model_config = AutoConfig.from_pretrained(self.model_id_or_path)
+            self.model_config = AutoConfig.from_pretrained(
+                self.model_id_or_path, trust_remote_code=self.trust_remote_code
+            )
 
         if task:
             self.task = task
@@ -112,7 +126,7 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
             except ValueError:
                 inferred_task = None
             if inferred_task is not None and inferred_task != task:
-                logger.warn(
+                logger.warning(
                     f"Inferred task is '{inferred_task.name}' but"
                     f" task is explicitly set to '{self.task.name}'"
                 )
@@ -134,7 +148,9 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
         # For pre-check we initialize the model class without weights to check the `_no_split_modules`
         # device_map = "auto" for models that support this else set to either cuda/cpu
         with init_empty_weights():
-            self._model = model_cls.from_config(self.model_config)
+            self._model = model_cls.from_config(
+                self.model_config, trust_remote_code=self.trust_remote_code
+            )
 
         device_map = self._device
 
@@ -336,3 +352,68 @@ class HuggingfaceEncoderModel(Model):  # pylint:disable=c-extension-no-member
                 request_id,
                 prompt=prompt,
             )
+
+    async def create_embedding(self, request: EmbeddingRequest) -> Embedding:
+        params = request.params
+
+        try:
+            pydantic.TypeAdapter(
+                Union[str, List[str], List[int], List[List[int]]]
+            ).validate_python(params.input)
+        except pydantic.ValidationError as e:
+            raise OpenAIError(
+                response=create_error_response(
+                    "'$.input' is invalid. Please check the API reference: https://platform.openai.com/docs/api-reference.",
+                    status_code=HTTPStatus.BAD_REQUEST,
+                    err_type="invalid_request_error",
+                )
+            ) from e
+
+        # The OpenAI documentation allows the input of token lists instead of strings. As the tokenization is specific
+        # to the model, it is most likely different from the ones used by OpenAI (e.g., tiktoken). Libraries like
+        # LangChain attempt to determine the proper tokenization based on the model name and will fall back to the
+        # default "cl100k_base" tokenization, which will certainly not match the deployed model. Instead of silently
+        # accepting the mismatch, we rather raise an exception.
+        try:
+            pydantic.TypeAdapter(Union[str, List[str]]).validate_python(params.input)
+        except pydantic.ValidationError as e:
+            raise OpenAIError(
+                response=create_error_response(
+                    "'input' as token lists is not supported",
+                    status_code=HTTPStatus.NOT_IMPLEMENTED,
+                    err_type="invalid_request_error",
+                )
+            ) from e
+
+        # Call the inference to determine the embedding values
+        context = {}
+        instances = params.input if isinstance(params.input, list) else [params.input]
+        inference_out, _ = await self({"instances": instances}, context)
+        embedding_out = inference_out["predictions"]
+
+        # Calculate the input token count. Attention mask is "1" for each input token.
+        num_input_tokens = int(context["attention_mask"].sum())
+
+        # Optionally encode result to base64
+        if params.encoding_format == "base64":
+            for i, o in enumerate(embedding_out):
+                embedding_bytes = [struct.pack("<f", el) for el in o]
+                embedding_base64 = base64.b64encode(b"".join(embedding_bytes))
+                embedding_out[i] = embedding_base64.decode("ascii")
+
+        return Embedding(
+            object="list",
+            data=[
+                EmbeddingObject(
+                    object="embedding",
+                    index=i,
+                    embedding=o,
+                )
+                for i, o in enumerate(embedding_out)
+            ],
+            model=params.model,
+            usage=Usage(
+                prompt_tokens=num_input_tokens,
+                total_tokens=num_input_tokens,
+            ),
+        )
