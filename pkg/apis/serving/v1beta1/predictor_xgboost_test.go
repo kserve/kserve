@@ -65,9 +65,18 @@ func TestXGBoostDefaulter(t *testing.T) {
 	protocolV1 := constants.ProtocolV1
 	protocolV2 := constants.ProtocolV2
 
-	defaultResource = v1.ResourceList{
+	defaultResource := v1.ResourceList{
 		v1.ResourceCPU:    resource.MustParse("1"),
 		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+
+	config := &InferenceServicesConfig{
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
+		},
 	}
 
 	scenarios := map[string]struct {
@@ -148,7 +157,7 @@ func TestXGBoostDefaulter(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			scenario.spec.XGBoost.Default(nil)
+			scenario.spec.XGBoost.Default(config)
 			if !g.Expect(scenario.spec).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.spec, scenario.expected)
 			}
