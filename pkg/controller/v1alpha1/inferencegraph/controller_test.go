@@ -777,6 +777,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceMemory: resource.MustParse("100Mi"),
 												},
 											},
+											ReadinessProbe: expectedReadinessProbe,
 											SecurityContext: &v1.SecurityContext{
 												Privileged:               proto.Bool(false),
 												RunAsNonRoot:             proto.Bool(true),

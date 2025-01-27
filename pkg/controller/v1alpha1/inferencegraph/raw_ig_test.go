@@ -314,6 +314,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 							corev1.ResourceMemory: resource.MustParse("100Mi"),
 						},
 					},
+					ReadinessProbe: expectedReadinessProbe,
 					SecurityContext: &corev1.SecurityContext{
 						Privileged:               proto.Bool(false),
 						RunAsNonRoot:             proto.Bool(true),
