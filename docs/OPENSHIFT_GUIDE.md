@@ -53,6 +53,11 @@ pod/cert-manager-operator-controller-manager-545ccc5977-lrcpz condition met
 ```
 
 
+> 📝 Note: If you are Running OpenShift on AWS (ROSA), you will need to prepare your AWS account for the dynamic certificates.
+> Follow the steps described on [this](https://cloud.redhat.com/experts/rosa/dynamic-certificates/#prepare-aws-account) document
+> Or, you can also use the community Cert Manager Operator.
+
+
 Next, follow the corresponding installation guide for the `Ingress` layer you want to use:
 
 1. [Service Mesh](#installation-with-service-mesh)
