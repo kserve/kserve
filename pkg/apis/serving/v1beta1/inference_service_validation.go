@@ -368,7 +368,6 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 			return fmt.Errorf("the target memory should be greater than 1 MiB")
 		}
 	}
-	// TODO: recheck this
 	if compExtSpec.AutoScaling != nil {
 		for _, autoScaling := range compExtSpec.AutoScaling {
 			if autoScaling.Type == MetricSourceType(constants.AutoScalerResource) {
