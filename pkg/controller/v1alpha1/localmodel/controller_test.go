@@ -639,4 +639,9 @@ func initializeManager(ctx context.Context, cfg *rest.Config) {
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred())
 	}()
+	// Wait for cache to start
+	// Ping the ConfigMap to ensure the cache is started
+	Eventually(func() bool {
+		return k8sClient.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, &v1.ConfigMap{}) == nil
+	}).Should(BeTrue())
 }

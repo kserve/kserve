@@ -101,12 +101,12 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient).ToNot(BeNil())
 
 	//Create namespace
-	kfservingNamespaceObj := &v1.Namespace{
+	kserveNamespaceObj := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.KServeNamespace,
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), kfservingNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
 
 	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Serverless"}
 	ingressConfig := &v1beta1.IngressConfig{
