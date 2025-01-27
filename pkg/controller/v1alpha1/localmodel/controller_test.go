@@ -625,13 +625,14 @@ func initializeManager(ctx context.Context, cfg *rest.Config) {
 		},
 	})
 	Expect(err).ToNot(HaveOccurred())
+	k8sClient = k8sManager.GetClient()
+	Expect(k8sClient).ToNot(BeNil())
 	err = (&LocalModelReconciler{
-		Client:    k8sManager.GetClient(),
+		Client:    k8sClient,
 		Clientset: clientset,
 		Scheme:    scheme.Scheme,
 		Log:       ctrl.Log.WithName("v1alpha1LocalModelController"),
 	}).SetupWithManager(k8sManager)
-
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
