@@ -30,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -47,14 +46,13 @@ type KedaReconciler struct {
 }
 
 func NewKedaReconciler(client client.Client,
-	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec) *KedaReconciler {
 	return &KedaReconciler{
 		client:       client,
 		scheme:       scheme,
-		ScaledObject: createKedaScaledObject(clientset, componentMeta, componentExt),
+		ScaledObject: createKedaScaledObject(componentMeta, componentExt),
 		componentExt: componentExt,
 	}
 }
@@ -63,12 +61,10 @@ func getKedaMetrics(metadata metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec) []kedav1alpha1.ScaleTriggers {
 	var triggers []kedav1alpha1.ScaleTriggers
 
-	// Default values
-	// triggerType := string(corev1.ResourceCPU)
 	metricType := autoscalingv2.UtilizationMetricType
 	targetValue := int(constants.DefaultCPUUtilization)
 
-	// override default metric configuration from componentExtension.AutoScaling if it is set
+	// metric configuration from componentExtension.AutoScaling if it is set
 	if componentExt.AutoScaling != nil {
 		for _, autoScaling := range componentExt.AutoScaling {
 			if autoScaling.Type == v1beta1.MetricSourceType(constants.AutoScalerResource) {
@@ -77,7 +73,7 @@ func getKedaMetrics(metadata metav1.ObjectMeta,
 				if metricType == autoscalingv2.UtilizationMetricType {
 					targetValue = int(*autoScaling.Resource.Target.AverageUtilization)
 				} else if metricType == autoscalingv2.AverageValueMetricType {
-					targetValue = int(autoScaling.Resource.Target.AverageValue.MilliValue()) // TODO: check if this is correct
+					targetValue = int(autoScaling.Resource.Target.AverageValue.AsApproximateFloat64())
 				}
 
 				// create a trigger for the resource
@@ -90,7 +86,7 @@ func getKedaMetrics(metadata metav1.ObjectMeta,
 				triggerType := string(*autoScaling.External.Metric.Backend)
 				serverAddress := autoScaling.External.Metric.ServerAddress
 				query := autoScaling.External.Metric.Query
-				targetValue = int(autoScaling.Resource.Target.Value.MilliValue()) // TODO: check if this is correct
+				targetValue = int(autoScaling.External.Target.Value.AsApproximateFloat64())
 
 				// TODO: queryTime is required for graphite trigger?
 
@@ -122,7 +118,7 @@ func getKedaMetrics(metadata metav1.ObjectMeta,
 	return triggers
 }
 
-func createKedaScaledObject(clientset kubernetes.Interface, componentMeta metav1.ObjectMeta,
+func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec) *kedav1alpha1.ScaledObject {
 	triggers := getKedaMetrics(componentMeta, componentExtension)
 	annotations := componentMeta.GetAnnotations()
