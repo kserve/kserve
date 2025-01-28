@@ -56,6 +56,7 @@ class Error(BaseModel):
 class ErrorResponse(BaseModel):
     error: Error
 
+
 __all__ = [
     "ChatCompletion",
     "ChatCompletionChoice",
