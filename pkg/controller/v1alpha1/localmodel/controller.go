@@ -406,6 +406,11 @@ func (c *LocalModelReconciler) localmodelNodeFunc(ctx context.Context, obj clien
 }
 
 func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	localModelConfig, err := v1beta1.NewLocalModelConfig(c.Clientset)
+	if err != nil {
+		c.Log.Error(err, "Failed to get local model config during controller manager setup")
+		return err
+	}
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1.PersistentVolumeClaim{}, ownerKey, func(rawObj client.Object) []string {
 		pvc := rawObj.(*v1.PersistentVolumeClaim)
 		owner := metav1.GetControllerOf(pvc)
