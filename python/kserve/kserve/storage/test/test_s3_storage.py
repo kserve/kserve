@@ -311,6 +311,7 @@ def test_update_with_storage_spec_s3(monkeypatch):
     # revert changes
     os.environ = previous_env
 
+
 @mock.patch("boto3.resource")
 def test_target_startswith_parent_folder_name(mock_storage):
     bucket_name = "foo"
@@ -358,6 +359,7 @@ def test_file_name_preservation(mock_storage):
     ), f"Expected file name to end with {expected_file_name}, got {downloaded_target}"
 
     mock_boto3_bucket.objects.filter.assert_called_with(Prefix="model")
+
 
 @mock.patch("boto3.resource")
 def test_target_download_path_and_name(mock_storage):
