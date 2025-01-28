@@ -445,8 +445,8 @@ kserve:
   inferenceservice:
     resources:
       limits:
-        cpu: 100m
-        memory: 256Mi
+        cpu: 1
+        memory: 2Gi
       requests:
-        cpu: 100m
-        memory: 256Mi
+        cpu: 1
+        memory: 2Gi
