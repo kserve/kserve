@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -187,6 +188,12 @@ func main() {
 				os.Exit(1)
 			}
 		}
+	}
+
+	setupLog.Info("Setting up gateway api scheme")
+	if err := gatewayapiv1.Install(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add Gateway APIs to scheme")
+		os.Exit(1)
 	}
 
 	setupLog.Info("Setting up core scheme")

@@ -20,21 +20,18 @@ import (
 	"context"
 	"fmt"
 
-	apierr "k8s.io/apimachinery/pkg/api/errors"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
-	knapis "knative.dev/pkg/apis"
-	"knative.dev/pkg/network"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -57,101 +54,6 @@ func NewRawIngressReconciler(client client.Client,
 		ingressConfig: ingressConfig,
 		isvcConfig:    isvcConfig,
 	}, nil
-}
-
-func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
-	var err error
-	isInternal := false
-	// disable ingress creation if service is labelled with cluster local or kserve domain is cluster local
-	if val, ok := isvc.Labels[constants.NetworkVisibility]; ok && val == constants.ClusterLocalVisibility {
-		isInternal = true
-	}
-	if r.ingressConfig.IngressDomain == constants.ClusterLocalDomain {
-		isInternal = true
-	}
-	if !isInternal && !r.ingressConfig.DisableIngressCreation {
-		ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig, r.client, r.isvcConfig)
-		if ingress == nil {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		// reconcile ingress
-		existingIngress := &netv1.Ingress{}
-		err = r.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: isvc.Namespace,
-			Name:      isvc.Name,
-		}, existingIngress)
-		if err != nil {
-			if apierr.IsNotFound(err) {
-				err = r.client.Create(context.TODO(), ingress)
-				log.Info("creating ingress", "ingressName", isvc.Name, "err", err)
-			} else {
-				return err
-			}
-		} else {
-			if !semanticIngressEquals(ingress, existingIngress) {
-				err = r.client.Update(context.TODO(), ingress)
-				log.Info("updating ingress", "ingressName", isvc.Name, "err", err)
-			}
-		}
-		if err != nil {
-			return err
-		}
-	}
-	isvc.Status.URL, err = createRawURL(isvc, r.ingressConfig)
-	if err != nil {
-		return err
-	}
-	isvc.Status.Address = &duckv1.Addressable{
-		URL: &apis.URL{
-			Host:   getRawServiceHost(isvc, r.client),
-			Scheme: r.ingressConfig.UrlScheme,
-			Path:   "",
-		},
-	}
-	isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-		Type:   v1beta1.IngressReady,
-		Status: corev1.ConditionTrue,
-	})
-	return nil
-}
-
-func createRawURL(isvc *v1beta1.InferenceService,
-	ingressConfig *v1beta1.IngressConfig) (*knapis.URL, error) {
-	var err error
-	url := &knapis.URL{}
-	url.Scheme = ingressConfig.UrlScheme
-	url.Host, err = GenerateDomainName(isvc.Name, isvc.ObjectMeta, ingressConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return url, nil
-}
-
-func getRawServiceHost(isvc *v1beta1.InferenceService, client client.Client) string {
-	existingService := &corev1.Service{}
-	if isvc.Spec.Transformer != nil {
-		transformerName := constants.TransformerServiceName(isvc.Name)
-
-		// Check if existing transformer service name has default suffix
-		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existingService)
-		if err == nil {
-			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
-		}
-		return network.GetServiceHostname(transformerName, isvc.Namespace)
-	}
-
-	predictorName := constants.PredictorServiceName(isvc.Name)
-
-	// Check if existing predictor service name has default suffix
-	err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existingService)
-	if err == nil {
-		predictorName = constants.DefaultPredictorServiceName(isvc.Name)
-	}
-	return network.GetServiceHostname(predictorName, isvc.Namespace)
 }
 
 func generateRule(ingressHost string, componentName string, path string, port int32) netv1.IngressRule { //nolint:unparam
@@ -327,4 +229,63 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 
 func semanticIngressEquals(desired, existing *netv1.Ingress) bool {
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
+}
+
+func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
+	var err error
+	isInternal := false
+	// disable ingress creation if service is labelled with cluster local or kserve domain is cluster local
+	if val, ok := isvc.Labels[constants.NetworkVisibility]; ok && val == constants.ClusterLocalVisibility {
+		isInternal = true
+	}
+	if r.ingressConfig.IngressDomain == constants.ClusterLocalDomain {
+		isInternal = true
+	}
+	if !isInternal && !r.ingressConfig.DisableIngressCreation {
+		ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig, r.client, r.isvcConfig)
+		if ingress == nil {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		// reconcile ingress
+		existingIngress := &netv1.Ingress{}
+		err = r.client.Get(context.TODO(), types.NamespacedName{
+			Namespace: isvc.Namespace,
+			Name:      isvc.Name,
+		}, existingIngress)
+		if err != nil {
+			if apierr.IsNotFound(err) {
+				err = r.client.Create(context.TODO(), ingress)
+				log.Info("creating ingress", "ingressName", isvc.Name, "err", err)
+			} else {
+				return err
+			}
+		} else {
+			if !semanticIngressEquals(ingress, existingIngress) {
+				err = r.client.Update(context.TODO(), ingress)
+				log.Info("updating ingress", "ingressName", isvc.Name, "err", err)
+			}
+		}
+		if err != nil {
+			return err
+		}
+	}
+	isvc.Status.URL, err = createRawURL(isvc, r.ingressConfig)
+	if err != nil {
+		return err
+	}
+	isvc.Status.Address = &duckv1.Addressable{
+		URL: &apis.URL{
+			Host:   getRawServiceHost(isvc, r.client),
+			Scheme: r.ingressConfig.UrlScheme,
+			Path:   "",
+		},
+	}
+	isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		Type:   v1beta1.IngressReady,
+		Status: corev1.ConditionTrue,
+	})
+	return nil
 }

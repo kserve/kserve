@@ -1,5 +1,5 @@
 kserve:
-  version: &defaultVersion v0.14.0
+  version: &defaultVersion v0.15.0-rc0
   modelmeshVersion: &defaultModelMeshVersion v0.12.0
   agent:
     image: kserve/agent
@@ -175,8 +175,18 @@ kserve:
         # -- knativeLocalGatewayService specifies the hostname of the Knative's local gateway service.
         # When unset, the value of "localGatewayService" will be used. When enabling strict mTLS in Istio, KServe local gateway should be created and pointed to the Knative local gateway.
         knativeGatewayService: ""
+      # -- ingressGateway specifies the gateway which handles the network traffic from outside the cluster.
       ingressGateway:
+        # -- enableGatewayApi controls whether to use the Gateway API for ingress routing instead of kuberetes Ingress.
+        enableGatewayApi: false
+        # -- kserveGateway specifies the name and namespace of the Gateway which handles the network traffic from outside the cluster. 
+        # This is only used when Gateway API is enabled. The gateway should be specified in format <gateway namespace>/<gateway name>
+        kserveGateway: kserve/kserve-ingress-gateway
+        # -- createGateway controls whether to create the default Gateway resource for ingress routing as part of the installation. This is only used when Gateway API is enabled.
+        createGateway: false
+        # -- gateway specifies the name and namespace of the Knative's ingress gateway.
         gateway: knative-serving/knative-ingress-gateway
+        # -- class specifies the ingress class name. If Gateway API is enabled, this will not affect the ingress routing.
         className: istio
 
     # -- The nodeSelector on Pods tells Kubernetes to schedule Pods on the nodes with matching labels.
@@ -418,6 +428,7 @@ kserve:
       jobTTLSecondsAfterFinished: 3600
       securityContext:
         fsGroup: 1000
+      disableVolumeManagement: false
       agent:
         nodeSelector: {}
         affinity: {}
@@ -431,3 +442,11 @@ kserve:
           runAsNonRoot: true
   security:
     autoMountServiceAccountToken: true
+  inferenceservice:
+    resources:
+      limits:
+        cpu: 100m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
