@@ -184,7 +184,7 @@ class TestInferenceRESTClient:
                 headers={"Host": "test-server.com"},
                 timeout=2,
             )
-            assert res.outputs[0].data == [1, 2, 3, 4]
+            assert np.allclose(res.outputs[0].data, [1, 2, 3, 4])
             assert res.id == request_id
 
             input_data = InferRequest(
@@ -261,7 +261,7 @@ class TestInferenceRESTClient:
             ],
             parameters={"test-param": "abc", "binary_data_output": True},
         )
-        input_data.inputs[1].set_data_from_numpy(fp16_data, binary_data=True)
+        input_data.inputs[1].set_data_from_numpy(fp16_data.flatten(), binary_data=True)
 
         res = await rest_client.infer(
             "http://test-server/",
@@ -306,7 +306,7 @@ class TestInferenceRESTClient:
                 )
             ],
         )
-        input_data.inputs[1].set_data_from_numpy(fp16_data, binary_data=True)
+        input_data.inputs[1].set_data_from_numpy(fp16_data.flatten(), binary_data=True)
 
         res = await rest_client.infer(
             "http://test-server/",
