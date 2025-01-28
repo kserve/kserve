@@ -45,6 +45,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/component-helpers/scheduling/corev1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -104,6 +105,7 @@ func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localMo
 			}
 		}
 	}
+
 	patch := client.MergeFrom(localModel.DeepCopy())
 	localModel.ObjectMeta.Finalizers = utils.RemoveString(localModel.ObjectMeta.Finalizers, finalizerName)
 	if err := c.Patch(ctx, localModel, patch); err != nil {
@@ -192,7 +194,11 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 		c.Log.Error(err, "cannot update status", "name", localModel.Name)
 	}
 
-	// Remove PVs and PVCs if the namespace does not have isvcs
+	/*
+		Remove PVs and PVCs if the namespace does not have isvcs
+		It only deletes the pvc and pvs with ownerReference as the localModel
+		And the pv must be of the format pvc.Name+"-"+pvc.Namespace
+	*/
 	pvcs := v1.PersistentVolumeClaimList{}
 	if err := c.List(ctx, &pvcs, client.MatchingFields{ownerKey: localModel.Name}); err != nil {
 		c.Log.Error(err, "unable to list PVCs", "name", localModel.Name)
@@ -371,7 +377,7 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 			c.Log.Info("get nodegroup failed", "name", model.Spec.NodeGroups[0])
 			continue
 		}
-		matches, err := controllerutils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
+		matches, err := checkNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
 		if err != nil {
 			c.Log.Error(err, "checkNodeAffinity error", "node", node.Name)
 		}
@@ -481,14 +487,17 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		},
 	}
 
-	return ctrl.NewControllerManagedBy(mgr).
+	controllerBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1api.LocalModelCache{}).
 		// Ownes PersistentVolumes and PersistentVolumeClaims that is created by this local model controller
 		Owns(&v1.PersistentVolume{}).
-		Owns(&v1.PersistentVolumeClaim{}).
-		// Creates or deletes pv/pvcs when isvcs got created or deleted
-		Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates)).
-		// Downloads models to new nodes
+		Owns(&v1.PersistentVolumeClaim{})
+
+	if !localModelConfig.DisableVolumeManagement {
+		controllerBuilder.Watches(&v1beta1.InferenceService{}, handler.EnqueueRequestsFromMapFunc(c.isvcFunc), builder.WithPredicates(isvcPredicates))
+	}
+
+	return controllerBuilder.
 		Watches(&v1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFunc), builder.WithPredicates(nodePredicates)).
 		// Updates model status when localmodelnode status changes
 		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFunc), builder.WithPredicates(localModelNodePredicates)).
@@ -502,6 +511,20 @@ func isNodeReady(node v1.Node) bool {
 		}
 	}
 	return false
+}
+
+// Returns true if the node matches the node affinity specified in the PV Spec
+func checkNodeAffinity(pvSpec *v1.PersistentVolumeSpec, node v1.Node) (bool, error) {
+	if pvSpec.NodeAffinity == nil || pvSpec.NodeAffinity.Required == nil {
+		return false, nil
+	}
+
+	terms := pvSpec.NodeAffinity.Required
+	if matches, err := corev1.MatchNodeSelectorTerms(&node, terms); err != nil {
+		return matches, nil
+	} else {
+		return matches, err
+	}
 }
 
 // Returns a list of ready nodes, and not ready nodes that matches the node selector in the node group

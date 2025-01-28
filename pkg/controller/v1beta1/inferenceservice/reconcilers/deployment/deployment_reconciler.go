@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -36,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -148,6 +150,10 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
+	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassExternal) {
+		deployment.Spec.Replicas = ptr.To(int32(*componentExt.MinReplicas))
+	}
+
 	return deployment
 }
 func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
@@ -176,6 +182,14 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
 
+	// For multinode, it needs to keep original pods until new pods are ready with rollingUpdate strategy
+	if deployment.Spec.Strategy.Type == appsv1.RollingUpdateDeploymentStrategyType {
+		deployment.Spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{
+			MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "0%"},
+			MaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "100%"},
+		}
+	}
+
 	deployment.Spec.Replicas = &replicas
 	return deployment
 }
@@ -196,7 +210,14 @@ func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client, deplo
 	}
 	// existed, check equivalence
 	// for HPA scaling, we should ignore Replicas of Deployment
-	ignoreFields := cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
+	// for external scaler, we should not ignore Replicas.
+	var ignoreFields cmp.Option = nil // Initialize to nil by default
+
+	// Set ignoreFields if the condition is met
+	if existingDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+		ignoreFields = cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
+	}
+
 	// Do a dry-run update. This will populate our local deployment object with any default values
 	// that are present on the remote version.
 	if err := client.Update(context.TODO(), deployment, kclient.DryRunAll); err != nil {
@@ -361,8 +382,11 @@ func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
 
 			// To avoid the conflict between HPA and Deployment,
 			// we need to remove the Replicas field from the deployment spec
+			// For external autoscaler, it should not remove replicas
 			modDeployment := deployment.DeepCopy()
-			modDeployment.Spec.Replicas = nil
+			if modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+				modDeployment.Spec.Replicas = nil
+			}
 
 			modJson, err := json.Marshal(modDeployment)
 			if err != nil {

@@ -25,16 +25,13 @@ import (
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	kservev1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -85,10 +82,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(k8sClient).ToNot(BeNil())
 
-	clientset, err := kubernetes.NewForConfig(cfg)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(clientset).ToNot(BeNil())
-
 	// Creates namespace
 	kserveNamespaceObj := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -102,27 +95,6 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
 	Expect(k8sClient.Create(context.Background(), jobsNamespaceObj)).Should(Succeed())
-
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
-	})
-
-	Expect(err).ToNot(HaveOccurred())
-	err = (&LocalModelReconciler{
-		Client:    k8sManager.GetClient(),
-		Clientset: clientset,
-		Scheme:    scheme.Scheme,
-		Log:       ctrl.Log.WithName("v1alpha1LocalModelController"),
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-	defer GinkgoRecover()
-	go func() {
-		err = k8sManager.Start(ctx)
-		Expect(err).ToNot(HaveOccurred())
-	}()
 })
 
 var _ = AfterSuite(func() {

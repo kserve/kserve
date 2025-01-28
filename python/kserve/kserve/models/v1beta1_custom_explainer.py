@@ -625,7 +625,7 @@ class V1beta1CustomExplainer(object):
     def node_name(self):
         """Gets the node_name of this V1beta1CustomExplainer.  # noqa: E501
 
-        NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements.  # noqa: E501
+        NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename  # noqa: E501
 
         :return: The node_name of this V1beta1CustomExplainer.  # noqa: E501
         :rtype: str
@@ -636,7 +636,7 @@ class V1beta1CustomExplainer(object):
     def node_name(self, node_name):
         """Sets the node_name of this V1beta1CustomExplainer.
 
-        NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements.  # noqa: E501
+        NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename  # noqa: E501
 
         :param node_name: The node_name of this V1beta1CustomExplainer.  # noqa: E501
         :type: str

@@ -41,22 +41,24 @@ var clusterstoragecontainersKind = v1alpha1.SchemeGroupVersion.WithKind("Cluster
 
 // Get takes name of the clusterStorageContainer, and returns the corresponding clusterStorageContainer object, and an error if there is any.
 func (c *FakeClusterStorageContainers) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.ClusterStorageContainer, err error) {
+	emptyResult := &v1alpha1.ClusterStorageContainer{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(clusterstoragecontainersResource, c.ns, name), &v1alpha1.ClusterStorageContainer{})
+		Invokes(testing.NewGetActionWithOptions(clusterstoragecontainersResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.ClusterStorageContainer), err
 }
 
 // List takes label and field selectors, and returns the list of ClusterStorageContainers that match those selectors.
 func (c *FakeClusterStorageContainers) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.ClusterStorageContainerList, err error) {
+	emptyResult := &v1alpha1.ClusterStorageContainerList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(clusterstoragecontainersResource, clusterstoragecontainersKind, c.ns, opts), &v1alpha1.ClusterStorageContainerList{})
+		Invokes(testing.NewListActionWithOptions(clusterstoragecontainersResource, clusterstoragecontainersKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -75,28 +77,30 @@ func (c *FakeClusterStorageContainers) List(ctx context.Context, opts v1.ListOpt
 // Watch returns a watch.Interface that watches the requested clusterStorageContainers.
 func (c *FakeClusterStorageContainers) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(clusterstoragecontainersResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(clusterstoragecontainersResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a clusterStorageContainer and creates it.  Returns the server's representation of the clusterStorageContainer, and an error, if there is any.
 func (c *FakeClusterStorageContainers) Create(ctx context.Context, clusterStorageContainer *v1alpha1.ClusterStorageContainer, opts v1.CreateOptions) (result *v1alpha1.ClusterStorageContainer, err error) {
+	emptyResult := &v1alpha1.ClusterStorageContainer{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(clusterstoragecontainersResource, c.ns, clusterStorageContainer), &v1alpha1.ClusterStorageContainer{})
+		Invokes(testing.NewCreateActionWithOptions(clusterstoragecontainersResource, c.ns, clusterStorageContainer, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.ClusterStorageContainer), err
 }
 
 // Update takes the representation of a clusterStorageContainer and updates it. Returns the server's representation of the clusterStorageContainer, and an error, if there is any.
 func (c *FakeClusterStorageContainers) Update(ctx context.Context, clusterStorageContainer *v1alpha1.ClusterStorageContainer, opts v1.UpdateOptions) (result *v1alpha1.ClusterStorageContainer, err error) {
+	emptyResult := &v1alpha1.ClusterStorageContainer{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(clusterstoragecontainersResource, c.ns, clusterStorageContainer), &v1alpha1.ClusterStorageContainer{})
+		Invokes(testing.NewUpdateActionWithOptions(clusterstoragecontainersResource, c.ns, clusterStorageContainer, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.ClusterStorageContainer), err
 }
@@ -111,7 +115,7 @@ func (c *FakeClusterStorageContainers) Delete(ctx context.Context, name string, 
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeClusterStorageContainers) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(clusterstoragecontainersResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(clusterstoragecontainersResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1alpha1.ClusterStorageContainerList{})
 	return err
@@ -119,11 +123,12 @@ func (c *FakeClusterStorageContainers) DeleteCollection(ctx context.Context, opt
 
 // Patch applies the patch and returns the patched clusterStorageContainer.
 func (c *FakeClusterStorageContainers) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterStorageContainer, err error) {
+	emptyResult := &v1alpha1.ClusterStorageContainer{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(clusterstoragecontainersResource, c.ns, name, pt, data, subresources...), &v1alpha1.ClusterStorageContainer{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(clusterstoragecontainersResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1alpha1.ClusterStorageContainer), err
 }

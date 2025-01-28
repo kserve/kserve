@@ -31,10 +31,10 @@ require (
 	gopkg.in/go-playground/validator.v9 v9.31.0
 	istio.io/api v1.23.0
 	istio.io/client-go v1.23.0
-	k8s.io/api v0.30.4
-	k8s.io/apimachinery v0.30.4
-	k8s.io/client-go v0.30.4
-	k8s.io/code-generator v0.30.4
+	k8s.io/api v0.31.1
+	k8s.io/apimachinery v0.31.1
+	k8s.io/client-go v0.31.1
+	k8s.io/code-generator v0.31.1
 	k8s.io/component-helpers v0.30.4
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20240827152857-f7e401e7b4c2
@@ -42,7 +42,8 @@ require (
 	knative.dev/networking v0.0.0-20240815142417-37fdbdd0854b
 	knative.dev/pkg v0.0.0-20240815051656-89743d9bbf7c
 	knative.dev/serving v0.42.2
-	sigs.k8s.io/controller-runtime v0.18.5
+	sigs.k8s.io/controller-runtime v0.19.2
+	sigs.k8s.io/gateway-api v1.2.1
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -60,9 +61,9 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
-	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
+	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
@@ -108,6 +109,7 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
+	github.com/x448/float16 v0.8.4 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.54.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.54.0 // indirect
@@ -129,12 +131,13 @@ require (
 	google.golang.org/genproto v0.0.0-20240827150818-7e3bb234dfed // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240827150818-7e3bb234dfed // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240827150818-7e3bb234dfed // indirect
-	google.golang.org/grpc v1.66.0 // indirect
+	google.golang.org/grpc v1.66.2 // indirect
+	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.30.4 // indirect
+	k8s.io/apiextensions-apiserver v0.31.1 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240826214909-a7b603a56eb7 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
