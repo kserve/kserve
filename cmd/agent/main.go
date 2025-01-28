@@ -264,7 +264,7 @@ func startBatcher(logger *zap.SugaredLogger) *batcherArgs {
 func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 	loggingMode := v1beta1.LoggerType(*logMode)
 	switch loggingMode {
-	case v1beta1.LogAll, v1beta1.LogRequest, v1beta1.LogResponse:
+	case v1beta1.LogAll, v1beta1.LogRequest, v1beta1.LogResponse, v1beta1.LogCombined:
 	default:
 		logger.Errorf("Malformed log-mode %s", *logMode)
 		os.Exit(-1)

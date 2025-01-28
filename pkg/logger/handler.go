@@ -136,22 +136,23 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	id := getOrCreateID(r)
 	contentType := r.Header.Get("Content-Type")
 	// log Request
+	requestLogRequest := LogRequest{
+		Url:              eh.logUrl,
+		Bytes:            &body,
+		ContentType:      contentType,
+		ReqType:          CEInferenceRequest,
+		Id:               id,
+		SourceUri:        eh.sourceUri,
+		InferenceService: eh.inferenceService,
+		Namespace:        eh.namespace,
+		Endpoint:         eh.endpoint,
+		Component:        eh.component,
+		Metadata:         metadata,
+		CertName:         eh.certName,
+		TlsSkipVerify:    eh.tlsSkipVerify,
+	}
 	if eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogRequest {
-		if err := QueueLogRequest(LogRequest{
-			Url:              eh.logUrl,
-			Bytes:            &body,
-			ContentType:      contentType,
-			ReqType:          CEInferenceRequest,
-			Id:               id,
-			SourceUri:        eh.sourceUri,
-			InferenceService: eh.inferenceService,
-			Namespace:        eh.namespace,
-			Endpoint:         eh.endpoint,
-			Component:        eh.component,
-			Metadata:         metadata,
-			CertName:         eh.certName,
-			TlsSkipVerify:    eh.tlsSkipVerify,
-		}); err != nil {
+		if err := QueueLogRequest(requestLogRequest); err != nil {
 			eh.log.Error(err, "Failed to log request")
 		}
 	}
@@ -170,22 +171,27 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// log Response
 	if lrw.statusCode == http.StatusOK {
+		responseLogRequest := LogRequest{
+			Url:              eh.logUrl,
+			Bytes:            &responseBody,
+			ContentType:      contentType,
+			ReqType:          CEInferenceResponse,
+			Id:               id,
+			SourceUri:        eh.sourceUri,
+			InferenceService: eh.inferenceService,
+			Namespace:        eh.namespace,
+			Endpoint:         eh.endpoint,
+			Component:        eh.component,
+			CertName:         eh.certName,
+			TlsSkipVerify:    eh.tlsSkipVerify,
+		}
 		if eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogResponse {
-			if err := QueueLogRequest(LogRequest{
-				Url:              eh.logUrl,
-				Bytes:            &responseBody,
-				ContentType:      contentType,
-				ReqType:          CEInferenceResponse,
-				Id:               id,
-				SourceUri:        eh.sourceUri,
-				InferenceService: eh.inferenceService,
-				Namespace:        eh.namespace,
-				Endpoint:         eh.endpoint,
-				Component:        eh.component,
-				CertName:         eh.certName,
-				TlsSkipVerify:    eh.tlsSkipVerify,
-			}); err != nil {
+			if err := QueueLogRequest(responseLogRequest); err != nil {
 				eh.log.Error(err, "Failed to log response")
+			}
+		} else if eh.logMode == v1beta1.LogCombined {
+			if err := QueueCombinedLogRequest(requestLogRequest, responseLogRequest); err != nil {
+				eh.log.Error(err, "Failed to log combined")
 			}
 		}
 	} else {
