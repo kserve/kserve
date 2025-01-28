@@ -261,7 +261,7 @@ class TestInferenceRESTClient:
             ],
             parameters={"test-param": "abc", "binary_data_output": True},
         )
-        input_data.inputs[1].set_data_from_numpy(fp16_data.flatten(), binary_data=True)
+        input_data.inputs[1].set_data_from_numpy(fp16_data, binary_data=True)
 
         res = await rest_client.infer(
             "http://test-server/",
@@ -306,7 +306,7 @@ class TestInferenceRESTClient:
                 )
             ],
         )
-        input_data.inputs[1].set_data_from_numpy(fp16_data.flatten(), binary_data=True)
+        input_data.inputs[1].set_data_from_numpy(fp16_data, binary_data=True)
 
         res = await rest_client.infer(
             "http://test-server/",
