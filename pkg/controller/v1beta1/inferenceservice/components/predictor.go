@@ -370,7 +370,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		}
 		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
 
-		kr := keda.NewKedaReconciler(p.client, p.clientset, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec)
+		kr := keda.NewKedaReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec)
 
 		// set ScaledObject Controller
 		if err := controllerutil.SetControllerReference(isvc, kr.ScaledObject, p.scheme); err != nil {
