@@ -1201,6 +1201,8 @@ spec:
                                       - prometheus
                                       - graphite
                                     type: string
+                                  namespace:
+                                    type: string
                                   query:
                                     type: string
                                   serverAddress:
@@ -4274,6 +4276,8 @@ spec:
                                     enum:
                                       - prometheus
                                       - graphite
+                                    type: string
+                                  namespace:
                                     type: string
                                   query:
                                     type: string
@@ -18521,6 +18525,8 @@ spec:
                                     enum:
                                       - prometheus
                                       - graphite
+                                    type: string
+                                  namespace:
                                     type: string
                                   query:
                                     type: string

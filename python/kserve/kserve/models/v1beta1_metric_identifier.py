@@ -48,29 +48,34 @@ class V1beta1MetricIdentifier(object):
     """
     openapi_types = {
         'backend': 'str',
+        'namespace': 'str',
         'query': 'str',
         'server_address': 'str'
     }
 
     attribute_map = {
         'backend': 'backend',
+        'namespace': 'namespace',
         'query': 'query',
         'server_address': 'serverAddress'
     }
 
-    def __init__(self, backend=None, query=None, server_address=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, backend=None, namespace=None, query=None, server_address=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1MetricIdentifier - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._backend = None
+        self._namespace = None
         self._query = None
         self._server_address = None
         self.discriminator = None
 
         if backend is not None:
             self.backend = backend
+        if namespace is not None:
+            self.namespace = namespace
         if query is not None:
             self.query = query
         if server_address is not None:
@@ -98,6 +103,29 @@ class V1beta1MetricIdentifier(object):
         """
 
         self._backend = backend
+
+    @property
+    def namespace(self):
+        """Gets the namespace of this V1beta1MetricIdentifier.  # noqa: E501
+
+        For namespaced query  # noqa: E501
+
+        :return: The namespace of this V1beta1MetricIdentifier.  # noqa: E501
+        :rtype: str
+        """
+        return self._namespace
+
+    @namespace.setter
+    def namespace(self, namespace):
+        """Sets the namespace of this V1beta1MetricIdentifier.
+
+        For namespaced query  # noqa: E501
+
+        :param namespace: The namespace of this V1beta1MetricIdentifier.  # noqa: E501
+        :type: str
+        """
+
+        self._namespace = namespace
 
     @property
     def query(self):

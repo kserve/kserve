@@ -3459,6 +3459,10 @@
           "description": "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
           "type": "string"
         },
+        "namespace": {
+          "description": "For namespaced query",
+          "type": "string"
+        },
         "query": {
           "description": "Query to run to get metrics from MetricsBackend",
           "type": "string"

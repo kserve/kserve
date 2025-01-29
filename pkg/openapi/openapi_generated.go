@@ -6265,6 +6265,13 @@ func schema_pkg_apis_serving_v1beta1_MetricIdentifier(ref common.ReferenceCallba
 							Format:      "",
 						},
 					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "For namespaced query",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

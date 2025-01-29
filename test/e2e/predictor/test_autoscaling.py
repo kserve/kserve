@@ -147,7 +147,7 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
         ),
     )
 
-    annotations = dict()
+    annotations = {}
     annotations["autoscaling.knative.dev/class"] = "hpa.autoscaling.knative.dev"
 
     isvc = V1beta1InferenceService(
@@ -196,7 +196,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
         ),
     )
 
-    annotations = dict()
+    annotations = {}
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
 
     isvc = V1beta1InferenceService(
@@ -249,7 +249,7 @@ async def test_sklearn_rolling_update():
         ),
     )
 
-    annotations = dict()
+    annotations = {}
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
 
     isvc = V1beta1InferenceService(
@@ -264,7 +264,7 @@ async def test_sklearn_rolling_update():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    updated_annotations = dict()
+    updated_annotations = {}
     updated_annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
     updated_annotations["serving.kserve.io/customAnnotation"] = "TestAnnotation"
 
@@ -320,7 +320,7 @@ async def test_sklearn_keda_scale_existing_spec(rest_v1_client, network_layer):
         ),
     )
 
-    annotations = dict()
+    annotations = {}
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
     annotations["serving.kserve.io/autoscalerClass"] = "keda"
 
@@ -390,7 +390,7 @@ async def test_sklearn_keda_scale_new_spec_resource(rest_v1_client, network_laye
         ),
     )
 
-    annotations = dict()
+    annotations = {}
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
     annotations["serving.kserve.io/autoscalerClass"] = "keda"
 
@@ -462,7 +462,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
         ),
     )
 
-    annotations = dict()
+    annotations = {}
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
     annotations["serving.kserve.io/autoscalerClass"] = "keda"
 
