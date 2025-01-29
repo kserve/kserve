@@ -16,35 +16,33 @@ spec:
     - v1
   containers:
     - name: kserve-container
-      image: kserve/huggingfaceserver:latest
+      image: kserve/huggingfaceserver:latest-gpu
       command: ["bash", "-c"]
       args:
         - |
-          ray start --head --disable-usage-stats --include-dashboard false 
-          # wait for other node to join
-          until [[ $(ray status | grep -c node_) -eq ${PIPELINE_PARALLEL_SIZE} ]]; do
-            echo "Waiting..."
-            sleep 1
-          done
-          ray status
-
           export MODEL=${MODEL_ID}
           if [[ ! -z ${MODEL_DIR} ]]
           then
-            MODEL=${MODEL_DIR}
+            export MODEL=${MODEL_DIR}
           fi
 
-          python3 -m huggingfaceserver --model_name=${MODEL_NAME}  --model_dir=${MODEL} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE}
+          export RAY_ADDRESS=${POD_IP}:${RAY_PORT}
+          ray start --head --disable-usage-stats --include-dashboard false 
+          python ./huggingfaceserver/health_check.py registered_nodes --retries 200  --probe_name runtime_start
+
+          python -m huggingfaceserver --model_name=${MODEL_NAME} --model_dir=${MODEL} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE} 
 
       env:
         - name: RAY_PORT
-          value: "6379"
-        - name: RAY_ADDRESS
-          value: 127.0.0.1:6379
+          value: "6379"        
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP  
         - name: VLLM_CONFIG_ROOT
           value: /tmp      
         - name: HF_HUB_CACHE
@@ -60,41 +58,39 @@ spec:
         - name: shm
           mountPath: /dev/shm
       livenessProbe:
-        failureThreshold: 3
-        periodSeconds: 30
+        failureThreshold: 2
+        periodSeconds: 5
         successThreshold: 1
-        timeoutSeconds: 5
-        initialDelaySeconds: 10
+        timeoutSeconds: 15
         exec:
           command:
             - bash
             - -c
             - |
-              ./huggingfaceserver/health_check.py liveness
+              python ./huggingfaceserver/health_check.py registered_node_and_runtime_health --health_check_url http://localhost:8080 --probe_name head_liveness
       readinessProbe:
         failureThreshold: 2
-        periodSeconds: 10
+        periodSeconds: 5
         successThreshold: 1
-        timeoutSeconds: 5
-        initialDelaySeconds: 10
+        timeoutSeconds: 15
         exec:
           command:
             - bash
             - -c
             - |
-              ./huggingfaceserver/health_check.py readiness ${PIPELINE_PARALLEL_SIZE} http://localhost:8080
+              python ./huggingfaceserver/health_check.py runtime_health --health_check_url http://localhost:8080 --probe_name head_readiness
       startupProbe:
         failureThreshold: 40
         periodSeconds: 30
         successThreshold: 1
-        timeoutSeconds: 5
-        initialDelaySeconds: 5
+        timeoutSeconds: 30
+        initialDelaySeconds: 60
         exec:
           command:
             - bash
             - -c
             - |
-              ./huggingfaceserver/health_check.py startup
+              python ./huggingfaceserver/health_check.py registered_node_and_runtime_health --health_check_url http://localhost:8080 --probe_name head_startup
   volumes:
     - name: shm
       emptyDir:
@@ -105,33 +101,34 @@ spec:
     tensorParallelSize: 1
     containers:
       - name: worker-container
-        image: kserve/huggingfaceserver:latest
+        image: kserve/huggingfaceserver:latest-gpu
         command: ["bash", "-c"]
         args:
           - |
+            export RAY_HEAD_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379
             SECONDS=0
 
             while true; do              
-              if (( SECONDS <= 120 )); then
-                if ray health-check --address "${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379" > /dev/null 2>&1; then
-                  echo "Global Control Service(GCS) is ready."
+              if (( SECONDS <= 240 )); then
+                if ray health-check --address "${RAY_HEAD_ADDRESS}" > /dev/null 2>&1; then
+                  echo "Ray Global Control Service(GCS) is ready."
                   break
                 fi
-                echo "$SECONDS seconds elapsed: Waiting for Global Control Service(GCS) to be ready."
+                echo "$SECONDS seconds elapsed: Waiting for Ray Global Control Service(GCS) to be ready."
               else
-                if ray health-check --address "${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379"; then
-                  echo "Global Control Service(GCS) is ready. Any error messages above can be safely ignored."
+                if ray health-check --address "${RAY_HEAD_ADDRESS}"; then
+                  echo "Ray Global Control Service(GCS) is ready. Any error messages above can be safely ignored."
                   break
                 fi
-                echo "$SECONDS seconds elapsed: Still waiting for Global Control Service(GCS) to be ready."
+                echo "$SECONDS seconds elapsed: Still waiting for Ray Global Control Service(GCS) to be ready."
               fi
-              
+            
               sleep 5
             done
 
-            RAY_HEAD_ADDRESS="${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379"
             echo "Attempting to connect to Ray cluster at $RAY_HEAD_ADDRESS ..."
-            ray start --address="$RAY_HEAD_ADDRESS" --block
+            ray start --address="${RAY_HEAD_ADDRESS}" --block     
+
         env:
           - name: POD_NAME
             valueFrom:
@@ -141,6 +138,7 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+ 
         resources:
           requests:
             cpu: "2"
@@ -152,27 +150,31 @@ spec:
           - name: shm
             mountPath: /dev/shm
         livenessProbe:
-          failureThreshold: 3
+          failureThreshold: 2
           periodSeconds: 5
           successThreshold: 1
-          timeoutSeconds: 5
+          timeoutSeconds: 15
           exec:
             command:
               - bash
               - -c
               - |
-                ./huggingfaceserver/health_check.py registered_nodes ${PIPELINE_PARALLEL_SIZE}
+                export RAY_ADDRESS=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local:6379
+                python ./huggingfaceserver/health_check.py registered_nodes --probe_name worker_liveness
         startupProbe:
-          failureThreshold: 12
-          periodSeconds: 5
+          failureThreshold: 40
+          periodSeconds: 30
           successThreshold: 1
-          timeoutSeconds: 5
+          timeoutSeconds: 30
+          initialDelaySeconds: 60
           exec:
             command:
               - bash
-              - -c
+              - -c 
               - |
-                ./huggingfaceserver/health_check.py startup
+                export RAY_HEAD_NODE=${HEAD_SVC}.${POD_NAMESPACE}.svc.cluster.local
+                export RAY_ADDRESS=${RAY_HEAD_NODE}:6379
+                python ./huggingfaceserver/health_check.py registered_node_and_runtime_models --runtime_url http://${RAY_HEAD_NODE}:8080/v1/models --probe_name worker_startup
     volumes:
       - name: shm
         emptyDir:

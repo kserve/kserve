@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "custom-model"
-version = "0.14.0"
+version = "0.15.0rc0"
 description = "Custom model implementation. Not intended for use outside KServe Frameworks Images."
 authors = ["The KServe Authors"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"
