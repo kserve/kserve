@@ -508,7 +508,6 @@ const (
 	HTTPRouteKind           = "HTTPRoute"
 	GatewayKind             = "Gateway"
 	ServiceKind             = "Service"
-	ClusterLocalModelKind   = "ClusterLocalModel"
 	KedaScaledObjectKind    = "ScaledObject"
 )
 

@@ -14,6 +14,7 @@ Help() {
    echo "r RawDeployment Mode."
    echo "u Uninstall."
    echo "d Install only dependencies."
+   echo "k Install KEDA."
    echo
 }
 
@@ -59,7 +60,8 @@ if ! command -v helm &>/dev/null; then
 fi
 
 deploymentMode="Serverless"
-while getopts ":hsrud" option; do
+installKeda=false
+while getopts ":hsrudk" option; do
    case $option in
    h) # display Help
       Help
@@ -75,6 +77,8 @@ while getopts ":hsrud" option; do
       ;;
    d) # install only dependencies
       installKserve=false ;;
+   k) # install KEDA
+      installKeda=true ;;
    \?) # Invalid option
       echo "Error: Invalid option"
       exit
@@ -118,10 +122,12 @@ helm install \
    --set crds.enabled=true
 echo "😀 Successfully installed Cert Manager"
 
-#Install KEDA
-helm repo add kedacore https://kedacore.github.io/charts
-helm install keda kedacore/keda --version ${KEDA_VERSION} --namespace keda --create-namespace --wait
-echo "😀 Successfully installed KEDA"
+if [ $installKeda = true ]; then
+   #Install KEDA
+   helm repo add kedacore https://kedacore.github.io/charts
+   helm install keda kedacore/keda --version ${KEDA_VERSION} --namespace keda --create-namespace --wait
+   echo "😀 Successfully installed KEDA"
+fi
 
 # Install Knative
 if [ $deploymentMode = "Serverless" ]; then

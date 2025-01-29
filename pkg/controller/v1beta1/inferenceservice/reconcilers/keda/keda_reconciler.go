@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The KServe Authors.
+Copyright 2025 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -88,17 +88,22 @@ func getKedaMetrics(metadata metav1.ObjectMeta,
 				query := autoScaling.External.Metric.Query
 				targetValue = int(autoScaling.External.Target.Value.AsApproximateFloat64())
 
-				// TODO: queryTime is required for graphite trigger?
-
 				// create a trigger for the external metric
-				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
+				trigger := kedav1alpha1.ScaleTriggers{
 					Type: triggerType,
 					Metadata: map[string]string{
 						"serverAddress": serverAddress,
 						"query":         query,
 						"threshold":     strconv.Itoa(targetValue),
 					},
-				})
+				}
+				if triggerType == string(constants.AutoScalerMetricsPrometheus) {
+					if autoScaling.External.Metric.Namespace != "" {
+						trigger.Metadata["namespace"] = autoScaling.External.Metric.Namespace
+					}
+				}
+
+				triggers = append(triggers, trigger)
 			}
 		}
 	} else if componentExt.ScaleMetric != nil {

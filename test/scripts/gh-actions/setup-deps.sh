@@ -25,6 +25,7 @@ set -o pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
 DEPLOYMENT_MODE="${1:-'serverless'}"
 NETWORK_LAYER="${2:-'istio'}"
+ENABLE_KEDA="${3:-'false'}"
 
 ISTIO_VERSION="1.23.2"
 CERT_MANAGER_VERSION="v1.16.1"
@@ -95,10 +96,11 @@ if [[ $DEPLOYMENT_MODE == "serverless" ]]; then
 fi
 shopt -u nocasematch
 
-if [[ $DEPLOYMENT_MODE == "raw" ]];then
-
-  echo "Installing KEDA ..."
-  kubectl apply -f ./test/overlays/keda/keda.yaml
+if [[ $DEPLOYMENT_MODE == "raw" ]]; then
+  if [[ $ENABLE_KEDA == "true" ]]; then
+    echo "Installing KEDA ..."
+    kubectl apply -f ./test/overlays/keda/keda.yaml
+  fi
 fi
 
 echo "Installing cert-manager ..."
