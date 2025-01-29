@@ -379,7 +379,6 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 					return fmt.Errorf("the target memory should be greater than 1 MiB")
 				}
 			} else if autoScaling.Type == MetricSourceType(constants.AutoScalerExternal) {
-				// TODO: add validation for queryTime for graphite
 				if autoScaling.External.Metric.Query == "" {
 					return fmt.Errorf("the query should not be empty")
 				}

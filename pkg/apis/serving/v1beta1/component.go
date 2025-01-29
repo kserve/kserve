@@ -236,6 +236,9 @@ type MetricIdentifier struct {
 	// Query to run to get metrics from MetricsBackend
 	// +optional
 	Query string `json:"query,omitempty"`
+	// For namespaced query
+	// +optional
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // ScaleMetric enum

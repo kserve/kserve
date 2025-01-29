@@ -507,7 +507,7 @@ data:
          # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
          "enablePrometheusScraping" : "false"
        }
-
+      
      # ====================================== LOCALMODEL CONFIGURATION ======================================
      # Example
      localModel: |-
