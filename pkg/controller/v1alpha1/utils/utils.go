@@ -17,11 +17,11 @@ limitations under the License.
 package utils
 
 import (
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/component-helpers/scheduling/corev1"
 )
 
-// Returns true if the node matches the node affinity specified in the PV Spec
+// CheckNodeAffinity returns true if the node matches the node affinity specified in the PV Spec
 func CheckNodeAffinity(pvSpec *v1.PersistentVolumeSpec, node v1.Node) (bool, error) {
 	if pvSpec.NodeAffinity == nil || pvSpec.NodeAffinity.Required == nil {
 		return false, nil

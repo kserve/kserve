@@ -45,7 +45,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/component-helpers/scheduling/corev1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -330,6 +329,10 @@ func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 
+	if localModelConfig.DisableVolumeManagement {
+		return ctrl.Result{}, nil
+	}
+
 	// Step 4 - Creates PV & PVCs for namespaces with isvcs using this model
 	err = c.ReconcileForIsvcs(ctx, localModel, nodeGroups, defaultNodeGroup, localModelConfig.JobNamespace)
 	return ctrl.Result{}, err
@@ -377,7 +380,7 @@ func (c *LocalModelReconciler) nodeFunc(ctx context.Context, obj client.Object) 
 			c.Log.Info("get nodegroup failed", "name", model.Spec.NodeGroups[0])
 			continue
 		}
-		matches, err := checkNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
+		matches, err := controllerutils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
 		if err != nil {
 			c.Log.Error(err, "checkNodeAffinity error", "node", node.Name)
 		}
@@ -516,20 +519,6 @@ func isNodeReady(node v1.Node) bool {
 		}
 	}
 	return false
-}
-
-// Returns true if the node matches the node affinity specified in the PV Spec
-func checkNodeAffinity(pvSpec *v1.PersistentVolumeSpec, node v1.Node) (bool, error) {
-	if pvSpec.NodeAffinity == nil || pvSpec.NodeAffinity.Required == nil {
-		return false, nil
-	}
-
-	terms := pvSpec.NodeAffinity.Required
-	if matches, err := corev1.MatchNodeSelectorTerms(&node, terms); err != nil {
-		return matches, nil
-	} else {
-		return matches, err
-	}
 }
 
 // Returns a list of ready nodes, and not ready nodes that matches the node selector in the node group
