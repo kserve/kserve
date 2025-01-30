@@ -17,6 +17,8 @@ from .openai_model import (
     CompletionRequest,
     ChatCompletionRequest,
     EmbeddingRequest,
+    CreateCompletionRequest,
+    CreateChatCompletionRequest,
     OpenAIModel,
     OpenAICompletionModel,
     OpenAIEmbeddingModel,
@@ -37,4 +39,6 @@ __all__ = [
     "ChatCompletionRequest",
     "ChatCompletionRequestMessage",
     "EmbeddingRequest",
+    "CreateCompletionRequest",
+    "CreateChatCompletionRequest",
 ]
