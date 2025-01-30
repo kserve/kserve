@@ -16,7 +16,7 @@ import os
 
 import pytest
 import requests
-import portforward
+from portforward import AsyncPortForwarder
 from kubernetes import client
 from kserve import (
     constants,
@@ -63,7 +63,7 @@ async def test_qpext_kserve(rest_v2_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
@@ -111,15 +111,17 @@ async def send_metrics_request(kserve_client, service_name):
         break
 
     url = f"http://localhost:{METRICS_AGG_PORT}/{METRICS_PATH}"
-    with portforward.forward(
+    port_forwarder = AsyncPortForwarder(
         KSERVE_TEST_NAMESPACE, pod_name, METRICS_AGG_PORT, METRICS_AGG_PORT
-    ):
-        logger.info(f"metrics request url: {url}")
-        response = requests.get(url)
-        logger.info(f"response: {response}, content: {response.content}")
-        logger.info(
-            "Got response code %s, content %s", response.status_code, response.content
-        )
+    )
+    await port_forwarder.forward()
+    logger.info(f"metrics request url: {url}")
+    response = requests.get(url)
+    await port_forwarder.stop()
+    logger.info(f"response: {response}, content: {response.content}")
+    logger.info(
+        "Got response code %s, content %s", response.status_code, response.content
+    )
 
-        assert response.status_code == 200
-        assert len(response.content) > 0
+    assert response.status_code == 200
+    assert len(response.content) > 0

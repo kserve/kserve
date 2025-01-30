@@ -179,9 +179,10 @@ data:
      # ====================================== INGRESS CONFIGURATION ======================================
      # Example
      ingress: |-
-       {
+       {   
+           "enableGatewayApi": false,
+           "kserveIngressGateway" : "kserve/kserve-ingress-gateway",
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
-           "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
            "localGateway" : "knative-serving/knative-local-gateway",
            "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
            "ingressDomain"  : "example.com",
@@ -193,15 +194,31 @@ data:
            "disableIngressCreation": false
        }
      ingress: |-
-       {
+       {   
+           # enableGatewayApi specifies whether to use Gateway API instead of Ingress for serving external traffic.
+           "enableGatewayApi": false,
+           
+           # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/) to serve external traffic. 
+           # By default, KServe configures a default gateway to serve external traffic.
+           # But, KServe can be configured to use a custom gateway by modifying this configuration.
+           # The gateway should be specified in format <gateway namespace>/<gateway name>
+           # NOTE: This configuration only applicable for raw deployment.
+           "kserveIngressGateway": "kserve/kserve-ingress-gateway",
+           
            # ingressGateway specifies the ingress gateway to serve external traffic.
            # The gateway should be specified in format <gateway namespace>/<gateway name>
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
 
-           # ingressService specifies the hostname of the ingress service.
+           # knativeLocalGatewayService specifies the hostname of the Knative's local gateway service.
+           # The default KServe configurations are re-using the Istio local gateways for Knative. In this case, this
+           # knativeLocalGatewayService field can be left unset. When unset, the value of "localGatewayService" will be used.
+           # However, sometimes it may be better to have local gateways specifically for KServe (e.g. when enabling strict mTLS in Istio).
+           # Under such setups where KServe is needed to have its own local gateways, the values of the "localGateway" and
+           # "localGatewayService" should point to the KServe local gateways. Then, this knativeLocalGatewayService field
+           # should point to the Knative's local gateway service.
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
-           "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+           "knativeLocalGatewayService": "",
 
            # localGateway specifies the gateway which handles the network traffic within the cluster.
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
@@ -415,6 +432,19 @@ data:
          "defaultDeploymentMode": "Serverless"
        }
 
+     # ====================================== SERVICE CONFIGURATION ======================================
+     # Example
+     service: |-
+       {
+         "serviceClusterIPNone": "false"
+       }
+     service: |-
+       {
+          # ServiceClusterIPNone is a flag to indicate if the service should have a clusterIP set to None.
+          # If the DeploymentMode is Raw, the default value for ServiceClusterIPNone if not set is false
+          # "serviceClusterIPNone": "false"
+       }
+
      # ====================================== METRICS CONFIGURATION ======================================
      # Example
      metricsAggregator: |-
@@ -434,6 +464,26 @@ data:
          # service with the specified boolean value. If true, prometheus annotations are added to the pod. If serving.kserve.io/enable-metric-aggregation is false,
          # the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port.
          "enablePrometheusScraping" : "false"
+       }
+
+     # ====================================== LOCALMODEL CONFIGURATION ======================================
+     # Example
+     localModel: |-
+       {
+         "enabled": false,
+         # jobNamespace specifies the namespace where the download job will be created.
+         "jobNamespace": "kserve-localmodel-jobs",
+         # defaultJobImage specifies the default image used for the download job.
+         "defaultJobImage" : "kserve/storage-initializer:latest",
+         # Kubernetes modifies the filesystem group ID on the attached volume.
+         "fsGroup": 1000,
+         # TTL for the download job after it is finished.
+         "jobTTLSecondsAfterFinished": 3600,
+         # The frequency at which the local model agent reconciles the local models
+         # This is to detect if models are missing from local disk
+         "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }}
+         # This is to disable localmodel pv and pvc management for namespaces without isvcs
+         "disableVolumeManagement": false
        }
 
   agent: |-
@@ -485,6 +535,10 @@ data:
     {
       "defaultDeploymentMode": "{{ .Values.kserve.controller.deploymentMode }}"
     }
+  service: |-
+    {
+      "serviceClusterIPNone": "{{ .Values.kserve.service.serviceClusterIPNone }}"
+    }
   explainers: |-
     {
         "art": {
@@ -493,9 +547,11 @@ data:
         }
     }
   ingress: |-
-    {
+    {   
+        "enableGatewayApi": {{ .Values.kserve.controller.gateway.ingressGateway.enableGatewayApi }},
+        "kserveIngressGateway" : "{{ .Values.kserve.controller.gateway.ingressGateway.kserveGateway }}",
         "ingressGateway" : "{{ .Values.kserve.controller.gateway.ingressGateway.gateway }}",
-        "ingressService" : "{{ .Values.kserve.controller.gateway.ingressGateway.gatewayService }}",
+        "knativeLocalGatewayService" : "{{ .Values.kserve.controller.gateway.localGateway.knativeGatewayService }}",
         "localGateway" : "{{ .Values.kserve.controller.gateway.localGateway.gateway }}",
         "localGatewayService" : "{{ .Values.kserve.controller.gateway.localGateway.gatewayService }}",
         "ingressClassName" : "{{ .Values.kserve.controller.gateway.ingressGateway.className }}",
@@ -537,4 +593,28 @@ data:
     {
       "enableMetricAggregation": "{{ .Values.kserve.metricsaggregator.enableMetricAggregation }}",
       "enablePrometheusScraping" : "{{ .Values.kserve.metricsaggregator.enablePrometheusScraping }}"
+    }
+  localModel: |-
+    {
+      "enabled": {{ .Values.kserve.localmodel.enabled }},
+      "jobNamespace": "{{ .Values.kserve.localmodel.jobNamespace }}",
+      "jobTTLSecondsAfterFinished": {{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }},
+      "defaultJobImage": "kserve/storage-initializer:latest",
+      "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }},
+      "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }},
+      "disableVolumeManagement": {{ .Values.kserve.localmodel.disableVolumeManagement }}
+    }
+  security: |-
+    {
+      "autoMountServiceAccountToken": {{ .Values.kserve.security.autoMountServiceAccountToken }}
+    }
+
+  inferenceservice: |-
+    {
+      "resource": {
+        "cpuLimit": "{{ .Values.kserve.inferenceservice.resources.limits.cpu }}",
+        "cpuRequest": "{{ .Values.kserve.inferenceservice.resources.requests.cpu }}",
+        "memoryLimit": "{{ .Values.kserve.inferenceservice.resources.limits.memory }}",
+        "memoryRequest": "{{ .Values.kserve.inferenceservice.resources.requests.memory }}"
+      }
     }

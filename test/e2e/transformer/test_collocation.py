@@ -14,6 +14,7 @@
 
 
 import os
+import uuid
 from kubernetes import client
 
 from kserve import KServeClient
@@ -26,7 +27,7 @@ from kubernetes.client import V1Container
 from kubernetes.client import V1EnvVar
 from kubernetes.client import V1ContainerPort
 import pytest
-from ..common.utils import predict_isvc
+from ..common.utils import is_model_ready, predict_isvc
 from ..common.utils import (
     KSERVE_TEST_NAMESPACE,
     INFERENCESERVICE_CONTAINER,
@@ -72,11 +73,17 @@ async def test_transformer_collocation(rest_v1_client):
                     "--http_port=8080",
                     "--grpc_port=8081",
                     "--predictor_host=localhost:8085",
+                    "--enable_predictor_health_check",
                 ],
                 ports=[V1ContainerPort(container_port=8080, protocol="TCP")],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+                readiness_probe=client.V1Probe(
+                    http_get=client.V1HTTPGetAction(
+                        path=f"/v1/models/{model_name}", port=8080
+                    )
                 ),
             ),
         ],
@@ -84,7 +91,7 @@ async def test_transformer_collocation(rest_v1_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -114,6 +121,8 @@ async def test_transformer_collocation(rest_v1_client):
         for pod in pods.items:
             print(pod)
         raise e
+    is_ready = await is_model_ready(rest_v1_client, service_name, model_name) is True
+    assert is_ready is True
     res = await predict_isvc(
         rest_v1_client, service_name, "./data/transformer.json", model_name=model_name
     )
@@ -123,8 +132,9 @@ async def test_transformer_collocation(rest_v1_client):
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_raw_transformer_collocation(rest_v1_client):
-    service_name = "raw-custom-model-collocation"
+async def test_raw_transformer_collocation(rest_v1_client, network_layer):
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "raw-custom-model-collocation-" + suffix
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -158,6 +168,7 @@ async def test_raw_transformer_collocation(rest_v1_client):
                     "--http_port=8080",
                     "--grpc_port=8081",
                     "--predictor_host=localhost:8085",
+                    "--enable_predictor_health_check",
                 ],
                 ports=[
                     V1ContainerPort(name="http", container_port=8080, protocol="TCP"),
@@ -173,7 +184,7 @@ async def test_raw_transformer_collocation(rest_v1_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
@@ -205,8 +216,19 @@ async def test_raw_transformer_collocation(rest_v1_client):
         for pod in pods.items:
             print(pod)
         raise e
+    is_ready = (
+        await is_model_ready(
+            rest_v1_client, service_name, model_name, network_layer=network_layer
+        )
+        is True
+    )
+    assert is_ready is True
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/transformer.json", model_name=model_name
+        rest_v1_client,
+        service_name,
+        "./data/transformer.json",
+        model_name=model_name,
+        network_layer=network_layer,
     )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

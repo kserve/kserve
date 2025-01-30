@@ -364,7 +364,7 @@ class V1beta1TransformerSpec(object):
     def annotations(self):
         """Gets the annotations of this V1beta1TransformerSpec.  # noqa: E501
 
-        Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations  # noqa: E501
+        Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/  # noqa: E501
 
         :return: The annotations of this V1beta1TransformerSpec.  # noqa: E501
         :rtype: dict(str, str)
@@ -375,7 +375,7 @@ class V1beta1TransformerSpec(object):
     def annotations(self, annotations):
         """Sets the annotations of this V1beta1TransformerSpec.
 
-        Annotations that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/annotations  # noqa: E501
+        Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/  # noqa: E501
 
         :param annotations: The annotations of this V1beta1TransformerSpec.  # noqa: E501
         :type: dict(str, str)
@@ -795,7 +795,7 @@ class V1beta1TransformerSpec(object):
     def labels(self):
         """Gets the labels of this V1beta1TransformerSpec.  # noqa: E501
 
-        Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels  # noqa: E501
+        Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/  # noqa: E501
 
         :return: The labels of this V1beta1TransformerSpec.  # noqa: E501
         :rtype: dict(str, str)
@@ -806,7 +806,7 @@ class V1beta1TransformerSpec(object):
     def labels(self, labels):
         """Sets the labels of this V1beta1TransformerSpec.
 
-        Labels that will be add to the component pod. More info: http://kubernetes.io/docs/user-guide/labels  # noqa: E501
+        Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/  # noqa: E501
 
         :param labels: The labels of this V1beta1TransformerSpec.  # noqa: E501
         :type: dict(str, str)
@@ -1295,7 +1295,7 @@ class V1beta1TransformerSpec(object):
     def set_hostname_as_fqdn(self):
         """Gets the set_hostname_as_fqdn of this V1beta1TransformerSpec.  # noqa: E501
 
-        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
+        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\Tcpip\\\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
 
         :return: The set_hostname_as_fqdn of this V1beta1TransformerSpec.  # noqa: E501
         :rtype: bool
@@ -1306,7 +1306,7 @@ class V1beta1TransformerSpec(object):
     def set_hostname_as_fqdn(self, set_hostname_as_fqdn):
         """Sets the set_hostname_as_fqdn of this V1beta1TransformerSpec.
 
-        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
+        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\Tcpip\\\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
 
         :param set_hostname_as_fqdn: The set_hostname_as_fqdn of this V1beta1TransformerSpec.  # noqa: E501
         :type: bool

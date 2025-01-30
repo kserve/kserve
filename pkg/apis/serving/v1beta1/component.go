@@ -30,15 +30,25 @@ import (
 
 // Known error messages
 const (
-	MinReplicasShouldBeLessThanMaxError = "'MinReplicas' cannot be greater than MaxReplicas"
-	MinReplicasLowerBoundExceededError  = "'MinReplicas' cannot be less than 0"
-	MaxReplicasLowerBoundExceededError  = "'MaxReplicas' cannot be less than 0"
-	ParallelismLowerBoundExceededError  = "parallelism cannot be less than 0"
-	UnsupportedStorageURIFormatError    = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
-	UnsupportedStorageSpecFormatError   = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported"
-	InvalidLoggerType                   = "invalid logger type"
-	InvalidISVCNameFormatError          = "the InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
-	InvalidProtocol                     = "invalid protocol %s. Must be one of [%s]"
+	MinReplicasShouldBeLessThanMaxError              = "'MinReplicas' cannot be greater than MaxReplicas"
+	MinReplicasLowerBoundExceededError               = "'MinReplicas' cannot be less than 0"
+	MaxReplicasLowerBoundExceededError               = "'MaxReplicas' cannot be less than 0"
+	ParallelismLowerBoundExceededError               = "parallelism cannot be less than 0"
+	UnsupportedStorageURIFormatError                 = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
+	UnsupportedStorageSpecFormatError                = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported"
+	InvalidLoggerType                                = "invalid logger type"
+	InvalidISVCNameFormatError                       = "the InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
+	InvalidProtocol                                  = "invalid protocol %s. Must be one of [%s]"
+	MissingStorageURI                                = "the InferenceService %q is invalid: StorageURI must be set for multinode enabled"
+	InvalidAutoScalerError                           = "the InferenceService %q is invalid: Multinode only supports 'external' autoscaler(%s)"
+	InvalidNotSupportedStorageURIProtocolError       = "the InferenceService %q is invalid: Multinode only supports 'pvc' Storage Protocol(%s)"
+	InvalidCustomGPUTypesAnnotationFormatError       = "the InferenceService %q is invalid: invalid format for %s annotation: must be a valid JSON array"
+	InvalidUnknownGPUTypeError                       = "the InferenceService %q is invalid: Unknown GPU resource type. Set 'serving.kserve.io/gpu-resource-types' annotation to use custom gpu resource type"
+	InvalidWorkerSpecPipelineParallelSizeValueError  = "the InferenceService %q is invalid: WorkerSpec.PipelineParallelSize cannot be less than 2(%s)"
+	InvalidWorkerSpecTensorParallelSizeValueError    = "the InferenceService %q is invalid: WorkerSpec.TensorParallelSize cannot be less than 1(%s)"
+	DisallowedMultipleContainersInWorkerSpecError    = "the InferenceService %q is invalid: setting multiple containers in workerSpec is not allowed"
+	DisallowedWorkerSpecPipelineParallelSizeEnvError = "the InferenceService %q is invalid: setting PIPELINE_PARALLEL_SIZE in environment variables is not allowed"
+	DisallowedWorkerSpecTensorParallelSizeEnvError   = "the InferenceService %q is invalid: setting TENSOR_PARALLEL_SIZE in environment variables is not allowed"
 )
 
 // Constants
@@ -99,15 +109,14 @@ type ComponentExtensionSpec struct {
 	// Activate request batching and batching configurations
 	// +optional
 	Batcher *Batcher `json:"batcher,omitempty"`
-	// Labels that will be add to the component pod.
-	// More info: http://kubernetes.io/docs/user-guide/labels
+	// Labels that will be added to the component pod.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
-	// Annotations that will be add to the component pod.
-	// More info: http://kubernetes.io/docs/user-guide/annotations
+	// Annotations that will be added to the component pod.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
-
 	// The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.
 	// +optional
 	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`

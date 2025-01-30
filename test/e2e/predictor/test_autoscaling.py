@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import uuid
 
 import pytest
 from kubernetes import client
@@ -53,7 +54,7 @@ async def test_sklearn_kserve_concurrency(rest_v1_client):
     )
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -98,7 +99,7 @@ async def test_sklearn_kserve_rps(rest_v1_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -146,7 +147,7 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
         ),
@@ -174,8 +175,9 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_scale_raw(rest_v1_client):
-    service_name = "isvc-sklearn-scale-raw"
+async def test_sklearn_scale_raw(rest_v1_client, network_layer):
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "isvc-sklearn-scale-raw-" + suffix
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         scale_metric="cpu",
@@ -194,7 +196,7 @@ async def test_sklearn_scale_raw(rest_v1_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
         ),
@@ -216,6 +218,76 @@ async def test_sklearn_scale_raw(rest_v1_client):
     )
 
     assert hpa_resp["items"][0]["spec"]["targetCPUUtilizationPercentage"] == 50
-    res = await predict_isvc(rest_v1_client, service_name, INPUT)
+    res = await predict_isvc(
+        rest_v1_client, service_name, INPUT, network_layer=network_layer
+    )
     assert res["predictions"] == [1, 1]
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
+async def test_sklearn_rolling_update():
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "isvc-sklearn-rolling-update-" + suffix
+    min_replicas = 4
+    predictor = V1beta1PredictorSpec(
+        min_replicas=min_replicas,
+        scale_metric="cpu",
+        scale_target=50,
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri=MODEL,
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+
+    annotations = dict()
+    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=annotations,
+            labels={"serving.kserve.io/test": "rolling-update"},
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    updated_annotations = dict()
+    updated_annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    updated_annotations["serving.kserve.io/customAnnotation"] = "TestAnnotation"
+
+    updated_isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations=updated_annotations,
+            labels={"serving.kserve.io/test": "rolling-update"},
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    kserve_client.patch(service_name, updated_isvc)
+    deployment = kserve_client.app_api.list_namespaced_deployment(
+        namespace=KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/test=rolling-update",
+    )
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    # Check if the deployment replicas still remain the same as min_replicas
+    assert deployment.items[0].spec.replicas == min_replicas
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

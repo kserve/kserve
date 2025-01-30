@@ -441,7 +441,7 @@ class V1beta1CustomPredictor(object):
     def host_aliases(self):
         """Gets the host_aliases of this V1beta1CustomPredictor.  # noqa: E501
 
-        HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified. This is only valid for non-hostNetwork pods.  # noqa: E501
+        HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.  # noqa: E501
 
         :return: The host_aliases of this V1beta1CustomPredictor.  # noqa: E501
         :rtype: list[V1HostAlias]
@@ -452,7 +452,7 @@ class V1beta1CustomPredictor(object):
     def host_aliases(self, host_aliases):
         """Sets the host_aliases of this V1beta1CustomPredictor.
 
-        HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified. This is only valid for non-hostNetwork pods.  # noqa: E501
+        HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.  # noqa: E501
 
         :param host_aliases: The host_aliases of this V1beta1CustomPredictor.  # noqa: E501
         :type: list[V1HostAlias]
@@ -625,7 +625,7 @@ class V1beta1CustomPredictor(object):
     def node_name(self):
         """Gets the node_name of this V1beta1CustomPredictor.  # noqa: E501
 
-        NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements.  # noqa: E501
+        NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename  # noqa: E501
 
         :return: The node_name of this V1beta1CustomPredictor.  # noqa: E501
         :rtype: str
@@ -636,7 +636,7 @@ class V1beta1CustomPredictor(object):
     def node_name(self, node_name):
         """Sets the node_name of this V1beta1CustomPredictor.
 
-        NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements.  # noqa: E501
+        NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename  # noqa: E501
 
         :param node_name: The node_name of this V1beta1CustomPredictor.  # noqa: E501
         :type: str
@@ -899,7 +899,7 @@ class V1beta1CustomPredictor(object):
     def scheduling_gates(self):
         """Gets the scheduling_gates of this V1beta1CustomPredictor.  # noqa: E501
 
-        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  This is a beta feature enabled by the PodSchedulingReadiness feature gate.  # noqa: E501
+        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  # noqa: E501
 
         :return: The scheduling_gates of this V1beta1CustomPredictor.  # noqa: E501
         :rtype: list[V1PodSchedulingGate]
@@ -910,7 +910,7 @@ class V1beta1CustomPredictor(object):
     def scheduling_gates(self, scheduling_gates):
         """Sets the scheduling_gates of this V1beta1CustomPredictor.
 
-        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  This is a beta feature enabled by the PodSchedulingReadiness feature gate.  # noqa: E501
+        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  # noqa: E501
 
         :param scheduling_gates: The scheduling_gates of this V1beta1CustomPredictor.  # noqa: E501
         :type: list[V1PodSchedulingGate]
@@ -943,7 +943,7 @@ class V1beta1CustomPredictor(object):
     def service_account(self):
         """Gets the service_account of this V1beta1CustomPredictor.  # noqa: E501
 
-        DeprecatedServiceAccount is a depreciated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.  # noqa: E501
+        DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.  # noqa: E501
 
         :return: The service_account of this V1beta1CustomPredictor.  # noqa: E501
         :rtype: str
@@ -954,7 +954,7 @@ class V1beta1CustomPredictor(object):
     def service_account(self, service_account):
         """Sets the service_account of this V1beta1CustomPredictor.
 
-        DeprecatedServiceAccount is a depreciated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.  # noqa: E501
+        DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.  # noqa: E501
 
         :param service_account: The service_account of this V1beta1CustomPredictor.  # noqa: E501
         :type: str
@@ -989,7 +989,7 @@ class V1beta1CustomPredictor(object):
     def set_hostname_as_fqdn(self):
         """Gets the set_hostname_as_fqdn of this V1beta1CustomPredictor.  # noqa: E501
 
-        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
+        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\Tcpip\\\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
 
         :return: The set_hostname_as_fqdn of this V1beta1CustomPredictor.  # noqa: E501
         :rtype: bool
@@ -1000,7 +1000,7 @@ class V1beta1CustomPredictor(object):
     def set_hostname_as_fqdn(self, set_hostname_as_fqdn):
         """Sets the set_hostname_as_fqdn of this V1beta1CustomPredictor.
 
-        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
+        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\Tcpip\\\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
 
         :param set_hostname_as_fqdn: The set_hostname_as_fqdn of this V1beta1CustomPredictor.  # noqa: E501
         :type: bool

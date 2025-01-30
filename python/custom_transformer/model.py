@@ -63,12 +63,12 @@ class ImageTransformer(Model):
     def __init__(
         self,
         name: str,
-        predictor_host: str,
-        predictor_protocol: str,
-        predictor_use_ssl: bool,
+        predictor_config: PredictorConfig,
     ):
         super().__init__(
-            name, PredictorConfig(predictor_host, predictor_protocol, predictor_use_ssl)
+            name,
+            predictor_config,
+            return_response_headers=True,
         )
         self.ready = True
 
@@ -108,15 +108,17 @@ class ImageTransformer(Model):
             return infer_request
 
     def postprocess(
-        self, infer_response: Union[Dict, InferResponse], headers: Dict[str, str] = None
+        self,
+        infer_response: Union[Dict, InferResponse],
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
         if "request-type" in headers and headers["request-type"] == "v1":
             if self.protocol == PredictorProtocol.REST_V1.value:
                 return infer_response
             else:
                 # if predictor protocol is v2 but transformer uses v1
-                res = infer_response.to_rest()
-                return {"predictions": res["outputs"][0]["data"]}
+                return {"predictions": infer_response.outputs[0].as_numpy().tolist()}
         else:
             return infer_response
 
@@ -129,8 +131,13 @@ if __name__ == "__main__":
         logging.configure_logging(args.log_config_file)
     model = ImageTransformer(
         args.model_name,
-        predictor_host=args.predictor_host,
-        predictor_protocol=args.predictor_protocol,
-        predictor_use_ssl=args.predictor_use_ssl,
+        PredictorConfig(
+            args.predictor_host,
+            args.predictor_protocol,
+            args.predictor_use_ssl,
+            args.predictor_request_timeout_seconds,
+            args.predictor_request_retries,
+            args.enable_predictor_health_check,
+        ),
     )
     ModelServer().start([model])

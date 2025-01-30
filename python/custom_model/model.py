@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from torchvision import models, transforms
 from typing import Dict, Union
 import torch
+import time
 from PIL import Image
 import base64
 import io
@@ -42,7 +43,7 @@ from kserve.utils.utils import generate_uuid
 # and then passed to the custom predictor, the output is the prediction response.
 class AlexNetModel(Model):
     def __init__(self, name: str):
-        super().__init__(name)
+        super().__init__(name, return_response_headers=True)
         self.model = None
         self.ready = False
         self.load()
@@ -99,8 +100,13 @@ class AlexNetModel(Model):
         return input_tensor.unsqueeze(0)
 
     def predict(
-        self, input_tensor: torch.Tensor, headers: Dict[str, str] = None
+        self,
+        input_tensor: torch.Tensor,
+        headers: Dict[str, str] = None,
+        response_headers: Dict[str, str] = None,
     ) -> Union[Dict, InferResponse]:
+        start = time.time()
+
         output = self.model(input_tensor)
         torch.nn.functional.softmax(output, dim=1)
         values, top_5 = torch.topk(output, 5)
@@ -112,6 +118,14 @@ class AlexNetModel(Model):
         infer_response = InferResponse(
             model_name=self.name, infer_outputs=[infer_output], response_id=response_id
         )
+        end = time.time()
+
+        # Example for custom response headers
+        if response_headers is not None:
+            response_headers.update(
+                {"prediction-time-latency": f"{round((end - start) * 1000, 9)}"}
+            )
+
         if "request-type" in headers and headers["request-type"] == "v1":
             return {"predictions": result}
         else:

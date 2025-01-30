@@ -17,6 +17,7 @@ CUSTOM_MODEL_GRPC_IMG ?= custom-model-grpc
 CUSTOM_TRANSFORMER_IMG ?= image-transformer
 CUSTOM_TRANSFORMER_GRPC_IMG ?= custom-image-transformer-grpc
 HUGGINGFACE_SERVER_IMG ?= huggingfaceserver
+HUGGINGFACE_SERVER_CPU_IMG ?= huggingfaceserver-cpu-openvino
 AIF_IMG ?= aiffairness
 ART_IMG ?= art-explainer
 STORAGE_INIT_IMG ?= storage-initializer
@@ -28,6 +29,12 @@ ENVTEST_K8S_VERSION = 1.29
 SUCCESS_200_ISVC_IMG ?= success-200-isvc
 ERROR_404_ISVC_IMG ?= error-404-isvc
 
+ENGINE ?= docker
+# Empty string for local build when using podman, it allows to build different architectures
+# to use do: ENGINE=podman ARCH="--arch x86_64" make docker-build-something
+ARCH ?=
+
+
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
@@ -38,7 +45,7 @@ ENVTEST ?= $(LOCALBIN)/setup-envtest
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen
 
 ## Tool Versions
-CONTROLLER_TOOLS_VERSION ?= v0.12.0
+CONTROLLER_TOOLS_VERSION ?= v0.16.2
 
 # CPU/Memory limits for controller-manager
 KSERVE_CONTROLLER_CPU_LIMIT ?= 100m
@@ -74,10 +81,10 @@ deploy: manifests
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	echo > ../certmanager/certificate.yaml; \
 	else git checkout HEAD -- ../certmanager/certificate.yaml; fi;
-	kubectl apply -k config/default
+	kubectl apply --server-side=true -k config/default
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kubectl apply -k config/clusterresources
+	kubectl apply  --server-side=true  -k config/clusterresources
 	git checkout HEAD -- config/certmanager/certificate.yaml
 
 
@@ -87,11 +94,11 @@ deploy-dev: manifests
 	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
 	echo > ../certmanager/certificate.yaml; \
 	else git checkout HEAD -- ../certmanager/certificate.yaml; fi;
-	kubectl apply -k config/overlays/development
+	kubectl apply --server-side=true --force-conflicts -k config/overlays/development
 	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then ./hack/self-signed-ca.sh; fi;
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kubectl apply -k config/clusterresources
+	kubectl apply --server-side=true --force-conflicts -k config/clusterresources
 	git checkout HEAD -- config/certmanager/certificate.yaml
 
 deploy-dev-sklearn: docker-push-sklearn
@@ -114,17 +121,17 @@ deploy-dev-huggingface: docker-push-huggingface
 
 deploy-dev-storageInitializer: docker-push-storageInitializer
 	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
-	kubectl apply -k config/overlays/dev-image-config
+	kubectl apply --server-side=true -k config/overlays/dev-image-config
 
 deploy-ci: manifests
-	kubectl apply -k config/overlays/test
+	kubectl apply --server-side=true -k config/overlays/test
 	# TODO: Add runtimes as part of default deployment
 	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
-	kubectl apply -k config/overlays/test/clusterresources
+	kubectl apply --server-side=true -k config/overlays/test/clusterresources
 
 deploy-helm: manifests
 	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
-	helm install kserve charts/kserve-resources/ --wait --timeout 180s
+	helm install kserve charts/kserve-resources/ --wait --timeout 180s -n kserve --create-namespace
 
 undeploy:
 	kubectl delete -k config/default
@@ -135,20 +142,24 @@ undeploy-dev:
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full
-	$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths=./pkg/controller/... output:rbac:artifacts:config=config/rbac
+	$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/...} output:rbac:artifacts:config=config/rbac
+	$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
+	$(CONTROLLER_GEN) rbac:roleName=kserve-localmodelnode-agent-role paths=./pkg/controller/v1alpha1/localmodelnode output:rbac:artifacts:config=config/rbac/localmodelnode
+	# Copy the cluster role to the helm chart
+	cp config/rbac/auth_proxy_role.yaml charts/kserve-resources/templates/clusterrole.yaml
+	cat config/rbac/role.yaml >> charts/kserve-resources/templates/clusterrole.yaml
+	# Copy the local model role with Helm chart while keeping the Helm template condition
+	echo '{{- if .Values.kserve.localmodel.enabled }}' > charts/kserve-resources/templates/localmodel/role.yaml
+	cat config/rbac/localmodel/role.yaml >> charts/kserve-resources/templates/localmodel/role.yaml
+	echo '{{- end }}' >> charts/kserve-resources/templates/localmodel/role.yaml
+	# Copy the local model node role with Helm chart while keeping the Helm template condition
+	echo '{{- if .Values.kserve.localmodel.enabled }}'> charts/kserve-resources/templates/localmodelnode/role.yaml
+	cat config/rbac/localmodelnode/role.yaml >> charts/kserve-resources/templates/localmodelnode/role.yaml
+	echo '{{- end }}' >> charts/kserve-resources/templates/localmodelnode/role.yaml
+	
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1alpha1
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths=./pkg/apis/serving/v1beta1
 
-	#TODO Remove this until new controller-tools is released
-	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/full/serving.kserve.io_inferenceservices.yaml
-	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/full/serving.kserve.io_inferenceservices.yaml
-	perl -pi -e 's/Any/string/g' config/crd/full/serving.kserve.io_inferenceservices.yaml
-	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/full/serving.kserve.io_trainedmodels.yaml
-	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/full/serving.kserve.io_trainedmodels.yaml
-	perl -pi -e 's/Any/string/g' config/crd/full/serving.kserve.io_trainedmodels.yaml
-	perl -pi -e 's/storedVersions: null/storedVersions: []/g' config/crd/full/serving.kserve.io_inferencegraphs.yaml
-	perl -pi -e 's/conditions: null/conditions: []/g' config/crd/full/serving.kserve.io_inferencegraphs.yaml
-	perl -pi -e 's/Any/string/g' config/crd/full/serving.kserve.io_inferencegraphs.yaml
 	#remove the required property on framework as name field needs to be optional
 	yq 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
@@ -164,8 +175,15 @@ manifests: controller-gen
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
 	yq '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} yq '{} = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
+	
+	# TODO: Commenting out the following as it produces differences in verify codegen during release process
+	# Copy the crds to the helm chart
+	# cp config/crd/full/* charts/kserve-crd/templates
+	# rm charts/kserve-crd/templates/kustomization.yaml
+	# Generate minimal crd
 	./hack/minimal-crdgen.sh
 	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_inferenceservices.yaml
+	# Copy the minimal crd to the helm chart
 	cp config/crd/minimal/* charts/kserve-crd-minimal/templates/
 	rm charts/kserve-crd-minimal/templates/kustomization.yaml
 
@@ -192,12 +210,12 @@ generate: controller-gen
 	hack/update-helm-docs.sh
 
 bump-version:
-	# TBA
-	echo "bumping version numbers for this release"
+	@echo "bumping version numbers for this release"
+	@hack/prepare-for-release.sh $(PRIOR_VERSION) $(NEW_VERSION)
 
 # Build the docker image
-docker-build: test
-	docker buildx build . -t ${IMG}
+docker-build:
+	${ENGINE} buildx build ${ARCH} . -t ${IMG}
 	@echo "updating kustomize image patch file for manager resource"
 
 	# Use perl instead of sed to avoid OSX/Linux compatibility issue:
@@ -209,115 +227,121 @@ docker-push:
 	docker push ${IMG}
 
 docker-build-agent:
-	docker buildx build -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
+	${ENGINE} buildx build ${ARCH} -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
 
 docker-build-router:
-	docker buildx build -f router.Dockerfile . -t ${KO_DOCKER_REPO}/${ROUTER_IMG}
+	${ENGINE} buildx build ${ARCH} -f router.Dockerfile . -t ${KO_DOCKER_REPO}/${ROUTER_IMG}
 
 docker-push-agent:
-	docker push ${KO_DOCKER_REPO}/${AGENT_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${AGENT_IMG}
 
 docker-push-router:
-	docker push ${KO_DOCKER_REPO}/${ROUTER_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${ROUTER_IMG}
 
 docker-build-sklearn:
-	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
 
 docker-push-sklearn: docker-build-sklearn
-	docker push ${KO_DOCKER_REPO}/${SKLEARN_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${SKLEARN_IMG}
 
 docker-build-xgb:
-	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${XGB_IMG} -f xgb.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${XGB_IMG} -f xgb.Dockerfile .
 
 docker-push-xgb: docker-build-xgb
-	docker push ${KO_DOCKER_REPO}/${XGB_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${XGB_IMG}
 
 docker-build-lgb:
-	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
 
 docker-push-lgb: docker-build-lgb
-	docker push ${KO_DOCKER_REPO}/${LGB_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${LGB_IMG}
 
 docker-build-pmml:
-	cd python && docker buildx build --build-arg BASE_IMAGE=${PMML_BASE_IMG} -t ${KO_DOCKER_REPO}/${PMML_IMG} -f pmml.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${PMML_BASE_IMG} -t ${KO_DOCKER_REPO}/${PMML_IMG} -f pmml.Dockerfile .
 
 docker-push-pmml: docker-build-pmml
-	docker push ${KO_DOCKER_REPO}/${PMML_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${PMML_IMG}
 
 docker-build-paddle:
-	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PADDLE_IMG} -f paddle.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PADDLE_IMG} -f paddle.Dockerfile .
 
 docker-push-paddle: docker-build-paddle
-	docker push ${KO_DOCKER_REPO}/${PADDLE_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${PADDLE_IMG}
 
 docker-build-custom-model:
-	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG} -f custom_model.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG} -f custom_model.Dockerfile .
 
 docker-push-custom-model: docker-build-custom-model
 	docker push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG}
 
 docker-build-custom-model-grpc:
-	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG} -f custom_model_grpc.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG} -f custom_model_grpc.Dockerfile .
 
 docker-push-custom-model-grpc: docker-build-custom-model-grpc
-	docker push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}
 
 docker-build-custom-transformer:
-	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
 
 docker-push-custom-transformer: docker-build-custom-transformer
-	docker push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_IMG}
 
 docker-build-custom-transformer-grpc:
-	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG} -f custom_transformer_grpc.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG} -f custom_transformer_grpc.Dockerfile .
 
 docker-push-custom-transformer-grpc: docker-build-custom-transformer-grpc
-	docker push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}
 
 docker-build-aif:
-	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${AIF_IMG} -f aiffairness.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${AIF_IMG} -f aiffairness.Dockerfile .
 
 docker-push-aif: docker-build-aif
-	docker push ${KO_DOCKER_REPO}/${AIF_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${AIF_IMG}
 
 docker-build-art:
-	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${ART_IMG} -f artexplainer.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${ART_IMG} -f artexplainer.Dockerfile .
 
 docker-push-art: docker-build-art
-	docker push ${KO_DOCKER_REPO}/${ART_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${ART_IMG}
 
 docker-build-storageInitializer:
-	cd python && docker buildx build --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
 
 docker-push-storageInitializer: docker-build-storageInitializer
-	docker push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
 
 docker-build-qpext:
-	docker buildx build -t ${KO_DOCKER_REPO}/${QPEXT_IMG} -f qpext/qpext.Dockerfile .
+	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${QPEXT_IMG} -f qpext/qpext.Dockerfile .
 
 docker-build-push-qpext: docker-build-qpext
-	docker push ${KO_DOCKER_REPO}/${QPEXT_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${QPEXT_IMG}
 
 deploy-dev-qpext: docker-build-push-qpext
 	kubectl patch cm config-deployment -n knative-serving --type merge --patch '{"data": {"queue-sidecar-image": "${KO_DOCKER_REPO}/${QPEXT_IMG}"}}'
 
 docker-build-success-200-isvc:
-	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG} -f success_200_isvc.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG} -f success_200_isvc.Dockerfile .
 
 docker-push-success-200-isvc: docker-build-success-200-isvc
-	docker push ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG}
 
 docker-build-error-node-404:
-	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG} -f error_404_isvc.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG} -f error_404_isvc.Dockerfile .
 
 docker-push-error-node-404: docker-build-error-node-404
-	docker push ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}
 
 docker-build-huggingface:
-	cd python && docker buildx build -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG} -f huggingface_server.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG} -f huggingface_server.Dockerfile .
 
 docker-push-huggingface: docker-build-huggingface
-	docker push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}
+
+docker-build-huggingface-cpu-openvino:
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG} -f huggingface_server_cpu_openvino.Dockerfile .
+
+docker-push-huggingface-cpu-openvino: docker-build-huggingface-cpu-openvino
+	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG}
 
 test-qpext:
 	cd qpext && go test -v ./... -cover
@@ -331,8 +355,8 @@ $(ENVTEST): $(LOCALBIN)
 	test -s $(LOCALBIN)/setup-envtest || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.17
 
 apidocs:
-	docker buildx build -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
-	docker run -it --rm -v $(CURDIR)/pkg/apis:/go/src/github.com/kserve/kserve/pkg/apis -v ${PWD}/docs/apis:/go/gen-crd-api-reference-docs/apidocs apidocs-gen
+	${ENGINE} buildx build ${ARCH} -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
+	${ENGINE} run -it --rm -v $(CURDIR)/pkg/apis:/go/src/github.com/kserve/kserve/pkg/apis -v ${PWD}/docs/apis:/go/gen-crd-api-reference-docs/apidocs apidocs-gen
 
 .PHONY: check-doc-links
 check-doc-links:

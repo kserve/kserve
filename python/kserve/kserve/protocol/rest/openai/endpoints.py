@@ -25,6 +25,7 @@ from starlette.responses import StreamingResponse
 from kserve.protocol.rest.openai.types.openapi import (
     CreateChatCompletionRequest,
     CreateCompletionRequest,
+    CreateEmbeddingRequest,
     ListModelsResponse,
     Model,
 )
@@ -41,6 +42,7 @@ if len(OPENAI_ROUTE_PREFIX) > 0 and not OPENAI_ROUTE_PREFIX.startswith("/"):
 
 CreateCompletionRequestAdapter = TypeAdapter(CreateCompletionRequest)
 ChatCompletionRequestAdapter = TypeAdapter(CreateChatCompletionRequest)
+EmbeddingRequestAdapter = TypeAdapter(CreateEmbeddingRequest)
 
 
 class OpenAIEndpoints:
@@ -58,8 +60,8 @@ class OpenAIEndpoints:
 
         Args:
             raw_request (Request): fastapi request object,
-            model_name (str): Model name.
             request_body (CompletionCreateParams): Completion params body.
+            response (Response): fastapi response object
 
         Returns:
             InferenceResponse: Inference response object.
@@ -70,7 +72,7 @@ class OpenAIEndpoints:
             raise RequestValidationError(errors=e.errors())
         params = request_body
         model_name = params.model
-        model_ready = self.dataplane.model_ready(model_name)
+        model_ready = await self.dataplane.model_ready(model_name)
 
         if not model_ready:
             raise ModelNotReady(model_name)
@@ -102,8 +104,8 @@ class OpenAIEndpoints:
 
         Args:
             raw_request (Request): fastapi request object,
-            model_name (str): Model name.
             request_body (ChatCompletionRequestAdapter): Chat completion params body.
+            response (Response): fastapi response object
 
         Returns:
             InferenceResponse: Inference response object.
@@ -114,7 +116,7 @@ class OpenAIEndpoints:
             raise RequestValidationError(errors=e.errors())
         params = request_body
         model_name = params.model
-        model_ready = self.dataplane.model_ready(model_name)
+        model_ready = await self.dataplane.model_ready(model_name)
 
         if not model_ready:
             raise ModelNotReady(model_name)
@@ -136,6 +138,41 @@ class OpenAIEndpoints:
             return StreamingResponse(stream_results(), media_type="text/event-stream")
         else:
             return completion
+
+    async def create_embedding(
+        self,
+        raw_request: Request,
+        request_body: CreateEmbeddingRequest,
+        response: Response,
+    ) -> Response:
+        """Create embedding handler.
+
+        Args:
+            raw_request (Request): fastapi request object,
+            request_body (CreateEmbeddingRequest): Embedding params body.
+            response (Response): fastapi response object
+
+        Returns:
+            InferenceResponse: Inference response object.
+        """
+        try:
+            params = EmbeddingRequestAdapter.validate_python(request_body)
+        except ValidationError as e:
+            raise RequestValidationError(errors=e.errors())
+        params = request_body
+        model_name = params.model
+        model_ready = await self.dataplane.model_ready(model_name)
+
+        if not model_ready:
+            raise ModelNotReady(model_name)
+
+        request_headers = raw_request.headers
+        return await self.dataplane.create_embedding(
+            model_name=model_name,
+            request=request_body,
+            headers=request_headers,
+            response=response,
+        )
 
     async def models(
         self,
@@ -159,6 +196,9 @@ class OpenAIEndpoints:
             ],
         )
 
+    async def health(self, model_name: str):
+        await self.dataplane.model_ready(model_name)
+
 
 def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):
     endpoints = OpenAIEndpoints(dataplane)
@@ -178,9 +218,19 @@ def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):
         response_model_exclude_unset=True,
     )
     openai_router.add_api_route(
+        r"/v1/embeddings",
+        endpoints.create_embedding,
+        methods=["POST"],
+        response_model_exclude_none=True,
+        response_model_exclude_unset=True,
+    )
+    openai_router.add_api_route(
         r"/v1/models",
         endpoints.models,
         methods=["GET"],
+    )
+    openai_router.add_api_route(
+        r"/v1/models/{model_name}", endpoints.health, methods=["GET"]
     )
     app.include_router(openai_router)
     app.add_exception_handler(OpenAIError, openai_error_handler)

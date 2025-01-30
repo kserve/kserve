@@ -41,11 +41,11 @@ type LoggerType string
 
 // LoggerType Enum
 const (
-	// Logger mode to log both request and response
+	// LogAll Logger mode to log both request and response
 	LogAll LoggerType = "all"
-	// Logger mode to log only request
+	// LogRequest Logger mode to log only request
 	LogRequest LoggerType = "request"
-	// Logger mode to log only response
+	// LogResponse Logger mode to log only response
 	LogResponse LoggerType = "response"
 )
 
@@ -61,6 +61,9 @@ type LoggerSpec struct {
 	// - "response": log only response <br />
 	// +optional
 	Mode LoggerType `json:"mode,omitempty"`
+	// Matched metadata HTTP headers for propagating to inference logger cloud events.
+	// +optional
+	MetadataHeaders []string `json:"metadataHeaders,omitempty"`
 }
 
 // Batcher specifies optional payload batching available for all components
@@ -78,7 +81,6 @@ type Batcher struct {
 
 // InferenceService is the Schema for the InferenceServices API
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
@@ -103,7 +105,6 @@ type InferenceService struct {
 
 // InferenceServiceList contains a list of Service
 // +k8s:openapi-gen=true
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 type InferenceServiceList struct {
 	metav1.TypeMeta `json:",inline"`

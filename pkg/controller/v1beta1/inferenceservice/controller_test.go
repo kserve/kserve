@@ -19,6 +19,7 @@ package inferenceservice
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"knative.dev/pkg/kmp"
@@ -30,7 +31,6 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	istiov1beta1 "istio.io/api/networking/v1beta1"
@@ -75,8 +75,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 			}`,
 			"ingress": `{
+				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 				"ingressGateway": "knative-serving/knative-ingress-gateway",
-				"ingressService": "test-destination",
 				"localGateway": "knative-serving/knative-local-gateway",
 				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
 			}`,
@@ -198,7 +198,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 			inferenceService := &v1beta1.InferenceService{}
@@ -265,6 +265,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Resources: defaultResource,
 										},
 									},
+									AutomountServiceAccountToken: proto.Bool(false),
 								},
 							},
 						},
@@ -303,7 +304,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Status: "True",
 					},
 				}
-				Expect(k8sClient.Status().Update(context.TODO(), updatedService)).NotTo(gomega.HaveOccurred())
+				Expect(k8sClient.Status().Update(context.TODO(), updatedService)).NotTo(HaveOccurred())
 			}
 			//assert ingress
 			virtualService := &istioclientv1beta1.VirtualService{}
@@ -311,7 +312,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceKey.Name,
 					Namespace: serviceKey.Namespace}, virtualService)
 			}, timeout).
-				Should(gomega.Succeed())
+				Should(Succeed())
 			expectedVirtualService := &istioclientv1beta1.VirtualService{
 				Spec: istiov1beta1.VirtualService{
 					Gateways: []string{
@@ -355,7 +356,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Headers: &istiov1beta1.Headers{
 								Request: &istiov1beta1.Headers_HeaderOperations{
 									Set: map[string]string{
-										"Host": network.GetServiceHostname(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace),
+										"Host":                  network.GetServiceHostname(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace),
+										"KServe-Isvc-Name":      serviceName,
+										"KServe-Isvc-Namespace": serviceKey.Namespace,
 									},
 								},
 							},
@@ -363,7 +366,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(virtualService.Spec.DeepCopy()).To(gomega.Equal(expectedVirtualService.Spec.DeepCopy()))
+			Expect(virtualService.Spec.DeepCopy()).To(Equal(expectedVirtualService.Spec.DeepCopy()))
 
 			//get inference service
 			time.Sleep(10 * time.Second)
@@ -382,17 +385,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			updatedIsvc.Annotations = annotations
 			updatedIsvc.Labels = labels
 
-			Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
 			time.Sleep(10 * time.Second)
 			updatedVirtualService := &istioclientv1beta1.VirtualService{}
 			Eventually(func() error {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: serviceKey.Name,
 					Namespace: serviceKey.Namespace}, updatedVirtualService)
-			}, timeout, interval).Should(gomega.Succeed())
+			}, timeout, interval).Should(Succeed())
 
-			Expect(updatedVirtualService.Spec.DeepCopy()).To(gomega.Equal(expectedVirtualService.Spec.DeepCopy()))
-			Expect(updatedVirtualService.Annotations).To(gomega.Equal(annotations))
-			Expect(updatedVirtualService.Labels).To(gomega.Equal(labels))
+			Expect(updatedVirtualService.Spec.DeepCopy()).To(Equal(expectedVirtualService.Spec.DeepCopy()))
+			Expect(updatedVirtualService.Annotations).To(Equal(annotations))
+			Expect(updatedVirtualService.Labels).To(Equal(labels))
 		})
 		It("Should fail if Knative Serving is not installed", func() {
 			// Simulate Knative Serving is absent by setting to false the relevant item in utils.gvResourcesCache variable
@@ -444,7 +447,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 
 			ctx := context.Background()
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
@@ -555,7 +558,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Data: configs,
 			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
@@ -593,18 +596,18 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
-			transformer.DefaultInferenceService(nil, nil)
+			transformer.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			instance := transformer.DeepCopy()
-			Expect(k8sClient.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), instance)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), instance)
 
 			predictorService := &knservingv1.Service{}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, predictorService) }, timeout).
-				Should(gomega.Succeed())
+				Should(Succeed())
 
 			transformerService := &knservingv1.Service{}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), transformerServiceKey, transformerService) }, timeout).
-				Should(gomega.Succeed())
+				Should(Succeed())
 			expectedTransformerService := &knservingv1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.TransformerServiceName(instance.Name),
@@ -647,6 +650,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											Resources: defaultResource,
 										},
 									},
+									AutomountServiceAccountToken: proto.Bool(false),
 								},
 							},
 						},
@@ -663,7 +667,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// that are present on the remote version.
 			err := k8sClient.Update(context.TODO(), expectedTransformerService, client.DryRunAll)
 			Expect(err).Should(BeNil())
-			Expect(cmp.Diff(transformerService.Spec, expectedTransformerService.Spec)).To(gomega.Equal(""))
+			Expect(cmp.Diff(transformerService.Spec, expectedTransformerService.Spec)).To(Equal(""))
 
 			// mock update knative service status since knative serving controller is not running in test
 			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
@@ -688,7 +692,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: "True",
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorService)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedPredictorService)).NotTo(HaveOccurred())
 
 			// update transformer
 			updatedTransformerService := transformerService.DeepCopy()
@@ -709,7 +713,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: "True",
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerService)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedTransformerService)).NotTo(HaveOccurred())
 
 			// verify if InferenceService status is updated
 			expectedIsvcStatus := v1beta1.InferenceServiceStatus{
@@ -797,7 +801,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return err.Error()
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.Condition{}, "LastTransitionTime", "Severity"))
-			}, timeout).Should(gomega.BeEmpty())
+			}, timeout).Should(BeEmpty())
 		})
 	})
 
@@ -880,7 +884,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			isvc.DefaultInferenceService(nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			inferenceService := &v1beta1.InferenceService{}
 
@@ -917,7 +921,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}}
 			Expect(retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 				return k8sClient.Status().Update(context.TODO(), updatedService)
-			})).NotTo(gomega.HaveOccurred())
+			})).NotTo(HaveOccurred())
 
 			// assert inference service predictor status
 			Eventually(func() string {
@@ -941,7 +945,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			updatedIsvc := inferenceService.DeepCopy()
 			updatedIsvc.Spec.Predictor.Model.StorageURI = &storageUri2
 			updatedIsvc.Spec.Predictor.CanaryTrafficPercent = proto.Int64(20)
-			Expect(k8sClient.Update(context.TODO(), updatedIsvc)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Update(context.TODO(), updatedIsvc)).NotTo(HaveOccurred())
 
 			// update predictor status
 			canaryService := &knservingv1.Service{}
@@ -958,7 +962,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: "True",
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), canaryService)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), canaryService)).NotTo(HaveOccurred())
 
 			expectedTrafficTarget := []knservingv1.TrafficTarget{
 				{
@@ -980,7 +984,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				} else {
 					return actualService.Spec.Traffic
 				}
-			}, timeout).Should(gomega.Equal(expectedTrafficTarget))
+			}, timeout).Should(Equal(expectedTrafficTarget))
 
 			rolloutIsvc := &v1beta1.InferenceService{}
 			Eventually(func() string {
@@ -994,7 +998,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// rollout canary
 			rolloutIsvc.Spec.Predictor.CanaryTrafficPercent = nil
 
-			Expect(k8sClient.Update(context.TODO(), rolloutIsvc)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Update(context.TODO(), rolloutIsvc)).NotTo(HaveOccurred())
 			expectedTrafficTarget = []knservingv1.TrafficTarget{
 				{
 					LatestRevision: proto.Bool(true),
@@ -1009,7 +1013,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				} else {
 					return actualService.Spec.Traffic
 				}
-			}, timeout).Should(gomega.Equal(expectedTrafficTarget))
+			}, timeout).Should(Equal(expectedTrafficTarget))
 
 			// update predictor knative service status
 			serviceRevision2 := &knservingv1.Service{}
@@ -1023,7 +1027,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					RevisionName:   "revision-v2",
 					Percent:        proto.Int64(100),
 				}}
-			Expect(k8sClient.Status().Update(context.TODO(), serviceRevision2)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), serviceRevision2)).NotTo(HaveOccurred())
 			// assert latest rolled out revision
 			expectedIsvc := &v1beta1.InferenceService{}
 			Eventually(func() string {
@@ -1163,7 +1167,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: proto.Bool(false),
 				},
 			}
-			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 
 			var isvc = &v1beta1.InferenceService{
@@ -1215,17 +1219,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Data: configs,
 			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
 			instance := isvc.DeepCopy()
-			Expect(k8sClient.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), instance)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), instance)
 
 			predictorService := &knservingv1.Service{}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, predictorService) }, timeout).
-				Should(gomega.Succeed())
+				Should(Succeed())
 
 			expectedPredictorService := &knservingv1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1289,7 +1293,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// that are present on the remote version.
 			err := k8sClient.Update(context.TODO(), predictorService, client.DryRunAll)
 			Expect(err).Should(BeNil())
-			Expect(cmp.Diff(predictorService.Spec, expectedPredictorService.Spec)).To(gomega.Equal(""))
+			Expect(cmp.Diff(predictorService.Spec, expectedPredictorService.Spec)).To(Equal(""))
 
 		})
 	})
@@ -1334,11 +1338,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Data: configs,
 			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
-			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), isvc)
 
 			inferenceService := &v1beta1.InferenceService{}
@@ -1359,7 +1363,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(inferenceService.Status.ModelStatus.TransitionStatus).To(Equal(v1beta1.InvalidSpec))
 			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.TargetModelState).To(Equal(v1beta1.FailedToLoad))
-			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(gomega.Equal(""))
+			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(Equal(""))
 		})
 	})
 
@@ -1404,7 +1408,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 
-			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 
 			var isvc = &v1beta1.InferenceService{
@@ -1439,11 +1443,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Data: configs,
 			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
-			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), isvc)
 
 			inferenceService := &v1beta1.InferenceService{}
@@ -1464,7 +1468,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(inferenceService.Status.ModelStatus.TransitionStatus).To(Equal(v1beta1.InvalidSpec))
 			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.TargetModelState).To(Equal(v1beta1.FailedToLoad))
-			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(gomega.Equal(""))
+			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(Equal(""))
 		})
 	})
 
@@ -1484,7 +1488,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Data: configs,
 			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			var servingRuntime = &v1alpha1.ServingRuntime{
@@ -1520,7 +1524,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 
-			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 
 			var isvc = &v1beta1.InferenceService{
@@ -1548,7 +1552,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
-			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), isvc)
 
 			inferenceService := &v1beta1.InferenceService{}
@@ -1569,7 +1573,160 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(inferenceService.Status.ModelStatus.TransitionStatus).To(Equal(v1beta1.InvalidSpec))
 			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.TargetModelState).To(Equal(v1beta1.FailedToLoad))
-			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(gomega.Equal(""))
+			Expect(cmp.Diff(&failureInfo, inferenceService.Status.ModelStatus.LastFailureInfo)).To(Equal(""))
+		})
+	})
+
+	Context("When creating inference service with storage.kserve.io/readonly", func() {
+		defaultIsvc := func(namespace string, name string, storageUri string) *v1beta1.InferenceService {
+			predictor := v1beta1.PredictorSpec{
+				ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+					MinReplicas: v1beta1.GetIntReference(1),
+					MaxReplicas: 3,
+				},
+				Tensorflow: &v1beta1.TFServingSpec{
+					PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+						StorageURI:     &storageUri,
+						RuntimeVersion: proto.String("1.14.0"),
+						Container: v1.Container{
+							Name:      constants.InferenceServiceContainerName,
+							Resources: defaultResource,
+							VolumeMounts: []v1.VolumeMount{
+								{Name: "predictor-volume"},
+							},
+						},
+					},
+				},
+			}
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
+
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: predictor,
+				},
+			}
+			return isvc
+		}
+
+		createServingRuntime := func(namespace string, name string) *v1alpha1.ServingRuntime {
+			// Define and create serving runtime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      name,
+					Namespace: namespace,
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    constants.InferenceServiceContainerName,
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+						ImagePullSecrets: []v1.LocalObjectReference{
+							{Name: "sr-image-pull-secret"},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			Expect(k8sClient.Create(ctx, servingRuntime)).NotTo(HaveOccurred())
+			return servingRuntime
+		}
+
+		createInferenceServiceConfigMap := func() *v1.ConfigMap {
+			configMap := &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			return configMap
+		}
+
+		It("should have the readonly annotation set to true in the knative serving pod spec", func() {
+			configMap := createInferenceServiceConfigMap()
+			defer k8sClient.Delete(ctx, configMap)
+
+			serviceName := "readonly-true-isvc"
+			serviceNamespace := "default"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+
+			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+			defer k8sClient.Delete(ctx, servingRuntime)
+
+			// Define InferenceService
+			isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
+			isvc.Annotations = map[string]string{}
+			isvc.Annotations[constants.StorageReadonlyAnnotationKey] = "true"
+			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, isvc)
+
+			// Knative service
+			actualService := &knservingv1.Service{}
+			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
+				Should(Succeed())
+
+			// Check readonly value
+			Expect(actualService.Spec.Template.Annotations[constants.StorageReadonlyAnnotationKey]).
+				To(Equal("true"))
+		})
+
+		It("should have the readonly annotation set to false in the knative serving pod spec", func() {
+			configMap := createInferenceServiceConfigMap()
+			defer k8sClient.Delete(ctx, configMap)
+
+			serviceName := "readonly-false-isvc"
+			serviceNamespace := "default"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+
+			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+			defer k8sClient.Delete(ctx, servingRuntime)
+
+			// Define InferenceService
+			isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
+			isvc.Annotations = map[string]string{}
+			isvc.Annotations[constants.StorageReadonlyAnnotationKey] = "false"
+			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, isvc)
+
+			// Knative service
+			actualService := &knservingv1.Service{}
+			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
+				Should(Succeed())
+
+			// Check readonly value
+			Expect(actualService.Spec.Template.Annotations[constants.StorageReadonlyAnnotationKey]).
+				To(Equal("false"))
 		})
 	})
 
@@ -1588,7 +1745,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Data: configs,
 			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 
 			var servingRuntime = &v1alpha1.ServingRuntime{
@@ -1624,7 +1781,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 
-			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 
 			var isvc = &v1beta1.InferenceService{
@@ -1652,7 +1809,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			// Create the InferenceService object and expect the Reconcile and knative service to be created
-			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), isvc)
 
 			pod := &v1.Pod{
@@ -1746,7 +1903,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 				return k8sClient.Status().Update(context.TODO(), updatedService)
-			})).NotTo(gomega.HaveOccurred())
+			})).NotTo(HaveOccurred())
 
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
@@ -1776,9 +1933,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			for key, value := range configs {
 				if key == "ingress" {
 					copiedConfigs[key] = `{
+						"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 						"disableIstioVirtualHost": true,
 						"ingressGateway": "knative-serving/knative-ingress-gateway",
-						"ingressService": "test-destination",
 						"localGateway": "knative-serving/knative-local-gateway",
 						"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
 					}`
@@ -1854,7 +2011,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: "True",
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedService)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedService)).NotTo(HaveOccurred())
 			// get inference service
 			time.Sleep(10 * time.Second)
 			actualIsvc := &v1beta1.InferenceService{}
@@ -1866,11 +2023,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 
-			Expect(actualIsvc.Status.URL).To(gomega.Equal(&apis.URL{
+			Expect(actualIsvc.Status.URL).To(Equal(&apis.URL{
 				Scheme: "http",
 				Host:   constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain),
 			}))
-			Expect(actualIsvc.Status.Address.URL).To(gomega.Equal(&apis.URL{
+			Expect(actualIsvc.Status.Address.URL).To(Equal(&apis.URL{
 				Scheme: "http",
 				Host:   network.GetServiceHostname(fmt.Sprintf("%s-%s", serviceKey.Name, string(constants.Predictor)), serviceKey.Namespace),
 			}))
@@ -2186,6 +2343,173 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					}
 				}
 				return true
+			}, timeout, interval).Should(BeTrue())
+		})
+	})
+	Context("If the InferenceService occured any error", func() {
+		It("InferenceService should generate event message about non-ready conditions", func() {
+			// Create configmap
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    constants.InferenceServiceContainerName,
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			serviceName := "test-err-msg"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "s3://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: v1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+			inferenceService := &v1beta1.InferenceService{}
+
+			updatedService := &knservingv1.Service{}
+			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, updatedService) }, timeout).
+				Should(Succeed())
+
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			// update predictor status
+			updatedService.Status.URL = predictorUrl
+			updatedService.Status.Conditions = duckv1.Conditions{
+				{
+					Type:   knservingv1.ServiceConditionReady,
+					Status: "True",
+				},
+			}
+
+			Expect(retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				return k8sClient.Status().Update(context.TODO(), updatedService)
+			})).NotTo(HaveOccurred())
+
+			// assert inference service predictor status
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			// should turn to fail
+			time.Sleep(10 * time.Second)
+			updatedService.Status.Conditions = duckv1.Conditions{
+				{
+					Type:   knservingv1.ServiceConditionReady,
+					Status: "False",
+				},
+			}
+			Expect(retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				return k8sClient.Status().Update(context.TODO(), updatedService)
+			})).NotTo(HaveOccurred())
+
+			r := &InferenceServiceReconciler{
+				Client: k8sClient,
+			}
+
+			Eventually(func() bool {
+				events := &v1.EventList{}
+				err := k8sClient.List(ctx, events, client.InNamespace(serviceKey.Namespace))
+				if err != nil {
+					return false
+				}
+
+				notReadyEventFound := false
+				for _, event := range events.Items {
+					if event.InvolvedObject.Kind == "InferenceService" &&
+						event.InvolvedObject.Name == serviceKey.Name &&
+						event.Reason == string(InferenceServiceNotReadyState) {
+
+						notReadyEventFound = true
+						break
+					}
+				}
+
+				err = k8sClient.Get(ctx, serviceKey, inferenceService)
+				if err != nil {
+					return false
+				}
+				failConditions := r.GetFailConditions(inferenceService)
+				expectedConditions := strings.Split(failConditions, ", ")
+
+				for _, expectedCondition := range expectedConditions {
+					found := false
+					for _, cond := range inferenceService.Status.Conditions {
+						if string(cond.Type) == expectedCondition && cond.Status == v1.ConditionFalse {
+							found = true
+							break
+						}
+					}
+					if !found {
+						return false
+					}
+				}
+
+				return notReadyEventFound
 			}, timeout, interval).Should(BeTrue())
 		})
 	})

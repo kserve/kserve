@@ -19,11 +19,11 @@ package inferencegraph
 import (
 	"context"
 	"fmt"
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -33,7 +33,10 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ = Describe("Inference Graph controller test", func() {
@@ -62,6 +65,8 @@ var _ = Describe("Inference Graph controller test", func() {
 				}`,
 		}
 	)
+
+	var expectedReadinessProbe = constants.GetRouterReadinessProbe()
 
 	Context("When creating an inferencegraph with headers in global config", func() {
 		It("Should create a knative service with headers as env var of podspec", func() {
@@ -164,8 +169,19 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceMemory: resource.MustParse("100Mi"),
 												},
 											},
+											ReadinessProbe: expectedReadinessProbe,
+											SecurityContext: &v1.SecurityContext{
+												Privileged:               proto.Bool(false),
+												RunAsNonRoot:             proto.Bool(true),
+												ReadOnlyRootFilesystem:   proto.Bool(true),
+												AllowPrivilegeEscalation: proto.Bool(false),
+												Capabilities: &v1.Capabilities{
+													Drop: []v1.Capability{v1.Capability("ALL")},
+												},
+											},
 										},
 									},
+									AutomountServiceAccountToken: proto.Bool(false),
 								},
 							},
 						},
@@ -236,10 +252,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			inferenceGraphSubmitted := &v1alpha1.InferenceGraph{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualKnServiceCreated := &knservingv1.Service{}
@@ -293,8 +306,19 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceMemory: resource.MustParse("123Mi"),
 												},
 											},
+											ReadinessProbe: expectedReadinessProbe,
+											SecurityContext: &v1.SecurityContext{
+												Privileged:               proto.Bool(false),
+												RunAsNonRoot:             proto.Bool(true),
+												ReadOnlyRootFilesystem:   proto.Bool(true),
+												AllowPrivilegeEscalation: proto.Bool(false),
+												Capabilities: &v1.Capabilities{
+													Drop: []v1.Capability{v1.Capability("ALL")},
+												},
+											},
 										},
 									},
+									AutomountServiceAccountToken: proto.Bool(false),
 								},
 							},
 						},
@@ -379,10 +403,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			inferenceGraphSubmitted := &v1alpha1.InferenceGraph{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualKnServiceCreated := &knservingv1.Service{}
@@ -436,6 +457,16 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceMemory: resource.MustParse("100Mi"),
 												},
 											},
+											SecurityContext: &v1.SecurityContext{
+												Privileged:               proto.Bool(false),
+												RunAsNonRoot:             proto.Bool(true),
+												ReadOnlyRootFilesystem:   proto.Bool(true),
+												AllowPrivilegeEscalation: proto.Bool(false),
+												Capabilities: &v1.Capabilities{
+													Drop: []v1.Capability{v1.Capability("ALL")},
+												},
+											},
+											ReadinessProbe: expectedReadinessProbe,
 										},
 									},
 									Affinity: &v1.Affinity{
@@ -461,6 +492,7 @@ var _ = Describe("Inference Graph controller test", func() {
 											},
 										},
 									},
+									AutomountServiceAccountToken: proto.Bool(false),
 								},
 							},
 						},
@@ -631,9 +663,6 @@ var _ = Describe("Inference Graph controller test", func() {
 				events := &v1.EventList{}
 				err := k8sClient.List(ctx, events, client.InNamespace(serviceKey.Namespace))
 				if err != nil {
-					return false
-				}
-				if events == nil {
 					return false
 				}
 

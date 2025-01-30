@@ -23,7 +23,7 @@ from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 
 from . import grpc_predict_v2_pb2_grpc
-from .interceptors import LoggingInterceptor
+from .interceptors import LoggingInterceptor, ExceptionToStatusInterceptor
 from .servicer import InferenceServicer
 
 
@@ -47,7 +47,7 @@ class GRPCServer:
         )
         self._server = aio.server(
             futures.ThreadPoolExecutor(max_workers=max_workers),
-            interceptors=(LoggingInterceptor(),),
+            interceptors=(LoggingInterceptor(), ExceptionToStatusInterceptor()),
             options=[
                 (
                     "grpc.max_send_message_length",
@@ -65,6 +65,7 @@ class GRPCServer:
 
         listen_addr = f"[::]:{self._port}"
         self._server.add_insecure_port(listen_addr)
+        logger.info(f"Starting gRPC server with {max_workers} workers")
         logger.info("Starting gRPC server on %s", listen_addr)
         await self._server.start()
         await self._server.wait_for_termination()

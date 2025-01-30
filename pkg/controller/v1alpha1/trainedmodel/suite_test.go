@@ -18,6 +18,7 @@ package trainedmodel
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -66,7 +67,10 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 	ctx, cancel = context.WithCancel(context.TODO())
 	By("bootstrapping test environment")
-	testEnv = pkgtest.SetupEnvTest()
+	crdDirectoryPaths := []string{
+		filepath.Join("..", "..", "..", "..", "test", "crds"),
+	}
+	testEnv = pkgtest.SetupEnvTest(crdDirectoryPaths)
 	var err error
 	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
@@ -80,21 +84,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	// +kubebuilder:scaffold:scheme
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).ToNot(HaveOccurred())
-	Expect(k8sClient).ToNot(BeNil())
-
 	clientset, err = kubernetes.NewForConfig(cfg)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(clientset).ToNot(BeNil())
-
-	//Create namespace
-	kfservingNamespaceObj := &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.KServeNamespace,
-		},
-	}
-	Expect(k8sClient.Create(context.Background(), kfservingNamespaceObj)).Should(Succeed())
 
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
@@ -103,6 +95,18 @@ var _ = BeforeSuite(func() {
 		},
 	})
 	Expect(err).ToNot(HaveOccurred())
+
+	k8sClient = k8sManager.GetClient()
+	Expect(k8sClient).ToNot(BeNil())
+
+	//Create namespace
+	kserveNamespaceObj := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.KServeNamespace,
+		},
+	}
+	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
+
 	err = (&TrainedModelReconciler{
 		Client:                k8sManager.GetClient(),
 		Clientset:             clientset,
@@ -117,9 +121,6 @@ var _ = BeforeSuite(func() {
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred())
 	}()
-
-	k8sClient = k8sManager.GetClient()
-	Expect(k8sClient).ToNot(BeNil())
 })
 
 var _ = AfterSuite(func() {

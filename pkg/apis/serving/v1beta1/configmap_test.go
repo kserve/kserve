@@ -28,24 +28,40 @@ import (
 )
 
 var (
-	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
-	IngressService        = "test-destination"
-	KnativeLocalGateway   = "knative-serving/knative-local-gateway"
-	LocalGatewayService   = "knative-local-gateway.istio-system.svc.cluster.local"
-	UrlScheme             = "https"
-	IngressDomain         = "example.com"
-	AdditionalDomain      = "additional-example.com"
-	AdditionalDomainExtra = "additional-example-extra.com"
-	IngressConfigData     = fmt.Sprintf(`{
+	KserveIngressGateway       = "kserve/kserve-ingress-gateway"
+	KnativeIngressGateway      = "knative-serving/knative-ingress-gateway"
+	KnativeLocalGatewayService = "test-destination"
+	KnativeLocalGateway        = "knative-serving/knative-local-gateway"
+	LocalGatewayService        = "knative-local-gateway.istio-system.svc.cluster.local"
+	UrlScheme                  = "https"
+	IngressDomain              = "example.com"
+	AdditionalDomain           = "additional-example.com"
+	AdditionalDomainExtra      = "additional-example-extra.com"
+	IngressConfigData          = fmt.Sprintf(`{
+	    "kserveIngressGateway" : "%s",
 		"ingressGateway" : "%s",
-		"ingressService" : "%s",
+		"knativeLocalGatewayService" : "%s",
 		"localGateway" : "%s",
 		"localGatewayService" : "%s",
 		"ingressDomain": "%s",
 		"urlScheme": "https",
         "additionalIngressDomains": ["%s","%s"]
-	}`, KnativeIngressGateway, IngressService, KnativeLocalGateway, LocalGatewayService, IngressDomain,
+	}`, KserveIngressGateway, KnativeIngressGateway, KnativeLocalGatewayService, KnativeLocalGateway, LocalGatewayService, IngressDomain,
 		AdditionalDomain, AdditionalDomainExtra)
+	ServiceConfigData = fmt.Sprintf(`{
+		"serviceClusterIPNone" : %t
+	}`, true)
+
+	ISCVWithData = fmt.Sprintf(`{
+		"serviceAnnotationDisallowedList": ["%s","%s"],
+		"serviceLabelDisallowedList": ["%s","%s"]
+	}`, "my.custom.annotation/1", "my.custom.annotation/2",
+		"my.custom.label.1", "my.custom.label.2")
+
+	ISCVNoData = fmt.Sprintf(`{
+		"serviceAnnotationDisallowedList": %s,
+		"serviceLabelDisallowedList": %s
+	}`, []string{}, []string{})
 )
 
 func TestNewInferenceServiceConfig(t *testing.T) {
@@ -71,12 +87,35 @@ func TestNewIngressConfig(t *testing.T) {
 	g.Expect(ingressCfg).ShouldNot(gomega.BeNil())
 
 	g.Expect(ingressCfg.IngressGateway).To(gomega.Equal(KnativeIngressGateway))
-	g.Expect(ingressCfg.IngressServiceName).To(gomega.Equal(IngressService))
+	g.Expect(ingressCfg.KnativeLocalGatewayService).To(gomega.Equal(KnativeLocalGatewayService))
 	g.Expect(ingressCfg.LocalGateway).To(gomega.Equal(KnativeLocalGateway))
 	g.Expect(ingressCfg.LocalGatewayServiceName).To(gomega.Equal(LocalGatewayService))
 	g.Expect(ingressCfg.UrlScheme).To(gomega.Equal(UrlScheme))
 	g.Expect(ingressCfg.IngressDomain).To(gomega.Equal(IngressDomain))
 	g.Expect(*ingressCfg.AdditionalIngressDomains).To(gomega.Equal([]string{AdditionalDomain, AdditionalDomainExtra}))
+}
+
+func TestNewIngressConfigDefaultKnativeService(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	clientset := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			IngressConfigKeyName: fmt.Sprintf(`{
+				"kserveIngressGateway" : "%s",
+				"ingressGateway" : "%s",
+				"localGateway" : "%s",
+				"localGatewayService" : "%s",
+				"ingressDomain": "%s",
+				"urlScheme": "https",
+        		"additionalIngressDomains": ["%s","%s"]
+			}`, KserveIngressGateway, KnativeIngressGateway, KnativeLocalGateway, LocalGatewayService, IngressDomain,
+				AdditionalDomain, AdditionalDomainExtra),
+		},
+	})
+	ingressCfg, err := NewIngressConfig(clientset)
+	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(ingressCfg).ShouldNot(gomega.BeNil())
+	g.Expect(ingressCfg.KnativeLocalGatewayService).To(gomega.Equal(LocalGatewayService))
 }
 
 func TestNewDeployConfig(t *testing.T) {
@@ -87,4 +126,127 @@ func TestNewDeployConfig(t *testing.T) {
 	deployConfig, err := NewDeployConfig(clientset)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(deployConfig).ShouldNot(gomega.BeNil())
+}
+
+func TestNewServiceConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	// nothing declared
+	empty := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+	})
+	emp, err := NewServiceConfig(empty)
+	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(emp).ShouldNot(gomega.BeNil())
+
+	// with value
+	withTrue := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			ServiceConfigName: ServiceConfigData,
+		},
+	})
+	wt, err := NewServiceConfig(withTrue)
+	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(wt).ShouldNot(gomega.BeNil())
+	g.Expect(wt.ServiceClusterIPNone).Should(gomega.BeTrue())
+
+	// no value, should be nil
+	noValue := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			ServiceConfigName: `{}`,
+		},
+	})
+	nv, err := NewServiceConfig(noValue)
+	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(nv).ShouldNot(gomega.BeNil())
+	g.Expect(nv.ServiceClusterIPNone).Should(gomega.BeFalse())
+}
+
+func TestInferenceServiceDisallowedLists(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	withData := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			InferenceServiceConfigKeyName: ISCVWithData,
+		},
+	})
+	isvcConfigWithData, err := NewInferenceServicesConfig(withData)
+	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(isvcConfigWithData).ShouldNot(gomega.BeNil())
+
+	annotations := append(constants.ServiceAnnotationDisallowedList, []string{"my.custom.annotation/1", "my.custom.annotation/2"}...)
+	g.Expect(isvcConfigWithData.ServiceAnnotationDisallowedList).To(gomega.Equal(annotations))
+	labels := append(constants.RevisionTemplateLabelDisallowedList, []string{"my.custom.label.1", "my.custom.label.2"}...)
+	g.Expect(isvcConfigWithData.ServiceLabelDisallowedList).To(gomega.Equal(labels))
+
+	// with no data
+	withoutData := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			InferenceServiceConfigKeyName: ISCVNoData,
+		},
+	})
+	isvcConfigWithoutData, err := NewInferenceServicesConfig(withoutData)
+	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(isvcConfigWithoutData).ShouldNot(gomega.BeNil())
+	g.Expect(isvcConfigWithoutData.ServiceAnnotationDisallowedList).To(gomega.Equal(constants.ServiceAnnotationDisallowedList))
+	g.Expect(isvcConfigWithoutData.ServiceLabelDisallowedList).To(gomega.Equal(constants.RevisionTemplateLabelDisallowedList))
+}
+func TestValidateIngressGateway(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	tests := []struct {
+		name          string
+		ingressConfig *IngressConfig
+		expectedError string
+	}{
+		{
+			name: "valid ingress gateway",
+			ingressConfig: &IngressConfig{
+				KserveIngressGateway: "kserve/kserve-ingress-gateway",
+			},
+			expectedError: "",
+		},
+		{
+			name: "missing kserveIngressGateway",
+			ingressConfig: &IngressConfig{
+				KserveIngressGateway: "",
+			},
+			expectedError: ErrKserveIngressGatewayRequired,
+		},
+		{
+			name: "invalid format for kserveIngressGateway",
+			ingressConfig: &IngressConfig{
+				KserveIngressGateway: "invalid-format",
+			},
+			expectedError: ErrInvalidKserveIngressGatewayFormat,
+		},
+		{
+			name: "invalid namespace in kserveIngressGateway",
+			ingressConfig: &IngressConfig{
+				KserveIngressGateway: "invalid_namespace/kserve-ingress-gateway",
+			},
+			expectedError: ErrInvalidKserveIngressGatewayNamespace,
+		},
+		{
+			name: "invalid name in kserveIngressGateway",
+			ingressConfig: &IngressConfig{
+				KserveIngressGateway: "kserve/invalid_name",
+			},
+			expectedError: ErrInvalidKserveIngressGatewayName,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateIngressGateway(tt.ingressConfig)
+			if tt.expectedError == "" {
+				g.Expect(err).Should(gomega.BeNil())
+			} else {
+				g.Expect(err).ShouldNot(gomega.BeNil())
+				g.Expect(err.Error()).Should(gomega.ContainSubstring(tt.expectedError))
+			}
+		})
+	}
 }

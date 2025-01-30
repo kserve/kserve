@@ -198,7 +198,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	} else {
 		// Abort if Knative Services are not available
 		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
-		if err != nil {
+		if checkKsvcErr != nil {
 			return reconcile.Result{}, checkKsvcErr
 		}
 
@@ -208,7 +208,6 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative Serving is not available", graph.Name))
 		}
 
-		// @TODO check raw deployment mode
 		desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
 		err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
 		if err != nil {

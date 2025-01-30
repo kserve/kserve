@@ -14,10 +14,11 @@
 
 import argparse
 from pathlib import Path
-from typing import cast
+from typing import cast, Union
 
 import torch
 import kserve
+from huggingfaceserver.request_logger import RequestLogger
 from kserve import logging
 from kserve.logging import logger
 from kserve.model import PredictorConfig
@@ -49,7 +50,32 @@ def list_of_strings(arg):
     return arg.split(",")
 
 
-parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
+def get_model_id_or_path(args: argparse.Namespace) -> Union[str, Path]:
+    # If --model_id is specified then pass model_id to HF API, otherwise load the model from /mnt/models
+    if args.model_id:
+        return cast(str, args.model_id)
+    return Path(Storage.download(args.model_dir))
+
+
+def is_vllm_backend_enabled(
+    args: argparse.Namespace, model_id_or_path: Union[str, Path]
+) -> bool:
+    return (
+        (args.backend == Backend.vllm or args.backend == Backend.auto)
+        and vllm_available()
+        and infer_vllm_supported_from_model_architecture(
+            model_id_or_path,
+            trust_remote_code=args.trust_remote_code,
+        )
+    )
+
+
+try:
+    from vllm.utils import FlexibleArgumentParser
+
+    parser = FlexibleArgumentParser(parents=[kserve.model_server.parser])
+except ImportError:
+    parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 
 parser.add_argument(
     "--model_dir",
@@ -71,9 +97,16 @@ parser.add_argument(
 )
 parser.add_argument(
     "--max_length",
+    dest="max_model_len",
     type=int,
     required=False,
-    help="max sequence length for the tokenizer",
+    help="max sequence length for the tokenizer. will be deprecated in favour of --max_model_len",
+)
+parser.add_argument(
+    "--max_model_len",
+    type=int,
+    required=False,
+    help="max number of tokens the model can process/tokenize. If not mentioned, uses model's max position encodings",
 )
 parser.add_argument(
     "--disable_lower_case",
@@ -97,7 +130,6 @@ parser.add_argument(
     default=None,
     help="the tensor input names passed to the model",
 )
-parser.add_argument("--task", required=False, help="The ML task name")
 available_backends = ", ".join(f"'{b.name}'" for b in Backend)
 parser.add_argument(
     "--backend",
@@ -113,8 +145,18 @@ parser.add_argument(
     action="store_true",
     help="Return all probabilities",
 )
-
-parser = maybe_add_vllm_cli_parser(parser)
+parser.add_argument(
+    "--disable_log_requests", action="store_true", help="Disable logging requests"
+)
+parser.add_argument(
+    "--max_log_len",
+    "--max-log-len",
+    type=int,
+    default=None,
+    help="Max number of prompt characters or prompt "
+    "ID numbers being printed in log."
+    "\n\nDefault: Unlimited",
+)
 
 default_dtype = "float16" if torch.cuda.is_available() else "float32"
 if not vllm_available():
@@ -124,7 +166,20 @@ if not vllm_available():
         required=False,
         default="auto",
         choices=dtype_choices,
-        help=f"data type to load the weights in. One of {dtype_choices}. Defaults to float16 for GPU and float32 for CPU systems",
+        help=f"data type to load the weights in. One of {dtype_choices}. "
+        f"Defaults to float16 for GPU and float32 for CPU systems",
+    )
+
+# The initial_args are required to determine whether the vLLM backend is enabled.
+initial_args, _ = parser.parse_known_args()
+model_id_or_path = get_model_id_or_path(initial_args)
+if is_vllm_backend_enabled(initial_args, model_id_or_path):
+    # If vLLM backend is enabled, add the vLLM specific CLI arguments to the parser
+    parser = maybe_add_vllm_cli_parser(parser)
+else:
+    # If vLLM backend is not enabled, add the task argument for Huggingface backend
+    parser.add_argument(
+        "--task", required=False, help="The ML task name for huggingface backend"
     )
 
 args, _ = parser.parse_known_args()
@@ -139,11 +194,12 @@ if "dtype" in args and args.dtype == "auto":
 
 def load_model():
     engine_args = None
-    # If --model_id is specified then pass model_id to HF API, otherwise load the model from /mnt/models
-    if args.model_id:
-        model_id_or_path = cast(str, args.model_id)
+    model_id_or_path = get_model_id_or_path(args)
+
+    if args.disable_log_requests:
+        request_logger = None
     else:
-        model_id_or_path = Path(Storage.download(args.model_dir))
+        request_logger = RequestLogger(max_log_len=args.max_log_len)
 
     if model_id_or_path is None:
         raise ValueError("You must provide a model_id or model_dir")
@@ -151,20 +207,13 @@ def load_model():
     if args.backend == Backend.vllm and not vllm_available():
         raise RuntimeError("Backend is set to 'vllm' but vLLM is not available")
 
-    if (
-        (args.backend == Backend.vllm or args.backend == Backend.auto)
-        and vllm_available()
-        and infer_vllm_supported_from_model_architecture(
-            model_id_or_path,
-            trust_remote_code=args.trust_remote_code,
-        )
-    ):
+    if is_vllm_backend_enabled(args, model_id_or_path):
         from .vllm.vllm_model import VLLMModel
 
         args.model = args.model_id or args.model_dir
         args.revision = args.model_revision
         engine_args = build_vllm_engine_args(args)
-        model = VLLMModel(args.model_name, engine_args)
+        model = VLLMModel(args.model_name, engine_args, request_logger=request_logger)
 
     else:
         kwargs = vars(args)
@@ -211,9 +260,10 @@ def load_model():
                 model_revision=kwargs.get("model_revision", None),
                 tokenizer_revision=kwargs.get("tokenizer_revision", None),
                 do_lower_case=not kwargs.get("disable_lower_case", False),
-                max_length=kwargs["max_length"],
+                max_length=kwargs["max_model_len"],
                 dtype=dtype,
                 trust_remote_code=kwargs["trust_remote_code"],
+                request_logger=request_logger,
             )
         else:
             # Convert dtype from string to torch dtype. Default to float32
@@ -236,12 +286,14 @@ def load_model():
                 tokenizer_revision=kwargs.get("tokenizer_revision", None),
                 do_lower_case=not kwargs.get("disable_lower_case", False),
                 add_special_tokens=not kwargs.get("disable_special_tokens", False),
-                max_length=kwargs["max_length"],
+                max_length=kwargs["max_model_len"],
                 dtype=dtype,
                 trust_remote_code=kwargs["trust_remote_code"],
                 tensor_input_names=kwargs.get("tensor_input_names", None),
                 return_token_type_ids=kwargs.get("return_token_type_ids", None),
                 predictor_config=predictor_config,
+                request_logger=request_logger,
+                return_probabilities=kwargs.get("return_probabilities", False),
             )
     model.load()
     return model
@@ -256,5 +308,5 @@ if __name__ == "__main__":
     except Exception as e:
         import sys
 
-        logger.error(f"Failed to start model server: {e}")
+        logger.error(f"Failed to start model server: {e}", exc_info=True)
         sys.exit(1)

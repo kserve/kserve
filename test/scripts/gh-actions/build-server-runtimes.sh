@@ -32,7 +32,7 @@ PMML_IMG_TAG=${DOCKER_REPO}/${PMML_IMG}:${GITHUB_SHA}
 PADDLE_IMG_TAG=${DOCKER_REPO}/${PADDLE_IMG}:${GITHUB_SHA}
 CUSTOM_MODEL_GRPC_IMG_TAG=${DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${GITHUB_SHA}
 CUSTOM_TRANSFORMER_GRPC_IMG_TAG=${DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${GITHUB_SHA}
-HUGGINGFACE_IMG_TAG=${DOCKER_REPO}/${HUGGINGFACE_IMG}:${GITHUB_SHA}
+HUGGINGFACE_CPU_OPENVINO_IMG_TAG=${DOCKER_REPO}/${HUGGINGFACE_IMG}:${GITHUB_SHA}
 # Explainer images
 ART_IMG_TAG=${DOCKER_REPO}/${ART_IMG}:${GITHUB_SHA}
 # Transformer images
@@ -44,27 +44,41 @@ pushd python >/dev/null
     echo "Building Sklearn image"
     docker buildx build -t "${SKLEARN_IMG_TAG}" -f sklearn.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${SKLEARN_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building Sklearn image:"
+        df -hT
     echo "Building XGB image"
     docker buildx build -t "${XGB_IMG_TAG}" -f xgb.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${XGB_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building XGB image:"
+        df -hT
     echo "Building LGB image"
     docker buildx build -t "${LGB_IMG_TAG}" -f lgb.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LGB_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building LGB image:"
+        df -hT
     echo "Building PMML image"
     docker buildx build -t "${PMML_IMG_TAG}" -f pmml.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${PMML_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building PMML image:"
+        df -hT
     echo "Building Paddle image"
     docker buildx build -t "${PADDLE_IMG_TAG}" -f paddle.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${PADDLE_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building Paddle image:"
+        df -hT
     echo "Building Custom model gRPC image"
     docker buildx build -t "${CUSTOM_MODEL_GRPC_IMG_TAG}" -f custom_model_grpc.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CUSTOM_MODEL_GRPC_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building Custom model gRPC image:"
+        df -hT
     echo "Building image transformer gRPC image"
     docker buildx build -t "${CUSTOM_TRANSFORMER_GRPC_IMG_TAG}" -f custom_transformer_grpc.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CUSTOM_TRANSFORMER_GRPC_IMG}-${GITHUB_SHA}",compression-level=0 .
-    echo "Building Huggingface image"
-    docker buildx build -t "${HUGGINGFACE_IMG_TAG}" -f huggingface_server.Dockerfile \
+    echo "Building Huggingface CPU Openvino image"
+    docker buildx build -t "${HUGGINGFACE_CPU_OPENVINO_IMG_TAG}" -f huggingface_server_cpu_openvino.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building image transformer gRPC image:"
+        df -hT
   fi
 
   if [[ " ${types[*]} " =~ "explainer" ]]; then

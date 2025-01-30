@@ -32,24 +32,23 @@ class TestModelRepositoryExtension:
         return model_repo_ext
 
     async def test_index(self, model_repo_ext):
-        assert model_repo_ext.index() == [
-            {"name": self.MODEL_NAME, "reason": "", "state": "Ready"}
-        ]
+        result = await model_repo_ext.index()
+        assert result == [{"name": self.MODEL_NAME, "reason": "", "state": "Ready"}]
 
         # Deploy another model
 
         model = DummyModel("TestModel_2")
         # model.load()  # TestModel_2 is not loaded i.e. NotReady
         model_repo_ext._model_registry.update(model)
-        assert model_repo_ext.index() == [
+        result = await model_repo_ext.index()
+        assert result == [
             {"name": self.MODEL_NAME, "reason": "", "state": "Ready"},
             {"name": "TestModel_2", "reason": "", "state": "NotReady"},
         ]
 
         # List only ready models
-        assert model_repo_ext.index(filter_ready=True) == [
-            {"name": self.MODEL_NAME, "reason": "", "state": "Ready"}
-        ]
+        result = await model_repo_ext.index(filter_ready=True)
+        assert result == [{"name": self.MODEL_NAME, "reason": "", "state": "Ready"}]
 
     async def test_load(self):
         model_repo_ext = ModelRepositoryExtension(

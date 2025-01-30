@@ -20,7 +20,7 @@ import grpc
 import httpx
 from orjson import orjson
 
-from .constants.constants import PredictorProtocol
+from .constants.constants import PredictorProtocol, INFERENCE_CONTENT_LENGTH_HEADER
 from .errors import UnsupportedProtocol, InvalidInput
 from .logging import trace_logger as logger
 from .protocol.grpc.grpc_predict_v2_pb2 import (
@@ -94,6 +94,7 @@ class InferenceGRPCClient:
                          the channel.
     :param timeout (optional) The maximum end-to-end time, in seconds, the request is allowed to take. By default,
                    client timeout is 60 seconds. To disable timeout explicitly set it to 'None'.
+    :param retries (optional) The number of retries if the request fails. This will be ignored if retry policy is provided in the 'channel_args'.
     """
 
     def __init__(
@@ -107,6 +108,7 @@ class InferenceGRPCClient:
         creds: grpc.ChannelCredentials = None,
         channel_args: List[Tuple[str, Any]] = None,
         timeout: Optional[float] = 60,
+        retries: Optional[int] = 3,
     ):
 
         # requires appending the port to the predictor host for gRPC to work
@@ -121,7 +123,7 @@ class InferenceGRPCClient:
                         # Apply retry to all methods
                         "name": [{}],
                         "retryPolicy": {
-                            "maxAttempts": 3,
+                            "maxAttempts": retries,
                             "initialBackoff": "0.1s",
                             "maxBackoff": "1s",
                             "backoffMultiplier": 2,
@@ -143,16 +145,17 @@ class InferenceGRPCClient:
                         break
                 if ("grpc.enable_retries", 1) not in channel_opt:
                     channel_opt.append(("grpc.enable_retries", 1))
-                if not is_exist:
+                if not is_exist and retries > 0:
                     channel_opt.append(("grpc.service_config", service_config_json))
         else:
             # To specify custom channel_opt, see the channel_args parameter.
             channel_opt = [
                 ("grpc.max_send_message_length", -1),
                 ("grpc.max_receive_message_length", -1),
-                ("grpc.enable_retries", 1),
-                ("grpc.service_config", service_config_json),
             ]
+            if retries > 0:
+                channel_opt.append(("grpc.enable_retries", 1))
+                channel_opt.append(("grpc.service_config", service_config_json))
 
         if creds:
             self._channel = grpc.aio.secure_channel(url, creds, options=channel_opt)
@@ -413,13 +416,17 @@ class InferenceRESTClient:
         """
         if isinstance(base_url, str):
             base_url = httpx.URL(base_url)
+        if base_url.scheme not in ("http", "https"):
+            raise httpx.InvalidURL(
+                "Base url should have 'http://' or 'https://' protocol"
+            )
         if base_url.is_relative_url:
             raise httpx.InvalidURL("Base url should not be a relative url")
         if not base_url.raw_path.endswith(b"/") and not relative_url.startswith("/"):
             relative_url = "/" + relative_url
         return base_url.join(base_url.path + relative_url)
 
-    def _consturct_http_status_error(
+    def _construct_http_status_error(
         self, response: httpx.Response
     ) -> httpx.HTTPStatusError:
         message = (
@@ -444,6 +451,7 @@ class InferenceRESTClient:
         data: Union[InferRequest, dict],
         model_name: Optional[str] = None,
         headers: Optional[Mapping[str, str]] = None,
+        response_headers: Dict[str, str] = None,
         is_graph_endpoint: bool = False,
         timeout: Union[float, None, tuple, httpx.Timeout] = httpx.USE_CLIENT_DEFAULT,
     ) -> Union[InferResponse, Dict]:
@@ -483,8 +491,12 @@ class InferenceRESTClient:
             logger.info("url: %s", url)
             logger.info("request data: %s", data)
         if isinstance(data, InferRequest):
-            data = orjson.dumps(data.to_rest())
-        else:
+            data, json_length = data.to_rest()
+            if json_length:
+                headers = headers or {}
+                headers[INFERENCE_CONTENT_LENGTH_HEADER] = str(json_length)
+                headers["content-type"] = "application/octet-stream"
+        if isinstance(data, dict):
             data = orjson.dumps(data)
         response = await self._client.post(
             url, content=data, headers=headers, timeout=timeout
@@ -494,16 +506,21 @@ class InferenceRESTClient:
                 "response code: %s, content: %s", response.status_code, response.text
             )
         if not response.is_success:
-            raise self._consturct_http_status_error(response)
-        output = orjson.loads(response.content)
+            raise self._construct_http_status_error(response)
+        if response_headers is not None:
+            response_headers.update(response.headers)
         # If inference graph result, return it as dict
         if is_graph_endpoint:
-            return output
+            output = orjson.loads(response.content)
         elif is_v2(self._config.protocol):
-            return InferResponse.from_rest(output.get("model_name"), response=output)
+            json_length = response.headers.get(
+                INFERENCE_CONTENT_LENGTH_HEADER, len(response.content)
+            )
+            output = InferResponse.from_bytes(response.content, int(json_length))
         # Should be v1 protocol result, return it as dict
         else:
-            return output
+            output = orjson.loads(response.content)
+        return output
 
     async def explain(
         self,
@@ -544,7 +561,7 @@ class InferenceRESTClient:
                 "response code: %s, content: %s", response.status_code, response.text
             )
         if not response.is_success:
-            raise self._consturct_http_status_error(response)
+            raise self._construct_http_status_error(response)
         return orjson.loads(response.content)
 
     async def is_server_ready(
@@ -576,7 +593,7 @@ class InferenceRESTClient:
                 "response code: %s, content: %s", response.status_code, response.text
             )
         if not response.is_success:
-            raise self._consturct_http_status_error(response)
+            raise self._construct_http_status_error(response)
         return response.json().get("ready")
 
     async def is_server_live(
@@ -610,7 +627,7 @@ class InferenceRESTClient:
                 "response code: %s, content: %s", response.status_code, response.text
             )
         if not response.is_success:
-            raise self._consturct_http_status_error(response)
+            raise self._construct_http_status_error(response)
         if is_v1(self._config.protocol):
             is_live = response.json().get("status").lower() == "alive"
         elif is_v2(self._config.protocol):
@@ -661,7 +678,7 @@ class InferenceRESTClient:
             return False
         # Raise for other status codes
         if not response.is_success:
-            raise self._consturct_http_status_error(response)
+            raise self._construct_http_status_error(response)
         return response.json().get("ready")
 
     async def close(self):

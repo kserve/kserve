@@ -20,17 +20,23 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestInferenceServiceDefaults(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
+	defaultResource := v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
 	scenarios := map[string]struct {
 		config       *InferenceServicesConfig
 		deployConfig *DeployConfig
@@ -45,6 +51,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
+				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
 				},
 			},
 			deployConfig: &DeployConfig{
@@ -98,6 +110,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
+				},
 			},
 			deployConfig: &DeployConfig{
 				DefaultDeploymentMode: string(constants.RawDeployment),
@@ -149,6 +167,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						ContainerImage:      "art",
 						DefaultImageVersion: "v0.4.0",
 					},
+				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
 				},
 			},
 			deployConfig: &DeployConfig{
@@ -202,6 +226,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
+				},
 			},
 			deployConfig: &DeployConfig{
 				DefaultDeploymentMode: "Serverless",
@@ -254,6 +284,12 @@ func TestInferenceServiceDefaults(t *testing.T) {
 						DefaultImageVersion: "v0.4.0",
 					},
 				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
+				},
 			},
 			deployConfig: &DeployConfig{
 				DefaultDeploymentMode: "Serverless",
@@ -303,7 +339,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	for _, scenario := range scenarios {
 		resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 		scenario.isvc.Spec.DeepCopy()
-		scenario.isvc.DefaultInferenceService(scenario.config, scenario.deployConfig)
+		scenario.isvc.DefaultInferenceService(scenario.config, scenario.deployConfig, nil, nil)
 
 		g.Expect(scenario.isvc.Spec.Predictor.Tensorflow).To(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Predictor.ONNX).To(gomega.BeNil())
@@ -317,7 +353,11 @@ func TestInferenceServiceDefaults(t *testing.T) {
 	}
 }
 
-func TestCustomPredictorDefaults(t *testing.T) {
+func TestCustomPredictorDefaultsConfig(t *testing.T) {
+	expectedResource := v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("2"),
+		v1.ResourceMemory: resource.MustParse("4Gi"),
+	}
 	g := gomega.NewGomegaWithT(t)
 	config := &InferenceServicesConfig{
 		Explainers: ExplainersConfig{
@@ -325,6 +365,63 @@ func TestCustomPredictorDefaults(t *testing.T) {
 				ContainerImage:      "art",
 				DefaultImageVersion: "v0.4.0",
 			},
+		},
+		Resource: ResourceConfig{
+			CPULimit:      "2",
+			MemoryLimit:   "4Gi",
+			CPURequest:    "2",
+			MemoryRequest: "4Gi",
+		},
+	}
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []v1.Container{
+						{
+							Env: []v1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "s3://transformer",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	resources := v1.ResourceRequirements{Requests: expectedResource, Limits: expectedResource}
+	isvc.Spec.DeepCopy()
+	isvc.DefaultInferenceService(config, deployConfig, nil, nil)
+	g.Expect(isvc.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
+}
+
+func TestCustomPredictorDefaults(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	var defaultResource = v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
+	}
+	config := &InferenceServicesConfig{
+		Explainers: ExplainersConfig{
+			ARTExplainer: ExplainerConfig{
+				ContainerImage:      "art",
+				DefaultImageVersion: "v0.4.0",
+			},
+		},
+		Resource: ResourceConfig{
+			CPULimit:      "1",
+			MemoryLimit:   "2Gi",
+			CPURequest:    "1",
+			MemoryRequest: "2Gi",
 		},
 	}
 	deployConfig := &DeployConfig{
@@ -354,7 +451,7 @@ func TestCustomPredictorDefaults(t *testing.T) {
 	}
 	resources := v1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
 	isvc.Spec.DeepCopy()
-	isvc.DefaultInferenceService(config, deployConfig)
+	isvc.DefaultInferenceService(config, deployConfig, nil, nil)
 	g.Expect(isvc.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
 }
 
@@ -383,7 +480,7 @@ func TestInferenceServiceDefaultsModelMeshAnnotation(t *testing.T) {
 		},
 	}
 	isvc.Spec.DeepCopy()
-	isvc.DefaultInferenceService(config, deployConfig)
+	isvc.DefaultInferenceService(config, deployConfig, nil, nil)
 	g.Expect(isvc.Spec.Predictor.Model).To(gomega.BeNil())
 	g.Expect(isvc.Spec.Predictor.Tensorflow).ToNot(gomega.BeNil())
 }
@@ -462,7 +559,7 @@ func TestRuntimeDefaults(t *testing.T) {
 		},
 	}
 	for name, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, nil)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &scenario.runtime
 		scenario.isvc.SetRuntimeDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
@@ -538,7 +635,7 @@ func TestTorchServeDefaults(t *testing.T) {
 	}
 	runtime := constants.TorchServe
 	for _, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, nil)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
 		scenario.isvc.SetTorchServeDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
@@ -596,7 +693,7 @@ func TestSetTritonDefaults(t *testing.T) {
 	}
 	runtime := constants.TritonServer
 	for _, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, nil)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
 		scenario.isvc.SetTritonDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
@@ -740,12 +837,85 @@ func TestMlServerDefaults(t *testing.T) {
 	}
 	runtime := constants.MLServer
 	for _, scenario := range scenarios {
-		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig)
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, nil)
 		scenario.isvc.Spec.Predictor.Model.Runtime = &runtime
 		scenario.isvc.SetMlServerDefaults()
 		g.Expect(scenario.isvc.Spec.Predictor.Model).ToNot(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Predictor.Model.Env).To(scenario.matcher["env"])
 		g.Expect(*scenario.isvc.Spec.Predictor.Model.ProtocolVersion).To(scenario.matcher["protocolVersion"])
 		g.Expect(scenario.isvc.ObjectMeta.Labels).To(scenario.matcher["labels"])
+	}
+}
+
+func TestLocalModelAnnotation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	deployConfig := &DeployConfig{
+		DefaultDeploymentMode: "Serverless",
+	}
+	protocolVersion := constants.ProtocolV2
+	localModelName := "iris"
+	scenarios := map[string]struct {
+		config  *InferenceServicesConfig
+		isvc    InferenceService
+		matcher types.GomegaMatcher
+	}{
+		"isvc without LocalModelCache": {
+			config: &InferenceServicesConfig{},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PyTorch: &TorchServeSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://testbucket/testmodel"),
+								ProtocolVersion: &protocolVersion,
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.HaveKeyWithValue(constants.LocalModelLabel, localModelName),
+		},
+		"isvc with LocalModelCache": {
+			config: &InferenceServicesConfig{},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Labels: map[string]string{
+						"Purpose": "Testing",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PyTorch: &TorchServeSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://testbucket2/testmodel"),
+							},
+						},
+					},
+				},
+			},
+			matcher: gomega.Not(gomega.HaveKeyWithValue(constants.LocalModelLabel, localModelName)),
+		},
+	}
+	localModel := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: localModelName,
+		},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: "gs://testbucket/testmodel",
+			ModelSize:      resource.MustParse("123Gi"),
+			NodeGroups:     []string{"gpu"},
+		},
+	}
+	localModels := &v1alpha1.LocalModelCacheList{Items: []v1alpha1.LocalModelCache{*localModel}}
+	for _, scenario := range scenarios {
+		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, localModels)
+		g.Expect(scenario.isvc.ObjectMeta.Labels).To(scenario.matcher)
 	}
 }

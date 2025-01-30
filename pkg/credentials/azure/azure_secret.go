@@ -37,7 +37,7 @@ const (
 
 var (
 	LegacyAzureEnvKeys        = []string{LegacyAzureSubscriptionId, LegacyAzureTenantId, LegacyAzureClientId, LegacyAzureClientSecret}
-	AzureEnvKeys              = []string{AzureSubscriptionId, AzureTenantId, AzureClientId, AzureClientSecret}
+	AzureEnvKeys              = []string{AzureSubscriptionId, AzureTenantId, AzureClientId, AzureClientSecret, AzureStorageAccessKey}
 	legacyAzureEnvKeyMappings = map[string]string{
 		AzureSubscriptionId: LegacyAzureSubscriptionId,
 		AzureTenantId:       LegacyAzureTenantId,
@@ -54,8 +54,8 @@ func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
 		if _, ok := secret.Data[legacyDataKey]; ok {
 			dataKey = legacyDataKey
 		}
-		// Leave out the AzureClientSecret env var if not defined as Data in the secret
-		if _, ok := secret.Data[dataKey]; !(!ok && dataKey == AzureClientSecret) {
+		// Leave out the AzureClientSecret or AzureStorageAccessKey env var if not defined as Data in the secret
+		if _, ok := secret.Data[dataKey]; !(!ok && (dataKey == AzureClientSecret || dataKey == AzureStorageAccessKey)) {
 			envs = append(envs, v1.EnvVar{
 				Name: k,
 				ValueFrom: &v1.EnvVarSource{

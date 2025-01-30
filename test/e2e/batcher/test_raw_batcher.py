@@ -11,6 +11,7 @@
 # limitations under the License.
 
 import os
+import uuid
 from kubernetes import client
 
 from kserve import KServeClient
@@ -31,8 +32,9 @@ kserve_client = KServeClient(config_file=os.environ.get("KUBECONFIG", "~/.kube/c
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_batcher_raw(rest_v1_client):
-    service_name = "isvc-raw-sklearn-batcher"
+async def test_batcher_raw(rest_v1_client, network_layer):
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "isvc-raw-sklearn-batcher-" + suffix
 
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
@@ -54,7 +56,7 @@ async def test_batcher_raw(rest_v1_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
@@ -83,7 +85,11 @@ async def test_batcher_raw(rest_v1_client):
             print(pod)
         raise e
     results = await predict_isvc(
-        rest_v1_client, service_name, "./data/iris_batch_input.json", is_batch=True
+        rest_v1_client,
+        service_name,
+        "./data/iris_batch_input.json",
+        is_batch=True,
+        network_layer=network_layer,
     )
     assert all(x == results[0] for x in results)
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

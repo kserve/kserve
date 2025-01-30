@@ -20,7 +20,6 @@ import unittest.mock as mock
 import mimetypes
 from pathlib import Path
 
-import botocore
 import pytest
 
 from kserve.storage import Storage
@@ -235,54 +234,10 @@ def test_http_uri_paths(uri, response, expected_error):
     mock.patch("requests.get", return_value=response)(test)()
 
 
-@mock.patch(STORAGE_MODULE + ".storage")
-def test_mock_gcs(mock_storage):
-    gcs_path = "gs://foo/bar"
-    mock_obj = mock.MagicMock()
-    mock_obj.name = "bar/"
-    mock_obj1 = mock.MagicMock()
-    mock_obj1.name = "bar/mock.object"
-    mock_storage.Client().bucket().list_blobs().__iter__.return_value = [
-        mock_obj,
-        mock_obj1,
-    ]
-    assert Storage.download(gcs_path)
-
-
 def test_storage_blob_exception():
     blob_path = "https://accountname.blob.core.windows.net/container/some/blob/"
     with pytest.raises(Exception):
         Storage.download(blob_path)
-
-
-@mock.patch(STORAGE_MODULE + ".boto3")
-def test_storage_s3_exception(mock_boto3):
-    path = "s3://foo/bar"
-    # Create mock client
-    mock_s3_resource = mock.MagicMock()
-    mock_s3_resource.Bucket.side_effect = Exception()
-    mock_boto3.resource.return_value = mock_s3_resource
-
-    with pytest.raises(Exception):
-        Storage.download(path)
-
-
-@mock.patch(STORAGE_MODULE + ".boto3")
-@mock.patch("urllib3.PoolManager")
-def test_no_permission_buckets(mock_connection, mock_boto3):
-    bad_s3_path = "s3://random/path"
-    # Access private buckets without credentials
-    mock_s3_resource = mock.MagicMock()
-    mock_s3_bucket = mock.MagicMock()
-    mock_s3_bucket.objects.filter.return_value = [mock.MagicMock()]
-    mock_s3_bucket.objects.filter.side_effect = botocore.exceptions.ClientError(
-        {}, "GetObject"
-    )
-    mock_s3_resource.Bucket.return_value = mock_s3_bucket
-    mock_boto3.resource.return_value = mock_s3_resource
-
-    with pytest.raises(botocore.exceptions.ClientError):
-        Storage.download(bad_s3_path)
 
 
 def test_unpack_tar_file():
@@ -303,3 +258,35 @@ def test_unpack_zip_file():
     Storage._unpack_archive_file(tar_file, mimetype, out_dir)
     assert os.path.exists(os.path.join(out_dir, "model.pth"))
     os.remove(os.path.join(out_dir, "model.pth"))
+
+
+@mock.patch(STORAGE_MODULE + ".Storage._download_azure_blob")
+def test_download_azure_blob_called_with_matching_uri(mock_download_azure_blob):
+    azure_blob_uris = [
+        "https://accountname.blob.core.windows.net/container/some/blob/",
+        "https://accountname.z20.blob.storage.azure.net/container/some/blob/",
+        "https://accountname.z2.blob.storage.azure.net/container/some/blob/",
+    ]
+
+    for uri in azure_blob_uris:
+        Storage.download(uri, out_dir="dest_path")
+
+    expected_calls = [mock.call(uri, "dest_path") for uri in azure_blob_uris]
+    mock_download_azure_blob.assert_has_calls(expected_calls)
+
+
+@mock.patch(STORAGE_MODULE + ".Storage._download_azure_file_share")
+def test_download_azure_file_share_called_with_matching_uri(
+    mock_download_azure_file_share,
+):
+    azure_file_uris = [
+        "https://accountname.file.core.windows.net/container/some/blob",
+        "https://accountname.z20.file.storage.azure.net/container/some/blob",
+        "https://accountname.z2.file.storage.azure.net/container/some/blob",
+    ]
+
+    for uri in azure_file_uris:
+        Storage.download(uri, out_dir="dest_path")
+
+    expected_calls = [mock.call(uri, "dest_path") for uri in azure_file_uris]
+    mock_download_azure_file_share.assert_has_calls(expected_calls)
