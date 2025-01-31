@@ -97,14 +97,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(clientset).ToNot(BeNil())
 
-	//Create namespace
-	kfservingNamespaceObj := &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.KServeNamespace,
-		},
-	}
-	Expect(k8sClient.Create(context.Background(), kfservingNamespaceObj)).Should(Succeed())
-
 	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
 		Scheme: scheme.Scheme,
 		Metrics: metricsserver.Options{
@@ -112,6 +104,17 @@ var _ = BeforeSuite(func() {
 		},
 	})
 	Expect(err).ToNot(HaveOccurred())
+
+	k8sClient = k8sManager.GetClient()
+	Expect(k8sClient).ToNot(BeNil())
+
+	//Create namespace
+	kserveNamespaceObj := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.KServeNamespace,
+		},
+	}
+	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
 
 	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Serverless"}
 	ingressConfig := &v1beta1.IngressConfig{
@@ -134,9 +137,6 @@ var _ = BeforeSuite(func() {
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred())
 	}()
-
-	k8sClient = k8sManager.GetClient()
-	Expect(k8sClient).ToNot(BeNil())
 })
 
 var _ = AfterSuite(func() {
