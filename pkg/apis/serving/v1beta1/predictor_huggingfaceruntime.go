@@ -43,7 +43,7 @@ func (o *HuggingFaceRuntimeSpec) Validate() error {
 // Default sets defaults on the resource
 func (o *HuggingFaceRuntimeSpec) Default(config *InferenceServicesConfig) {
 	o.Container.Name = constants.InferenceServiceContainerName
-	setResourceRequirementDefaults(&o.Resources)
+	setResourceRequirementDefaults(config, &o.Resources)
 }
 
 // GetContainer transforms the resource into a container spec

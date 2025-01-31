@@ -21,13 +21,13 @@ runs:
     - name: Install kubectl
       uses: azure/setup-kubectl@v4.0.0
       with:
-        version: 'v1.29.7'
+        version: 'v1.30.7'
 
     - name: Setup Minikube
       uses: medyagh/setup-minikube@latest
       with:
         minikube-version: '1.33.1'
-        kubernetes-version: 'v1.29.7'
+        kubernetes-version: 'v1.30.7'
         driver: ${{ inputs.driver }}
         wait: 'all'
         cpus: 'max'
