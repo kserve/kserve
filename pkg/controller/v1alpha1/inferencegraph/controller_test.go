@@ -26,6 +26,7 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	osv1 "github.com/openshift/api/route/v1"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -667,6 +668,29 @@ var _ = Describe("Inference Graph controller test", func() {
 			Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers).To(Not(BeNil()))
 			Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers[0].Image).To(Not(BeNil()))
 			Expect(actualK8sDeploymentCreated.Spec.Template.Spec.Containers[0].Args).To(Not(BeNil()))
+
+			// There should be an OpenShift route
+			actualK8sDeploymentCreated.Status.Conditions = []appsv1.DeploymentCondition{
+				{Type: appsv1.DeploymentAvailable},
+			}
+			Expect(k8sClient.Status().Update(ctx, actualK8sDeploymentCreated)).Should(Succeed())
+			osRoute := osv1.Route{}
+			Eventually(func() error {
+				osRouteKey := types.NamespacedName{Name: inferenceGraphSubmitted.GetName() + "-route", Namespace: inferenceGraphSubmitted.GetNamespace()}
+				return k8sClient.Get(ctx, osRouteKey, &osRoute)
+			}, timeout, interval).Should(Succeed())
+
+			// OpenShift route hostname should be set to InferenceGraph
+			osRoute.Status.Ingress = []osv1.RouteIngress{
+				{
+					Host: "openshift-route-example.com",
+				},
+			}
+			k8sClient.Status().Update(ctx, &osRoute)
+			Eventually(func() string {
+				k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
+				return inferenceGraphSubmitted.Status.URL.Host
+			}, timeout, interval).Should(Equal(osRoute.Status.Ingress[0].Host))
 		})
 	})
 

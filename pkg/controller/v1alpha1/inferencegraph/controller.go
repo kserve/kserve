@@ -19,6 +19,8 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=create;get;update;patch;watch
+// +kubebuilder:rbac:groups=route.openshift.io,resources=routes/status,verbs=get
 package inferencegraph
 
 import (
@@ -27,7 +29,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/kserve/kserve/pkg/utils"
+	osv1 "github.com/openshift/api/route/v1"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
@@ -52,6 +54,7 @@ import (
 	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // InferenceGraphReconciler reconciles a InferenceGraph object
@@ -121,7 +124,7 @@ func getRouterConfigs(configMap *v1.ConfigMap) (*RouterConfig, error) {
 func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = context.Background()
 
-	// Fetch the InferenceService instance
+	// Fetch the InferenceGraph instance
 	graph := &v1alpha1api.InferenceGraph{}
 	if err := r.Get(ctx, req.NamespacedName, graph); err != nil {
 		if apierr.IsNotFound(err) {
@@ -193,6 +196,17 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return reconcile.Result{Requeue: true}, errors.Wrapf(err,
 				"Failed to find inference graph deployment  %s", graph.Name)
 		}
+
+		routeReconciler := OpenShiftRouteReconciler{
+			Scheme: r.Scheme,
+			Client: r.Client,
+		}
+		hostname, err := routeReconciler.Reconcile(ctx, graph)
+		url.Host = hostname
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile Route for InferenceGraph")
+		}
+
 		logger.Info("Inference graph raw before propagate status")
 		PropagateRawStatus(&graph.Status, deployment, url)
 	} else {
@@ -291,7 +305,8 @@ func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConf
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1api.InferenceGraph{}).
-		Owns(&appsv1.Deployment{})
+		Owns(&appsv1.Deployment{}).
+		Owns(&osv1.Route{})
 
 	if ksvcFound {
 		ctrlBuilder = ctrlBuilder.Owns(&knservingv1.Service{})

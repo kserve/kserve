@@ -116,9 +116,18 @@ rules:
   resources:
   - routes
   verbs:
+  - create
   - get
   - list
+  - patch
+  - update
   - watch
+- apiGroups:
+  - route.openshift.io
+  resources:
+  - routes/status
+  verbs:
+  - get
 - apiGroups:
   - serving.knative.dev
   resources:

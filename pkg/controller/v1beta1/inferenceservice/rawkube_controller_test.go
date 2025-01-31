@@ -19,26 +19,27 @@ package inferenceservice
 import (
 	"context"
 	"fmt"
-
 	"time"
+
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/utils"
-	apierr "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
+
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 
-	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	routev1 "github.com/openshift/api/route/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -48,6 +49,8 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 )
 
 var _ = Describe("v1beta1 inference service controller", func() {
@@ -2602,21 +2605,22 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 					WildcardPolicy: routev1.WildcardPolicyNone,
 				},
-				Status: routev1.RouteStatus{
-					Ingress: []routev1.RouteIngress{
-						{
-							Host: "raw-auth-default.example.com",
-							Conditions: []routev1.RouteIngressCondition{
-								{
-									Type:   routev1.RouteAdmitted,
-									Status: v1.ConditionTrue,
-								},
+			}
+			Expect(k8sClient.Create(context.TODO(), route)).Should(Succeed())
+			route.Status = routev1.RouteStatus{
+				Ingress: []routev1.RouteIngress{
+					{
+						Host: "raw-auth-default.example.com",
+						Conditions: []routev1.RouteIngressCondition{
+							{
+								Type:   routev1.RouteAdmitted,
+								Status: v1.ConditionTrue,
 							},
 						},
 					},
 				},
 			}
-			Expect(k8sClient.Create(context.TODO(), route)).Should(Succeed())
+			Expect(k8sClient.Status().Update(ctx, route)).Should(Succeed())
 
 			//check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
