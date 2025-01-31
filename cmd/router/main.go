@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -72,7 +72,11 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 	if val := req.Header.Get("Content-Type"); val == "" {
 		req.Header.Add("Content-Type", "application/json")
 	}
-	resp, err := http.DefaultClient.Do(req)
+
+	client := &http.Client{
+		Timeout: 600 * time.Second,
+	}
+	resp, err := client.Do(req)
 
 	if err != nil {
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
