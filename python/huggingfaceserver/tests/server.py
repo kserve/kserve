@@ -1,4 +1,4 @@
-# Copyright 2023 The KServe Authors.
+# Copyright 2025 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ class RemoteOpenAIServer:
     def __init__(
         self,
         model: str,
+        model_name: str,
         vllm_serve_args: List[str],
         *,
         env_dict: Optional[Dict[str, str]] = None,
@@ -42,6 +43,7 @@ class RemoteOpenAIServer:
         parser = make_arg_parser(parser)
         args = parser.parse_args(["--model", model, *vllm_serve_args])
         model_id = "--model_id=" + model
+        model_name = "--model_name=" + model_name
         self.host = str(args.host or "localhost")
         self.port = 8080
 
@@ -67,7 +69,7 @@ class RemoteOpenAIServer:
                 "-m",
                 "huggingfaceserver",
                 model_id,
-                "--model_name=test-model",
+                model_name,
                 "--backend=vllm",
                 *vllm_serve_args,
             ],

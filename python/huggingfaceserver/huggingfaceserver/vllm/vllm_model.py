@@ -15,7 +15,7 @@
 from typing import Any, Dict, Optional, Union, AsyncGenerator
 import torch
 from argparse import Namespace
-from fastapi import Request  # TODO: Double check if it's installed here
+from fastapi import Request
 
 from kserve import Model
 from kserve.errors import ModelNotReady
@@ -53,7 +53,7 @@ class VLLMModel(
     engine_client: EngineClient
     vllm_engine_args: AsyncEngineArgs = None
     args: Namespace = None
-    ready: bool = False  # TODO: check members here
+    ready: bool = False
 
     def __init__(
         self,

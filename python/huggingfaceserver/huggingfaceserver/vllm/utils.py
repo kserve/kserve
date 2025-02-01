@@ -55,7 +55,7 @@ def infer_vllm_supported_from_model_architecture(
 def maybe_add_vllm_cli_parser(parser: ArgumentParser) -> ArgumentParser:
     if not _vllm:
         return parser
-    return make_arg_parser(parser)  # TODO: Probably we do not need so much
+    return make_arg_parser(parser)
 
 
 def build_vllm_engine_args(args) -> "AsyncEngineArgs":

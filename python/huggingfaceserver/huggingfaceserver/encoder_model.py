@@ -189,7 +189,6 @@ class HuggingfaceEncoderModel(
                 **model_kwargs,
             )
             self._model.eval()
-            self._model.to(self._device)
             if not self._tokenizer.pad_token:
                 pad_token_str = "[PAD]"
                 logger.warning(

@@ -225,9 +225,6 @@ class HuggingfaceGenerativeModel(
         if self._model._no_split_modules:
             device_map = "auto"
 
-        print("HERE")
-        print(device_map)
-
         tokenizer_kwargs = {}
         model_kwargs = {}
 
