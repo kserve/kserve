@@ -10,14 +10,11 @@ packages = [{ include = "huggingfaceserver" }]
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
-transformers = ">=4.45.0"
+transformers = ">=4.47.0"
 accelerate = "~0.32.0"
 torch = "~2.5.0"
-vllm = { version = "^0.6.6.post1", optional = true }
+vllm = "^0.6.6.post1"
 setuptools = { version = ">=70.0.0" }
-
-[tool.poetry.extras]
-vllm = ["vllm"]
 
 [tool.poetry.group.test]
 optional = true
@@ -29,6 +26,7 @@ mypy = "^0.991"
 pytest-asyncio = ">=0.23.4, <1.0.0"
 pytest_httpx = "^v0.30.0"
 einops = "^0.8.0"
+openai = "^1.59.9"
 
 [tool.poetry.group.dev]
 optional = true
