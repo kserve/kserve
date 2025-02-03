@@ -5255,6 +5255,9 @@ spec:
                         x-kubernetes-list-type: atomic
                     type: object
                 type: object
+              clientServiceTimeoutSeconds:
+                format: int64
+                type: integer
               maxReplicas:
                 format: int32
                 type: integer
