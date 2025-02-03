@@ -440,15 +440,15 @@ class TestDataPlaneOpenAI:
         repo.update(openai_model)
         dataplane = DataPlane(model_registry=repo)
 
-        with pytest.raises(InvalidInput) as exc:
+        with pytest.raises(ValueError) as exc:
             await dataplane.infer(
                 model_name=self.MODEL_NAME,
                 request={},
             )
 
         assert (
-            exc.value.reason
-            == "Model TestModel is of type OpenAIGenerativeModel. It does not support the infer method."
+            exc.value.args[0]
+            == 'Model of type DummyOpenAIModel does not support inference'
         )
 
 

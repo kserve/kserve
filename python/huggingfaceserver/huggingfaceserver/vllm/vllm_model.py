@@ -48,7 +48,7 @@ from .utils import build_vllm_engine_args
 
 
 class VLLMModel(
-    Model, OpenAIEncoderModel, OpenAIGenerativeModel
+    OpenAIEncoderModel, OpenAIGenerativeModel
 ):  # pylint:disable=c-extension-no-member
     engine_client: EngineClient
     vllm_engine_args: AsyncEngineArgs = None
