@@ -184,7 +184,7 @@ class TestInferenceRESTClient:
                 headers={"Host": "test-server.com"},
                 timeout=2,
             )
-            assert res.outputs[0].data == [1, 2, 3, 4]
+            assert np.allclose(res.outputs[0].data, [1, 2, 3, 4])
             assert res.id == request_id
 
             input_data = InferRequest(
