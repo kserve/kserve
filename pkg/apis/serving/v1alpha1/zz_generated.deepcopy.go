@@ -252,6 +252,26 @@ func (in *InferenceGraphSpec) DeepCopyInto(out *InferenceGraphSpec) {
 		*out = new(int64)
 		**out = **in
 	}
+	if in.ServerReadTimeoutSeconds != nil {
+		in, out := &in.ServerReadTimeoutSeconds, &out.ServerReadTimeoutSeconds
+		*out = new(int64)
+		**out = **in
+	}
+	if in.ServerWriteTimeoutSeconds != nil {
+		in, out := &in.ServerWriteTimeoutSeconds, &out.ServerWriteTimeoutSeconds
+		*out = new(int64)
+		**out = **in
+	}
+	if in.ServerIdleTimeoutSeconds != nil {
+		in, out := &in.ServerIdleTimeoutSeconds, &out.ServerIdleTimeoutSeconds
+		*out = new(int64)
+		**out = **in
+	}
+	if in.ClientServiceTimeoutSeconds != nil {
+		in, out := &in.ClientServiceTimeoutSeconds, &out.ClientServiceTimeoutSeconds
+		*out = new(int64)
+		**out = **in
+	}
 	if in.MinReplicas != nil {
 		in, out := &in.MinReplicas, &out.MinReplicas
 		*out = new(int32)
