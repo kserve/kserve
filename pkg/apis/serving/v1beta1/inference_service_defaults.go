@@ -82,8 +82,6 @@ func setResourceRequirementDefaults(config *InferenceServicesConfig, requirement
 		}
 	}
 
-	logf.Log.Info("Setting default resource requirements -----------------", "requests", requirements.Requests, "limits", requirements.Limits)
-
 	if requirements.Limits == nil {
 		requirements.Limits = corev1.ResourceList{}
 	}
@@ -92,6 +90,8 @@ func setResourceRequirementDefaults(config *InferenceServicesConfig, requirement
 			requirements.Limits[k] = v
 		}
 	}
+
+	logf.Log.Info("Setting default resource requirements ", "requests", requirements.Requests, "limits", requirements.Limits)
 }
 
 func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Object) error {

@@ -19,6 +19,7 @@ package service
 import (
 	"context"
 	"sort"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -58,6 +59,21 @@ func NewServiceReconciler(client client.Client,
 		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
 		componentExt: componentExt,
 	}
+}
+
+// isGrpcPort checks if the port is a grpc port or not by port name
+func isGrpcPort(port corev1.ContainerPort) bool {
+	if strings.Contains(port.Name, "grpc") || strings.Contains(port.Name, "h2c") {
+		return true
+	}
+	return false
+}
+
+func getAppProtocol(port corev1.ContainerPort) *string {
+	if isGrpcPort(port) {
+		return utils.ToPointer("kubernetes.io/h2c")
+	}
+	return nil
 }
 
 func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
@@ -112,7 +128,8 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 					Type:   intstr.Int,
 					IntVal: container.Ports[0].ContainerPort,
 				},
-				Protocol: container.Ports[0].Protocol,
+				Protocol:    container.Ports[0].Protocol,
+				AppProtocol: getAppProtocol(container.Ports[0]),
 			}
 			servicePorts = append(servicePorts, servicePort)
 
@@ -128,7 +145,8 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 						Type:   intstr.Int,
 						IntVal: port.ContainerPort,
 					},
-					Protocol: port.Protocol,
+					Protocol:    port.Protocol,
+					AppProtocol: getAppProtocol(port),
 				}
 				servicePorts = append(servicePorts, servicePort)
 			}

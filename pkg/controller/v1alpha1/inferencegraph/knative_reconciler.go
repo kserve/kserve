@@ -201,6 +201,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.Infer
 											Drop: []corev1.Capability{corev1.Capability("ALL")},
 										},
 									},
+									ReadinessProbe: constants.GetRouterReadinessProbe(),
 								},
 							},
 							Affinity:                     graph.Spec.Affinity,

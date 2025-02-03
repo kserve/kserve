@@ -64,7 +64,8 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 					"--graph-json",
 					string(bytes),
 				},
-				Resources: constructResourceRequirements(*graph, *config),
+				Resources:      constructResourceRequirements(*graph, *config),
+				ReadinessProbe: constants.GetRouterReadinessProbe(),
 				SecurityContext: &corev1.SecurityContext{
 					Privileged:               proto.Bool(false),
 					RunAsNonRoot:             proto.Bool(true),

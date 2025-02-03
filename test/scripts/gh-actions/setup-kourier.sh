@@ -23,9 +23,13 @@ set -o pipefail
 
 CERT_MANAGER_VERSION="v1.15.1"
 YQ_VERSION="v4.28.1"
+GATEWAY_API_VERSION="v1.2.1"
 
 echo "Installing yq ..."
 wget https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64 -O /usr/local/bin/yq && chmod +x /usr/local/bin/yq
+
+echo "Installing Gateway CRDs ..."
+kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
 
 source  ./test/scripts/gh-actions/install-knative-operator.sh
 

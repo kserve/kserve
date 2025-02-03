@@ -62,6 +62,8 @@ var _ = Describe("Inference Graph controller test", func() {
 				}`,
 	}
 
+	expectedReadinessProbe := constants.GetRouterReadinessProbe()
+
 	Context("When creating an inferencegraph with headers in global config", func() {
 		It("Should create a knative service with headers as env var of podspec", func() {
 			By("By creating a new InferenceGraph")
@@ -160,6 +162,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													corev1.ResourceMemory: resource.MustParse("100Mi"),
 												},
 											},
+											ReadinessProbe: expectedReadinessProbe,
 											SecurityContext: &corev1.SecurityContext{
 												Privileged:               proto.Bool(false),
 												RunAsNonRoot:             proto.Bool(true),
@@ -296,6 +299,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													corev1.ResourceMemory: resource.MustParse("123Mi"),
 												},
 											},
+											ReadinessProbe: expectedReadinessProbe,
 											SecurityContext: &corev1.SecurityContext{
 												Privileged:               proto.Bool(false),
 												RunAsNonRoot:             proto.Bool(true),
@@ -455,6 +459,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													Drop: []corev1.Capability{corev1.Capability("ALL")},
 												},
 											},
+											ReadinessProbe: expectedReadinessProbe,
 										},
 									},
 									Affinity: &corev1.Affinity{
