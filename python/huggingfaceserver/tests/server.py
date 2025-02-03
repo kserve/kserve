@@ -98,7 +98,6 @@ class RemoteOpenAIServer:
         start = time.time()
         while True:
             try:
-                print("TIME")
                 time.sleep(60)
                 if requests.get(url).status_code == 200:
                     break
@@ -107,7 +106,6 @@ class RemoteOpenAIServer:
                 # which means the server is not ready yet.
                 # the stack trace is not useful, so we suppress it
                 # by using `raise from None`.
-                print("TIME EXCEPTION")
                 result = self.proc.poll()
                 if result is not None and result != 0:
                     raise RuntimeError("Server exited unexpectedly.") from None

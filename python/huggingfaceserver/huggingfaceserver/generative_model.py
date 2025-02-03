@@ -209,7 +209,6 @@ class HuggingfaceGenerativeModel(
         model_id_or_path = self.model_id_or_path
 
         self.max_length = _get_and_verify_max_len(self.model_config, self.max_length)
-        print(self.max_length)
         model_cls = get_model_class_for_task(self.task)
 
         # device_map = "auto" enables model parallelism but all model architecture don't support it.
@@ -301,7 +300,6 @@ class HuggingfaceGenerativeModel(
             req["loop"],
             req["context"],
         )
-        print(f"kwargs {kwargs}")
 
         def queue_put(outputs):
             loop.call_soon_threadsafe(response_queue.put_nowait, outputs)
@@ -400,8 +398,6 @@ class HuggingfaceGenerativeModel(
             "temperature": request.temperature,
             "pad_token_id": self._tokenizer.pad_token_id,
         }
-        print("HERE")
-        print(request.max_tokens)
         if request.presence_penalty and request.presence_penalty > 0:
             kwargs["repetition_penalty"] = request.presence_penalty
         if request.logit_bias is not None:

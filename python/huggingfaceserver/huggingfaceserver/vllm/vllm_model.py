@@ -59,10 +59,9 @@ class VLLMModel(
         self,
         model_name: str,
         args: Namespace,
-        predictor_config: Optional[PredictorConfig] = None,
         request_logger: Optional[RequestLogger] = None,
     ):
-        super().__init__(model_name, predictor_config)
+        super().__init__(model_name)
         self.args = args
         validate_parsed_serve_args(args)
         engine_args = build_vllm_engine_args(args)

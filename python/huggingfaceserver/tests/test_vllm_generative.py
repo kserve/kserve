@@ -291,7 +291,6 @@ async def test_single_chat_session(client: openai.AsyncOpenAI, model_name: str):
 
     choice = chat_completion.choices[0]
     assert choice.finish_reason == "length"
-    print(chat_completion.usage)
     assert chat_completion.usage == openai.types.CompletionUsage(
         completion_tokens=5, prompt_tokens=25, total_tokens=30
     )
