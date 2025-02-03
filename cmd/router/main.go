@@ -45,6 +45,19 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
+type ServerTimeouts struct {
+	Read  time.Duration
+	Write time.Duration
+	Idle  time.Duration
+}
+
+var serverTimeouts = ServerTimeouts{
+	Read:  60 * time.Second,
+	Write: 60 * time.Second,
+	Idle:  180 * time.Second,
+}
+var clientServiceTimeout *time.Duration
+
 var log = logf.Log.WithName("InferenceGraphRouter")
 
 // _isInMesh is an auxiliary global variable for isInIstioMesh function.
@@ -147,7 +160,17 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 	if val := req.Header.Get("Content-Type"); val == "" {
 		req.Header.Add("Content-Type", "application/json")
 	}
-	resp, err := http.DefaultClient.Do(req)
+
+	var client *http.Client
+	if clientServiceTimeout == nil {
+		client = http.DefaultClient
+	} else {
+		client = &http.Client{
+			Timeout: *clientServiceTimeout,
+		}
+	}
+	resp, err := client.Do(req)
+
 	if err != nil {
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
 		return nil, 500, err
@@ -409,6 +432,29 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 	return compiled, goerrors.Join(allErrors...)
 }
 
+func parseTimeout(envVar string, defaultValue interface{}) *time.Duration {
+	if envValue, exists := os.LookupEnv(envVar); exists {
+		seconds, err := strconv.ParseInt(envValue, 10, 64)
+		if err == nil {
+			timeout := time.Duration(seconds) * time.Second
+			return &timeout
+		}
+		log.Error(err, fmt.Sprintf("Failed to parse %s, using default %v", envVar, defaultValue))
+	}
+
+	if defaultValue != nil {
+		return defaultValue.(*time.Duration)
+	}
+	return nil
+}
+
+func initTimeouts() {
+	serverTimeouts.Read = *parseTimeout("SERVER_READ_TIMEOUT_SECONDS", serverTimeouts.Read)
+	serverTimeouts.Write = *parseTimeout("SERVER_WRITE_TIMEOUT_SECONDS", serverTimeouts.Write)
+	serverTimeouts.Idle = *parseTimeout("SERVER_IDLE_TIMEOUT_SECONDS", serverTimeouts.Idle)
+	clientServiceTimeout = parseTimeout("CLIENT_SERVICE_TIMEOUT_SECONDS", nil) // nil uses the default http client, 0 means no timeout
+}
+
 // Mainly used for kubernetes readiness probe. It responds with "503 shutting down" if server is shutting down,
 // otherwise returns "200 OK".
 func readyHandler(w http.ResponseWriter, req *http.Request) {
@@ -438,6 +484,9 @@ func main() {
 			log.Error(err, "Failed to compile some header patterns")
 		}
 	}
+
+	initTimeouts()
+
 	inferenceGraph = &v1alpha1.InferenceGraphSpec{}
 	err := json.Unmarshal([]byte(*jsonGraph), inferenceGraph)
 	if err != nil {
@@ -451,9 +500,9 @@ func main() {
 	server := &http.Server{
 		Addr:         ":" + strconv.Itoa(constants.RouterPort),
 		Handler:      nil,             // default server mux
-		ReadTimeout:  time.Minute,     // https://medium.com/a-journey-with-go/go-understand-and-mitigate-slowloris-attack-711c1b1403f6
-		WriteTimeout: time.Minute,     // set the maximum duration before timing out writes of the response
-		IdleTimeout:  3 * time.Minute, // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		ReadTimeout:  serverTimeouts.Read,            // set the maximum duration for reading the entire request, including the body
+		WriteTimeout: serverTimeouts.Write,           // set the maximum duration before timing out writes of the response
+		IdleTimeout:  serverTimeouts.Idle,            // set the maximum amount of time to wait for the next request when keep-alives are enabled
 	}
 
 	go func() {

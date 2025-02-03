@@ -509,6 +509,34 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref common.ReferenceCal
 							Format:      "int64",
 						},
 					},
+					"serverReadTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServerReadTimeoutSeconds specifies the number of seconds to wait before timing out a request read by the server.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"serverWriteTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServerWriteTimeoutSeconds specifies the maximum duration before timing out writes of the response.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"serverIdleTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServerIdleTimeoutSeconds specifies the maximum amount of time to wait for the next request when keep-alives are enabled.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"clientServiceTimeoutSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ClientServiceTimeoutSeconds specifies a time limit for requests made to the graph components.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"minReplicas": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.",
