@@ -16,8 +16,3 @@ repos:
     hooks:
       - id: flake8
         args: [--config, .flake8, .]
-  - repo: https://github.com/golangci/golangci-lint
-    rev: v1.63.0
-    hooks:
-      - id: golangci-lint
-        args: ['--config', '.golangci.yml', '--fix', "--new"]
