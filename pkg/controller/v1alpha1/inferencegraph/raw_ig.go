@@ -76,6 +76,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 						Drop: []corev1.Capability{corev1.Capability("ALL")},
 					},
 				},
+				Env: buildEnvVars(graph.Spec, config),
 			},
 		},
 		Affinity:                     graph.Spec.Affinity,
