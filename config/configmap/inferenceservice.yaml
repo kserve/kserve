@@ -682,7 +682,7 @@ data:
       "autoMountServiceAccountToken": true
     }
     
-  inferenceservice: |-
+  inferenceService: |-
     {
       "resource": {
           "cpuLimit": "1",
