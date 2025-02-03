@@ -209,6 +209,11 @@
         "affinity": {
           "$ref": "#/definitions/v1.Affinity"
         },
+        "clientServiceTimeoutSeconds": {
+          "description": "ClientServiceTimeoutSeconds specifies a time limit for requests made to the graph components.",
+          "type": "integer",
+          "format": "int64"
+        },
         "maxReplicas": {
           "description": "Maximum number of replicas for autoscaling.",
           "type": "integer",
