@@ -477,6 +477,9 @@ spec:
                         x-kubernetes-list-type: atomic
                     type: object
                 type: object
+              clientServiceTimeoutSeconds:
+                format: int64
+                type: integer
               maxReplicas:
                 type: integer
               minReplicas:
@@ -561,6 +564,15 @@ spec:
                 - rps
                 type: string
               scaleTarget:
+                type: integer
+              serverIdleTimeoutSeconds:
+                format: int64
+                type: integer
+              serverReadTimeoutSeconds:
+                format: int64
+                type: integer
+              serverWriteTimeoutSeconds:
+                format: int64
                 type: integer
               timeout:
                 format: int64
