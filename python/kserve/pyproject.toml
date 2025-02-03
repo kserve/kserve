@@ -106,7 +106,7 @@ mypy = "^0.991"
 portforward = "^0.6.2"
 avro = "^1.11.0"
 tomlkit = "^0.12.0"
-jinja2 = "^3.1.4"
+jinja2 = "^3.1.5"
 grpcio-testing = "^1.60.0"
 
 [tool.poetry.group.dev]
