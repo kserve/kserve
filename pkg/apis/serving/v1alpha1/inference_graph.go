@@ -52,6 +52,18 @@ type InferenceGraphSpec struct {
 	// TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.
 	// +optional
 	TimeoutSeconds *int64 `json:"timeout,omitempty"`
+	// ServerReadTimeoutSeconds specifies the number of seconds to wait before timing out a request read by the server.
+	// +optional
+	ServerReadTimeoutSeconds *int64 `json:"serverReadTimeoutSeconds,omitempty"`
+	// ServerWriteTimeoutSeconds specifies the maximum duration before timing out writes of the response.
+	// +optional
+	ServerWriteTimeoutSeconds *int64 `json:"serverWriteTimeoutSeconds,omitempty"`
+	// ServerIdleTimeoutSeconds specifies the maximum amount of time to wait for the next request when keep-alives are enabled.
+	// +optional
+	ServerIdleTimeoutSeconds *int64 `json:"serverIdleTimeoutSeconds,omitempty"`
+	// ClientServiceTimeoutSeconds specifies a time limit for requests made to the graph components.
+	// +optional
+	ClientServiceTimeoutSeconds *int64 `json:"clientServiceTimeoutSeconds,omitempty"`
 	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
 	// +optional
 	MinReplicas *int32 `json:"minReplicas,omitempty"`
