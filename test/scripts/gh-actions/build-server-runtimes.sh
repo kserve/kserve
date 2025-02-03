@@ -74,10 +74,12 @@ pushd python >/dev/null
     echo "Building image transformer gRPC image"
     docker buildx build -t "${CUSTOM_TRANSFORMER_GRPC_IMG_TAG}" -f custom_transformer_grpc.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CUSTOM_TRANSFORMER_GRPC_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building image transformer gRPC image:"
+        df -hT
     echo "Building Huggingface CPU Openvino image"
     docker buildx build -t "${HUGGINGFACE_CPU_OPENVINO_IMG_TAG}" -f huggingface_server_cpu_openvino.Dockerfile \
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${GITHUB_SHA}",compression-level=0 .
-    echo "Disk usage after Building image transformer gRPC image:"
+    echo "Disk usage after Building Huggingface CPU Openvino image:"
         df -hT
   fi
 
