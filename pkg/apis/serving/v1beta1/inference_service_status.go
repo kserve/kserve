@@ -50,6 +50,8 @@ type InferenceServiceStatus struct {
 	Components map[ComponentType]ComponentStatusSpec `json:"components,omitempty"`
 	// Model related statuses
 	ModelStatus ModelStatus `json:"modelStatus,omitempty"`
+	// InferenceService DeploymentMode
+	DeploymentMode string `json:"deploymentMode,omitempty"`
 }
 
 // ComponentStatusSpec describes the state of the component
