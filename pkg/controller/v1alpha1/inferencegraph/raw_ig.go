@@ -18,7 +18,6 @@ package inferencegraph
 
 import (
 	"encoding/json"
-	"strings"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -74,21 +73,11 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 						Drop: []v1.Capability{v1.Capability("ALL")},
 					},
 				},
+				Env: buildEnvVars(graph.Spec, config),
 			},
 		},
 		Affinity:                     graph.Spec.Affinity,
 		AutomountServiceAccountToken: proto.Bool(false), // Inference graph does not need access to api server
-	}
-
-	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
-	value, exists := config.Headers["propagate"]
-	if exists {
-		podSpec.Containers[0].Env = []v1.EnvVar{
-			{
-				Name:  constants.RouterHeadersPropagateEnvVar,
-				Value: strings.Join(value, ","),
-			},
-		}
 	}
 
 	return podSpec
