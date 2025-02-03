@@ -33,10 +33,11 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"k8s.io/client-go/kubernetes/scheme"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	"k8s.io/client-go/kubernetes/scheme"
 )
 
 var (
@@ -84,8 +85,6 @@ func setResourceRequirementDefaults(config *InferenceServicesConfig, requirement
 		}
 	}
 
-	logf.Log.Info("Setting default resource requirements -----------------", "requests", requirements.Requests, "limits", requirements.Limits)
-
 	if requirements.Limits == nil {
 		requirements.Limits = v1.ResourceList{}
 	}
@@ -94,6 +93,8 @@ func setResourceRequirementDefaults(config *InferenceServicesConfig, requirement
 			requirements.Limits[k] = v
 		}
 	}
+
+	logf.Log.Info("Setting default resource requirements ", "requests", requirements.Requests, "limits", requirements.Limits)
 }
 
 func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Object) error {
