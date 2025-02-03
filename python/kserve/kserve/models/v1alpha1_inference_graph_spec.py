@@ -47,45 +47,74 @@ class V1alpha1InferenceGraphSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'affinity': 'V1Affinity',
-        'max_replicas': 'int',
-        'min_replicas': 'int',
-        'nodes': 'dict(str, V1alpha1InferenceRouter)',
-        'resources': 'V1ResourceRequirements',
-        'scale_metric': 'str',
-        'scale_target': 'int',
-        'timeout': 'int'
+        "affinity": "V1Affinity",
+        "client_service_timeout_seconds": "int",
+        "max_replicas": "int",
+        "min_replicas": "int",
+        "nodes": "dict(str, V1alpha1InferenceRouter)",
+        "resources": "V1ResourceRequirements",
+        "scale_metric": "str",
+        "scale_target": "int",
+        "server_idle_timeout_seconds": "int",
+        "server_read_timeout_seconds": "int",
+        "server_write_timeout_seconds": "int",
+        "timeout": "int",
     }
 
     attribute_map = {
-        'affinity': 'affinity',
-        'max_replicas': 'maxReplicas',
-        'min_replicas': 'minReplicas',
-        'nodes': 'nodes',
-        'resources': 'resources',
-        'scale_metric': 'scaleMetric',
-        'scale_target': 'scaleTarget',
-        'timeout': 'timeout'
+        "affinity": "affinity",
+        "client_service_timeout_seconds": "clientServiceTimeoutSeconds",
+        "max_replicas": "maxReplicas",
+        "min_replicas": "minReplicas",
+        "nodes": "nodes",
+        "resources": "resources",
+        "scale_metric": "scaleMetric",
+        "scale_target": "scaleTarget",
+        "server_idle_timeout_seconds": "serverIdleTimeoutSeconds",
+        "server_read_timeout_seconds": "serverReadTimeoutSeconds",
+        "server_write_timeout_seconds": "serverWriteTimeoutSeconds",
+        "timeout": "timeout",
     }
 
-    def __init__(self, affinity=None, max_replicas=None, min_replicas=None, nodes=None, resources=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        affinity=None,
+        client_service_timeout_seconds=None,
+        max_replicas=None,
+        min_replicas=None,
+        nodes=None,
+        resources=None,
+        scale_metric=None,
+        scale_target=None,
+        server_idle_timeout_seconds=None,
+        server_read_timeout_seconds=None,
+        server_write_timeout_seconds=None,
+        timeout=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1alpha1InferenceGraphSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._affinity = None
+        self._client_service_timeout_seconds = None
         self._max_replicas = None
         self._min_replicas = None
         self._nodes = None
         self._resources = None
         self._scale_metric = None
         self._scale_target = None
+        self._server_idle_timeout_seconds = None
+        self._server_read_timeout_seconds = None
+        self._server_write_timeout_seconds = None
         self._timeout = None
         self.discriminator = None
 
         if affinity is not None:
             self.affinity = affinity
+        if client_service_timeout_seconds is not None:
+            self.client_service_timeout_seconds = client_service_timeout_seconds
         if max_replicas is not None:
             self.max_replicas = max_replicas
         if min_replicas is not None:
@@ -97,6 +126,12 @@ class V1alpha1InferenceGraphSpec(object):
             self.scale_metric = scale_metric
         if scale_target is not None:
             self.scale_target = scale_target
+        if server_idle_timeout_seconds is not None:
+            self.server_idle_timeout_seconds = server_idle_timeout_seconds
+        if server_read_timeout_seconds is not None:
+            self.server_read_timeout_seconds = server_read_timeout_seconds
+        if server_write_timeout_seconds is not None:
+            self.server_write_timeout_seconds = server_write_timeout_seconds
         if timeout is not None:
             self.timeout = timeout
 
@@ -120,6 +155,29 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._affinity = affinity
+
+    @property
+    def client_service_timeout_seconds(self):
+        """Gets the client_service_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        ClientServiceTimeoutSeconds specifies a time limit for requests made to the graph components.  # noqa: E501
+
+        :return: The client_service_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._client_service_timeout_seconds
+
+    @client_service_timeout_seconds.setter
+    def client_service_timeout_seconds(self, client_service_timeout_seconds):
+        """Sets the client_service_timeout_seconds of this V1alpha1InferenceGraphSpec.
+
+        ClientServiceTimeoutSeconds specifies a time limit for requests made to the graph components.  # noqa: E501
+
+        :param client_service_timeout_seconds: The client_service_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._client_service_timeout_seconds = client_service_timeout_seconds
 
     @property
     def max_replicas(self):
@@ -187,8 +245,12 @@ class V1alpha1InferenceGraphSpec(object):
         :param nodes: The nodes of this V1alpha1InferenceGraphSpec.  # noqa: E501
         :type: dict(str, V1alpha1InferenceRouter)
         """
-        if self.local_vars_configuration.client_side_validation and nodes is None:  # noqa: E501
-            raise ValueError("Invalid value for `nodes`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and nodes is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `nodes`, must not be `None`"
+            )  # noqa: E501
 
         self._nodes = nodes
 
@@ -260,6 +322,75 @@ class V1alpha1InferenceGraphSpec(object):
         self._scale_target = scale_target
 
     @property
+    def server_idle_timeout_seconds(self):
+        """Gets the server_idle_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        ServerIdleTimeoutSeconds specifies the maximum amount of time to wait for the next request when keep-alives are enabled.  # noqa: E501
+
+        :return: The server_idle_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._server_idle_timeout_seconds
+
+    @server_idle_timeout_seconds.setter
+    def server_idle_timeout_seconds(self, server_idle_timeout_seconds):
+        """Sets the server_idle_timeout_seconds of this V1alpha1InferenceGraphSpec.
+
+        ServerIdleTimeoutSeconds specifies the maximum amount of time to wait for the next request when keep-alives are enabled.  # noqa: E501
+
+        :param server_idle_timeout_seconds: The server_idle_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._server_idle_timeout_seconds = server_idle_timeout_seconds
+
+    @property
+    def server_read_timeout_seconds(self):
+        """Gets the server_read_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        ServerReadTimeoutSeconds specifies the number of seconds to wait before timing out a request read by the server.  # noqa: E501
+
+        :return: The server_read_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._server_read_timeout_seconds
+
+    @server_read_timeout_seconds.setter
+    def server_read_timeout_seconds(self, server_read_timeout_seconds):
+        """Sets the server_read_timeout_seconds of this V1alpha1InferenceGraphSpec.
+
+        ServerReadTimeoutSeconds specifies the number of seconds to wait before timing out a request read by the server.  # noqa: E501
+
+        :param server_read_timeout_seconds: The server_read_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._server_read_timeout_seconds = server_read_timeout_seconds
+
+    @property
+    def server_write_timeout_seconds(self):
+        """Gets the server_write_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+        ServerWriteTimeoutSeconds specifies the maximum duration before timing out writes of the response.  # noqa: E501
+
+        :return: The server_write_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: int
+        """
+        return self._server_write_timeout_seconds
+
+    @server_write_timeout_seconds.setter
+    def server_write_timeout_seconds(self, server_write_timeout_seconds):
+        """Sets the server_write_timeout_seconds of this V1alpha1InferenceGraphSpec.
+
+        ServerWriteTimeoutSeconds specifies the maximum duration before timing out writes of the response.  # noqa: E501
+
+        :param server_write_timeout_seconds: The server_write_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: int
+        """
+
+        self._server_write_timeout_seconds = server_write_timeout_seconds
+
+    @property
     def timeout(self):
         """Gets the timeout of this V1alpha1InferenceGraphSpec.  # noqa: E501
 
@@ -289,18 +420,22 @@ class V1alpha1InferenceGraphSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
