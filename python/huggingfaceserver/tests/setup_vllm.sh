@@ -1,10 +1,11 @@
 #!/bin/bash
 
+VLLM_VERSION=v0.7.0
 VLLM_DIR=vllm-clone
 
 mkdir $VLLM_DIR
 cd $VLLM_DIR
-git clone --depth 1 https://github.com/vllm-project/vllm.git . && \
+git clone --branch $VLLM_VERSION --depth 1 https://github.com/vllm-project/vllm.git . && \
 pip install --upgrade pip && \
 sed -i 's/@main//' ./requirements-openvino.txt && \
 pip install -r requirements-build.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
