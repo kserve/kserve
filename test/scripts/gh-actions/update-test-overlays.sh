@@ -29,3 +29,6 @@ sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/manager_image_patch.ya
 
 # Update localmodel controller image tag
 sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/localmodel_manager_image_patch.yaml
+
+# Update localmodel agent image tag
+sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/localmodelnode_agent_image_patch.yaml
