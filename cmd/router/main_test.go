@@ -683,13 +683,13 @@ func TestServerTimeout(t *testing.T) {
 		{
 			name:                "timeout",
 			serverTimeout:       2,
-			serviceStepDuration: 1,
+			serviceStepDuration: 1 * time.Second,
 			expectError:         true,
 		},
 		{
 			name:                "success",
-			serverTimeout:       10,
-			serviceStepDuration: 1 * time.Millisecond,
+			serverTimeout:       5,
+			serviceStepDuration: 1 * time.Second,
 			expectError:         false,
 		},
 	}

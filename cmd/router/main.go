@@ -432,7 +432,7 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 	return compiled, goerrors.Join(allErrors...)
 }
 
-func parseTimeout(envVar string, defaultValue interface{}) *int64 {
+func parseTimeout(envVar string, defaultValue *int64) *int64 {
 	if envValue, exists := os.LookupEnv(envVar); exists {
 		seconds, err := strconv.ParseInt(envValue, 10, 64)
 		if err == nil {
@@ -443,8 +443,7 @@ func parseTimeout(envVar string, defaultValue interface{}) *int64 {
 	if defaultValue == nil {
 		return nil
 	}
-	timeout := defaultValue.(int64)
-	return &timeout
+	return defaultValue
 }
 
 func initTimeouts() {
