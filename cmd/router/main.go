@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -441,11 +441,11 @@ func parseTimeout(envVar string, defaultValue interface{}) *time.Duration {
 		}
 		log.Error(err, fmt.Sprintf("Failed to parse %s, using default %v", envVar, defaultValue))
 	}
-
-	if defaultValue != nil {
-		return defaultValue.(*time.Duration)
+	if defaultValue == nil {
+		return nil
 	}
-	return nil
+	timeout := defaultValue.(time.Duration)
+	return &timeout
 }
 
 func initTimeouts() {
