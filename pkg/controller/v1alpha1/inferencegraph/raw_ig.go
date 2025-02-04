@@ -19,6 +19,7 @@ package inferencegraph
 import (
 	"context"
 	"encoding/json"
+	"strings"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -75,7 +76,6 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 						Drop: []corev1.Capability{corev1.Capability("ALL")},
 					},
 				},
-				Env: buildEnvVars(graph.Spec, config),
 			},
 		},
 		Affinity:                     graph.Spec.Affinity,
@@ -91,6 +91,17 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 	value, exists := config.Headers["propagate"]
 	if exists {
 		podSpec.Containers[0].Env = []corev1.EnvVar{
+			{
+				Name:  constants.RouterHeadersPropagateEnvVar,
+				Value: strings.Join(value, ","),
+			},
+		}
+	}
+
+	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
+	value, exists := config.Headers["propagate"]
+	if exists {
+		podSpec.Containers[0].Env = []v1.EnvVar{
 			{
 				Name:  constants.RouterHeadersPropagateEnvVar,
 				Value: strings.Join(value, ","),
