@@ -754,9 +754,9 @@ func TestServerTimeout(t *testing.T) {
 					},
 				},
 				RouterTimeouts: &v1alpha1.InfereceGraphRouterTimeouts{
-					ServerRead: &testCase.serverTimeout,
+					ServerRead:  &testCase.serverTimeout,
 					ServerWrite: &testCase.serverTimeout,
-					ServerIdle: &testCase.serverTimeout,
+					ServerIdle:  &testCase.serverTimeout,
 				},
 			}
 			jsonBytes, _ := json.Marshal(graphSpec)

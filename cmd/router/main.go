@@ -431,23 +431,23 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 }
 
 func getTimeout(value, defaultValue *int64) *int64 {
-    if value != nil {
-        return value
-    }
-    return defaultValue
+	if value != nil {
+		return value
+	}
+	return defaultValue
 }
 
 func initTimeouts(graph v1alpha1.InferenceGraphSpec) {
-    defaultServerRead := int64(constants.RouterTimeoutsServerRead)
-    defaultServerWrite := int64(constants.RouterTimeoutServerWrite)
-    defaultServerIdle := int64(constants.RouterTimeoutServerIdle)
+	defaultServerRead := int64(constants.RouterTimeoutsServerRead)
+	defaultServerWrite := int64(constants.RouterTimeoutServerWrite)
+	defaultServerIdle := int64(constants.RouterTimeoutServerIdle)
 
-    routerTimeouts = &v1alpha1.InfereceGraphRouterTimeouts{
-        ServerRead:    getTimeout(graph.RouterTimeouts.ServerRead, &defaultServerRead),
-        ServerWrite:   getTimeout(graph.RouterTimeouts.ServerWrite, &defaultServerWrite),
-        ServerIdle:    getTimeout(graph.RouterTimeouts.ServerIdle, &defaultServerIdle),
-        ServiceClient: getTimeout(graph.RouterTimeouts.ServiceClient, nil),
-    }
+	routerTimeouts = &v1alpha1.InfereceGraphRouterTimeouts{
+		ServerRead:    getTimeout(graph.RouterTimeouts.ServerRead, &defaultServerRead),
+		ServerWrite:   getTimeout(graph.RouterTimeouts.ServerWrite, &defaultServerWrite),
+		ServerIdle:    getTimeout(graph.RouterTimeouts.ServerIdle, &defaultServerIdle),
+		ServiceClient: getTimeout(graph.RouterTimeouts.ServiceClient, nil),
+	}
 }
 
 // Mainly used for kubernetes readiness probe. It responds with "503 shutting down" if server is shutting down,
@@ -461,14 +461,14 @@ func readyHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 var (
-	jsonGraph              = flag.String("graph-json", "", "serialized json graph def")
-	inferenceGraph *v1alpha1.InferenceGraphSpec = nil
+	jsonGraph                                           = flag.String("graph-json", "", "serialized json graph def")
+	inferenceGraph         *v1alpha1.InferenceGraphSpec = nil
 	compiledHeaderPatterns []*regexp.Regexp
-	isShuttingDown         = false
-	drainSleepDuration     = 30 * time.Second
-	routerTimeouts           *v1alpha1.InfereceGraphRouterTimeouts = nil
-	log        = logf.Log.WithName("InferenceGraphRouter")
-	signalChan = make(chan os.Signal, 1)
+	isShuttingDown                                               = false
+	drainSleepDuration                                           = 30 * time.Second
+	routerTimeouts         *v1alpha1.InfereceGraphRouterTimeouts = nil
+	log                                                          = logf.Log.WithName("InferenceGraphRouter")
+	signalChan                                                   = make(chan os.Signal, 1)
 )
 
 func main() {
@@ -497,7 +497,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:         ":" + strconv.Itoa(constants.RouterPort),
-		Handler:      nil,                                                // default server mux
+		Handler:      nil,                                                      // default server mux
 		ReadTimeout:  time.Duration(*routerTimeouts.ServerRead) * time.Second,  // set the maximum duration for reading the entire request, including the body
 		WriteTimeout: time.Duration(*routerTimeouts.ServerWrite) * time.Second, // set the maximum duration before timing out writes of the response
 		IdleTimeout:  time.Duration(*routerTimeouts.ServerIdle) * time.Second,  // set the maximum amount of time to wait for the next request when keep-alives are enabled
