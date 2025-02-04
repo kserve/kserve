@@ -17,9 +17,7 @@ import torch
 from argparse import Namespace
 from fastapi import Request
 
-from kserve import Model
 from kserve.errors import ModelNotReady
-from kserve.model import PredictorConfig
 from kserve.protocol.rest.openai import OpenAIEncoderModel, OpenAIGenerativeModel
 from kserve.protocol.rest.openai.types import (
     Completion,

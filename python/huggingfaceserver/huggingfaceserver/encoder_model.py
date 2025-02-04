@@ -401,7 +401,7 @@ class HuggingfaceEncoderModel(
             instances = (
                 request.input if isinstance(request.input, list) else [request.input]
             )
-            inference_out, _ = await self({"instances": instances}, context)
+            inference_out, context = await self({"instances": instances}, context)
             embedding_out = inference_out["predictions"]
 
             # Calculate the input token count. Attention mask is "1" for each input token.
