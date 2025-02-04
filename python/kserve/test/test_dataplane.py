@@ -448,7 +448,7 @@ class TestDataPlaneOpenAI:
 
         assert (
             exc.value.args[0]
-            == 'Model of type DummyOpenAIModel does not support inference'
+            == "Model of type DummyOpenAIModel does not support inference"
         )
 
 

@@ -94,7 +94,10 @@ class RESTServer:
         # This adds /openai/v1/completions and /openai/v1/chat/completions routes to the
         # REST server.
         try:
-            from kserve.protocol.rest.openai.config import maybe_register_openai_endpoints
+            from kserve.protocol.rest.openai.config import (
+                maybe_register_openai_endpoints,
+            )
+
             maybe_register_openai_endpoints(self.app, self.dataplane.model_registry)
             logger.info("OpenAI endpoints registered")
         except ImportError:
