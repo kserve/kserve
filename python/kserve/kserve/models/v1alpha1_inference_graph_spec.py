@@ -53,6 +53,7 @@ class V1alpha1InferenceGraphSpec(object):
         "node_selector": "dict(str, str)",
         "nodes": "dict(str, V1alpha1InferenceRouter)",
         "resources": "V1ResourceRequirements",
+        "router_timeouts": "V1alpha1InfereceGraphRouterTimeouts",
         "scale_metric": "str",
         "scale_target": "int",
         "service_account_name": "str",
@@ -68,6 +69,7 @@ class V1alpha1InferenceGraphSpec(object):
         "node_selector": "nodeSelector",
         "nodes": "nodes",
         "resources": "resources",
+        "router_timeouts": "routerTimeouts",
         "scale_metric": "scaleMetric",
         "scale_target": "scaleTarget",
         "service_account_name": "serviceAccountName",
@@ -84,6 +86,7 @@ class V1alpha1InferenceGraphSpec(object):
         node_selector=None,
         nodes=None,
         resources=None,
+        router_timeouts=None,
         scale_metric=None,
         scale_target=None,
         service_account_name=None,
@@ -97,13 +100,13 @@ class V1alpha1InferenceGraphSpec(object):
         self.local_vars_configuration = local_vars_configuration
 
         self._affinity = None
-        self._client_service_timeout_seconds = None
         self._max_replicas = None
         self._min_replicas = None
         self._node_name = None
         self._node_selector = None
         self._nodes = None
         self._resources = None
+        self._router_timeouts = None
         self._scale_metric = None
         self._scale_target = None
         self._service_account_name = None
@@ -113,8 +116,6 @@ class V1alpha1InferenceGraphSpec(object):
 
         if affinity is not None:
             self.affinity = affinity
-        if client_service_timeout_seconds is not None:
-            self.client_service_timeout_seconds = client_service_timeout_seconds
         if max_replicas is not None:
             self.max_replicas = max_replicas
         if min_replicas is not None:
@@ -126,6 +127,8 @@ class V1alpha1InferenceGraphSpec(object):
         self.nodes = nodes
         if resources is not None:
             self.resources = resources
+        if router_timeouts is not None:
+            self.router_timeouts = router_timeouts
         if scale_metric is not None:
             self.scale_metric = scale_metric
         if scale_target is not None:
@@ -157,29 +160,6 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._affinity = affinity
-
-    @property
-    def client_service_timeout_seconds(self):
-        """Gets the client_service_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-
-        ClientServiceTimeoutSeconds specifies a time limit for requests made to the graph components.  # noqa: E501
-
-        :return: The client_service_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._client_service_timeout_seconds
-
-    @client_service_timeout_seconds.setter
-    def client_service_timeout_seconds(self, client_service_timeout_seconds):
-        """Sets the client_service_timeout_seconds of this V1alpha1InferenceGraphSpec.
-
-        ClientServiceTimeoutSeconds specifies a time limit for requests made to the graph components.  # noqa: E501
-
-        :param client_service_timeout_seconds: The client_service_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._client_service_timeout_seconds = client_service_timeout_seconds
 
     @property
     def max_replicas(self):
@@ -318,6 +298,27 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._resources = resources
+
+    @property
+    def router_timeouts(self):
+        """Gets the router_timeouts of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+
+        :return: The router_timeouts of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: V1alpha1InfereceGraphRouterTimeouts
+        """
+        return self._router_timeouts
+
+    @router_timeouts.setter
+    def router_timeouts(self, router_timeouts):
+        """Sets the router_timeouts of this V1alpha1InferenceGraphSpec.
+
+
+        :param router_timeouts: The router_timeouts of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: V1alpha1InfereceGraphRouterTimeouts
+        """
+
+        self._router_timeouts = router_timeouts
 
     @property
     def scale_metric(self):

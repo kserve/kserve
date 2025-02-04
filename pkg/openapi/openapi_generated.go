@@ -509,32 +509,9 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphSpec(ref common.ReferenceCal
 							Format:      "int64",
 						},
 					},
-					"serverReadTimeoutSeconds": {
+					"routerTimeouts": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ServerReadTimeoutSeconds specifies the number of seconds to wait before timing out a request read by the server.",
-							Type:        []string{"integer"},
-							Format:      "int64",
-						},
-					},
-					"serverWriteTimeoutSeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ServerWriteTimeoutSeconds specifies the maximum duration before timing out writes of the response.",
-							Type:        []string{"integer"},
-							Format:      "int64",
-						},
-					},
-					"serverIdleTimeoutSeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ServerIdleTimeoutSeconds specifies the maximum amount of time to wait for the next request when keep-alives are enabled.",
-							Type:        []string{"integer"},
-							Format:      "int64",
-						},
-					},
-					"clientServiceTimeoutSeconds": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ClientServiceTimeoutSeconds specifies a time limit for requests made to the graph components.",
-							Type:        []string{"integer"},
-							Format:      "int64",
+							Ref: ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InfereceGraphRouterTimeouts"),
 						},
 					},
 					"minReplicas": {
@@ -1856,7 +1833,6 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -4476,7 +4452,6 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -5520,7 +5495,6 @@ func schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -6266,7 +6240,6 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -6522,7 +6495,6 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -7280,7 +7252,6 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -7636,7 +7607,6 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -7961,7 +7931,6 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -8828,7 +8797,6 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -9859,7 +9827,6 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -10273,7 +10240,6 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -10599,7 +10565,6 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -11492,7 +11457,6 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -12286,7 +12250,6 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{

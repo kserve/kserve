@@ -891,21 +891,21 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 
 func TestServerTimeout(t *testing.T) {
 	testCases := []struct {
-		name          string
-		serverTimeout int64
-		serviceStepDuration    time.Duration
-		expectError   bool
+		name                string
+		serverTimeout       int64
+		serviceStepDuration time.Duration
+		expectError         bool
 	}{
 		{
 			name:                "timeout",
 			serverTimeout:       2,
-			serviceStepDuration: 1,
+			serviceStepDuration: 1 * time.Second,
 			expectError:         true,
 		},
 		{
 			name:                "success",
-			serverTimeout:       10,
-			serviceStepDuration: 1 * time.Millisecond,
+			serverTimeout:       5,
+			serviceStepDuration: 1 * time.Second,
 			expectError:         false,
 		},
 	}
@@ -985,7 +985,7 @@ func TestServerTimeout(t *testing.T) {
 			}()
 			t.Cleanup(func() {
 				http.DefaultServeMux = http.NewServeMux() // reset http handlers
-				signalChan <- syscall.SIGTERM // shutdown the server
+				signalChan <- syscall.SIGTERM             // shutdown the server
 			})
 
 			// Call the InferenceGraph

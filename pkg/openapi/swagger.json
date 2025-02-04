@@ -209,11 +209,6 @@
         "affinity": {
           "$ref": "#/definitions/v1.Affinity"
         },
-        "clientServiceTimeoutSeconds": {
-          "description": "ClientServiceTimeoutSeconds specifies a time limit for requests made to the graph components.",
-          "type": "integer",
-          "format": "int64"
-        },
         "maxReplicas": {
           "description": "Maximum number of replicas for autoscaling.",
           "type": "integer",
@@ -247,6 +242,9 @@
         "resources": {
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
+        },
+        "routerTimeouts": {
+          "$ref": "#/definitions/v1alpha1.InfereceGraphRouterTimeouts"
         },
         "scaleMetric": {
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
