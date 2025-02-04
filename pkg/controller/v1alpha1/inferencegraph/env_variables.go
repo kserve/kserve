@@ -17,19 +17,20 @@ limitations under the License.
 package inferencegraph
 
 import (
+	"strconv"
+	"strings"
+
 	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	v1 "k8s.io/api/core/v1"
-	"strconv"
-	"strings"
 )
 
 func buildEnvVars(spec v1alpha1api.InferenceGraphSpec, config *RouterConfig) []v1.EnvVar {
 	timeouts := map[string]*int64{
-		"SERVER_READ_TIMEOUT_SECONDS":    spec.ServerReadTimeoutSeconds,
-		"SERVER_WRITE_TIMEOUT_SECONDS":   spec.ServerWriteTimeoutSeconds,
-		"SERVER_IDLE_TIMEOUT_SECONDS":    spec.ServerIdleTimeoutSeconds,
-		"CLIENT_SERVICE_TIMEOUT_SECONDS": spec.ClientServiceTimeoutSeconds,
+		"ROUTER_TIMEOUTS_SERVER_READ":    spec.RouterTimeouts.ServerRead,
+		"ROUTER_TIMEOUTS_SERVER_WRITE":   spec.RouterTimeouts.ServerWrite,
+		"ROUTER_TIMEOUTS_SERVER_IDLE":    spec.RouterTimeouts.ServerIdle,
+		"ROUTER_TIMEOUTS_SERVICE_CLIENT": spec.RouterTimeouts.ServiceClient,
 	}
 
 	var envVars []v1.EnvVar
