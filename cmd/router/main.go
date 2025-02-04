@@ -162,11 +162,11 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 	}
 
 	var client *http.Client
-	if timeouts.ServiceClient == nil {
+	if routerTimeouts.ServiceClient == nil {
 		client = http.DefaultClient
 	} else {
 		client = &http.Client{
-			Timeout: time.Duration(*timeouts.ServiceClient) * time.Second,
+			Timeout: time.Duration(*routerTimeouts.ServiceClient) * time.Second,
 		}
 	}
 	resp, err := client.Do(req)
@@ -396,8 +396,6 @@ func prepareErrorResponse(err error, errorMessage string) []byte {
 	return errorResponseBytes
 }
 
-var inferenceGraph *v1alpha1.InferenceGraphSpec
-
 func graphHandler(w http.ResponseWriter, req *http.Request) {
 	inputBytes, _ := io.ReadAll(req.Body)
 	if response, statusCode, err := routeStep(v1alpha1.GraphRootNodeName, *inferenceGraph, inputBytes, req.Header); err != nil {
@@ -432,25 +430,24 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 	return compiled, goerrors.Join(allErrors...)
 }
 
-func parseTimeout(envVar string, defaultValue *int64) *int64 {
-	if envValue, exists := os.LookupEnv(envVar); exists {
-		seconds, err := strconv.ParseInt(envValue, 10, 64)
-		if err == nil {
-			return &seconds
-		}
-		log.Error(err, fmt.Sprintf("Failed to parse %s, using default %v", envVar, defaultValue))
-	}
-	if defaultValue == nil {
-		return nil
+func getTimeout(value, defaultValue *int64) *int64 {
+	if value != nil {
+		return value
 	}
 	return defaultValue
 }
 
-func initTimeouts() {
-	timeouts.ServerRead = parseTimeout("SERVER_READ_TIMEOUT_SECONDS", timeouts.ServerRead)
-	timeouts.ServerWrite = parseTimeout("SERVER_WRITE_TIMEOUT_SECONDS", timeouts.ServerWrite)
-	timeouts.ServerIdle = parseTimeout("SERVER_IDLE_TIMEOUT_SECONDS", timeouts.ServerIdle)
-	timeouts.ServiceClient = parseTimeout("SERVICE_CLIENT_TIMEOUT_SECONDS", nil) // nil uses the default http client, 0 means no timeout
+func initTimeouts(graph v1alpha1.InferenceGraphSpec) {
+	defaultServerRead := int64(constants.RouterTimeoutsServerRead)
+	defaultServerWrite := int64(constants.RouterTimeoutServerWrite)
+	defaultServerIdle := int64(constants.RouterTimeoutServerIdle)
+
+	routerTimeouts = &v1alpha1.InfereceGraphRouterTimeouts{
+		ServerRead:    getTimeout(graph.RouterTimeouts.ServerRead, &defaultServerRead),
+		ServerWrite:   getTimeout(graph.RouterTimeouts.ServerWrite, &defaultServerWrite),
+		ServerIdle:    getTimeout(graph.RouterTimeouts.ServerIdle, &defaultServerIdle),
+		ServiceClient: getTimeout(graph.RouterTimeouts.ServiceClient, nil),
+	}
 }
 
 // Mainly used for kubernetes readiness probe. It responds with "503 shutting down" if server is shutting down,
@@ -464,18 +461,14 @@ func readyHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 var (
-	jsonGraph              = flag.String("graph-json", "", "serialized json graph def")
+	jsonGraph                                           = flag.String("graph-json", "", "serialized json graph def")
+	inferenceGraph         *v1alpha1.InferenceGraphSpec = nil
 	compiledHeaderPatterns []*regexp.Regexp
-	isShuttingDown         = false
-	drainSleepDuration     = 30 * time.Second
-	timeouts               = v1alpha1.InfereceGraphRouterTimeouts{
-		ServerRead:    int64Ptr(int64(constants.RouterTimeoutsServerRead)),
-		ServerWrite:   int64Ptr(int64(constants.RouterTimeoutServerWrite)),
-		ServerIdle:    int64Ptr(int64(constants.RouterTimeoutServerIdle)),
-		ServiceClient: nil,
-	}
-	log        = logf.Log.WithName("InferenceGraphRouter")
-	signalChan = make(chan os.Signal, 1)
+	isShuttingDown                                               = false
+	drainSleepDuration                                           = 30 * time.Second
+	routerTimeouts         *v1alpha1.InfereceGraphRouterTimeouts = nil
+	log                                                          = logf.Log.WithName("InferenceGraphRouter")
+	signalChan                                                   = make(chan os.Signal, 1)
 )
 
 func main() {
@@ -491,24 +484,23 @@ func main() {
 		}
 	}
 
-	initTimeouts()
-
 	inferenceGraph = &v1alpha1.InferenceGraphSpec{}
 	err := json.Unmarshal([]byte(*jsonGraph), inferenceGraph)
 	if err != nil {
 		log.Error(err, "failed to unmarshall inference graph json")
 		os.Exit(1)
 	}
+	initTimeouts(*inferenceGraph)
 
 	http.HandleFunc("/", graphHandler)
 	http.HandleFunc(constants.RouterReadinessEndpoint, readyHandler)
 
 	server := &http.Server{
 		Addr:         ":" + strconv.Itoa(constants.RouterPort),
-		Handler:      nil,                                                // default server mux
-		ReadTimeout:  time.Duration(*timeouts.ServerRead) * time.Second,  // set the maximum duration for reading the entire request, including the body
-		WriteTimeout: time.Duration(*timeouts.ServerWrite) * time.Second, // set the maximum duration before timing out writes of the response
-		IdleTimeout:  time.Duration(*timeouts.ServerIdle) * time.Second,  // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		Handler:      nil,                                                      // default server mux
+		ReadTimeout:  time.Duration(*routerTimeouts.ServerRead) * time.Second,  // set the maximum duration for reading the entire request, including the body
+		WriteTimeout: time.Duration(*routerTimeouts.ServerWrite) * time.Second, // set the maximum duration before timing out writes of the response
+		IdleTimeout:  time.Duration(*routerTimeouts.ServerIdle) * time.Second,  // set the maximum amount of time to wait for the next request when keep-alives are enabled
 	}
 
 	go func() {
@@ -540,8 +532,4 @@ func handleSignals(server *http.Server) {
 		os.Exit(1)
 	}
 	log.Info("Server gracefully shutdown")
-}
-
-func int64Ptr(i int64) *int64 {
-	return &i
 }
