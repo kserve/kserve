@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,13 +17,17 @@ limitations under the License.
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strconv"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func init() {
@@ -882,4 +887,118 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 	}
 	fmt.Printf("final response:%v\n", response)
 	require.Equal(t, expectedResponse, response)
+}
+
+func TestServerTimeout(t *testing.T) {
+	testCases := []struct {
+		name          string
+		serverTimeout int64
+		serviceStepDuration    time.Duration
+		expectError   bool
+	}{
+		{
+			name:                "timeout",
+			serverTimeout:       2,
+			serviceStepDuration: 1,
+			expectError:         true,
+		},
+		{
+			name:                "success",
+			serverTimeout:       10,
+			serviceStepDuration: 1 * time.Millisecond,
+			expectError:         false,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			// Set server timeout
+			serverTimeoutPtr := int64Ptr(testCase.serverTimeout)
+			timeouts.ServerRead = serverTimeoutPtr
+			timeouts.ServerWrite = serverTimeoutPtr
+			timeouts.ServerIdle = serverTimeoutPtr
+
+			drainSleepDuration = 0 * time.Millisecond // instant shutdown
+
+			// Setup and start dummy models
+			model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				_, err := io.ReadAll(req.Body)
+				if err != nil {
+					return
+				}
+				time.Sleep(testCase.serviceStepDuration)
+				response := map[string]interface{}{"predictions": "1"}
+				responseBytes, _ := json.Marshal(response)
+				rw.Write(responseBytes)
+			}))
+			model1Url, err := apis.ParseURL(model1.URL)
+			if err != nil {
+				t.Fatalf("Failed to parse model url")
+			}
+			defer model1.Close()
+
+			model2 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				_, err := io.ReadAll(req.Body)
+				if err != nil {
+					return
+				}
+				time.Sleep(testCase.serviceStepDuration)
+				response := map[string]interface{}{"predictions": "2"}
+				responseBytes, _ := json.Marshal(response)
+				rw.Write(responseBytes)
+			}))
+			model2Url, err := apis.ParseURL(model2.URL)
+			if err != nil {
+				t.Fatalf("Failed to parse model url")
+			}
+			defer model2.Close()
+
+			// Create InferenceGraph
+			graphSpec := v1alpha1.InferenceGraphSpec{
+				Nodes: map[string]v1alpha1.InferenceRouter{
+					"root": {
+						RouterType: v1alpha1.Sequence,
+						Steps: []v1alpha1.InferenceStep{
+							{
+								StepName: "model1",
+								InferenceTarget: v1alpha1.InferenceTarget{
+									ServiceURL: model1Url.String(),
+								},
+							},
+							{
+								StepName: "model2",
+								InferenceTarget: v1alpha1.InferenceTarget{
+									ServiceURL: model2Url.String(),
+								},
+								Data: "$response",
+							},
+						},
+					},
+				},
+			}
+			jsonBytes, _ := json.Marshal(graphSpec)
+			*jsonGraph = string(jsonBytes)
+
+			// Start InferenceGraph router server in a separate goroutine
+			go func() {
+				main()
+			}()
+			t.Cleanup(func() {
+				http.DefaultServeMux = http.NewServeMux() // reset http handlers
+				signalChan <- syscall.SIGTERM // shutdown the server
+			})
+
+			// Call the InferenceGraph
+			client := &http.Client{}
+			req, _ := http.NewRequest("POST", "http://localhost:"+strconv.Itoa(constants.RouterPort), bytes.NewBuffer(nil))
+			resp, err := client.Do(req)
+
+			if testCase.expectError {
+				assert.Contains(t, err.Error(), "EOF")
+			} else {
+				assert.Nil(t, err)
+				assert.Equal(t, resp.StatusCode, http.StatusOK)
+			}
+		})
+	}
 }
