@@ -48,47 +48,38 @@ class V1alpha1InferenceGraphSpec(object):
     """
     openapi_types = {
         "affinity": "V1Affinity",
-        "client_service_timeout_seconds": "int",
         "max_replicas": "int",
         "min_replicas": "int",
         "nodes": "dict(str, V1alpha1InferenceRouter)",
         "resources": "V1ResourceRequirements",
+        "router_timeouts": "V1alpha1InfereceGraphRouterTimeouts",
         "scale_metric": "str",
         "scale_target": "int",
-        "server_idle_timeout_seconds": "int",
-        "server_read_timeout_seconds": "int",
-        "server_write_timeout_seconds": "int",
         "timeout": "int",
     }
 
     attribute_map = {
         "affinity": "affinity",
-        "client_service_timeout_seconds": "clientServiceTimeoutSeconds",
         "max_replicas": "maxReplicas",
         "min_replicas": "minReplicas",
         "nodes": "nodes",
         "resources": "resources",
+        "router_timeouts": "routerTimeouts",
         "scale_metric": "scaleMetric",
         "scale_target": "scaleTarget",
-        "server_idle_timeout_seconds": "serverIdleTimeoutSeconds",
-        "server_read_timeout_seconds": "serverReadTimeoutSeconds",
-        "server_write_timeout_seconds": "serverWriteTimeoutSeconds",
         "timeout": "timeout",
     }
 
     def __init__(
         self,
         affinity=None,
-        client_service_timeout_seconds=None,
         max_replicas=None,
         min_replicas=None,
         nodes=None,
         resources=None,
+        router_timeouts=None,
         scale_metric=None,
         scale_target=None,
-        server_idle_timeout_seconds=None,
-        server_read_timeout_seconds=None,
-        server_write_timeout_seconds=None,
         timeout=None,
         local_vars_configuration=None,
     ):  # noqa: E501
@@ -98,23 +89,18 @@ class V1alpha1InferenceGraphSpec(object):
         self.local_vars_configuration = local_vars_configuration
 
         self._affinity = None
-        self._client_service_timeout_seconds = None
         self._max_replicas = None
         self._min_replicas = None
         self._nodes = None
         self._resources = None
+        self._router_timeouts = None
         self._scale_metric = None
         self._scale_target = None
-        self._server_idle_timeout_seconds = None
-        self._server_read_timeout_seconds = None
-        self._server_write_timeout_seconds = None
         self._timeout = None
         self.discriminator = None
 
         if affinity is not None:
             self.affinity = affinity
-        if client_service_timeout_seconds is not None:
-            self.client_service_timeout_seconds = client_service_timeout_seconds
         if max_replicas is not None:
             self.max_replicas = max_replicas
         if min_replicas is not None:
@@ -122,16 +108,12 @@ class V1alpha1InferenceGraphSpec(object):
         self.nodes = nodes
         if resources is not None:
             self.resources = resources
+        if router_timeouts is not None:
+            self.router_timeouts = router_timeouts
         if scale_metric is not None:
             self.scale_metric = scale_metric
         if scale_target is not None:
             self.scale_target = scale_target
-        if server_idle_timeout_seconds is not None:
-            self.server_idle_timeout_seconds = server_idle_timeout_seconds
-        if server_read_timeout_seconds is not None:
-            self.server_read_timeout_seconds = server_read_timeout_seconds
-        if server_write_timeout_seconds is not None:
-            self.server_write_timeout_seconds = server_write_timeout_seconds
         if timeout is not None:
             self.timeout = timeout
 
@@ -155,29 +137,6 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._affinity = affinity
-
-    @property
-    def client_service_timeout_seconds(self):
-        """Gets the client_service_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-
-        ClientServiceTimeoutSeconds specifies a time limit for requests made to the graph components.  # noqa: E501
-
-        :return: The client_service_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._client_service_timeout_seconds
-
-    @client_service_timeout_seconds.setter
-    def client_service_timeout_seconds(self, client_service_timeout_seconds):
-        """Sets the client_service_timeout_seconds of this V1alpha1InferenceGraphSpec.
-
-        ClientServiceTimeoutSeconds specifies a time limit for requests made to the graph components.  # noqa: E501
-
-        :param client_service_timeout_seconds: The client_service_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._client_service_timeout_seconds = client_service_timeout_seconds
 
     @property
     def max_replicas(self):
@@ -276,6 +235,27 @@ class V1alpha1InferenceGraphSpec(object):
         self._resources = resources
 
     @property
+    def router_timeouts(self):
+        """Gets the router_timeouts of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+
+        :return: The router_timeouts of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: V1alpha1InfereceGraphRouterTimeouts
+        """
+        return self._router_timeouts
+
+    @router_timeouts.setter
+    def router_timeouts(self, router_timeouts):
+        """Sets the router_timeouts of this V1alpha1InferenceGraphSpec.
+
+
+        :param router_timeouts: The router_timeouts of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: V1alpha1InfereceGraphRouterTimeouts
+        """
+
+        self._router_timeouts = router_timeouts
+
+    @property
     def scale_metric(self):
         """Gets the scale_metric of this V1alpha1InferenceGraphSpec.  # noqa: E501
 
@@ -320,75 +300,6 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._scale_target = scale_target
-
-    @property
-    def server_idle_timeout_seconds(self):
-        """Gets the server_idle_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-
-        ServerIdleTimeoutSeconds specifies the maximum amount of time to wait for the next request when keep-alives are enabled.  # noqa: E501
-
-        :return: The server_idle_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._server_idle_timeout_seconds
-
-    @server_idle_timeout_seconds.setter
-    def server_idle_timeout_seconds(self, server_idle_timeout_seconds):
-        """Sets the server_idle_timeout_seconds of this V1alpha1InferenceGraphSpec.
-
-        ServerIdleTimeoutSeconds specifies the maximum amount of time to wait for the next request when keep-alives are enabled.  # noqa: E501
-
-        :param server_idle_timeout_seconds: The server_idle_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._server_idle_timeout_seconds = server_idle_timeout_seconds
-
-    @property
-    def server_read_timeout_seconds(self):
-        """Gets the server_read_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-
-        ServerReadTimeoutSeconds specifies the number of seconds to wait before timing out a request read by the server.  # noqa: E501
-
-        :return: The server_read_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._server_read_timeout_seconds
-
-    @server_read_timeout_seconds.setter
-    def server_read_timeout_seconds(self, server_read_timeout_seconds):
-        """Sets the server_read_timeout_seconds of this V1alpha1InferenceGraphSpec.
-
-        ServerReadTimeoutSeconds specifies the number of seconds to wait before timing out a request read by the server.  # noqa: E501
-
-        :param server_read_timeout_seconds: The server_read_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._server_read_timeout_seconds = server_read_timeout_seconds
-
-    @property
-    def server_write_timeout_seconds(self):
-        """Gets the server_write_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-
-        ServerWriteTimeoutSeconds specifies the maximum duration before timing out writes of the response.  # noqa: E501
-
-        :return: The server_write_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-        :rtype: int
-        """
-        return self._server_write_timeout_seconds
-
-    @server_write_timeout_seconds.setter
-    def server_write_timeout_seconds(self, server_write_timeout_seconds):
-        """Sets the server_write_timeout_seconds of this V1alpha1InferenceGraphSpec.
-
-        ServerWriteTimeoutSeconds specifies the maximum duration before timing out writes of the response.  # noqa: E501
-
-        :param server_write_timeout_seconds: The server_write_timeout_seconds of this V1alpha1InferenceGraphSpec.  # noqa: E501
-        :type: int
-        """
-
-        self._server_write_timeout_seconds = server_write_timeout_seconds
 
     @property
     def timeout(self):

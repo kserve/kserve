@@ -202,7 +202,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1api.In
 											Drop: []v1.Capability{v1.Capability("ALL")},
 										},
 									},
-									Env: buildEnvVars(graph.Spec, config),
+									Env:            buildEnvVars(graph.Spec, config),
 									ReadinessProbe: constants.GetRouterReadinessProbe(),
 								},
 							},
