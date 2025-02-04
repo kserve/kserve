@@ -44,21 +44,6 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-type ServerTimeouts struct {
-	Read  time.Duration
-	Write time.Duration
-	Idle  time.Duration
-}
-
-var serverTimeouts = ServerTimeouts{
-	Read:  60 * time.Second,
-	Write: 60 * time.Second,
-	Idle:  180 * time.Second,
-}
-var clientServiceTimeout *time.Duration
-
-var log = logf.Log.WithName("InferenceGraphRouter")
-
 func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, int, error) {
 	defer timeTrack(time.Now(), "step", serviceUrl)
 	log.Info("Entering callService", "url", serviceUrl)
@@ -88,11 +73,11 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 	}
 
 	var client *http.Client
-	if clientServiceTimeout == nil {
+	if timeouts.ServiceClient == nil {
 		client = http.DefaultClient
 	} else {
 		client = &http.Client{
-			Timeout: *clientServiceTimeout,
+			Timeout: time.Duration(*timeouts.ServiceClient) * time.Second,
 		}
 	}
 	resp, err := client.Do(req)
@@ -358,27 +343,26 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 	return compiled, goerrors.Join(allErrors...)
 }
 
-func parseTimeout(envVar string, defaultValue interface{}) *time.Duration {
+func parseTimeout(envVar string, defaultValue interface{}) *int64 {
 	if envValue, exists := os.LookupEnv(envVar); exists {
 		seconds, err := strconv.ParseInt(envValue, 10, 64)
 		if err == nil {
-			timeout := time.Duration(seconds) * time.Second
-			return &timeout
+			return &seconds
 		}
 		log.Error(err, fmt.Sprintf("Failed to parse %s, using default %v", envVar, defaultValue))
 	}
 	if defaultValue == nil {
 		return nil
 	}
-	timeout := defaultValue.(time.Duration)
+	timeout := defaultValue.(int64)
 	return &timeout
 }
 
 func initTimeouts() {
-	serverTimeouts.Read = *parseTimeout("SERVER_READ_TIMEOUT_SECONDS", serverTimeouts.Read)
-	serverTimeouts.Write = *parseTimeout("SERVER_WRITE_TIMEOUT_SECONDS", serverTimeouts.Write)
-	serverTimeouts.Idle = *parseTimeout("SERVER_IDLE_TIMEOUT_SECONDS", serverTimeouts.Idle)
-	clientServiceTimeout = parseTimeout("CLIENT_SERVICE_TIMEOUT_SECONDS", nil) // nil uses the default http client, 0 means no timeout
+	timeouts.ServerRead = parseTimeout("SERVER_READ_TIMEOUT_SECONDS", timeouts.ServerRead)
+	timeouts.ServerWrite = parseTimeout("SERVER_WRITE_TIMEOUT_SECONDS", timeouts.ServerWrite)
+	timeouts.ServerIdle = parseTimeout("SERVER_IDLE_TIMEOUT_SECONDS", timeouts.ServerIdle)
+	timeouts.ServiceClient = parseTimeout("SERVICE_CLIENT_TIMEOUT_SECONDS", nil) // nil uses the default http client, 0 means no timeout
 }
 
 // Mainly used for kubernetes readiness probe. It responds with "503 shutting down" if server is shutting down,
@@ -396,6 +380,14 @@ var (
 	compiledHeaderPatterns []*regexp.Regexp
 	isShuttingDown         = false
 	drainSleepDuration     = 30 * time.Second
+	timeouts = v1alpha1.InfereceGraphRouterTimeouts{
+		ServerRead:    int64Ptr(int64(constants.RouterTimeoutsServerRead)),
+		ServerWrite:   int64Ptr(int64(constants.RouterTimeoutServerWrite)),
+		ServerIdle:    int64Ptr(int64(constants.RouterTimeoutServerIdle)),
+		ServiceClient: nil,
+	}
+	log                    = logf.Log.WithName("InferenceGraphRouter")
+	signalChan             = make(chan os.Signal, 1)
 )
 
 func main() {
@@ -425,10 +417,10 @@ func main() {
 
 	server := &http.Server{
 		Addr:         ":" + strconv.Itoa(constants.RouterPort),
-		Handler:      nil,             // default server mux
-		ReadTimeout:  serverTimeouts.Read,            // set the maximum duration for reading the entire request, including the body
-		WriteTimeout: serverTimeouts.Write,           // set the maximum duration before timing out writes of the response
-		IdleTimeout:  serverTimeouts.Idle,            // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		Handler:      nil,                  // default server mux
+		ReadTimeout:  time.Duration(*timeouts.ServerRead) * time.Second,  // set the maximum duration for reading the entire request, including the body
+		WriteTimeout: time.Duration(*timeouts.ServerWrite) * time.Second, // set the maximum duration before timing out writes of the response
+		IdleTimeout:  time.Duration(*timeouts.ServerIdle) * time.Second,  // set the maximum amount of time to wait for the next request when keep-alives are enabled
 	}
 
 	go func() {
@@ -444,7 +436,6 @@ func main() {
 }
 
 func handleSignals(server *http.Server) {
-	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
 
 	sig := <-signalChan
@@ -461,4 +452,8 @@ func handleSignals(server *http.Server) {
 		os.Exit(1)
 	}
 	log.Info("Server gracefully shutdown")
+}
+
+func int64Ptr(i int64) *int64 {
+	return &i
 }
