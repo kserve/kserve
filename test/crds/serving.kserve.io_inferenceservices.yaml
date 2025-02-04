@@ -5255,9 +5255,6 @@ spec:
                         x-kubernetes-list-type: atomic
                     type: object
                 type: object
-              clientServiceTimeoutSeconds:
-                format: int64
-                type: integer
               maxReplicas:
                 type: integer
               minReplicas:
@@ -5334,6 +5331,21 @@ spec:
                       x-kubernetes-int-or-string: true
                     type: object
                 type: object
+              routerTimeouts:
+                properties:
+                  serverIdle:
+                    format: int64
+                    type: integer
+                  serverRead:
+                    format: int64
+                    type: integer
+                  serverWrite:
+                    format: int64
+                    type: integer
+                  serviceClient:
+                    format: int64
+                    type: integer
+                type: object
               scaleMetric:
                 enum:
                 - cpu
@@ -5342,15 +5354,6 @@ spec:
                 - rps
                 type: string
               scaleTarget:
-                type: integer
-              serverIdleTimeoutSeconds:
-                format: int64
-                type: integer
-              serverReadTimeoutSeconds:
-                format: int64
-                type: integer
-              serverWriteTimeoutSeconds:
-                format: int64
                 type: integer
               timeout:
                 format: int64

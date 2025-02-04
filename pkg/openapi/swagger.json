@@ -209,11 +209,6 @@
         "affinity": {
           "$ref": "#/definitions/v1.Affinity"
         },
-        "clientServiceTimeoutSeconds": {
-          "description": "ClientServiceTimeoutSeconds specifies a time limit for requests made to the graph components.",
-          "type": "integer",
-          "format": "int64"
-        },
         "maxReplicas": {
           "description": "Maximum number of replicas for autoscaling.",
           "type": "integer",
@@ -236,6 +231,9 @@
           "default": {},
           "$ref": "#/definitions/v1.ResourceRequirements"
         },
+        "routerTimeouts": {
+          "$ref": "#/definitions/v1alpha1.InfereceGraphRouterTimeouts"
+        },
         "scaleMetric": {
           "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
@@ -244,21 +242,6 @@
           "description": "ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).",
           "type": "integer",
           "format": "int32"
-        },
-        "serverIdleTimeoutSeconds": {
-          "description": "ServerIdleTimeoutSeconds specifies the maximum amount of time to wait for the next request when keep-alives are enabled.",
-          "type": "integer",
-          "format": "int64"
-        },
-        "serverReadTimeoutSeconds": {
-          "description": "ServerReadTimeoutSeconds specifies the number of seconds to wait before timing out a request read by the server.",
-          "type": "integer",
-          "format": "int64"
-        },
-        "serverWriteTimeoutSeconds": {
-          "description": "ServerWriteTimeoutSeconds specifies the maximum duration before timing out writes of the response.",
-          "type": "integer",
-          "format": "int64"
         },
         "timeout": {
           "description": "TimeoutSeconds specifies the number of seconds to wait before timing out a request to the component.",
