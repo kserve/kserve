@@ -96,9 +96,8 @@ func (c *LocalModelNodeReconciler) getNodeGroupFromNode(ctx context.Context, nod
 			return &nodeGroup, nil
 		}
 	}
-	c.Log.Error(nil, "Did not find matching nodegroup for node", "node name", nodeName)
 
-	return nil, nil
+	return nil, fmt.Errorf("did not find matching nodegroup for node: %s", nodeName)
 }
 
 func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo) (*batchv1.Job, error) {
