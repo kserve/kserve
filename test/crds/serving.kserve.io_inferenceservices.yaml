@@ -5255,9 +5255,6 @@ spec:
                         x-kubernetes-list-type: atomic
                     type: object
                 type: object
-              clientServiceTimeoutSeconds:
-                format: int64
-                type: integer
               maxReplicas:
                 format: int32
                 type: integer
@@ -5341,6 +5338,21 @@ spec:
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     type: object
+                type: object
+              routerTimeouts:
+                properties:
+                  serverIdle:
+                    format: int64
+                    type: integer
+                  serverRead:
+                    format: int64
+                    type: integer
+                  serverWrite:
+                    format: int64
+                    type: integer
+                  serviceClient:
+                    format: int64
+                    type: integer
                 type: object
               scaleMetric:
                 enum:

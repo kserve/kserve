@@ -432,7 +432,7 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 	return compiled, goerrors.Join(allErrors...)
 }
 
-func parseTimeout(envVar string, defaultValue interface{}) *int64 {
+func parseTimeout(envVar string, defaultValue *int64) *int64 {
 	if envValue, exists := os.LookupEnv(envVar); exists {
 		seconds, err := strconv.ParseInt(envValue, 10, 64)
 		if err == nil {
@@ -443,8 +443,7 @@ func parseTimeout(envVar string, defaultValue interface{}) *int64 {
 	if defaultValue == nil {
 		return nil
 	}
-	timeout := defaultValue.(int64)
-	return &timeout
+	return defaultValue
 }
 
 func initTimeouts() {
@@ -469,14 +468,14 @@ var (
 	compiledHeaderPatterns []*regexp.Regexp
 	isShuttingDown         = false
 	drainSleepDuration     = 30 * time.Second
-	timeouts = v1alpha1.InfereceGraphRouterTimeouts{
+	timeouts               = v1alpha1.InfereceGraphRouterTimeouts{
 		ServerRead:    int64Ptr(int64(constants.RouterTimeoutsServerRead)),
 		ServerWrite:   int64Ptr(int64(constants.RouterTimeoutServerWrite)),
 		ServerIdle:    int64Ptr(int64(constants.RouterTimeoutServerIdle)),
 		ServiceClient: nil,
 	}
-	log                    = logf.Log.WithName("InferenceGraphRouter")
-	signalChan             = make(chan os.Signal, 1)
+	log        = logf.Log.WithName("InferenceGraphRouter")
+	signalChan = make(chan os.Signal, 1)
 )
 
 func main() {
@@ -506,7 +505,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:         ":" + strconv.Itoa(constants.RouterPort),
-		Handler:      nil,                  // default server mux
+		Handler:      nil,                                                // default server mux
 		ReadTimeout:  time.Duration(*timeouts.ServerRead) * time.Second,  // set the maximum duration for reading the entire request, including the body
 		WriteTimeout: time.Duration(*timeouts.ServerWrite) * time.Second, // set the maximum duration before timing out writes of the response
 		IdleTimeout:  time.Duration(*timeouts.ServerIdle) * time.Second,  // set the maximum amount of time to wait for the next request when keep-alives are enabled
