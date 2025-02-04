@@ -117,6 +117,7 @@ const (
 	GraphRootNodeName string = "root"
 )
 
+// +k8s:openapi-gen=true
 type InfereceGraphRouterTimeouts struct {
 	// ServerRead specifies the number of seconds to wait before timing out a request read by the server.
 	// +optional

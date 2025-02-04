@@ -144,6 +144,31 @@
         }
       }
     },
+    "v1alpha1.InfereceGraphRouterTimeouts": {
+      "type": "object",
+      "properties": {
+        "serverIdle": {
+          "description": "ServerIdle specifies the maximum amount of time in seconds to wait for the next request when keep-alives are enabled.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "serverRead": {
+          "description": "ServerRead specifies the number of seconds to wait before timing out a request read by the server.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "serverWrite": {
+          "description": "ServerWrite specifies the maximum duration in seconds before timing out writes of the response.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "serviceClient": {
+          "description": "ServiceClient specifies a time limit in seconds for requests made to the graph components by HTTP client.",
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
     "v1alpha1.InferenceGraph": {
       "description": "InferenceGraph is the Schema for the InferenceGraph API for multiple models",
       "type": "object",

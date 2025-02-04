@@ -898,26 +898,20 @@ func TestServerTimeout(t *testing.T) {
 	}{
 		{
 			name:                "timeout",
-			serverTimeout:       2,
-			serviceStepDuration: 1 * time.Second,
+			serverTimeout:       1,
+			serviceStepDuration: 500 * time.Millisecond,
 			expectError:         true,
 		},
 		{
 			name:                "success",
-			serverTimeout:       5,
-			serviceStepDuration: 1 * time.Second,
+			serverTimeout:       2,
+			serviceStepDuration: 500 * time.Millisecond,
 			expectError:         false,
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			// Set server timeout
-			serverTimeoutPtr := int64Ptr(testCase.serverTimeout)
-			timeouts.ServerRead = serverTimeoutPtr
-			timeouts.ServerWrite = serverTimeoutPtr
-			timeouts.ServerIdle = serverTimeoutPtr
-
 			drainSleepDuration = 0 * time.Millisecond // instant shutdown
 
 			// Setup and start dummy models
@@ -974,6 +968,11 @@ func TestServerTimeout(t *testing.T) {
 							},
 						},
 					},
+				},
+				RouterTimeouts: &v1alpha1.InfereceGraphRouterTimeouts{
+					ServerRead:  &testCase.serverTimeout,
+					ServerWrite: &testCase.serverTimeout,
+					ServerIdle:  &testCase.serverTimeout,
 				},
 			}
 			jsonBytes, _ := json.Marshal(graphSpec)

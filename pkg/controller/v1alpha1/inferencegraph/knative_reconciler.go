@@ -207,7 +207,6 @@ func createKnativeService(
 											Drop: []corev1.Capability{corev1.Capability("ALL")},
 										},
 									},
-									Env:            buildEnvVars(graph.Spec, config),
 									ReadinessProbe: constants.GetRouterReadinessProbe(),
 								},
 							},
