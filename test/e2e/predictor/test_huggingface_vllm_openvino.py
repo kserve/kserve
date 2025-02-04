@@ -32,7 +32,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, generate
 
 @pytest.mark.vllm
 def test_huggingface_vllm_openvino_openai_chat_completions():
-    service_name = "hf-opt-125m-chat"
+    service_name = "hf-llama-3-2-1b-chat"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -41,17 +41,17 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
             ),
             args=[
                 "--model_id",
-                "facebook/opt-125m",
+                "NousResearch/Llama-3.2-1B",
                 "--model_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
+                "a9745ffc3556f145a830ac0c203509ba860582a3",
                 "--tokenizer_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
+                "a9745ffc3556f145a830ac0c203509ba860582a3",
                 "--max_model_len",
                 "512",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "6Gi"},
-                limits={"cpu": "2", "memory": "6Gi"},
+                requests={"cpu": "2", "memory": "12Gi"},
+                limits={"cpu": "2", "memory": "12Gi"},
             ),
         ),
     )
@@ -82,7 +82,7 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
 
 @pytest.mark.vllm
 def test_huggingface_vllm_openvino_openai_completions():
-    service_name = "hf-opt-125m-cmpl"
+    service_name = "hf-llama-3-2-1b-cmpl"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -91,17 +91,17 @@ def test_huggingface_vllm_openvino_openai_completions():
             ),
             args=[
                 "--model_id",
-                "facebook/opt-125m",
+                "NousResearch/Llama-3.2-1B",
                 "--model_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
+                "a9745ffc3556f145a830ac0c203509ba860582a3",
                 "--tokenizer_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
+                "a9745ffc3556f145a830ac0c203509ba860582a3",
                 "--max_model_len",
                 "512",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "6Gi"},
-                limits={"cpu": "2", "memory": "6Gi"},
+                requests={"cpu": "2", "memory": "12Gi"},
+                limits={"cpu": "2", "memory": "12Gi"},
             ),
         ),
     )

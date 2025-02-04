@@ -28,7 +28,7 @@ from vllm.transformers_utils.tokenizer import get_tokenizer
 from server import RemoteOpenAIServer
 
 
-MODEL = "NousResearch/Hermes-3-Llama-3.2-3B"
+MODEL = "NousResearch/Llama-3.2-1B"
 MODEL_NAME = "test-model"
 GUIDED_DECODING_BACKENDS = ["outlines", "lm-format-enforcer", "xgrammar"]
 
