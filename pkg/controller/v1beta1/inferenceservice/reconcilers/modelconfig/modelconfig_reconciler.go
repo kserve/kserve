@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
@@ -50,7 +50,7 @@ func NewModelConfigReconciler(client client.Client, clientset kubernetes.Interfa
 	}
 }
 
-func (c *ModelConfigReconciler) Reconcile(isvc *v1beta1api.InferenceService) error {
+func (c *ModelConfigReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	if v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor) {
 		// Create an empty modelConfig for every InferenceService shard
 		// An InferenceService without storageUri is an empty model server with for multi-model serving so a modelConfig configmap should be created
@@ -58,7 +58,7 @@ func (c *ModelConfigReconciler) Reconcile(isvc *v1beta1api.InferenceService) err
 		shardStrategy := memory.MemoryStrategy{}
 		for _, id := range shardStrategy.GetShard(isvc) {
 			modelConfigName := constants.ModelConfigName(isvc.Name, id)
-			_, err := c.clientset.CoreV1().ConfigMaps(isvc.Namespace).Get(context.TODO(), modelConfigName, metav1.GetOptions{})
+			_, err := c.clientset.CoreV1().ConfigMaps(isvc.Namespace).Get(ctx, modelConfigName, metav1.GetOptions{})
 			if err != nil {
 				if errors.IsNotFound(err) {
 					// If the modelConfig does not exist for an InferenceService without storageUri, create an empty modelConfig
@@ -70,7 +70,7 @@ func (c *ModelConfigReconciler) Reconcile(isvc *v1beta1api.InferenceService) err
 					if err := controllerutil.SetControllerReference(isvc, newModelConfig, c.scheme); err != nil {
 						return err
 					}
-					err = c.client.Create(context.TODO(), newModelConfig)
+					err = c.client.Create(ctx, newModelConfig)
 					if err != nil {
 						return err
 					}

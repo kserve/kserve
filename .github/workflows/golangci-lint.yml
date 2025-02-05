@@ -18,13 +18,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version-file: "go.mod"
           cache: false
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.56
-          args: --out-format=line-number
+          version: v1.63
+          args: --out-format=colored-line-number
 
   verify-go-mod:
     runs-on: ubuntu-latest
@@ -35,7 +35,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.22
+          go-version-file: "go.mod"
           cache: false
 
       - name: Run go mod tidy

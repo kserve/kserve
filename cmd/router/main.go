@@ -49,7 +49,7 @@ var log = logf.Log.WithName("InferenceGraphRouter")
 func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, int, error) {
 	defer timeTrack(time.Now(), "step", serviceUrl)
 	log.Info("Entering callService", "url", serviceUrl)
-	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
+	req, err := http.NewRequest(http.MethodPost, serviceUrl, bytes.NewBuffer(input))
 	if err != nil {
 		log.Error(err, "An error occurred while preparing request object with serviceUrl.", "serviceUrl", serviceUrl)
 		return nil, 500, err
@@ -74,7 +74,6 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 		req.Header.Add("Content-Type", "application/json")
 	}
 	resp, err := http.DefaultClient.Do(req)
-
 	if err != nil {
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
 		return nil, 500, err
@@ -245,7 +244,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 
 			if step.Condition != "" {
 				if !gjson.ValidBytes(responseBytes) {
-					return nil, 500, fmt.Errorf("invalid response")
+					return nil, 500, errors.New("invalid response")
 				}
 				// if the condition does not match for the step in the sequence we stop and return the response
 				if !gjson.GetBytes(responseBytes, step.Condition).Exists() {
@@ -403,7 +402,7 @@ func handleSignals(server *http.Server) {
 	log.Info("Received shutdown signal", "signal", sig)
 	// Fail the readiness probe
 	isShuttingDown = true
-	log.Info("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration)
+	log.Info(fmt.Sprintf("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration))
 	// Sleep to give networking a little bit more time to remove the pod
 	// from its configuration and propagate that to all loadbalancers and nodes.
 	time.Sleep(drainSleepDuration)

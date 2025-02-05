@@ -20,23 +20,25 @@ import (
 	"sort"
 	"testing"
 
+	testify "github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
-	testify "github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 func TestProcessAddOrUpdate(t *testing.T) {
 	log.SetLogger(zap.New())
 	testCases := map[string]struct {
 		modelConfigs ModelConfigs
-		configMap    *v1.ConfigMap
+		configMap    *corev1.ConfigMap
 		expected     string
 	}{
 		"add to nil data": {
@@ -46,7 +48,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
 				},
 			},
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "empty-config", Namespace: "test"},
 			},
 			expected: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}]`,
@@ -58,7 +60,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
 				},
 			},
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "empty-config", Namespace: "test"},
 				Data: map[string]string{
 					constants.ModelConfigFileName: "",
@@ -73,7 +75,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model1", Framework: "framework1"},
 				},
 			},
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "empty-config", Namespace: "test"},
 				Data: map[string]string{
 					constants.ModelConfigFileName: "[]",
@@ -88,7 +90,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 					Spec: v1alpha1.ModelSpec{StorageURI: "s3//model2", Framework: "framework2"},
 				},
 			},
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "test"},
 				Data: map[string]string{
 					constants.ModelConfigFileName: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}]`,
@@ -104,7 +106,7 @@ func TestProcessAddOrUpdate(t *testing.T) {
 					Spec: v1alpha1.ModelSpec{StorageURI: "s3//new-model1", Framework: "new-framework1"},
 				},
 			},
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "test"},
 				Data: map[string]string{
 					constants.ModelConfigFileName: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}},` +
@@ -118,11 +120,11 @@ func TestProcessAddOrUpdate(t *testing.T) {
 	for _, tc := range testCases {
 		mConfig := NewConfigsDelta(tc.modelConfigs, nil)
 		err := mConfig.Process(tc.configMap)
-		testify.Nil(t, err)
+		require.NoError(t, err)
 		data, err := getSortedConfigData(tc.configMap.Data[constants.ModelConfigFileName])
-		testify.Nil(t, err)
+		require.NoError(t, err)
 		expected, _ := getSortedConfigData(tc.expected)
-		testify.Equal(t, data, expected)
+		testify.Equal(t, expected, data)
 	}
 }
 
@@ -130,19 +132,19 @@ func TestProcessDelete(t *testing.T) {
 	log.SetLogger(zap.New())
 	testCases := map[string]struct {
 		modelConfigs []string
-		configMap    *v1.ConfigMap
+		configMap    *corev1.ConfigMap
 		expected     string
 	}{
 		"delete nil data": {
 			modelConfigs: []string{"model1"},
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "empty-config", Namespace: "test"},
 			},
 			expected: "[]",
 		},
 		"delete empty data": {
 			modelConfigs: []string{"model1"},
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "empty-config", Namespace: "test"},
 				Data: map[string]string{
 					constants.ModelConfigFileName: "",
@@ -152,7 +154,7 @@ func TestProcessDelete(t *testing.T) {
 		},
 		"delete empty data value": {
 			modelConfigs: []string{"model1"},
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "empty-config", Namespace: "test"},
 				Data: map[string]string{
 					constants.ModelConfigFileName: "[]",
@@ -162,7 +164,7 @@ func TestProcessDelete(t *testing.T) {
 		},
 		"delete filename non-exist": {
 			modelConfigs: []string{"model1"},
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "test"},
 				Data: map[string]string{
 					constants.ModelConfigFileName: `[{"modelName":"model2","modelSpec":{"storageUri":"s3//model2","framework":"framework2","memory":"0"}}]`,
@@ -172,7 +174,7 @@ func TestProcessDelete(t *testing.T) {
 		},
 		"delete filename exist": {
 			modelConfigs: []string{"model1"},
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "test"},
 				Data: map[string]string{
 					constants.ModelConfigFileName: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}}]`,
@@ -184,11 +186,11 @@ func TestProcessDelete(t *testing.T) {
 	for _, tc := range testCases {
 		mConfig := NewConfigsDelta(nil, tc.modelConfigs)
 		err := mConfig.Process(tc.configMap)
-		testify.Nil(t, err)
+		require.NoError(t, err)
 		data, err := getSortedConfigData(tc.configMap.Data[constants.ModelConfigFileName])
-		testify.Nil(t, err)
+		require.NoError(t, err)
 		expected, _ := getSortedConfigData(tc.expected)
-		testify.Equal(t, data, expected)
+		testify.Equal(t, expected, data)
 	}
 }
 
@@ -197,7 +199,7 @@ func TestProcess(t *testing.T) {
 	testCases := map[string]struct {
 		updated   ModelConfigs
 		deleted   []string
-		configMap *v1.ConfigMap
+		configMap *corev1.ConfigMap
 		expected  string
 	}{
 		"process configmap": {
@@ -212,7 +214,7 @@ func TestProcess(t *testing.T) {
 				},
 			},
 			deleted: []string{"model2"},
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-config", Namespace: "test"},
 				Data: map[string]string{
 					constants.ModelConfigFileName: `[{"modelName":"model1","modelSpec":{"storageUri":"s3//model1","framework":"framework1","memory":"0"}},` +
@@ -226,11 +228,11 @@ func TestProcess(t *testing.T) {
 	for _, tc := range testCases {
 		mConfig := NewConfigsDelta(tc.updated, tc.deleted)
 		err := mConfig.Process(tc.configMap)
-		testify.Nil(t, err)
+		require.NoError(t, err)
 		data, err := getSortedConfigData(tc.configMap.Data[constants.ModelConfigFileName])
-		testify.Nil(t, err)
+		require.NoError(t, err)
 		expected, _ := getSortedConfigData(tc.expected)
-		testify.Equal(t, data, expected)
+		testify.Equal(t, expected, data)
 	}
 }
 
@@ -265,7 +267,7 @@ func TestCreateEmptyModelConfig(t *testing.T) {
 	}
 	shardStrategy := memory.MemoryStrategy{}
 	shardId := shardStrategy.GetShard(isvc)[0]
-	expected := &v1.ConfigMap{
+	expected := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.ModelConfigName(isvc.Name, shardId),
 			Namespace: isvc.Namespace,
@@ -277,7 +279,6 @@ func TestCreateEmptyModelConfig(t *testing.T) {
 	}
 
 	configMap, err := CreateEmptyModelConfig(isvc, shardId)
-	testify.Nil(t, err)
-	testify.Equal(t, configMap, expected)
-
+	require.NoError(t, err)
+	testify.Equal(t, expected, configMap)
 }

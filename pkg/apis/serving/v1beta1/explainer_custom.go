@@ -20,21 +20,22 @@ import (
 	"fmt"
 	"strconv"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CustomExplainer defines arguments for configuring a custom explainer.
 type CustomExplainer struct {
-	v1.PodSpec `json:",inline"`
+	corev1.PodSpec `json:",inline"`
 }
 
 var _ ComponentImplementation = &CustomExplainer{}
 
 func NewCustomExplainer(podSpec *PodSpec) *CustomExplainer {
-	return &CustomExplainer{PodSpec: v1.PodSpec(*podSpec)}
+	return &CustomExplainer{PodSpec: corev1.PodSpec(*podSpec)}
 }
 
 // Validate the spec
@@ -45,7 +46,7 @@ func (s *CustomExplainer) Validate() error {
 // Default sets defaults on the resource
 func (c *CustomExplainer) Default(config *InferenceServicesConfig) {
 	if len(c.Containers) == 0 {
-		c.Containers = append(c.Containers, v1.Container{})
+		c.Containers = append(c.Containers, corev1.Container{})
 	}
 	c.Containers[0].Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(config, &c.Containers[0].Resources)
@@ -67,7 +68,8 @@ func (c *CustomExplainer) GetStorageSpec() *StorageSpec {
 
 // GetContainer transforms the resource into a container spec
 func (c *CustomExplainer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
-	predictorHost ...string) *v1.Container {
+	predictorHost ...string,
+) *corev1.Container {
 	container := &c.Containers[0]
 	if !utils.IncludesArg(container.Args, constants.ArgumentModelName) {
 		container.Args = append(container.Args, []string{

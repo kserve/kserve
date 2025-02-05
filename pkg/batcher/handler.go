@@ -101,7 +101,7 @@ func (handler *BatchHandler) batchPredict() {
 		handler.batcherInfo.Instances,
 	})
 	reader := bytes.NewReader(jsonStr)
-	r := httptest.NewRequest("POST", handler.batcherInfo.Path, reader)
+	r := httptest.NewRequest(http.MethodPost, handler.batcherInfo.Path, reader)
 	rr := httptest.NewRecorder()
 	handler.next.ServeHTTP(rr, r)
 	responseBody := rr.Body.Bytes()
@@ -166,8 +166,8 @@ func (handler *BatchHandler) batch() {
 			handler.batcherInfo.Path = req.Path
 			handler.batcherInfo.CurrentInputLen = len(handler.batcherInfo.Instances)
 			handler.batcherInfo.Instances = append(handler.batcherInfo.Instances, *req.Instances...)
-			var index = make([]int, 0)
-			for i := 0; i < len(*req.Instances); i++ {
+			index := make([]int, 0)
+			for i := range len(*req.Instances) {
 				index = append(index, handler.batcherInfo.CurrentInputLen+i)
 			}
 			handler.batcherInfo.ContextMap[req.ContextInput] = InputInfo{
@@ -221,7 +221,7 @@ func New(maxBatchSize int, maxLatency int, handler http.Handler, logger *zap.Sug
 
 func (handler *BatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// only batch predict requests
-	var predictVerb = regexp.MustCompile(`:predict$`)
+	predictVerb := regexp.MustCompile(`:predict$`)
 	if !predictVerb.MatchString(r.URL.Path) {
 		handler.next.ServeHTTP(w, r)
 		return
@@ -243,8 +243,8 @@ func (handler *BatchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	handler.log.Infof("serving request %s", r.URL.Path)
-	var ctx = context.Background()
-	var chl = make(chan Response)
+	ctx := context.Background()
+	chl := make(chan Response)
 	handler.channelIn <- Input{
 		&ctx,
 		r.URL.Path,
