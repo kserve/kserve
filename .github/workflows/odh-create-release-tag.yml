@@ -15,8 +15,6 @@ permissions:
 jobs:
   fetch-tag:
     runs-on: ubuntu-latest
-    outputs:
-      old_tag: ${{ steps.get_tag.outputs.old_tag_name }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,12 +24,9 @@ jobs:
       
       - name: Get latest tag
         id: get_tag
-        run: |
-          echo "old_tag_name=$(git ls-remote --tags origin | awk -F'/' '{print $3}' | grep -v '{}' | sort -V | tail -n1)" >> $GITHUB_OUTPUT
       - name: print tag
         id: print_tag
         run: | 
-          echo "Old Tag=${{ steps.get_tag.outputs.old_tag_name }}"
           echo "NEW_TAG=${{ github.event.inputs.tag_name }}" >> $GITHUB_ENV
           echo "$(basename ${{ github.ref }})"
 
@@ -66,7 +61,7 @@ jobs:
               
       - name: Update params.env with new release version
         run: |     
-          sed -i 's|:v[0-9.]*\b|:${{ github.event.inputs.tag_name }}|gm' config/overlays/odh/params.env
+          sed -i 's|:latest|:${{ github.event.inputs.tag_name }}|gm' config/overlays/odh/params.env
       - name: Commit changes
         run: |
           git config --global user.email "github-actions@github.com"
@@ -101,3 +96,4 @@ jobs:
           files: bin/*
           generate_release_notes: true
           name: ${{ github.event.inputs.tag_name }}
+
