@@ -259,21 +259,13 @@ class Storage(object):
             # (without any subpaths).
             # If the bucket path is s3://test/models
             # Objects: churn, churn-pickle, churn-pickle-logs
-            bucket_path_last_part = bucket_path.split("/")[-1]
-            object_last_path = obj.key.split("/")[-1]
 
             if bucket_path == obj.key:
                 target_key = obj.key.rsplit("/", 1)[-1]
                 exact_obj_found = True
-            elif bucket_path_last_part and object_last_path.startswith(
-                bucket_path_last_part
-            ):
-                target_key = object_last_path
-            elif obj.key.startswith(bucket_path):
-                # remove only the bucket_path prefix
-                target_key = obj.key[len(bucket_path) :].lstrip("/")
+
             else:
-                target_key = obj.key
+                target_key = re.sub(r"^" + re.escape(bucket_path) + r"/?", "", obj.key)
 
             target = f"{temp_dir}/{target_key}"
             if not os.path.exists(os.path.dirname(target)):
