@@ -45,21 +45,6 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-type ServerTimeouts struct {
-	Read  time.Duration
-	Write time.Duration
-	Idle  time.Duration
-}
-
-var serverTimeouts = ServerTimeouts{
-	Read:  60 * time.Second,
-	Write: 60 * time.Second,
-	Idle:  180 * time.Second,
-}
-var clientServiceTimeout *time.Duration
-
-var log = logf.Log.WithName("InferenceGraphRouter")
-
 // _isInMesh is an auxiliary global variable for isInIstioMesh function.
 var _isInMesh *bool
 
@@ -162,7 +147,7 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 	}
 
 	var client *http.Client
-	if routerTimeouts.ServiceClient == nil {
+	if routerTimeouts == nil || routerTimeouts.ServiceClient == nil {
 		client = http.DefaultClient
 	} else {
 		client = &http.Client{
@@ -442,12 +427,21 @@ func initTimeouts(graph v1alpha1.InferenceGraphSpec) {
 	defaultServerWrite := int64(constants.RouterTimeoutServerWrite)
 	defaultServerIdle := int64(constants.RouterTimeoutServerIdle)
 
-	routerTimeouts = &v1alpha1.InfereceGraphRouterTimeouts{
-		ServerRead:    getTimeout(graph.RouterTimeouts.ServerRead, &defaultServerRead),
-		ServerWrite:   getTimeout(graph.RouterTimeouts.ServerWrite, &defaultServerWrite),
-		ServerIdle:    getTimeout(graph.RouterTimeouts.ServerIdle, &defaultServerIdle),
-		ServiceClient: getTimeout(graph.RouterTimeouts.ServiceClient, nil),
+	timeouts := &v1alpha1.InfereceGraphRouterTimeouts{
+		ServerRead:    &defaultServerRead,
+		ServerWrite:   &defaultServerWrite,
+		ServerIdle:    &defaultServerIdle,
+		ServiceClient: nil,
 	}
+
+	if graph.RouterTimeouts != nil {
+		timeouts.ServerRead = getTimeout(graph.RouterTimeouts.ServerRead, &defaultServerRead)
+		timeouts.ServerWrite = getTimeout(graph.RouterTimeouts.ServerWrite, &defaultServerWrite)
+		timeouts.ServerIdle = getTimeout(graph.RouterTimeouts.ServerIdle, &defaultServerIdle)
+		timeouts.ServiceClient = getTimeout(graph.RouterTimeouts.ServiceClient, nil)
+	}
+
+	routerTimeouts = timeouts
 }
 
 // Mainly used for kubernetes readiness probe. It responds with "503 shutting down" if server is shutting down,

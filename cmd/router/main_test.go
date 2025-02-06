@@ -43,6 +43,10 @@ func init() {
 	logf.SetLogger(zap.New())
 }
 
+func Int64Ptr(i int64) *int64 {
+	return &i
+}
+
 func TestSimpleModelChainer(t *testing.T) {
 	// Start a local HTTP server
 	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -892,19 +896,25 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 func TestServerTimeout(t *testing.T) {
 	testCases := []struct {
 		name                string
-		serverTimeout       int64
+		serverTimeout       *int64
 		serviceStepDuration time.Duration
 		expectError         bool
 	}{
 		{
+			name:                "default",
+			serverTimeout:       nil,
+			serviceStepDuration: 1 * time.Millisecond,
+			expectError:         false,
+		},
+		{
 			name:                "timeout",
-			serverTimeout:       1,
+			serverTimeout:       Int64Ptr(1),
 			serviceStepDuration: 500 * time.Millisecond,
 			expectError:         true,
 		},
 		{
 			name:                "success",
-			serverTimeout:       2,
+			serverTimeout:       Int64Ptr(2),
 			serviceStepDuration: 500 * time.Millisecond,
 			expectError:         false,
 		},
@@ -969,11 +979,14 @@ func TestServerTimeout(t *testing.T) {
 						},
 					},
 				},
-				RouterTimeouts: &v1alpha1.InfereceGraphRouterTimeouts{
-					ServerRead:  &testCase.serverTimeout,
-					ServerWrite: &testCase.serverTimeout,
-					ServerIdle:  &testCase.serverTimeout,
-				},
+			}
+			if testCase.serverTimeout != nil {
+				timeout := *testCase.serverTimeout
+				graphSpec.RouterTimeouts = &v1alpha1.InfereceGraphRouterTimeouts{
+					ServerRead:  &timeout,
+					ServerWrite: &timeout,
+					ServerIdle:  &timeout,
+				}
 			}
 			jsonBytes, _ := json.Marshal(graphSpec)
 			*jsonGraph = string(jsonBytes)
