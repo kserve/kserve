@@ -855,12 +855,14 @@ func TestLocalModelAnnotation(t *testing.T) {
 	}
 	protocolVersion := constants.ProtocolV2
 	localModelName := "iris"
+	gpu1, gpu2 := "gpu1", "gpu2"
 	scenarios := map[string]struct {
-		config  *InferenceServicesConfig
-		isvc    InferenceService
-		matcher types.GomegaMatcher
+		config            *InferenceServicesConfig
+		isvc              InferenceService
+		labelMatcher      types.GomegaMatcher
+		annotationMatcher types.GomegaMatcher
 	}{
-		"isvc without LocalModelCache": {
+		"isvc without node group annotation with LocalModelCache": {
 			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -878,9 +880,34 @@ func TestLocalModelAnnotation(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.HaveKeyWithValue(constants.LocalModelLabel, localModelName),
+			labelMatcher:      gomega.HaveKeyWithValue(constants.LocalModelLabel, localModelName),
+			annotationMatcher: gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, localModelName+"-"+gpu1),
 		},
-		"isvc with LocalModelCache": {
+		"isvc with node group annotation with LocalModelCache": {
+			config: &InferenceServicesConfig{},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.NodeGroupAnnotationKey: gpu2, // should append this to PVC name
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PyTorch: &TorchServeSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://testbucket/testmodel"),
+								ProtocolVersion: &protocolVersion,
+							},
+						},
+					},
+				},
+			},
+			labelMatcher:      gomega.HaveKeyWithValue(constants.LocalModelLabel, localModelName),
+			annotationMatcher: gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, localModelName+"-"+gpu2),
+		},
+		"isvc without LocalModelCache": {
 			config: &InferenceServicesConfig{},
 			isvc: InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -900,7 +927,8 @@ func TestLocalModelAnnotation(t *testing.T) {
 					},
 				},
 			},
-			matcher: gomega.Not(gomega.HaveKeyWithValue(constants.LocalModelLabel, localModelName)),
+			labelMatcher:      gomega.Not(gomega.HaveKeyWithValue(constants.LocalModelLabel, localModelName)),
+			annotationMatcher: gomega.Not(gomega.HaveKey(constants.LocalModelPVCNameAnnotationKey)),
 		},
 	}
 	localModel := &v1alpha1.LocalModelCache{
@@ -910,12 +938,13 @@ func TestLocalModelAnnotation(t *testing.T) {
 		Spec: v1alpha1.LocalModelCacheSpec{
 			SourceModelUri: "gs://testbucket/testmodel",
 			ModelSize:      resource.MustParse("123Gi"),
-			NodeGroups:     []string{"gpu"},
+			NodeGroups:     []string{gpu1, gpu2},
 		},
 	}
 	localModels := &v1alpha1.LocalModelCacheList{Items: []v1alpha1.LocalModelCache{*localModel}}
 	for _, scenario := range scenarios {
 		scenario.isvc.DefaultInferenceService(scenario.config, deployConfig, nil, localModels)
-		g.Expect(scenario.isvc.ObjectMeta.Labels).To(scenario.matcher)
+		g.Expect(scenario.isvc.ObjectMeta.Labels).To(scenario.labelMatcher)
+		g.Expect(scenario.isvc.ObjectMeta.Annotations).To(scenario.annotationMatcher)
 	}
 }

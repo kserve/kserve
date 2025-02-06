@@ -32,7 +32,6 @@ type LocalModelCacheSpec struct {
 	// group of nodes to cache the model on.
 	// Todo: support more than 1 node groups
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=1
 	NodeGroups []string `json:"nodeGroups" validate:"required"`
 }
 
