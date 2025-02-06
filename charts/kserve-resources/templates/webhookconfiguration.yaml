@@ -4,7 +4,7 @@ kind: MutatingWebhookConfiguration
 metadata:
   name: inferenceservice.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/kserve-webhook-server-cert
 webhooks:
   - clientConfig:
       service:
@@ -55,7 +55,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: inferenceservice.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/kserve-webhook-server-cert
 webhooks:
   - clientConfig:
       service:
@@ -83,7 +83,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: trainedmodel.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/kserve-webhook-server-cert
 webhooks:
   - clientConfig:
       service:
@@ -112,7 +112,7 @@ metadata:
   creationTimestamp: null
   name: inferencegraph.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/kserve-webhook-server-cert
 webhooks:
   - clientConfig:
       service:
@@ -140,7 +140,7 @@ metadata:
   creationTimestamp: null
   name: clusterservingruntime.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/kserve-webhook-server-cert
 webhooks:
   - clientConfig:
       service:
@@ -168,7 +168,7 @@ metadata:
   creationTimestamp: null
   name: servingruntime.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/kserve-webhook-server-cert
 webhooks:
   - clientConfig:
       service:
@@ -196,7 +196,7 @@ metadata:
   creationTimestamp: null
   name: localmodelcache.serving.kserve.io
   annotations:
-    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/serving-cert
+    cert-manager.io/inject-ca-from: {{ .Release.Namespace }}/kserve-webhook-server-cert
 webhooks:
   - clientConfig:
       service:
