@@ -167,25 +167,25 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	}
 	isvcNames := []v1alpha1.NamespacedName{}
 	// namespaces with isvcs deployed and their node groups
-	namespaceToNodeGroups := make(map[string]map[*v1alpha1api.LocalModelNodeGroup]struct{})
+	namespaceToNodeGroups := make(map[string]map[string]*v1alpha1api.LocalModelNodeGroup)
 	for _, isvc := range isvcs.Items {
 		isvcNames = append(isvcNames, v1alpha1.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace})
 		// isvc has nodegroup annotation
 		if isvcNodeGroup, ok := isvc.ObjectMeta.Annotations[constants.NodeGroupAnnotationKey]; ok {
 			if nodeGroup, ok := localModelNodeGroups[isvcNodeGroup]; ok {
 				if _, ok := namespaceToNodeGroups[isvc.Namespace]; !ok {
-					namespaceToNodeGroups[isvc.Namespace] = map[*v1alpha1api.LocalModelNodeGroup]struct{}{}
+					namespaceToNodeGroups[isvc.Namespace] = map[string]*v1alpha1api.LocalModelNodeGroup{}
 				}
-				namespaceToNodeGroups[isvc.Namespace][nodeGroup] = struct{}{}
+				namespaceToNodeGroups[isvc.Namespace][nodeGroup.Name] = nodeGroup
 			} else {
 				c.Log.Info("Didn't find isvc node group in model cache node groups", "isvc name", isvc.Name, "isvc node group", isvcNodeGroup, "model cache node groups", maps.Keys(localModelNodeGroups))
 			}
 			// isvc does not have nodegroup annotation. Use default nodegroup
 		} else if _, ok := namespaceToNodeGroups[isvc.Namespace]; !ok {
 			c.Log.Info("Isvc does not have node group annotation", "isvc name", isvc.Name, "nodegroup annotation", constants.NodeGroupAnnotationKey)
-			namespaceToNodeGroups[isvc.Namespace] = map[*v1alpha1api.LocalModelNodeGroup]struct{}{defaultNodeGroup: {}}
+			namespaceToNodeGroups[isvc.Namespace] = map[string]*v1alpha1api.LocalModelNodeGroup{defaultNodeGroup.Name: defaultNodeGroup}
 		} else {
-			namespaceToNodeGroups[isvc.Namespace][defaultNodeGroup] = struct{}{}
+			namespaceToNodeGroups[isvc.Namespace][defaultNodeGroup.Name] = defaultNodeGroup
 		}
 	}
 	localModel.Status.InferenceServices = isvcNames
@@ -223,8 +223,8 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	}
 
 	for namespace, nodeGroups := range namespaceToNodeGroups {
-		for nodeGroup := range nodeGroups {
-			pvcName := localModel.Name + "-" + nodeGroup.Name
+		for nodeGroupName, nodeGroup := range nodeGroups {
+			pvcName := localModel.Name + "-" + nodeGroupName
 			pv := v1.PersistentVolume{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: pvcName + "-" + namespace,
