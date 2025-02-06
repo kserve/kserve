@@ -287,21 +287,34 @@ def is_v1(protocol: Union[str, PredictorProtocol]) -> bool:
 
 
 def merge_request_inputs(inputs: List[InferInput]) -> np.ndarray:
-    batch_shape = inputs[0].shape.copy()
-    batch_data = inputs[0].data.copy()
-    batch_datatype = inputs[0].datatype
+    first_input = inputs[0]
+    first_datatype = first_input.datatype
+
+    # Validate that all inputs have the same datatype
+    if any(input.datatype != first_datatype for input in inputs):
+        if (
+            first_datatype == "BYTES"
+            and len(first_input.data) > 0
+            and isinstance(first_input.data[0], str)
+        ):
+            return first_input.data
+        return first_input.as_numpy()
+
+    batch_shape = first_input.shape.copy()
+    batch_data = first_input.data.copy()
 
     for input in inputs[1:]:
         batch_shape[0] += input.shape[0]
         batch_data += input.data
 
     batch_input = InferInput(
-        name="input-0", data=batch_data, shape=batch_shape, datatype=batch_datatype
+        name="input-0", data=batch_data, shape=batch_shape, datatype=first_datatype
     )
+
     if (
-        inputs[0].datatype == "BYTES"
-        and len(inputs[0].data) > 0
-        and isinstance(inputs[0].data[0], str)
+        first_datatype == "BYTES"
+        and first_input.data
+        and isinstance(first_input.data[0], str)
     ):
         return batch_data
 
