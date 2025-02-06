@@ -32,7 +32,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, generate
 
 @pytest.mark.vllm
 def test_huggingface_vllm_openvino_openai_chat_completions():
-    service_name = "hf-llama-3-2-1b-chat"
+    service_name = "hf-chat"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -41,11 +41,11 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
             ),
             args=[
                 "--model_id",
-                "NousResearch/Llama-3.2-1B",
+                "openbmb/MiniCPM-S-1B-sft",
                 "--model_revision",
-                "a9745ffc3556f145a830ac0c203509ba860582a3",
+                "e46afa6f3d196527ab75e869184e27c833e8effb",
                 "--tokenizer_revision",
-                "a9745ffc3556f145a830ac0c203509ba860582a3",
+                "e46afa6f3d196527ab75e869184e27c833e8effb",
                 "--max_model_len",
                 "512",
             ],
@@ -82,7 +82,7 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
 
 @pytest.mark.vllm
 def test_huggingface_vllm_openvino_openai_completions():
-    service_name = "hf-llama-3-2-1b-cmpl"
+    service_name = "hf-cmpl"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -91,11 +91,11 @@ def test_huggingface_vllm_openvino_openai_completions():
             ),
             args=[
                 "--model_id",
-                "NousResearch/Llama-3.2-1B",
+                "openbmb/MiniCPM-S-1B-sft",
                 "--model_revision",
-                "a9745ffc3556f145a830ac0c203509ba860582a3",
+                "e46afa6f3d196527ab75e869184e27c833e8effb",
                 "--tokenizer_revision",
-                "a9745ffc3556f145a830ac0c203509ba860582a3",
+                "e46afa6f3d196527ab75e869184e27c833e8effb",
                 "--max_model_len",
                 "512",
             ],

@@ -36,7 +36,7 @@ from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
 from vllm.entrypoints.openai.tool_parsers import ToolParserManager
 from vllm.entrypoints.openai.protocol import ErrorResponse
-from vllm.entrypoints.openai.serving_engine import BaseModelPath
+from vllm.entrypoints.openai.serving_models import BaseModelPath, OpenAIServingModels
 from vllm.entrypoints.openai.api_server import (
     build_async_engine_client_from_engine_args,
 )
@@ -68,6 +68,7 @@ class VLLMModel(
         self.model_name = model_name
 
     async def start_engine(self):
+        args = self.args
         if self.args.tool_parser_plugin and len(self.args.tool_parser_plugin) > 3:
             ToolParserManager.import_tool_parser(self.args.tool_parser_plugin)
 
@@ -104,20 +105,29 @@ class VLLMModel(
 
             resolved_chat_template = load_chat_template(self.args.chat_template)
 
+            self.openai_serving_models = OpenAIServingModels(
+                engine_client=self.engine_client,
+                model_config=self.model_config,
+                base_model_paths=self.base_model_paths,
+                lora_modules=self.args.lora_modules,
+                prompt_adapters=self.args.prompt_adapters,
+            )
+
             self.openai_serving_chat = (
                 OpenAIServingChat(
                     self.engine_client,
                     self.model_config,
-                    self.base_model_paths,
+                    self.openai_serving_models,
                     self.args.response_role,
-                    lora_modules=self.args.lora_modules,
-                    prompt_adapters=self.args.prompt_adapters,
                     request_logger=self.request_logger,
                     chat_template=resolved_chat_template,
                     chat_template_content_format=self.args.chat_template_content_format,
                     return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
                     enable_auto_tools=self.args.enable_auto_tool_choice,
                     tool_parser=self.args.tool_call_parser,
+                    enable_reasoning=self.args.enable_reasoning,
+                    reasoning_parser=self.args.reasoning_parser,
+                    enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
                 )
                 if self.model_config.runner_type == "generate"
                 else None
@@ -127,9 +137,7 @@ class VLLMModel(
                 OpenAIServingCompletion(
                     self.engine_client,
                     self.model_config,
-                    self.base_model_paths,
-                    lora_modules=self.args.lora_modules,
-                    prompt_adapters=self.args.prompt_adapters,
+                    self.openai_serving_models,
                     request_logger=self.request_logger,
                     return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
                 )
@@ -141,7 +149,7 @@ class VLLMModel(
                 OpenAIServingEmbedding(
                     self.engine_client,
                     self.model_config,
-                    self.base_model_paths,
+                    self.openai_serving_models,
                     request_logger=self.request_logger,
                     chat_template=resolved_chat_template,
                     chat_template_content_format=self.args.chat_template_content_format,
