@@ -7267,6 +7267,9 @@ spec:
                       - name
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   deploymentStrategy:
                     properties:
                       rollingUpdate:
@@ -7326,6 +7329,9 @@ spec:
                       - ip
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - ip
+                    x-kubernetes-list-type: map
                   hostIPC:
                     type: boolean
                   hostNetwork:
@@ -7345,6 +7351,9 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   initContainers:
                     items:
                       properties:
@@ -8025,6 +8034,9 @@ spec:
                       - name
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   labels:
                     additionalProperties:
                       type: string
@@ -8084,6 +8096,7 @@ spec:
                       - conditionType
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   resourceClaims:
                     items:
                       properties:
@@ -8100,6 +8113,39 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  resources:
+                    properties:
+                      claims:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            request:
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        type: object
+                    type: object
                   restartPolicy:
                     type: string
                   runtimeClassName:
@@ -8151,6 +8197,8 @@ spec:
                       runAsUser:
                         format: int64
                         type: integer
+                      seLinuxChangePolicy:
+                        type: string
                       seLinuxOptions:
                         properties:
                           level:
@@ -8236,6 +8284,7 @@ spec:
                           type: string
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   topologySpreadConstraints:
                     items:
                       properties:
@@ -9075,6 +9124,9 @@ spec:
                       - name
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                 type: object
               predictor:
                 properties:
@@ -10217,6 +10269,9 @@ spec:
                       - name
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   deploymentStrategy:
                     properties:
                       rollingUpdate:
@@ -10276,6 +10331,9 @@ spec:
                       - ip
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - ip
+                    x-kubernetes-list-type: map
                   hostIPC:
                     type: boolean
                   hostNetwork:
@@ -10982,6 +11040,9 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   initContainers:
                     items:
                       properties:
@@ -11662,6 +11723,9 @@ spec:
                       - name
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   labels:
                     additionalProperties:
                       type: string
@@ -15854,6 +15918,7 @@ spec:
                       - conditionType
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   resourceClaims:
                     items:
                       properties:
@@ -15870,6 +15935,39 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  resources:
+                    properties:
+                      claims:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            request:
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        type: object
+                    type: object
                   restartPolicy:
                     type: string
                   runtimeClassName:
@@ -15921,6 +16019,8 @@ spec:
                       runAsUser:
                         format: int64
                         type: integer
+                      seLinuxChangePolicy:
+                        type: string
                       seLinuxOptions:
                         properties:
                           level:
@@ -17380,6 +17480,7 @@ spec:
                           type: string
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   topologySpreadConstraints:
                     items:
                       properties:
@@ -18906,6 +19007,9 @@ spec:
                       - name
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   workerSpec:
                     properties:
                       activeDeadlineSeconds:
@@ -20032,6 +20136,9 @@ spec:
                           - name
                           type: object
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       dnsConfig:
                         properties:
                           nameservers:
@@ -20741,6 +20848,9 @@ spec:
                           - name
                           type: object
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       hostAliases:
                         items:
                           properties:
@@ -20755,6 +20865,9 @@ spec:
                           - ip
                           type: object
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - ip
+                        x-kubernetes-list-type: map
                       hostIPC:
                         type: boolean
                       hostNetwork:
@@ -20774,6 +20887,9 @@ spec:
                           type: object
                           x-kubernetes-map-type: atomic
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       initContainers:
                         items:
                           properties:
@@ -21454,6 +21570,9 @@ spec:
                           - name
                           type: object
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                       nodeName:
                         type: string
                       nodeSelector:
@@ -21494,6 +21613,7 @@ spec:
                           - conditionType
                           type: object
                         type: array
+                        x-kubernetes-list-type: atomic
                       resourceClaims:
                         items:
                           properties:
@@ -21510,6 +21630,39 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
+                      resources:
+                        properties:
+                          claims:
+                            items:
+                              properties:
+                                name:
+                                  type: string
+                                request:
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
+                          limits:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            type: object
+                          requests:
+                            additionalProperties:
+                              anyOf:
+                              - type: integer
+                              - type: string
+                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                              x-kubernetes-int-or-string: true
+                            type: object
+                        type: object
                       restartPolicy:
                         type: string
                       runtimeClassName:
@@ -21552,6 +21705,8 @@ spec:
                           runAsUser:
                             format: int64
                             type: integer
+                          seLinuxChangePolicy:
+                            type: string
                           seLinuxOptions:
                             properties:
                               level:
@@ -21636,6 +21791,7 @@ spec:
                               type: string
                           type: object
                         type: array
+                        x-kubernetes-list-type: atomic
                       topologySpreadConstraints:
                         items:
                           properties:
@@ -22475,6 +22631,9 @@ spec:
                           - name
                           type: object
                         type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
                     type: object
                   xgboost:
                     properties:
@@ -24305,6 +24464,9 @@ spec:
                       - name
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   deploymentStrategy:
                     properties:
                       rollingUpdate:
@@ -24364,6 +24526,9 @@ spec:
                       - ip
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - ip
+                    x-kubernetes-list-type: map
                   hostIPC:
                     type: boolean
                   hostNetwork:
@@ -24383,6 +24548,9 @@ spec:
                       type: object
                       x-kubernetes-map-type: atomic
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   initContainers:
                     items:
                       properties:
@@ -25063,6 +25231,9 @@ spec:
                       - name
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                   labels:
                     additionalProperties:
                       type: string
@@ -25122,6 +25293,7 @@ spec:
                       - conditionType
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   resourceClaims:
                     items:
                       properties:
@@ -25138,6 +25310,39 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  resources:
+                    properties:
+                      claims:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            request:
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        type: object
+                    type: object
                   restartPolicy:
                     type: string
                   runtimeClassName:
@@ -25189,6 +25394,8 @@ spec:
                       runAsUser:
                         format: int64
                         type: integer
+                      seLinuxChangePolicy:
+                        type: string
                       seLinuxOptions:
                         properties:
                           level:
@@ -25274,6 +25481,7 @@ spec:
                           type: string
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   topologySpreadConstraints:
                     items:
                       properties:
@@ -26113,6 +26321,9 @@ spec:
                       - name
                       type: object
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                 type: object
             required:
             - predictor
