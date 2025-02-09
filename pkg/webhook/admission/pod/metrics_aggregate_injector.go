@@ -73,7 +73,8 @@ func setMetricAggregationEnvVarsAndPorts(pod *v1.Pod) {
 			pod.Spec.Containers[i].Env = append(pod.Spec.Containers[i].Env, v1.EnvVar{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: strconv.Itoa(constants.QueueProxyAggregatePrometheusMetricsPort)})
 
 			pod.Spec.Containers[i].Ports = utils.AppendPortIfNotExists(pod.Spec.Containers[i].Ports, v1.ContainerPort{
-				Name:          constants.AggregateMetricsPortName,
+				Name: constants.AggregateMetricsPortName,
+				//nolint:gosec // disable G115
 				ContainerPort: int32(constants.QueueProxyAggregatePrometheusMetricsPort),
 				Protocol:      "TCP",
 			})

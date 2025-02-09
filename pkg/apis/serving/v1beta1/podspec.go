@@ -31,8 +31,6 @@ type PodSpec struct {
 	// +optional
 	// +patchMergeKey=name
 	// +patchStrategy=merge,retainKeys
-	// +listType=map
-	// +listMapKey=name
 	Volumes []v1.Volume `json:"volumes,omitempty" patchStrategy:"merge,retainKeys" patchMergeKey:"name" protobuf:"bytes,1,rep,name=volumes"`
 	// List of initialization containers belonging to the pod.
 	// Init containers are executed in order prior to containers being started. If any
@@ -49,8 +47,6 @@ type PodSpec struct {
 	// More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	// +listType=map
-	// +listMapKey=name
 	InitContainers []v1.Container `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,20,rep,name=initContainers"`
 	// List of containers belonging to the pod.
 	// Containers cannot currently be added or removed.
@@ -58,8 +54,6 @@ type PodSpec struct {
 	// Cannot be updated.
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	// +listType=map
-	// +listMapKey=name
 	Containers []v1.Container `json:"containers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,2,rep,name=containers"`
 	// List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing
 	// pod to perform user-initiated actions such as debugging. This list cannot be specified when
@@ -68,8 +62,6 @@ type PodSpec struct {
 	// +optional
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	// +listType=map
-	// +listMapKey=name
 	EphemeralContainers []v1.EphemeralContainer `json:"ephemeralContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,34,rep,name=ephemeralContainers"`
 	// Restart policy for all containers within the pod.
 	// One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted.
@@ -161,8 +153,6 @@ type PodSpec struct {
 	// +optional
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	// +listType=map
-	// +listMapKey=name
 	ImagePullSecrets []v1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
 	// Specifies the hostname of the Pod
 	// If not specified, the pod's hostname will be set to a system-defined value.
@@ -181,15 +171,12 @@ type PodSpec struct {
 	SchedulerName string `json:"schedulerName,omitempty" protobuf:"bytes,19,opt,name=schedulerName"`
 	// If specified, the pod's tolerations.
 	// +optional
-	// +listType=atomic
 	Tolerations []v1.Toleration `json:"tolerations,omitempty" protobuf:"bytes,22,opt,name=tolerations"`
 	// HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts
 	// file if specified.
 	// +optional
 	// +patchMergeKey=ip
 	// +patchStrategy=merge
-	// +listType=map
-	// +listMapKey=ip
 	HostAliases []v1.HostAlias `json:"hostAliases,omitempty" patchStrategy:"merge" patchMergeKey:"ip" protobuf:"bytes,23,rep,name=hostAliases"`
 	// If specified, indicates the pod's priority. "system-node-critical" and
 	// "system-cluster-critical" are two special keywords which indicate the
@@ -216,7 +203,6 @@ type PodSpec struct {
 	// all conditions specified in the readiness gates have status equal to "True"
 	// More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates
 	// +optional
-	// +listType=atomic
 	ReadinessGates []v1.PodReadinessGate `json:"readinessGates,omitempty" protobuf:"bytes,28,opt,name=readinessGates"`
 	// RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used
 	// to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run.

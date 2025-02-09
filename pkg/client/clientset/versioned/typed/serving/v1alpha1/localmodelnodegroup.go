@@ -19,9 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	scheme "github.com/kserve/kserve/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,33 +37,34 @@ type LocalModelNodeGroupsGetter interface {
 
 // LocalModelNodeGroupInterface has methods to work with LocalModelNodeGroup resources.
 type LocalModelNodeGroupInterface interface {
-	Create(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.CreateOptions) (*v1alpha1.LocalModelNodeGroup, error)
-	Update(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (*v1alpha1.LocalModelNodeGroup, error)
+	Create(ctx context.Context, localModelNodeGroup *servingv1alpha1.LocalModelNodeGroup, opts v1.CreateOptions) (*servingv1alpha1.LocalModelNodeGroup, error)
+	Update(ctx context.Context, localModelNodeGroup *servingv1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (*servingv1alpha1.LocalModelNodeGroup, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (*v1alpha1.LocalModelNodeGroup, error)
+	UpdateStatus(ctx context.Context, localModelNodeGroup *servingv1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (*servingv1alpha1.LocalModelNodeGroup, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.LocalModelNodeGroup, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.LocalModelNodeGroupList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*servingv1alpha1.LocalModelNodeGroup, error)
+	List(ctx context.Context, opts v1.ListOptions) (*servingv1alpha1.LocalModelNodeGroupList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LocalModelNodeGroup, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *servingv1alpha1.LocalModelNodeGroup, err error)
 	LocalModelNodeGroupExpansion
 }
 
 // localModelNodeGroups implements LocalModelNodeGroupInterface
 type localModelNodeGroups struct {
-	*gentype.ClientWithList[*v1alpha1.LocalModelNodeGroup, *v1alpha1.LocalModelNodeGroupList]
+	*gentype.ClientWithList[*servingv1alpha1.LocalModelNodeGroup, *servingv1alpha1.LocalModelNodeGroupList]
 }
 
 // newLocalModelNodeGroups returns a LocalModelNodeGroups
 func newLocalModelNodeGroups(c *ServingV1alpha1Client, namespace string) *localModelNodeGroups {
 	return &localModelNodeGroups{
-		gentype.NewClientWithList[*v1alpha1.LocalModelNodeGroup, *v1alpha1.LocalModelNodeGroupList](
+		gentype.NewClientWithList[*servingv1alpha1.LocalModelNodeGroup, *servingv1alpha1.LocalModelNodeGroupList](
 			"localmodelnodegroups",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.LocalModelNodeGroup { return &v1alpha1.LocalModelNodeGroup{} },
-			func() *v1alpha1.LocalModelNodeGroupList { return &v1alpha1.LocalModelNodeGroupList{} }),
+			func() *servingv1alpha1.LocalModelNodeGroup { return &servingv1alpha1.LocalModelNodeGroup{} },
+			func() *servingv1alpha1.LocalModelNodeGroupList { return &servingv1alpha1.LocalModelNodeGroupList{} },
+		),
 	}
 }
