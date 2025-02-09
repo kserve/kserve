@@ -9,7 +9,7 @@ ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.8.3
 
 # Install vllm
-ARG VLLM_VERSION=v0.6.4.post1
+ARG VLLM_VERSION=v0.7.2
 
 RUN apt-get update -y && apt-get install -y \
     gcc python3.10-venv python3-dev python3-pip \
@@ -33,7 +33,7 @@ COPY kserve kserve
 RUN cd kserve && poetry install --no-interaction --no-cache
 
 COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/health_check.py huggingfaceserver/
-RUN cd huggingfaceserver && poetry install --no-root --no-interaction 
+RUN cd huggingfaceserver && poetry install --no-root --no-interaction
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
