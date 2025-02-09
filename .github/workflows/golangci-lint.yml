@@ -23,7 +23,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v4
         with:
-          version: v1.56
+          version: v1.63
           args: --out-format=line-number
 
   verify-go-mod:
