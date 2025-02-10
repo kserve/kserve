@@ -45,21 +45,6 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-type ServerTimeouts struct {
-	Read  time.Duration
-	Write time.Duration
-	Idle  time.Duration
-}
-
-var serverTimeouts = ServerTimeouts{
-	Read:  60 * time.Second,
-	Write: 60 * time.Second,
-	Idle:  180 * time.Second,
-}
-var clientServiceTimeout *time.Duration
-
-var log = logf.Log.WithName("InferenceGraphRouter")
-
 // _isInMesh is an auxiliary global variable for isInIstioMesh function.
 var _isInMesh *bool
 
