@@ -31,7 +31,7 @@ def server():  # noqa: F811
     args = [
         # use half precision for speed and memory savings in CI environment
         "--dtype",
-        "bfloat16",
+        "float16",
         "--max-model-len",
         "512",
         "--trust_remote_code",
