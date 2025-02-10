@@ -788,13 +788,13 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "compressed-tensors"
-version = "0.9.0"
+version = "0.9.1"
 description = "Library for utilization of compressed safetensors of neural network models"
 optional = false
 python-versions = "*"
 files = [
-    {file = "compressed-tensors-0.9.0.tar.gz", hash = "sha256:80f8b002309b5970493e578d58542a308111fbef26f96811fa2c5322b24e7f1f"},
-    {file = "compressed_tensors-0.9.0-py3-none-any.whl", hash = "sha256:c4a0bccf2fd180a18a4bf0646f7746df4ea8ea537c06061f4b571662debf4424"},
+    {file = "compressed-tensors-0.9.1.tar.gz", hash = "sha256:3cf5cd637f0186c184dd5bbbbf941356b1225199b49c6a45bf0909d65907f686"},
+    {file = "compressed_tensors-0.9.1-py3-none-any.whl", hash = "sha256:77385f879c5c092db777a7880851cd9f801bf2f9bb46bb4402f052d9e002975c"},
 ]
 
 [package.dependencies]
@@ -4820,13 +4820,13 @@ telegram = ["requests"]
 
 [[package]]
 name = "transformers"
-version = "4.48.2"
+version = "4.48.3"
 description = "State-of-the-art Machine Learning for JAX, PyTorch and TensorFlow"
 optional = false
 python-versions = ">=3.9.0"
 files = [
-    {file = "transformers-4.48.2-py3-none-any.whl", hash = "sha256:493bc5b0268b116eff305edf6656367fc89cf570e7a9d5891369e04751db698a"},
-    {file = "transformers-4.48.2.tar.gz", hash = "sha256:dcfb73473e61f22fb3366fe2471ed2e42779ecdd49527a1bdf1937574855d516"},
+    {file = "transformers-4.48.3-py3-none-any.whl", hash = "sha256:78697f990f5ef350c23b46bf86d5081ce96b49479ab180b2de7687267de8fd36"},
+    {file = "transformers-4.48.3.tar.gz", hash = "sha256:a5e8f1e9a6430aa78215836be70cecd3f872d99eeda300f41ad6cc841724afdb"},
 ]
 
 [package.dependencies]
@@ -5063,20 +5063,20 @@ test = ["covdefaults (>=2.3)", "coverage (>=7.2.7)", "coverage-enable-subprocess
 
 [[package]]
 name = "vllm"
-version = "0.7.1"
+version = "0.7.2"
 description = "A high-throughput and memory-efficient inference and serving engine for LLMs"
 optional = false
 python-versions = ">=3.9"
 files = [
-    {file = "vllm-0.7.1-cp38-abi3-manylinux1_x86_64.whl", hash = "sha256:c68d703702e550b7125353368f6da009888fbbfb25b5bb87080e5c597f7a5504"},
-    {file = "vllm-0.7.1.tar.gz", hash = "sha256:f3f40980c0940d56d9c5a31c48c441a7746bac285478ecf848ab237a5c7bc155"},
+    {file = "vllm-0.7.2-cp38-abi3-manylinux1_x86_64.whl", hash = "sha256:51fcb7d60149f75ec85d457fab6ccd88a2b1a6344c28aad46b0f8776b29e9d47"},
+    {file = "vllm-0.7.2.tar.gz", hash = "sha256:bdeeda5624182e6a93895cbb7e20b6e88b04d22b8272d8a255741b28b36ae941"},
 ]
 
 [package.dependencies]
 aiohttp = "*"
 blake3 = "*"
 cloudpickle = "*"
-compressed-tensors = "0.9.0"
+compressed-tensors = "0.9.1"
 depyf = "0.18.0"
 einops = "*"
 fastapi = {version = ">=0.107.0,<0.113.dev0 || >0.114.0", markers = "python_version >= \"3.9\""}
@@ -5555,4 +5555,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "aff435b6348159283d58cd5047749fe55147afbdb186ad0c7c6a3dd74deb21db"
+content-hash = "710dfae7d2a86ea0ae5f257d51ec0c7a76f08afaa146cefd0679de6a270a313f"
