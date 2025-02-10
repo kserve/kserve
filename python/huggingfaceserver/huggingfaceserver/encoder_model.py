@@ -128,7 +128,7 @@ class HuggingfaceEncoderModel(
             self.task = task
             try:
                 inferred_task = infer_task_from_model_architecture(self.model_config)
-            except OpenAIError:
+            except ValueError:
                 inferred_task = None
             if inferred_task is not None and inferred_task != task:
                 logger.warning(
