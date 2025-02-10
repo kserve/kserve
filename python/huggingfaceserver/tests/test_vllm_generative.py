@@ -13,16 +13,9 @@
 # limitations under the License.
 
 
-import json
-import re
 import pytest
 import openai
 import pytest_asyncio
-import torch
-from typing import Dict, List, Optional
-import jsonschema
-from openai import UnprocessableEntityError
-from vllm.transformers_utils.tokenizer import get_tokenizer
 
 
 from server import RemoteOpenAIServer

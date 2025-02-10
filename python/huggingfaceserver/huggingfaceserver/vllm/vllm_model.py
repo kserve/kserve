@@ -68,7 +68,6 @@ class VLLMModel(
         self.model_name = model_name
 
     async def start_engine(self):
-        args = self.args
         if self.args.tool_parser_plugin and len(self.args.tool_parser_plugin) > 3:
             ToolParserManager.import_tool_parser(self.args.tool_parser_plugin)
 
