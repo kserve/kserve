@@ -1,5 +1,6 @@
 dev_install:
 	poetry install --with test --no-interaction
+	pip install pynvml nvidia-ml-py
 
 install_dependencies:
 	poetry install --with=test --no-interaction --no-root
