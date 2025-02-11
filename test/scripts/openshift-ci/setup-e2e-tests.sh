@@ -98,7 +98,7 @@ oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n 
 if [ "$1" != "raw" ]; then
   echo "Installing odh-model-controller"
   # authorino
-  curl -sL https://raw.githubusercontent.com/Kuadrant/authorino-operator/main/utils/install.sh | "s|kubectl|oc|" | 
+  curl -sL https://raw.githubusercontent.com/Kuadrant/authorino-operator/main/utils/install.sh | sed "s|kubectl|oc|" | 
     bash -s -- -v 0.16.0
 
   # kserve-local-gateway
