@@ -279,7 +279,8 @@ jobs:
         run: |
           cd python/huggingfaceserver
           bash tests/setup_vllm.sh
-          poetry run -- pytest --cov=huggingfaceserver -vv
+          pip list
+          poetry run -- pytest --cov=huggingfaceserver -vvv
 
       - name: Free space after tests
         run: |
