@@ -18,6 +18,10 @@
 # like kustomize and the mc client are installed by the script if not available.
 # The oc CLI is assumed to be configured with the credentials of the
 # target cluster. The target cluster is assumed to be a clean cluster.
+set -o errexit
+set -o nounset
+set -o pipefail
+
 MY_PATH=$(dirname "$0")
 PROJECT_ROOT=$MY_PATH/../../../
 
