@@ -21,6 +21,7 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - inferencegraphs
   - inferenceservices
   - servingruntimes
   - trainedmodels
@@ -64,6 +65,7 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - inferencegraphs
   - inferenceservices
   - servingruntimes
   - trainedmodels
