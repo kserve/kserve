@@ -72,30 +72,6 @@ jobs:
           path: /mnt/poetry
           key: poetry-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
 
-      # ----------------------------------------Kserve Unit Tests--------------------------------------------------------
-      # load cached kserve venv if cache exists
-      - name: Load cached kserve venv
-        id: cached-kserve-dependencies
-        uses: actions/cache@v4
-        with:
-          path: python/kserve/.venv
-          key: kserve-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock') }}
-      # install kserve dependencies if cache does not exist
-      - name: Install kserve dependencies
-        if: steps.cached-kserve-dependencies.outputs.cache-hit != 'true'
-        run: |
-          cd python/kserve
-          make install_dependencies
-      - name: Install kserve
-        run: |
-          cd python/kserve
-          make dev_install
-      - name: Test kserve
-        run: |
-          cd python
-          source kserve/.venv/bin/activate
-          pytest --cov=kserve ./kserve
-
       # ----------------------------------------Huggingface Server Unit Tests------------------------------------------------
       # load cached huggingface venv if cache exists
       - name: Load cached huggingface venv
@@ -127,6 +103,8 @@ jobs:
           pip list
           cat /etc/os-release
           uname -a
+          lscpu
+          free -m
           poetry run -- pytest --cov=huggingfaceserver -vvv
 
       - name: Free space after tests

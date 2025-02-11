@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VLLM_VERSION=main
+VLLM_VERSION=v0.7.2
 VLLM_DIR=vllm-clone
 
 mkdir $VLLM_DIR
