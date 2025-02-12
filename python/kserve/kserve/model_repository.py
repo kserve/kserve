@@ -68,6 +68,8 @@ class ModelRepository:
             model = self.models[name]
             if callable(getattr(model, "stop", None)):
                 model.stop()
+            if model.engine:
+                model.stop_engine()
             del self.models[name]
         else:
             raise KeyError(f"model with name {name} does not exist")

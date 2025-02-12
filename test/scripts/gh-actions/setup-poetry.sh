@@ -30,3 +30,6 @@ poetry config installer.parallel true
 echo "Installing Poetry Version Plugin"
 pip install -e python/plugin/poetry-version-plugin
 poetry self show plugins
+
+echo "Installing setuptools"
+pip install setuptools setuptools-scm
