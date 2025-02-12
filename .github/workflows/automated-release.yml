@@ -3,10 +3,10 @@ on:
   workflow_dispatch:
     inputs:
       releaseBranch:
-        description: 'The existing branch name to release from, e.g. release-0.12'
+        description: "The existing branch name to release from, e.g. release-0.12"
         required: true
       releaseTag:
-        description: 'The release tag, e.g. v0.12.0-rc1'
+        description: "The release tag, e.g. v0.12.0-rc1"
         required: true
 
 jobs:
@@ -16,7 +16,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-           go-version-file: "go.mod"
+          go-version-file: go.mod
 
       - name: Checkout source code
         uses: actions/checkout@v4
