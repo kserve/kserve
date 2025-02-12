@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
@@ -71,17 +71,17 @@ func (ss *TrainedModelStatus) GetCondition(t apis.ConditionType) *apis.Condition
 
 // IsConditionReady returns the readiness for a given condition
 func (ss *TrainedModelStatus) IsConditionReady(t apis.ConditionType) bool {
-	return conditionSet.Manage(ss).GetCondition(t) != nil && conditionSet.Manage(ss).GetCondition(t).Status == v1.ConditionTrue
+	return conditionSet.Manage(ss).GetCondition(t) != nil && conditionSet.Manage(ss).GetCondition(t).Status == corev1.ConditionTrue
 }
 
 func (ss *TrainedModelStatus) SetCondition(conditionType apis.ConditionType, condition *apis.Condition) {
 	switch {
 	case condition == nil:
-	case condition.Status == v1.ConditionUnknown:
+	case condition.Status == corev1.ConditionUnknown:
 		conditionSet.Manage(ss).MarkUnknown(conditionType, condition.Reason, condition.Message)
-	case condition.Status == v1.ConditionTrue:
+	case condition.Status == corev1.ConditionTrue:
 		conditionSet.Manage(ss).MarkTrue(conditionType)
-	case condition.Status == v1.ConditionFalse:
+	case condition.Status == corev1.ConditionFalse:
 		conditionSet.Manage(ss).MarkFalse(conditionType, condition.Reason, condition.Message)
 	}
 }

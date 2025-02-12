@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -71,7 +71,7 @@ type CredentialBuilder struct {
 
 var log = logf.Log.WithName("CredentialBuilder")
 
-func NewCredentialBuilder(client client.Client, clientset kubernetes.Interface, config *v1.ConfigMap) *CredentialBuilder {
+func NewCredentialBuilder(client client.Client, clientset kubernetes.Interface, config *corev1.ConfigMap) *CredentialBuilder {
 	credentialConfig := CredentialConfig{}
 	if credential, ok := config.Data[CredentialConfigKeyName]; ok {
 		err := json.Unmarshal([]byte(credential), &credentialConfig)
@@ -88,7 +88,8 @@ func NewCredentialBuilder(client client.Client, clientset kubernetes.Interface, 
 }
 
 func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annotations map[string]string, storageKey string,
-	overrideParams map[string]string, container *v1.Container) error {
+	overrideParams map[string]string, container *corev1.Container,
+) error {
 	stype := overrideParams["type"]
 	bucket := overrideParams["bucket"]
 
@@ -142,7 +143,7 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 				bucket = storageDataJson["bucket"]
 			}
 			if cabundle_configmap, ok := storageDataJson["cabundle_configmap"]; ok {
-				container.Env = append(container.Env, v1.EnvVar{
+				container.Env = append(container.Env, corev1.EnvVar{
 					Name:  s3.AWSCABundleConfigMap,
 					Value: cabundle_configmap,
 				})
@@ -150,11 +151,11 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 		}
 
 		// Pass storage config json as SecretKeyRef env var
-		container.Env = append(container.Env, v1.EnvVar{
+		container.Env = append(container.Env, corev1.EnvVar{
 			Name: StorageConfigEnvKey,
-			ValueFrom: &v1.EnvVarSource{
-				SecretKeyRef: &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
 						Name: storageSecretName,
 					},
 					Key: storageKey,
@@ -184,7 +185,7 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 	// Provide override secret values if parameters are provided
 	if len(overrideParams) != 0 {
 		if overrideParamsJSON, err := json.Marshal(overrideParams); err == nil {
-			container.Env = append(container.Env, v1.EnvVar{
+			container.Env = append(container.Env, corev1.EnvVar{
 				Name:  StorageOverrideConfigEnvKey,
 				Value: string(overrideParamsJSON),
 			})
@@ -195,7 +196,8 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 }
 
 func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotations map[string]string, serviceAccountName string,
-	container *v1.Container, volumes *[]v1.Volume) error {
+	container *corev1.Container, volumes *[]corev1.Volume,
+) error {
 	if serviceAccountName == "" {
 		serviceAccountName = "default"
 	}
@@ -238,7 +240,8 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotatio
 }
 
 func (c *CredentialBuilder) mountSecretCredential(secretName string, namespace string,
-	container *v1.Container, volumes *[]v1.Volume) error {
+	container *corev1.Container, volumes *[]corev1.Volume,
+) error {
 	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "Failed to find secret", "SecretName", secretName)
@@ -265,10 +268,9 @@ func (c *CredentialBuilder) mountSecretCredential(secretName string, namespace s
 		log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
 		volume, volumeMount := gcs.BuildSecretVolume(secret)
 		*volumes = utils.AppendVolumeIfNotExists(*volumes, volume)
-		container.VolumeMounts =
-			append(container.VolumeMounts, volumeMount)
+		container.VolumeMounts = append(container.VolumeMounts, volumeMount)
 		container.Env = append(container.Env,
-			v1.EnvVar{
+			corev1.EnvVar{
 				Name:  gcs.GCSCredentialEnvKey,
 				Value: gcs.GCSCredentialVolumeMountPath + gcsCredentialFileName,
 			})

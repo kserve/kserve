@@ -5256,8 +5256,10 @@ spec:
                     type: object
                 type: object
               maxReplicas:
+                format: int32
                 type: integer
               minReplicas:
+                format: int32
                 type: integer
               nodes:
                 additionalProperties:
@@ -5339,6 +5341,7 @@ spec:
                 - rps
                 type: string
               scaleTarget:
+                format: int32
                 type: integer
               timeout:
                 format: int64
@@ -8045,8 +8048,10 @@ spec:
                         type: string
                     type: object
                   maxReplicas:
+                    format: int32
                     type: integer
                   minReplicas:
+                    format: int32
                     type: integer
                   nodeName:
                     type: string
@@ -8112,6 +8117,7 @@ spec:
                     - rps
                     type: string
                   scaleTarget:
+                    format: int32
                     type: integer
                   schedulerName:
                     type: string
@@ -12369,8 +12375,10 @@ spec:
                         type: string
                     type: object
                   maxReplicas:
+                    format: int32
                     type: integer
                   minReplicas:
+                    format: int32
                     type: integer
                   model:
                     properties:
@@ -15882,6 +15890,7 @@ spec:
                     - rps
                     type: string
                   scaleTarget:
+                    format: int32
                     type: integer
                   schedulerName:
                     type: string
@@ -25083,8 +25092,10 @@ spec:
                         type: string
                     type: object
                   maxReplicas:
+                    format: int32
                     type: integer
                   minReplicas:
+                    format: int32
                     type: integer
                   nodeName:
                     type: string
@@ -25150,6 +25161,7 @@ spec:
                     - rps
                     type: string
                   scaleTarget:
+                    format: int32
                     type: integer
                   schedulerName:
                     type: string

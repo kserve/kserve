@@ -26,7 +26,7 @@ import (
 	"github.com/pkg/errors"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -44,8 +44,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
 
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
@@ -53,7 +55,6 @@ import (
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=inferenceservices;inferenceservices/finalizers,verbs=get;list;watch;create;update;patch;delete
@@ -104,7 +105,7 @@ type InferenceServiceReconciler struct {
 
 func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Fetch the InferenceService instance
-	isvc := &v1beta1api.InferenceService{}
+	isvc := &v1beta1.InferenceService{}
 	if err := r.Get(ctx, req.NamespacedName, isvc); err != nil {
 		if apierr.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -113,8 +114,12 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return reconcile.Result{}, err
 	}
-
-	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Clientset)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
+	if err != nil {
+		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		return reconcile.Result{}, err
+	}
+	isvcConfig, err := v1beta1.NewInferenceServicesConfig(isvcConfigMap)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
 	}
@@ -124,7 +129,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
 	})
 
-	deployConfig, err := v1beta1api.NewDeployConfig(r.Clientset)
+	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
 	}
@@ -163,7 +168,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(isvc, finalizerName) {
 			// our finalizer is present, so lets handle any external dependency
-			if err := r.deleteExternalResources(isvc); err != nil {
+			if err := r.deleteExternalResources(ctx, isvc); err != nil {
 				// if fail to delete the external dependency here, return with error
 				// so that it can be retried
 				return ctrl.Result{}, err
@@ -190,7 +195,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 
 		if !ksvcAvailable {
-			r.Recorder.Event(isvc, v1.EventTypeWarning, "ServerlessModeRejected",
+			r.Recorder.Event(isvc, corev1.EventTypeWarning, "ServerlessModeRejected",
 				"It is not possible to use Serverless deployment mode when Knative Services are not available")
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Serverless, but Knative Serving is not available", isvc.Name))
 		}
@@ -201,7 +206,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Reconcile cabundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset, r.Scheme)
-	if err := caBundleConfigMapReconciler.Reconcile(isvc); err != nil {
+	if err := caBundleConfigMapReconciler.Reconcile(ctx, isvc); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -216,11 +221,11 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
 	}
 	for _, reconciler := range reconcilers {
-		result, err := reconciler.Reconcile(isvc)
+		result, err := reconciler.Reconcile(ctx, isvc)
 		if err != nil {
 			r.Log.Error(err, "Failed to reconcile", "reconciler", reflect.ValueOf(reconciler), "Name", isvc.Name)
-			r.Recorder.Eventf(isvc, v1.EventTypeWarning, "InternalError", err.Error())
-			if err := r.updateStatus(isvc, deploymentMode); err != nil {
+			r.Recorder.Eventf(isvc, corev1.EventTypeWarning, "InternalError", err.Error())
+			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
 				r.Log.Error(err, "Error updating status")
 				return result, err
 			}
@@ -232,18 +237,18 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 	// reconcile RoutesReady and LatestDeploymentReady conditions for serverless deployment
 	if deploymentMode == constants.Serverless {
-		componentList := []v1beta1api.ComponentType{v1beta1api.PredictorComponent}
+		componentList := []v1beta1.ComponentType{v1beta1.PredictorComponent}
 		if isvc.Spec.Transformer != nil {
-			componentList = append(componentList, v1beta1api.TransformerComponent)
+			componentList = append(componentList, v1beta1.TransformerComponent)
 		}
 		if isvc.Spec.Explainer != nil {
-			componentList = append(componentList, v1beta1api.ExplainerComponent)
+			componentList = append(componentList, v1beta1.ExplainerComponent)
 		}
-		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1api.RoutesReady)
-		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1api.LatestDeploymentReady)
+		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.RoutesReady)
+		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
 	}
 	// Reconcile ingress
-	ingressConfig, err := v1beta1api.NewIngressConfig(r.Clientset)
+	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
 	}
@@ -261,36 +266,38 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			if err != nil {
 				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 			}
-			if err := reconciler.Reconcile(isvc); err != nil {
+			if err := reconciler.Reconcile(ctx, isvc); err != nil {
 				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 			}
 		}
 	} else {
 		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig, isvcConfig)
 		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
-		if err := reconciler.Reconcile(isvc); err != nil {
+		if err := reconciler.Reconcile(ctx, isvc); err != nil {
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 		}
 	}
 
 	// Reconcile modelConfig
 	configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Clientset, r.Scheme)
-	if err := configMapReconciler.Reconcile(isvc); err != nil {
+	if err := configMapReconciler.Reconcile(ctx, isvc); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err = r.updateStatus(isvc, deploymentMode); err != nil {
-		r.Recorder.Event(isvc, v1.EventTypeWarning, "InternalError", err.Error())
+	if err = r.updateStatus(ctx, isvc, deploymentMode); err != nil {
+		r.Recorder.Event(isvc, corev1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.InferenceService, deploymentMode constants.DeploymentModeType) error {
-	existingService := &v1beta1api.InferenceService{}
+func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredService *v1beta1.InferenceService,
+	deploymentMode constants.DeploymentModeType,
+) error {
+	existingService := &v1beta1.InferenceService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
-	if err := r.Get(context.TODO(), namespacedName, existingService); err != nil {
+	if err := r.Get(ctx, namespacedName, existingService); err != nil {
 		return err
 	}
 	wasReady := inferenceServiceReadiness(existingService.Status)
@@ -299,9 +306,9 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if err := r.Status().Update(context.TODO(), desiredService); err != nil {
+	} else if err := r.Status().Update(ctx, desiredService); err != nil {
 		r.Log.Error(err, "Failed to update InferenceService status", "InferenceService", desiredService.Name)
-		r.Recorder.Eventf(desiredService, v1.EventTypeWarning, "UpdateFailed",
+		r.Recorder.Eventf(desiredService, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceService %q: %v", desiredService.Name, err)
 		return errors.Wrapf(err, "fails to update InferenceService status")
 	} else {
@@ -309,41 +316,41 @@ func (r *InferenceServiceReconciler) updateStatus(desiredService *v1beta1api.Inf
 		isReady := inferenceServiceReadiness(desiredService.Status)
 		isReadyFalse := inferenceServiceReadinessFalse(desiredService.Status)
 		if wasReady && isReadyFalse { // Moved to NotReady State
-			r.Recorder.Eventf(desiredService, v1.EventTypeWarning, string(InferenceServiceNotReadyState),
+			r.Recorder.Eventf(desiredService, corev1.EventTypeWarning, string(InferenceServiceNotReadyState),
 				fmt.Sprintf("InferenceService [%v] is no longer Ready because of: %v", desiredService.GetName(), r.GetFailConditions(desiredService)))
 		} else if !wasReady && isReady { // Moved to Ready State
-			r.Recorder.Eventf(desiredService, v1.EventTypeNormal, string(InferenceServiceReadyState),
+			r.Recorder.Eventf(desiredService, corev1.EventTypeNormal, string(InferenceServiceReadyState),
 				fmt.Sprintf("InferenceService [%v] is Ready", desiredService.GetName()))
 		}
 	}
 	return nil
 }
 
-func inferenceServiceReadiness(status v1beta1api.InferenceServiceStatus) bool {
+func inferenceServiceReadiness(status v1beta1.InferenceServiceStatus) bool {
 	return status.Conditions != nil &&
 		status.GetCondition(apis.ConditionReady) != nil &&
-		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
+		status.GetCondition(apis.ConditionReady).Status == corev1.ConditionTrue
 }
 
-func inferenceServiceReadinessFalse(status v1beta1api.InferenceServiceStatus) bool {
+func inferenceServiceReadinessFalse(status v1beta1.InferenceServiceStatus) bool {
 	readyCondition := status.GetCondition(apis.ConditionReady)
-	return readyCondition != nil && readyCondition.Status == v1.ConditionFalse
+	return readyCondition != nil && readyCondition.Status == corev1.ConditionFalse
 }
 
-func inferenceServiceStatusEqual(s1, s2 v1beta1api.InferenceServiceStatus, deploymentMode constants.DeploymentModeType) bool {
+func inferenceServiceStatusEqual(s1, s2 v1beta1.InferenceServiceStatus, deploymentMode constants.DeploymentModeType) bool {
 	if deploymentMode == constants.ModelMeshDeployment {
 		// If the deployment mode is ModelMesh, reduce the status scope to compare.
 		// Exclude Predictor and ModelStatus which are mananged by ModelMesh controllers
 		return equality.Semantic.DeepEqual(s1.Address, s2.Address) &&
 			equality.Semantic.DeepEqual(s1.URL, s2.URL) &&
 			equality.Semantic.DeepEqual(s1.Status, s2.Status) &&
-			equality.Semantic.DeepEqual(s1.Components[v1beta1api.TransformerComponent], s2.Components[v1beta1api.TransformerComponent]) &&
-			equality.Semantic.DeepEqual(s1.Components[v1beta1api.ExplainerComponent], s2.Components[v1beta1api.ExplainerComponent])
+			equality.Semantic.DeepEqual(s1.Components[v1beta1.TransformerComponent], s2.Components[v1beta1.TransformerComponent]) &&
+			equality.Semantic.DeepEqual(s1.Components[v1beta1.ExplainerComponent], s2.Components[v1beta1.ExplainerComponent])
 	}
 	return equality.Semantic.DeepEqual(s1, s2)
 }
 
-func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1api.DeployConfig, ingressConfig *v1beta1api.IngressConfig) error {
+func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig, ingressConfig *v1beta1.IngressConfig) error {
 	r.ClientConfig = mgr.GetConfig()
 
 	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
@@ -357,7 +364,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	}
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
-		For(&v1beta1api.InferenceService{}).
+		For(&v1beta1.InferenceService{}).
 		Owns(&appsv1.Deployment{})
 
 	if ksvcFound {
@@ -391,11 +398,11 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	return ctrlBuilder.Complete(r)
 }
 
-func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.InferenceService) error {
+func (r *InferenceServiceReconciler) deleteExternalResources(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	// Delete all the TrainedModel that uses this InferenceService as parent
 	r.Log.Info("Deleting external resources", "InferenceService", isvc.Name)
-	var trainedModels v1alpha1api.TrainedModelList
-	if err := r.List(context.TODO(),
+	var trainedModels v1alpha1.TrainedModelList
+	if err := r.List(ctx,
 		&trainedModels,
 		client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name},
 		client.InNamespace(isvc.Namespace),
@@ -406,14 +413,14 @@ func (r *InferenceServiceReconciler) deleteExternalResources(isvc *v1beta1api.In
 
 	// #nosec G601
 	for i, v := range trainedModels.Items {
-		if err := r.Delete(context.TODO(), &trainedModels.Items[i], client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
+		if err := r.Delete(ctx, &trainedModels.Items[i], client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
 			r.Log.Error(err, "unable to delete trainedmodel", "trainedmodel", v)
 		}
 	}
 	return nil
 }
 
-func (r *InferenceServiceReconciler) GetFailConditions(isvc *v1beta1api.InferenceService) string {
+func (r *InferenceServiceReconciler) GetFailConditions(isvc *v1beta1.InferenceService) string {
 	msg := ""
 	for _, cond := range isvc.Status.Conditions {
 		if string(cond.Status) == "False" {

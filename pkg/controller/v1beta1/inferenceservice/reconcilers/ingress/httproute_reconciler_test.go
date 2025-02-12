@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -82,9 +82,9 @@ func TestCreateRawURL(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			url, err := createRawURL(tc.isvc, tc.ingressConfig)
 			if tc.isErrorExpected {
-				g.Expect(err).ToNot(BeNil())
+				g.Expect(err).To(HaveOccurred())
 			} else {
-				g.Expect(err).To(BeNil())
+				g.Expect(err).ToNot(HaveOccurred())
 			}
 			g.Expect(tc.expectedURL).To(BeComparableTo(url.String()))
 		})
@@ -162,7 +162,7 @@ func TestGetRawServiceHost(t *testing.T) {
 	})
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			host := getRawServiceHost(tc.isvc, client)
+			host := getRawServiceHost(context.Background(), tc.isvc, client)
 			g.Expect(tc.expectedHost).To(BeComparableTo(host))
 		})
 	}
@@ -1295,14 +1295,15 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Name:      "test-isvc-default-predictor-default",
 					Namespace: "default",
 				},
-				Spec: corev1.ServiceSpec{}})
+				Spec: corev1.ServiceSpec{},
+			})
 			isvcConfig := &v1beta1.InferenceServicesConfig{
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawTopLevelHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawTopLevelHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
 
-			g.Expect(err).To(BeNil())
+			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
 				g.Expect(httpRoute.Spec).To(BeComparableTo(tc.expected.Spec))
 				g.Expect(httpRoute.ObjectMeta).To(BeComparableTo(tc.expected.ObjectMeta, cmpopts.IgnoreFields(httpRoute.ObjectMeta, "CreationTimestamp")))
@@ -1551,14 +1552,15 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 					Name:      "test-isvc-default-predictor-default",
 					Namespace: "default",
 				},
-				Spec: corev1.ServiceSpec{}})
+				Spec: corev1.ServiceSpec{},
+			})
 			isvcConfig := &v1beta1.InferenceServicesConfig{
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawPredictorHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawPredictorHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
 
-			g.Expect(err).To(BeNil())
+			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
 				g.Expect(httpRoute.Spec).To(BeComparableTo(tc.expected.Spec))
 				g.Expect(httpRoute.ObjectMeta).To(BeComparableTo(tc.expected.ObjectMeta, cmpopts.IgnoreFields(httpRoute.ObjectMeta, "CreationTimestamp")))
@@ -1810,14 +1812,15 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 					Name:      "test-isvc-default-transformer-default",
 					Namespace: "default",
 				},
-				Spec: corev1.ServiceSpec{}})
+				Spec: corev1.ServiceSpec{},
+			})
 			isvcConfig := &v1beta1.InferenceServicesConfig{
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawTransformerHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawTransformerHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
 
-			g.Expect(err).To(BeNil())
+			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
 				g.Expect(httpRoute.Spec).To(BeComparableTo(tc.expected.Spec))
 				g.Expect(httpRoute.ObjectMeta).To(BeComparableTo(tc.expected.ObjectMeta, cmpopts.IgnoreFields(httpRoute.ObjectMeta, "CreationTimestamp")))
@@ -2069,14 +2072,15 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 					Name:      "test-isvc-default-explainer-default",
 					Namespace: "default",
 				},
-				Spec: corev1.ServiceSpec{}})
+				Spec: corev1.ServiceSpec{},
+			})
 			isvcConfig := &v1beta1.InferenceServicesConfig{
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawExplainerHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawExplainerHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
 
-			g.Expect(err).To(BeNil())
+			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
 				g.Expect(httpRoute.Spec).To(BeComparableTo(tc.expected.Spec))
 				g.Expect(httpRoute.ObjectMeta).To(BeComparableTo(tc.expected.ObjectMeta, cmpopts.IgnoreFields(httpRoute.ObjectMeta, "CreationTimestamp")))

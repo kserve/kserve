@@ -17,20 +17,16 @@ limitations under the License.
 package utils
 
 import (
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/component-helpers/scheduling/corev1"
+	corev1 "k8s.io/api/core/v1"
+	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 )
 
 // CheckNodeAffinity returns true if the node matches the node affinity specified in the PV Spec
-func CheckNodeAffinity(pvSpec *v1.PersistentVolumeSpec, node v1.Node) (bool, error) {
+func CheckNodeAffinity(pvSpec *corev1.PersistentVolumeSpec, node corev1.Node) (bool, error) {
 	if pvSpec.NodeAffinity == nil || pvSpec.NodeAffinity.Required == nil {
 		return false, nil
 	}
 
 	terms := pvSpec.NodeAffinity.Required
-	if matches, err := corev1.MatchNodeSelectorTerms(&node, terms); err != nil {
-		return matches, nil
-	} else {
-		return matches, err
-	}
+	return corev1helpers.MatchNodeSelectorTerms(&node, terms)
 }

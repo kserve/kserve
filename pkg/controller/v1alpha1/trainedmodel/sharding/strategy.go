@@ -16,7 +16,7 @@ limitations under the License.
 
 package main
 
-import v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+import "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 
 type Strategy interface {
 	GetOrAssignShard(trainedModel *v1alpha1.TrainedModel) int

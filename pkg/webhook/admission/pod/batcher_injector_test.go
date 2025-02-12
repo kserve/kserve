@@ -21,7 +21,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmp"
@@ -49,25 +49,25 @@ var (
 		MaxLatency:    BatcherDefaultMaxLatency,
 	}
 
-	batcherResourceRequirement = v1.ResourceRequirements{
-		Limits: map[v1.ResourceName]resource.Quantity{
-			v1.ResourceCPU:    resource.MustParse(BatcherDefaultCPULimit),
-			v1.ResourceMemory: resource.MustParse(BatcherDefaultMemoryLimit),
+	batcherResourceRequirement = corev1.ResourceRequirements{
+		Limits: map[corev1.ResourceName]resource.Quantity{
+			corev1.ResourceCPU:    resource.MustParse(BatcherDefaultCPULimit),
+			corev1.ResourceMemory: resource.MustParse(BatcherDefaultMemoryLimit),
 		},
-		Requests: map[v1.ResourceName]resource.Quantity{
-			v1.ResourceCPU:    resource.MustParse(BatcherDefaultCPURequest),
-			v1.ResourceMemory: resource.MustParse(BatcherDefaultMemoryRequest),
+		Requests: map[corev1.ResourceName]resource.Quantity{
+			corev1.ResourceCPU:    resource.MustParse(BatcherDefaultCPURequest),
+			corev1.ResourceMemory: resource.MustParse(BatcherDefaultMemoryRequest),
 		},
 	}
 )
 
 func TestBatcherInjector(t *testing.T) {
 	scenarios := map[string]struct {
-		original *v1.Pod
-		expected *v1.Pod
+		original *corev1.Pod
+		expected *corev1.Pod
 	}{
 		"AddBatcher": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
@@ -83,13 +83,13 @@ func TestBatcherInjector(t *testing.T) {
 						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
 						Name: "sklearn",
 					}},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
@@ -98,8 +98,8 @@ func TestBatcherInjector(t *testing.T) {
 						constants.BatcherMaxLatencyInternalAnnotationKey:   "5000",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
 						},
@@ -119,7 +119,7 @@ func TestBatcherInjector(t *testing.T) {
 			},
 		},
 		"AddDefaultBatcherConfig": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
@@ -133,13 +133,13 @@ func TestBatcherInjector(t *testing.T) {
 						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
 						Name: "sklearn",
 					}},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
@@ -148,8 +148,8 @@ func TestBatcherInjector(t *testing.T) {
 						constants.BatcherMaxLatencyInternalAnnotationKey:   BatcherDefaultMaxLatency,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
 						},
@@ -169,22 +169,22 @@ func TestBatcherInjector(t *testing.T) {
 			},
 		},
 		"DoNotAddBatcher": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
 						Name: "sklearn",
 					}},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
 						Name: "sklearn",
 					}},
 				},
@@ -207,12 +207,12 @@ func TestGetBatcherConfigs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cases := []struct {
 		name      string
-		configMap *v1.ConfigMap
+		configMap *corev1.ConfigMap
 		matchers  []types.GomegaMatcher
 	}{
 		{
 			name: "Valid Batcher Config",
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string]string{
@@ -239,7 +239,7 @@ func TestGetBatcherConfigs(t *testing.T) {
 		},
 		{
 			name: "Default Batcher Config",
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string]string{
@@ -270,7 +270,7 @@ func TestGetBatcherConfigs(t *testing.T) {
 		},
 		{
 			name: "Invalid Resource Value",
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string]string{

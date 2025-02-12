@@ -17,9 +17,10 @@ limitations under the License.
 package pod
 
 import (
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
 )
 
 // These constants are used for detecting and applying GPU selectors
@@ -28,7 +29,7 @@ const (
 	NvidiaGPUTaintValue        = "present"
 )
 
-func InjectGKEAcceleratorSelector(pod *v1.Pod) error {
+func InjectGKEAcceleratorSelector(pod *corev1.Pod) error {
 	gpuEnabled := false
 	for _, container := range pod.Spec.Containers {
 		if _, ok := container.Resources.Limits[constants.NvidiaGPUResourceType]; ok {

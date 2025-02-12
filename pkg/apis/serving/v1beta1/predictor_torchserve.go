@@ -17,10 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -41,9 +41,7 @@ type TorchServeSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &TorchServeSpec{}
-)
+var _ ComponentImplementation = &TorchServeSpec{}
 
 // Validate returns an error if invalid
 func (t *TorchServeSpec) Validate() error {
@@ -58,11 +56,11 @@ func (t *TorchServeSpec) validateGPU() error {
 		return nil
 	}
 	if utils.IsGPUEnabled(t.Resources) && !strings.Contains(*t.RuntimeVersion, PyTorchServingGPUSuffix) {
-		return fmt.Errorf(InvalidPyTorchRuntimeIncludesGPU)
+		return errors.New(InvalidPyTorchRuntimeIncludesGPU)
 	}
 
 	if !utils.IsGPUEnabled(t.Resources) && strings.Contains(*t.RuntimeVersion, PyTorchServingGPUSuffix) {
-		return fmt.Errorf(InvalidPyTorchRuntimeExcludesGPU)
+		return errors.New(InvalidPyTorchRuntimeExcludesGPU)
 	}
 	return nil
 }
@@ -77,7 +75,7 @@ func (t *TorchServeSpec) Default(config *InferenceServicesConfig) {
 	setResourceRequirementDefaults(config, &t.Resources)
 }
 
-func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
+func (t *TorchServeSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container {
 	return &t.Container
 }
 

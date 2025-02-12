@@ -17,10 +17,11 @@ limitations under the License.
 package https
 
 import (
-	"github.com/google/go-cmp/cmp"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -33,36 +34,36 @@ var (
 
 func TestHTTPSSecret(t *testing.T) {
 	scenarios := map[string]struct {
-		secret   *v1.Secret
-		expected []v1.EnvVar
+		secret   *corev1.Secret
+		expected []corev1.EnvVar
 	}{
 		"noUriHost": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				Data: map[string][]byte{
 					header1: []byte(headerValue1),
 					header2: []byte(headerValue2),
 				},
 			},
-			expected: []v1.EnvVar{},
+			expected: []corev1.EnvVar{},
 		},
 		"noHeaders": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string][]byte{
 					HTTPSHost: []byte(uriHost),
 				},
 			},
-			expected: []v1.EnvVar{},
+			expected: []corev1.EnvVar{},
 		},
 		"secretEnvs": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string][]byte{
 					HTTPSHost: []byte(uriHost),
 					HEADERS:   []byte(`{` + NEWLINE + header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2 + NEWLINE + `}`),
 				},
 			},
-			expected: []v1.EnvVar{
+			expected: []corev1.EnvVar{
 				{
 					Name:  uriHost + HeadersSuffix,
 					Value: `{` + NEWLINE + header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2 + NEWLINE + `}`,

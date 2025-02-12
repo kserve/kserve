@@ -30,7 +30,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -44,8 +44,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
@@ -73,7 +73,7 @@ type TrainedModelReconciler struct {
 
 func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Fetch the TrainedModel instance
-	tm := &v1alpha1api.TrainedModel{}
+	tm := &v1alpha1.TrainedModel{}
 	if err := r.Get(ctx, req.NamespacedName, tm); err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -84,11 +84,11 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// If the parent InferenceService does not exists, delete the trainedmodel
-	isvc := &v1beta1api.InferenceService{}
-	if err := r.Get(context.TODO(), types.NamespacedName{Namespace: req.Namespace, Name: tm.Spec.InferenceService}, isvc); err != nil {
+	isvc := &v1beta1.InferenceService{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: tm.Spec.InferenceService}, isvc); err != nil {
 		if errors.IsNotFound(err) {
 			log.Info("Parent InferenceService does not exists, deleting TrainedModel", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
-			if err := r.Delete(context.TODO(), tm); err != nil {
+			if err := r.Delete(ctx, tm); err != nil {
 				log.Error(err, "Error deleting resource")
 				return reconcile.Result{}, err
 			}
@@ -117,7 +117,7 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// registering our finalizer.
 		if !utils.Includes(tm.GetFinalizers(), tmFinalizerName) {
 			tm.SetFinalizers(append(tm.GetFinalizers(), tmFinalizerName))
-			if err := r.Update(context.Background(), tm); err != nil {
+			if err := r.Update(ctx, tm); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -125,12 +125,12 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// The object is being deleted
 		if utils.Includes(tm.GetFinalizers(), tmFinalizerName) {
 			// reconcile configmap to remove the model
-			if err := r.ModelConfigReconciler.Reconcile(req, tm); err != nil {
+			if err := r.ModelConfigReconciler.Reconcile(ctx, req, tm); err != nil {
 				return reconcile.Result{}, err
 			}
 			// remove our finalizer from the list and update it.
 			tm.SetFinalizers(utils.RemoveString(tm.GetFinalizers(), tmFinalizerName))
-			if err := r.Update(context.Background(), tm); err != nil {
+			if err := r.Update(ctx, tm); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
@@ -140,26 +140,26 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	// Check inferenceserviceready, and memoryavailability
-	if err := r.updateConditions(req, tm); err != nil {
+	if err := r.updateConditions(ctx, req, tm); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	// update URL and Address fo TrainedModel
-	if err := r.updateStatus(req, tm); err != nil {
+	if err := r.updateStatus(ctx, req, tm); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// Reconcile modelconfig to add this TrainedModel to its parent InferenceService's configmap
-	if err := r.ModelConfigReconciler.Reconcile(req, tm); err != nil {
+	if err := r.ModelConfigReconciler.Reconcile(ctx, req, tm); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
 }
 
-func (r *TrainedModelReconciler) updateStatus(req ctrl.Request, desiredModel *v1alpha1api.TrainedModel) error {
+func (r *TrainedModelReconciler) updateStatus(ctx context.Context, req ctrl.Request, desiredModel *v1alpha1.TrainedModel) error {
 	// Get the parent inference service
-	isvc := &v1beta1api.InferenceService{}
-	if err := r.Get(context.TODO(), types.NamespacedName{Namespace: req.Namespace, Name: desiredModel.Spec.InferenceService}, isvc); err != nil {
+	isvc := &v1beta1.InferenceService{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: desiredModel.Spec.InferenceService}, isvc); err != nil {
 		return err
 	}
 
@@ -190,8 +190,8 @@ func (r *TrainedModelReconciler) updateStatus(req ctrl.Request, desiredModel *v1
 	}
 
 	// Get the current model
-	existingModel := &v1alpha1api.TrainedModel{}
-	if err := r.Get(context.TODO(), req.NamespacedName, existingModel); err != nil {
+	existingModel := &v1alpha1.TrainedModel{}
+	if err := r.Get(ctx, req.NamespacedName, existingModel); err != nil {
 		if errors.IsNotFound(err) {
 			return nil
 		}
@@ -202,8 +202,8 @@ func (r *TrainedModelReconciler) updateStatus(req ctrl.Request, desiredModel *v1
 		// We did not update anything
 	} else {
 		// Try to update model
-		if err := r.Status().Update(context.TODO(), desiredModel); err != nil {
-			r.Recorder.Eventf(desiredModel, v1.EventTypeWarning, "UpdateFailed",
+		if err := r.Status().Update(ctx, desiredModel); err != nil {
+			r.Recorder.Eventf(desiredModel, corev1.EventTypeWarning, "UpdateFailed",
 				"Failed to update status for TrainedModel %q: %v", desiredModel.Name, err)
 		}
 	}
@@ -211,10 +211,10 @@ func (r *TrainedModelReconciler) updateStatus(req ctrl.Request, desiredModel *v1
 	return nil
 }
 
-func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1api.TrainedModel) error {
+func (r *TrainedModelReconciler) updateConditions(ctx context.Context, req ctrl.Request, tm *v1alpha1.TrainedModel) error {
 	// Get the parent inference service
-	isvc := &v1beta1api.InferenceService{}
-	if err := r.Get(context.TODO(), types.NamespacedName{Namespace: req.Namespace, Name: tm.Spec.InferenceService}, isvc); err != nil {
+	isvc := &v1beta1.InferenceService{}
+	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: tm.Spec.InferenceService}, isvc); err != nil {
 		return err
 	}
 
@@ -222,14 +222,14 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 	// Update Inference Service Ready condition
 	if isvc.Status.IsReady() {
 		log.Info("Parent InferenceService is ready", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
-		tm.Status.SetCondition(v1alpha1api.InferenceServiceReady, &apis.Condition{
-			Status: v1.ConditionTrue,
+		tm.Status.SetCondition(v1alpha1.InferenceServiceReady, &apis.Condition{
+			Status: corev1.ConditionTrue,
 		})
 	} else {
 		log.Info("Parent InferenceService is not ready", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
-		tm.Status.SetCondition(v1alpha1api.InferenceServiceReady, &apis.Condition{
-			Type:    v1alpha1api.InferenceServiceReady,
-			Status:  v1.ConditionFalse,
+		tm.Status.SetCondition(v1alpha1.InferenceServiceReady, &apis.Condition{
+			Type:    v1alpha1.InferenceServiceReady,
+			Status:  corev1.ConditionFalse,
 			Reason:  "InferenceServiceNotReady",
 			Message: "Inference Service needs to be ready before Trained Model can be ready",
 		})
@@ -240,13 +240,13 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 	// Update Is MMS Predictor condition
 	implementations := isvc.Spec.Predictor.GetImplementations()
 	if len(implementations) > 0 && v1beta1utils.IsMMSPredictor(&isvc.Spec.Predictor) {
-		tm.Status.SetCondition(v1alpha1api.IsMMSPredictor, &apis.Condition{
-			Status: v1.ConditionTrue,
+		tm.Status.SetCondition(v1alpha1.IsMMSPredictor, &apis.Condition{
+			Status: corev1.ConditionTrue,
 		})
 	} else {
-		tm.Status.SetCondition(v1alpha1api.IsMMSPredictor, &apis.Condition{
-			Type:    v1alpha1api.IsMMSPredictor,
-			Status:  v1.ConditionFalse,
+		tm.Status.SetCondition(v1alpha1.IsMMSPredictor, &apis.Condition{
+			Type:    v1alpha1.IsMMSPredictor,
+			Status:  corev1.ConditionFalse,
 			Reason:  "IsNotMMSPredictor",
 			Message: "Inference Service predictor is not configured for multi-model serving",
 		})
@@ -255,8 +255,8 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 	}
 
 	// Get trained models with same inference service
-	var trainedModels v1alpha1api.TrainedModelList
-	if err := r.List(context.TODO(), &trainedModels, client.InNamespace(tm.Namespace), client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name, constants.TrainedModelAllocated: isvc.Name}); err != nil {
+	var trainedModels v1alpha1.TrainedModelList
+	if err := r.List(ctx, &trainedModels, client.InNamespace(tm.Namespace), client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name, constants.TrainedModelAllocated: isvc.Name}); err != nil {
 		return err
 	}
 
@@ -270,20 +270,20 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 		log.Info("Parent InferenceService memory resources are available", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
 		if _, ok := tm.Labels[constants.TrainedModelAllocated]; !ok {
 			tm.Labels[constants.TrainedModelAllocated] = isvc.Name
-			if updateErr := r.Update(context.Background(), tm); updateErr != nil {
+			if updateErr := r.Update(ctx, tm); updateErr != nil {
 				r.Log.Error(updateErr, "Failed to update TrainedModel label", "TrainedModel", tm.Name)
 				return updateErr
 			}
 		}
 
-		tm.Status.SetCondition(v1alpha1api.MemoryResourceAvailable, &apis.Condition{
-			Status: v1.ConditionTrue,
+		tm.Status.SetCondition(v1alpha1.MemoryResourceAvailable, &apis.Condition{
+			Status: corev1.ConditionTrue,
 		})
 	} else {
 		log.Info("Parent InferenceService memory resources are not available", "TrainedModel", tm.Name, "InferenceService", isvc.Name)
-		tm.Status.SetCondition(v1alpha1api.MemoryResourceAvailable, &apis.Condition{
-			Type:    v1alpha1api.MemoryResourceAvailable,
-			Status:  v1.ConditionFalse,
+		tm.Status.SetCondition(v1alpha1.MemoryResourceAvailable, &apis.Condition{
+			Type:    v1alpha1.MemoryResourceAvailable,
+			Status:  corev1.ConditionFalse,
 			Reason:  "MemoryResourceNotAvailable",
 			Message: "Inference Service does not have enough memory resources for Trained Model",
 		})
@@ -291,9 +291,9 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 		conditionErr = fmt.Errorf(MemoryResourceNotAvailable, isvc.Name, tm.Name)
 	}
 
-	if statusErr := r.Status().Update(context.TODO(), tm); statusErr != nil {
+	if statusErr := r.Status().Update(ctx, tm); statusErr != nil {
 		r.Log.Error(statusErr, "Failed to update TrainedModel condition", "TrainedModel", tm.Name)
-		r.Recorder.Eventf(tm, v1.EventTypeWarning, "UpdateFailed",
+		r.Recorder.Eventf(tm, corev1.EventTypeWarning, "UpdateFailed",
 			"Failed to update conditions for TrainedModel: %v", statusErr)
 		return statusErr
 	}
@@ -303,6 +303,6 @@ func (r *TrainedModelReconciler) updateConditions(req ctrl.Request, tm *v1alpha1
 
 func (r *TrainedModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1api.TrainedModel{}).
+		For(&v1alpha1.TrainedModel{}).
 		Complete(r)
 }
