@@ -7,6 +7,7 @@ Name | Type | Description | Notes
 **active_deadline_seconds** | **int** | Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers. Value must be a positive integer. | [optional] 
 **affinity** | [**V1Affinity**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Affinity.md) |  | [optional] 
 **annotations** | **dict(str, str)** | Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/ | [optional] 
+**app_protocol** | **str** | Specifies an application protocol. https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol | [optional] 
 **art** | [**V1beta1ARTExplainerSpec**](V1beta1ARTExplainerSpec.md) |  | [optional] 
 **automount_service_account_token** | **bool** | AutomountServiceAccountToken indicates whether a service account token should be automatically mounted. | [optional] 
 **batcher** | [**V1beta1Batcher**](V1beta1Batcher.md) |  | [optional] 

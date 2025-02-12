@@ -50,6 +50,7 @@ class V1beta1ExplainerSpec(object):
         'active_deadline_seconds': 'int',
         'affinity': 'V1Affinity',
         'annotations': 'dict(str, str)',
+        'app_protocol': 'str',
         'art': 'V1beta1ARTExplainerSpec',
         'automount_service_account_token': 'bool',
         'batcher': 'V1beta1Batcher',
@@ -105,6 +106,7 @@ class V1beta1ExplainerSpec(object):
         'active_deadline_seconds': 'activeDeadlineSeconds',
         'affinity': 'affinity',
         'annotations': 'annotations',
+        'app_protocol': 'appProtocol',
         'art': 'art',
         'automount_service_account_token': 'automountServiceAccountToken',
         'batcher': 'batcher',
@@ -156,7 +158,7 @@ class V1beta1ExplainerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, app_protocol=None, art=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ExplainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -165,6 +167,7 @@ class V1beta1ExplainerSpec(object):
         self._active_deadline_seconds = None
         self._affinity = None
         self._annotations = None
+        self._app_protocol = None
         self._art = None
         self._automount_service_account_token = None
         self._batcher = None
@@ -222,6 +225,8 @@ class V1beta1ExplainerSpec(object):
             self.affinity = affinity
         if annotations is not None:
             self.annotations = annotations
+        if app_protocol is not None:
+            self.app_protocol = app_protocol
         if art is not None:
             self.art = art
         if automount_service_account_token is not None:
@@ -387,6 +392,29 @@ class V1beta1ExplainerSpec(object):
         """
 
         self._annotations = annotations
+
+    @property
+    def app_protocol(self):
+        """Gets the app_protocol of this V1beta1ExplainerSpec.  # noqa: E501
+
+        Specifies an application protocol. https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol  # noqa: E501
+
+        :return: The app_protocol of this V1beta1ExplainerSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._app_protocol
+
+    @app_protocol.setter
+    def app_protocol(self, app_protocol):
+        """Sets the app_protocol of this V1beta1ExplainerSpec.
+
+        Specifies an application protocol. https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol  # noqa: E501
+
+        :param app_protocol: The app_protocol of this V1beta1ExplainerSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._app_protocol = app_protocol
 
     @property
     def art(self):
