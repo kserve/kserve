@@ -259,11 +259,15 @@ jobs:
         with:
           path: /mnt/python/huggingfaceserver-venv
           key: huggingface-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/huggingfaceserver/poetry.lock') }}
-        # install huggingface server dependencies if cache does not exist
+      # install huggingface server dependencies if cache does not exist
       - name: Configure poetry for huggingface server
         run: |
           poetry config virtualenvs.path /mnt/python/huggingfaceserver-venv
           poetry config virtualenvs.in-project false
+      # make poetry visible for vllm openvino installation
+      - name: Install Poetry Plugins
+        run: |
+          poetry self add poetry-version-plugin
       - name: Install huggingface dependencies
         run: |
           sudo mkdir -p /mnt/python/huggingfaceserver-venv
