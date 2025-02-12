@@ -1250,6 +1250,10 @@
             "default": ""
           }
         },
+        "appProtocol": {
+          "description": "Specifies an application protocol. https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol",
+          "type": "string"
+        },
         "batcher": {
           "description": "Activate request batching and batching configurations",
           "$ref": "#/definitions/v1beta1.Batcher"
@@ -2415,6 +2419,10 @@
             "type": "string",
             "default": ""
           }
+        },
+        "appProtocol": {
+          "description": "Specifies an application protocol. https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol",
+          "type": "string"
         },
         "art": {
           "description": "Spec for ART explainer",
@@ -4637,6 +4645,10 @@
             "default": ""
           }
         },
+        "appProtocol": {
+          "description": "Specifies an application protocol. https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol",
+          "type": "string"
+        },
         "automountServiceAccountToken": {
           "description": "AutomountServiceAccountToken indicates whether a service account token should be automatically mounted.",
           "type": "boolean"
@@ -5600,6 +5612,10 @@
             "type": "string",
             "default": ""
           }
+        },
+        "appProtocol": {
+          "description": "Specifies an application protocol. https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol",
+          "type": "string"
         },
         "automountServiceAccountToken": {
           "description": "AutomountServiceAccountToken indicates whether a service account token should be automatically mounted.",

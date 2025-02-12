@@ -48,6 +48,7 @@ class V1beta1ComponentExtensionSpec(object):
     """
     openapi_types = {
         'annotations': 'dict(str, str)',
+        'app_protocol': 'str',
         'batcher': 'V1beta1Batcher',
         'canary_traffic_percent': 'int',
         'container_concurrency': 'int',
@@ -63,6 +64,7 @@ class V1beta1ComponentExtensionSpec(object):
 
     attribute_map = {
         'annotations': 'annotations',
+        'app_protocol': 'appProtocol',
         'batcher': 'batcher',
         'canary_traffic_percent': 'canaryTrafficPercent',
         'container_concurrency': 'containerConcurrency',
@@ -76,13 +78,14 @@ class V1beta1ComponentExtensionSpec(object):
         'timeout': 'timeout'
     }
 
-    def __init__(self, annotations=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, app_protocol=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, deployment_strategy=None, labels=None, logger=None, max_replicas=None, min_replicas=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ComponentExtensionSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._annotations = None
+        self._app_protocol = None
         self._batcher = None
         self._canary_traffic_percent = None
         self._container_concurrency = None
@@ -98,6 +101,8 @@ class V1beta1ComponentExtensionSpec(object):
 
         if annotations is not None:
             self.annotations = annotations
+        if app_protocol is not None:
+            self.app_protocol = app_protocol
         if batcher is not None:
             self.batcher = batcher
         if canary_traffic_percent is not None:
@@ -143,6 +148,29 @@ class V1beta1ComponentExtensionSpec(object):
         """
 
         self._annotations = annotations
+
+    @property
+    def app_protocol(self):
+        """Gets the app_protocol of this V1beta1ComponentExtensionSpec.  # noqa: E501
+
+        Specifies an application protocol. https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol  # noqa: E501
+
+        :return: The app_protocol of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._app_protocol
+
+    @app_protocol.setter
+    def app_protocol(self, app_protocol):
+        """Sets the app_protocol of this V1beta1ComponentExtensionSpec.
+
+        Specifies an application protocol. https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol  # noqa: E501
+
+        :param app_protocol: The app_protocol of this V1beta1ComponentExtensionSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._app_protocol = app_protocol
 
     @property
     def batcher(self):

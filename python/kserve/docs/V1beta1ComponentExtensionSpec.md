@@ -5,6 +5,7 @@ ComponentExtensionSpec defines the deployment configuration for a given Inferenc
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **annotations** | **dict(str, str)** | Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/ | [optional] 
+**app_protocol** | **str** | Specifies an application protocol. https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol | [optional] 
 **batcher** | [**V1beta1Batcher**](V1beta1Batcher.md) |  | [optional] 
 **canary_traffic_percent** | **int** | CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision | [optional] 
 **container_concurrency** | **int** | ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container concurrency(https://knative.dev/docs/serving/autoscaling/concurrency). | [optional] 

@@ -498,6 +498,10 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
+                    appProtocol:
+                      enum:
+                        - kubernetes.io/h2c
+                      type: string
                     art:
                       properties:
                         args:
@@ -4139,6 +4143,10 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
+                    appProtocol:
+                      enum:
+                        - kubernetes.io/h2c
+                      type: string
                     automountServiceAccountToken:
                       type: boolean
                     batcher:
@@ -18227,6 +18235,10 @@ spec:
                       additionalProperties:
                         type: string
                       type: object
+                    appProtocol:
+                      enum:
+                        - kubernetes.io/h2c
+                      type: string
                     automountServiceAccountToken:
                       type: boolean
                     batcher:

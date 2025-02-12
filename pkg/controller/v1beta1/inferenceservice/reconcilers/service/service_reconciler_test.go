@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 )
 
 var emptyServiceConfig = &v1beta1.ServiceConfig{}
@@ -104,6 +105,39 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				},
 			},
 			multiNodeEnabled: true,
+		},
+		"default-service-with-appProtocol": {
+			componentMeta: metav1.ObjectMeta{
+				Name:      "default-predictor",
+				Namespace: "default-predictor-namespace",
+				Annotations: map[string]string{
+					"annotation": "annotation-value",
+				},
+				Labels: map[string]string{
+					constants.DeploymentMode:  string(constants.RawDeployment),
+					constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
+				},
+			},
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AppProtocol: ptr.To("kubernetes.io/h2c"),
+			},
+			podSpec: &corev1.PodSpec{
+				Volumes: []corev1.Volume{
+					{
+						Name: "default-predictor-example-volume",
+					},
+				},
+				Containers: []corev1.Container{
+					{
+						Name:  "kserve-container",
+						Image: "default-predictor-example-image",
+						Env: []corev1.EnvVar{
+							{Name: "default-predictor-example-env", Value: "example-env"},
+						},
+					},
+				},
+			},
+			multiNodeEnabled: false,
 		},
 	}
 
@@ -188,6 +222,35 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					},
 					ClusterIP:                "None",
 					PublishNotReadyAddresses: true,
+				},
+			},
+		},
+		"default-service-with-appProtocol": {
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default-predictor",
+					Namespace: "default-predictor-namespace",
+					Labels: map[string]string{
+						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+					},
+					Annotations: map[string]string{
+						"annotation": "annotation-value",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:        "default-predictor",
+							Protocol:    corev1.ProtocolTCP,
+							Port:        80,
+							TargetPort:  intstr.IntOrString{IntVal: 8080},
+							AppProtocol: ptr.To("kubernetes.io/h2c"),
+						},
+					},
+					Selector: map[string]string{
+						constants.RawDeploymentAppLabel: "isvc.default-predictor",
+					},
 				},
 			},
 		},

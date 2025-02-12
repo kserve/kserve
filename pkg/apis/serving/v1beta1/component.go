@@ -120,6 +120,11 @@ type ComponentExtensionSpec struct {
 	// The deployment strategy to use to replace existing pods with new ones. Only applicable for raw deployment mode.
 	// +optional
 	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`
+	// Specifies an application protocol.
+	// https://kubernetes.io/docs/concepts/services-networking/service/#application-protocol
+	// +kubebuilder:validation:Enum=kubernetes.io/h2c
+	// +optional
+	AppProtocol *string `json:"appProtocol,omitempty"`
 }
 
 // ScaleMetric enum
