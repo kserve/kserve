@@ -2,8 +2,6 @@ module github.com/kserve/kserve
 
 go 1.23.6
 
-toolchain go1.23.6
-
 require (
 	cloud.google.com/go/storage v1.50.0
 	github.com/aws/aws-sdk-go v1.55.6

@@ -2,8 +2,6 @@ module github.com/kserve/kserve/qpext
 
 go 1.23.6
 
-toolchain go1.23.6
-
 require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/prometheus/client_model v0.6.1
