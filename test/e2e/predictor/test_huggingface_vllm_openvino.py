@@ -50,8 +50,8 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
                 "512",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "4", "memory": "12Gi"},
-                limits={"cpu": "4", "memory": "12Gi"},
+                requests={"cpu": "2", "memory": "6Gi"},
+                limits={"cpu": "2", "memory": "6Gi"},
             ),
         ),
     )
@@ -102,8 +102,8 @@ def test_huggingface_vllm_openvino_openai_completions():
                 "512",
             ],
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "12Gi"},
-                limits={"cpu": "2", "memory": "12Gi"},
+                requests={"cpu": "2", "memory": "6Gi"},
+                limits={"cpu": "2", "memory": "6Gi"},
             ),
         ),
     )

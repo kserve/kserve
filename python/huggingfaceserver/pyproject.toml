@@ -14,7 +14,7 @@ transformers = "4.48.3"
 accelerate = "~0.32.0"
 torch = "~2.5.0"
 vllm = "0.7.2"
-setuptools = { version = ">=70.0.0" }
+setuptools = ">=70.0.0"
 
 [tool.poetry.group.test]
 optional = true
