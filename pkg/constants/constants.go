@@ -105,6 +105,7 @@ var (
 	DefaultPrometheusPath                       = "/metrics"
 	QueueProxyAggregatePrometheusMetricsPort    = "9088"
 	DefaultPodPrometheusPort                    = "9091"
+	NodeGroupAnnotationKey                      = KServeAPIGroupName + "/nodegroup"
 )
 
 // InferenceService Internal Annotations

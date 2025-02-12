@@ -485,7 +485,11 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	}
 	isvc.Labels[constants.LocalModelLabel] = localModel.Name
 	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = localModel.Spec.SourceModelUri
-	// TODO: node group needs to be retrieved from isvc node group annotation when we support multiple node groups
-	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModel.Name + "-" + localModel.Spec.NodeGroups[0]
+	// Get node group from annotation when possible, otherwise fallback to use the first node group from localmodelcache
+	if nodeGroup, ok := isvc.Annotations[constants.NodeGroupAnnotationKey]; ok {
+		isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModel.Name + "-" + nodeGroup
+	} else {
+		isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModel.Name + "-" + localModel.Spec.NodeGroups[0]
+	}
 	mutatorLogger.Info("LocalModelCache found", "model", localModel.Name, "namespace", isvc.Namespace, "isvc", isvc.Name)
 }

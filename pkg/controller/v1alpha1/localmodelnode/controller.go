@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,6 +49,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 )
 
 type LocalModelNodeReconciler struct {
@@ -74,8 +76,41 @@ var (
 	fsHelper                   FileSystemInterface
 )
 
+// Returns the nodegroup of a node
+// NOTE: Assuming a node could only belong to 1 nodegroup
+func (c *LocalModelNodeReconciler) getNodeGroupFromNode(ctx context.Context, nodeName string) (*v1alpha1.LocalModelNodeGroup, error) {
+	node := &corev1.Node{}
+	if err := c.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
+		return nil, err
+	}
+	nodeGroups := &v1alpha1.LocalModelNodeGroupList{}
+	if err := c.List(ctx, nodeGroups); err != nil {
+		return nil, err
+	}
+	for _, nodeGroup := range nodeGroups.Items {
+		// To avoid implicit memory aliasing in for loop
+		matches, err := utils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
+		if err != nil {
+			return nil, err
+		}
+		if matches {
+			return &nodeGroup, nil
+		}
+	}
+
+	return nil, fmt.Errorf("did not find matching nodegroup for node: %s", nodeName)
+}
+
 func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode v1alpha1.LocalModelNode, modelInfo v1alpha1.LocalModelInfo) (*batchv1.Job, error) {
 	jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
+	nodeGroup, err := c.getNodeGroupFromNode(ctx, nodeName)
+	if nodeGroup == nil {
+		c.Log.Error(err, "Failed to get node group for current node", "node name", nodeName)
+		return nil, err
+	}
+	pvcName := modelInfo.ModelName + "-" + nodeGroup.Name
+	c.Log.Info("Found the nodegroup of current node. Using the following PVC name to create download job", "current node", nodeName, "node group", nodeGroup.Name, "PVC name", pvcName)
+
 	container, err := c.getContainerSpecForStorageUri(ctx, modelInfo.SourceModelUri)
 	if err != nil {
 		return nil, err
@@ -108,7 +143,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 							Name: PvcSourceMountName,
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: modelInfo.ModelName,
+									ClaimName: pvcName,
 								},
 							},
 						},
