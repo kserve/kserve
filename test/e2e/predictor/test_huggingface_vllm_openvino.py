@@ -71,7 +71,9 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
     )
     kserve_client.create(isvc)
 
-    os.system(f"kubectl describe isvc {service_name} -n {KSERVE_TEST_NAMESPACE}")
+    created_isvc = kserve_client.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    for condition in created_isvc["status"]["conditions"]:
+        print(condition)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = generate(service_name, "./data/opt_125m_input_generate.json")
@@ -123,9 +125,10 @@ def test_huggingface_vllm_openvino_openai_completions():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    os.system(f"kubectl describe isvc {service_name} -n {KSERVE_TEST_NAMESPACE}")
+    created_isvc = kserve_client.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    for condition in created_isvc["status"]["conditions"]:
+        print(condition)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-
     res = generate(
         service_name, "./data/opt_125m_completion_input.json", chat_completions=False
     )
