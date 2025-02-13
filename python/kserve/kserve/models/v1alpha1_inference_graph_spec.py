@@ -47,28 +47,42 @@ class V1alpha1InferenceGraphSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'affinity': 'V1Affinity',
-        'max_replicas': 'int',
-        'min_replicas': 'int',
-        'nodes': 'dict(str, V1alpha1InferenceRouter)',
-        'resources': 'V1ResourceRequirements',
-        'scale_metric': 'str',
-        'scale_target': 'int',
-        'timeout': 'int'
+        "affinity": "V1Affinity",
+        "max_replicas": "int",
+        "min_replicas": "int",
+        "nodes": "dict(str, V1alpha1InferenceRouter)",
+        "resources": "V1ResourceRequirements",
+        "router_timeouts": "V1alpha1InfereceGraphRouterTimeouts",
+        "scale_metric": "str",
+        "scale_target": "int",
+        "timeout": "int",
     }
 
     attribute_map = {
-        'affinity': 'affinity',
-        'max_replicas': 'maxReplicas',
-        'min_replicas': 'minReplicas',
-        'nodes': 'nodes',
-        'resources': 'resources',
-        'scale_metric': 'scaleMetric',
-        'scale_target': 'scaleTarget',
-        'timeout': 'timeout'
+        "affinity": "affinity",
+        "max_replicas": "maxReplicas",
+        "min_replicas": "minReplicas",
+        "nodes": "nodes",
+        "resources": "resources",
+        "router_timeouts": "routerTimeouts",
+        "scale_metric": "scaleMetric",
+        "scale_target": "scaleTarget",
+        "timeout": "timeout",
     }
 
-    def __init__(self, affinity=None, max_replicas=None, min_replicas=None, nodes=None, resources=None, scale_metric=None, scale_target=None, timeout=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        affinity=None,
+        max_replicas=None,
+        min_replicas=None,
+        nodes=None,
+        resources=None,
+        router_timeouts=None,
+        scale_metric=None,
+        scale_target=None,
+        timeout=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1alpha1InferenceGraphSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -79,6 +93,7 @@ class V1alpha1InferenceGraphSpec(object):
         self._min_replicas = None
         self._nodes = None
         self._resources = None
+        self._router_timeouts = None
         self._scale_metric = None
         self._scale_target = None
         self._timeout = None
@@ -93,6 +108,8 @@ class V1alpha1InferenceGraphSpec(object):
         self.nodes = nodes
         if resources is not None:
             self.resources = resources
+        if router_timeouts is not None:
+            self.router_timeouts = router_timeouts
         if scale_metric is not None:
             self.scale_metric = scale_metric
         if scale_target is not None:
@@ -187,8 +204,12 @@ class V1alpha1InferenceGraphSpec(object):
         :param nodes: The nodes of this V1alpha1InferenceGraphSpec.  # noqa: E501
         :type: dict(str, V1alpha1InferenceRouter)
         """
-        if self.local_vars_configuration.client_side_validation and nodes is None:  # noqa: E501
-            raise ValueError("Invalid value for `nodes`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and nodes is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `nodes`, must not be `None`"
+            )  # noqa: E501
 
         self._nodes = nodes
 
@@ -212,6 +233,27 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._resources = resources
+
+    @property
+    def router_timeouts(self):
+        """Gets the router_timeouts of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+
+        :return: The router_timeouts of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: V1alpha1InfereceGraphRouterTimeouts
+        """
+        return self._router_timeouts
+
+    @router_timeouts.setter
+    def router_timeouts(self, router_timeouts):
+        """Sets the router_timeouts of this V1alpha1InferenceGraphSpec.
+
+
+        :param router_timeouts: The router_timeouts of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: V1alpha1InfereceGraphRouterTimeouts
+        """
+
+        self._router_timeouts = router_timeouts
 
     @property
     def scale_metric(self):
@@ -289,18 +331,22 @@ class V1alpha1InferenceGraphSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
