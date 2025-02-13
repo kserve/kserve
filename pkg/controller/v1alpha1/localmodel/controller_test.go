@@ -329,7 +329,7 @@ var _ = Describe("CachedModel controller", func() {
 			defer k8sClient.Delete(ctx, nodeGroup1)
 			defer k8sClient.Delete(ctx, nodeGroup2)
 
-			modelName := "iris2"
+			modelName := "iris"
 			isvcNamespace := "default"
 			isvcName1 := "foo"
 			isvcName2 := "bar"
