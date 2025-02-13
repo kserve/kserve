@@ -13,16 +13,16 @@ jobs:
   prepare-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-
       - name: Checkout source code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ inputs.releaseBranch }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
 
       - name: Install dependencies
         run: |
