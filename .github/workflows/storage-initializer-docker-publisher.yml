@@ -15,31 +15,146 @@ on:
 
 env:
   IMAGE_NAME: storage-initializer
+  ZVSI_SSH_KEY: r022-3eaf3a70-0e5e-4c11-bd62-281f3ad85893
+  ZVSI_VPC_NAME: kserve-ci-vpc-${{ github.run_id }}-${{ github.run_number }}
+  ZVSI_PROFILE_NAME: bz2-4x16
+  ZVSI_SUBNET_NAME: kserve-ci-subnet-${{ github.run_id }}-${{ github.run_number }}
+  ZVSI_FIP_NAME: kserve-ci-fip-${{ github.run_id }}-${{ github.run_number }}
+  ZVSI_INS_NAME: kserve-ci-zvsi-${{ github.run_id }}-${{ github.run_number }}
+  ZVSI_IMAGE_NAME: quay-s390x-custom-docker
+  IBMCLOUD_RESOURCE_GROUP_ID: 803a282c432046c488b775f326ffc867
+  ibmcloudRegion: jp-tok
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  create-zvsi-instance-s390x:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: install ibmcli and setup ibm login
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+          echo "Selected region: ${{ env.ibmcloudRegion }}"
+          ibmcloud login -q --apikey ${{ secrets.IBMCLOUD_API_KEY }} -r ${{ env.ibmcloudRegion }} | head -3
+          ibmcloud plugin install -f vpc-infrastructure
+          
+          
+      - name: create a virtual private cloud instance
+        run: |
+           ibmcloud is vpc-create $ZVSI_VPC_NAME --resource-group-id ${{ env.IBMCLOUD_RESOURCE_GROUP_ID }}  -q --output JSON | jq 'del(.resource_group)'
+           sleep 2
+           
+      - name: select a zone randomly
+        run: |
+           query=.cse_source_ips[$(awk "BEGIN{srand(); print int(rand()*(2-0+1))+0}")].zone.name
+           echo "ZVSI_ZONE=$(ibmcloud is vpc $ZVSI_VPC_NAME --output JSON | jq -r $query)" >> $GITHUB_ENV
+           
+      - name: create a subnet for vpc
+        run: |
+           ibmcloud is subnet-create $ZVSI_SUBNET_NAME $ZVSI_VPC_NAME --ipv4-address-count 256 --zone $ZVSI_ZONE --resource-group-id ${{ env.IBMCLOUD_RESOURCE_GROUP_ID }} -q --output JSON | jq 'del(.resource_group)'
+           sleep 2
+           
+      - name: create security group rule for ssh access
+        run: |
+           ibmcloud is security-group-rule-add $(ibmcloud is vpc $ZVSI_VPC_NAME --output JSON | jq -r .default_security_group.id) inbound tcp --port-min 22 --port-max 22 -q --output JSON
+           sleep 2
+           
+      - name: create a zvsi instance
+        run: |
+           ibmcloud is instance-create $ZVSI_INS_NAME $ZVSI_VPC_NAME $ZVSI_ZONE $ZVSI_PROFILE_NAME $ZVSI_SUBNET_NAME --keys $ZVSI_SSH_KEY --image $ZVSI_IMAGE_NAME --resource-group-id ${{ env.IBMCLOUD_RESOURCE_GROUP_ID }} -q --output JSON | jq 'del(.resource_group)'
+           sleep 30
+           
+      - name: floating ip addess assignment
+        run: |
+           ibmcloud is floating-ip-reserve $ZVSI_FIP_NAME --resource-group-id ${{ env.IBMCLOUD_RESOURCE_GROUP_ID }} --vni $(ibmcloud is instance-network-attachment $ZVSI_INS_NAME $(ibmcloud is instance $ZVSI_INS_NAME -q --output JSON | jq -r .primary_network_interface.id) -q --output JSON | jq -r .virtual_network_interface.id) -q --output JSON | jq 'del(.resource_group)'
+           
+      - name: Check ZVSI is online
+        run: |
+           zvsi_status=$(ibmcloud is instance $ZVSI_INS_NAME  -q --output JSON | jq -r .status)
+           if [[ -z "$zvsi_status" ]]; then
+              echo "ZVSI is not created";
+              exit 1
+           fi
+           while [[ $zvsi_status == "pending" || $zvsi_status == "starting" || $zvsi_status == "running" ]]
+            do
+              sleep 5
+              zvsi_status=$(ibmcloud is instance $ZVSI_INS_NAME  -q --output JSON | jq -r .status)
+              if [[ $zvsi_status == "failed" ]]; then
+                echo "zvsi failed to start";
+                exit 1;
+              elif [[ $zvsi_status == "running" ]]; then
+                echo "zvsi is running";
+                break;
+              elif [[ -z "$zvsi_status" ]]; then
+                echo "ZVSI is not created";
+                exit 1
+              fi
+            done
+            
   # Run tests.
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
   test:
     runs-on: ubuntu-latest
+    needs: create-zvsi-instance-s390x
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: install ibmcli and setup ibm login
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+          echo "Selected region: ${{ env.ibmcloudRegion }}"
+          ibmcloud login -q --apikey ${{ secrets.IBMCLOUD_API_KEY }} -r ${{ env.ibmcloudRegion }} | head -3
+          ibmcloud plugin install -f vpc-infrastructure
+
+      - name: setup floating ip address for ssh connection
+        run: |
+           echo "ZVSI_FIP_ADD=$(ibmcloud is floating-ip $ZVSI_FIP_NAME -q --output JSON | jq -r .address)" >> $GITHUB_ENV
+
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
 
+      - name: Debug SSH Host
+        run: echo "BUILDER_S390X_SSH_HOST is ${{ env.ZVSI_FIP_ADD }}"
+
+      - name: Setup SSH config for builders
+        env:
+          BUILDER_S390X_SSH_HOST: ${{ env.ZVSI_FIP_ADD }}
+          BUILDER_S390X_SSH_KEY: ${{ secrets.BUILDER_S390X_SSH_KEY }}
+        run: |
+          mkdir ~/.ssh
+          chmod 700 ~/.ssh
+          touch ~/.ssh/id_builder_s390x
+          chmod 600 ~/.ssh/id_builder_s390x
+          echo "$BUILDER_S390X_SSH_KEY" > ~/.ssh/id_builder_s390x
+          echo $BUILDER_S390X_SSH_HOST
+          touch ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          cat >~/.ssh/config <<END
+          Host builder-s390x
+            StrictHostKeyChecking no
+            HostName ${{ env.ZVSI_FIP_ADD }}
+            User root
+            IdentityFile "~/.ssh/id_builder_s390x"
+          END
+          cat ~/.ssh/config    
+
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64/v8
+          append: |
+            - endpoint: ssh://builder-s390x
+              platforms: linux/s390x
 
       - name: Run tests
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64
+          platforms: linux/amd64, linux/s390x
           context: python
           file: python/storage-initializer.Dockerfile
           push: false
@@ -50,7 +165,9 @@ jobs:
   # See also https://docs.docker.com/docker-hub/builds/
   push:
     # Ensure test job passes before pushing image.
-    needs: test
+    needs: 
+     - create-zvsi-instance-s390x
+     - test
 
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
@@ -59,11 +176,49 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: install ibmcli and setup ibm login
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+          echo "Selected region: ${{ env.ibmcloudRegion }}"
+          ibmcloud login -q --apikey ${{ secrets.IBMCLOUD_API_KEY }} -r ${{ env.ibmcloudRegion }} | head -3
+          ibmcloud plugin install -f vpc-infrastructure
+          
+      - name: setup floating ip address for ssh connection
+        run: |
+           echo "ZVSI_FIP_ADD=$(ibmcloud is floating-ip $ZVSI_FIP_NAME -q --output JSON | jq -r .address)" >> $GITHUB_ENV
+
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
 
+      - name: Setup SSH config for builders
+        env:
+          BUILDER_S390X_SSH_HOST: ${{ env.ZVSI_FIP_ADD }}
+          BUILDER_S390X_SSH_KEY: ${{ secrets.BUILDER_S390X_SSH_KEY }}
+        run: |
+          mkdir ~/.ssh
+          chmod 700 ~/.ssh
+          touch ~/.ssh/id_builder_s390x
+          chmod 600 ~/.ssh/id_builder_s390x
+          echo "$BUILDER_S390X_SSH_KEY" > ~/.ssh/id_builder_s390x
+          echo $BUILDER_S390X_SSH_HOST
+          touch ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          cat >~/.ssh/config <<END
+          Host builder-s390x
+            StrictHostKeyChecking no
+            HostName ${{ env.ZVSI_FIP_ADD }}
+            User root
+            IdentityFile "~/.ssh/id_builder_s390x"
+          END
+          cat ~/.ssh/config    
+          
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64/v8
+          append: |
+            - endpoint: ssh://builder-s390x
+              platforms: linux/s390x
 
       - name: Login to DockerHub
         uses: docker/login-action@v3
@@ -93,10 +248,68 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64
+          platforms: linux/amd64, linux/s390x
           context: python
           file: python/storage-initializer.Dockerfile
           push: true
           tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
           # https://github.com/docker/buildx/issues/1533
           provenance: false
+
+  delete-zvsi-instance-s390x:
+    needs: 
+    - create-zvsi-instance-s390x
+    - test
+    - push
+    if: always()
+    
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: install ibmcli and setup ibm login
+        run: |
+          curl -fsSL https://clis.cloud.ibm.com/install/linux | sh
+          echo "Selected region: ${{ env.ibmcloudRegion }}"
+          ibmcloud login -q --apikey ${{ secrets.IBMCLOUD_API_KEY }} -r ${{ env.ibmcloudRegion }} | head -3
+          ibmcloud plugin install -f vpc-infrastructure
+          
+      - name: destroy zvsi instance
+        if: always()
+        run: |
+          ibmcloud is instance-delete  -f -q $ZVSI_INS_NAME
+          sleep 15
+          
+      - name: Check ZVSI is offline
+        if: always()
+        run: |
+           zvsi_status=$(ibmcloud is instance $ZVSI_INS_NAME  -q --output JSON | jq -r .status)
+           if [[ -z "$zvsi_status" ]]; then
+              echo "ZVSI is destroyed";
+              break
+           fi
+           while [[ $zvsi_status == "running" || $zvsi_status == "deleting" ]]
+            do
+              sleep 5
+              zvsi_status=$(ibmcloud is instance $ZVSI_INS_NAME  -q --output JSON | jq -r .status)
+              if [[ -z "$zvsi_status" ]]; then
+              echo "ZVSI is destroyed";
+              break
+              fi
+            done
+            
+      - name: release floating ip address
+        if: always()
+        run: |
+           ibmcloud is floating-ip-release -f -q $ZVSI_FIP_NAME
+           
+      - name: cleanup subnet
+        if: always()
+        run: |
+           ibmcloud is subnet-delete -f -q $ZVSI_SUBNET_NAME
+           sleep 2
+           
+      - name: cleanup virtual private cloud instance
+        if: always()
+        run: |
+           ibmcloud is vpc-delete -f -q $ZVSI_VPC_NAME
+           sleep 2
