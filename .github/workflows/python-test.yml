@@ -275,7 +275,6 @@ jobs:
           sudo chown -R $USER /mnt/python/huggingfaceserver-venv
           cd python/huggingfaceserver
           make install_dependencies
-          bash tests/setup_vllm.sh
       - name: Install huggingface server
         run: |
           cd python/huggingfaceserver
@@ -283,6 +282,7 @@ jobs:
       - name: Test huggingfaceserver
         run: |
           cd python/huggingfaceserver
+          bash tests/setup_vllm.sh
           poetry run -- pytest --cov=huggingfaceserver -vv
 
       - name: Free space after tests
