@@ -17,12 +17,12 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: 1.22
+          go-version-file: go.mod
 
       - name: Install dependencies
         run: |
           go mod download
-      
+
       - name: Update Codegen
         shell: bash
         run: |
@@ -38,19 +38,19 @@ jobs:
       - name: Verify
         shell: bash
         run: |
-          cd $KSERVE_PATH 
-          
+          cd $KSERVE_PATH
+
           # From: https://backreference.org/2009/12/23/how-to-match-newlines-in-sed/
           # This is to leverage this workaround:
           # https://github.com/actions/toolkit/issues/193#issuecomment-605394935
           urlencode() {
             sed ':begin;$!N;s/\n/%0A/;tbegin'
           }
-          
+
           # When running make generate, it introduces some lint errors which is fixed manually.
           # Reset these files to avoid false triggers due to those changes.
           git checkout -- python/kserve/test/__init__.py python/kserve/kserve/api_client.py
-          
+
           if [ -z "$(git status --porcelain ./pkg ./python ./config ./charts)" ]; then
               echo "${{ github.repository }} up to date."
           else
