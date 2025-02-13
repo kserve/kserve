@@ -9,6 +9,10 @@ inputs:
     description:  'Kserve deployment mode. Supported values are serverless and raw'
     required: false
     default: 'serverless'
+  enable-keda:
+    description: 'Enable KEDA for autoscaling'
+    required: false
+    default: 'false'
 runs:
   using: "composite"
   steps:
@@ -22,7 +26,7 @@ runs:
           ./test/scripts/gh-actions/setup-kourier.sh
         else
           echo "Selected network layer ${{ inputs.network-layer }}"
-          ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}"
+          ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}" "${{ inputs.enable-keda }}"
         fi
 
     - name: Update test overlays
