@@ -181,7 +181,7 @@ sample-isvc-using-oci   https://sample-isvc-using-oci-oci-model-example.example 
 > [!IMPORTANT]
 > Remember that, by default, models are exposed outside the cluster and not
 > protected with authorization. Read the [authorization guide](authorization.md#deploying-a-protected-inferenceservice)
-> and the [private services guide (TODO)](#TODO) to learn how to privately deploy
+> and the [networking visibility](networking-visibility.md) to learn how to privately deploy
 > models and how to protect them with authorization.
 
 Test the model is working:
@@ -360,7 +360,7 @@ sample-isvc-using-oci   https://sample-isvc-using-oci-oci-model-example.example 
 > [!IMPORTANT]
 > Remember that, by default, models are exposed outside the cluster and not
 > protected with authorization. Read the [authorization guide](authorization.md#deploying-a-protected-inferenceservice)
-> and the [private services guide (TODO)](#TODO) to learn how to privately deploy
+> and the [networking visibility](networking-visibility.md) to learn how to privately deploy
 > models and how to protect them with authorization.
 
 ## Deploying a model stored in an OCI image from a private repository
