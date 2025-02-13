@@ -27,21 +27,11 @@ cat ./charts/kserve-resources/values.yaml
 
 make deploy-helm
 
-echo "Updating modelmesh default replicas count..."
-kubectl patch clusterservingruntimes mlserver-1.x --type='merge' -p '{"spec":{"replicas":1}}'
-
 echo "Get events of all pods ..."
 kubectl get events -A
 
-echo "Add testing models to minio storage ..."
-kubectl apply -f config/overlays/test/minio/minio-init-job.yaml
-kubectl wait --for=condition=complete --timeout=90s job/minio-init
-
 echo "Creating a namespace kserve-ci-test ..."
 kubectl create namespace kserve-ci-e2e-test
-
-echo "Add storageSpec testing secrets ..."
-kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-e2e-test
 
 echo "Installing KServe Python SDK ..."
 python3 -m pip install --upgrade pip
