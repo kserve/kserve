@@ -47,7 +47,7 @@ class V1beta1ExternalMetricSource(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'metric': 'V1beta1MetricIdentifier',
+        'metric': 'V1beta1MetricSource',
         'target': 'V1beta1MetricTarget'
     }
 
@@ -77,7 +77,7 @@ class V1beta1ExternalMetricSource(object):
 
 
         :return: The metric of this V1beta1ExternalMetricSource.  # noqa: E501
-        :rtype: V1beta1MetricIdentifier
+        :rtype: V1beta1MetricSource
         """
         return self._metric
 
@@ -87,7 +87,7 @@ class V1beta1ExternalMetricSource(object):
 
 
         :param metric: The metric of this V1beta1ExternalMetricSource.  # noqa: E501
-        :type: V1beta1MetricIdentifier
+        :type: V1beta1MetricSource
         """
 
         self._metric = metric

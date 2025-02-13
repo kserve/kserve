@@ -86,7 +86,7 @@ from kserve.models.v1beta1_ingress_config import V1beta1IngressConfig
 from kserve.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
 from kserve.models.v1beta1_local_model_config import V1beta1LocalModelConfig
 from kserve.models.v1beta1_logger_spec import V1beta1LoggerSpec
-from kserve.models.v1beta1_metric_identifier import V1beta1MetricIdentifier
+from kserve.models.v1beta1_metric_source import V1beta1MetricSource
 from kserve.models.v1beta1_metric_target import V1beta1MetricTarget
 from kserve.models.v1beta1_model_copies import V1beta1ModelCopies
 from kserve.models.v1beta1_model_format import V1beta1ModelFormat

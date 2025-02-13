@@ -184,7 +184,7 @@ type ResourceMetricSource struct {
 
 type ExternalMetricSource struct {
 	// metric identifies the target metric by name and selector
-	Metric MetricIdentifier `json:"metric,omitempty"`
+	Metric MetricSource `json:"metric,omitempty"`
 
 	// target specifies the target value for the given metric
 	Target MetricTarget `json:"target,omitempty"`
@@ -226,7 +226,7 @@ const (
 	AverageValueMetricType MetricTargetType = "AverageValue"
 )
 
-type MetricIdentifier struct {
+type MetricSource struct {
 	// MetricsBackend defines the scaling metric type watched by autoscaler
 	// possible values are prometheus, graphite.
 	// +optional

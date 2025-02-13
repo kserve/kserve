@@ -87,7 +87,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                 schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":             schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                   schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricIdentifier":             schema_pkg_apis_serving_v1beta1_MetricIdentifier(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricSource":                 schema_pkg_apis_serving_v1beta1_MetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget":                 schema_pkg_apis_serving_v1beta1_MetricTarget(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelCopies":                  schema_pkg_apis_serving_v1beta1_ModelCopies(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat":                  schema_pkg_apis_serving_v1beta1_ModelFormat(ref),
@@ -5023,7 +5023,7 @@ func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "metric identifies the target metric by name and selector",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricIdentifier"),
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricSource"),
 						},
 					},
 					"target": {
@@ -5037,7 +5037,7 @@ func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricIdentifier", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
 	}
 }
 
@@ -6238,7 +6238,7 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 	}
 }
 
-func schema_pkg_apis_serving_v1beta1_MetricIdentifier(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_pkg_apis_serving_v1beta1_MetricSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{

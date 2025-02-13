@@ -212,13 +212,15 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	deploymentMode := annotations["serving.kserve.io/deploymentMode"]
 	annotationClass := annotations[autoscaling.ClassAnnotationKey]
 	autoscalerClass := annotations[constants.AutoscalerClass]
-	if deploymentMode == string(constants.RawDeployment) || annotationClass == string(autoscaling.HPA) {
-		return validateScalingHPACompExtension(compExtSpec)
-	} else if autoscalerClass == string(constants.AutoscalerClassKeda) {
-		return validateScalingKedaCompExtension(compExtSpec)
-	}
 
-	return validateScalingKPACompExtension(compExtSpec)
+	switch {
+	case deploymentMode == string(constants.RawDeployment) || annotationClass == string(autoscaling.HPA):
+		return validateScalingHPACompExtension(compExtSpec)
+	case deploymentMode == string(constants.RawDeployment) || autoscalerClass == string(constants.AutoscalerClassKeda):
+		return validateScalingKedaCompExtension(compExtSpec)
+	default:
+		return validateScalingKPACompExtension(compExtSpec)
+	}
 }
 
 // Validation of isvc name

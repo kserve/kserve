@@ -2782,7 +2782,7 @@
         "metric": {
           "description": "metric identifies the target metric by name and selector",
           "default": {},
-          "$ref": "#/definitions/v1beta1.MetricIdentifier"
+          "$ref": "#/definitions/v1beta1.MetricSource"
         },
         "target": {
           "description": "target specifies the target value for the given metric",
@@ -3452,7 +3452,7 @@
         }
       }
     },
-    "v1beta1.MetricIdentifier": {
+    "v1beta1.MetricSource": {
       "type": "object",
       "properties": {
         "backend": {
