@@ -154,6 +154,9 @@ kserve:
       # -- Ingress domain template for RawDeployment mode, for Serverless mode it is configured in Knative.
       domainTemplate: "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
 
+      # -- Path template for RawDeployment mode, for Serverless mode it is configured in Knative.
+      pathTemplate: ""
+
       # -- HTTP endpoint url scheme.
       urlScheme: http
 
