@@ -32,7 +32,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, generate
 
 @pytest.mark.vllm
 def test_huggingface_vllm_openvino_openai_chat_completions():
-    service_name = "hf-chat"
+    service_name = "hf-opt-125m-chat"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -46,8 +46,6 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--tokenizer_revision",
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
-                "--model_name",
-                "hf-opt-125m-chat",
                 "--max_model_len",
                 "512",
             ],
@@ -84,7 +82,7 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
 
 @pytest.mark.vllm
 def test_huggingface_vllm_openvino_openai_completions():
-    service_name = "hf-cmpl"
+    service_name = "hf-opt-125m-cmpl"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -98,8 +96,6 @@ def test_huggingface_vllm_openvino_openai_completions():
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--tokenizer_revision",
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
-                "--model_name",
-                "hf-opt-125m-cmpl",
                 "--max_model_len",
                 "512",
             ],
