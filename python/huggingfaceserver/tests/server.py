@@ -35,7 +35,6 @@ class RemoteOpenAIServer:
         vllm_serve_args: List[str],
         *,
         env_dict: Optional[Dict[str, str]] = None,
-        auto_port: bool = True,
         max_wait_seconds: Optional[float] = None,
     ) -> None:
 
@@ -110,7 +109,6 @@ class RemoteOpenAIServer:
                 if result is not None and result != 0:
                     raise RuntimeError("Server exited unexpectedly.") from None
 
-                time.sleep(0.5)
                 if time.time() - start > timeout:
                     raise RuntimeError("Server failed to start in time.") from None
 
