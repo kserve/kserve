@@ -288,7 +288,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 	}
 
 	var metadataHeadersParsed []string = []string{}
-	if metadataHeaders != nil {
+	if len(*metadataHeaders) > 0 {
 		metadataHeadersParsed = strings.Split((*metadataHeaders)[0], ",")
 	}
 	logger.Info("Starting the log dispatcher")
