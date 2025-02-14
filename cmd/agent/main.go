@@ -286,6 +286,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		logger.Errorf("Malformed source_uri %s", *sourceUri)
 		os.Exit(-1)
 	}
+
 	var metadataHeadersParsed []string = []string{}
 	if metadataHeaders != nil {
 		metadataHeadersParsed = strings.Split((*metadataHeaders)[0], ",")
