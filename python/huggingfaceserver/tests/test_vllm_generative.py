@@ -466,6 +466,48 @@ async def test_chat_completion_stream_options(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("guided_decoding_backend", GUIDED_DECODING_BACKENDS)
+async def test_guided_choice_chat(
+    client: openai.AsyncOpenAI, guided_decoding_backend: str, sample_guided_choice
+):
+    messages = [
+        {"role": "system", "content": "you are a helpful assistant"},
+        {
+            "role": "user",
+            "content": "The best language for type-safe systems programming is ",
+        },
+    ]
+    chat_completion = await client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=messages,
+        max_completion_tokens=10,
+        temperature=0.7,
+        extra_body=dict(
+            guided_choice=sample_guided_choice,
+            guided_decoding_backend=guided_decoding_backend,
+        ),
+    )
+    choice1 = chat_completion.choices[0].message.content
+    assert choice1 in sample_guided_choice
+
+    messages.append({"role": "assistant", "content": choice1})
+    messages.append({"role": "user", "content": "I disagree, pick another one"})
+    chat_completion = await client.chat.completions.create(
+        model=MODEL_NAME,
+        messages=messages,
+        max_completion_tokens=10,
+        temperature=0.7,
+        extra_body=dict(
+            guided_choice=sample_guided_choice,
+            guided_decoding_backend=guided_decoding_backend,
+        ),
+    )
+    choice2 = chat_completion.choices[0].message.content
+    assert choice2 in sample_guided_choice
+    assert choice1 != choice2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("guided_decoding_backend", GUIDED_DECODING_BACKENDS)
 async def test_guided_json_chat(
     client: openai.AsyncOpenAI, guided_decoding_backend: str, sample_json_schema
 ):
@@ -811,7 +853,7 @@ async def test_response_format_json_schema(client: openai.AsyncOpenAI):
         assert content is not None
 
         loaded = json.loads(content)
-        assert "result" in loaded, loaded
+        assert loaded == {"result": 3}, loaded
 
 
 @pytest.mark.asyncio
@@ -1391,6 +1433,31 @@ async def test_logits_bias(client: openai.AsyncOpenAI):
         logit_bias={str(token): -100 for token in response_tokens},
     )
     assert first_response != completion.choices[0].text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("guided_decoding_backend", ["outlines", "lm-format-enforcer"])
+async def test_guided_json_completion(
+    client: openai.AsyncOpenAI, guided_decoding_backend: str, sample_json_schema
+):
+    completion = await client.completions.create(
+        model=MODEL_NAME,
+        prompt=f"Give an example JSON for an employee profile "
+        f"that fits this schema: {sample_json_schema}",
+        n=3,
+        temperature=1.0,
+        max_tokens=500,
+        extra_body=dict(
+            guided_json=sample_json_schema,
+            guided_decoding_backend=guided_decoding_backend,
+        ),
+    )
+
+    assert completion.id is not None
+    assert len(completion.choices) == 3
+    for i in range(3):
+        output_json = json.loads(completion.choices[i].text)
+        jsonschema.validate(instance=output_json, schema=sample_json_schema)
 
 
 @pytest.mark.asyncio
