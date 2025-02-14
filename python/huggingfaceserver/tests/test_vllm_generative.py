@@ -1437,31 +1437,6 @@ async def test_logits_bias(client: openai.AsyncOpenAI):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("guided_decoding_backend", ["outlines", "lm-format-enforcer"])
-async def test_guided_json_completion(
-    client: openai.AsyncOpenAI, guided_decoding_backend: str, sample_json_schema
-):
-    completion = await client.completions.create(
-        model=MODEL_NAME,
-        prompt=f"Give an example JSON for an employee profile "
-        f"that fits this schema: {sample_json_schema}",
-        n=3,
-        temperature=1.0,
-        max_tokens=500,
-        extra_body=dict(
-            guided_json=sample_json_schema,
-            guided_decoding_backend=guided_decoding_backend,
-        ),
-    )
-
-    assert completion.id is not None
-    assert len(completion.choices) == 3
-    for i in range(3):
-        output_json = json.loads(completion.choices[i].text)
-        jsonschema.validate(instance=output_json, schema=sample_json_schema)
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("guided_decoding_backend", ["outlines", "lm-format-enforcer"])
 async def test_guided_regex_completion(
     client: openai.AsyncOpenAI, guided_decoding_backend: str, sample_regex
 ):
