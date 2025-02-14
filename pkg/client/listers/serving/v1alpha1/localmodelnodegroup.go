@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // LocalModelNodeGroupLister helps list LocalModelNodeGroups.
@@ -30,7 +30,7 @@ import (
 type LocalModelNodeGroupLister interface {
 	// List lists all LocalModelNodeGroups in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.LocalModelNodeGroup, err error)
+	List(selector labels.Selector) (ret []*servingv1alpha1.LocalModelNodeGroup, err error)
 	// LocalModelNodeGroups returns an object that can list and get LocalModelNodeGroups.
 	LocalModelNodeGroups(namespace string) LocalModelNodeGroupNamespaceLister
 	LocalModelNodeGroupListerExpansion
@@ -38,17 +38,17 @@ type LocalModelNodeGroupLister interface {
 
 // localModelNodeGroupLister implements the LocalModelNodeGroupLister interface.
 type localModelNodeGroupLister struct {
-	listers.ResourceIndexer[*v1alpha1.LocalModelNodeGroup]
+	listers.ResourceIndexer[*servingv1alpha1.LocalModelNodeGroup]
 }
 
 // NewLocalModelNodeGroupLister returns a new LocalModelNodeGroupLister.
 func NewLocalModelNodeGroupLister(indexer cache.Indexer) LocalModelNodeGroupLister {
-	return &localModelNodeGroupLister{listers.New[*v1alpha1.LocalModelNodeGroup](indexer, v1alpha1.Resource("localmodelnodegroup"))}
+	return &localModelNodeGroupLister{listers.New[*servingv1alpha1.LocalModelNodeGroup](indexer, servingv1alpha1.Resource("localmodelnodegroup"))}
 }
 
 // LocalModelNodeGroups returns an object that can list and get LocalModelNodeGroups.
 func (s *localModelNodeGroupLister) LocalModelNodeGroups(namespace string) LocalModelNodeGroupNamespaceLister {
-	return localModelNodeGroupNamespaceLister{listers.NewNamespaced[*v1alpha1.LocalModelNodeGroup](s.ResourceIndexer, namespace)}
+	return localModelNodeGroupNamespaceLister{listers.NewNamespaced[*servingv1alpha1.LocalModelNodeGroup](s.ResourceIndexer, namespace)}
 }
 
 // LocalModelNodeGroupNamespaceLister helps list and get LocalModelNodeGroups.
@@ -56,15 +56,15 @@ func (s *localModelNodeGroupLister) LocalModelNodeGroups(namespace string) Local
 type LocalModelNodeGroupNamespaceLister interface {
 	// List lists all LocalModelNodeGroups in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.LocalModelNodeGroup, err error)
+	List(selector labels.Selector) (ret []*servingv1alpha1.LocalModelNodeGroup, err error)
 	// Get retrieves the LocalModelNodeGroup from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.LocalModelNodeGroup, error)
+	Get(name string) (*servingv1alpha1.LocalModelNodeGroup, error)
 	LocalModelNodeGroupNamespaceListerExpansion
 }
 
 // localModelNodeGroupNamespaceLister implements the LocalModelNodeGroupNamespaceLister
 // interface.
 type localModelNodeGroupNamespaceLister struct {
-	listers.ResourceIndexer[*v1alpha1.LocalModelNodeGroup]
+	listers.ResourceIndexer[*servingv1alpha1.LocalModelNodeGroup]
 }

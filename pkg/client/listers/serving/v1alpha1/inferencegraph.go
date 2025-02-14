@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // InferenceGraphLister helps list InferenceGraphs.
@@ -30,7 +30,7 @@ import (
 type InferenceGraphLister interface {
 	// List lists all InferenceGraphs in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.InferenceGraph, err error)
+	List(selector labels.Selector) (ret []*servingv1alpha1.InferenceGraph, err error)
 	// InferenceGraphs returns an object that can list and get InferenceGraphs.
 	InferenceGraphs(namespace string) InferenceGraphNamespaceLister
 	InferenceGraphListerExpansion
@@ -38,17 +38,17 @@ type InferenceGraphLister interface {
 
 // inferenceGraphLister implements the InferenceGraphLister interface.
 type inferenceGraphLister struct {
-	listers.ResourceIndexer[*v1alpha1.InferenceGraph]
+	listers.ResourceIndexer[*servingv1alpha1.InferenceGraph]
 }
 
 // NewInferenceGraphLister returns a new InferenceGraphLister.
 func NewInferenceGraphLister(indexer cache.Indexer) InferenceGraphLister {
-	return &inferenceGraphLister{listers.New[*v1alpha1.InferenceGraph](indexer, v1alpha1.Resource("inferencegraph"))}
+	return &inferenceGraphLister{listers.New[*servingv1alpha1.InferenceGraph](indexer, servingv1alpha1.Resource("inferencegraph"))}
 }
 
 // InferenceGraphs returns an object that can list and get InferenceGraphs.
 func (s *inferenceGraphLister) InferenceGraphs(namespace string) InferenceGraphNamespaceLister {
-	return inferenceGraphNamespaceLister{listers.NewNamespaced[*v1alpha1.InferenceGraph](s.ResourceIndexer, namespace)}
+	return inferenceGraphNamespaceLister{listers.NewNamespaced[*servingv1alpha1.InferenceGraph](s.ResourceIndexer, namespace)}
 }
 
 // InferenceGraphNamespaceLister helps list and get InferenceGraphs.
@@ -56,15 +56,15 @@ func (s *inferenceGraphLister) InferenceGraphs(namespace string) InferenceGraphN
 type InferenceGraphNamespaceLister interface {
 	// List lists all InferenceGraphs in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.InferenceGraph, err error)
+	List(selector labels.Selector) (ret []*servingv1alpha1.InferenceGraph, err error)
 	// Get retrieves the InferenceGraph from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.InferenceGraph, error)
+	Get(name string) (*servingv1alpha1.InferenceGraph, error)
 	InferenceGraphNamespaceListerExpansion
 }
 
 // inferenceGraphNamespaceLister implements the InferenceGraphNamespaceLister
 // interface.
 type inferenceGraphNamespaceLister struct {
-	listers.ResourceIndexer[*v1alpha1.InferenceGraph]
+	listers.ResourceIndexer[*servingv1alpha1.InferenceGraph]
 }
