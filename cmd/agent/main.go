@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/zapr"
@@ -285,6 +286,10 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		logger.Errorf("Malformed source_uri %s", *sourceUri)
 		os.Exit(-1)
 	}
+	var metadataHeadersParsed []string = []string{}
+	if metadataHeaders != nil {
+		metadataHeadersParsed = strings.Split((*metadataHeaders)[0], ",")
+	}
 	logger.Info("Starting the log dispatcher")
 	kfslogger.StartDispatcher(workers, logger)
 	return &loggerArgs{
@@ -295,7 +300,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		endpoint:         *endpoint,
 		namespace:        *namespace,
 		component:        *component,
-		metadataHeaders:  *metadataHeaders,
+		metadataHeaders:  metadataHeadersParsed,
 		certName:         *CaCertFile,
 		tlsSkipVerify:    *TlsSkipVerify,
 	}
