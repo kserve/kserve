@@ -532,9 +532,7 @@ class TestOpenAIProxyModelCompletion:
             ).assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_healthcheck_success(
-        self
-    ):
+    async def test_healthcheck_success(self):
         def handler(request):
             if request.url.path == "/health":
                 return httpx.Response(
@@ -543,14 +541,13 @@ class TestOpenAIProxyModelCompletion:
             return httpx.Response(
                 503,
             )
+
         async with mocked_openai_proxy_model(handler) as model:
             result = await model.healthy()
             assert result is True
 
     @pytest.mark.asyncio
-    async def test_healthcheck_failure(
-        self
-    ):
+    async def test_healthcheck_failure(self):
         def handler(request):
             if request.url.path == "/health":
                 return httpx.Response(
@@ -559,6 +556,7 @@ class TestOpenAIProxyModelCompletion:
             return httpx.Response(
                 200,
             )
+
         async with mocked_openai_proxy_model(handler) as model:
             result = await model.healthy()
             assert result is False

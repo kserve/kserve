@@ -106,6 +106,8 @@ class OpenAIProxyModel(OpenAICompletionModel):
             e.g. `http://my-backend:9000`
         http_client (httpx.AsyncClient|None):
             An optional instance of httpx.AsyncClient to use for sending requests to the upstream server.
+        health_endpoint: The defualt /health endpoint is for TGI and vllm, use /openai/v1/models/{model_name}
+            for KServe OpenAI protocol.
     """
 
     predictor_url: str
@@ -113,7 +115,7 @@ class OpenAIProxyModel(OpenAICompletionModel):
     _http_client: httpx.AsyncClient
     _completions_endpoint: str
     _chat_completions_endpoint: str
-    _health_endpoint: str
+    _health_endpoint: Optional[str] = None
 
     def __init__(
         self,
@@ -121,13 +123,8 @@ class OpenAIProxyModel(OpenAICompletionModel):
         predictor_url: str,
         http_client: Optional[httpx.AsyncClient] = None,
         skip_upstream_validation: bool = False,
-        health_endpoint: str = "/health",
+        health_endpoint: Optional[str] = "/health",
     ):
-        """
-        Args:
-            health_endpoint: The defualt /health endpoint is for TGI and vllm,
-                             use /openai/v1/models/{model_name} for KServe OpenAI protocol
-        """
         super().__init__(name)
         self.predictor_url = predictor_url
         self._http_client = (
@@ -141,7 +138,8 @@ class OpenAIProxyModel(OpenAICompletionModel):
         self._chat_completions_endpoint = (
             f"{self.predictor_url.rstrip('/')}{CHAT_COMPLETIONS_ENDPOINT}"
         )
-        self._health_endpoint = f"{self.predictor_url.rstrip('/')}{health_endpoint}"
+        if health_endpoint:
+            self._health_endpoint = f"{self.predictor_url.rstrip('/')}{health_endpoint}"
         self.skip_upstream_validation = skip_upstream_validation
         self.ready = True
 
@@ -304,12 +302,8 @@ class OpenAIProxyModel(OpenAICompletionModel):
         return chat_completion
 
     async def healthy(self) -> bool:
-        """
-        Check the health of this model. By default returns `self.ready`.
-
-        Returns:
-            True if healthy, false otherwise
-        """
+        if not self._health_endpoint:
+            return super().healthy()
         req = self._http_client.build_request(
             "GET",
             self._health_endpoint,
