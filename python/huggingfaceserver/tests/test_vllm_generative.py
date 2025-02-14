@@ -30,7 +30,7 @@ from vllm.transformers_utils.tokenizer import get_tokenizer
 from server import RemoteOpenAIServer
 
 
-MODEL = "Qwen/Qwen2.5-0.5B-Instruct"
+MODEL = "HuggingFaceH4/zephyr-7b-beta"
 MODEL_NAME = "test-model"
 GUIDED_DECODING_BACKENDS = ["outlines", "lm-format-enforcer", "xgrammar"]
 
