@@ -27,6 +27,10 @@ spec:
       containers:
       - command:
         - /manager
+        args:
+        # When changing arguments, make sure to review the args in manager_auth_proxy_patch.yaml
+        # and update as needed.
+        - "--leader-elect"
         image: ko://github.com/kserve/kserve/cmd/manager
         imagePullPolicy: Always
         name: manager

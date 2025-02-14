@@ -19,9 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	scheme "github.com/kserve/kserve/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,33 +37,34 @@ type ClusterServingRuntimesGetter interface {
 
 // ClusterServingRuntimeInterface has methods to work with ClusterServingRuntime resources.
 type ClusterServingRuntimeInterface interface {
-	Create(ctx context.Context, clusterServingRuntime *v1alpha1.ClusterServingRuntime, opts v1.CreateOptions) (*v1alpha1.ClusterServingRuntime, error)
-	Update(ctx context.Context, clusterServingRuntime *v1alpha1.ClusterServingRuntime, opts v1.UpdateOptions) (*v1alpha1.ClusterServingRuntime, error)
+	Create(ctx context.Context, clusterServingRuntime *servingv1alpha1.ClusterServingRuntime, opts v1.CreateOptions) (*servingv1alpha1.ClusterServingRuntime, error)
+	Update(ctx context.Context, clusterServingRuntime *servingv1alpha1.ClusterServingRuntime, opts v1.UpdateOptions) (*servingv1alpha1.ClusterServingRuntime, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, clusterServingRuntime *v1alpha1.ClusterServingRuntime, opts v1.UpdateOptions) (*v1alpha1.ClusterServingRuntime, error)
+	UpdateStatus(ctx context.Context, clusterServingRuntime *servingv1alpha1.ClusterServingRuntime, opts v1.UpdateOptions) (*servingv1alpha1.ClusterServingRuntime, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ClusterServingRuntime, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ClusterServingRuntimeList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*servingv1alpha1.ClusterServingRuntime, error)
+	List(ctx context.Context, opts v1.ListOptions) (*servingv1alpha1.ClusterServingRuntimeList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ClusterServingRuntime, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *servingv1alpha1.ClusterServingRuntime, err error)
 	ClusterServingRuntimeExpansion
 }
 
 // clusterServingRuntimes implements ClusterServingRuntimeInterface
 type clusterServingRuntimes struct {
-	*gentype.ClientWithList[*v1alpha1.ClusterServingRuntime, *v1alpha1.ClusterServingRuntimeList]
+	*gentype.ClientWithList[*servingv1alpha1.ClusterServingRuntime, *servingv1alpha1.ClusterServingRuntimeList]
 }
 
 // newClusterServingRuntimes returns a ClusterServingRuntimes
 func newClusterServingRuntimes(c *ServingV1alpha1Client, namespace string) *clusterServingRuntimes {
 	return &clusterServingRuntimes{
-		gentype.NewClientWithList[*v1alpha1.ClusterServingRuntime, *v1alpha1.ClusterServingRuntimeList](
+		gentype.NewClientWithList[*servingv1alpha1.ClusterServingRuntime, *servingv1alpha1.ClusterServingRuntimeList](
 			"clusterservingruntimes",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.ClusterServingRuntime { return &v1alpha1.ClusterServingRuntime{} },
-			func() *v1alpha1.ClusterServingRuntimeList { return &v1alpha1.ClusterServingRuntimeList{} }),
+			func() *servingv1alpha1.ClusterServingRuntime { return &servingv1alpha1.ClusterServingRuntime{} },
+			func() *servingv1alpha1.ClusterServingRuntimeList { return &servingv1alpha1.ClusterServingRuntimeList{} },
+		),
 	}
 }

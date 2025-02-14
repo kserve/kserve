@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	apisservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	versioned "github.com/kserve/kserve/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kserve/kserve/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/kserve/kserve/pkg/client/listers/serving/v1alpha1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/client/listers/serving/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // InferenceGraphs.
 type InferenceGraphInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.InferenceGraphLister
+	Lister() servingv1alpha1.InferenceGraphLister
 }
 
 type inferenceGraphInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredInferenceGraphInformer(client versioned.Interface, namespace str
 				return client.ServingV1alpha1().InferenceGraphs(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1alpha1.InferenceGraph{},
+		&apisservingv1alpha1.InferenceGraph{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *inferenceGraphInformer) defaultInformer(client versioned.Interface, res
 }
 
 func (f *inferenceGraphInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1alpha1.InferenceGraph{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisservingv1alpha1.InferenceGraph{}, f.defaultInformer)
 }
 
-func (f *inferenceGraphInformer) Lister() v1alpha1.InferenceGraphLister {
-	return v1alpha1.NewInferenceGraphLister(f.Informer().GetIndexer())
+func (f *inferenceGraphInformer) Lister() servingv1alpha1.InferenceGraphLister {
+	return servingv1alpha1.NewInferenceGraphLister(f.Informer().GetIndexer())
 }

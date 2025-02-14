@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ClusterServingRuntimeLister helps list ClusterServingRuntimes.
@@ -30,7 +30,7 @@ import (
 type ClusterServingRuntimeLister interface {
 	// List lists all ClusterServingRuntimes in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.ClusterServingRuntime, err error)
+	List(selector labels.Selector) (ret []*servingv1alpha1.ClusterServingRuntime, err error)
 	// ClusterServingRuntimes returns an object that can list and get ClusterServingRuntimes.
 	ClusterServingRuntimes(namespace string) ClusterServingRuntimeNamespaceLister
 	ClusterServingRuntimeListerExpansion
@@ -38,17 +38,17 @@ type ClusterServingRuntimeLister interface {
 
 // clusterServingRuntimeLister implements the ClusterServingRuntimeLister interface.
 type clusterServingRuntimeLister struct {
-	listers.ResourceIndexer[*v1alpha1.ClusterServingRuntime]
+	listers.ResourceIndexer[*servingv1alpha1.ClusterServingRuntime]
 }
 
 // NewClusterServingRuntimeLister returns a new ClusterServingRuntimeLister.
 func NewClusterServingRuntimeLister(indexer cache.Indexer) ClusterServingRuntimeLister {
-	return &clusterServingRuntimeLister{listers.New[*v1alpha1.ClusterServingRuntime](indexer, v1alpha1.Resource("clusterservingruntime"))}
+	return &clusterServingRuntimeLister{listers.New[*servingv1alpha1.ClusterServingRuntime](indexer, servingv1alpha1.Resource("clusterservingruntime"))}
 }
 
 // ClusterServingRuntimes returns an object that can list and get ClusterServingRuntimes.
 func (s *clusterServingRuntimeLister) ClusterServingRuntimes(namespace string) ClusterServingRuntimeNamespaceLister {
-	return clusterServingRuntimeNamespaceLister{listers.NewNamespaced[*v1alpha1.ClusterServingRuntime](s.ResourceIndexer, namespace)}
+	return clusterServingRuntimeNamespaceLister{listers.NewNamespaced[*servingv1alpha1.ClusterServingRuntime](s.ResourceIndexer, namespace)}
 }
 
 // ClusterServingRuntimeNamespaceLister helps list and get ClusterServingRuntimes.
@@ -56,15 +56,15 @@ func (s *clusterServingRuntimeLister) ClusterServingRuntimes(namespace string) C
 type ClusterServingRuntimeNamespaceLister interface {
 	// List lists all ClusterServingRuntimes in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.ClusterServingRuntime, err error)
+	List(selector labels.Selector) (ret []*servingv1alpha1.ClusterServingRuntime, err error)
 	// Get retrieves the ClusterServingRuntime from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.ClusterServingRuntime, error)
+	Get(name string) (*servingv1alpha1.ClusterServingRuntime, error)
 	ClusterServingRuntimeNamespaceListerExpansion
 }
 
 // clusterServingRuntimeNamespaceLister implements the ClusterServingRuntimeNamespaceLister
 // interface.
 type clusterServingRuntimeNamespaceLister struct {
-	listers.ResourceIndexer[*v1alpha1.ClusterServingRuntime]
+	listers.ResourceIndexer[*servingv1alpha1.ClusterServingRuntime]
 }

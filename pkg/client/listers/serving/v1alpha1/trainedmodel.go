@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // TrainedModelLister helps list TrainedModels.
@@ -30,7 +30,7 @@ import (
 type TrainedModelLister interface {
 	// List lists all TrainedModels in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.TrainedModel, err error)
+	List(selector labels.Selector) (ret []*servingv1alpha1.TrainedModel, err error)
 	// TrainedModels returns an object that can list and get TrainedModels.
 	TrainedModels(namespace string) TrainedModelNamespaceLister
 	TrainedModelListerExpansion
@@ -38,17 +38,17 @@ type TrainedModelLister interface {
 
 // trainedModelLister implements the TrainedModelLister interface.
 type trainedModelLister struct {
-	listers.ResourceIndexer[*v1alpha1.TrainedModel]
+	listers.ResourceIndexer[*servingv1alpha1.TrainedModel]
 }
 
 // NewTrainedModelLister returns a new TrainedModelLister.
 func NewTrainedModelLister(indexer cache.Indexer) TrainedModelLister {
-	return &trainedModelLister{listers.New[*v1alpha1.TrainedModel](indexer, v1alpha1.Resource("trainedmodel"))}
+	return &trainedModelLister{listers.New[*servingv1alpha1.TrainedModel](indexer, servingv1alpha1.Resource("trainedmodel"))}
 }
 
 // TrainedModels returns an object that can list and get TrainedModels.
 func (s *trainedModelLister) TrainedModels(namespace string) TrainedModelNamespaceLister {
-	return trainedModelNamespaceLister{listers.NewNamespaced[*v1alpha1.TrainedModel](s.ResourceIndexer, namespace)}
+	return trainedModelNamespaceLister{listers.NewNamespaced[*servingv1alpha1.TrainedModel](s.ResourceIndexer, namespace)}
 }
 
 // TrainedModelNamespaceLister helps list and get TrainedModels.
@@ -56,15 +56,15 @@ func (s *trainedModelLister) TrainedModels(namespace string) TrainedModelNamespa
 type TrainedModelNamespaceLister interface {
 	// List lists all TrainedModels in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.TrainedModel, err error)
+	List(selector labels.Selector) (ret []*servingv1alpha1.TrainedModel, err error)
 	// Get retrieves the TrainedModel from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.TrainedModel, error)
+	Get(name string) (*servingv1alpha1.TrainedModel, error)
 	TrainedModelNamespaceListerExpansion
 }
 
 // trainedModelNamespaceLister implements the TrainedModelNamespaceLister
 // interface.
 type trainedModelNamespaceLister struct {
-	listers.ResourceIndexer[*v1alpha1.TrainedModel]
+	listers.ResourceIndexer[*servingv1alpha1.TrainedModel]
 }

@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	apisservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	versioned "github.com/kserve/kserve/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kserve/kserve/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/kserve/kserve/pkg/client/listers/serving/v1alpha1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/client/listers/serving/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ServingRuntimes.
 type ServingRuntimeInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ServingRuntimeLister
+	Lister() servingv1alpha1.ServingRuntimeLister
 }
 
 type servingRuntimeInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredServingRuntimeInformer(client versioned.Interface, namespace str
 				return client.ServingV1alpha1().ServingRuntimes(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1alpha1.ServingRuntime{},
+		&apisservingv1alpha1.ServingRuntime{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *servingRuntimeInformer) defaultInformer(client versioned.Interface, res
 }
 
 func (f *servingRuntimeInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1alpha1.ServingRuntime{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisservingv1alpha1.ServingRuntime{}, f.defaultInformer)
 }
 
-func (f *servingRuntimeInformer) Lister() v1alpha1.ServingRuntimeLister {
-	return v1alpha1.NewServingRuntimeLister(f.Informer().GetIndexer())
+func (f *servingRuntimeInformer) Lister() servingv1alpha1.ServingRuntimeLister {
+	return servingv1alpha1.NewServingRuntimeLister(f.Informer().GetIndexer())
 }

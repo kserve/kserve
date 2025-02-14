@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	apisservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	versioned "github.com/kserve/kserve/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kserve/kserve/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/kserve/kserve/pkg/client/listers/serving/v1alpha1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/client/listers/serving/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // LocalModelNodeGroups.
 type LocalModelNodeGroupInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.LocalModelNodeGroupLister
+	Lister() servingv1alpha1.LocalModelNodeGroupLister
 }
 
 type localModelNodeGroupInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredLocalModelNodeGroupInformer(client versioned.Interface, namespac
 				return client.ServingV1alpha1().LocalModelNodeGroups(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1alpha1.LocalModelNodeGroup{},
+		&apisservingv1alpha1.LocalModelNodeGroup{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *localModelNodeGroupInformer) defaultInformer(client versioned.Interface
 }
 
 func (f *localModelNodeGroupInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1alpha1.LocalModelNodeGroup{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisservingv1alpha1.LocalModelNodeGroup{}, f.defaultInformer)
 }
 
-func (f *localModelNodeGroupInformer) Lister() v1alpha1.LocalModelNodeGroupLister {
-	return v1alpha1.NewLocalModelNodeGroupLister(f.Informer().GetIndexer())
+func (f *localModelNodeGroupInformer) Lister() servingv1alpha1.LocalModelNodeGroupLister {
+	return servingv1alpha1.NewLocalModelNodeGroupLister(f.Informer().GetIndexer())
 }

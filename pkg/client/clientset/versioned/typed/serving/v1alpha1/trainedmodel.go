@@ -19,9 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	scheme "github.com/kserve/kserve/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,33 +37,34 @@ type TrainedModelsGetter interface {
 
 // TrainedModelInterface has methods to work with TrainedModel resources.
 type TrainedModelInterface interface {
-	Create(ctx context.Context, trainedModel *v1alpha1.TrainedModel, opts v1.CreateOptions) (*v1alpha1.TrainedModel, error)
-	Update(ctx context.Context, trainedModel *v1alpha1.TrainedModel, opts v1.UpdateOptions) (*v1alpha1.TrainedModel, error)
+	Create(ctx context.Context, trainedModel *servingv1alpha1.TrainedModel, opts v1.CreateOptions) (*servingv1alpha1.TrainedModel, error)
+	Update(ctx context.Context, trainedModel *servingv1alpha1.TrainedModel, opts v1.UpdateOptions) (*servingv1alpha1.TrainedModel, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, trainedModel *v1alpha1.TrainedModel, opts v1.UpdateOptions) (*v1alpha1.TrainedModel, error)
+	UpdateStatus(ctx context.Context, trainedModel *servingv1alpha1.TrainedModel, opts v1.UpdateOptions) (*servingv1alpha1.TrainedModel, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.TrainedModel, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.TrainedModelList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*servingv1alpha1.TrainedModel, error)
+	List(ctx context.Context, opts v1.ListOptions) (*servingv1alpha1.TrainedModelList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.TrainedModel, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *servingv1alpha1.TrainedModel, err error)
 	TrainedModelExpansion
 }
 
 // trainedModels implements TrainedModelInterface
 type trainedModels struct {
-	*gentype.ClientWithList[*v1alpha1.TrainedModel, *v1alpha1.TrainedModelList]
+	*gentype.ClientWithList[*servingv1alpha1.TrainedModel, *servingv1alpha1.TrainedModelList]
 }
 
 // newTrainedModels returns a TrainedModels
 func newTrainedModels(c *ServingV1alpha1Client, namespace string) *trainedModels {
 	return &trainedModels{
-		gentype.NewClientWithList[*v1alpha1.TrainedModel, *v1alpha1.TrainedModelList](
+		gentype.NewClientWithList[*servingv1alpha1.TrainedModel, *servingv1alpha1.TrainedModelList](
 			"trainedmodels",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.TrainedModel { return &v1alpha1.TrainedModel{} },
-			func() *v1alpha1.TrainedModelList { return &v1alpha1.TrainedModelList{} }),
+			func() *servingv1alpha1.TrainedModel { return &servingv1alpha1.TrainedModel{} },
+			func() *servingv1alpha1.TrainedModelList { return &servingv1alpha1.TrainedModelList{} },
+		),
 	}
 }

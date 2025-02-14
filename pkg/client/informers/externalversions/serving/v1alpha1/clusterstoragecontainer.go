@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	apisservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	versioned "github.com/kserve/kserve/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kserve/kserve/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/kserve/kserve/pkg/client/listers/serving/v1alpha1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/client/listers/serving/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ClusterStorageContainers.
 type ClusterStorageContainerInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.ClusterStorageContainerLister
+	Lister() servingv1alpha1.ClusterStorageContainerLister
 }
 
 type clusterStorageContainerInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredClusterStorageContainerInformer(client versioned.Interface, name
 				return client.ServingV1alpha1().ClusterStorageContainers(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1alpha1.ClusterStorageContainer{},
+		&apisservingv1alpha1.ClusterStorageContainer{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *clusterStorageContainerInformer) defaultInformer(client versioned.Inter
 }
 
 func (f *clusterStorageContainerInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1alpha1.ClusterStorageContainer{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisservingv1alpha1.ClusterStorageContainer{}, f.defaultInformer)
 }
 
-func (f *clusterStorageContainerInformer) Lister() v1alpha1.ClusterStorageContainerLister {
-	return v1alpha1.NewClusterStorageContainerLister(f.Informer().GetIndexer())
+func (f *clusterStorageContainerInformer) Lister() servingv1alpha1.ClusterStorageContainerLister {
+	return servingv1alpha1.NewClusterStorageContainerLister(f.Informer().GetIndexer())
 }

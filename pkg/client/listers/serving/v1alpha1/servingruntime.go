@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ServingRuntimeLister helps list ServingRuntimes.
@@ -30,7 +30,7 @@ import (
 type ServingRuntimeLister interface {
 	// List lists all ServingRuntimes in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.ServingRuntime, err error)
+	List(selector labels.Selector) (ret []*servingv1alpha1.ServingRuntime, err error)
 	// ServingRuntimes returns an object that can list and get ServingRuntimes.
 	ServingRuntimes(namespace string) ServingRuntimeNamespaceLister
 	ServingRuntimeListerExpansion
@@ -38,17 +38,17 @@ type ServingRuntimeLister interface {
 
 // servingRuntimeLister implements the ServingRuntimeLister interface.
 type servingRuntimeLister struct {
-	listers.ResourceIndexer[*v1alpha1.ServingRuntime]
+	listers.ResourceIndexer[*servingv1alpha1.ServingRuntime]
 }
 
 // NewServingRuntimeLister returns a new ServingRuntimeLister.
 func NewServingRuntimeLister(indexer cache.Indexer) ServingRuntimeLister {
-	return &servingRuntimeLister{listers.New[*v1alpha1.ServingRuntime](indexer, v1alpha1.Resource("servingruntime"))}
+	return &servingRuntimeLister{listers.New[*servingv1alpha1.ServingRuntime](indexer, servingv1alpha1.Resource("servingruntime"))}
 }
 
 // ServingRuntimes returns an object that can list and get ServingRuntimes.
 func (s *servingRuntimeLister) ServingRuntimes(namespace string) ServingRuntimeNamespaceLister {
-	return servingRuntimeNamespaceLister{listers.NewNamespaced[*v1alpha1.ServingRuntime](s.ResourceIndexer, namespace)}
+	return servingRuntimeNamespaceLister{listers.NewNamespaced[*servingv1alpha1.ServingRuntime](s.ResourceIndexer, namespace)}
 }
 
 // ServingRuntimeNamespaceLister helps list and get ServingRuntimes.
@@ -56,15 +56,15 @@ func (s *servingRuntimeLister) ServingRuntimes(namespace string) ServingRuntimeN
 type ServingRuntimeNamespaceLister interface {
 	// List lists all ServingRuntimes in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.ServingRuntime, err error)
+	List(selector labels.Selector) (ret []*servingv1alpha1.ServingRuntime, err error)
 	// Get retrieves the ServingRuntime from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.ServingRuntime, error)
+	Get(name string) (*servingv1alpha1.ServingRuntime, error)
 	ServingRuntimeNamespaceListerExpansion
 }
 
 // servingRuntimeNamespaceLister implements the ServingRuntimeNamespaceLister
 // interface.
 type servingRuntimeNamespaceLister struct {
-	listers.ResourceIndexer[*v1alpha1.ServingRuntime]
+	listers.ResourceIndexer[*servingv1alpha1.ServingRuntime]
 }

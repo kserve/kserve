@@ -21,8 +21,10 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - inferencegraphs
   - inferenceservices
   - servingruntimes
+  - trainedmodels
   verbs:
   - get
   - list
@@ -63,8 +65,10 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - inferencegraphs
   - inferenceservices
   - servingruntimes
+  - trainedmodels
   verbs:
   - get
   - list

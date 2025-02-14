@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // LocalModelCacheLister helps list LocalModelCaches.
@@ -30,7 +30,7 @@ import (
 type LocalModelCacheLister interface {
 	// List lists all LocalModelCaches in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.LocalModelCache, err error)
+	List(selector labels.Selector) (ret []*servingv1alpha1.LocalModelCache, err error)
 	// LocalModelCaches returns an object that can list and get LocalModelCaches.
 	LocalModelCaches(namespace string) LocalModelCacheNamespaceLister
 	LocalModelCacheListerExpansion
@@ -38,17 +38,17 @@ type LocalModelCacheLister interface {
 
 // localModelCacheLister implements the LocalModelCacheLister interface.
 type localModelCacheLister struct {
-	listers.ResourceIndexer[*v1alpha1.LocalModelCache]
+	listers.ResourceIndexer[*servingv1alpha1.LocalModelCache]
 }
 
 // NewLocalModelCacheLister returns a new LocalModelCacheLister.
 func NewLocalModelCacheLister(indexer cache.Indexer) LocalModelCacheLister {
-	return &localModelCacheLister{listers.New[*v1alpha1.LocalModelCache](indexer, v1alpha1.Resource("localmodelcache"))}
+	return &localModelCacheLister{listers.New[*servingv1alpha1.LocalModelCache](indexer, servingv1alpha1.Resource("localmodelcache"))}
 }
 
 // LocalModelCaches returns an object that can list and get LocalModelCaches.
 func (s *localModelCacheLister) LocalModelCaches(namespace string) LocalModelCacheNamespaceLister {
-	return localModelCacheNamespaceLister{listers.NewNamespaced[*v1alpha1.LocalModelCache](s.ResourceIndexer, namespace)}
+	return localModelCacheNamespaceLister{listers.NewNamespaced[*servingv1alpha1.LocalModelCache](s.ResourceIndexer, namespace)}
 }
 
 // LocalModelCacheNamespaceLister helps list and get LocalModelCaches.
@@ -56,15 +56,15 @@ func (s *localModelCacheLister) LocalModelCaches(namespace string) LocalModelCac
 type LocalModelCacheNamespaceLister interface {
 	// List lists all LocalModelCaches in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha1.LocalModelCache, err error)
+	List(selector labels.Selector) (ret []*servingv1alpha1.LocalModelCache, err error)
 	// Get retrieves the LocalModelCache from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha1.LocalModelCache, error)
+	Get(name string) (*servingv1alpha1.LocalModelCache, error)
 	LocalModelCacheNamespaceListerExpansion
 }
 
 // localModelCacheNamespaceLister implements the LocalModelCacheNamespaceLister
 // interface.
 type localModelCacheNamespaceLister struct {
-	listers.ResourceIndexer[*v1alpha1.LocalModelCache]
+	listers.ResourceIndexer[*servingv1alpha1.LocalModelCache]
 }

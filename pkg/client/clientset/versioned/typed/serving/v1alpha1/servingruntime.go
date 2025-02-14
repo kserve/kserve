@@ -19,9 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	scheme "github.com/kserve/kserve/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,33 +37,34 @@ type ServingRuntimesGetter interface {
 
 // ServingRuntimeInterface has methods to work with ServingRuntime resources.
 type ServingRuntimeInterface interface {
-	Create(ctx context.Context, servingRuntime *v1alpha1.ServingRuntime, opts v1.CreateOptions) (*v1alpha1.ServingRuntime, error)
-	Update(ctx context.Context, servingRuntime *v1alpha1.ServingRuntime, opts v1.UpdateOptions) (*v1alpha1.ServingRuntime, error)
+	Create(ctx context.Context, servingRuntime *servingv1alpha1.ServingRuntime, opts v1.CreateOptions) (*servingv1alpha1.ServingRuntime, error)
+	Update(ctx context.Context, servingRuntime *servingv1alpha1.ServingRuntime, opts v1.UpdateOptions) (*servingv1alpha1.ServingRuntime, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, servingRuntime *v1alpha1.ServingRuntime, opts v1.UpdateOptions) (*v1alpha1.ServingRuntime, error)
+	UpdateStatus(ctx context.Context, servingRuntime *servingv1alpha1.ServingRuntime, opts v1.UpdateOptions) (*servingv1alpha1.ServingRuntime, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.ServingRuntime, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.ServingRuntimeList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*servingv1alpha1.ServingRuntime, error)
+	List(ctx context.Context, opts v1.ListOptions) (*servingv1alpha1.ServingRuntimeList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.ServingRuntime, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *servingv1alpha1.ServingRuntime, err error)
 	ServingRuntimeExpansion
 }
 
 // servingRuntimes implements ServingRuntimeInterface
 type servingRuntimes struct {
-	*gentype.ClientWithList[*v1alpha1.ServingRuntime, *v1alpha1.ServingRuntimeList]
+	*gentype.ClientWithList[*servingv1alpha1.ServingRuntime, *servingv1alpha1.ServingRuntimeList]
 }
 
 // newServingRuntimes returns a ServingRuntimes
 func newServingRuntimes(c *ServingV1alpha1Client, namespace string) *servingRuntimes {
 	return &servingRuntimes{
-		gentype.NewClientWithList[*v1alpha1.ServingRuntime, *v1alpha1.ServingRuntimeList](
+		gentype.NewClientWithList[*servingv1alpha1.ServingRuntime, *servingv1alpha1.ServingRuntimeList](
 			"servingruntimes",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.ServingRuntime { return &v1alpha1.ServingRuntime{} },
-			func() *v1alpha1.ServingRuntimeList { return &v1alpha1.ServingRuntimeList{} }),
+			func() *servingv1alpha1.ServingRuntime { return &servingv1alpha1.ServingRuntime{} },
+			func() *servingv1alpha1.ServingRuntimeList { return &servingv1alpha1.ServingRuntimeList{} },
+		),
 	}
 }

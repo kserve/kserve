@@ -19,9 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	scheme "github.com/kserve/kserve/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,33 +37,34 @@ type InferenceGraphsGetter interface {
 
 // InferenceGraphInterface has methods to work with InferenceGraph resources.
 type InferenceGraphInterface interface {
-	Create(ctx context.Context, inferenceGraph *v1alpha1.InferenceGraph, opts v1.CreateOptions) (*v1alpha1.InferenceGraph, error)
-	Update(ctx context.Context, inferenceGraph *v1alpha1.InferenceGraph, opts v1.UpdateOptions) (*v1alpha1.InferenceGraph, error)
+	Create(ctx context.Context, inferenceGraph *servingv1alpha1.InferenceGraph, opts v1.CreateOptions) (*servingv1alpha1.InferenceGraph, error)
+	Update(ctx context.Context, inferenceGraph *servingv1alpha1.InferenceGraph, opts v1.UpdateOptions) (*servingv1alpha1.InferenceGraph, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, inferenceGraph *v1alpha1.InferenceGraph, opts v1.UpdateOptions) (*v1alpha1.InferenceGraph, error)
+	UpdateStatus(ctx context.Context, inferenceGraph *servingv1alpha1.InferenceGraph, opts v1.UpdateOptions) (*servingv1alpha1.InferenceGraph, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.InferenceGraph, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.InferenceGraphList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*servingv1alpha1.InferenceGraph, error)
+	List(ctx context.Context, opts v1.ListOptions) (*servingv1alpha1.InferenceGraphList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.InferenceGraph, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *servingv1alpha1.InferenceGraph, err error)
 	InferenceGraphExpansion
 }
 
 // inferenceGraphs implements InferenceGraphInterface
 type inferenceGraphs struct {
-	*gentype.ClientWithList[*v1alpha1.InferenceGraph, *v1alpha1.InferenceGraphList]
+	*gentype.ClientWithList[*servingv1alpha1.InferenceGraph, *servingv1alpha1.InferenceGraphList]
 }
 
 // newInferenceGraphs returns a InferenceGraphs
 func newInferenceGraphs(c *ServingV1alpha1Client, namespace string) *inferenceGraphs {
 	return &inferenceGraphs{
-		gentype.NewClientWithList[*v1alpha1.InferenceGraph, *v1alpha1.InferenceGraphList](
+		gentype.NewClientWithList[*servingv1alpha1.InferenceGraph, *servingv1alpha1.InferenceGraphList](
 			"inferencegraphs",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.InferenceGraph { return &v1alpha1.InferenceGraph{} },
-			func() *v1alpha1.InferenceGraphList { return &v1alpha1.InferenceGraphList{} }),
+			func() *servingv1alpha1.InferenceGraph { return &servingv1alpha1.InferenceGraph{} },
+			func() *servingv1alpha1.InferenceGraphList { return &servingv1alpha1.InferenceGraphList{} },
+		),
 	}
 }

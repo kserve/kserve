@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	apisservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	versioned "github.com/kserve/kserve/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/kserve/kserve/pkg/client/informers/externalversions/internalinterfaces"
-	v1alpha1 "github.com/kserve/kserve/pkg/client/listers/serving/v1alpha1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/client/listers/serving/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // TrainedModels.
 type TrainedModelInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha1.TrainedModelLister
+	Lister() servingv1alpha1.TrainedModelLister
 }
 
 type trainedModelInformer struct {
@@ -71,7 +71,7 @@ func NewFilteredTrainedModelInformer(client versioned.Interface, namespace strin
 				return client.ServingV1alpha1().TrainedModels(namespace).Watch(context.TODO(), options)
 			},
 		},
-		&servingv1alpha1.TrainedModel{},
+		&apisservingv1alpha1.TrainedModel{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +82,9 @@ func (f *trainedModelInformer) defaultInformer(client versioned.Interface, resyn
 }
 
 func (f *trainedModelInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&servingv1alpha1.TrainedModel{}, f.defaultInformer)
+	return f.factory.InformerFor(&apisservingv1alpha1.TrainedModel{}, f.defaultInformer)
 }
 
-func (f *trainedModelInformer) Lister() v1alpha1.TrainedModelLister {
-	return v1alpha1.NewTrainedModelLister(f.Informer().GetIndexer())
+func (f *trainedModelInformer) Lister() servingv1alpha1.TrainedModelLister {
+	return servingv1alpha1.NewTrainedModelLister(f.Informer().GetIndexer())
 }

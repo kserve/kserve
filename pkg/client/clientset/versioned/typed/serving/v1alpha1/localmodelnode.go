@@ -19,9 +19,9 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
+	context "context"
 
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	scheme "github.com/kserve/kserve/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,33 +37,34 @@ type LocalModelNodesGetter interface {
 
 // LocalModelNodeInterface has methods to work with LocalModelNode resources.
 type LocalModelNodeInterface interface {
-	Create(ctx context.Context, localModelNode *v1alpha1.LocalModelNode, opts v1.CreateOptions) (*v1alpha1.LocalModelNode, error)
-	Update(ctx context.Context, localModelNode *v1alpha1.LocalModelNode, opts v1.UpdateOptions) (*v1alpha1.LocalModelNode, error)
+	Create(ctx context.Context, localModelNode *servingv1alpha1.LocalModelNode, opts v1.CreateOptions) (*servingv1alpha1.LocalModelNode, error)
+	Update(ctx context.Context, localModelNode *servingv1alpha1.LocalModelNode, opts v1.UpdateOptions) (*servingv1alpha1.LocalModelNode, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, localModelNode *v1alpha1.LocalModelNode, opts v1.UpdateOptions) (*v1alpha1.LocalModelNode, error)
+	UpdateStatus(ctx context.Context, localModelNode *servingv1alpha1.LocalModelNode, opts v1.UpdateOptions) (*servingv1alpha1.LocalModelNode, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha1.LocalModelNode, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.LocalModelNodeList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*servingv1alpha1.LocalModelNode, error)
+	List(ctx context.Context, opts v1.ListOptions) (*servingv1alpha1.LocalModelNodeList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LocalModelNode, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *servingv1alpha1.LocalModelNode, err error)
 	LocalModelNodeExpansion
 }
 
 // localModelNodes implements LocalModelNodeInterface
 type localModelNodes struct {
-	*gentype.ClientWithList[*v1alpha1.LocalModelNode, *v1alpha1.LocalModelNodeList]
+	*gentype.ClientWithList[*servingv1alpha1.LocalModelNode, *servingv1alpha1.LocalModelNodeList]
 }
 
 // newLocalModelNodes returns a LocalModelNodes
 func newLocalModelNodes(c *ServingV1alpha1Client, namespace string) *localModelNodes {
 	return &localModelNodes{
-		gentype.NewClientWithList[*v1alpha1.LocalModelNode, *v1alpha1.LocalModelNodeList](
+		gentype.NewClientWithList[*servingv1alpha1.LocalModelNode, *servingv1alpha1.LocalModelNodeList](
 			"localmodelnodes",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1alpha1.LocalModelNode { return &v1alpha1.LocalModelNode{} },
-			func() *v1alpha1.LocalModelNodeList { return &v1alpha1.LocalModelNodeList{} }),
+			func() *servingv1alpha1.LocalModelNode { return &servingv1alpha1.LocalModelNode{} },
+			func() *servingv1alpha1.LocalModelNodeList { return &servingv1alpha1.LocalModelNodeList{} },
+		),
 	}
 }
