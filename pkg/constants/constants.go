@@ -462,7 +462,7 @@ const (
 	OauthProxyResourceCPULimit      = "200m"
 	OauthProxyResourceMemoryRequest = "64Mi"
 	OauthProxyResourceCPURequest    = "100m"
-	OauthProxyImage                 = "registry.redhat.io/openshift4/ose-oauth-proxy@sha256:234af927030921ab8f7333f61f967b4b4dee37a1b3cf85689e9e63240dd62800"
+	OauthProxyImage                 = "registry.redhat.io/openshift4/ose-oauth-proxy@sha256:8507daed246d4d367704f7d7193233724acf1072572e1226ca063c066b858ecf"
 	DefaultServiceAccount           = "default"
 )
 
