@@ -562,4 +562,3 @@ class TestOpenAIProxyModelCompletion:
         async with mocked_openai_proxy_model(handler) as model:
             result = await model.healthy()
             assert result is False
-

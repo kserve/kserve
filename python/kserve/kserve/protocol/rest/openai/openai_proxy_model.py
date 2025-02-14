@@ -302,7 +302,7 @@ class OpenAIProxyModel(OpenAICompletionModel):
         else:
             chat_completion = ChatCompletion.model_validate_json(response.content)
         return chat_completion
-    
+
     async def healthy(self) -> bool:
         """
         Check the health of this model. By default returns `self.ready`.

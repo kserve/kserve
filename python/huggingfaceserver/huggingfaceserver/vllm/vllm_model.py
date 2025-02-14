@@ -20,7 +20,6 @@ from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.entrypoints.logger import RequestLogger
 
 from kserve import Model
-from kserve.errors import ModelNotReady
 from kserve.model import PredictorConfig
 from kserve.protocol.rest.openai import (
     ChatCompletionRequestMessage,
