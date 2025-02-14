@@ -12,31 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import AsyncIterator, Optional, Union
-import httpx
-from http import HTTPStatus
 from functools import partial, wraps
-import orjson
+from http import HTTPStatus
+from typing import AsyncIterator, Optional, Union
 
+import httpx
+import orjson
 from pydantic import ValidationError
 
-
-from .openai_model import (
-    BaseOpenAIRequest,
-    OpenAICompletionModel,
-    AsyncMappingIterator,
-    CompletionRequest,
-    ChatCompletionRequest,
-)
-from .types import (
-    ChatCompletion,
-    ChatCompletionChunk,
-    Completion,
-    ErrorResponse,
-)
-from .errors import OpenAIError, create_error_response
 from ....logging import logger
-
+from .errors import OpenAIError, create_error_response
+from .openai_model import (
+    AsyncMappingIterator,
+    BaseOpenAIRequest,
+    ChatCompletionRequest,
+    CompletionRequest,
+    OpenAICompletionModel,
+)
+from .types import ChatCompletion, ChatCompletionChunk, Completion, ErrorResponse
 
 COMPLETIONS_ENDPOINT = "/v1/completions"
 CHAT_COMPLETIONS_ENDPOINT = "/v1/chat/completions"
@@ -120,6 +113,7 @@ class OpenAIProxyModel(OpenAICompletionModel):
     _http_client: httpx.AsyncClient
     _completions_endpoint: str
     _chat_completions_endpoint: str
+    _health_endpoint: str
 
     def __init__(
         self,
@@ -127,7 +121,13 @@ class OpenAIProxyModel(OpenAICompletionModel):
         predictor_url: str,
         http_client: Optional[httpx.AsyncClient] = None,
         skip_upstream_validation: bool = False,
+        health_endpoint: str = "/health",
     ):
+        """
+        Args:
+            health_endpoint: The defualt /health endpoint is for TGI and vllm,
+                             use /openai/v1/models/{model_name} for KServe OpenAI protocol
+        """
         super().__init__(name)
         self.predictor_url = predictor_url
         self._http_client = (
@@ -141,6 +141,7 @@ class OpenAIProxyModel(OpenAICompletionModel):
         self._chat_completions_endpoint = (
             f"{self.predictor_url.rstrip('/')}{CHAT_COMPLETIONS_ENDPOINT}"
         )
+        self._health_endpoint = f"{self.predictor_url.rstrip('/')}{health_endpoint}"
         self.skip_upstream_validation = skip_upstream_validation
         self.ready = True
 
@@ -301,3 +302,20 @@ class OpenAIProxyModel(OpenAICompletionModel):
         else:
             chat_completion = ChatCompletion.model_validate_json(response.content)
         return chat_completion
+    
+    async def healthy(self) -> bool:
+        """
+        Check the health of this model. By default returns `self.ready`.
+
+        Returns:
+            True if healthy, false otherwise
+        """
+        print("OpenAiProxyModel.healthy")
+        req = self._http_client.build_request(
+            "GET",
+            self._health_endpoint,
+        )
+        print(req.__dict__)
+        response = await self._http_client.send(req)
+        print(response.__dict__)
+        return response.status_code == httpx.codes.OK

@@ -15,6 +15,8 @@
 from typing import AsyncIterator, Iterable, Optional, Union
 
 import torch
+from vllm import AsyncEngineArgs
+from vllm.engine.async_llm_engine import AsyncLLMEngine
 from vllm.entrypoints.logger import RequestLogger
 
 from kserve import Model
@@ -26,10 +28,8 @@ from kserve.protocol.rest.openai import (
     CompletionRequest,
     OpenAIChatAdapterModel,
 )
-from kserve.protocol.rest.openai.types.openapi import ChatCompletionTool
 from kserve.protocol.rest.openai.types import Completion
-from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm import AsyncEngineArgs
+from kserve.protocol.rest.openai.types.openapi import ChatCompletionTool
 
 from .vllm_completions import OpenAIServingCompletion
 
@@ -38,6 +38,7 @@ class VLLMModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no
     vllm_engine: AsyncLLMEngine
     vllm_engine_args: AsyncEngineArgs = None
     ready: bool = False
+    openai_serving_completion: Optional[OpenAIServingCompletion] = None
 
     def __init__(
         self,
@@ -61,10 +62,8 @@ class VLLMModel(Model, OpenAIChatAdapterModel):  # pylint:disable=c-extension-no
         return self.ready
 
     async def healthy(self) -> bool:
-        try:
-            await self.vllm_engine.check_health()
-        except Exception as e:
-            raise ModelNotReady(self.name) from e
+        # check_health() may throw exceptions which are caught in OpenAIEndpoints class
+        await self.vllm_engine.check_health()
         return True
 
     def apply_chat_template(

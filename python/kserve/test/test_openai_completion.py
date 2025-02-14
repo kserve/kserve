@@ -14,17 +14,17 @@
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import AsyncIterator, Callable, Iterable, List, Tuple, Union, cast, Optional
+from typing import AsyncIterator, Callable, Iterable, List, Optional, Tuple, Union, cast
 from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 
 from kserve.protocol.rest.openai import (
+    ChatCompletionRequest,
     ChatCompletionRequestMessage,
     ChatPrompt,
     CompletionRequest,
-    ChatCompletionRequest,
     OpenAIChatAdapterModel,
     OpenAIProxyModel,
 )
@@ -32,8 +32,6 @@ from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai.types.openapi import (
     ChatCompletionTool,
     CreateChatCompletionRequest,
-    Error,
-    ErrorResponse,
 )
 from kserve.protocol.rest.openai.types.openapi import (
     CreateChatCompletionResponse as ChatCompletion,
@@ -45,6 +43,7 @@ from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
 from kserve.protocol.rest.openai.types.openapi import (
     CreateCompletionResponse as Completion,
 )
+from kserve.protocol.rest.openai.types.openapi import Error, ErrorResponse
 
 FIXTURES_PATH = Path(__file__).parent / "fixtures" / "openai"
 
@@ -176,7 +175,7 @@ async def mocked_openai_proxy_model(handler: Callable):
         ):
             yield OpenAIProxyModel(
                 name="test-model",
-                predictor_url="http://example.com/v1",
+                predictor_url="http://example.com/",
                 http_client=http_client,
             )
     finally:
@@ -531,3 +530,38 @@ class TestOpenAIProxyModelCompletion:
             cast(
                 MagicMock, OpenAIProxyModel.postprocess_chat_completion
             ).assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_healthcheck_success(
+        self
+    ):
+        def handler(request):
+            print(request.url.path)
+            if request.url.path == "/health":
+                return httpx.Response(
+                    200,
+                )
+            return httpx.Response(
+                503,
+            )
+        async with mocked_openai_proxy_model(handler) as model:
+            result = await model.healthy()
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_healthcheck_failure(
+        self
+    ):
+        def handler(request):
+            print("path", request.url.path)
+            if request.url.path == "/health":
+                return httpx.Response(
+                    503,
+                )
+            return httpx.Response(
+                200,
+            )
+        async with mocked_openai_proxy_model(handler) as model:
+            result = await model.healthy()
+            assert result is False
+
