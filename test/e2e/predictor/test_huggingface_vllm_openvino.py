@@ -41,14 +41,15 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
             ),
             args=[
                 "--model_id",
-                "openbmb/MiniCPM-S-1B-sft",
+                "facebook/opt-125m",
                 "--model_revision",
-                "e46afa6f3d196527ab75e869184e27c833e8effb",
+                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--tokenizer_revision",
-                "e46afa6f3d196527ab75e869184e27c833e8effb",
+                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
+                "--model_name",
+                "hf-opt-125m-chat",
                 "--max_model_len",
                 "512",
-                "--trust_remote_code",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "6Gi"},
@@ -70,10 +71,6 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-
-    created_isvc = kserve_client.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    for condition in created_isvc["status"]["conditions"]:
-        print(condition)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = generate(service_name, "./data/opt_125m_input_generate.json")
@@ -96,14 +93,15 @@ def test_huggingface_vllm_openvino_openai_completions():
             ),
             args=[
                 "--model_id",
-                "openbmb/MiniCPM-S-1B-sft",
+                "facebook/opt-125m",
                 "--model_revision",
-                "e46afa6f3d196527ab75e869184e27c833e8effb",
+                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--tokenizer_revision",
-                "e46afa6f3d196527ab75e869184e27c833e8effb",
+                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
+                "--model_name",
+                "hf-opt-125m-cmpl",
                 "--max_model_len",
                 "512",
-                "--trust_remote_code",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "6Gi"},
@@ -125,9 +123,6 @@ def test_huggingface_vllm_openvino_openai_completions():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    created_isvc = kserve_client.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    for condition in created_isvc["status"]["conditions"]:
-        print(condition)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     res = generate(
         service_name, "./data/opt_125m_completion_input.json", chat_completions=False
