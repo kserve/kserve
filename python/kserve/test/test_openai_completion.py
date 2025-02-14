@@ -536,7 +536,6 @@ class TestOpenAIProxyModelCompletion:
         self
     ):
         def handler(request):
-            print(request.url.path)
             if request.url.path == "/health":
                 return httpx.Response(
                     200,
@@ -553,7 +552,6 @@ class TestOpenAIProxyModelCompletion:
         self
     ):
         def handler(request):
-            print("path", request.url.path)
             if request.url.path == "/health":
                 return httpx.Response(
                     503,

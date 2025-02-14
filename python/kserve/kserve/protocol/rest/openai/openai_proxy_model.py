@@ -310,12 +310,9 @@ class OpenAIProxyModel(OpenAICompletionModel):
         Returns:
             True if healthy, false otherwise
         """
-        print("OpenAiProxyModel.healthy")
         req = self._http_client.build_request(
             "GET",
             self._health_endpoint,
         )
-        print(req.__dict__)
         response = await self._http_client.send(req)
-        print(response.__dict__)
         return response.status_code == httpx.codes.OK
