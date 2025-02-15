@@ -273,8 +273,8 @@ data:
            # Name of the inference service ( {{- "{{ .Name }}" -}} )
            # Namespace of the inference service ( {{- "{{ .Namespace }}" -}} )
            # For more info https://github.com/kserve/kserve/issues/2257.
-           # NOTE: This configuration only applicable to serverless deployment.
-           "pathTemplate": ""
+           # If path template is empty the default path template is ""
+           "/serving/{{ .Namespace }}/{{ .Name }}"
        }
 
      # ====================================== LOGGER CONFIGURATION ======================================
