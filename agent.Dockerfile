@@ -1,5 +1,5 @@
 # Build the inference-agent binary
-FROM golang:1.22 AS builder
+FROM golang:1.23 AS builder
 
 # Copy in the go src
 WORKDIR /go/src/github.com/kserve/kserve

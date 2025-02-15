@@ -29,7 +29,7 @@ type FakeServingV1beta1 struct {
 }
 
 func (c *FakeServingV1beta1) InferenceServices(namespace string) v1beta1.InferenceServiceInterface {
-	return &FakeInferenceServices{c, namespace}
+	return newFakeInferenceServices(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

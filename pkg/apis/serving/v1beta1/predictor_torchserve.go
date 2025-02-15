@@ -17,7 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 
 	v1 "k8s.io/api/core/v1"
@@ -58,11 +58,11 @@ func (t *TorchServeSpec) validateGPU() error {
 		return nil
 	}
 	if utils.IsGPUEnabled(t.Resources) && !strings.Contains(*t.RuntimeVersion, PyTorchServingGPUSuffix) {
-		return fmt.Errorf(InvalidPyTorchRuntimeIncludesGPU)
+		return errors.New(InvalidPyTorchRuntimeIncludesGPU)
 	}
 
 	if !utils.IsGPUEnabled(t.Resources) && strings.Contains(*t.RuntimeVersion, PyTorchServingGPUSuffix) {
-		return fmt.Errorf(InvalidPyTorchRuntimeExcludesGPU)
+		return errors.New(InvalidPyTorchRuntimeExcludesGPU)
 	}
 	return nil
 }
