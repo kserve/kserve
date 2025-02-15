@@ -274,7 +274,7 @@ data:
            # Namespace of the inference service ( {{- "{{ .Namespace }}" -}} )
            # For more info https://github.com/kserve/kserve/issues/2257.
            # If path template is empty the default path template is ""
-           "/serving/{{ .Namespace }}/{{ .Name }}"
+           "pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}"
        }
 
      # ====================================== LOGGER CONFIGURATION ======================================
