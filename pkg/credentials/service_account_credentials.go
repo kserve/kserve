@@ -52,8 +52,8 @@ const (
 )
 
 var (
-	SupportedStorageSpecTypes = []string{"s3", "hdfs", "webhdfs"}
-	StorageBucketTypes        = []string{"s3"}
+	SupportedStorageSpecTypes = []string{"s3", "hdfs", "webhdfs", "service_account"}
+	StorageBucketTypes        = []string{"s3", "gs"}
 )
 
 type CredentialConfig struct {
@@ -67,6 +67,7 @@ type CredentialBuilder struct {
 	client    client.Client
 	clientset kubernetes.Interface
 	config    CredentialConfig
+	keyToPath bool
 }
 
 var log = logf.Log.WithName("CredentialBuilder")
@@ -84,14 +85,14 @@ func NewCredentialBuilder(client client.Client, clientset kubernetes.Interface, 
 		client:    client,
 		clientset: clientset,
 		config:    credentialConfig,
+		keyToPath: false,
 	}
 }
 
 func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annotations map[string]string, storageKey string,
-	overrideParams map[string]string, container *v1.Container) error {
+	overrideParams map[string]string, container *v1.Container, volumes *[]v1.Volume) error {
 	stype := overrideParams["type"]
 	bucket := overrideParams["bucket"]
-
 	storageSecretName := constants.DefaultStorageSpecSecret
 	if c.config.StorageSpecSecretName != "" {
 		storageSecretName = c.config.StorageSpecSecretName
@@ -167,6 +168,15 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 		return errors.New("unable to determine storage type")
 	}
 
+	// handle GCS service_account type
+	if stype == "service_account" {
+		stype = "gs"
+		c.config.GCS.GCSCredentialFileName = storageKey
+		c.keyToPath = true
+		if err := c.mountSecretCredential(storageSecretName, namespace, container, volumes); err != nil {
+			return err
+		}
+	}
 	if strings.HasPrefix(container.Args[0], UriSchemePlaceholder+"://") {
 		path := container.Args[0][len(UriSchemePlaceholder+"://"):]
 
@@ -174,7 +184,6 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 			if bucket == "" {
 				return fmt.Errorf(MissingBucket, stype)
 			}
-
 			container.Args[0] = fmt.Sprintf("%s://%s/%s", stype, bucket, path)
 		} else {
 			container.Args[0] = fmt.Sprintf("%s://%s", stype, path)
@@ -263,7 +272,7 @@ func (c *CredentialBuilder) mountSecretCredential(secretName string, namespace s
 		container.Env = utils.MergeEnvs(container.Env, envs)
 	} else if _, ok := secret.Data[gcsCredentialFileName]; ok {
 		log.Info("Setting secret volume for gcs", "GCSSecret", secret.Name)
-		volume, volumeMount := gcs.BuildSecretVolume(secret)
+		volume, volumeMount := gcs.BuildSecretVolume(secret, c.keyToPath, gcsCredentialFileName)
 		*volumes = utils.AppendVolumeIfNotExists(*volumes, volume)
 		container.VolumeMounts =
 			append(container.VolumeMounts, volumeMount)

@@ -1441,7 +1441,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 					Name:      "storage-secret",
 					Namespace: namespace,
 				},
-				StringData: map[string]string{"minio": "{\n     \"type\": \"gs\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
+				StringData: map[string]string{"minio": "{\n     \"type\": \"gss\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"http://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\"\n    }"},
 			},
 			storageKey:        "minio",
 			storageSecretName: "storage-secret",
@@ -1541,7 +1541,9 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 		if err := c.Create(context.TODO(), tc.secret); err != nil {
 			t.Errorf("Failed to create secret %s: %v", "storage-secret", err)
 		}
-		err := builder.CreateStorageSpecSecretEnvs(namespace, nil, tc.storageKey, tc.overrideParams, tc.container)
+
+		var volumes []v1.Volume
+		err := builder.CreateStorageSpecSecretEnvs(namespace, nil, tc.storageKey, tc.overrideParams, tc.container, &volumes)
 		if !tc.shouldFail {
 			g.Expect(err).Should(gomega.BeNil())
 			g.Expect(tc.container).Should(tc.matcher)

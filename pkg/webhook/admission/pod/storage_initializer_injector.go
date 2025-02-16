@@ -428,6 +428,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *v1.Pod) erro
 			storageKey,
 			overrideParams,
 			initContainer,
+			&pod.Spec.Volumes,
 		); err != nil {
 			return err
 		}
