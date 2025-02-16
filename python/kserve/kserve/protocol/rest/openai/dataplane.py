@@ -17,14 +17,14 @@ from typing import AsyncIterator, Union, List
 from fastapi import Response
 from starlette.datastructures import Headers
 
-from kserve.protocol.rest.openai.types.openapi import CreateChatCompletionRequest
+from kserve.protocol.rest.openai.openai_model import CreateChatCompletionRequest
 from kserve.protocol.rest.openai.types.openapi import (
     CreateChatCompletionResponse as ChatCompletion,
 )
 from kserve.protocol.rest.openai.types.openapi import (
     CreateChatCompletionStreamResponse as ChatCompletionChunk,
 )
-from kserve.protocol.rest.openai.types.openapi import CreateCompletionRequest
+from kserve.protocol.rest.openai.openai_model import CreateCompletionRequest
 from kserve.protocol.rest.openai.types.openapi import (
     CreateCompletionResponse as Completion,
 )
