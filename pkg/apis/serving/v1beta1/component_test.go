@@ -36,7 +36,7 @@ func TestComponentExtensionSpec_Validate(t *testing.T) {
 		"InvalidReplica": {
 			spec: ComponentExtensionSpec{
 				MinReplicas: GetIntReference(3),
-				MaxReplicas: 2,
+				MaxReplicas: int32(2),
 			},
 			matcher: gomega.Not(gomega.BeNil()),
 		},

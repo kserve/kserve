@@ -96,7 +96,7 @@ func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, obj runt
 }
 
 // GetIntReference returns the pointer for the integer input
-func GetIntReference(number int) *int {
+func GetIntReference(number int32) *int32 {
 	num := number
 	return &num
 }

@@ -1629,7 +1629,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				updated_isvc.Labels = make(map[string]string)
 			}
 			updated_isvc.Spec.Predictor.ComponentExtensionSpec = v1beta1.ComponentExtensionSpec{
-				MinReplicas: utils.ToPointer(2),
+				MinReplicas: utils.ToPointer(int32(2)),
 			}
 			Expect(k8sClient.Update(context.TODO(), updated_isvc)).NotTo(HaveOccurred())
 
@@ -2696,8 +2696,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int(minReplicas)),
-							MaxReplicas: int(maxReplicas),
+							MinReplicas: utils.ToPointer(int32(minReplicas)),
+							MaxReplicas: int32(maxReplicas),
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -2712,9 +2712,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 					Transformer: &v1beta1.TransformerSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas:    utils.ToPointer(int(transformerMinReplicas)),
-							MaxReplicas:    int(transformerMaxReplicas),
-							ScaleTarget:    utils.ToPointer(int(transformerCpuUtilization)),
+							MinReplicas:    utils.ToPointer(int32(transformerMinReplicas)),
+							MaxReplicas:    int32(transformerMaxReplicas),
+							ScaleTarget:    utils.ToPointer(int32(transformerCpuUtilization)),
 							TimeoutSeconds: utils.ToPointer(int64(30)),
 						},
 						PodSpec: v1beta1.PodSpec{
@@ -3568,8 +3568,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int(minReplicas)),
-							MaxReplicas: int(maxReplicas),
+							MinReplicas: utils.ToPointer(int32(minReplicas)),
+							MaxReplicas: int32(maxReplicas),
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -3594,9 +3594,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas:    utils.ToPointer(int(explainerMinReplicas)),
-							MaxReplicas:    int(explainerMaxReplicas),
-							ScaleTarget:    utils.ToPointer(int(explainerCpuUtilization)),
+							MinReplicas:    utils.ToPointer(int32(explainerMinReplicas)),
+							MaxReplicas:    int32(explainerMaxReplicas),
+							ScaleTarget:    utils.ToPointer(int32(explainerCpuUtilization)),
 							TimeoutSeconds: utils.ToPointer(int64(30)),
 						},
 					},
@@ -5096,8 +5096,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int(minReplicas)),
-							MaxReplicas: int(maxReplicas),
+							MinReplicas: utils.ToPointer(int32(minReplicas)),
+							MaxReplicas: int32(maxReplicas),
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -5112,9 +5112,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 					Transformer: &v1beta1.TransformerSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas:    utils.ToPointer(int(transformerMinReplicas)),
-							MaxReplicas:    int(transformerMaxReplicas),
-							ScaleTarget:    utils.ToPointer(int(transformerCpuUtilization)),
+							MinReplicas:    utils.ToPointer(int32(transformerMinReplicas)),
+							MaxReplicas:    int32(transformerMaxReplicas),
+							ScaleTarget:    utils.ToPointer(int32(transformerCpuUtilization)),
 							TimeoutSeconds: utils.ToPointer(int64(30)),
 						},
 						PodSpec: v1beta1.PodSpec{
@@ -6017,8 +6017,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int(minReplicas)),
-							MaxReplicas: int(maxReplicas),
+							MinReplicas: utils.ToPointer(int32(minReplicas)),
+							MaxReplicas: int32(maxReplicas),
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -6043,9 +6043,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas:    utils.ToPointer(int(explainerMinReplicas)),
-							MaxReplicas:    int(explainerMaxReplicas),
-							ScaleTarget:    utils.ToPointer(int(explainerCpuUtilization)),
+							MinReplicas:    utils.ToPointer(int32(explainerMinReplicas)),
+							MaxReplicas:    int32(explainerMaxReplicas),
+							ScaleTarget:    utils.ToPointer(int32(explainerCpuUtilization)),
 							TimeoutSeconds: utils.ToPointer(int64(30)),
 						},
 					},

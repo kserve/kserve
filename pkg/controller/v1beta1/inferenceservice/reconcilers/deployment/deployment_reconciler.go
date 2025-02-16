@@ -151,8 +151,7 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
 	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassExternal) {
-		//nolint:gosec // disable G115
-		deployment.Spec.Replicas = ptr.To(int32(*componentExt.MinReplicas))
+		deployment.Spec.Replicas = ptr.To(*componentExt.MinReplicas)
 	}
 
 	return deployment

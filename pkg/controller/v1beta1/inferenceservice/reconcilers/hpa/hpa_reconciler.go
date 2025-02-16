@@ -61,15 +61,13 @@ func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentEx
 
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
 		utilizationInt, _ := strconv.Atoi(value)
-		//nolint:gosec // disable G115
-		utilization = int32(utilizationInt) // #nosec G109
+		utilization = int32(utilizationInt) //nolint:gosec // disable G115
 	} else {
 		utilization = constants.DefaultCPUUtilization
 	}
 
 	if componentExt.ScaleTarget != nil {
-		//nolint:gosec // disable G115
-		utilization = int32(*componentExt.ScaleTarget)
+		utilization = *componentExt.ScaleTarget
 	}
 
 	if componentExt.ScaleMetric != nil {
@@ -96,15 +94,12 @@ func createHPA(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec) *autoscalingv2.HorizontalPodAutoscaler {
 	var minReplicas int32
 	if componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas {
-		//nolint:gosec // disable G115
-		minReplicas = int32(constants.DefaultMinReplicas)
+		minReplicas = constants.DefaultMinReplicas
 	} else {
-		//nolint:gosec // disable G115
-		minReplicas = int32(*componentExt.MinReplicas)
+		minReplicas = *componentExt.MinReplicas
 	}
 
-	//nolint:gosec // disable G115
-	maxReplicas := int32(componentExt.MaxReplicas)
+	maxReplicas := componentExt.MaxReplicas
 	if maxReplicas < minReplicas {
 		maxReplicas = minReplicas
 	}

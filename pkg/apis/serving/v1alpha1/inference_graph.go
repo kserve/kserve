@@ -54,15 +54,15 @@ type InferenceGraphSpec struct {
 	TimeoutSeconds *int64 `json:"timeout,omitempty"`
 	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
 	// +optional
-	MinReplicas *int `json:"minReplicas,omitempty"`
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
 	// Maximum number of replicas for autoscaling.
 	// +optional
-	MaxReplicas int `json:"maxReplicas,omitempty"`
+	MaxReplicas int32 `json:"maxReplicas,omitempty"`
 	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
 	// concurrency and rps targets are supported by Knative Pod Autoscaler
 	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
 	// +optional
-	ScaleTarget *int `json:"scaleTarget,omitempty"`
+	ScaleTarget *int32 `json:"scaleTarget,omitempty"`
 	// ScaleMetric defines the scaling metric type watched by autoscaler
 	// possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).

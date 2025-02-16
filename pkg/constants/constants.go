@@ -103,7 +103,7 @@ var (
 	PrometheusPathAnnotationKey                 = "prometheus.io/path"
 	StorageReadonlyAnnotationKey                = "storage.kserve.io/readonly"
 	DefaultPrometheusPath                       = "/metrics"
-	QueueProxyAggregatePrometheusMetricsPort    = 9088
+	QueueProxyAggregatePrometheusMetricsPort    = int32(9088)
 	DefaultPodPrometheusPort                    = "9091"
 	NodeGroupAnnotationKey                      = KServeAPIGroupName + "/nodegroup"
 )
@@ -154,7 +154,7 @@ var (
 var (
 	ControllerLabelName             = KServeName + "-controller-manager"
 	DefaultIstioSidecarUID          = int64(1337)
-	DefaultMinReplicas              = 1
+	DefaultMinReplicas              = int32(1)
 	IstioInitContainerName          = "istio-init"
 	IstioInterceptModeRedirect      = "REDIRECT"
 	IstioInterceptionModeAnnotation = "sidecar.istio.io/interceptionMode"
