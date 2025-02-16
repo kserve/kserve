@@ -21,19 +21,21 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"regexp"
-
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // regular expressions for validation of isvc name
@@ -56,9 +58,11 @@ var (
 //
 // NOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods,
 // as this struct is used only for temporary operations and does not need to be deeply copied.
-type InferenceServiceValidator struct{}
+type InferenceServiceValidator struct {
+	Client client.Client
+}
 
-// +kubebuilder:webhook:verbs=create;update,path=/validate-inferenceservices,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,versions=v1beta1,name=inferenceservice.kserve-webhook-server.validator
+// +kubebuilder:webhook:verbs=create;update;delete,path=/validate-inferenceservices,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,versions=v1beta1,name=inferenceservice.kserve-webhook-server.validator
 var _ webhook.CustomValidator = &InferenceServiceValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
@@ -92,7 +96,36 @@ func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, obj runt
 		return nil, err
 	}
 	validatorLogger.Info("validate delete", "name", isvc.Name)
-	return nil, nil
+	return v.validateInferenceServiceReferences(ctx, isvc)
+}
+
+// validateInferenceServiceReferences checks if there are any InferenceGraphs that are referencing the given
+// InferenceService in isvc argument, and returns an error if there are references to it.
+func (v *InferenceServiceValidator) validateInferenceServiceReferences(ctx context.Context, isvc *InferenceService) (admission.Warnings, error) {
+	igList := v1alpha1.InferenceGraphList{}
+	err := v.Client.List(ctx, &igList, client.InNamespace(isvc.GetNamespace()))
+	if err != nil {
+		return admission.Warnings{}, fmt.Errorf("failed to fetch list of InferenceGraphs: %w", err)
+	}
+
+	var isvcReferences []string
+	for _, ig := range igList.Items {
+	node_loop:
+		for _, igNode := range ig.Spec.Nodes {
+			for _, step := range igNode.Steps {
+				if step.ServiceName == isvc.GetName() {
+					isvcReferences = append(isvcReferences, ig.GetName())
+					break node_loop
+				}
+			}
+		}
+	}
+
+	if len(isvcReferences) != 0 {
+		return admission.Warnings{}, fmt.Errorf("InferenceService [%s] is being used in the following InferenceGraphs: %s", isvc.GetName(), strings.Join(isvcReferences, ", "))
+	}
+
+	return admission.Warnings{}, nil
 }
 
 // GetIntReference returns the pointer for the integer input
