@@ -30,15 +30,15 @@ import (
 )
 
 // KServe Constants
-var (
+const (
 	KServeName                       = "kserve"
 	KServeAPIGroupName               = "serving.kserve.io"
 	KnativeAutoscalingAPIGroupName   = "autoscaling.knative.dev"
 	KnativeServingAPIGroupNamePrefix = "serving.knative"
 	KnativeServingAPIGroupName       = KnativeServingAPIGroupNamePrefix + ".dev"
-	KServeNamespace                  = getEnvOrDefault("POD_NAMESPACE", "kserve")
-	KServeDefaultVersion             = "v0.5.0"
 )
+
+var KServeNamespace = getEnvOrDefault("POD_NAMESPACE", "kserve")
 
 // InferenceService Constants
 var (
@@ -307,6 +307,7 @@ const (
 	KServiceComponentLabel = "component"
 	KServiceModelLabel     = "model"
 	KServiceEndpointLabel  = "endpoint"
+	KServeWorkloadKind     = KServeAPIGroupName + "/kind"
 )
 
 // Labels for TrainedModel
