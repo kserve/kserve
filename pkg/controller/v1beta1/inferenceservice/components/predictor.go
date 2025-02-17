@@ -246,6 +246,9 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		}
 	}
 
+	// Collocation of predictor and transformer container
+	podSpec.Containers = append(podSpec.Containers, isvc.Spec.Predictor.Processors...)
+
 	predictorName := constants.PredictorServiceName(isvc.Name)
 	if p.deploymentMode == constants.RawDeployment {
 		existing := &corev1.Service{}

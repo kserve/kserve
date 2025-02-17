@@ -340,7 +340,8 @@ const (
 	TransformerContainerName = "transformer-container"
 
 	// WorkerContainerName is for worker node container
-	WorkerContainerName = "worker-container"
+	WorkerContainerName     = "worker-container"
+	QueueProxyContainerName = "queue-proxy"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
