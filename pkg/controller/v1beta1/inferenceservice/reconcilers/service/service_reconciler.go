@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -71,7 +72,7 @@ func isGrpcPort(port corev1.ContainerPort) bool {
 
 func getAppProtocol(port corev1.ContainerPort) *string {
 	if isGrpcPort(port) {
-		return utils.ToPointer("kubernetes.io/h2c")
+		return ptr.To("kubernetes.io/h2c")
 	}
 	return nil
 }

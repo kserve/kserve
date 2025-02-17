@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -35,7 +36,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ = Describe("v1beta1 TrainedModel controller", func() {
@@ -202,7 +202,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int32(1)),
+							MinReplicas: ptr.To(int32(1)),
 							MaxReplicas: 3,
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
@@ -308,7 +308,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int32(1)),
+							MinReplicas: ptr.To(int32(1)),
 							MaxReplicas: 3,
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
@@ -455,7 +455,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int32(1)),
+							MinReplicas: ptr.To(int32(1)),
 							MaxReplicas: 3,
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
@@ -581,7 +581,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int32(1)),
+							MinReplicas: ptr.To(int32(1)),
 							MaxReplicas: 3,
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
@@ -707,7 +707,7 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas: utils.ToPointer(int32(1)),
+							MinReplicas: ptr.To(int32(1)),
 							MaxReplicas: 3,
 						},
 						Tensorflow: &v1beta1.TFServingSpec{

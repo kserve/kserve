@@ -23,11 +23,10 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/ptr"
+	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestCreateHPA(t *testing.T) {
@@ -67,9 +66,9 @@ func TestCreateHPA(t *testing.T) {
 				},
 			},
 			componentExt: &v1beta1.ComponentExtensionSpec{
-				MinReplicas: utils.ToPointer(int32(2)),
+				MinReplicas: ptr.To(int32(2)),
 				MaxReplicas: 5,
-				ScaleTarget: utils.ToPointer(int32(30)),
+				ScaleTarget: ptr.To(int32(30)),
 				ScaleMetric: &cpuResource,
 			},
 		},
@@ -85,16 +84,16 @@ func TestCreateHPA(t *testing.T) {
 		"predictorspecifiedhpa": {
 			objectMeta: metav1.ObjectMeta{},
 			componentExt: &v1beta1.ComponentExtensionSpec{
-				MinReplicas: utils.ToPointer(int32(5)),
+				MinReplicas: ptr.To(int32(5)),
 				MaxReplicas: 10,
-				ScaleTarget: utils.ToPointer(int32(50)),
+				ScaleTarget: ptr.To(int32(50)),
 				ScaleMetric: &cpuResource,
 			},
 		},
 		"invalidinputhpa": {
 			objectMeta: metav1.ObjectMeta{},
 			componentExt: &v1beta1.ComponentExtensionSpec{
-				MinReplicas: utils.ToPointer(int32(0)),
+				MinReplicas: ptr.To(int32(0)),
 				MaxReplicas: -10,
 				ScaleTarget: nil,
 				ScaleMetric: &memoryResource,
@@ -283,59 +282,59 @@ func TestSemanticHPAEquals(t *testing.T) {
 
 	assert.False(t, semanticHPAEquals(
 		&autoscalingv2.HorizontalPodAutoscaler{
-			Spec: autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.Int32(3)},
+			Spec: autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.To(int32(3))},
 		},
 		&autoscalingv2.HorizontalPodAutoscaler{
-			Spec: autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.Int32(4)},
+			Spec: autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.To(int32(4))},
 		}))
 
 	assert.False(t, semanticHPAEquals(
 		&autoscalingv2.HorizontalPodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{constants.AutoscalerClass: "hpa"}},
-			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.Int32(3)},
+			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.To(int32(3))},
 		},
 		&autoscalingv2.HorizontalPodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{constants.AutoscalerClass: "external"}},
-			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.Int32(3)},
+			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.To(int32(3))},
 		}))
 
 	assert.False(t, semanticHPAEquals(
 		&autoscalingv2.HorizontalPodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
-			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.Int32(3)},
+			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.To(int32(3))},
 		},
 		&autoscalingv2.HorizontalPodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{constants.AutoscalerClass: "external"}},
-			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.Int32(3)},
+			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.To(int32(3))},
 		}))
 
 	assert.True(t, semanticHPAEquals(
 		&autoscalingv2.HorizontalPodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{constants.AutoscalerClass: "hpa"}},
-			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.Int32(3)},
+			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.To(int32(3))},
 		},
 		&autoscalingv2.HorizontalPodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{constants.AutoscalerClass: "hpa"}},
-			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.Int32(3)},
+			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.To(int32(3))},
 		}))
 
 	assert.True(t, semanticHPAEquals(
 		&autoscalingv2.HorizontalPodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
-			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.Int32(3)},
+			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.To(int32(3))},
 		},
 		&autoscalingv2.HorizontalPodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{}},
-			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.Int32(3)},
+			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.To(int32(3))},
 		}))
 
 	assert.True(t, semanticHPAEquals(
 		&autoscalingv2.HorizontalPodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"unrelated": "true"}},
-			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.Int32(3)},
+			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.To(int32(3))},
 		},
 		&autoscalingv2.HorizontalPodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{"unrelated": "false"}},
-			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.Int32(3)},
+			Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MinReplicas: ptr.To(int32(3))},
 		}))
 }

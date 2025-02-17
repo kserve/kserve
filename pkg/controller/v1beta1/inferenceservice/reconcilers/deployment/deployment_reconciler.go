@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmp"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -154,7 +155,7 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
 	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassExternal) {
-		deployment.Spec.Replicas = utils.ToPointer(*componentExt.MinReplicas)
+		deployment.Spec.Replicas = ptr.To(*componentExt.MinReplicas)
 	}
 
 	return deployment

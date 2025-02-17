@@ -22,7 +22,6 @@ import (
 	"testing"
 
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 
 	"google.golang.org/protobuf/proto"
 
@@ -31,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func makeTestRawInferenceService() InferenceService {
@@ -199,26 +199,26 @@ func TestBadParallelismValues(t *testing.T) {
 func TestBadReplicaValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
-	isvc.Spec.Predictor.MinReplicas = utils.ToPointer(int32(-1))
+	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(-1))
 	validator := InferenceServiceValidator{}
 	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
-	isvc.Spec.Predictor.MinReplicas = utils.ToPointer(int32(1))
+	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(1))
 	isvc.Spec.Predictor.MaxReplicas = -1
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
-	isvc.Spec.Predictor.MinReplicas = utils.ToPointer(int32(2))
+	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(2))
 	isvc.Spec.Predictor.MaxReplicas = 1
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	// Now test transformer and explainer, so set correct value for predictor
-	isvc.Spec.Predictor.MinReplicas = utils.ToPointer(int32(0))
+	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(0))
 	isvc.Spec.Predictor.MaxReplicas = 0
 
 	isvc.Spec.Transformer = &TransformerSpec{}
@@ -229,18 +229,18 @@ func TestBadReplicaValues(t *testing.T) {
 			},
 		},
 	}
-	isvc.Spec.Transformer.MinReplicas = utils.ToPointer(int32(-1))
+	isvc.Spec.Transformer.MinReplicas = ptr.To(int32(-1))
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
-	isvc.Spec.Transformer.MinReplicas = utils.ToPointer(int32(1))
+	isvc.Spec.Transformer.MinReplicas = ptr.To(int32(1))
 	isvc.Spec.Transformer.MaxReplicas = -1
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
-	isvc.Spec.Transformer.MinReplicas = utils.ToPointer(int32(2))
+	isvc.Spec.Transformer.MinReplicas = ptr.To(int32(2))
 	isvc.Spec.Transformer.MaxReplicas = 1
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
@@ -256,18 +256,18 @@ func TestBadReplicaValues(t *testing.T) {
 			},
 		},
 	}
-	isvc.Spec.Explainer.MinReplicas = utils.ToPointer(int32(-1))
+	isvc.Spec.Explainer.MinReplicas = ptr.To(int32(-1))
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
-	isvc.Spec.Explainer.MinReplicas = utils.ToPointer(int32(1))
+	isvc.Spec.Explainer.MinReplicas = ptr.To(int32(1))
 	isvc.Spec.Explainer.MaxReplicas = -1
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
-	isvc.Spec.Explainer.MinReplicas = utils.ToPointer(int32(2))
+	isvc.Spec.Explainer.MinReplicas = ptr.To(int32(2))
 	isvc.Spec.Explainer.MaxReplicas = 1
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))

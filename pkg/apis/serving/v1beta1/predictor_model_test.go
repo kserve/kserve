@@ -26,11 +26,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestGetSupportingRuntimes(t *testing.T) {
@@ -507,7 +507,7 @@ func TestModelPredictorGetContainer(t *testing.T) {
 		Namespace: "default",
 	}
 	componentSpec := &ComponentExtensionSpec{
-		MinReplicas: utils.ToPointer(int32(3)),
+		MinReplicas: ptr.To(int32(3)),
 		MaxReplicas: 2,
 	}
 	scenarios := map[string]struct {

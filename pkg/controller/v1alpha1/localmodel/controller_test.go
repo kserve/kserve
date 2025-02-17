@@ -37,7 +37,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ = Describe("CachedModel controller", func() {
@@ -730,7 +729,7 @@ func createTestPV(ctx context.Context, pvName string, cachedModel *v1alpha1.Loca
 					Kind:       "LocalModelCache",
 					Name:       cachedModel.Name,
 					UID:        cachedModel.UID,
-					Controller: utils.ToPointer(true),
+					Controller: ptr.To(true),
 				},
 			},
 		},
@@ -762,7 +761,7 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 					Kind:       "LocalModelCache",
 					Name:       cachedModel.Name,
 					UID:        cachedModel.UID,
-					Controller: utils.ToPointer(true),
+					Controller: ptr.To(true),
 				},
 			},
 		},
@@ -813,7 +812,7 @@ func initializeManager(ctx context.Context, cfg *rest.Config) {
 			BindAddress: "0",
 		},
 		Controller: crconfig.Controller{
-			SkipNameValidation: utils.ToPointer(true),
+			SkipNameValidation: ptr.To(true),
 		},
 	})
 	Expect(err).ToNot(HaveOccurred())

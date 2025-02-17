@@ -25,13 +25,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	. "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestCreateInferenceGraphPodSpec(t *testing.T) {
@@ -349,7 +349,7 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 						},
 					},
 					Spec: InferenceGraphSpec{
-						MinReplicas: utils.ToPointer(int32(2)),
+						MinReplicas: ptr.To(int32(2)),
 						MaxReplicas: 5,
 					},
 				},
@@ -368,7 +368,7 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 
 				componentExt: v1beta1.ComponentExtensionSpec{
 					MaxReplicas: 5,
-					MinReplicas: utils.ToPointer(int32(2)),
+					MinReplicas: ptr.To(int32(2)),
 					ScaleMetric: nil,
 					ScaleTarget: nil,
 				},
@@ -420,9 +420,9 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 						},
 					},
 					Spec: InferenceGraphSpec{
-						MinReplicas: utils.ToPointer(int32(5)),
+						MinReplicas: ptr.To(int32(5)),
 						MaxReplicas: 10,
-						ScaleTarget: utils.ToPointer(int32(50)),
+						ScaleTarget: ptr.To(int32(50)),
 						ScaleMetric: (*ScaleMetric)(&cpuResource),
 					},
 				},
@@ -440,9 +440,9 @@ func TestConstructGraphObjectMeta(t *testing.T) {
 					},
 				},
 				componentExt: v1beta1.ComponentExtensionSpec{
-					MinReplicas: utils.ToPointer(int32(5)),
+					MinReplicas: ptr.To(int32(5)),
 					MaxReplicas: 10,
-					ScaleTarget: utils.ToPointer(int32(50)),
+					ScaleTarget: ptr.To(int32(50)),
 					ScaleMetric: &cpuResource,
 				},
 			},

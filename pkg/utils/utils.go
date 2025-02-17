@@ -326,9 +326,3 @@ func StringToInt32(number string) (int32, error) {
 	}
 	return int32(converted), err
 }
-
-// ToPointer returns a pointer to the given value.
-func ToPointer[T any](v T) *T {
-	temp := v
-	return &temp
-}

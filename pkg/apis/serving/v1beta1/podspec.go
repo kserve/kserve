@@ -279,7 +279,6 @@ type PodSpec struct {
 	// - spec.containers[*].securityContext.runAsUser
 	// - spec.containers[*].securityContext.runAsGroup
 	// +optional
-	// This is an alpha field and requires the IdentifyPodOS feature
 	OS *corev1.PodOS `json:"os,omitempty" protobuf:"bytes,36,opt,name=os"`
 	// Use the host's user namespace.
 	// Optional: Default to true.

@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	knapis "knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -111,8 +112,8 @@ func getRawServiceHost(ctx context.Context, isvc *v1beta1.InferenceService, clie
 func createHTTPRouteMatch(prefix string) gatewayapiv1.HTTPRouteMatch {
 	return gatewayapiv1.HTTPRouteMatch{
 		Path: &gatewayapiv1.HTTPPathMatch{
-			Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-			Value: utils.ToPointer(prefix),
+			Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+			Value: ptr.To(prefix),
 		},
 	}
 }
@@ -144,7 +145,7 @@ func createHTTPRouteRule(routeMatches []gatewayapiv1.HTTPRouteMatch, filters []g
 			{
 				BackendRef: gatewayapiv1.BackendRef{
 					BackendObjectReference: gatewayapiv1.BackendObjectReference{
-						Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+						Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 						Name:      gatewayapiv1.ObjectName(serviceName),
 						Namespace: (*gatewayapiv1.Namespace)(&namespace),
 						Port:      (*gatewayapiv1.PortNumber)(&port),
@@ -225,7 +226,7 @@ func createRawPredictorHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceSer
 				ParentRefs: []gatewayapiv1.ParentReference{
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Kind:      (*gatewayapiv1.Kind)(utils.ToPointer(constants.GatewayKind)),
+						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
 						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
 						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
 					},
@@ -298,7 +299,7 @@ func createRawTransformerHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceS
 				ParentRefs: []gatewayapiv1.ParentReference{
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Kind:      (*gatewayapiv1.Kind)(utils.ToPointer(constants.GatewayKind)),
+						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
 						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
 						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
 					},
@@ -373,7 +374,7 @@ func createRawExplainerHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceSer
 				ParentRefs: []gatewayapiv1.ParentReference{
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Kind:      (*gatewayapiv1.Kind)(utils.ToPointer(constants.GatewayKind)),
+						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
 						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
 						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
 					},
@@ -541,7 +542,7 @@ func createRawTopLevelHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceServ
 				ParentRefs: []gatewayapiv1.ParentReference{
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Kind:      (*gatewayapiv1.Kind)(utils.ToPointer(constants.GatewayKind)),
+						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
 						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
 						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
 					},
@@ -559,7 +560,7 @@ func semanticHttpRouteEquals(desired, existing *gatewayapiv1.HTTPRoute) bool {
 // isHTTPRouteReady checks if the HTTPRoute is ready. If not, returns the reason and message.
 func isHTTPRouteReady(httpRouteStatus gatewayapiv1.HTTPRouteStatus) (bool, *string, *string) {
 	if len(httpRouteStatus.Parents) == 0 {
-		return false, utils.ToPointer(HTTPRouteParentStatusNotAvailable), utils.ToPointer(HTTPRouteNotReady)
+		return false, ptr.To(HTTPRouteParentStatusNotAvailable), ptr.To(HTTPRouteNotReady)
 	}
 	for _, parent := range httpRouteStatus.Parents {
 		for _, condition := range parent.Conditions {

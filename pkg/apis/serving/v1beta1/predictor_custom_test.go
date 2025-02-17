@@ -25,9 +25,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestCustomPredictorValidation(t *testing.T) {
@@ -40,7 +40,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 		"ValidProtocolV1": {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          utils.ToPointer(int32(3)),
+					MinReplicas:          ptr.To(int32(3)),
 					ContainerConcurrency: proto.Int64(-1),
 				},
 				PodSpec: PodSpec{
@@ -61,7 +61,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 		"ValidProtocolV2": {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          utils.ToPointer(int32(3)),
+					MinReplicas:          ptr.To(int32(3)),
 					ContainerConcurrency: proto.Int64(-1),
 				},
 				PodSpec: PodSpec{
@@ -82,7 +82,7 @@ func TestCustomPredictorValidation(t *testing.T) {
 		"InvalidValidProtocol": {
 			spec: PredictorSpec{
 				ComponentExtensionSpec: ComponentExtensionSpec{
-					MinReplicas:          utils.ToPointer(int32(3)),
+					MinReplicas:          ptr.To(int32(3)),
 					ContainerConcurrency: proto.Int64(-1),
 				},
 				PodSpec: PodSpec{
