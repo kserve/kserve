@@ -29,9 +29,9 @@ package localmodel
 
 import (
 	"context"
+	"maps"
 	"reflect"
-
-	"golang.org/x/exp/maps"
+	"slices"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -183,7 +183,7 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 				}
 				namespaceToNodeGroups[isvc.Namespace][nodeGroup.Name] = nodeGroup
 			} else {
-				c.Log.Info("Didn't find isvc node group in model cache node groups", "isvc name", isvc.Name, "isvc node group", isvcNodeGroup, "model cache node groups", maps.Keys(localModelNodeGroups))
+				c.Log.Info("Didn't find isvc node group in model cache node groups", "isvc name", isvc.Name, "isvc node group", isvcNodeGroup, "model cache node groups", slices.Collect(maps.Keys(localModelNodeGroups)))
 			}
 			// isvc does not have nodegroup annotation. Use default nodegroup
 		} else if _, ok := namespaceToNodeGroups[isvc.Namespace]; !ok {

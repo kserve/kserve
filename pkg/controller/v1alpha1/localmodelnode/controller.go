@@ -88,7 +88,6 @@ func (c *LocalModelNodeReconciler) getNodeGroupFromNode(ctx context.Context, nod
 		return nil, err
 	}
 	for _, nodeGroup := range nodeGroups.Items {
-		// To avoid implicit memory aliasing in for loop
 		matches, err := utils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
 		if err != nil {
 			return nil, err
