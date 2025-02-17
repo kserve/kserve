@@ -28,7 +28,7 @@ import (
 
 	"github.com/pkg/errors"
 	goerrors "github.com/pkg/errors"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -184,7 +184,7 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1.Depl
 
 // MergeRuntimeContainers Merge the predictor Container struct with the runtime Container struct, allowing users
 // to override runtime container settings from the predictor spec.
-func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *v1.Container) (*v1.Container, error) {
+func MergeRuntimeContainers(runtimeContainer *corev1.Container, predictorContainer *corev1.Container) (*corev1.Container, error) {
 	// Save runtime container name, as the name can be overridden as empty string during the Unmarshal below
 	// since the Name field does not have the 'omitempty' struct tag.
 	runtimeContainerName := runtimeContainer.Name
@@ -200,7 +200,7 @@ func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *
 		return nil, err
 	}
 
-	mergedContainer := v1.Container{}
+	mergedContainer := corev1.Container{}
 	jsonResult, err := strategicpatch.StrategicMergePatch(runtimeContainerJson, overrides, mergedContainer)
 	if err != nil {
 		return nil, err
@@ -222,8 +222,8 @@ func MergeRuntimeContainers(runtimeContainer *v1.Container, predictorContainer *
 
 // MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users
 // to override runtime PodSpec settings from the predictor spec.
-func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSpec *v1beta1.PodSpec) (*v1.PodSpec, error) {
-	runtimePodSpecJson, err := json.Marshal(v1.PodSpec{
+func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSpec *v1beta1.PodSpec) (*corev1.PodSpec, error) {
+	runtimePodSpecJson, err := json.Marshal(corev1.PodSpec{
 		NodeSelector:     runtimePodSpec.NodeSelector,
 		Affinity:         runtimePodSpec.Affinity,
 		Tolerations:      runtimePodSpec.Tolerations,
@@ -240,7 +240,7 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 		return nil, err
 	}
 
-	corePodSpec := v1.PodSpec{}
+	corePodSpec := corev1.PodSpec{}
 	jsonResult, err := strategicpatch.StrategicMergePatch(runtimePodSpecJson, overrides, corePodSpec)
 	if err != nil {
 		return nil, err
@@ -255,9 +255,9 @@ func MergePodSpec(runtimePodSpec *v1alpha1.ServingRuntimePodSpec, predictorPodSp
 
 // GetServingRuntime Get a ServingRuntime by name. First, ServingRuntimes in the given namespace will be checked.
 // If a resource of the specified name is not found, then ClusterServingRuntimes will be checked.
-func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alpha1.ServingRuntimeSpec, error) {
+func GetServingRuntime(ctx context.Context, cl client.Client, name string, namespace string) (*v1alpha1.ServingRuntimeSpec, error) {
 	runtime := &v1alpha1.ServingRuntime{}
-	err := cl.Get(context.TODO(), client.ObjectKey{Name: name, Namespace: namespace}, runtime)
+	err := cl.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, runtime)
 	if err == nil {
 		return &runtime.Spec, nil
 	} else if !apierrors.IsNotFound(err) {
@@ -265,7 +265,7 @@ func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alph
 	}
 
 	clusterRuntime := &v1alpha1.ClusterServingRuntime{}
-	err = cl.Get(context.TODO(), client.ObjectKey{Name: name}, clusterRuntime)
+	err = cl.Get(ctx, client.ObjectKey{Name: name}, clusterRuntime)
 	if err == nil {
 		return &clusterRuntime.Spec, nil
 	} else if !apierrors.IsNotFound(err) {
@@ -275,7 +275,7 @@ func GetServingRuntime(cl client.Client, name string, namespace string) (*v1alph
 }
 
 // ReplacePlaceholders Replace placeholders in runtime container by values from inferenceservice metadata
-func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error {
+func ReplacePlaceholders(container *corev1.Container, meta metav1.ObjectMeta) error {
 	data, _ := json.Marshal(container)
 	tmpl, err := template.New("container-tmpl").Parse(string(data))
 	if err != nil {
@@ -290,7 +290,7 @@ func ReplacePlaceholders(container *v1.Container, meta metav1.ObjectMeta) error 
 }
 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided
-func UpdateImageTag(container *v1.Container, runtimeVersion *string, servingRuntime *string) {
+func UpdateImageTag(container *corev1.Container, runtimeVersion *string, servingRuntime *string) {
 	image := container.Image
 	if runtimeVersion != nil {
 		re := regexp.MustCompile(`(:([\w.\-_]*))$`)
@@ -315,13 +315,13 @@ func UpdateImageTag(container *v1.Container, runtimeVersion *string, servingRunt
 }
 
 // ListPodsByLabel Get a PodList by label.
-func ListPodsByLabel(cl client.Client, namespace string, labelKey string, labelVal string) (*v1.PodList, error) {
-	podList := &v1.PodList{}
+func ListPodsByLabel(ctx context.Context, cl client.Client, namespace string, labelKey string, labelVal string) (*corev1.PodList, error) {
+	podList := &corev1.PodList{}
 	opts := []client.ListOption{
 		client.InNamespace(namespace),
 		client.MatchingLabels{labelKey: labelVal},
 	}
-	err := cl.List(context.TODO(), podList, opts...)
+	err := cl.List(ctx, podList, opts...)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}
@@ -329,19 +329,19 @@ func ListPodsByLabel(cl client.Client, namespace string, labelKey string, labelV
 	return podList, nil
 }
 
-func sortPodsByCreatedTimestampDesc(pods *v1.PodList) {
+func sortPodsByCreatedTimestampDesc(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
 		return pods.Items[j].ObjectMeta.CreationTimestamp.Before(&pods.Items[i].ObjectMeta.CreationTimestamp)
 	})
 }
 
-func ValidateStorageURI(storageURI *string, client client.Client) error {
+func ValidateStorageURI(ctx context.Context, storageURI *string, client client.Client) error {
 	if storageURI == nil {
 		return nil
 	}
 
 	// Step 1: Passes the validation if we have a storage container CR that supports this storageURI.
-	storageContainerSpec, err := pod.GetContainerSpecForStorageUri(*storageURI, client)
+	storageContainerSpec, err := pod.GetContainerSpecForStorageUri(ctx, *storageURI, client)
 	if err != nil {
 		return err
 	}
@@ -369,7 +369,7 @@ func ValidateStorageURI(storageURI *string, client client.Client) error {
 }
 
 // Function to add a new environment variable to a specific container in the PodSpec
-func AddEnvVarToPodSpec(podSpec *v1.PodSpec, containerName, envName, envValue string) error {
+func AddEnvVarToPodSpec(podSpec *corev1.PodSpec, containerName, envName, envValue string) error {
 	updatedResult := false
 	// Iterate over the containers in the PodTemplateSpec to find the specified container
 	for i, container := range podSpec.Containers {
@@ -385,7 +385,7 @@ func AddEnvVarToPodSpec(podSpec *v1.PodSpec, containerName, envName, envValue st
 				}
 			} else {
 				// Add the new environment variable to the Env field if it ooes not exist
-				container.Env = append(container.Env, v1.EnvVar{
+				container.Env = append(container.Env, corev1.EnvVar{
 					Name:  envName,
 					Value: envValue,
 				})
@@ -400,7 +400,7 @@ func AddEnvVarToPodSpec(podSpec *v1.PodSpec, containerName, envName, envValue st
 	return nil
 }
 
-func MergeServingRuntimeAndInferenceServiceSpecs(srContainers []v1.Container, isvcContainer v1.Container, isvc *v1beta1.InferenceService, targetContainerName string, srPodSpec v1alpha1.ServingRuntimePodSpec, isvcPodSpec v1beta1.PodSpec) (int, *v1.Container, *v1.PodSpec, error) {
+func MergeServingRuntimeAndInferenceServiceSpecs(srContainers []corev1.Container, isvcContainer corev1.Container, isvc *v1beta1.InferenceService, targetContainerName string, srPodSpec v1alpha1.ServingRuntimePodSpec, isvcPodSpec v1beta1.PodSpec) (int, *corev1.Container, *corev1.PodSpec, error) {
 	var err error
 	containerIndexInSR := -1
 	for i := range srContainers {

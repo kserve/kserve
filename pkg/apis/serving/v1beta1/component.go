@@ -22,11 +22,12 @@ import (
 	"reflect"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Known error messages
@@ -62,7 +63,7 @@ var (
 type ComponentImplementation interface {
 	Default(config *InferenceServicesConfig)
 	Validate() error
-	GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container
+	GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container
 	GetStorageUri() *string
 	GetStorageSpec() *StorageSpec
 	GetProtocol() constants.InferenceServiceProtocol
@@ -80,15 +81,15 @@ type Component interface {
 type ComponentExtensionSpec struct {
 	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
 	// +optional
-	MinReplicas *int `json:"minReplicas,omitempty"`
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
 	// Maximum number of replicas for autoscaling.
 	// +optional
-	MaxReplicas int `json:"maxReplicas,omitempty"`
+	MaxReplicas int32 `json:"maxReplicas,omitempty"`
 	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
 	// concurrency and rps targets are supported by Knative Pod Autoscaler
 	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
 	// +optional
-	ScaleTarget *int `json:"scaleTarget,omitempty"`
+	ScaleTarget *int32 `json:"scaleTarget,omitempty"`
 	// ScaleMetric defines the scaling metric type watched by autoscaler
 	// possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
@@ -171,7 +172,7 @@ func validateStorageSpec(storageSpec *StorageSpec, storageURI *string) error {
 	return nil
 }
 
-func validateReplicas(minReplicas *int, maxReplicas int) error {
+func validateReplicas(minReplicas *int32, maxReplicas int32) error {
 	if minReplicas == nil {
 		minReplicas = &constants.DefaultMinReplicas
 	}
@@ -235,7 +236,7 @@ func NonNilComponents(objects []ComponentImplementation) (results []ComponentImp
 func ExactlyOneErrorFor(component Component) error {
 	componentType := reflect.ValueOf(component).Type().Elem()
 	implementationTypes := []string{}
-	for i := 0; i < componentType.NumField()-1; i++ {
+	for i := range componentType.NumField() - 1 {
 		implementationTypes = append(implementationTypes, componentType.Field(i).Name)
 	}
 	return fmt.Errorf(

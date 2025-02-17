@@ -17,13 +17,14 @@ limitations under the License.
 package inferencegraph
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -33,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
@@ -47,15 +48,15 @@ Also propagates headers onto podspec container environment variables.
 
 This function makes sense to be used in raw k8s deployment mode
 */
-func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *RouterConfig) *v1.PodSpec {
+func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterConfig) *corev1.PodSpec {
 	bytes, err := json.Marshal(graph.Spec)
 	if err != nil {
 		return nil
 	}
 
 	// Pod spec with 'router container with resource requirements' and 'affinity' as well
-	podSpec := &v1.PodSpec{
-		Containers: []v1.Container{
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
 			{
 				Name:  graph.ObjectMeta.Name,
 				Image: config.Image,
@@ -65,13 +66,13 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 				},
 				Resources:      constructResourceRequirements(*graph, *config),
 				ReadinessProbe: constants.GetRouterReadinessProbe(),
-				SecurityContext: &v1.SecurityContext{
+				SecurityContext: &corev1.SecurityContext{
 					Privileged:               proto.Bool(false),
 					RunAsNonRoot:             proto.Bool(true),
 					ReadOnlyRootFilesystem:   proto.Bool(true),
 					AllowPrivilegeEscalation: proto.Bool(false),
-					Capabilities: &v1.Capabilities{
-						Drop: []v1.Capability{v1.Capability("ALL")},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{corev1.Capability("ALL")},
 					},
 				},
 			},
@@ -83,7 +84,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
 	value, exists := config.Headers["propagate"]
 	if exists {
-		podSpec.Containers[0].Env = []v1.EnvVar{
+		podSpec.Containers[0].Env = []corev1.EnvVar{
 			{
 				Name:  constants.RouterHeadersPropagateEnvVar,
 				Value: strings.Join(value, ","),
@@ -97,7 +98,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 /*
 A simple utility to create a basic meta object given name and namespace;  Can be extended to accept labels, annotations as well
 */
-func constructForRawDeployment(graph *v1alpha1api.InferenceGraph) (metav1.ObjectMeta, v1beta1.ComponentExtensionSpec) {
+func constructForRawDeployment(graph *v1alpha1.InferenceGraph) (metav1.ObjectMeta, v1beta1.ComponentExtensionSpec) {
 	name := graph.ObjectMeta.Name
 	namespace := graph.ObjectMeta.Namespace
 	annotations := graph.ObjectMeta.Annotations
@@ -138,16 +139,16 @@ Handles bulk of raw deployment logic for Inference graph controller
 4. Set controller references
 5. Finally reconcile
 */
-func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	graph *v1alpha1api.InferenceGraph, routerConfig *RouterConfig) (*appsv1.Deployment, *knapis.URL, error) {
+func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
+	graph *v1alpha1.InferenceGraph, routerConfig *RouterConfig,
+) (*appsv1.Deployment, *knapis.URL, error) {
 	// create desired service object.
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
 
 	objectMeta, componentExtSpec := constructForRawDeployment(graph)
 
 	// create the reconciler
-	reconciler, err := raw.NewRawKubeReconciler(cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
-
+	reconciler, err := raw.NewRawKubeReconciler(ctx, cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
 	}
@@ -170,7 +171,7 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 	}
 
 	// reconcile
-	deployment, err := reconciler.Reconcile()
+	deployment, err := reconciler.Reconcile(ctx)
 	logger.Info("Result of inference graph raw reconcile", "deployment", deployment[0]) // only 1 deployment exist (default deployment)
 	logger.Info("Result of reconcile", "err", err)
 
@@ -185,8 +186,9 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 PropagateRawStatus Propagates deployment status onto Inference graph status.
 In raw deployment mode, deployment available denotes the ready status for IG
 */
-func PropagateRawStatus(graphStatus *v1alpha1api.InferenceGraphStatus, deployment *appsv1.Deployment,
-	url *apis.URL) {
+func PropagateRawStatus(graphStatus *v1alpha1.InferenceGraphStatus, deployment *appsv1.Deployment,
+	url *apis.URL,
+) {
 	for _, con := range deployment.Status.Conditions {
 		if con.Type == appsv1.DeploymentAvailable {
 			graphStatus.URL = url
@@ -194,7 +196,7 @@ func PropagateRawStatus(graphStatus *v1alpha1api.InferenceGraphStatus, deploymen
 			conditions := []apis.Condition{
 				{
 					Type:   apis.ConditionReady,
-					Status: v1.ConditionTrue,
+					Status: corev1.ConditionTrue,
 				},
 			}
 			graphStatus.SetConditions(conditions)
