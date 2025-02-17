@@ -17,7 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // ***This is a copy of kubernetes corev1.PodSpec to make field Containers optional***
@@ -31,7 +31,7 @@ type PodSpec struct {
 	// +optional
 	// +patchMergeKey=name
 	// +patchStrategy=merge,retainKeys
-	Volumes []v1.Volume `json:"volumes,omitempty" patchStrategy:"merge,retainKeys" patchMergeKey:"name" protobuf:"bytes,1,rep,name=volumes"`
+	Volumes []corev1.Volume `json:"volumes,omitempty" patchStrategy:"merge,retainKeys" patchMergeKey:"name" protobuf:"bytes,1,rep,name=volumes"`
 	// List of initialization containers belonging to the pod.
 	// Init containers are executed in order prior to containers being started. If any
 	// init container fails, the pod is considered to have failed and is handled according
@@ -40,21 +40,21 @@ type PodSpec struct {
 	// Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes.
 	// The resourceRequirements of an init container are taken into account during scheduling
 	// by finding the highest request/limit for each resource type, and then using the max of
-	// of that value or the sum of the normal containers. Limits are applied to init containers
+	// that value or the sum of the normal containers. Limits are applied to init containers
 	// in a similar fashion.
 	// Init containers cannot currently be added or removed.
 	// Cannot be updated.
 	// More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	InitContainers []v1.Container `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,20,rep,name=initContainers"`
+	InitContainers []corev1.Container `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,20,rep,name=initContainers"`
 	// List of containers belonging to the pod.
 	// Containers cannot currently be added or removed.
 	// There must be at least one container in a Pod.
 	// Cannot be updated.
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	Containers []v1.Container `json:"containers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,2,rep,name=containers"`
+	Containers []corev1.Container `json:"containers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,2,rep,name=containers"`
 	// List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing
 	// pod to perform user-initiated actions such as debugging. This list cannot be specified when
 	// creating a pod, and it cannot be modified by updating the pod spec. In order to add an
@@ -62,13 +62,13 @@ type PodSpec struct {
 	// +optional
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	EphemeralContainers []v1.EphemeralContainer `json:"ephemeralContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,34,rep,name=ephemeralContainers"`
+	EphemeralContainers []corev1.EphemeralContainer `json:"ephemeralContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,34,rep,name=ephemeralContainers"`
 	// Restart policy for all containers within the pod.
 	// One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted.
 	// Default to Always.
 	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy
 	// +optional
-	RestartPolicy v1.RestartPolicy `json:"restartPolicy,omitempty" protobuf:"bytes,3,opt,name=restartPolicy,casttype=RestartPolicy"`
+	RestartPolicy corev1.RestartPolicy `json:"restartPolicy,omitempty" protobuf:"bytes,3,opt,name=restartPolicy,casttype=RestartPolicy"`
 	// Optional duration in seconds the pod needs to terminate gracefully. May be decreased in delete request.
 	// Value must be non-negative integer. The value zero indicates stop immediately via
 	// the kill signal (no opportunity to shut down).
@@ -91,7 +91,7 @@ type PodSpec struct {
 	// To have DNS options set along with hostNetwork, you have to specify DNS policy
 	// explicitly to 'ClusterFirstWithHostNet'.
 	// +optional
-	DNSPolicy v1.DNSPolicy `json:"dnsPolicy,omitempty" protobuf:"bytes,6,opt,name=dnsPolicy,casttype=DNSPolicy"`
+	DNSPolicy corev1.DNSPolicy `json:"dnsPolicy,omitempty" protobuf:"bytes,6,opt,name=dnsPolicy,casttype=DNSPolicy"`
 	// NodeSelector is a selector which must be true for the pod to fit on a node.
 	// Selector which must match a node's labels for the pod to be scheduled on that node.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
@@ -146,14 +146,14 @@ type PodSpec struct {
 	// SecurityContext holds pod-level security attributes and common container settings.
 	// Optional: Defaults to empty.  See type description for default values of each field.
 	// +optional
-	SecurityContext *v1.PodSecurityContext `json:"securityContext,omitempty" protobuf:"bytes,14,opt,name=securityContext"`
+	SecurityContext *corev1.PodSecurityContext `json:"securityContext,omitempty" protobuf:"bytes,14,opt,name=securityContext"`
 	// ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec.
 	// If specified, these secrets will be passed to individual puller implementations for them to use.
 	// More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod
 	// +optional
 	// +patchMergeKey=name
 	// +patchStrategy=merge
-	ImagePullSecrets []v1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,15,rep,name=imagePullSecrets"`
 	// Specifies the hostname of the Pod
 	// If not specified, the pod's hostname will be set to a system-defined value.
 	// +optional
@@ -164,20 +164,20 @@ type PodSpec struct {
 	Subdomain string `json:"subdomain,omitempty" protobuf:"bytes,17,opt,name=subdomain"`
 	// If specified, the pod's scheduling constraints
 	// +optional
-	Affinity *v1.Affinity `json:"affinity,omitempty" protobuf:"bytes,18,opt,name=affinity"`
+	Affinity *corev1.Affinity `json:"affinity,omitempty" protobuf:"bytes,18,opt,name=affinity"`
 	// If specified, the pod will be dispatched by specified scheduler.
 	// If not specified, the pod will be dispatched by default scheduler.
 	// +optional
 	SchedulerName string `json:"schedulerName,omitempty" protobuf:"bytes,19,opt,name=schedulerName"`
 	// If specified, the pod's tolerations.
 	// +optional
-	Tolerations []v1.Toleration `json:"tolerations,omitempty" protobuf:"bytes,22,opt,name=tolerations"`
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty" protobuf:"bytes,22,opt,name=tolerations"`
 	// HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts
 	// file if specified.
 	// +optional
 	// +patchMergeKey=ip
 	// +patchStrategy=merge
-	HostAliases []v1.HostAlias `json:"hostAliases,omitempty" patchStrategy:"merge" patchMergeKey:"ip" protobuf:"bytes,23,rep,name=hostAliases"`
+	HostAliases []corev1.HostAlias `json:"hostAliases,omitempty" patchStrategy:"merge" patchMergeKey:"ip" protobuf:"bytes,23,rep,name=hostAliases"`
 	// If specified, indicates the pod's priority. "system-node-critical" and
 	// "system-cluster-critical" are two special keywords which indicate the
 	// highest priorities with the former being the highest priority. Any other
@@ -197,13 +197,13 @@ type PodSpec struct {
 	// Parameters specified here will be merged to the generated DNS
 	// configuration based on DNSPolicy.
 	// +optional
-	DNSConfig *v1.PodDNSConfig `json:"dnsConfig,omitempty" protobuf:"bytes,26,opt,name=dnsConfig"`
+	DNSConfig *corev1.PodDNSConfig `json:"dnsConfig,omitempty" protobuf:"bytes,26,opt,name=dnsConfig"`
 	// If specified, all readiness gates will be evaluated for pod readiness.
 	// A pod is ready when all its containers are ready AND
 	// all conditions specified in the readiness gates have status equal to "True"
 	// More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates
 	// +optional
-	ReadinessGates []v1.PodReadinessGate `json:"readinessGates,omitempty" protobuf:"bytes,28,opt,name=readinessGates"`
+	ReadinessGates []corev1.PodReadinessGate `json:"readinessGates,omitempty" protobuf:"bytes,28,opt,name=readinessGates"`
 	// RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used
 	// to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run.
 	// If unset or empty, the "legacy" RuntimeClass will be used, which is an implicit class with an
@@ -220,7 +220,7 @@ type PodSpec struct {
 	// One of Never, PreemptLowerPriority.
 	// Defaults to PreemptLowerPriority if unset.
 	// +optional
-	PreemptionPolicy *v1.PreemptionPolicy `json:"preemptionPolicy,omitempty" protobuf:"bytes,31,opt,name=preemptionPolicy"`
+	PreemptionPolicy *corev1.PreemptionPolicy `json:"preemptionPolicy,omitempty" protobuf:"bytes,31,opt,name=preemptionPolicy"`
 	// Overhead represents the resource overhead associated with running a pod for a given RuntimeClass.
 	// This field will be autopopulated at admission time by the RuntimeClass admission controller. If
 	// the RuntimeClass admission controller is enabled, overhead must not be set in Pod create requests.
@@ -229,7 +229,7 @@ type PodSpec struct {
 	// defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero.
 	// More info: https://git.k8s.io/enhancements/keps/sig-node/688-pod-overhead/README.md
 	// +optional
-	Overhead v1.ResourceList `json:"overhead,omitempty" protobuf:"bytes,32,opt,name=overhead"`
+	Overhead corev1.ResourceList `json:"overhead,omitempty" protobuf:"bytes,32,opt,name=overhead"`
 	// TopologySpreadConstraints describes how a group of pods ought to spread across topology
 	// domains. Scheduler will schedule pods in a way which abides by the constraints.
 	// All topologySpreadConstraints are ANDed.
@@ -239,7 +239,7 @@ type PodSpec struct {
 	// +listType=map
 	// +listMapKey=topologyKey
 	// +listMapKey=whenUnsatisfiable
-	TopologySpreadConstraints []v1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty" patchStrategy:"merge" patchMergeKey:"topologyKey" protobuf:"bytes,33,opt,name=topologySpreadConstraints"`
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty" patchStrategy:"merge" patchMergeKey:"topologyKey" protobuf:"bytes,33,opt,name=topologySpreadConstraints"`
 	// If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default).
 	// In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname).
 	// In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters to FQDN.
@@ -279,8 +279,7 @@ type PodSpec struct {
 	// - spec.containers[*].securityContext.runAsUser
 	// - spec.containers[*].securityContext.runAsGroup
 	// +optional
-	OS *v1.PodOS `json:"os,omitempty" protobuf:"bytes,36,opt,name=os"`
-
+	OS *corev1.PodOS `json:"os,omitempty" protobuf:"bytes,36,opt,name=os"`
 	// Use the host's user namespace.
 	// Optional: Default to true.
 	// If set to true or not present, the pod will be run in the host user namespace, useful
@@ -305,7 +304,7 @@ type PodSpec struct {
 	// +listType=map
 	// +listMapKey=name
 	// +optional
-	SchedulingGates []v1.PodSchedulingGate `json:"schedulingGates,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,38,opt,name=schedulingGates"`
+	SchedulingGates []corev1.PodSchedulingGate `json:"schedulingGates,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,38,opt,name=schedulingGates"`
 	// ResourceClaims defines which ResourceClaims must be allocated
 	// and reserved before the Pod is allowed to start. The resources
 	// will be made available to those containers which consume them
@@ -322,7 +321,7 @@ type PodSpec struct {
 	// +listMapKey=name
 	// +featureGate=DynamicResourceAllocation
 	// +optional
-	ResourceClaims []v1.PodResourceClaim `json:"resourceClaims,omitempty" patchStrategy:"merge,retainKeys" patchMergeKey:"name" protobuf:"bytes,39,rep,name=resourceClaims"`
+	ResourceClaims []corev1.PodResourceClaim `json:"resourceClaims,omitempty" patchStrategy:"merge,retainKeys" patchMergeKey:"name" protobuf:"bytes,39,rep,name=resourceClaims"`
 	// Resources is the total amount of CPU and Memory resources required by all
 	// containers in the pod. It supports specifying Requests and Limits for
 	// "cpu" and "memory" resource names only. ResourceClaims are not supported.
@@ -336,5 +335,5 @@ type PodSpec struct {
 	//
 	// +featureGate=PodLevelResources
 	// +optional
-	Resources *v1.ResourceRequirements `json:"resources,omitempty" protobuf:"bytes,40,opt,name=resources"`
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty" protobuf:"bytes,40,opt,name=resources"`
 }

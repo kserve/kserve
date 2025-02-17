@@ -29,9 +29,11 @@ import (
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
-var cfg *rest.Config
-var c client.Client
-var clientset kubernetes.Interface
+var (
+	cfg       *rest.Config
+	c         client.Client
+	clientset kubernetes.Interface
+)
 
 func TestMain(m *testing.M) {
 	crdDirectoryPaths := []string{

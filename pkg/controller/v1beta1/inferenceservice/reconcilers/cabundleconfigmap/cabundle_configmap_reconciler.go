@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	kservev1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
@@ -53,11 +53,11 @@ func NewCaBundleConfigMapReconciler(client client.Client, clientset kubernetes.I
 	}
 }
 
-func (c *CaBundleConfigMapReconciler) Reconcile(isvc *kservev1beta1.InferenceService) error {
+func (c *CaBundleConfigMapReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	log.Info("Reconciling CaBundleConfigMap", "namespace", isvc.Namespace)
-	isvcConfigMap, err := c.clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.clientset)
 	if err != nil {
-		log.Error(err, "failed to find config map", "name", constants.InferenceServiceConfigMapName)
+		log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return err
 	}
 
@@ -73,25 +73,25 @@ func (c *CaBundleConfigMapReconciler) Reconcile(isvc *kservev1beta1.InferenceSer
 	if storageInitializerConfig.CaBundleConfigMapName == "" {
 		return nil
 	} else {
-		newCaBundleConfigMap, err = c.getCabundleConfigMapForUserNS(storageInitializerConfig.CaBundleConfigMapName, constants.KServeNamespace, isvc.Namespace)
+		newCaBundleConfigMap, err = c.getCabundleConfigMapForUserNS(ctx, storageInitializerConfig.CaBundleConfigMapName, constants.KServeNamespace, isvc.Namespace)
 		if err != nil {
 			return fmt.Errorf("fails to get cabundle configmap for creating to user namespace: %w", err)
 		}
 	}
 
-	if err := c.ReconcileCaBundleConfigMap(newCaBundleConfigMap); err != nil {
+	if err := c.ReconcileCaBundleConfigMap(ctx, newCaBundleConfigMap); err != nil {
 		return fmt.Errorf("fails to reconcile cabundle configmap: %w", err)
 	}
 
 	return nil
 }
 
-func (c *CaBundleConfigMapReconciler) getCabundleConfigMapForUserNS(caBundleNameInConfig string, kserveNamespace string, isvcNamespace string) (*corev1.ConfigMap, error) {
+func (c *CaBundleConfigMapReconciler) getCabundleConfigMapForUserNS(ctx context.Context, caBundleNameInConfig string, kserveNamespace string, isvcNamespace string) (*corev1.ConfigMap, error) {
 	var newCaBundleConfigMap *corev1.ConfigMap
 
 	// Check if cabundle configmap exist & the cabundle.crt exist in the data in controller namespace
 	// If it does not exist, return error
-	caBundleConfigMap, err := c.clientset.CoreV1().ConfigMaps(kserveNamespace).Get(context.TODO(), caBundleNameInConfig, metav1.GetOptions{})
+	caBundleConfigMap, err := c.clientset.CoreV1().ConfigMaps(kserveNamespace).Get(ctx, caBundleNameInConfig, metav1.GetOptions{})
 
 	if err == nil {
 		if caBundleConfigMapData := caBundleConfigMap.Data[constants.DefaultCaBundleFileName]; caBundleConfigMapData == "" {
@@ -123,13 +123,13 @@ func getDesiredCaBundleConfigMapForUserNS(configmapName string, namespace string
 }
 
 // ReconcileCaBundleConfigMap will manage the creation, update and deletion of the ca bundle ConfigMap
-func (c *CaBundleConfigMapReconciler) ReconcileCaBundleConfigMap(desiredConfigMap *corev1.ConfigMap) error {
+func (c *CaBundleConfigMapReconciler) ReconcileCaBundleConfigMap(ctx context.Context, desiredConfigMap *corev1.ConfigMap) error {
 	// Create ConfigMap if does not exist
-	existingConfigMap, err := c.clientset.CoreV1().ConfigMaps(desiredConfigMap.Namespace).Get(context.TODO(), desiredConfigMap.Name, metav1.GetOptions{})
+	existingConfigMap, err := c.clientset.CoreV1().ConfigMaps(desiredConfigMap.Namespace).Get(ctx, desiredConfigMap.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierr.IsNotFound(err) {
 			log.Info("Creating cabundle configmap", "namespace", desiredConfigMap.Namespace, "name", desiredConfigMap.Name)
-			err = c.client.Create(context.TODO(), desiredConfigMap)
+			err = c.client.Create(ctx, desiredConfigMap)
 		}
 		return err
 	}
@@ -147,7 +147,7 @@ func (c *CaBundleConfigMapReconciler) ReconcileCaBundleConfigMap(desiredConfigMa
 	log.V(1).Info("Reconciling cabundle configmap diff (-desired, +observed):", "diff", diff)
 	log.Info("Updating cabundle configmap", "namespace", existingConfigMap.Namespace, "name", existingConfigMap.Name)
 	existingConfigMap.Data = desiredConfigMap.Data
-	err = c.client.Update(context.TODO(), existingConfigMap)
+	err = c.client.Update(ctx, existingConfigMap)
 	if err != nil {
 		return fmt.Errorf("fails to update cabundle configmap: %w", err)
 	}

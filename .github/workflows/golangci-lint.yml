@@ -21,7 +21,7 @@ jobs:
           go-version-file: go.mod
           cache: false
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v4
+        uses: golangci/golangci-lint-action@v6
         with:
           version: v1.63
           args: --out-format=line-number
