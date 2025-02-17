@@ -17,6 +17,7 @@ from typing import AsyncGenerator
 import time
 
 from fastapi import APIRouter, FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import TypeAdapter, ValidationError
 from starlette.responses import StreamingResponse
@@ -25,6 +26,7 @@ from kserve.protocol.rest.openai.types import (
     ChatCompletionRequest,
     CompletionRequest,
     EmbeddingRequest,
+    ErrorResponse,
     Model,
     ModelList,
 )
@@ -83,7 +85,11 @@ class OpenAIEndpoints:
             headers=raw_request.headers,
             response=response,
         )
-        if isinstance(completion, AsyncGenerator):
+        if isinstance(completion, ErrorResponse):
+            return JSONResponse(
+                content=completion.model_dump(), status_code=int(completion.error.code)
+            )
+        elif isinstance(completion, AsyncGenerator):
             return StreamingResponse(completion, media_type="text/event-stream")
         else:
             return completion
@@ -123,7 +129,11 @@ class OpenAIEndpoints:
             headers=request_headers,
             response=response,
         )
-        if isinstance(completion, AsyncGenerator):
+        if isinstance(completion, ErrorResponse):
+            return JSONResponse(
+                content=completion.model_dump(), status_code=int(completion.error.code)
+            )
+        elif isinstance(completion, AsyncGenerator):
             return StreamingResponse(completion, media_type="text/event-stream")
         else:
             return completion
@@ -160,7 +170,11 @@ class OpenAIEndpoints:
             headers=raw_request.headers,
             response=response,
         )
-        if isinstance(embedding, AsyncGenerator):
+        if isinstance(embedding, ErrorResponse):
+            return JSONResponse(
+                content=embedding.model_dump(), status_code=int(embedding.error.code)
+            )
+        elif isinstance(embedding, AsyncGenerator):
             return StreamingResponse(embedding, media_type="text/event-stream")
         else:
             return embedding

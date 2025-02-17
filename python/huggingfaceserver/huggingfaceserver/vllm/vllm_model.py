@@ -16,8 +16,10 @@ from typing import Any, Dict, Optional, Union, AsyncGenerator
 import torch
 from argparse import Namespace
 from fastapi import Request
+from http import HTTPStatus
 
 from kserve.errors import ModelNotReady
+from kserve.protocol.rest.openai.errors import create_error_response
 from kserve.protocol.rest.openai import OpenAIEncoderModel, OpenAIGenerativeModel
 from kserve.protocol.rest.openai.types import (
     Completion,
@@ -26,6 +28,7 @@ from kserve.protocol.rest.openai.types import (
     ChatCompletionRequest,
     EmbeddingRequest,
     Embedding,
+    ErrorResponse,
 )
 
 from vllm import AsyncEngineArgs
@@ -35,13 +38,13 @@ from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
 from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
 from vllm.entrypoints.openai.tool_parsers import ToolParserManager
-from vllm.entrypoints.openai.protocol import ErrorResponse
 from vllm.entrypoints.openai.serving_models import BaseModelPath, OpenAIServingModels
 from vllm.entrypoints.openai.api_server import (
     build_async_engine_client_from_engine_args,
 )
 from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
 from vllm.entrypoints.chat_utils import load_chat_template
+from vllm.entrypoints.openai.protocol import ErrorResponse as engineError
 from .utils import build_vllm_engine_args
 
 
@@ -185,9 +188,19 @@ class VLLMModel(
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
-        return await self.openai_serving_completion.create_completion(
+        response = await self.openai_serving_completion.create_completion(
             request, raw_request
         )
+
+        if isinstance(response, engineError):
+            return create_error_response(
+                message=response.message,
+                err_type=response.type,
+                param=response.param,
+                status_code=HTTPStatus(response.code),
+            )
+
+        return response
 
     async def create_chat_completion(
         self,
@@ -195,9 +208,19 @@ class VLLMModel(
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
-        return await self.openai_serving_chat.create_chat_completion(
+        response = await self.openai_serving_chat.create_chat_completion(
             request, raw_request
         )
+
+        if isinstance(response, engineError):
+            return create_error_response(
+                message=response.message,
+                err_type=response.type,
+                param=response.param,
+                status_code=HTTPStatus(response.code),
+            )
+
+        return response
 
     async def create_embedding(
         self,
@@ -205,6 +228,16 @@ class VLLMModel(
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
-        return await self.openai_serving_embedding.create_embedding(
+        response = await self.openai_serving_embedding.create_embedding(
             request, raw_request
         )
+
+        if isinstance(response, engineError):
+            return create_error_response(
+                message=response.message,
+                err_type=response.type,
+                param=response.param,
+                status_code=HTTPStatus(response.code),
+            )
+
+        return response
