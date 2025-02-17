@@ -67,6 +67,9 @@ type PredictorSpec struct {
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for a predictor
 	ComponentExtensionSpec `json:",inline"`
+
+	// Enables collocation of transformer with predictor
+	Processors []corev1.Container `json:"processors,omitempty"`
 }
 
 type WorkerSpec struct {

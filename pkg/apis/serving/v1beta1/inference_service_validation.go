@@ -332,7 +332,7 @@ func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 
 // validates if transformer container has storage uri or not in collocation of predictor and transformer scenario
 func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
-	for _, container := range predictorSpec.Containers {
+	for _, container := range predictorSpec.Processors {
 		if container.Name == constants.TransformerContainerName {
 			for _, env := range container.Env {
 				if env.Name == constants.CustomSpecStorageUriEnvVarKey {
