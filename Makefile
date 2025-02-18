@@ -55,6 +55,9 @@ $(shell perl -pi -e 's/memory:.*/memory: $(KSERVE_CONTROLLER_MEMORY_LIMIT)/' con
 
 all: test manager agent router
 
+# This runs all necessary steps to prepare for a commit.
+precommit: fmt vet go-lint py-fmt tidy generate manifests
+
 # Run tests
 test: fmt vet manifests envtest
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test $$(go list ./pkg/...) ./cmd/... -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
@@ -197,6 +200,10 @@ py-fmt:
 # Run go vet against code
 vet:
 	go vet ./pkg/... ./cmd/...
+
+tidy:
+	go mod tidy
+	cd qpext && go mod tidy
 
 go-lint:
 	hack/verify-golint.sh

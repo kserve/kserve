@@ -41,6 +41,7 @@ jobs:
       - name: Run go mod tidy
         run: |
           go mod tidy
+          cd qpext && go mod tidy
 
       - name: Verify
         shell: bash
