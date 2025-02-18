@@ -20,16 +20,19 @@ import (
 	"fmt"
 
 	jsoniter "github.com/json-iterator/go"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var logger = log.Log.WithName("ModelConfig")
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
+var (
+	logger = log.Log.WithName("ModelConfig")
+	json   = jsoniter.ConfigCompatibleWithStandardLibrary
+)
 
 type ModelConfig struct {
 	Name string             `json:"modelName"`
@@ -79,7 +82,7 @@ func NewConfigsDelta(updatedConfigs ModelConfigs, deletedConfigs []string) *Conf
 //	      }
 //	    }
 //	 ]
-func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) (err error) {
+func (config *ConfigsDelta) Process(configMap *corev1.ConfigMap) (err error) {
 	if len(config.updated) == 0 && len(config.deleted) == 0 {
 		return nil
 	}
@@ -113,10 +116,10 @@ func (config *ConfigsDelta) Process(configMap *v1.ConfigMap) (err error) {
 	return nil
 }
 
-func CreateEmptyModelConfig(isvc *v1beta1.InferenceService, shardId int) (*v1.ConfigMap, error) {
+func CreateEmptyModelConfig(isvc *v1beta1.InferenceService, shardId int) (*corev1.ConfigMap, error) {
 	multiModelConfigMapName := constants.ModelConfigName(isvc.Name, shardId)
 	// Create a modelConfig without any models in it
-	multiModelConfigMap := &v1.ConfigMap{
+	multiModelConfigMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      multiModelConfigMapName,
 			Namespace: isvc.Namespace,

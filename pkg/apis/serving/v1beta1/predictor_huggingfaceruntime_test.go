@@ -21,12 +21,13 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestHuggingFaceRuntimeValidation(t *testing.T) {
@@ -60,9 +61,9 @@ func TestHuggingFaceRuntimeValidation(t *testing.T) {
 
 func TestHuggingFaceRuntimeDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	defaultResource := v1.ResourceList{
-		v1.ResourceCPU:    resource.MustParse("1"),
-		v1.ResourceMemory: resource.MustParse("2Gi"),
+	defaultResource := corev1.ResourceList{
+		corev1.ResourceCPU:    resource.MustParse("1"),
+		corev1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 	config := &InferenceServicesConfig{
 		Resource: ResourceConfig{
@@ -89,9 +90,9 @@ func TestHuggingFaceRuntimeDefaulter(t *testing.T) {
 				HuggingFace: &HuggingFaceRuntimeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion: proto.String("v2.0.0"),
-						Container: v1.Container{
+						Container: corev1.Container{
 							Name: constants.InferenceServiceContainerName,
-							Resources: v1.ResourceRequirements{
+							Resources: corev1.ResourceRequirements{
 								Requests: defaultResource,
 								Limits:   defaultResource,
 							},
@@ -124,12 +125,12 @@ func TestHuggingFaceRuntimeSpec_GetContainer(t *testing.T) {
 				HuggingFace: &HuggingFaceRuntimeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						StorageURI: proto.String("s3://modelzoo"),
-						Container: v1.Container{
+						Container: corev1.Container{
 							Name:      constants.InferenceServiceContainerName,
 							Image:     "image:0.1",
 							Args:      nil,
 							Env:       nil,
-							Resources: v1.ResourceRequirements{},
+							Resources: corev1.ResourceRequirements{},
 						},
 					},
 				},
@@ -160,11 +161,11 @@ func TestHuggingFaceRuntimeSpec_GetProtocol(t *testing.T) {
 				HuggingFace: &HuggingFaceRuntimeSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						StorageURI: proto.String("s3://modelzoo"),
-						Container: v1.Container{
+						Container: corev1.Container{
 							Image:     "image:0.1",
 							Args:      nil,
 							Env:       nil,
-							Resources: v1.ResourceRequirements{},
+							Resources: corev1.ResourceRequirements{},
 						},
 					},
 				},
@@ -178,11 +179,11 @@ func TestHuggingFaceRuntimeSpec_GetProtocol(t *testing.T) {
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						ProtocolVersion: (*constants.InferenceServiceProtocol)(proto.String(string(constants.ProtocolV2))),
 						StorageURI:      proto.String("s3://modelzoo"),
-						Container: v1.Container{
+						Container: corev1.Container{
 							Image:     "image:0.1",
 							Args:      nil,
 							Env:       nil,
-							Resources: v1.ResourceRequirements{},
+							Resources: corev1.ResourceRequirements{},
 						},
 					},
 				},

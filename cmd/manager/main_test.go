@@ -36,39 +36,53 @@ func TestGetOptions(t *testing.T) {
 		ExpectedOptions Options
 	}{
 		{"defaults", []string{}, defaults},
-		{"withWebhookPort", []string{"-webhook-port=8000"},
+		{
+			"withWebhookPort",
+			[]string{"-webhook-port=8000"},
 			Options{
 				metricsAddr:          defaults.metricsAddr,
 				webhookPort:          8000,
 				enableLeaderElection: defaults.enableLeaderElection,
 				probeAddr:            defaults.probeAddr,
 				zapOpts:              defaults.zapOpts,
-			}},
-		{"withMetricsAddr", []string{"-metrics-addr=:9090"},
+			},
+		},
+		{
+			"withMetricsAddr",
+			[]string{"-metrics-addr=:9090"},
 			Options{
 				metricsAddr:          ":9090",
 				webhookPort:          defaults.webhookPort,
 				enableLeaderElection: defaults.enableLeaderElection,
 				probeAddr:            defaults.probeAddr,
 				zapOpts:              defaults.zapOpts,
-			}},
-		{"withEnableLeaderElection", []string{"-leader-elect=true"},
+			},
+		},
+		{
+			"withEnableLeaderElection",
+			[]string{"-leader-elect=true"},
 			Options{
 				metricsAddr:          defaults.metricsAddr,
 				webhookPort:          defaults.webhookPort,
 				enableLeaderElection: true,
 				probeAddr:            defaults.probeAddr,
 				zapOpts:              defaults.zapOpts,
-			}},
-		{"withHealthProbeAddr", []string{"-health-probe-addr=:8090"},
+			},
+		},
+		{
+			"withHealthProbeAddr",
+			[]string{"-health-probe-addr=:8090"},
 			Options{
 				metricsAddr:          defaults.metricsAddr,
 				webhookPort:          defaults.webhookPort,
 				enableLeaderElection: defaults.enableLeaderElection,
 				probeAddr:            ":8090",
 				zapOpts:              defaults.zapOpts,
-			}},
-		{"withZapFlags", []string{"-zap-devel"},
+			},
+		},
+		{
+			"withZapFlags",
+			[]string{"-zap-devel"},
 			Options{
 				metricsAddr:          defaults.metricsAddr,
 				webhookPort:          defaults.webhookPort,
@@ -77,16 +91,22 @@ func TestGetOptions(t *testing.T) {
 				zapOpts: zap.Options{
 					Development: true,
 				},
-			}},
-		{"withSeveral", []string{"-webhook-port=8000", "-leader-elect=true"},
+			},
+		},
+		{
+			"withSeveral",
+			[]string{"-webhook-port=8000", "-leader-elect=true"},
 			Options{
 				metricsAddr:          defaults.metricsAddr,
 				webhookPort:          8000,
 				enableLeaderElection: true,
 				probeAddr:            defaults.probeAddr,
 				zapOpts:              defaults.zapOpts,
-			}},
-		{"withAll", []string{"-metrics-addr=:9090", "-webhook-port=8000", "-leader-elect=true", "-health-probe-addr=:8080", "-zap-devel"},
+			},
+		},
+		{
+			"withAll",
+			[]string{"-metrics-addr=:9090", "-webhook-port=8000", "-leader-elect=true", "-health-probe-addr=:8080", "-zap-devel"},
 			Options{
 				metricsAddr:          ":9090",
 				webhookPort:          8000,
@@ -95,7 +115,8 @@ func TestGetOptions(t *testing.T) {
 				zapOpts: zap.Options{
 					Development: true,
 				},
-			}},
+			},
+		},
 	}
 
 	for _, tc := range cases {

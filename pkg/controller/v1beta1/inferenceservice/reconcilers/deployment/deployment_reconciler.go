@@ -20,14 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -42,6 +38,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var log = logf.Log.WithName("DeploymentReconciler")
@@ -59,7 +59,8 @@ func NewDeploymentReconciler(client kclient.Client,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) *DeploymentReconciler {
+	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+) *DeploymentReconciler {
 	return &DeploymentReconciler{
 		client:         client,
 		scheme:         scheme,
@@ -67,9 +68,11 @@ func NewDeploymentReconciler(client kclient.Client,
 		componentExt:   componentExt,
 	}
 }
+
 func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) []*appsv1.Deployment {
+	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+) []*appsv1.Deployment {
 	var deploymentList []*appsv1.Deployment
 	var workerNodeReplicas int32
 	var tensorParallelSize string
@@ -81,9 +84,9 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 		for _, container := range podSpec.Containers {
 			if container.Name == constants.InferenceServiceContainerName {
 				if value, exists := utils.GetEnvVarValue(container.Env, constants.PipelineParallelSizeEnvName); exists {
-					if parsedValue, err := strconv.Atoi(value); err == nil {
+					if parsedValue, err := utils.StringToInt32(value); err == nil {
 						// Set pipelineParallelSize to workerNodeSize + 1 (head)
-						workerNodeReplicas = int32(parsedValue - 1) // nolint  #nosec G109
+						workerNodeReplicas = parsedValue - 1
 					} else {
 						log.Error(err, "Failed to convert pipelineParallelSize to int")
 					}
@@ -128,7 +131,8 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 
 func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec) *appsv1.Deployment {
+	podSpec *corev1.PodSpec,
+) *appsv1.Deployment {
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
 	setDefaultPodSpec(podSpec)
@@ -151,15 +155,16 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
 	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassExternal) {
-		//nolint:gosec // disable G115
-		deployment.Spec.Replicas = ptr.To(int32(*componentExt.MinReplicas))
+		deployment.Spec.Replicas = ptr.To(*componentExt.MinReplicas)
 	}
 
 	return deployment
 }
+
 func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, predictorName string, replicas int32) *appsv1.Deployment {
+	podSpec *corev1.PodSpec, predictorName string, replicas int32,
+) *appsv1.Deployment {
 	podMetadata := componentMeta
 	workerPredictorName := constants.GetRawWorkerServiceLabel(predictorName)
 	podMetadata.Labels["app"] = workerPredictorName
@@ -196,10 +201,10 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 }
 
 // checkDeploymentExist checks if the deployment exists?
-func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client, deployment *appsv1.Deployment) (constants.CheckResultType, *appsv1.Deployment, error) {
+func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client kclient.Client, deployment *appsv1.Deployment) (constants.CheckResultType, *appsv1.Deployment, error) {
 	// get deployment
 	existingDeployment := &appsv1.Deployment{}
-	err := client.Get(context.TODO(), types.NamespacedName{
+	err := client.Get(ctx, types.NamespacedName{
 		Namespace: deployment.ObjectMeta.Namespace,
 		Name:      deployment.ObjectMeta.Name,
 	}, existingDeployment)
@@ -221,7 +226,7 @@ func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client, deplo
 
 	// Do a dry-run update. This will populate our local deployment object with any default values
 	// that are present on the remote version.
-	if err := client.Update(context.TODO(), deployment, kclient.DryRunAll); err != nil {
+	if err := client.Update(ctx, deployment, kclient.DryRunAll); err != nil {
 		log.Error(err, "Failed to perform dry-run update of deployment", "Deployment", deployment.Name)
 		return constants.CheckResultUnknown, nil, err
 	}
@@ -362,10 +367,10 @@ func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerNa
 }
 
 // Reconcile ...
-func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
+func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
 	for _, deployment := range r.DeploymentList {
 		// Reconcile Deployment
-		checkResult, _, err := r.checkDeploymentExist(r.client, deployment)
+		checkResult, _, err := r.checkDeploymentExist(ctx, r.client, deployment)
 		if err != nil {
 			return nil, err
 		}
@@ -374,7 +379,7 @@ func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
 		var opErr error
 		switch checkResult {
 		case constants.CheckResultCreate:
-			opErr = r.client.Create(context.TODO(), deployment)
+			opErr = r.client.Create(ctx, deployment)
 		case constants.CheckResultUpdate:
 			curJson, err := json.Marshal(deployment)
 			if err != nil {
@@ -400,7 +405,7 @@ func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
 			}
 
 			// Patch the deployment object with the strategic merge patch
-			opErr = r.client.Patch(context.TODO(), deployment, client.RawPatch(types.StrategicMergePatchType, patchByte))
+			opErr = r.client.Patch(ctx, deployment, client.RawPatch(types.StrategicMergePatchType, patchByte))
 		}
 
 		if opErr != nil {

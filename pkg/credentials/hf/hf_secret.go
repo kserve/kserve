@@ -17,7 +17,7 @@ limitations under the License.
 package hf
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -25,11 +25,11 @@ const (
 	HFTransfer = "HF_HUB_ENABLE_HF_TRANSFER"
 )
 
-func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
-	envs := make([]v1.EnvVar, 0)
+func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
+	envs := make([]corev1.EnvVar, 0)
 
 	if token, ok := secret.Data[HFTokenKey]; ok {
-		envs = append(envs, []v1.EnvVar{
+		envs = append(envs, []corev1.EnvVar{
 			{
 				Name:  HFTokenKey,
 				Value: string(token),
