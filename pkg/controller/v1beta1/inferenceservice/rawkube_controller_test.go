@@ -22,8 +22,9 @@ import (
 	"time"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	"github.com/kserve/kserve/pkg/utils"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
+
+	"github.com/kserve/kserve/pkg/utils"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -7058,7 +7059,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("Should have KEDA ScaledObject created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -7082,7 +7083,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    "kserve-container",
 								Image:   "tensorflow/serving:1.14.0",
@@ -7103,9 +7104,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-foo-1"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "s3://test/mnist/export"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -7119,17 +7120,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas:     v1beta1.GetIntReference(1),
+							MinReplicas:     ptr.To(int32(1)),
 							MaxReplicas:     3,
 							ScaleMetric:     (*v1beta1.ScaleMetric)(&constants.AutoScalerMetricsMemory),
 							ScaleMetricType: (*autoscalingv2.MetricTargetType)(&constants.AutoScalerMetricsUtilization),
-							ScaleTarget:     v1beta1.GetIntReference(10),
+							ScaleTarget:     ptr.To(int32(10)),
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -7145,16 +7146,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualScaledObject := &kedav1alpha1.ScaledObject{}
 
-			predictorSObjectKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorSObjectKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorSObjectKey, actualScaledObject) }, timeout).
 				Should(Succeed())
 
@@ -7182,20 +7182,22 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualScaledObject.Spec).To(gomega.Equal(expectedScaledobject.Spec))
 
-			//check service
-			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			// check service
+			actualService := &corev1.Service{}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
 
-			expectedService := &v1.Service{
+			expectedService := &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      predictorServiceKey.Name,
 					Namespace: predictorServiceKey.Namespace,
 				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
 						{
 							Name:       constants.PredictorServiceName(serviceName),
 							Protocol:   "TCP",
@@ -7206,7 +7208,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": fmt.Sprintf("isvc.%s", constants.PredictorServiceName(serviceName)),
+						"app": "isvc." + constants.PredictorServiceName(serviceName),
 					},
 				},
 			}
@@ -7217,7 +7219,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.InternalTrafficPolicy = nil
 			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
 
-			//check isvc status
+			// check isvc status
 			updatedScaledObject := actualScaledObject.DeepCopy()
 			updatedScaledObject.Status.Conditions = []kedav1alpha1.Condition{
 				{
@@ -7226,7 +7228,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedScaledObject)).NotTo(gomega.HaveOccurred())
-
 		})
 
 		It("Should have ingress/service/deployment/hpa created", func() {

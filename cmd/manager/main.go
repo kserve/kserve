@@ -22,11 +22,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	"github.com/kserve/kserve/pkg/utils"
 	istio_networking "istio.io/api/networking/v1alpha3"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"

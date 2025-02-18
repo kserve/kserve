@@ -45,8 +45,6 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"

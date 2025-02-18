@@ -21,17 +21,13 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"slices"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"regexp"
-
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -250,7 +246,7 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 					// checks for conflicts between ScaleMetric and AutoScaling configurations
 					if componentExtensionSpec.ScaleMetric != nil {
 						if componentExtensionSpec.AutoScaling != nil {
-							return fmt.Errorf("There is a conflicts between ScaleMetric and AutoScaling." +
+							return errors.New("There is a conflicts between ScaleMetric and AutoScaling." +
 								"Please use AutoScaling if you want to use KEDA")
 						}
 					}
@@ -360,11 +356,11 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 	if compExtSpec.ScaleTarget != nil {
 		target := *compExtSpec.ScaleTarget
 		if metric == MetricCPU && target < 1 || target > 100 {
-			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
+			return errors.New("the target utilization percentage should be a [1-100] integer")
 		}
 
 		if metric == MetricMemory && target < 1 {
-			return fmt.Errorf("the target memory should be greater than 1 MiB")
+			return errors.New("the target memory should be greater than 1 MiB")
 		}
 	}
 	if compExtSpec.AutoScaling != nil {
@@ -373,16 +369,16 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 				resourceName := autoScaling.Resource.Name
 				if *resourceName == MetricCPU && *autoScaling.Resource.Target.AverageUtilization < 1 ||
 					*autoScaling.Resource.Target.AverageUtilization > 100 {
-					return fmt.Errorf("the target utilization percentage should be a [1-100] intege")
+					return errors.New("the target utilization percentage should be a [1-100] intege")
 				} else if *resourceName == MetricMemory && autoScaling.Resource.Target.AverageValue.Cmp(resource.MustParse("1Mi")) < 0 {
-					return fmt.Errorf("the target memory should be greater than 1 MiB")
+					return errors.New("the target memory should be greater than 1 MiB")
 				}
 			} else if autoScaling.Type == MetricSourceType(constants.AutoScalerExternal) {
 				if autoScaling.External.Metric.Query == "" {
-					return fmt.Errorf("the query should not be empty")
+					return errors.New("the query should not be empty")
 				}
 				if autoScaling.External.Target.Value == nil {
-					return fmt.Errorf("the Thresold value should not be empty")
+					return errors.New("the Thresold value should not be empty")
 				}
 			}
 		}

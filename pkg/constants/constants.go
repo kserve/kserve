@@ -163,11 +163,11 @@ var (
 )
 
 type (
-	AutoscalerClassType      string
-	AutoscalerMetricsType    string
-	AutoScalerKPAMetricsType string
+	AutoscalerClassType       string
+	AutoscalerMetricsType     string
+	AutoScalerKPAMetricsType  string
 	AutoscalerKedaMetricsType string
-	AutoScalerType string
+	AutoScalerType            string
 )
 
 var (

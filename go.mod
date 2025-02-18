@@ -42,7 +42,7 @@ require (
 	knative.dev/networking v0.0.0-20250117155906-67d1c274ba6a
 	knative.dev/pkg v0.0.0-20250117084104-c43477f0052b
 	knative.dev/serving v0.44.0
-	sigs.k8s.io/controller-runtime v0.20.1
+	sigs.k8s.io/controller-runtime v0.19.1
 	sigs.k8s.io/gateway-api v1.2.1
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -85,7 +85,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-containerregistry v0.13.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -132,6 +131,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.32.0 // indirect
+	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa // indirect
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
 	golang.org/x/oauth2 v0.25.0 // indirect

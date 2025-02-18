@@ -186,9 +186,9 @@ func shouldCreateHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
 }
 
 // Reconcile ...
-func (r *HPAReconciler) Reconcile(ctx context.Context) (*autoscalingv2.HorizontalPodAutoscaler, error) {
+func (r *HPAReconciler) Reconcile(ctx context.Context) error {
 	// reconcile HorizontalPodAutoscaler
-	checkResult, existingHPA, err := r.checkHPAExist(ctx, r.client)
+	checkResult, _, err := r.checkHPAExist(ctx, r.client)
 	log.Info("HorizontalPodAutoscaler reconcile", "checkResult", checkResult, "err", err)
 	if err != nil {
 		return err

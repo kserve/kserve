@@ -21,19 +21,20 @@ import (
 	"strconv"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var log = logf.Log.WithName("KedaReconciler")
@@ -48,17 +49,18 @@ type KedaReconciler struct {
 func NewKedaReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) *KedaReconciler {
+	componentExt *v1beta1.ComponentExtensionSpec,
+) (*KedaReconciler, error) {
 	return &KedaReconciler{
 		client:       client,
 		scheme:       scheme,
 		ScaledObject: createKedaScaledObject(componentMeta, componentExt),
 		componentExt: componentExt,
-	}
+	}, nil
 }
 
-func getKedaMetrics(metadata metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec) []kedav1alpha1.ScaleTriggers {
+func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
+) []kedav1alpha1.ScaleTriggers {
 	var triggers []kedav1alpha1.ScaleTriggers
 
 	metricType := autoscalingv2.UtilizationMetricType
@@ -112,7 +114,7 @@ func getKedaMetrics(metadata metav1.ObjectMeta,
 			metricType = *componentExt.ScaleMetricType
 		}
 		if componentExt.ScaleTarget != nil {
-			targetValue = *componentExt.ScaleTarget
+			targetValue = int(*componentExt.ScaleTarget)
 		}
 		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 			Type:       triggerType,
@@ -124,8 +126,9 @@ func getKedaMetrics(metadata metav1.ObjectMeta,
 }
 
 func createKedaScaledObject(componentMeta metav1.ObjectMeta,
-	componentExtension *v1beta1.ComponentExtensionSpec) *kedav1alpha1.ScaledObject {
-	triggers := getKedaMetrics(componentMeta, componentExtension)
+	componentExtension *v1beta1.ComponentExtensionSpec,
+) *kedav1alpha1.ScaledObject {
+	triggers := getKedaMetrics(componentExtension)
 	annotations := componentMeta.GetAnnotations()
 
 	MinReplicas := componentExtension.MinReplicas
@@ -151,37 +154,38 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 				Name: componentMeta.Name,
 			},
 			Triggers:        triggers,
-			MinReplicaCount: proto.Int32(int32(*MinReplicas)),
-			MaxReplicaCount: proto.Int32(int32(MaxReplicas)),
+			MinReplicaCount: MinReplicas,
+			MaxReplicaCount: ptr.To(MaxReplicas),
 		},
 	}
 
 	return scaledobject
 }
 
-func (r *KedaReconciler) Reconcile() error {
+func (r *KedaReconciler) Reconcile(ctx context.Context) error {
 	desired := r.ScaledObject
 	existing := &kedav1alpha1.ScaledObject{}
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		log.Info("Updating KEDA ScaledObject", "namespace", desired.Namespace, "name", desired.Name)
-		if err := r.client.Get(context.TODO(), types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing); err != nil {
+		if err := r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing); err != nil {
 			return err
 		}
 
-		return r.client.Update(context.TODO(), existing)
+		return r.client.Update(ctx, existing)
 	})
 	if err != nil {
 		// Create scaledObject if it does not exist
 		if apierr.IsNotFound(err) {
 			log.Info("Creating KEDA ScaledObject", "namespace", desired.Namespace, "name", desired.Name)
-			return r.client.Create(context.TODO(), desired)
+			return r.client.Create(ctx, desired)
 		}
 		return errors.Wrapf(err, "fails to reconcile KEDA scaledObject")
 	}
 
 	return nil
 }
+
 func (r *KedaReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
 	return controllerutil.SetControllerReference(owner, r.ScaledObject, scheme)
 }
