@@ -93,9 +93,8 @@ class VLLMModel(
             self.engine_client = engine_client
             if self.args.served_model_name is not None:
                 served_model_names = self.args.served_model_name
-                served_model_names.append(self.model_name)
             else:
-                served_model_names = [self.model_name, self.args.model]
+                served_model_names = [self.model_name]
 
             self.base_model_paths = [
                 BaseModelPath(name=name, model_path=self.args.model)

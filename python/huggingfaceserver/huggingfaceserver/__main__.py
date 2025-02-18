@@ -211,6 +211,8 @@ def load_model():
 
         args.model = args.model_id or args.model_dir
         args.revision = args.model_revision
+        if args.served_model_name is not None:
+            args.model_name = args.served_model_name[0]
         model = VLLMModel(args.model_name, args, request_logger=request_logger)
 
     else:
