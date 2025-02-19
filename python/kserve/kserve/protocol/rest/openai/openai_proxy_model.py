@@ -106,7 +106,7 @@ class OpenAIProxyModel(OpenAICompletionModel):
             e.g. `http://my-backend:9000`
         http_client (httpx.AsyncClient|None):
             An optional instance of httpx.AsyncClient to use for sending requests to the upstream server.
-        health_endpoint: The defualt /health endpoint is for TGI and vllm, use /openai/v1/models/{model_name}
+        health_endpoint: The default /health endpoint is for TGI and vLLM, use /openai/v1/models/{model_name}
             for KServe OpenAI protocol.
     """
 
