@@ -68,14 +68,15 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 
 	// metric configuration from componentExtension.AutoScaling if it is set
 	if componentExt.AutoScaling != nil {
-		for _, autoScaling := range componentExt.AutoScaling {
-			if autoScaling.Type == v1beta1.MetricSourceType(constants.AutoScalerResource) {
-				triggerType := string(*autoScaling.Resource.Name)
-				metricType = autoscalingv2.MetricTargetType(autoScaling.Resource.Target.Type)
+		metrics := componentExt.AutoScaling.Metrics
+		for _, metric := range metrics {
+			if metric.Type == v1beta1.MetricSourceType(constants.AutoScalerResource) {
+				triggerType := string(*metric.Resource.Name)
+				metricType = autoscalingv2.MetricTargetType(metric.Resource.Target.Type)
 				if metricType == autoscalingv2.UtilizationMetricType {
-					targetValue = int(*autoScaling.Resource.Target.AverageUtilization)
+					targetValue = int(*metric.Resource.Target.AverageUtilization)
 				} else if metricType == autoscalingv2.AverageValueMetricType {
-					targetValue = int(autoScaling.Resource.Target.AverageValue.AsApproximateFloat64())
+					targetValue = int(metric.Resource.Target.AverageValue.AsApproximateFloat64())
 				}
 
 				// create a trigger for the resource
@@ -84,11 +85,11 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 					Metadata:   map[string]string{"value": strconv.Itoa(targetValue)},
 					MetricType: metricType,
 				})
-			} else if autoScaling.Type == v1beta1.MetricSourceType(constants.AutoScalerExternal) {
-				triggerType := string(*autoScaling.External.Metric.Backend)
-				serverAddress := autoScaling.External.Metric.ServerAddress
-				query := autoScaling.External.Metric.Query
-				targetValue = int(autoScaling.External.Target.Value.AsApproximateFloat64())
+			} else if metric.Type == v1beta1.MetricSourceType(constants.AutoScalerExternal) {
+				triggerType := string(*metric.External.Metric.Backend)
+				serverAddress := metric.External.Metric.ServerAddress
+				query := metric.External.Metric.Query
+				targetValue = int(metric.External.Target.Value.AsApproximateFloat64())
 
 				// create a trigger for the external metric
 				trigger := kedav1alpha1.ScaleTriggers{
@@ -100,8 +101,8 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 					},
 				}
 				if triggerType == string(constants.AutoScalerMetricsPrometheus) {
-					if autoScaling.External.Metric.Namespace != "" {
-						trigger.Metadata["namespace"] = autoScaling.External.Metric.Namespace
+					if metric.External.Metric.Namespace != "" {
+						trigger.Metadata["namespace"] = metric.External.Metric.Namespace
 					}
 				}
 

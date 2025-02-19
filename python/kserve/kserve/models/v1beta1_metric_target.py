@@ -76,7 +76,8 @@ class V1beta1MetricTarget(object):
             self.average_utilization = average_utilization
         if average_value is not None:
             self.average_value = average_value
-        self.type = type
+        if type is not None:
+            self.type = type
         if value is not None:
             self.value = value
 
@@ -144,8 +145,6 @@ class V1beta1MetricTarget(object):
         :param type: The type of this V1beta1MetricTarget.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and type is None:  # noqa: E501
-            raise ValueError("Invalid value for `type`, must not be `None`")  # noqa: E501
 
         self._type = type
 

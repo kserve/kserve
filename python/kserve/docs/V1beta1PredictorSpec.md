@@ -7,7 +7,7 @@ Name | Type | Description | Notes
 **active_deadline_seconds** | **int** | Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers. Value must be a positive integer. | [optional] 
 **affinity** | [**V1Affinity**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Affinity.md) |  | [optional] 
 **annotations** | **dict(str, str)** | Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/ | [optional] 
-**auto_scaling** | [**list[V1beta1AutoScalingSpec]**](V1beta1AutoScalingSpec.md) | AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling. | [optional] 
+**auto_scaling** | [**V1beta1AutoScalingSpec**](V1beta1AutoScalingSpec.md) |  | [optional] 
 **automount_service_account_token** | **bool** | AutomountServiceAccountToken indicates whether a service account token should be automatically mounted. | [optional] 
 **batcher** | [**V1beta1Batcher**](V1beta1Batcher.md) |  | [optional] 
 **canary_traffic_percent** | **int** | CanaryTrafficPercent defines the traffic split percentage between the candidate revision and the last ready revision | [optional] 

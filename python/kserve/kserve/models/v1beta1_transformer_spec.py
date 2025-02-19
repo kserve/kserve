@@ -50,7 +50,7 @@ class V1beta1TransformerSpec(object):
         'active_deadline_seconds': 'int',
         'affinity': 'V1Affinity',
         'annotations': 'dict(str, str)',
-        'auto_scaling': 'list[V1beta1AutoScalingSpec]',
+        'auto_scaling': 'V1beta1AutoScalingSpec',
         'automount_service_account_token': 'bool',
         'batcher': 'V1beta1Batcher',
         'canary_traffic_percent': 'int',
@@ -402,10 +402,9 @@ class V1beta1TransformerSpec(object):
     def auto_scaling(self):
         """Gets the auto_scaling of this V1beta1TransformerSpec.  # noqa: E501
 
-        AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.  # noqa: E501
 
         :return: The auto_scaling of this V1beta1TransformerSpec.  # noqa: E501
-        :rtype: list[V1beta1AutoScalingSpec]
+        :rtype: V1beta1AutoScalingSpec
         """
         return self._auto_scaling
 
@@ -413,10 +412,9 @@ class V1beta1TransformerSpec(object):
     def auto_scaling(self, auto_scaling):
         """Sets the auto_scaling of this V1beta1TransformerSpec.
 
-        AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.  # noqa: E501
 
         :param auto_scaling: The auto_scaling of this V1beta1TransformerSpec.  # noqa: E501
-        :type: list[V1beta1AutoScalingSpec]
+        :type: V1beta1AutoScalingSpec
         """
 
         self._auto_scaling = auto_scaling

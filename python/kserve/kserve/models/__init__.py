@@ -88,6 +88,7 @@ from kserve.models.v1beta1_local_model_config import V1beta1LocalModelConfig
 from kserve.models.v1beta1_logger_spec import V1beta1LoggerSpec
 from kserve.models.v1beta1_metric_source import V1beta1MetricSource
 from kserve.models.v1beta1_metric_target import V1beta1MetricTarget
+from kserve.models.v1beta1_metrics_spec import V1beta1MetricsSpec
 from kserve.models.v1beta1_model_copies import V1beta1ModelCopies
 from kserve.models.v1beta1_model_format import V1beta1ModelFormat
 from kserve.models.v1beta1_model_revision_states import V1beta1ModelRevisionStates

@@ -1218,20 +1218,15 @@
       }
     },
     "v1beta1.AutoScalingSpec": {
-      "description": "AutoScalingSpec specifies how to scale based on a single metric (only `type` and one other matching field should be set at once).",
       "type": "object",
       "properties": {
-        "external": {
-          "description": "external refers to a global metric that is not associated with any Kubernetes object. It allows autoscaling based on information coming from components running outside of cluster (for example length of queue in cloud messaging service, or QPS from loadbalancer running outside of cluster).",
-          "$ref": "#/definitions/v1beta1.ExternalMetricSource"
-        },
-        "resource": {
-          "description": "resource refers to a resource metric (such as those specified in requests and limits) known to Kubernetes describing each pod in the current scale target (e.g. CPU or memory). Such metrics are built in to Kubernetes, and have special scaling options on top of those available to normal per-pod metrics using the \"pods\" source.",
-          "$ref": "#/definitions/v1beta1.ResourceMetricSource"
-        },
-        "type": {
-          "description": "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"Resource\" or \"External\" each mapping to a matching field in the object.",
-          "type": "string"
+        "metrics": {
+          "description": "metrics is a list of metrics spec to be used for autoscaling",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1beta1.MetricsSpec"
+          }
         }
       }
     },
@@ -1270,11 +1265,7 @@
         },
         "autoScaling": {
           "description": "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/v1beta1.AutoScalingSpec"
-          }
+          "$ref": "#/definitions/v1beta1.AutoScalingSpec"
         },
         "batcher": {
           "description": "Activate request batching and batching configurations",
@@ -2464,11 +2455,7 @@
         },
         "autoScaling": {
           "description": "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/v1beta1.AutoScalingSpec"
-          }
+          "$ref": "#/definitions/v1beta1.AutoScalingSpec"
         },
         "automountServiceAccountToken": {
           "description": "AutomountServiceAccountToken indicates whether a service account token should be automatically mounted.",
@@ -3476,9 +3463,6 @@
     "v1beta1.MetricTarget": {
       "description": "MetricTarget defines the target value, average value, or average utilization of a specific metric",
       "type": "object",
-      "required": [
-        "type"
-      ],
       "properties": {
         "averageUtilization": {
           "description": "averageUtilization is the target value of the average of the resource metric across all relevant pods, represented as a percentage of the requested value of the resource for the pods. Currently only valid for Resource metric source type",
@@ -3497,6 +3481,24 @@
         "value": {
           "description": "value is the target value of the metric (as a quantity).",
           "$ref": "#/definitions/resource.Quantity"
+        }
+      }
+    },
+    "v1beta1.MetricsSpec": {
+      "description": "MetricsSpec specifies how to scale based on a single metric (only `type` and one other matching field should be set at once).",
+      "type": "object",
+      "properties": {
+        "external": {
+          "description": "external refers to a global metric that is not associated with any Kubernetes object. It allows autoscaling based on information coming from components running outside of cluster (for example length of queue in cloud messaging service, or QPS from loadbalancer running outside of cluster).",
+          "$ref": "#/definitions/v1beta1.ExternalMetricSource"
+        },
+        "resource": {
+          "description": "resource refers to a resource metric (such as those specified in requests and limits) known to Kubernetes describing each pod in the current scale target (e.g. CPU or memory). Such metrics are built in to Kubernetes, and have special scaling options on top of those available to normal per-pod metrics using the \"pods\" source.",
+          "$ref": "#/definitions/v1beta1.ResourceMetricSource"
+        },
+        "type": {
+          "description": "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"Resource\" or \"External\" each mapping to a matching field in the object.",
+          "type": "string"
         }
       }
     },
@@ -4764,11 +4766,7 @@
         },
         "autoScaling": {
           "description": "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/v1beta1.AutoScalingSpec"
-          }
+          "$ref": "#/definitions/v1beta1.AutoScalingSpec"
         },
         "automountServiceAccountToken": {
           "description": "AutomountServiceAccountToken indicates whether a service account token should be automatically mounted.",
@@ -5758,11 +5756,7 @@
         },
         "autoScaling": {
           "description": "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/v1beta1.AutoScalingSpec"
-          }
+          "$ref": "#/definitions/v1beta1.AutoScalingSpec"
         },
         "automountServiceAccountToken": {
           "description": "AutomountServiceAccountToken indicates whether a service account token should be automatically mounted.",

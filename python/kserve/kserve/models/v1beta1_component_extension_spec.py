@@ -48,7 +48,7 @@ class V1beta1ComponentExtensionSpec(object):
     """
     openapi_types = {
         'annotations': 'dict(str, str)',
-        'auto_scaling': 'list[V1beta1AutoScalingSpec]',
+        'auto_scaling': 'V1beta1AutoScalingSpec',
         'batcher': 'V1beta1Batcher',
         'canary_traffic_percent': 'int',
         'container_concurrency': 'int',
@@ -158,10 +158,9 @@ class V1beta1ComponentExtensionSpec(object):
     def auto_scaling(self):
         """Gets the auto_scaling of this V1beta1ComponentExtensionSpec.  # noqa: E501
 
-        AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.  # noqa: E501
 
         :return: The auto_scaling of this V1beta1ComponentExtensionSpec.  # noqa: E501
-        :rtype: list[V1beta1AutoScalingSpec]
+        :rtype: V1beta1AutoScalingSpec
         """
         return self._auto_scaling
 
@@ -169,10 +168,9 @@ class V1beta1ComponentExtensionSpec(object):
     def auto_scaling(self, auto_scaling):
         """Sets the auto_scaling of this V1beta1ComponentExtensionSpec.
 
-        AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.  # noqa: E501
 
         :param auto_scaling: The auto_scaling of this V1beta1ComponentExtensionSpec.  # noqa: E501
-        :type: list[V1beta1AutoScalingSpec]
+        :type: V1beta1AutoScalingSpec
         """
 
         self._auto_scaling = auto_scaling

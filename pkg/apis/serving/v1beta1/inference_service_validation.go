@@ -257,13 +257,13 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 					}
 
 					if componentExtensionSpec.AutoScaling != nil {
-						autoScalingType := componentExtensionSpec.AutoScaling[0].Type
+						autoScalingType := componentExtensionSpec.AutoScaling.Metrics[0].Type
 						switch autoScalingType {
 						case MetricSourceType(constants.AutoScalerResource):
-							resourceName := componentExtensionSpec.AutoScaling[0].Resource.Name
+							resourceName := componentExtensionSpec.AutoScaling.Metrics[0].Resource.Name
 							return validateKEDAMetrics(*resourceName)
 						case MetricSourceType(constants.AutoScalerExternal):
-							metricBackend := componentExtensionSpec.AutoScaling[0].External.Metric.Backend
+							metricBackend := componentExtensionSpec.AutoScaling.Metrics[0].External.Metric.Backend
 							return validateKEDAMetricBackends(*metricBackend)
 						default:
 							return fmt.Errorf("unknown auto scaling type class [%s] with value [%s]."+
@@ -364,7 +364,7 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 		}
 	}
 	if compExtSpec.AutoScaling != nil {
-		for _, autoScaling := range compExtSpec.AutoScaling {
+		for _, autoScaling := range compExtSpec.AutoScaling.Metrics {
 			if autoScaling.Type == MetricSourceType(constants.AutoScalerResource) {
 				resourceName := autoScaling.Resource.Name
 				if *resourceName == MetricCPU && *autoScaling.Resource.Target.AverageUtilization < 1 ||

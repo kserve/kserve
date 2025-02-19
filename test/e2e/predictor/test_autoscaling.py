@@ -31,6 +31,7 @@ from kserve import (
     V1beta1MetricTarget,
     V1beta1ExternalMetricSource,
     V1beta1MetricIdentifier,
+    V1beta1MetricsSpec,
 )
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict_isvc
@@ -370,17 +371,19 @@ async def test_sklearn_keda_scale_new_spec_resource(rest_v1_client, network_laye
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         max_replicas=5,
-        auto_scaling=[
-            V1beta1AutoScalingSpec(
-                type="Resource",
-                resource=V1beta1ResourceMetricSource(
-                    name="memory",
-                    target=V1beta1MetricTarget(
-                        type="Utilization", average_utilization=50
+        auto_scaling=V1beta1AutoScalingSpec(
+            metrics=[
+                V1beta1MetricsSpec(
+                    type="Resource",
+                    resource=V1beta1ResourceMetricSource(
+                        name="memory",
+                        target=V1beta1MetricTarget(
+                            type="Utilization", average_utilization=50
+                        ),
                     ),
-                ),
-            )
-        ],
+                )
+            ]
+        ),
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(
@@ -440,19 +443,21 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         max_replicas=5,
-        auto_scaling=[
-            V1beta1AutoScalingSpec(
-                type="External",
-                external=V1beta1ExternalMetricSource(
-                    metric=V1beta1MetricIdentifier(
-                        backend="prometheus",
-                        server_address="http://prometheus:9090",
-                        query="http_requests_per_second",
+        auto_scaling=V1beta1AutoScalingSpec(
+            metrics=[
+                V1beta1MetricsSpec(
+                    type="External",
+                    external=V1beta1ExternalMetricSource(
+                        metric=V1beta1MetricIdentifier(
+                            backend="prometheus",
+                            server_address="http://prometheus:9090",
+                            query="http_requests_per_second",
+                        ),
+                        target=V1beta1MetricTarget(type="Value", value=50),
                     ),
-                    target=V1beta1MetricTarget(type="Value", value=50),
-                ),
-            )
-        ],
+                )
+            ]
+        ),
         sklearn=V1beta1SKLearnSpec(
             storage_uri=MODEL,
             resources=V1ResourceRequirements(

@@ -89,6 +89,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                   schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricSource":                 schema_pkg_apis_serving_v1beta1_MetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget":                 schema_pkg_apis_serving_v1beta1_MetricTarget(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec":                  schema_pkg_apis_serving_v1beta1_MetricsSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelCopies":                  schema_pkg_apis_serving_v1beta1_ModelCopies(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelFormat":                  schema_pkg_apis_serving_v1beta1_ModelFormat(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelRevisionStates":          schema_pkg_apis_serving_v1beta1_ModelRevisionStates(ref),
@@ -2280,33 +2281,27 @@ func schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref common.ReferenceCallbac
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AutoScalingSpec specifies how to scale based on a single metric (only `type` and one other matching field should be set at once).",
-				Type:        []string{"object"},
+				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"type": {
+					"metrics": {
 						SchemaProps: spec.SchemaProps{
-							Description: "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"Resource\" or \"External\" each mapping to a matching field in the object.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"resource": {
-						SchemaProps: spec.SchemaProps{
-							Description: "resource refers to a resource metric (such as those specified in requests and limits) known to Kubernetes describing each pod in the current scale target (e.g. CPU or memory). Such metrics are built in to Kubernetes, and have special scaling options on top of those available to normal per-pod metrics using the \"pods\" source.",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource"),
-						},
-					},
-					"external": {
-						SchemaProps: spec.SchemaProps{
-							Description: "external refers to a global metric that is not associated with any Kubernetes object. It allows autoscaling based on information coming from components running outside of cluster (for example length of queue in cloud messaging service, or QPS from loadbalancer running outside of cluster).",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource"),
+							Description: "metrics is a list of metrics spec to be used for autoscaling",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec"),
+									},
+								},
+							},
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec"},
 	}
 }
 
@@ -2375,15 +2370,7 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 					"autoScaling": {
 						SchemaProps: spec.SchemaProps{
 							Description: "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
-									},
-								},
-							},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
 						},
 					},
 					"scaleMetric": {
@@ -4889,15 +4876,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 					"autoScaling": {
 						SchemaProps: spec.SchemaProps{
 							Description: "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
-									},
-								},
-							},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
 						},
 					},
 					"scaleMetric": {
@@ -6313,11 +6292,44 @@ func schema_pkg_apis_serving_v1beta1_MetricTarget(ref common.ReferenceCallback) 
 						},
 					},
 				},
-				Required: []string{"type"},
 			},
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_MetricsSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MetricsSpec specifies how to scale based on a single metric (only `type` and one other matching field should be set at once).",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"Resource\" or \"External\" each mapping to a matching field in the object.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resource": {
+						SchemaProps: spec.SchemaProps{
+							Description: "resource refers to a resource metric (such as those specified in requests and limits) known to Kubernetes describing each pod in the current scale target (e.g. CPU or memory). Such metrics are built in to Kubernetes, and have special scaling options on top of those available to normal per-pod metrics using the \"pods\" source.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource"),
+						},
+					},
+					"external": {
+						SchemaProps: spec.SchemaProps{
+							Description: "external refers to a global metric that is not associated with any Kubernetes object. It allows autoscaling based on information coming from components running outside of cluster (for example length of queue in cloud messaging service, or QPS from loadbalancer running outside of cluster).",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource"},
 	}
 }
 
@@ -9085,15 +9097,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 					"autoScaling": {
 						SchemaProps: spec.SchemaProps{
 							Description: "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
-									},
-								},
-							},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
 						},
 					},
 					"scaleMetric": {
@@ -10790,15 +10794,7 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 					"autoScaling": {
 						SchemaProps: spec.SchemaProps{
 							Description: "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
-									},
-								},
-							},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
 						},
 					},
 					"scaleMetric": {

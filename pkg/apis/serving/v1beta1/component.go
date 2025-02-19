@@ -95,7 +95,7 @@ type ComponentExtensionSpec struct {
 	ScaleTarget *int32 `json:"scaleTarget,omitempty"`
 	// AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.
 	// +optional
-	AutoScaling []AutoScalingSpec `json:"autoScaling,omitempty"`
+	AutoScaling *AutoScalingSpec `json:"autoScaling,omitempty"`
 	// ScaleMetric defines the scaling metric type watched by autoscaler
 	// possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
@@ -133,9 +133,14 @@ type ComponentExtensionSpec struct {
 	DeploymentStrategy *appsv1.DeploymentStrategy `json:"deploymentStrategy,omitempty"`
 }
 
-// AutoScalingSpec specifies how to scale based on a single metric
-// (only `type` and one other matching field should be set at once).
 type AutoScalingSpec struct {
+	// metrics is a list of metrics spec to be used for autoscaling
+	Metrics []MetricsSpec `json:"metrics,omitempty"`
+}
+
+// MetricsSpec specifies how to scale based on a single metric
+// (only `type` and one other matching field should be set at once).
+type MetricsSpec struct {
 	// type is the type of metric source.  It should be one of "Resource", "External",
 	// "Resource" or "External" each mapping to a matching field in the object.
 	Type MetricSourceType `json:"type,omitempty"`
@@ -195,6 +200,7 @@ type ExternalMetricSource struct {
 // MetricTarget defines the target value, average value, or average utilization of a specific metric
 type MetricTarget struct {
 	// type represents whether the metric type is Utilization, Value, or AverageValue
+	// +optional
 	Type MetricTargetType `json:"type"`
 
 	// value is the target value of the metric (as a quantity).
