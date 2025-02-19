@@ -25,7 +25,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-logr/zapr"
@@ -67,7 +66,7 @@ var (
 	namespace        = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint         = flag.String("endpoint", "", "The endpoint name to add as header to log events")
 	component        = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
-	metadataHeaders  = flag.StringArray("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
+	metadataHeaders  = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
 	// batcher flags
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
@@ -287,10 +286,6 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		os.Exit(-1)
 	}
 
-	var metadataHeadersParsed []string = []string{}
-	if len(*metadataHeaders) > 0 {
-		metadataHeadersParsed = strings.Split((*metadataHeaders)[0], ",")
-	}
 	logger.Info("Starting the log dispatcher")
 	kfslogger.StartDispatcher(workers, logger)
 	return &loggerArgs{
@@ -301,7 +296,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		endpoint:         *endpoint,
 		namespace:        *namespace,
 		component:        *component,
-		metadataHeaders:  metadataHeadersParsed,
+		metadataHeaders:  *metadataHeaders,
 		certName:         *CaCertFile,
 		tlsSkipVerify:    *TlsSkipVerify,
 	}
