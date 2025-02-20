@@ -478,8 +478,10 @@ spec:
                     type: object
                 type: object
               maxReplicas:
+                format: int32
                 type: integer
               minReplicas:
+                format: int32
                 type: integer
               nodes:
                 additionalProperties:
@@ -561,6 +563,7 @@ spec:
                 - rps
                 type: string
               scaleTarget:
+                format: int32
                 type: integer
               timeout:
                 format: int64

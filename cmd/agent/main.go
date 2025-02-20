@@ -160,7 +160,7 @@ func main() {
 	}
 	logger.Info("Starting agent http server...")
 	ctx := signals.NewContext()
-	mainServer, drain := buildServer(ctx, *port, *componentPort, loggerArgs, batcherArgs, probe, logger)
+	mainServer, drain := buildServer(*port, *componentPort, loggerArgs, batcherArgs, probe, logger)
 	servers := map[string]*http.Server{
 		"main": mainServer,
 	}
@@ -222,7 +222,7 @@ func main() {
 		logger.Errorw("Failed to bring up agent, shutting down.", zap.Error(err))
 		// This extra flush is needed because defers are not handled via os.Exit calls.
 		if err := logger.Sync(); err != nil {
-			logger.Errorw("Error syncing logger: %v", err)
+			logger.Errorf("Error syncing logger: %v", err)
 		}
 		os.Stdout.Sync()
 		os.Stderr.Sync()
@@ -332,8 +332,9 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string, autodetectHTTP2 boo
 	return newProbe
 }
 
-func buildServer(ctx context.Context, port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs, // nolint unparam
-	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
+func buildServer(port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
+	probeContainer func() bool, logging *zap.SugaredLogger,
+) (server *http.Server, drain func()) {
 	logging.Infof("Building server user port %d port %s", userPort, port)
 	target := &url.URL{
 		Scheme: "http",

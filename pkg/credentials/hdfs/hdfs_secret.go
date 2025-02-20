@@ -17,7 +17,7 @@ limitations under the License.
 package hdfs
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -32,17 +32,17 @@ const (
 	HdfsVolumeName    = "hdfs-secrets"
 )
 
-func BuildSecret(secret *v1.Secret) (v1.Volume, v1.VolumeMount) {
-	volume := v1.Volume{
+func BuildSecret(secret *corev1.Secret) (corev1.Volume, corev1.VolumeMount) {
+	volume := corev1.Volume{
 		Name: HdfsVolumeName,
-		VolumeSource: v1.VolumeSource{
-			Secret: &v1.SecretVolumeSource{
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
 				SecretName: secret.Name,
 			},
 		},
 	}
 
-	volumeMount := v1.VolumeMount{
+	volumeMount := corev1.VolumeMount{
 		MountPath: MountPath,
 		Name:      HdfsVolumeName,
 		ReadOnly:  true,

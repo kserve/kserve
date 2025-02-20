@@ -26,15 +26,15 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/onsi/gomega"
 	pkglogging "knative.dev/pkg/logging"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 func TestLogger(t *testing.T) {
-
 	g := gomega.NewGomegaWithT(t)
 
 	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
@@ -44,11 +44,11 @@ func TestLogger(t *testing.T) {
 	// Start a local HTTP server
 	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		responseChan <- string(b)
 		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
 		_, err = rw.Write([]byte(`ok`))
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 	}))
 	// Close the server when test finishes
 	defer logSvc.Close()
@@ -56,25 +56,25 @@ func TestLogger(t *testing.T) {
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
 		_, err = rw.Write(predictorResponse)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 	}))
 	// Close the server when test finishes
 	defer predictor.Close()
 
 	reader := bytes.NewReader(predictorRequest)
-	r := httptest.NewRequest("POST", "http://a", reader)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
 	logf.SetLogger(zap.New())
 	logSvcUrl, err := url.Parse(logSvc.URL)
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	sourceUri, err := url.Parse("http://localhost:9081/")
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	targetUri, err := url.Parse(predictor.URL)
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	StartDispatcher(5, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
@@ -83,7 +83,9 @@ func TestLogger(t *testing.T) {
 
 	oh.ServeHTTP(w, r)
 
-	b2, _ := io.ReadAll(w.Result().Body)
+	resp := w.Result()
+	defer resp.Body.Close()
+	b2, _ := io.ReadAll(resp.Body)
 	g.Expect(b2).To(gomega.Equal(predictorResponse))
 	// get logRequest
 	<-responseChan
@@ -92,7 +94,6 @@ func TestLogger(t *testing.T) {
 }
 
 func TestLoggerWithMetadata(t *testing.T) {
-
 	g := gomega.NewGomegaWithT(t)
 
 	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
@@ -102,11 +103,11 @@ func TestLoggerWithMetadata(t *testing.T) {
 	// Start a local HTTP server
 	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		responseChan <- string(b)
 		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
 		_, err = rw.Write([]byte(`ok`))
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 
 		// If this is request, check the metadata
 		if req.Header["Ce-Type"][0] == "org.kubeflow.serving.inference.request" {
@@ -118,7 +119,6 @@ func TestLoggerWithMetadata(t *testing.T) {
 
 			g.Expect(metadata["Fizz"]).To(gomega.Equal([]string{"buzz"}))
 		}
-
 	}))
 	// Close the server when test finishes
 	defer logSvc.Close()
@@ -126,27 +126,27 @@ func TestLoggerWithMetadata(t *testing.T) {
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
 		_, err = rw.Write(predictorResponse)
-		g.Expect(err).To(gomega.BeNil())
+		g.Expect(err).ToNot(gomega.HaveOccurred())
 	}))
 	// Close the server when test finishes
 	defer predictor.Close()
 
 	reader := bytes.NewReader(predictorRequest)
-	r := httptest.NewRequest("POST", "http://a", reader)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	r.Header.Add("Foo", "bar")
 	r.Header.Add("Fizz", "buzz")
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
 	logf.SetLogger(zap.New())
 	logSvcUrl, err := url.Parse(logSvc.URL)
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	sourceUri, err := url.Parse("http://localhost:9081/")
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	targetUri, err := url.Parse(predictor.URL)
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	StartDispatcher(5, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
@@ -155,7 +155,9 @@ func TestLoggerWithMetadata(t *testing.T) {
 
 	oh.ServeHTTP(w, r)
 
-	b2, _ := io.ReadAll(w.Result().Body)
+	resp := w.Result()
+	defer resp.Body.Close()
+	b2, _ := io.ReadAll(resp.Body)
 	g.Expect(b2).To(gomega.Equal(predictorResponse))
 	// get logRequest
 	<-responseChan
@@ -164,7 +166,6 @@ func TestLoggerWithMetadata(t *testing.T) {
 }
 
 func TestBadResponse(t *testing.T) {
-
 	g := gomega.NewGomegaWithT(t)
 
 	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
@@ -173,24 +174,24 @@ func TestBadResponse(t *testing.T) {
 	// Start a local HTTP server
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
-		g.Expect(err).To(gomega.BeNil())
-		g.Expect(b).To(gomega.Or(gomega.Equal(predictorRequest), gomega.Equal(predictorResponse)))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(b).To(gomega.Equal(predictorRequest))
 		http.Error(rw, "BadRequest", http.StatusBadRequest)
 	}))
 	// Close the server when test finishes
 	defer predictor.Close()
 
 	reader := bytes.NewReader(predictorRequest)
-	r := httptest.NewRequest("POST", "http://a", reader)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
 	logf.SetLogger(zap.New())
 	logSvcUrl, err := url.Parse("http://loggersvc")
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	sourceUri, err := url.Parse("http://localhost:9081/")
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 	targetUri, err := url.Parse(predictor.URL)
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	StartDispatcher(1, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)

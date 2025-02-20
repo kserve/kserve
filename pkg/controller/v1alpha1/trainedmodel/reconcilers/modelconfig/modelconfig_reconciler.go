@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/sharding/memory"
 	"github.com/kserve/kserve/pkg/modelconfig"
@@ -49,14 +49,14 @@ func NewModelConfigReconciler(client client.Client, clientset kubernetes.Interfa
 	}
 }
 
-func (c *ModelConfigReconciler) Reconcile(req ctrl.Request, tm *v1alpha1api.TrainedModel) error {
+func (c *ModelConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request, tm *v1alpha1.TrainedModel) error {
 	log.Info("Reconciling TrainedModel", "apiVersion", tm.APIVersion, "trainedmodel", tm.Spec)
 	shardStrategy := memory.MemoryStrategy{}
 	shardId := shardStrategy.GetOrAssignShard(tm)
 	// Use tm's parent InferenceService field to get the model modelConfig
 	modelConfigName := constants.ModelConfigName(tm.Spec.InferenceService, shardId)
 	log.Info("Reconciling modelConfig", "modelConfigName", modelConfigName, "namespace", req.Namespace)
-	desiredModelConfig, err := c.clientset.CoreV1().ConfigMaps(req.Namespace).Get(context.TODO(), modelConfigName, metav1.GetOptions{})
+	desiredModelConfig, err := c.clientset.CoreV1().ConfigMaps(req.Namespace).Get(ctx, modelConfigName, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "Failed to find model ConfigMap to reconcile for InferenceService", "name", tm.Spec.Model, "namespace", req.Namespace)
 		// Error reading the object - requeue the request.
@@ -71,7 +71,7 @@ func (c *ModelConfigReconciler) Reconcile(req ctrl.Request, tm *v1alpha1api.Trai
 			return fmt.Errorf("Can not remove model %v from config because of error %w", tm.Name, err)
 		}
 		// Update the model Config created by the InferenceService controller
-		err = c.client.Update(context.TODO(), desiredModelConfig)
+		err = c.client.Update(ctx, desiredModelConfig)
 		if err != nil {
 			return err
 		}
@@ -85,7 +85,7 @@ func (c *ModelConfigReconciler) Reconcile(req ctrl.Request, tm *v1alpha1api.Trai
 			return fmt.Errorf("Can not add or update a model %v from config because of error %w", tm.Name, err)
 		}
 		// Update the model Config created by the InferenceService controller
-		err = c.client.Update(context.TODO(), desiredModelConfig)
+		err = c.client.Update(ctx, desiredModelConfig)
 		if err != nil {
 			return err
 		}
