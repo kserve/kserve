@@ -60,7 +60,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 			{
 				Name:            graph.ObjectMeta.Name,
 				Image:           config.Image,
-				ImagePullPolicy: v1.PullPolicy(config.ImagePullPolicy),
+				ImagePullPolicy: corev1.PullPolicy(config.ImagePullPolicy),
 				Args: []string{
 					"--graph-json",
 					string(bytes),

@@ -187,7 +187,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.Infer
 							Containers: []corev1.Container{
 								{
 									Image:           config.Image,
-									ImagePullPolicy: v1.PullPolicy(config.ImagePullPolicy),
+									ImagePullPolicy: corev1.PullPolicy(config.ImagePullPolicy),
 									Args: []string{
 										"--graph-json",
 										string(bytes),

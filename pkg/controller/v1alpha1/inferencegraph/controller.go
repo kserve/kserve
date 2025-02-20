@@ -94,10 +94,10 @@ type RouterConfig struct {
 	ImagePullSecrets []string            `json:"imagePullSecrets"`
 }
 
-func (rc *RouterConfig) GetImagePullSecrets() []v1.LocalObjectReference {
-	var imagePullSecrets []v1.LocalObjectReference
+func (rc *RouterConfig) GetImagePullSecrets() []corev1.LocalObjectReference {
+	imagePullSecrets := make([]corev1.LocalObjectReference, 0, len(rc.ImagePullSecrets))
 	for _, secret := range rc.ImagePullSecrets {
-		imagePullSecrets = append(imagePullSecrets, v1.LocalObjectReference{Name: secret})
+		imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: secret})
 	}
 	return imagePullSecrets
 }

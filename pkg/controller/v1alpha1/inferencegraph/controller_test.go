@@ -673,7 +673,7 @@ var _ = Describe("Inference Graph controller test", func() {
 
 	Context("When creating an IG with tolerations in the spec", func() {
 		It("Should propagate to underlying pod", func() {
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -683,8 +683,8 @@ var _ = Describe("Inference Graph controller test", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 			graphName := "singlenode4"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			ig := &v1alpha1.InferenceGraph{
 				ObjectMeta: metav1.ObjectMeta{
@@ -702,18 +702,18 @@ var _ = Describe("Inference Graph controller test", func() {
 							Steps: []v1alpha1.InferenceStep{
 								{
 									InferenceTarget: v1alpha1.InferenceTarget{
-										ServiceURL: "http://someservice.exmaple.com",
+										ServiceURL: "http://someservice.example.com",
 									},
 								},
 							},
 						},
 					},
-					Tolerations: []v1.Toleration{
+					Tolerations: []corev1.Toleration{
 						{
 							Key:      "key1",
-							Operator: v1.TolerationOpEqual,
+							Operator: corev1.TolerationOpEqual,
 							Value:    "value1",
-							Effect:   v1.TaintEffectNoSchedule,
+							Effect:   corev1.TaintEffectNoSchedule,
 						},
 					},
 				},
@@ -753,11 +753,11 @@ var _ = Describe("Inference Graph controller test", func() {
 							Spec: knservingv1.RevisionSpec{
 								ContainerConcurrency: nil,
 								TimeoutSeconds:       nil,
-								PodSpec: v1.PodSpec{
-									Containers: []v1.Container{
+								PodSpec: corev1.PodSpec{
+									Containers: []corev1.Container{
 										{
 											Image: "kserve/router:v0.10.0",
-											Env: []v1.EnvVar{
+											Env: []corev1.EnvVar{
 												{
 													Name:  "PROPAGATE_HEADERS",
 													Value: "Authorization,Intuit_tid",
@@ -765,36 +765,36 @@ var _ = Describe("Inference Graph controller test", func() {
 											},
 											Args: []string{
 												"--graph-json",
-												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{},\"tolerations\":[{\"key\":\"key1\",\"operator\":\"Equal\",\"value\":\"value1\",\"effect\":\"NoSchedule\"}]}",
+												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"tolerations\":[{\"key\":\"key1\",\"operator\":\"Equal\",\"value\":\"value1\",\"effect\":\"NoSchedule\"}]}",
 											},
-											Resources: v1.ResourceRequirements{
-												Limits: v1.ResourceList{
-													v1.ResourceCPU:    resource.MustParse("100m"),
-													v1.ResourceMemory: resource.MustParse("500Mi"),
+											Resources: corev1.ResourceRequirements{
+												Limits: corev1.ResourceList{
+													corev1.ResourceCPU:    resource.MustParse("100m"),
+													corev1.ResourceMemory: resource.MustParse("500Mi"),
 												},
-												Requests: v1.ResourceList{
-													v1.ResourceCPU:    resource.MustParse("100m"),
-													v1.ResourceMemory: resource.MustParse("100Mi"),
+												Requests: corev1.ResourceList{
+													corev1.ResourceCPU:    resource.MustParse("100m"),
+													corev1.ResourceMemory: resource.MustParse("100Mi"),
 												},
 											},
 											ReadinessProbe: expectedReadinessProbe,
-											SecurityContext: &v1.SecurityContext{
+											SecurityContext: &corev1.SecurityContext{
 												Privileged:               proto.Bool(false),
 												RunAsNonRoot:             proto.Bool(true),
 												ReadOnlyRootFilesystem:   proto.Bool(true),
 												AllowPrivilegeEscalation: proto.Bool(false),
-												Capabilities: &v1.Capabilities{
-													Drop: []v1.Capability{v1.Capability("ALL")},
+												Capabilities: &corev1.Capabilities{
+													Drop: []corev1.Capability{corev1.Capability("ALL")},
 												},
 											},
 										},
 									},
-									Tolerations: []v1.Toleration{
+									Tolerations: []corev1.Toleration{
 										{
 											Key:      "key1",
-											Operator: v1.TolerationOpEqual,
+											Operator: corev1.TolerationOpEqual,
 											Value:    "value1",
-											Effect:   v1.TaintEffectNoSchedule,
+											Effect:   corev1.TaintEffectNoSchedule,
 										},
 									},
 									AutomountServiceAccountToken: proto.Bool(false),
@@ -810,7 +810,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			// Do a dry-run update. This will populate our local knative service object with any default values
 			// that are present on the remote version.
 			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
-			Expect(err).Should(BeNil())
+			Expect(err).ShouldNot(HaveOccurred())
 			Expect(actualKnServiceCreated.Spec).To(BeComparableTo(expectedKnService.Spec))
 		})
 	})
