@@ -18,7 +18,9 @@
 # like kustomize and the mc client are installed by the script if not available.
 # The oc CLI is assumed to be configured with the credentials of the
 # target cluster. The target cluster is assumed to be a clean cluster.
-set -eu
+set -o errexit
+set -o nounset
+set -o pipefail
 
 : "${SKLEARN_IMAGE:=kserve/sklearnserver:latest}"
 : "${KSERVE_CONTROLLER_IMAGE:=quay.io/opendatahub/kserve-controller:latest}"
@@ -98,7 +100,7 @@ oc wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n 
 if [ "$1" != "raw" ]; then
   echo "Installing odh-model-controller"
   # authorino
-  curl -sL https://raw.githubusercontent.com/Kuadrant/authorino-operator/main/utils/install.sh | "s|kubectl|oc|" | 
+  curl -sL https://raw.githubusercontent.com/Kuadrant/authorino-operator/main/utils/install.sh | sed "s|kubectl|oc|" | 
     bash -s -- -v 0.16.0
 
   # kserve-local-gateway
