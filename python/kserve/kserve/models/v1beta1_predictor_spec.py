@@ -50,6 +50,7 @@ class V1beta1PredictorSpec(object):
         'active_deadline_seconds': 'int',
         'affinity': 'V1Affinity',
         'annotations': 'dict(str, str)',
+        'auto_scaling': 'V1beta1AutoScalingSpec',
         'automount_service_account_token': 'bool',
         'batcher': 'V1beta1Batcher',
         'canary_traffic_percent': 'int',
@@ -92,6 +93,7 @@ class V1beta1PredictorSpec(object):
         'restart_policy': 'str',
         'runtime_class_name': 'str',
         'scale_metric': 'str',
+        'scale_metric_type': 'str',
         'scale_target': 'int',
         'scheduler_name': 'str',
         'scheduling_gates': 'list[V1PodSchedulingGate]',
@@ -117,6 +119,7 @@ class V1beta1PredictorSpec(object):
         'active_deadline_seconds': 'activeDeadlineSeconds',
         'affinity': 'affinity',
         'annotations': 'annotations',
+        'auto_scaling': 'autoScaling',
         'automount_service_account_token': 'automountServiceAccountToken',
         'batcher': 'batcher',
         'canary_traffic_percent': 'canaryTrafficPercent',
@@ -159,6 +162,7 @@ class V1beta1PredictorSpec(object):
         'restart_policy': 'restartPolicy',
         'runtime_class_name': 'runtimeClassName',
         'scale_metric': 'scaleMetric',
+        'scale_metric_type': 'scaleMetricType',
         'scale_target': 'scaleTarget',
         'scheduler_name': 'schedulerName',
         'scheduling_gates': 'schedulingGates',
@@ -180,7 +184,7 @@ class V1beta1PredictorSpec(object):
         'xgboost': 'xgboost'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, huggingface=None, image_pull_secrets=None, init_containers=None, labels=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, model=None, node_name=None, node_selector=None, onnx=None, os=None, overhead=None, paddle=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, worker_spec=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, huggingface=None, image_pull_secrets=None, init_containers=None, labels=None, lightgbm=None, logger=None, max_replicas=None, min_replicas=None, model=None, node_name=None, node_selector=None, onnx=None, os=None, overhead=None, paddle=None, pmml=None, preemption_policy=None, priority=None, priority_class_name=None, pytorch=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, sklearn=None, subdomain=None, tensorflow=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, triton=None, volumes=None, worker_spec=None, xgboost=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PredictorSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -189,6 +193,7 @@ class V1beta1PredictorSpec(object):
         self._active_deadline_seconds = None
         self._affinity = None
         self._annotations = None
+        self._auto_scaling = None
         self._automount_service_account_token = None
         self._batcher = None
         self._canary_traffic_percent = None
@@ -231,6 +236,7 @@ class V1beta1PredictorSpec(object):
         self._restart_policy = None
         self._runtime_class_name = None
         self._scale_metric = None
+        self._scale_metric_type = None
         self._scale_target = None
         self._scheduler_name = None
         self._scheduling_gates = None
@@ -258,6 +264,8 @@ class V1beta1PredictorSpec(object):
             self.affinity = affinity
         if annotations is not None:
             self.annotations = annotations
+        if auto_scaling is not None:
+            self.auto_scaling = auto_scaling
         if automount_service_account_token is not None:
             self.automount_service_account_token = automount_service_account_token
         if batcher is not None:
@@ -342,6 +350,8 @@ class V1beta1PredictorSpec(object):
             self.runtime_class_name = runtime_class_name
         if scale_metric is not None:
             self.scale_metric = scale_metric
+        if scale_metric_type is not None:
+            self.scale_metric_type = scale_metric_type
         if scale_target is not None:
             self.scale_target = scale_target
         if scheduler_name is not None:
@@ -447,6 +457,27 @@ class V1beta1PredictorSpec(object):
         """
 
         self._annotations = annotations
+
+    @property
+    def auto_scaling(self):
+        """Gets the auto_scaling of this V1beta1PredictorSpec.  # noqa: E501
+
+
+        :return: The auto_scaling of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: V1beta1AutoScalingSpec
+        """
+        return self._auto_scaling
+
+    @auto_scaling.setter
+    def auto_scaling(self, auto_scaling):
+        """Sets the auto_scaling of this V1beta1PredictorSpec.
+
+
+        :param auto_scaling: The auto_scaling of this V1beta1PredictorSpec.  # noqa: E501
+        :type: V1beta1AutoScalingSpec
+        """
+
+        self._auto_scaling = auto_scaling
 
     @property
     def automount_service_account_token(self):
@@ -1387,6 +1418,29 @@ class V1beta1PredictorSpec(object):
         """
 
         self._scale_metric = scale_metric
+
+    @property
+    def scale_metric_type(self):
+        """Gets the scale_metric_type of this V1beta1PredictorSpec.  # noqa: E501
+
+        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
+
+        :return: The scale_metric_type of this V1beta1PredictorSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._scale_metric_type
+
+    @scale_metric_type.setter
+    def scale_metric_type(self, scale_metric_type):
+        """Sets the scale_metric_type of this V1beta1PredictorSpec.
+
+        Type of metric to use. Options are Utilization, or AverageValue.  # noqa: E501
+
+        :param scale_metric_type: The scale_metric_type of this V1beta1PredictorSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._scale_metric_type = scale_metric_type
 
     @property
     def scale_target(self):
