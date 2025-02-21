@@ -13,9 +13,9 @@
 # limitations under the License.
 
 import os
+import time
 from collections.abc import AsyncIterable
 from typing import AsyncGenerator
-import time
 
 from fastapi import APIRouter, FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
@@ -197,7 +197,12 @@ class OpenAIEndpoints:
         )
 
     async def health(self, model_name: str):
-        await self.dataplane.model_ready(model_name)
+        try:
+            model_ready = await self.dataplane.model_ready(model_name)
+        except Exception as e:
+            raise ModelNotReady(model_name) from e
+        if not model_ready:
+            raise ModelNotReady(model_name)
 
 
 def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):
