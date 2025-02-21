@@ -678,39 +678,6 @@ func SetObjectDefaults_InferenceService(in *InferenceService) {
 			}
 		}
 	}
-	for i := range in.Spec.Predictor.Processors {
-		a := &in.Spec.Predictor.Processors[i]
-		for j := range a.Ports {
-			b := &a.Ports[j]
-			if b.Protocol == "" {
-				b.Protocol = "TCP"
-			}
-		}
-		if a.LivenessProbe != nil {
-			if a.LivenessProbe.ProbeHandler.GRPC != nil {
-				if a.LivenessProbe.ProbeHandler.GRPC.Service == nil {
-					var ptrVar1 string = ""
-					a.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
-				}
-			}
-		}
-		if a.ReadinessProbe != nil {
-			if a.ReadinessProbe.ProbeHandler.GRPC != nil {
-				if a.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
-					var ptrVar1 string = ""
-					a.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
-				}
-			}
-		}
-		if a.StartupProbe != nil {
-			if a.StartupProbe.ProbeHandler.GRPC != nil {
-				if a.StartupProbe.ProbeHandler.GRPC.Service == nil {
-					var ptrVar1 string = ""
-					a.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
-				}
-			}
-		}
-	}
 	if in.Spec.Explainer != nil {
 		if in.Spec.Explainer.ART != nil {
 			for i := range in.Spec.Explainer.ART.ExplainerExtensionSpec.Container.Ports {
