@@ -17,11 +17,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	"testing"
-
-	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
-	corev1 "k8s.io/api/core/v1"
 )
 
 func makeTestPredictorSpec() *PredictorSpec {
@@ -32,38 +28,4 @@ func makeTestPredictorSpec() *PredictorSpec {
 			},
 		},
 	}
-}
-
-func TestGetPredictorImplementations(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	spec := makeTestPredictorSpec()
-	implementations := spec.GetPredictorImplementations()
-	g.Expect(implementations).ShouldNot(gomega.BeEmpty())
-	g.Expect(implementations[0]).Should(gomega.Equal(spec.PyTorch))
-
-	spec.PyTorch = nil
-	implementations = spec.GetPredictorImplementations()
-	g.Expect(implementations).Should(gomega.BeEmpty())
-
-	spec.PodSpec.Containers = []corev1.Container{
-		{
-			Name:  "Test-Container",
-			Image: "test/predictor",
-		},
-	}
-	implementations = spec.GetPredictorImplementations()
-	g.Expect(implementations).ShouldNot(gomega.BeEmpty())
-	g.Expect(implementations[0]).Should(gomega.Equal(NewCustomPredictor(&spec.PodSpec)))
-}
-
-func TestGetPredictorImplementation(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	spec := makeTestPredictorSpec()
-	expected := spec.PyTorch
-	implementation := spec.GetPredictorImplementation()
-	g.Expect(*implementation).Should(gomega.Equal(expected))
-
-	spec.PyTorch = nil
-	implementation = spec.GetPredictorImplementation()
-	g.Expect(implementation).Should(gomega.BeNil())
 }

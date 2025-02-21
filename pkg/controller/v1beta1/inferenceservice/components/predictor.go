@@ -46,6 +46,11 @@ import (
 
 var _ Component = &Predictor{}
 
+const (
+	ErrInvalidPlaceholder = "failed to replace placeholders in serving runtime %s Container %s"
+	ErrNoContainerFound   = "no container configuration found in selected serving runtime"
+)
+
 // Predictor reconciles resources for this component.
 type Predictor struct {
 	client                 client.Client
@@ -71,7 +76,7 @@ func NewPredictor(client client.Client, clientset kubernetes.Interface, scheme *
 
 // Reconcile observes the predictor and attempts to drive the status towards the desired state.
 func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
-	var container *corev1.Container
+	var predContainer *corev1.Container
 	var podSpec corev1.PodSpec
 	var workerPodSpec *corev1.PodSpec
 	var workerObjectMeta metav1.ObjectMeta
@@ -198,35 +203,81 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		if len(sRuntime.Containers) == 0 {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.InvalidPredictorSpec,
-				Message: "No container configuration found in selected serving runtime",
+				Message: ErrNoContainerFound,
 			})
-			return ctrl.Result{}, errors.New("no container configuration found in selected serving runtime")
+			return ctrl.Result{}, errors.New(ErrNoContainerFound)
 		}
 		var kserveContainerIdx int
 		var mergedPodSpec *corev1.PodSpec
-		kserveContainerIdx, container, mergedPodSpec, err = isvcutils.MergeServingRuntimeAndInferenceServiceSpecs(sRuntime.Containers, isvc.Spec.Predictor.Model.Container, isvc, constants.InferenceServiceContainerName, sRuntime.ServingRuntimePodSpec, isvc.Spec.Predictor.PodSpec)
+		kserveContainerIdx, predContainer, mergedPodSpec, err = isvcutils.MergeServingRuntimeAndInferenceServiceSpecs(sRuntime.Containers, isvc.Spec.Predictor.Model.Container, isvc, constants.InferenceServiceContainerName, sRuntime.ServingRuntimePodSpec, isvc.Spec.Predictor.PodSpec)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
 
 		// Replace placeholders in runtime container by values from inferenceservice metadata
-		if err = isvcutils.ReplacePlaceholders(container, isvc.ObjectMeta); err != nil {
+		if err = isvcutils.ReplacePlaceholders(predContainer, isvc.ObjectMeta); err != nil {
 			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
 				Reason:  v1beta1.InvalidPredictorSpec,
-				Message: "Failed to replace placeholders in serving runtime Container",
+				Message: fmt.Sprintf(ErrInvalidPlaceholder, *isvc.Spec.Predictor.Model.Runtime, predContainer.Name),
 			})
-			return ctrl.Result{}, errors.Wrapf(err, "failed to replace placeholders in serving runtime Container")
+			return ctrl.Result{}, errors.Wrapf(err, ErrInvalidPlaceholder, *isvc.Spec.Predictor.Model.Runtime, predContainer.Name)
 		}
 
 		// Update image tag if GPU is enabled or runtime version is provided
-		isvcutils.UpdateImageTag(container, isvc.Spec.Predictor.Model.RuntimeVersion, isvc.Spec.Predictor.Model.Runtime)
+		isvcutils.UpdateImageTag(predContainer, isvc.Spec.Predictor.Model.RuntimeVersion, isvc.Spec.Predictor.Model.Runtime)
 
 		podSpec = *mergedPodSpec
-		podSpec.Containers = []corev1.Container{
-			*container,
+		podSpec.Containers = make([]corev1.Container, 0, len(sRuntime.Containers)+len(isvc.Spec.Predictor.Containers))
+		podSpec.Containers = append(podSpec.Containers, *predContainer)
+
+		containerIndexInSR := isvcutils.GetContainerIndexByName(sRuntime.Containers, constants.TransformerContainerName)
+		containerIndexInIS := isvcutils.GetContainerIndexByName(isvc.Spec.Predictor.Containers, constants.TransformerContainerName)
+		if containerIndexInSR != -1 {
+			// Replace placeholders in transformer container by values from inferenceservice metadata
+			if err = isvcutils.ReplacePlaceholders(&sRuntime.Containers[containerIndexInSR], isvc.ObjectMeta); err != nil {
+				isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+					Reason:  v1beta1.InvalidPredictorSpec,
+					Message: fmt.Sprintf(ErrInvalidPlaceholder, *isvc.Spec.Predictor.Model.Runtime, sRuntime.Containers[containerIndexInSR].Name),
+				})
+				return ctrl.Result{}, errors.Wrapf(err, ErrInvalidPlaceholder, *isvc.Spec.Predictor.Model.Runtime, sRuntime.Containers[containerIndexInSR].Name)
+			}
 		}
-		podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[:kserveContainerIdx]...)
-		podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[kserveContainerIdx+1:]...)
+		switch {
+		// Transformer container is present in both ServingRuntime and InferenceService
+		case containerIndexInIS != -1 && containerIndexInSR != -1:
+			// Merge transformer container from ServingRuntime and InferenceService
+			transformerContainer, err := isvcutils.MergeRuntimeContainers(&sRuntime.Containers[containerIndexInSR], &isvc.Spec.Predictor.Containers[containerIndexInIS])
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+			podSpec.Containers = append(podSpec.Containers, *transformerContainer)
+			// Append all containers except the transformer container from InferenceService
+			podSpec.Containers = append(podSpec.Containers, isvc.Spec.Predictor.Containers[:containerIndexInIS]...)
+			podSpec.Containers = append(podSpec.Containers, isvc.Spec.Predictor.Containers[containerIndexInIS+1:]...)
+			// Append all containers except the predictor container and transformer container from ServingRuntime
+			for _, container := range sRuntime.Containers {
+				if container.Name != constants.InferenceServiceContainerName && container.Name != constants.TransformerContainerName {
+					podSpec.Containers = append(podSpec.Containers, container)
+				}
+			}
+		// Transformer container is present in InferenceService
+		case containerIndexInIS != -1:
+			podSpec.Containers = append(podSpec.Containers, isvc.Spec.Predictor.Containers[containerIndexInIS])
+			// Append all containers except the transformer container from InferenceService
+			podSpec.Containers = append(podSpec.Containers, isvc.Spec.Predictor.Containers[:containerIndexInIS]...)
+			podSpec.Containers = append(podSpec.Containers, isvc.Spec.Predictor.Containers[containerIndexInIS+1:]...)
+			// Append all containers except predictor container from ServingRuntime
+			podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[:kserveContainerIdx]...)
+			podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[kserveContainerIdx+1:]...)
+		// Transformer container is present in ServingRuntime
+		case containerIndexInSR != -1:
+			podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[containerIndexInSR])
+			// Append all containers from InferenceService
+			podSpec.Containers = append(podSpec.Containers, isvc.Spec.Predictor.Containers...)
+			// Append all containers except the predictor container from ServingRuntime
+			podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[:kserveContainerIdx]...)
+			podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[kserveContainerIdx+1:]...)
+		}
 
 		// Label filter will be handled in ksvc_reconciler
 		sRuntimeLabels = sRuntime.ServingRuntimePodSpec.Labels
@@ -234,20 +285,17 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 			return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 		})
 	} else {
-		container = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
+		predContainer = predictor.GetContainer(isvc.ObjectMeta, isvc.Spec.Predictor.GetExtensions(), p.inferenceServiceConfig)
 
 		podSpec = corev1.PodSpec(isvc.Spec.Predictor.PodSpec)
 		if len(podSpec.Containers) == 0 {
 			podSpec.Containers = []corev1.Container{
-				*container,
+				*predContainer,
 			}
 		} else {
-			podSpec.Containers[0] = *container
+			podSpec.Containers[0] = *predContainer
 		}
 	}
-
-	// Collocation of predictor and transformer container
-	podSpec.Containers = append(podSpec.Containers, isvc.Spec.Predictor.Processors...)
 
 	predictorName := constants.PredictorServiceName(isvc.Name)
 	if p.deploymentMode == constants.RawDeployment {
@@ -331,7 +379,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		workerObjectMeta.Labels[constants.InferenceServiceGenerationPodLabelKey] = isvcGeneration
 	}
 
-	p.Log.Info("Resolved container", "container", container, "podSpec", podSpec)
+	p.Log.Info("Resolved container", "container", predContainer, "podSpec", podSpec)
 	var rawDeployment bool
 	var podLabelKey string
 	var podLabelValue string
