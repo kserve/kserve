@@ -6,6 +6,10 @@ kserve:
   router:
     image: kserve/router
     tag: *defaultVersion
+    # -- Specifies when to pull router image from registry.
+    imagePullPolicy: "IfNotPresent"
+    # -- specifies the list of secrets to be used for pulling the router image from registry.
+    imagePullSecrets: []
   service:
     serviceClusterIPNone: false
   storage:
