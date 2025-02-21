@@ -18,10 +18,10 @@ from typing import (
     AsyncGenerator,
     Callable,
     List,
+    Optional,
     Tuple,
     Union,
     cast,
-    Optional,
 )
 from unittest.mock import MagicMock, patch
 
@@ -182,7 +182,7 @@ async def mocked_openai_proxy_model(handler: Callable):
         ):
             yield OpenAIProxyModel(
                 name="test-model",
-                predictor_url="http://example.com/v1",
+                predictor_url="http://example.com/",
                 http_client=http_client,
             )
     finally:
@@ -541,3 +541,33 @@ class TestOpenAIProxyModelCompletion:
             cast(
                 MagicMock, OpenAIProxyModel.postprocess_chat_completion
             ).assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_healthcheck_success(self):
+        def handler(request):
+            if request.url.path == "/health":
+                return httpx.Response(
+                    200,
+                )
+            return httpx.Response(
+                503,
+            )
+
+        async with mocked_openai_proxy_model(handler) as model:
+            result = await model.healthy()
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_healthcheck_failure(self):
+        def handler(request):
+            if request.url.path == "/health":
+                return httpx.Response(
+                    503,
+                )
+            return httpx.Response(
+                200,
+            )
+
+        async with mocked_openai_proxy_model(handler) as model:
+            result = await model.healthy()
+            assert result is False

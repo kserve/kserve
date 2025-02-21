@@ -55,6 +55,7 @@ class VLLMModel(
     vllm_engine_args: AsyncEngineArgs = None
     args: Namespace = None
     ready: bool = False
+    openai_serving_completion: Optional[OpenAIServingCompletion] = None
 
     def __init__(
         self,
@@ -175,10 +176,8 @@ class VLLMModel(
         self.ready = False
 
     async def healthy(self) -> bool:
-        try:
-            await self.engine_client.check_health()
-        except Exception as e:
-            raise ModelNotReady(self.name) from e
+        # check_health() may throw exceptions which are caught in OpenAIEndpoints class
+        await self.engine_client.check_health()
         return True
 
     async def create_completion(
