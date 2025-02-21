@@ -138,7 +138,11 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified
 	if len(s.PodSpec.Containers) != 0 {
-		implementations = append(implementations, NewCustomPredictor(&s.PodSpec))
+		for _, container := range s.PodSpec.Containers {
+			if container.Name == constants.InferenceServiceContainerName {
+				implementations = append(implementations, NewCustomPredictor(&s.PodSpec))
+			}
+		}
 	}
 
 	return implementations
@@ -171,35 +175,6 @@ func (p *PredictorExtensionSpec) GetStorageUri() *string {
 // GetStorageSpec returns the predictor storage spec object
 func (p *PredictorExtensionSpec) GetStorageSpec() *StorageSpec {
 	return p.Storage
-}
-
-// GetPredictorImplementations GetPredictor returns the implementation for the predictor
-func (s *PredictorSpec) GetPredictorImplementations() []ComponentImplementation {
-	implementations := NonNilPredictors([]ComponentImplementation{
-		s.XGBoost,
-		s.PyTorch,
-		s.Triton,
-		s.SKLearn,
-		s.Tensorflow,
-		s.ONNX,
-		s.PMML,
-		s.LightGBM,
-		s.Paddle,
-		s.Model,
-	})
-	// This struct is not a pointer, so it will never be nil; include if containers are specified
-	if len(s.PodSpec.Containers) != 0 {
-		implementations = append(implementations, NewCustomPredictor(&s.PodSpec))
-	}
-	return implementations
-}
-
-func (s *PredictorSpec) GetPredictorImplementation() *ComponentImplementation {
-	predictors := s.GetPredictorImplementations()
-	if len(predictors) == 0 {
-		return nil
-	}
-	return &predictors[0]
 }
 
 func NonNilPredictors(objects []ComponentImplementation) (results []ComponentImplementation) {
