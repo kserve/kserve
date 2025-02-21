@@ -18,7 +18,6 @@ from argparse import Namespace
 from fastapi import Request
 from http import HTTPStatus
 
-from kserve.errors import ModelNotReady
 from kserve.protocol.rest.openai.errors import create_error_response
 from kserve.protocol.rest.openai import OpenAIEncoderModel, OpenAIGenerativeModel
 from kserve.protocol.rest.openai.types import (
