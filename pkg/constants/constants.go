@@ -69,11 +69,12 @@ var (
 
 // Model agent Constants
 const (
-	AgentContainerName    = "agent"
-	AgentConfigMapKeyName = "agent"
-	AgentEnableFlag       = "--enable-puller"
-	AgentConfigDirArgName = "--config-dir"
-	AgentModelDirArgName  = "--model-dir"
+	AgentContainerName        = "agent"
+	AgentConfigMapKeyName     = "agent"
+	AgentEnableFlag           = "--enable-puller"
+	AgentConfigDirArgName     = "--config-dir"
+	AgentModelDirArgName      = "--model-dir"
+	AgentComponentPortArgName = "--component-port"
 )
 
 // InferenceLogger Constants
