@@ -93,6 +93,10 @@ func (c *CustomPredictor) GetStorageSpec() *StorageSpec {
 func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
 	predictorHost ...string,
 ) *corev1.Container {
+	// If only one container is found, assume it is the predictor container
+	if len(c.Containers) == 1 {
+		return &c.Containers[0]
+	}
 	for _, container := range c.Containers {
 		if container.Name == constants.InferenceServiceContainerName {
 			return &container
