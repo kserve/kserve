@@ -262,6 +262,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 			}
 		// Transformer container is present in InferenceService
 		case containerIndexInIS != -1:
+			// Append transformer container from InferenceService
 			podSpec.Containers = append(podSpec.Containers, isvc.Spec.Predictor.Containers[containerIndexInIS])
 			// Append all containers except the transformer container from InferenceService
 			podSpec.Containers = append(podSpec.Containers, isvc.Spec.Predictor.Containers[:containerIndexInIS]...)
@@ -271,12 +272,17 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 			podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[kserveContainerIdx+1:]...)
 		// Transformer container is present in ServingRuntime
 		case containerIndexInSR != -1:
+			// Append transformer container from ServingRuntime
 			podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[containerIndexInSR])
 			// Append all containers from InferenceService
 			podSpec.Containers = append(podSpec.Containers, isvc.Spec.Predictor.Containers...)
 			// Append all containers except the predictor container from ServingRuntime
-			podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[:kserveContainerIdx]...)
-			podSpec.Containers = append(podSpec.Containers, sRuntime.Containers[kserveContainerIdx+1:]...)
+			// Append all containers except the predictor container and transformer container from ServingRuntime
+			for _, container := range sRuntime.Containers {
+				if container.Name != constants.InferenceServiceContainerName && container.Name != constants.TransformerContainerName {
+					podSpec.Containers = append(podSpec.Containers, container)
+				}
+			}
 		}
 
 		// Label filter will be handled in ksvc_reconciler
