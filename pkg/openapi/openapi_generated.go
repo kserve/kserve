@@ -5541,6 +5541,36 @@ func schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref common.Referenc
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig"),
 						},
 					},
+					"serviceAnnotationDisallowedList": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative revisions",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"serviceLabelDisallowedList": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"explainers"},
 			},
