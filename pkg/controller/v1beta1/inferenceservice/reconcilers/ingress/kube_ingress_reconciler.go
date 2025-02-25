@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -59,7 +60,6 @@ func NewRawIngressReconciler(client client.Client,
 		isvcConfig:    isvcConfig,
 	}, nil
 }
-
 
 func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	var err error
@@ -103,7 +103,7 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 	}
 	authEnabled := false
-	if val, ok := isvc.Labels[constants.ODHKserveRawAuth]; ok && val == "true" {
+	if val, ok := isvc.Annotations[constants.ODHKserveRawAuth]; ok && strings.EqualFold(val, "true") {
 		authEnabled = true
 	}
 	isvc.Status.URL, err = createRawURL(r.client, isvc, authEnabled)
@@ -221,7 +221,7 @@ func generateMetadata(isvc *v1beta1.InferenceService,
 	isvcConfig *v1beta1.InferenceServicesConfig) metav1.ObjectMeta {
 	// get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(v1beta1utils.FilterList(isvcConfig.ServiceAnnotationDisallowedList, constants.ODHKserveRawAuth), key)
 	})
 	objectMeta := metav1.ObjectMeta{
 		Name:      name,
@@ -364,5 +364,3 @@ func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 func semanticIngressEquals(desired, existing *netv1.Ingress) bool {
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
 }
-
-

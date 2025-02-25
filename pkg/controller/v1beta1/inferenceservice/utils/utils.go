@@ -518,3 +518,13 @@ func GetRouteURLIfExists(cli client.Client, metadata metav1.ObjectMeta, isvcName
 
 	return routeURL, nil
 }
+
+func FilterList(slice []string, element string) []string {
+	var result []string
+	for _, item := range slice {
+		if item != element {
+			result = append(result, item)
+		}
+	}
+	return result
+}

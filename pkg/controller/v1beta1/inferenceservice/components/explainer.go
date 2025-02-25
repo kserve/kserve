@@ -71,9 +71,19 @@ func NewExplainer(client client.Client, clientset kubernetes.Interface, scheme *
 func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	e.Log.Info("Reconciling Explainer", "ExplainerSpec", isvc.Spec.Explainer)
 	explainer := isvc.Spec.Explainer.GetImplementation()
-	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(e.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
-	})
+	var annotations map[string]string
+	if e.deploymentMode == constants.RawDeployment {
+		annotations = utils.Filter(isvc.Annotations, func(key string) bool {
+			// https://issues.redhat.com/browse/RHOAIENG-20326
+			// For RawDeployment, we allow the security.opendatahub.io/enable-auth annotation
+			return !utils.Includes(isvcutils.FilterList(e.inferenceServiceConfig.ServiceAnnotationDisallowedList, constants.ODHKserveRawAuth), key)
+		})
+	} else {
+		annotations = utils.Filter(isvc.Annotations, func(key string) bool {
+			return !utils.Includes(e.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
+		})
+	}
+
 	// KNative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := explainer.GetStorageUri(); sourceURI != nil {
@@ -106,9 +116,18 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	// Labels and annotations from explainer component
 	// Label filter will be handled in ksvc_reconciler and raw reconciler
 	explainerLabels := isvc.Spec.Explainer.Labels
-	explainerAnnotations := utils.Filter(isvc.Spec.Explainer.Annotations, func(key string) bool {
-		return !utils.Includes(e.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
-	})
+	var explainerAnnotations map[string]string
+	if e.deploymentMode == constants.RawDeployment {
+		explainerAnnotations = utils.Filter(isvc.Spec.Explainer.Annotations, func(key string) bool {
+			// https://issues.redhat.com/browse/RHOAIENG-20326
+			// For RawDeployment, we allow the security.opendatahub.io/enable-auth annotation
+			return !utils.Includes(isvcutils.FilterList(e.inferenceServiceConfig.ServiceAnnotationDisallowedList, constants.ODHKserveRawAuth), key)
+		})
+	} else {
+		explainerAnnotations = utils.Filter(isvc.Spec.Explainer.Annotations, func(key string) bool {
+			return !utils.Includes(e.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
+		})
+	}
 
 	// Labels and annotations priority: explainer component > isvc
 	// Labels and annotations from high priority will overwrite that from low priority
