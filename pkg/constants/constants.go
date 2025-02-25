@@ -383,7 +383,10 @@ var (
 	}
 	// https://issues.redhat.com/browse/RHOAIENG-20326
 	// For RawDeployment, we allow the security.opendatahub.io/enable-auth annotation
-	RawServiceAnnotationDisallowedList = filterList(ServiceAnnotationDisallowedList, "security.opendatahub.io/enable-auth")
+	RawServiceAnnotationDisallowedList = []string{
+		StorageInitializerSourceUriInternalAnnotationKey,
+		"kubectl.kubernetes.io/last-applied-configuration",
+	}
 )
 
 // CheckResultType raw k8s deployment, resource exist check result
@@ -722,15 +725,4 @@ func GetProtocolVersionString(protocol ProtocolVersion) InferenceServiceProtocol
 	default:
 		return ProtocolUnknown
 	}
-}
-
-// filterOut returns a new slice with the specified element removed
-func filterList(slice []string, element string) []string {
-	var result []string
-	for _, item := range slice {
-		if item != element {
-			result = append(result, item)
-		}
-	}
-	return result
 }

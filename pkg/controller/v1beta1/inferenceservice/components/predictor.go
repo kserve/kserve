@@ -263,7 +263,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	}
 
 	// Labels and annotations from predictor component
-	// Label filter will be handled in ksvc_reconciler
+	// Label filter will be handled in ksvc_reconciler and raw reconciler
 	predictorLabels := isvc.Spec.Predictor.Labels
 	predictorAnnotations := utils.Filter(isvc.Spec.Predictor.Annotations, func(key string) bool {
 		return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)

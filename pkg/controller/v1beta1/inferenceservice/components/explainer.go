@@ -104,7 +104,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 	}
 
 	// Labels and annotations from explainer component
-	// Label filter will be handled in ksvc_reconciler
+	// Label filter will be handled in ksvc_reconciler and raw reconciler
 	explainerLabels := isvc.Spec.Explainer.Labels
 	explainerAnnotations := utils.Filter(isvc.Spec.Explainer.Annotations, func(key string) bool {
 		return !utils.Includes(e.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)

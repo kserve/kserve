@@ -87,7 +87,7 @@ func createRawDeploymentODH(clientset kubernetes.Interface, componentMeta metav1
 	if err != nil {
 		return nil, err
 	}
-	if val, ok := componentMeta.Annotations[constants.ODHKserveRawAuth]; ok && val == "true" {
+	if val, ok := componentMeta.Annotations[constants.ODHKserveRawAuth]; ok && strings.EqualFold(val, "true") {
 		for _, deployment := range deploymentList {
 			err := addOauthContainerToDeployment(clientset, deployment, componentMeta, componentExt, podSpec)
 			if err != nil {
@@ -197,7 +197,7 @@ func addOauthContainerToDeployment(clientset kubernetes.Interface, deployment *a
 	} else {
 		isvcname = componentMeta.Name
 	}
-	if val, ok := componentMeta.Annotations[constants.ODHKserveRawAuth]; ok && val == "true" {
+	if val, ok := componentMeta.Annotations[constants.ODHKserveRawAuth]; ok && strings.EqualFold(val, "true") {
 		switch {
 		case componentExt != nil && componentExt.Batcher != nil:
 			upstreamPort = constants.InferenceServiceDefaultAgentPortStr

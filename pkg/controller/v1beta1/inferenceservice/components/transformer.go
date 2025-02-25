@@ -106,7 +106,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 	}
 
 	// Labels and annotations from transformer component
-	// Label filter will be handled in ksvc_reconciler
+	// Label filter will be handled in ksvc_reconciler and raw reconciler
 	transformerLabels := isvc.Spec.Transformer.Labels
 	transformerAnnotations := utils.Filter(isvc.Spec.Transformer.Annotations, func(key string) bool {
 		return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
