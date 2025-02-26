@@ -85,26 +85,9 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.0-rc0
 | kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
 | kserve.metricsaggregator.enableMetricAggregation | string | `"false"` | configures metric aggregation annotation. This adds the annotation serving.kserve.io/enable-metric-aggregation to every service with the specified boolean value. If true enables metric aggregation in queue-proxy by setting env vars in the queue proxy container to configure scraping ports. |
 | kserve.metricsaggregator.enablePrometheusScraping | string | `"false"` | If true, prometheus annotations are added to the pod to scrape the metrics. If serving.kserve.io/enable-metric-aggregation is false, the prometheus port is set with the default prometheus scraping port 9090, otherwise the prometheus port annotation is set with the metric aggregation port. |
-| kserve.modelmesh.config.modelmeshImage | string | `"kserve/modelmesh"` |  |
-| kserve.modelmesh.config.modelmeshImageTag | string | `"v0.12.0"` |  |
-| kserve.modelmesh.config.modelmeshRuntimeAdapterImage | string | `"kserve/modelmesh-runtime-adapter"` |  |
-| kserve.modelmesh.config.modelmeshRuntimeAdapterImageTag | string | `"v0.12.0"` |  |
-| kserve.modelmesh.config.podsPerRuntime | int | `2` |  |
-| kserve.modelmesh.config.restProxyImage | string | `"kserve/rest-proxy"` |  |
-| kserve.modelmesh.config.restProxyImageTag | string | `"v0.12.0"` |  |
-| kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchExpressions[0].key | string | `"control-plane"` |  |
-| kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchExpressions[0].operator | string | `"In"` |  |
-| kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.labelSelector.matchExpressions[0].values[0] | string | `"modelmesh-controller"` |  |
-| kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.topologyKey | string | `"topology.kubernetes.io/zone"` |  |
-| kserve.modelmesh.controller.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight | int | `100` |  |
-| kserve.modelmesh.controller.image | string | `"kserve/modelmesh-controller"` |  |
-| kserve.modelmesh.controller.nodeSelector | object | `{}` |  |
-| kserve.modelmesh.controller.tag | string | `"v0.12.0"` |  |
-| kserve.modelmesh.controller.tolerations | list | `[]` |  |
-| kserve.modelmesh.controller.topologySpreadConstraints | list | `[]` |  |
-| kserve.modelmesh.enabled | bool | `true` |  |
-| kserve.modelmeshVersion | string | `"v0.12.0"` |  |
 | kserve.router.image | string | `"kserve/router"` |  |
+| kserve.router.imagePullPolicy | string | `"IfNotPresent"` | Specifies when to pull router image from registry. |
+| kserve.router.imagePullSecrets | list | `[]` | specifies the list of secrets to be used for pulling the router image from registry. |
 | kserve.router.tag | string | `"v0.15.0-rc0"` |  |
 | kserve.security.autoMountServiceAccountToken | bool | `true` |  |
 | kserve.service.serviceClusterIPNone | bool | `false` |  |

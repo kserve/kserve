@@ -12,11 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import AsyncIterator, Union, List
+from typing import AsyncIterator, List, Union
 
 from fastapi import Response
-from starlette.datastructures import Headers
-
 from kserve.protocol.rest.openai.types.openapi import CreateChatCompletionRequest
 from kserve.protocol.rest.openai.types.openapi import (
     CreateChatCompletionResponse as ChatCompletion,
@@ -32,15 +30,16 @@ from kserve.protocol.rest.openai.types.openapi import CreateEmbeddingRequest
 from kserve.protocol.rest.openai.types.openapi import (
     CreateEmbeddingResponse as Embedding,
 )
+from starlette.datastructures import Headers
 
 from ...dataplane import DataPlane
 from .openai_model import (
     ChatCompletionRequest,
     CompletionRequest,
     EmbeddingRequest,
-    OpenAIModel,
     OpenAICompletionModel,
     OpenAIEmbeddingModel,
+    OpenAIModel,
 )
 
 

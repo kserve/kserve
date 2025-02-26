@@ -27,9 +27,10 @@ import (
 
 	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func makeTestRawInferenceService() InferenceService {
@@ -198,48 +199,48 @@ func TestBadParallelismValues(t *testing.T) {
 func TestBadReplicaValues(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestInferenceService()
-	isvc.Spec.Predictor.MinReplicas = GetIntReference(-1)
+	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(-1))
 	validator := InferenceServiceValidator{}
 	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
-	isvc.Spec.Predictor.MinReplicas = GetIntReference(1)
+	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(1))
 	isvc.Spec.Predictor.MaxReplicas = -1
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
-	isvc.Spec.Predictor.MinReplicas = GetIntReference(2)
+	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(2))
 	isvc.Spec.Predictor.MaxReplicas = 1
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	// Now test transformer and explainer, so set correct value for predictor
-	isvc.Spec.Predictor.MinReplicas = GetIntReference(0)
+	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(0))
 	isvc.Spec.Predictor.MaxReplicas = 0
 
 	isvc.Spec.Transformer = &TransformerSpec{}
 	isvc.Spec.Transformer.PodSpec = PodSpec{
-		Containers: []v1.Container{
+		Containers: []corev1.Container{
 			{
 				Image: "some-image",
 			},
 		},
 	}
-	isvc.Spec.Transformer.MinReplicas = GetIntReference(-1)
+	isvc.Spec.Transformer.MinReplicas = ptr.To(int32(-1))
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
-	isvc.Spec.Transformer.MinReplicas = GetIntReference(1)
+	isvc.Spec.Transformer.MinReplicas = ptr.To(int32(1))
 	isvc.Spec.Transformer.MaxReplicas = -1
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
-	isvc.Spec.Transformer.MinReplicas = GetIntReference(2)
+	isvc.Spec.Transformer.MinReplicas = ptr.To(int32(2))
 	isvc.Spec.Transformer.MaxReplicas = 1
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
@@ -255,18 +256,18 @@ func TestBadReplicaValues(t *testing.T) {
 			},
 		},
 	}
-	isvc.Spec.Explainer.MinReplicas = GetIntReference(-1)
+	isvc.Spec.Explainer.MinReplicas = ptr.To(int32(-1))
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
-	isvc.Spec.Explainer.MinReplicas = GetIntReference(1)
+	isvc.Spec.Explainer.MinReplicas = ptr.To(int32(1))
 	isvc.Spec.Explainer.MaxReplicas = -1
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
-	isvc.Spec.Explainer.MinReplicas = GetIntReference(2)
+	isvc.Spec.Explainer.MinReplicas = ptr.To(int32(2))
 	isvc.Spec.Explainer.MaxReplicas = 1
 	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
@@ -278,7 +279,7 @@ func TestCustomOK(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.Tensorflow = nil
 	isvc.Spec.Predictor.PodSpec = PodSpec{
-		Containers: []v1.Container{
+		Containers: []corev1.Container{
 			{
 				Image: "some-image",
 			},
@@ -371,11 +372,11 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name:  constants.InferenceServiceContainerName,
 									Image: "test/predictor:latest",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  constants.CustomSpecStorageUriEnvVarKey,
 											Value: "gs://test/model",
@@ -385,7 +386,7 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 								{
 									Name:  constants.TransformerContainerName,
 									Image: "test/transformer:latest",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  constants.CustomSpecStorageUriEnvVarKey,
 											Value: "gs://test/model",
@@ -408,7 +409,7 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name:  constants.InferenceServiceContainerName,
 									Image: "test/predictor:latest",
@@ -433,11 +434,11 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name:  constants.InferenceServiceContainerName,
 									Image: "test/predictor:latest",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  constants.CustomSpecStorageUriEnvVarKey,
 											Value: "gs://test/model",
@@ -483,11 +484,11 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 				Spec: InferenceServiceSpec{
 					Predictor: PredictorSpec{
 						PodSpec: PodSpec{
-							Containers: []v1.Container{
+							Containers: []corev1.Container{
 								{
 									Name:  constants.InferenceServiceContainerName,
 									Image: "test/predictor:latest",
-									Env: []v1.EnvVar{
+									Env: []corev1.EnvVar{
 										{
 											Name:  constants.CustomSpecStorageUriEnvVarKey,
 											Value: "gs://test/model",
@@ -509,7 +510,6 @@ func TestValidateCollocationStorageURI(t *testing.T) {
 			g.Expect(err).Should(scenario.errMatcher)
 		})
 	}
-
 }
 
 func TestValidateMultiNodeVariables(t *testing.T) {
@@ -537,8 +537,8 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: &pvcStorageUri,
-								Container: v1.Container{
-									Env: []v1.EnvVar{
+								Container: corev1.Container{
+									Env: []corev1.EnvVar{
 										{Name: constants.TensorParallelSizeEnvName, Value: "2"},
 									},
 								},
@@ -567,8 +567,8 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: &pvcStorageUri,
-								Container: v1.Container{
-									Env: []v1.EnvVar{
+								Container: corev1.Container{
+									Env: []corev1.EnvVar{
 										{Name: constants.PipelineParallelSizeEnvName, Value: "3"},
 									},
 								},
@@ -653,12 +653,12 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 							},
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: &pvcStorageUri,
-								Container: v1.Container{
-									Resources: v1.ResourceRequirements{
-										Limits: v1.ResourceList{
+								Container: corev1.Container{
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
 											"unknownGPU.com/gpu": resource.MustParse("1"),
 										},
-										Requests: v1.ResourceList{
+										Requests: corev1.ResourceList{
 											"unknownGPU.com/gpu": resource.MustParse("1"),
 										},
 									},
@@ -692,13 +692,13 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 						},
 						WorkerSpec: &WorkerSpec{
 							PodSpec: PodSpec{
-								Containers: []v1.Container{
+								Containers: []corev1.Container{
 									{
-										Resources: v1.ResourceRequirements{
-											Limits: v1.ResourceList{
+										Resources: corev1.ResourceRequirements{
+											Limits: corev1.ResourceList{
 												"unknownGPU.com/gpu": resource.MustParse("1"),
 											},
-											Requests: v1.ResourceList{
+											Requests: corev1.ResourceList{
 												"unknownGPU.com/gpu": resource.MustParse("1"),
 											},
 										},
@@ -782,7 +782,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 						},
 						WorkerSpec: &WorkerSpec{
 							PodSpec: PodSpec{
-								Containers: []v1.Container{
+								Containers: []corev1.Container{
 									{},
 									{},
 								},
