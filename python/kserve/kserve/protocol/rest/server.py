@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import logging
 from typing import Dict, Optional, Union
 
@@ -42,6 +43,7 @@ from kserve.errors import (
 )
 from kserve.logging import trace_logger, logger
 from kserve.protocol.dataplane import DataPlane
+from uvicorn.supervisors.multiprocess import Multiprocess as UvicornMultiprocess
 
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
@@ -68,20 +70,29 @@ class RESTServer:
         log_config: Optional[Union[str, Dict]] = None,
         access_log_format: Optional[str] = None,
         workers: int = 1,
+        grace_period: int = 30,
     ):
         self.app = app
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension
         self.access_log_format = access_log_format
-        self._server = uvicorn.Server(
-            config=uvicorn.Config(
-                app="kserve.model_server:app",
-                host="0.0.0.0",
-                log_config=log_config,
-                port=http_port,
-                workers=workers,
-            )
+        self._config = uvicorn.Config(
+            "kserve.model_server:app",
+            host="0.0.0.0",
+            port=http_port,
+            workers=workers,
+            log_config=log_config,
+            timeout_graceful_shutdown=grace_period,
+            loop="asyncio",
         )
+        self._server = uvicorn.Server(self._config)
+        self._multiprocess_server = None
+        if self._config.workers > 1:
+            self._multiprocess_server = UvicornMultiprocess(
+                self._config,
+                target=self._server.run,
+                sockets=[self._config.bind_socket()],
+            )
 
     def _register_endpoints(self):
         root_router = APIRouter()
@@ -153,5 +164,13 @@ class RESTServer:
 
     async def start(self):
         self.create_application()
-        logger.info(f"Starting uvicorn with {self._server.config.workers} workers")
-        await self._server.serve()
+        logger.info("Starting uvicorn with %s workers", self._config.workers)
+        if self._config.workers > 1:
+            await asyncio.to_thread(self._multiprocess_server.run)
+        else:
+            await self._server.serve()
+
+    def stop(self, sig: int = None):
+        # For single process server, we don't have to handle the signal
+        if self._multiprocess_server:
+            self._multiprocess_server.should_exit.set()
