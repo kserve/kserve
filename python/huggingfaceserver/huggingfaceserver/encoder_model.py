@@ -282,7 +282,7 @@ class HuggingfaceEncoderModel(
                         outputs = outputs.logits
                     return outputs
             except Exception as e:
-                raise OpenAIError(str(e))
+                raise OpenAIError from e
 
     def postprocess(
         self, outputs: Union[Tensor, InferResponse], context: Dict[str, Any]
@@ -438,5 +438,4 @@ class HuggingfaceEncoderModel(
             )
 
         except Exception as e:
-            print(e)
-            raise OpenAIError(f"Error during embedding creation: {str(e)}")
+            raise OpenAIError(f"Error during embedding creation: {e}") from e
