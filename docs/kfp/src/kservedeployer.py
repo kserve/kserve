@@ -40,20 +40,30 @@ from kserve.api.watch import isvc_watch
 
 
 AVAILABLE_FRAMEWORKS = {
-    'tensorflow': V1beta1TFServingSpec,
-    'pytorch': V1beta1TorchServeSpec,
-    'sklearn': V1beta1SKLearnSpec,
-    'xgboost': V1beta1XGBoostSpec,
-    'onnx': V1beta1ONNXRuntimeSpec,
-    'triton': V1beta1TritonSpec,
-    'pmml': V1beta1PMMLSpec,
-    'lightgbm': V1beta1LightGBMSpec
+    "tensorflow": V1beta1TFServingSpec,
+    "pytorch": V1beta1TorchServeSpec,
+    "sklearn": V1beta1SKLearnSpec,
+    "xgboost": V1beta1XGBoostSpec,
+    "onnx": V1beta1ONNXRuntimeSpec,
+    "triton": V1beta1TritonSpec,
+    "pmml": V1beta1PMMLSpec,
+    "lightgbm": V1beta1LightGBMSpec,
 }
 
 
-def create_predictor_spec(framework, runtime_version, resource_requests, resource_limits, 
-                          storage_uri, canary_traffic_percent, service_account, min_replicas, 
-                          max_replicas, containers, request_timeout):
+def create_predictor_spec(
+    framework,
+    runtime_version,
+    resource_requests,
+    resource_limits,
+    storage_uri,
+    canary_traffic_percent,
+    service_account,
+    min_replicas,
+    max_replicas,
+    containers,
+    request_timeout,
+):
     """
     Create and return V1beta1PredictorSpec to be used in a V1beta1InferenceServiceSpec
     object.
@@ -61,17 +71,13 @@ def create_predictor_spec(framework, runtime_version, resource_requests, resourc
 
     predictor_spec = V1beta1PredictorSpec(
         service_account_name=service_account,
-        min_replicas=(min_replicas
-                      if min_replicas >= 0
-                      else None
-                     ),
-        max_replicas=(max_replicas
-                      if max_replicas > 0 and max_replicas >= min_replicas
-                      else None
-                     ),
+        min_replicas=(min_replicas if min_replicas >= 0 else None),
+        max_replicas=(
+            max_replicas if max_replicas > 0 and max_replicas >= min_replicas else None
+        ),
         containers=(containers or None),
         canary_traffic_percent=canary_traffic_percent,
-        timeout=request_timeout
+        timeout=request_timeout,
     )
     # If the containers field was set, then this is custom model serving.
     if containers:
@@ -84,13 +90,12 @@ def create_predictor_spec(framework, runtime_version, resource_requests, resourc
         predictor_spec,
         framework,
         AVAILABLE_FRAMEWORKS[framework](
-            storage_uri=storage_uri, 
+            storage_uri=storage_uri,
             resources=V1ResourceRequirements(
-                requests=resource_requests,
-                limits=resource_limits
+                requests=resource_requests, limits=resource_limits
             ),
-            runtime_version=runtime_version
-        )
+            runtime_version=runtime_version,
+        ),
     )
     return predictor_spec
 
@@ -115,20 +120,26 @@ def create_custom_container_spec(custom_model_spec):
         else None
     )
     ports = (
-        [client.V1ContainerPort(container_port=int(custom_model_spec.get("port", "")), protocol="TCP")]
+        [
+            client.V1ContainerPort(
+                container_port=int(custom_model_spec.get("port", "")), protocol="TCP"
+            )
+        ]
         if custom_model_spec.get("port", "")
         else None
     )
     resources = (
         client.V1ResourceRequirements(
-            requests=(custom_model_spec["resources"]["requests"]
-                      if custom_model_spec.get('resources', {}).get('requests')
-                      else None
-                      ),
-            limits=(custom_model_spec["resources"]["limits"]
-                    if custom_model_spec.get('resources', {}).get('limits')
-                    else None
-                    ),
+            requests=(
+                custom_model_spec["resources"]["requests"]
+                if custom_model_spec.get("resources", {}).get("requests")
+                else None
+            ),
+            limits=(
+                custom_model_spec["resources"]["limits"]
+                if custom_model_spec.get("resources", {}).get("limits")
+                else None
+            ),
         )
         if custom_model_spec.get("resources", {})
         else None
@@ -142,7 +153,7 @@ def create_custom_container_spec(custom_model_spec):
         args=custom_model_spec.get("args", None),
         image_pull_policy=custom_model_spec.get("image_pull_policy", None),
         working_dir=custom_model_spec.get("working_dir", None),
-        resources=resources
+        resources=resources,
     )
 
 
@@ -154,14 +165,13 @@ def create_inference_service(metadata, predictor_spec):
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND,
         metadata=metadata,
-        spec=V1beta1InferenceServiceSpec(
-            predictor=predictor_spec
-        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor_spec),
     )
 
 
-def submit_api_request(kserve_client, action, name, isvc, namespace=None,
-                       watch=False, timeout_seconds=300):
+def submit_api_request(
+    kserve_client, action, name, isvc, namespace=None, watch=False, timeout_seconds=300
+):
     """
     Creates or updates a Kubernetes custom object. This code is borrowed from the
     KServeClient.create/patch methods as using those directly doesn't allow for
@@ -169,9 +179,13 @@ def submit_api_request(kserve_client, action, name, isvc, namespace=None,
     in raw InferenceService serialized YAML.
     """
     custom_obj_api = kserve_client.api_instance
-    args = [constants.KSERVE_GROUP, constants.KSERVE_V1BETA1_VERSION,
-            namespace, constants.KSERVE_PLURAL]
-    if action == 'update':
+    args = [
+        constants.KSERVE_GROUP,
+        constants.KSERVE_V1BETA1_VERSION,
+        namespace,
+        constants.KSERVE_PLURAL,
+    ]
+    if action == "update":
         outputs = custom_obj_api.patch_namespaced_custom_object(*args, name, isvc)
     else:
         outputs = custom_obj_api.create_namespaced_custom_object(*args, isvc)
@@ -180,17 +194,34 @@ def submit_api_request(kserve_client, action, name, isvc, namespace=None,
         # Sleep 3 to avoid status still be True within a very short time.
         time.sleep(3)
         isvc_watch(
-            name=outputs['metadata']['name'],
+            name=outputs["metadata"]["name"],
             namespace=namespace,
-            timeout_seconds=timeout_seconds)
+            timeout_seconds=timeout_seconds,
+        )
     else:
         return outputs
 
 
-def perform_action(action, model_name, model_uri, canary_traffic_percent, namespace, framework, 
-                   runtime_version, resource_requests, resource_limits, custom_model_spec, 
-                   service_account, inferenceservice_yaml, request_timeout, autoscaling_target=0, 
-                   enable_istio_sidecar=True, watch_timeout=300, min_replicas=0, max_replicas=0):
+def perform_action(
+    action,
+    model_name,
+    model_uri,
+    canary_traffic_percent,
+    namespace,
+    framework,
+    runtime_version,
+    resource_requests,
+    resource_limits,
+    custom_model_spec,
+    service_account,
+    inferenceservice_yaml,
+    request_timeout,
+    autoscaling_target=0,
+    enable_istio_sidecar=True,
+    watch_timeout=300,
+    min_replicas=0,
+    max_replicas=0,
+):
     """
     Perform the specified action. If the action is not 'delete' and `inferenceService_yaml`
     was provided, the dict representation of the YAML will be sent directly to the
@@ -203,22 +234,22 @@ def perform_action(action, model_name, model_uri, canary_traffic_percent, namesp
     if inferenceservice_yaml:
         # Overwrite name and namespace if exists
         if namespace:
-            inferenceservice_yaml['metadata']['namespace'] = namespace
+            inferenceservice_yaml["metadata"]["namespace"] = namespace
 
         if model_name:
-            inferenceservice_yaml['metadata']['name'] = model_name
+            inferenceservice_yaml["metadata"]["name"] = model_name
         else:
-            model_name = inferenceservice_yaml['metadata']['name']
+            model_name = inferenceservice_yaml["metadata"]["name"]
 
         isvc = inferenceservice_yaml
 
-    elif action != 'delete':
+    elif action != "delete":
         # Create annotations
         annotations = {}
         if int(autoscaling_target) != 0:
             annotations["autoscaling.knative.dev/target"] = str(autoscaling_target)
         if not enable_istio_sidecar:
-            annotations["sidecar.istio.io/inject"] = 'false'
+            annotations["sidecar.istio.io/inject"] = "false"
         if not annotations:
             annotations = None
         metadata = client.V1ObjectMeta(
@@ -233,26 +264,62 @@ def perform_action(action, model_name, model_uri, canary_traffic_percent, namesp
 
         # Build the V1beta1PredictorSpec.
         predictor_spec = create_predictor_spec(
-            framework, runtime_version, resource_requests, resource_limits, 
-            model_uri, canary_traffic_percent, service_account, min_replicas, 
-            max_replicas, containers, request_timeout
+            framework,
+            runtime_version,
+            resource_requests,
+            resource_limits,
+            model_uri,
+            canary_traffic_percent,
+            service_account,
+            min_replicas,
+            max_replicas,
+            containers,
+            request_timeout,
         )
 
         isvc = create_inference_service(metadata, predictor_spec)
 
     if action == "create":
-        submit_api_request(kserve_client, 'create', model_name, isvc, namespace,
-                           watch=True, timeout_seconds=watch_timeout)
+        submit_api_request(
+            kserve_client,
+            "create",
+            model_name,
+            isvc,
+            namespace,
+            watch=True,
+            timeout_seconds=watch_timeout,
+        )
     elif action == "update":
-        submit_api_request(kserve_client, 'update', model_name, isvc, namespace,
-                           watch=True, timeout_seconds=watch_timeout)
+        submit_api_request(
+            kserve_client,
+            "update",
+            model_name,
+            isvc,
+            namespace,
+            watch=True,
+            timeout_seconds=watch_timeout,
+        )
     elif action == "apply":
         try:
-            submit_api_request(kserve_client, 'create', model_name, isvc, namespace,
-                               watch=True, timeout_seconds=watch_timeout)
+            submit_api_request(
+                kserve_client,
+                "create",
+                model_name,
+                isvc,
+                namespace,
+                watch=True,
+                timeout_seconds=watch_timeout,
+            )
         except Exception:
-            submit_api_request(kserve_client, 'update', model_name, isvc, namespace,
-                               watch=True, timeout_seconds=watch_timeout)
+            submit_api_request(
+                kserve_client,
+                "update",
+                model_name,
+                isvc,
+                namespace,
+                watch=True,
+                timeout_seconds=watch_timeout,
+            )
     elif action == "delete":
         kserve_client.delete(model_name, namespace=namespace)
     else:
@@ -293,15 +360,15 @@ def main():
     parser.add_argument(
         "--framework",
         type=str,
-        help="Model serving framework to use. Available frameworks: " +
-             str(list(AVAILABLE_FRAMEWORKS.keys())),
-        default=""
+        help="Model serving framework to use. Available frameworks: "
+        + str(list(AVAILABLE_FRAMEWORKS.keys())),
+        default="",
     )
     parser.add_argument(
         "--runtime-version",
         type=str,
         help="Runtime Version of Machine Learning Framework",
-        default="latest"
+        default="latest",
     )
     parser.add_argument(
         "--resource-requests",
@@ -334,33 +401,39 @@ def main():
         "--enable-istio-sidecar",
         type=strtobool,
         help="Whether to inject istio sidecar",
-        default="True"
+        default="True",
     )
     parser.add_argument(
         "--inferenceservice-yaml",
         type=yaml.safe_load,
         help="Raw InferenceService serialized YAML for deployment",
-        default="{}"
+        default="{}",
     )
     parser.add_argument("--output-path", type=str, help="Path to store URI output")
-    parser.add_argument("--watch-timeout",
-                        type=str,
-                        help="Timeout seconds for watching until InferenceService becomes ready.",
-                        default="300")
+    parser.add_argument(
+        "--watch-timeout",
+        type=str,
+        help="Timeout seconds for watching until InferenceService becomes ready.",
+        default="300",
+    )
     parser.add_argument(
         "--min-replicas", type=str, help="Minimum number of replicas", default="-1"
     )
     parser.add_argument(
         "--max-replicas", type=str, help="Maximum number of replicas", default="-1"
     )
-    parser.add_argument("--request-timeout",
-                        type=str,
-                        help="Specifies the number of seconds to wait before timing out a request to the component.",
-                        default="60")
-    parser.add_argument("--enable-isvc-status",
-                        type=strtobool,
-                        help="Specifies whether to store the inference service status as the output parameter",
-                        default="True")
+    parser.add_argument(
+        "--request-timeout",
+        type=str,
+        help="Specifies the number of seconds to wait before timing out a request to the component.",
+        default="60",
+    )
+    parser.add_argument(
+        "--enable-isvc-status",
+        type=strtobool,
+        help="Specifies whether to store the inference service status as the output parameter",
+        default="True",
+    )
 
     args = parser.parse_args()
 
@@ -387,23 +460,33 @@ def main():
 
     # Default the namespace.
     if not namespace:
-        namespace = 'anonymous'
+        namespace = "anonymous"
         # If no namespace was provided, but one is listed in the YAML, use that.
-        if inferenceservice_yaml and inferenceservice_yaml.get('metadata', {}).get('namespace'):
-            namespace = inferenceservice_yaml['metadata']['namespace']
+        if inferenceservice_yaml and inferenceservice_yaml.get("metadata", {}).get(
+            "namespace"
+        ):
+            namespace = inferenceservice_yaml["metadata"]["namespace"]
 
     # Only require model name when an Isvc YAML was not provided.
     if not inferenceservice_yaml and not model_name:
-        parser.error('{} argument is required when performing "{}" action'.format(
-            'model_name', action
-    ))
+        parser.error(
+            '{} argument is required when performing "{}" action'.format(
+                "model_name", action
+            )
+        )
     # If the action isn't a delete, require 'model-uri' and 'framework' only if an Isvc YAML
     # or custom model container spec are not provided.
-    if action != 'delete':
-        if not inferenceservice_yaml and not custom_model_spec and not (model_uri and framework):
-            parser.error('Arguments for {} and {} are required when performing "{}" action'.format(
-                'model_uri', 'framework', action
-        ))
+    if action != "delete":
+        if (
+            not inferenceservice_yaml
+            and not custom_model_spec
+            and not (model_uri and framework)
+        ):
+            parser.error(
+                'Arguments for {} and {} are required when performing "{}" action'.format(
+                    "model_uri", "framework", action
+                )
+            )
 
     model_status = perform_action(
         action=action,
@@ -423,27 +506,31 @@ def main():
         request_timeout=request_timeout,
         watch_timeout=watch_timeout,
         min_replicas=min_replicas,
-        max_replicas=max_replicas
+        max_replicas=max_replicas,
     )
 
     print(model_status)
 
-    if action != 'delete':
+    if action != "delete":
         # Check whether the model is ready
         for condition in model_status["status"]["conditions"]:
-            if condition['type'] == 'Ready':
-                if condition['status'] == 'True':
-                    print('Model is ready\n')
+            if condition["type"] == "Ready":
+                if condition["status"] == "True":
+                    print("Model is ready\n")
                     break
-                print('Model is timed out, please check the InferenceService events for more details.')
+                print(
+                    "Model is timed out, please check the InferenceService events for more details."
+                )
                 sys.exit(1)
         try:
             print(model_status["status"]["url"] + " is the Knative domain.")
             print("Sample test commands: \n")
             # model_status['status']['url'] is like http://flowers-sample.kubeflow.example.com/v1/models/flowers-sample
             print("curl -v -X GET %s" % model_status["status"]["url"])
-            print("\nIf the above URL is not accessible, it's recommended to setup Knative with a configured DNS.\n"
-                  "https://knative.dev/docs/install/installing-istio/#configuring-dns")
+            print(
+                "\nIf the above URL is not accessible, it's recommended to setup Knative with a configured DNS.\n"
+                "https://knative.dev/docs/install/installing-istio/#configuring-dns"
+            )
         except Exception:
             print("Model is not ready, check the logs for the Knative URL status.")
             sys.exit(1)
@@ -454,15 +541,17 @@ def main():
         else:
             try:
                 # Remove some less needed fields to reduce output size.
-                del model_status['metadata']['managedFields']
-                del model_status['status']['conditions']
+                del model_status["metadata"]["managedFields"]
+                del model_status["status"]["conditions"]
                 if sys.getsizeof(model_status) > 3000:
-                    del model_status['components']['predictor']['address']['url']
-                    del model_status['components']['predictor']['latestCreatedRevision']
-                    del model_status['components']['predictor']['latestReadyRevision']
-                    del model_status['components']['predictor']['latestRolledoutRevision']
-                    del model_status['components']['predictor']['url']
-                    del model_status['spec']
+                    del model_status["components"]["predictor"]["address"]["url"]
+                    del model_status["components"]["predictor"]["latestCreatedRevision"]
+                    del model_status["components"]["predictor"]["latestReadyRevision"]
+                    del model_status["components"]["predictor"][
+                        "latestRolledoutRevision"
+                    ]
+                    del model_status["components"]["predictor"]["url"]
+                    del model_status["spec"]
             except KeyError:
                 pass
 
