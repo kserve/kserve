@@ -186,7 +186,8 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.Infer
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{
-									Image: config.Image,
+									Image:           config.Image,
+									ImagePullPolicy: corev1.PullPolicy(config.ImagePullPolicy),
 									Args: []string{
 										"--graph-json",
 										string(bytes),
@@ -206,6 +207,11 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.Infer
 							},
 							Affinity:                     graph.Spec.Affinity,
 							AutomountServiceAccountToken: proto.Bool(false), // Inference graph does not need access to api server
+							Tolerations:                  graph.Spec.Tolerations,
+							ImagePullSecrets:             config.GetImagePullSecrets(),
+							NodeSelector:                 graph.Spec.NodeSelector,
+							NodeName:                     graph.Spec.NodeName,
+							ServiceAccountName:           graph.Spec.ServiceAccountName,
 						},
 					},
 				},
