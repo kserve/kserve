@@ -202,6 +202,7 @@ class ModelServer:
         enable_docs_url: bool = args.enable_docs_url,
         enable_latency_logging: bool = args.enable_latency_logging,
         access_log_format: str = args.access_log_format,
+        grace_period: int = 30,
     ):
         """KServe ModelServer Constructor
 
@@ -221,6 +222,7 @@ class ModelServer:
                                ASGI specs that don't describe how access logging should be implemented in detail
                                (please refer to this Uvicorn
                                [github issue](https://github.com/encode/uvicorn/issues/527) for more info).
+            grace_period: The grace period in seconds to wait for the server to stop. Default: ``30``.
         """
         self.registered_models = (
             ModelRepository() if registered_models is None else registered_models
@@ -237,6 +239,7 @@ class ModelServer:
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models
         )
+        self.grace_period = grace_period
         if args.configure_logging:
             # If the logger does not have any handlers, then the logger is not configured.
             # For backward compatibility, we configure the logger here.
@@ -255,25 +258,8 @@ class ModelServer:
         self.dataplane = DataPlane(
             model_registry=self.registered_models, predictor_config=predictor_config
         )
-        self._rest_server = self._rest_server = RESTServer(
-            app,
-            self.dataplane,
-            self.model_repository_extension,
-            self.http_port,
-            # By setting log_config to None we tell Uvicorn not to configure logging as it is already
-            # configured by kserve.
-            log_config=None,
-            access_log_format=self.access_log_format,
-            workers=self.workers,
-        )
+        self._rest_server = None
         self._grpc_server = None
-        if self.enable_grpc:
-            self._grpc_server = GRPCServer(
-                grpc_port,
-                self.dataplane,
-                self.model_repository_extension,
-                kwargs=vars(args),
-            )
         self.servers = []
 
     def setup_event_loop(self):
@@ -298,9 +284,7 @@ class ModelServer:
             sig_list = [signal.SIGINT, signal.SIGTERM, signal.SIGQUIT]
 
         for sig in sig_list:
-            signal.signal(
-                sig, lambda sig, frame: asyncio.create_task(self.stop(sig=sig))
-            )
+            signal.signal(sig, lambda sig, frame: self.stop(sig))
 
     async def _servers_task(self):
         self.servers.append(self._rest_server.start())
@@ -314,22 +298,51 @@ class ModelServer:
         Args:
             models: a list of models to register to the model server.
         """
-        self._check_atleast_one_model_is_ready(models)
+        self._register_and_check_atleast_one_model_is_ready(models)
+        self._rest_server = self._rest_server = RESTServer(
+            app,
+            self.dataplane,
+            self.model_repository_extension,
+            self.http_port,
+            # By setting log_config to None we tell Uvicorn not to configure logging as it is already
+            # configured by kserve.
+            log_config=None,
+            access_log_format=self.access_log_format,
+            workers=self.workers,
+            grace_period=self.grace_period,
+        )
+        if self.enable_grpc:
+            self._grpc_server = GRPCServer(
+                self.grpc_port,
+                self.dataplane,
+                self.model_repository_extension,
+                kwargs=vars(args),
+                grace_period=self.grace_period,
+            )
         self.setup_event_loop()
+        # Register signal handler after initializing the rest server to avoid signal handler overriding by uvicorn when workers > 1
+        # https://github.com/encode/uvicorn/blob/aaf201669cef8f6c3a2b7d8e1113c31bea80c7bc/uvicorn/supervisors/multiprocess.py#L120
         self.register_signal_handler()
         asyncio.run(self._servers_task())
 
-    async def stop(self, sig: int):
+    def stop(self, sig: int):
         """Stop the instances of REST and gRPC model servers.
 
         Args:
             sig: The signal to stop the server.
         """
-        await InferenceClientFactory().close()
-        logger.info("Stopping the model server")
-        if self._grpc_server:
-            logger.info("Stopping the grpc server")
-            await self._grpc_server.stop(sig)
+
+        async def shutdown():
+            await InferenceClientFactory().close()
+            logger.info("Stopping the model server")
+            if self._grpc_server:
+                logger.info("Stopping the grpc server")
+                await self._grpc_server.stop(sig)
+
+        asyncio.create_task(shutdown())
+        if self._rest_server:
+            logger.info("Stopping the rest server")
+            self._rest_server.stop(sig)
         for model_name in list(self.registered_models.get_models().keys()):
             self.registered_models.unload(model_name)
 
@@ -371,7 +384,9 @@ class ModelServer:
         self.registered_models.update(model)
         logger.info("Registering model: %s", model.name)
 
-    def _check_atleast_one_model_is_ready(self, models: List[BaseKServeModel]):
+    def _register_and_check_atleast_one_model_is_ready(
+        self, models: List[BaseKServeModel]
+    ):
         if isinstance(models, list):
             at_least_one_model_ready = False
             for model in models:
