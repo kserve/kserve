@@ -140,7 +140,7 @@ spec:
           nvidia.com/gpu: "1"
 ```
 
-4. Using Speculative model loading include the flag ` --speculative-model="facebook/opt-125m" --num-speculative-tokens 5` in the container args. In this case the vLLM backend will use speculative model loading.
+4. To Use Speculative model loading include the flag ` --speculative-model="facebook/opt-125m" --num-speculative-tokens 5` in the container args. In this case the vLLM backend will use speculative model.
 
 ```yaml
 apiVersion: serving.kserve.io/v1beta1
