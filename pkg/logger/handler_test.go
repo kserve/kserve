@@ -116,6 +116,8 @@ func TestLoggerWithMetadata(t *testing.T) {
 			json.Unmarshal([]byte(req.Header["Ce-Metadata"][0]), &metadata)
 
 			g.Expect(metadata["Foo"]).To(gomega.Equal([]string{"bar"}))
+
+			g.Expect(metadata["Fizz"]).To(gomega.Equal([]string{"buzz"}))
 		}
 	}))
 	// Close the server when test finishes
@@ -135,6 +137,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 	reader := bytes.NewReader(predictorRequest)
 	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
 	r.Header.Add("Foo", "bar")
+	r.Header.Add("Fizz", "buzz")
 	w := httptest.NewRecorder()
 	logger, _ := pkglogging.NewLogger("", "INFO")
 	logf.SetLogger(zap.New())
@@ -148,7 +151,7 @@ func TestLoggerWithMetadata(t *testing.T) {
 	StartDispatcher(5, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, []string{"Foo"}, "", true)
+		"default", httpProxy, []string{"Foo", "Fizz"}, "", true)
 
 	oh.ServeHTTP(w, r)
 
