@@ -113,6 +113,7 @@ if [ "$1" != "raw" ]; then
     oc create -f -
 
   oc apply -k $PROJECT_ROOT/test/scripts/openshift-ci
+  oc wait --for=condition=ready pod -l app=odh-model-controller -n kserve --timeout=300s
 fi
 
 echo "Add testing models to minio storage ..." # Reference: config/overlays/test/minio/minio-init-job.yaml

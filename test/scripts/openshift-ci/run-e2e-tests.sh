@@ -25,8 +25,9 @@ set -o pipefail
 MY_PATH=$(dirname "$0")
 PROJECT_ROOT=$MY_PATH/../../../
 
-SETUP_E2E=true
-if $SETUP_E2E; then
+: "${SETUP_E2E:=true}"
+
+if [ "$SETUP_E2E" = "true" ]; then
   echo "Installing on cluster"
   pushd $PROJECT_ROOT >/dev/null
   ./test/scripts/openshift-ci/setup-e2e-tests.sh "$1"

@@ -29,7 +29,8 @@ spec:
         - --model_base_path=/mnt/models
         - --rest_api_timeout_in_ms=60000
       securityContext:
-        runAsUser: 1000    # User is not defined in the Dockerfile, so we need to set it here to run as non-root
+        # In OpenShift, the UID is automatically assigned by the platform, so comment this field not to interfere with E2E tests.
+        # runAsUser: 1000    # User is not defined in the Dockerfile, so we need to set it here to run as non-root
         allowPrivilegeEscalation: false
         privileged: false
         runAsNonRoot: true
