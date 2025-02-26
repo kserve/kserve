@@ -462,7 +462,8 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		// Do not reconcile on status change, when a job is created and the status is updated, it may not get the job back in the next reconcile()
+		// Do not reconcile on status change, when a job is created and the status is updated, the next reconcile is triggered immediately and
+		// there is a chance that the job is not returned when we list jobs, causing the same job to be created twice.
 		// Keep AnnotationChangedPredicate because we use it to trigger reconciliation in the test
 		For(&v1alpha1.LocalModelNode{}, builder.WithPredicates(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}))).
 		Owns(&batchv1.Job{}).
