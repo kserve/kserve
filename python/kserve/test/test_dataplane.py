@@ -689,9 +689,7 @@ class TestDataplaneTransformer:
     async def test_model_readiness_v2(self, httpx_mock):
         # scenario: getting a 2xx response from predictor
         predictor_host = "ready.host"
-        httpx_mock.add_response(
-            url=re.compile(f"http://{predictor_host}/v2/*"), json={"ready": True}
-        )
+        httpx_mock.add_response(url=re.compile(f"http://{predictor_host}/v2/*"))
         dataplane = DataPlane(
             model_registry=ModelRepository(),
             predictor_config=PredictorConfig(

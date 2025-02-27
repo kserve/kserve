@@ -679,7 +679,10 @@ class InferenceRESTClient:
         # Raise for other status codes
         if not response.is_success:
             raise self._construct_http_status_error(response)
-        return response.json().get("ready")
+        if response.headers.get("Content-Type") == "application/json":
+            return response.json().get("ready")
+        # v2 protocol returns 200 with empty body if model is ready
+        return True
 
     async def close(self):
         """
