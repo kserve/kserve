@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -169,7 +170,7 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 		},
 	}
 
-	if val, ok := componentMeta.Labels[constants.ODHKserveRawAuth]; ok && val == "true" {
+	if val, ok := componentMeta.Annotations[constants.ODHKserveRawAuth]; ok && strings.EqualFold(val, "true") {
 		if service.ObjectMeta.Annotations == nil {
 			service.ObjectMeta.Annotations = make(map[string]string)
 		}

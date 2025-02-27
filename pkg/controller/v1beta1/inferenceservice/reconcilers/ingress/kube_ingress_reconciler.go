@@ -20,22 +20,22 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
-	apierr "k8s.io/apimachinery/pkg/api/errors"
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
 	knapis "knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -103,7 +103,7 @@ func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 		}
 	}
 	authEnabled := false
-	if val, ok := isvc.Labels[constants.ODHKserveRawAuth]; ok && val == "true" {
+	if val, ok := isvc.Annotations[constants.ODHKserveRawAuth]; ok && strings.EqualFold(val, "true") {
 		authEnabled = true
 	}
 	isvc.Status.URL, err = createRawURL(r.client, isvc, authEnabled)
@@ -221,7 +221,7 @@ func generateMetadata(isvc *v1beta1.InferenceService,
 	isvcConfig *v1beta1.InferenceServicesConfig) metav1.ObjectMeta {
 	// get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
-		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
+		return !utils.Includes(v1beta1utils.FilterList(isvcConfig.ServiceAnnotationDisallowedList, constants.ODHKserveRawAuth), key)
 	})
 	objectMeta := metav1.ObjectMeta{
 		Name:      name,

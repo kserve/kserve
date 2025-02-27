@@ -373,8 +373,6 @@ var (
 		autoscaling.MaxScaleAnnotationKey,
 		StorageInitializerSourceUriInternalAnnotationKey,
 		"kubectl.kubernetes.io/last-applied-configuration",
-		// remove when https://issues.redhat.com/browse/RHOAIENG-15662 is merged on community and ported to ODH
-		// Plus, this annotation must be moved to the inferenceservice-config
 		"security.opendatahub.io/enable-auth",
 	}
 
