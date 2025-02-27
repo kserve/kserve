@@ -172,4 +172,24 @@ kustomize build $PROJECT_ROOT/config/overlays/test/clusterresources |
 # no effect, because of missing Knative
 oc annotate servingruntimes -n kserve-ci-e2e-test --all serving.knative.openshift.io/enablePassthrough=true
 
+
+# Allow all traffic to the kserve namespace. Without this networkpolicy, webhook will return 500
+# error msg: 'http: server gave HTTP response to HTTPS client"}]},"code":500}'
+cat <<EOF | oc apply -f -
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-all
+  namespace: kserve
+spec:
+  podSelector: {} 
+  ingress:
+  - {}  
+  egress:
+  - {}  
+  policyTypes:
+  - Ingress
+  - Egress
+EOF
+
 echo "Setup complete"
