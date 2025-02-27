@@ -286,7 +286,9 @@ class DataPlane:
                 == PredictorProtocol.GRPC_V2.value
             ):
                 try:
-                    is_ready = await self.grpc_client.is_model_ready(model_name=model_name)
+                    is_ready = await self.grpc_client.is_model_ready(
+                        model_name=model_name
+                    )
                     return is_ready
                 except RpcError:
                     # Logged in the grpc client
@@ -299,7 +301,9 @@ class DataPlane:
                     )
                     return is_ready
                 except HTTPError as exc:
-                    logger.debug(f"predictor not ready, HTTP exception for {exc.request.url} - {exc}")
+                    logger.debug(
+                        f"predictor not ready, HTTP exception for {exc.request.url} - {exc}"
+                    )
                     return False
 
         return await self._model_registry.is_model_ready(model_name)

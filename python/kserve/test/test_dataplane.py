@@ -765,7 +765,8 @@ class TestDataplaneTransformer:
         not_ready_model = DummyModel("NotReadyModel")
         dataplane._model_registry.update(not_ready_model)
         httpx_mock.add_exception(
-            url=re.compile(f"http://{predictor_host}/v2/*"), exception=httpx.ConnectError("All connection attempts failed")
+            url=re.compile(f"http://{predictor_host}/v2/*"),
+            exception=httpx.ConnectError("All connection attempts failed"),
         )
         assert (await dataplane.model_ready(not_ready_model.name)) is False
 
