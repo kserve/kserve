@@ -673,16 +673,20 @@ class InferenceRESTClient:
                 "response code: %s, content: %s", response.status_code, response.text
             )
 
-        # Model Server responds with 503 service unavailable error if model is not ready
-        if response.status_code == httpx.codes.SERVICE_UNAVAILABLE:
-            return False
-        # Raise for other status codes
-        if not response.is_success:
-            raise self._construct_http_status_error(response)
-        if response.headers.get("Content-Type") == "application/json":
+        if is_v1(self._config.protocol):
+            # According to V1 protocol, the response should be a json object with ready: true/false
+            # but KServe returns ready: true when ready, and 503 when not ready
+            if response.status_code == httpx.codes.SERVICE_UNAVAILABLE:
+                return False
+            # Raise for other status codes
+            if not response.is_success:
+                raise self._construct_http_status_error(response)
             return response.json().get("ready")
-        # v2 protocol returns 200 with empty body if model is ready
-        return True
+        elif is_v2(self._config.protocol):
+            # According to V2 protocol, 200 status code indicates true and a 4xx status code indicates false.
+            # The HTTP response body should be empty.
+            # However, KServe returns 503 when not ready
+            return response.is_success
 
     async def close(self):
         """

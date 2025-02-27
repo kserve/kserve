@@ -705,10 +705,11 @@ class TestDataplaneTransformer:
         dataplane._model_registry.update(ready_model)
         assert (await dataplane.model_ready(ready_model.name)) is True
 
-        # scenario: getting a 2xx response from predictor and model not ready
-        predictor_host = "ready.host"
+        # scenario: getting a 400 response from predictor and model not ready
+        predictor_host = "triton-not-ready.host"
+        # Triton returns a non-200 response if model is not ready
         httpx_mock.add_response(
-            url=re.compile(f"http://{predictor_host}/v2/*"), json={"ready": False}
+            url=re.compile(f"http://{predictor_host}/v2/*"), status_code=400
         )
         dataplane = DataPlane(
             model_registry=ModelRepository(),
@@ -725,7 +726,10 @@ class TestDataplaneTransformer:
         dataplane._model_registry.update(not_ready_model)
         assert (await dataplane.model_ready(not_ready_model.name)) is False
 
-        # scenario: not a 2xx response from predictor
+        # scenario: 503 response from predictor
+        # According to V2 protocol, 200 status code indicates true and a 4xx status code indicates false.
+        # The HTTP response body should be empty.
+        # However, KServe returns 503 when not ready
         predictor_host = "not-ready.host"
         httpx_mock.add_response(
             url=re.compile(f"http://{predictor_host}/v2/*"), status_code=503
