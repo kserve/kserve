@@ -43,7 +43,8 @@ spec:
         - --allow-grpc=true
         - --allow-http=true
       securityContext:
-        runAsUser: 1000    # https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/customization_guide/deploy.html#run-as-a-non-root-user
+        # In OpenShift, the UID is automatically assigned by the platform, so comment this field not to interfere with E2E tests.
+        # runAsUser: 1000    # https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/customization_guide/deploy.html#run-as-a-non-root-user
         allowPrivilegeEscalation: false
         privileged: false
         runAsNonRoot: true
