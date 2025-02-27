@@ -21,6 +21,7 @@ import cloudevents.exceptions as ce
 import orjson
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
+from grpc import RpcError
 from httpx import HTTPError
 
 from ..constants import constants
@@ -284,8 +285,12 @@ class DataPlane:
                 self.predictor_config.predictor_protocol
                 == PredictorProtocol.GRPC_V2.value
             ):
-                is_ready = await self.grpc_client.is_model_ready(model_name=model_name)
-                return is_ready
+                try:
+                    is_ready = await self.grpc_client.is_model_ready(model_name=model_name)
+                    return is_ready
+                except RpcError:
+                    # Logged in the grpc client
+                    return False
             else:
                 try:
                     is_ready = await self.rest_client.is_model_ready(
