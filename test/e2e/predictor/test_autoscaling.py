@@ -225,7 +225,7 @@ async def test_sklearn_scale_raw(rest_v1_client):
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_rolling_update():
     service_name = "isvc-sklearn-rolling-update"
-    min_replicas = 4
+    min_replicas = 2
     predictor = V1beta1PredictorSpec(
         min_replicas=min_replicas,
         scale_metric="cpu",
@@ -277,14 +277,14 @@ async def test_sklearn_rolling_update():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     kserve_client.patch(service_name, updated_isvc)
-    deployment = kserve_client.app_api.list_namespaced_deployment(
-        namespace=KSERVE_TEST_NAMESPACE,
-        label_selector="serving.kserve.io/test=rolling-update",
-    )
     kserve_client.wait_isvc_ready(
         service_name, namespace=KSERVE_TEST_NAMESPACE, timeout_seconds=600
     )
 
+    deployment = kserve_client.app_api.list_namespaced_deployment(
+        namespace=KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/test=rolling-update",
+    )
     # Check if the deployment replicas still remain the same as min_replicas
     assert deployment.items[0].spec.replicas == min_replicas
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
