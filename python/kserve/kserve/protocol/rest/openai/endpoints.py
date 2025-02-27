@@ -17,7 +17,7 @@ import time
 from typing import AsyncGenerator
 
 from fastapi import APIRouter, FastAPI, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi.responses import ORJSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import TypeAdapter, ValidationError
 from starlette.responses import StreamingResponse
@@ -86,7 +86,7 @@ class OpenAIEndpoints:
             response=response,
         )
         if isinstance(completion, ErrorResponse):
-            return JSONResponse(
+            return ORJSONResponse(
                 content=completion.model_dump(), status_code=int(completion.error.code)
             )
         elif isinstance(completion, AsyncGenerator):
@@ -130,7 +130,7 @@ class OpenAIEndpoints:
             response=response,
         )
         if isinstance(completion, ErrorResponse):
-            return JSONResponse(
+            return ORJSONResponse(
                 content=completion.model_dump(), status_code=int(completion.error.code)
             )
         elif isinstance(completion, AsyncGenerator):
@@ -171,7 +171,7 @@ class OpenAIEndpoints:
             response=response,
         )
         if isinstance(embedding, ErrorResponse):
-            return JSONResponse(
+            return ORJSONResponse(
                 content=embedding.model_dump(), status_code=int(embedding.error.code)
             )
         elif isinstance(embedding, AsyncGenerator):
