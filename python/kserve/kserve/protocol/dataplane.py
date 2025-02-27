@@ -14,28 +14,26 @@
 
 import time
 from importlib import metadata
-from typing import Dict, Optional, Tuple, Union, cast
 from inspect import iscoroutinefunction
+from typing import Dict, Optional, Tuple, Union, cast
 
 import cloudevents.exceptions as ce
 import orjson
-
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
 
-from ..inference_client import RESTConfig
-from .rest.v2_datamodels import InferenceRequest
 from ..constants import constants
 from ..constants.constants import INFERENCE_CONTENT_LENGTH_HEADER, PredictorProtocol
 from ..errors import InvalidInput, ModelNotFound
+from ..inference_client import RESTConfig
 from ..logging import logger
-from ..model import PredictorConfig
-from ..model import InferenceVerb, BaseKServeModel, InferenceModel
+from ..model import BaseKServeModel, InferenceModel, InferenceVerb, PredictorConfig
 from ..model_repository import ModelRepository
 from ..utils.inference_client_factory import InferenceClientFactory
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
 from .rest.openai import OpenAICompletionModel
+from .rest.v2_datamodels import InferenceRequest
 
 JSON_HEADERS = [
     "application/json",
