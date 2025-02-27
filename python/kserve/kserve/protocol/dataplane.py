@@ -21,6 +21,7 @@ import cloudevents.exceptions as ce
 import orjson
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
+from httpx import HTTPError
 
 from ..constants import constants
 from ..constants.constants import INFERENCE_CONTENT_LENGTH_HEADER, PredictorProtocol
@@ -286,11 +287,15 @@ class DataPlane:
                 is_ready = await self.grpc_client.is_model_ready(model_name=model_name)
                 return is_ready
             else:
-                is_ready = await self.rest_client.is_model_ready(
-                    base_url=self.predictor_config.predictor_base_url,
-                    model_name=model_name,
-                )
-                return is_ready
+                try:
+                    is_ready = await self.rest_client.is_model_ready(
+                        base_url=self.predictor_config.predictor_base_url,
+                        model_name=model_name,
+                    )
+                    return is_ready
+                except HTTPError as exc:
+                    logger.debug(f"predictor not ready, HTTP exception for {exc.request.url} - {exc}")
+                    return False
 
         return await self._model_registry.is_model_ready(model_name)
 

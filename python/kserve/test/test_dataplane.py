@@ -749,6 +749,26 @@ class TestDataplaneTransformer:
         dataplane._model_registry.update(not_ready_model)
         assert await dataplane.model_ready(not_ready_model.name) is False
 
+        # Connection error
+        predictor_host = "not-reachable.host"
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        # Transformer model is not ready
+        not_ready_model = DummyModel("NotReadyModel")
+        dataplane._model_registry.update(not_ready_model)
+        httpx_mock.add_exception(
+            url=re.compile(f"http://{predictor_host}/v2/*"), exception=httpx.ConnectError("All connection attempts failed")
+        )
+        assert (await dataplane.model_ready(not_ready_model.name)) is False
+
     @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
     async def test_model_readiness_grpc_v2(self, mock_grpc_client):
         # scenario: getting a 2xx response from predictor
