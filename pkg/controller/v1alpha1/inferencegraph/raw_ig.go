@@ -58,8 +58,9 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
 			{
-				Name:  graph.ObjectMeta.Name,
-				Image: config.Image,
+				Name:            graph.ObjectMeta.Name,
+				Image:           config.Image,
+				ImagePullPolicy: corev1.PullPolicy(config.ImagePullPolicy),
 				Args: []string{
 					"--graph-json",
 					string(bytes),
@@ -79,6 +80,11 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 		},
 		Affinity:                     graph.Spec.Affinity,
 		AutomountServiceAccountToken: proto.Bool(false), // Inference graph does not need access to api server
+		Tolerations:                  graph.Spec.Tolerations,
+		ImagePullSecrets:             config.GetImagePullSecrets(),
+		NodeSelector:                 graph.Spec.NodeSelector,
+		NodeName:                     graph.Spec.NodeName,
+		ServiceAccountName:           graph.Spec.ServiceAccountName,
 	}
 
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
