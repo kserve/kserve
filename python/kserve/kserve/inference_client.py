@@ -652,7 +652,7 @@ class InferenceRESTClient:
                         override the timeout in the RESTConfig. The default value is 60 seconds.
                         To disable timeout explicitly set it to 'None'.
         :return: True if server is ready, False if server is not ready.
-        :raises HTTPStatusError for response codes other than 2xx.
+        :raises HTTPStatusError for response codes other than 2xx for v1 protocol.
         :raises UnsupportedProtocol if the specified protocol version is not supported.
         """
         if is_v1(self._config.protocol):
@@ -682,11 +682,13 @@ class InferenceRESTClient:
             if not response.is_success:
                 raise self._construct_http_status_error(response)
             return response.json().get("ready")
-        elif is_v2(self._config.protocol):
-            # According to V2 protocol, 200 status code indicates true and a 4xx status code indicates false.
+        if is_v2(self._config.protocol):
+            # According to V2, 200 status code indicates true and a 4xx status code indicates false.
             # The HTTP response body should be empty.
             # However, KServe returns 503 when not ready
             return response.is_success
+        # Should not reach here, this exception should be raised in the beginning of this function
+        raise UnsupportedProtocol(protocol_version=self._config.protocol)
 
     async def close(self):
         """
