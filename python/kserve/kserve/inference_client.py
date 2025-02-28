@@ -102,7 +102,7 @@ class InferenceGRPCClient:
         url: str,
         verbose: bool = False,
         use_ssl: bool = False,
-        root_certificates: str = "/Users/jdong183/CABundle.pem",
+        root_certificates: str = None,
         private_key: str = None,
         certificate_chain: str = None,
         creds: grpc.ChannelCredentials = None,
@@ -401,7 +401,7 @@ class InferenceRESTClient:
             http2=self._config.http2,
             timeout=self._config.timeout,
             auth=self._config.auth,
-            verify=False,
+            verify=self._config.verify,
         )
 
     def _construct_url(
