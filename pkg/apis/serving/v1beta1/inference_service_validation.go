@@ -257,17 +257,23 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 					}
 
 					if componentExtensionSpec.AutoScaling != nil {
-						autoScalingType := componentExtensionSpec.AutoScaling.Metrics[0].Type
-						switch autoScalingType {
-						case MetricSourceType(constants.AutoScalerResource):
-							resourceName := componentExtensionSpec.AutoScaling.Metrics[0].Resource.Name
-							return validateKEDAMetrics(*resourceName)
-						case MetricSourceType(constants.AutoScalerExternal):
-							metricBackend := componentExtensionSpec.AutoScaling.Metrics[0].External.Metric.Backend
-							return validateKEDAMetricBackends(*metricBackend)
-						default:
-							return fmt.Errorf("unknown auto scaling type class [%s] with value [%s]."+
-								"Valid types are Resource and External", class, autoScalingType)
+						for _, autoScaling := range componentExtensionSpec.AutoScaling.Metrics {
+							autoScalingType := autoScaling.Type
+							switch autoScalingType {
+							case MetricSourceType(constants.AutoScalerResource):
+								resourceName := autoScaling.Resource.Name
+								if err := validateKEDAMetrics(*resourceName); err != nil {
+									return err
+								}
+							case MetricSourceType(constants.AutoScalerExternal):
+								metricBackend := autoScaling.External.Metric.Backend
+								if err := validateKEDAMetricBackends(*metricBackend); err != nil {
+									return err
+								}
+							default:
+								return fmt.Errorf("unknown auto scaling type class [%s] with value [%s]."+
+									"Valid types are Resource and External", class, autoScalingType)
+							}
 						}
 					}
 				case constants.AutoscalerClassExternal:
