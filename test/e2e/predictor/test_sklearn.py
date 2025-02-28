@@ -129,8 +129,8 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
             ),
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
-                requests={"cpu": "100m", "memory": "256Mi"},
-                limits={"cpu": "150m", "memory": "512Mi"},
+                requests={"cpu": "1", "memory": "512Mi"},
+                limits={"cpu": "1", "memory": "1Gi"},
             ),
             args=["--workers=2"],
         ),

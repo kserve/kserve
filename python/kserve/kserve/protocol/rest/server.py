@@ -14,7 +14,10 @@
 
 import asyncio
 import logging
-from typing import Dict, Optional, Union
+import multiprocessing as mp
+import os
+import socket
+from typing import Callable, Dict, List, Optional, Union
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -43,7 +46,6 @@ from kserve.errors import (
 )
 from kserve.logging import trace_logger, logger
 from kserve.protocol.dataplane import DataPlane
-from uvicorn.supervisors.multiprocess import Multiprocess as UvicornMultiprocess
 
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
@@ -87,12 +89,6 @@ class RESTServer:
         )
         self._server = uvicorn.Server(self._config)
         self._multiprocess_server = None
-        if self._config.workers > 1:
-            self._multiprocess_server = UvicornMultiprocess(
-                self._config,
-                target=self._server.run,
-                sockets=[self._config.bind_socket()],
-            )
 
     def _register_endpoints(self):
         root_router = APIRouter()
@@ -166,11 +162,85 @@ class RESTServer:
         self.create_application()
         logger.info("Starting uvicorn with %s workers", self._config.workers)
         if self._config.workers > 1:
-            await asyncio.to_thread(self._multiprocess_server.run)
+            self._multiprocess_server = RESTMultiProcess(self._server.run, self._config)
+            await self._multiprocess_server.run()
         else:
             await self._server.serve()
 
     def stop(self, sig: int = None):
-        # For single process server, we don't have to handle the signal
+        # Uvicorn registers its own signal handlers, so we don't need to do anything here for single process mode
         if self._multiprocess_server:
             self._multiprocess_server.should_exit.set()
+
+
+class RESTMultiProcess:
+    def __init__(
+        self, target: Callable[[list[socket.socket]], None], config: uvicorn.Config
+    ):
+        self._target = target
+        self._config = config
+        self._sockets: List[socket.socket] = []
+        self._processes: List[mp.Process] = []
+        self.should_exit = asyncio.Event()
+        self.mp_ctx = mp.get_context("spawn")
+
+    def init_processes(self, sockets: List[socket.socket]):
+        for _ in range(self._config.workers):
+            p = self.mp_ctx.Process(target=self._target, args=[sockets])
+            self._processes.append(p)
+            p.start()
+
+    async def run(self):
+        logger.info("Started parent process [%s]", os.getpid())
+        self._sockets = [self._config.bind_socket()]
+        self.init_processes(self._sockets)
+        # Blocks until the parent process is ready to exit
+        await self.keep_subprocess_alive()
+        # Propagate signal to all child processes and wait for termination
+        await self.terminate_all()
+
+    async def keep_subprocess_alive(self):
+        while not self.should_exit.is_set():
+            for idx, p in enumerate(self._processes):
+                if self.should_exit.is_set():
+                    return  # parent process is exiting, no need to keep subprocess alive
+
+                if not p.is_alive():
+                    logger.info("Child process [%s] died", p.pid)
+                    new_p = self.mp_ctx.Process(
+                        target=self._target, args=[self._sockets]
+                    )
+                    new_p.start()
+                    self._processes[idx] = new_p
+                    logger.info("Started new child process [%s]", new_p.pid)
+            await asyncio.sleep(0.5)  # Check every 0.5 seconds
+
+    async def _wait_for_process(self, p: mp.Process):
+        while p.is_alive():
+            await asyncio.sleep(0.1)
+
+    async def _wait_for_process_termination(self, p: mp.Process, grace_period: int):
+        try:
+            await asyncio.wait_for(self._wait_for_process(p), timeout=grace_period)
+            logger.info("Terminated child process [%s]", p.pid)
+        except asyncio.TimeoutError:
+            logger.warning(
+                "Child process [%s] took too long to terminate, forcing kill", p.pid
+            )
+            p.kill()
+
+    async def terminate_all(self):
+        """Propagate signal to all child processes and wait for termination."""
+        for p in self._processes:
+            if p.is_alive():
+                p.terminate()  # Send SIGTERM (Unix) or TerminateProcess (Windows)
+
+        # Wait for processes to exit
+        await asyncio.gather(
+            *(
+                self._wait_for_process_termination(
+                    p, self._config.timeout_graceful_shutdown
+                )
+                for p in self._processes
+            )
+        )
