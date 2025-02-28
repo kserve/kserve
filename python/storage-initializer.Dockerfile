@@ -1,10 +1,11 @@
 ARG VENV_PATH=/prod_venv
 
+## Builder
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest AS builder
 
 # Install Python and dependencies
 RUN microdnf install -y --setopt=ubi-8-appstream-rpms.module_hotfixes=1 --disablerepo=* \
-    --enablerepo=ubi-8-baseos-rpms --enablerepo=ubi-8-appstream-rpms python39 python39-devel \
+    --enablerepo=ubi-8-baseos-rpms --enablerepo=ubi-8-appstream-rpms python3.11 python3.11-devel \
     gcc libffi-devel openssl-devel krb5-workstation krb5-libs && microdnf clean all
 
 # Install Poetry
@@ -27,6 +28,7 @@ RUN cd kserve && poetry install --no-interaction --no-cache --extras "storage"
 
 RUN pip install --no-cache-dir krbcontext==0.10 hdfs~=2.6.0 requests-kerberos==0.14.0
 
+## Runtime
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest AS prod
 
 COPY third_party third_party
@@ -37,7 +39,7 @@ ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 RUN microdnf install -y --setopt=ubi-8-appstream-rpms.module_hotfixes=1 --disablerepo=* \
-    --enablerepo=ubi-8-baseos-rpms --enablerepo=ubi-8-appstream-rpms shadow-utils python39 python39-devel && \
+    --enablerepo=ubi-8-baseos-rpms --enablerepo=ubi-8-appstream-rpms shadow-utils python3.11 python3.11-devel && \
     microdnf clean all
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
