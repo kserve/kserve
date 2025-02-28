@@ -263,11 +263,15 @@ class DataPlane:
                 )
         return True
 
-    async def model_ready(self, model_name: str) -> bool:
+    async def model_ready(
+        self, model_name: str, disable_predictor_health_check: bool = False
+    ) -> bool:
         """Check if a model is ready.
 
         Args:
             model_name (str): name of the model
+            disable_predictor_health_check (bool): Flag to disable predictor health
+            check for infer/predict requests.
 
         Returns:
             bool: True if the model is ready, False otherwise.
@@ -280,7 +284,11 @@ class DataPlane:
 
         # If predictor host is present, then it means this is a transformer,
         # We should also check the predictor model's health if predictor health check is enabled.
-        if self.predictor_config and self.predictor_config.predictor_health_check:
+        if (
+            not disable_predictor_health_check
+            and self.predictor_config
+            and self.predictor_config.predictor_health_check
+        ):
             if (
                 self.predictor_config.predictor_protocol
                 == PredictorProtocol.GRPC_V2.value
