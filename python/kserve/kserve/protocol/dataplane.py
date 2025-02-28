@@ -302,7 +302,9 @@ class DataPlane:
                     return is_ready
                 except HTTPError as exc:
                     logger.debug(
-                        f"predictor not ready, HTTP exception for {exc.request.url} - {exc}"
+                        "check predictor readiness - HTTP exception for %s - %s",
+                        exc.request.url,
+                        exc,
                     )
                     return False
 

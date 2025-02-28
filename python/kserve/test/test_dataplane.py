@@ -21,6 +21,7 @@ from unittest import mock
 from unittest.mock import patch
 
 import avro
+import grpc
 import httpx
 import pytest
 import tomlkit
@@ -806,7 +807,7 @@ class TestDataplaneTransformer:
                 predictor_health_check=True,
             ),
         )
-        # Transformer model ready
+        # Transformer model is not ready
         not_ready_model = DummyModel("NotReadyModel")
         dataplane._model_registry.update(not_ready_model)
         mock_is_model_ready = mock.AsyncMock(return_value=False)
@@ -815,6 +816,22 @@ class TestDataplaneTransformer:
         mock_grpc_client.assert_called_with(
             url=predictor_host, timeout=5, retries=2, use_ssl=False
         )
+
+        # Connection error
+        predictor_host = "not-reachable.host"
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.GRPC_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        dataplane._model_registry.update(ready_model)
+        mock_grpc_client.side_effect = grpc.RpcError("Mocked exception")
+        assert (await dataplane.model_ready(ready_model.name)) is False
 
     @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
     @patch("kserve.protocol.dataplane.InferenceClientFactory.get_rest_client")
