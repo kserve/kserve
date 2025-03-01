@@ -83,6 +83,12 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
             top_p=request.top_p,
             user=request.user,
             logprobs=request.top_logprobs,
+            guided_json=request.guided_json,
+            guided_regex=request.guided_regex,
+            guided_choice=request.guided_choice,
+            guided_grammar=request.guided_grammar,
+            guided_decoding_backend=request.guided_decoding_backend,
+            guided_whitespace_pattern=request.guided_whitespace_pattern,
         )
 
     @classmethod
