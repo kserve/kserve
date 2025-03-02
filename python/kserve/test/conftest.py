@@ -13,20 +13,20 @@
 # limitations under the License.
 
 import pytest
+
 from kserve import ModelServer, ModelRepository
 from kserve.protocol.rest.server import RESTServer
-from kserve.model_server import app as kserve_app
+from kserve.constants.constants import FASTAPI_APP_IMPORT_STRING
 
 
 @pytest.fixture(scope="session")
 def server():
     server = ModelServer(registered_models=ModelRepository())
     rest_server = RESTServer(
-        kserve_app,
+        FASTAPI_APP_IMPORT_STRING,
         server.dataplane,
         server.model_repository_extension,
         http_port=8080,
     )
     rest_server.create_application()
     yield server
-    kserve_app.routes.clear()
