@@ -140,6 +140,34 @@ spec:
           nvidia.com/gpu: "1"
 ```
 
+4. To Use Speculative model loading include the flag ` --speculative-model="facebook/opt-125m" --num-speculative-tokens 5` in the container args. In this case the vLLM backend will use speculative model.
+
+```yaml
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: huggingface-llama2
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: huggingface
+      args:
+      - --model_name=llama2
+      - --model_id=meta-llama/Llama-2-7b-chat-hf
+      - --speculative-model="facebook/opt-125m"
+      - --num-speculative-tokens 5
+      resources:
+        limits:
+          cpu: "6"
+          memory: 24Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "6"
+          memory: 24Gi
+          nvidia.com/gpu: "1"
+```
+
 
 If vllm needs to be disabled include the flag `--backend=huggingface` in the container args. In this case the HuggingFace backend is used.
 
