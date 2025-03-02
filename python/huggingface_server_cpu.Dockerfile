@@ -78,7 +78,7 @@ RUN pip install --no-cache-dir --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extr
 
 # install vllm
 ARG VLLM_VERSION=0.7.3
-ARG VLLM_CPU_DISABLE_AVX512=false
+ARG VLLM_CPU_DISABLE_AVX512=true
 ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 ARG VLLM_CPU_AVX512BF16=1
 ENV VLLM_CPU_AVX512BF16=${VLLM_CPU_AVX512BF16}
@@ -116,9 +116,6 @@ ENV HF_HUB_DISABLE_TELEMETRY="1"
 # https://github.com/vllm-project/vllm/issues/6152
 # Set the multiprocess method to spawn to avoid issues with cuda initialization for `mp` executor backend.
 ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
-# If support for non-AVX512 vLLM is desired, set VLLM_CPU_DISABLE_AVX512="true" at build time
-ARG VLLM_CPU_DISABLE_AVX512=false
-ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 
 USER 1000
 ENTRYPOINT ["python", "-m", "huggingfaceserver"]
