@@ -8,11 +8,9 @@ ARG PYTHON=python3
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install --no-install-recommends --fix-missing -y \
-        google-perftools \
         libgl1 \
         libglib2.0-0 \
         libnuma1 \
-        libtcmalloc-minimal4 \        
         numactl \
         python3-pip \
         python3.10-venv && \
@@ -43,7 +41,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
 
-RUN python3 -m venv ${POETRY_HOME} && \
+RUN python -m venv ${POETRY_HOME} && \
     ${POETRY_HOME}/bin/pip install --no-cache-dir --upgrade pip && \
     ${POETRY_HOME}/bin/pip install --no-cache-dir poetry==${POETRY_VERSION}
 ENV PATH="$PATH:${POETRY_HOME}/bin"
@@ -51,31 +49,32 @@ ENV PATH="$PATH:${POETRY_HOME}/bin"
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python3 -m venv $VIRTUAL_ENV
+RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
+ARG IPEX_EXTRA_INDEX_URL="https://pytorch-extension.intel.com/release-whl/stable/cpu/us/"
+ARG TORCH_VERSION=2.5.0
+ARG TORCHVISION_VERSION=0.20.1
 
 # Install kserve
 COPY kserve kserve
 RUN cd kserve && \
-    poetry install --no-root --no-interaction --no-cache && rm -rf ~/.cache/pypoetry
+    poetry install --no-interaction --no-cache && rm -rf ~/.cache/pypoetry
 
 # Install huggingfaceserver
-ARG PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu https://pytorch-extension.intel.com/release-whl/stable/cpu/us/"
-ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
-ARG TORCH_VERSION=2.5.0
-ARG TORCHVISION_VERSION=0.20.1
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && \
-    poetry source add --priority=supplemental pytorch-cpu https://download.pytorch.org/whl/cpu && \
+    poetry source add --priority=supplemental pytorch-cpu ${TORCH_EXTRA_INDEX_URL} && \
     poetry add --source pytorch-cpu \
         'torch~='${TORCH_VERSION} \
         'torchaudio~='${TORCH_VERSION} \
         'torchvision~='${TORCHVISION_VERSION} && \
     poetry lock && \
-    poetry install --no-interaction --no-cache && rm -rf ~/.cache/pypoetry && \
-    pip install --no-cache-dir \
-        'intel_extension_for_pytorch~='${TORCH_VERSION} \
-        intel-openmp
+    poetry install --no-interaction --no-cache && rm -rf ~/.cache/pypoetry
+
+RUN pip install --no-cache-dir --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
+    'intel_extension_for_pytorch~='${TORCH_VERSION} \
+    intel-openmp
 
 # install vllm
 ARG VLLM_VERSION=0.7.3
@@ -103,7 +102,6 @@ COPY third_party third_party
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-ENV LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libtcmalloc_minimal.so.4:${VENV_PATH}/lib/libiomp5.so"
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
