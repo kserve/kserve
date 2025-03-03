@@ -70,7 +70,8 @@ class V1Endpoints:
         Returns:
             Dict|Response: Model inference response.
         """
-        model_ready = await self.dataplane.model_ready(model_name)
+        # Disable predictor health check
+        model_ready = await self.dataplane.model_ready(model_name, True)
 
         if not model_ready:
             raise ModelNotReady(model_name)
@@ -108,7 +109,8 @@ class V1Endpoints:
         Returns:
             Dict: Explainer output.
         """
-        model_ready = await self.dataplane.model_ready(model_name)
+        # Disable predictor health check
+        model_ready = await self.dataplane.model_ready(model_name, True)
 
         if not model_ready:
             raise ModelNotReady(model_name)

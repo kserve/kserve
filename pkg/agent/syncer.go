@@ -18,20 +18,20 @@ package agent
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
 type FileError error
 
-var NoSuccessFile FileError = fmt.Errorf("no success file can be found")
+var ErrNoSuccessFile FileError = errors.New("no success file can be found")
 
 func SyncModelDir(modelDir string, logger *zap.SugaredLogger) (map[string]modelWrapper, error) {
 	logger.Infof("Syncing from model dir %s", modelDir)

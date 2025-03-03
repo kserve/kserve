@@ -17,13 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
+	"errors"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"gopkg.in/go-playground/validator.v9"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // +k8s:openapi-gen=true
@@ -174,8 +175,7 @@ type ServingRuntimeSpec struct {
 
 // ServingRuntimeStatus defines the observed state of ServingRuntime
 // +k8s:openapi-gen=true
-type ServingRuntimeStatus struct {
-}
+type ServingRuntimeStatus struct{}
 
 // ServerType constant for specifying the runtime name
 // +k8s:openapi-gen=true
@@ -339,7 +339,7 @@ func (srSpec *ServingRuntimeSpec) validatePodSpecAndWorkerSpec() error {
 	// Additional validation for WorkerSpec
 	if srSpec.WorkerSpec != nil {
 		if len(srSpec.WorkerSpec.Containers) == 0 {
-			return fmt.Errorf("spec.workerSpec.containers: Required value")
+			return errors.New("spec.workerSpec.containers: Required value")
 		}
 	}
 

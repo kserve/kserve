@@ -13,7 +13,7 @@ packages = [
 python = ">=3.9,<3.13"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
 jpmml-evaluator = "~0.10.3"
-setuptools =  {version = "^70.0.0", python = "3.12"} # https://github.com/jpmml/jpmml-evaluator-python/issues/27
+setuptools = "^70.0.0"
 
 [tool.poetry.group.test]
 optional = true

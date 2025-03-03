@@ -140,5 +140,5 @@ fi
 # Install KServe
 helm install kserve-crd oci://ghcr.io/kserve/charts/kserve-crd --version ${KSERVE_VERSION} --namespace kserve --create-namespace --wait
 helm install kserve oci://ghcr.io/kserve/charts/kserve --version ${KSERVE_VERSION} --namespace kserve --create-namespace --wait \
-   --set-string kserve.controller.deploymentMode="${deploymentMode}" --set kserve.modelmesh.enabled=false
+   --set-string kserve.controller.deploymentMode="${deploymentMode}"
 echo "😀 Successfully installed KServe"

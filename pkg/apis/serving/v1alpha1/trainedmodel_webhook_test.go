@@ -302,15 +302,18 @@ func TestValidateDelete(t *testing.T) {
 }
 
 func (tm *TrainedModel) update(tmField string, value string) {
-	if tmField == name {
+	switch tmField {
+	case name:
 		tm.Name = value
-	} else if tmField == infereceservice {
+	case infereceservice:
 		tm.Spec.InferenceService = value
-	} else if tmField == storageURI {
+	case storageURI:
 		tm.Spec.Model.StorageURI = value
-	} else if tmField == framework {
+	case framework:
 		tm.Spec.Model.Framework = value
-	} else if tmField == memory {
+	case memory:
 		tm.Spec.Model.Memory = resource.MustParse(value)
+	default:
+		// do nothing
 	}
 }

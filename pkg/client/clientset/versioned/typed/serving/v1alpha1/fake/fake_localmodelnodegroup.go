@@ -19,129 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeLocalModelNodeGroups implements LocalModelNodeGroupInterface
-type FakeLocalModelNodeGroups struct {
+// fakeLocalModelNodeGroups implements LocalModelNodeGroupInterface
+type fakeLocalModelNodeGroups struct {
+	*gentype.FakeClientWithList[*v1alpha1.LocalModelNodeGroup, *v1alpha1.LocalModelNodeGroupList]
 	Fake *FakeServingV1alpha1
-	ns   string
 }
 
-var localmodelnodegroupsResource = v1alpha1.SchemeGroupVersion.WithResource("localmodelnodegroups")
-
-var localmodelnodegroupsKind = v1alpha1.SchemeGroupVersion.WithKind("LocalModelNodeGroup")
-
-// Get takes name of the localModelNodeGroup, and returns the corresponding localModelNodeGroup object, and an error if there is any.
-func (c *FakeLocalModelNodeGroups) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.LocalModelNodeGroup, err error) {
-	emptyResult := &v1alpha1.LocalModelNodeGroup{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(localmodelnodegroupsResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeLocalModelNodeGroups(fake *FakeServingV1alpha1, namespace string) servingv1alpha1.LocalModelNodeGroupInterface {
+	return &fakeLocalModelNodeGroups{
+		gentype.NewFakeClientWithList[*v1alpha1.LocalModelNodeGroup, *v1alpha1.LocalModelNodeGroupList](
+			fake.Fake,
+			namespace,
+			v1alpha1.SchemeGroupVersion.WithResource("localmodelnodegroups"),
+			v1alpha1.SchemeGroupVersion.WithKind("LocalModelNodeGroup"),
+			func() *v1alpha1.LocalModelNodeGroup { return &v1alpha1.LocalModelNodeGroup{} },
+			func() *v1alpha1.LocalModelNodeGroupList { return &v1alpha1.LocalModelNodeGroupList{} },
+			func(dst, src *v1alpha1.LocalModelNodeGroupList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha1.LocalModelNodeGroupList) []*v1alpha1.LocalModelNodeGroup {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha1.LocalModelNodeGroupList, items []*v1alpha1.LocalModelNodeGroup) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha1.LocalModelNodeGroup), err
-}
-
-// List takes label and field selectors, and returns the list of LocalModelNodeGroups that match those selectors.
-func (c *FakeLocalModelNodeGroups) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.LocalModelNodeGroupList, err error) {
-	emptyResult := &v1alpha1.LocalModelNodeGroupList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(localmodelnodegroupsResource, localmodelnodegroupsKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha1.LocalModelNodeGroupList{ListMeta: obj.(*v1alpha1.LocalModelNodeGroupList).ListMeta}
-	for _, item := range obj.(*v1alpha1.LocalModelNodeGroupList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested localModelNodeGroups.
-func (c *FakeLocalModelNodeGroups) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(localmodelnodegroupsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a localModelNodeGroup and creates it.  Returns the server's representation of the localModelNodeGroup, and an error, if there is any.
-func (c *FakeLocalModelNodeGroups) Create(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.CreateOptions) (result *v1alpha1.LocalModelNodeGroup, err error) {
-	emptyResult := &v1alpha1.LocalModelNodeGroup{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(localmodelnodegroupsResource, c.ns, localModelNodeGroup, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.LocalModelNodeGroup), err
-}
-
-// Update takes the representation of a localModelNodeGroup and updates it. Returns the server's representation of the localModelNodeGroup, and an error, if there is any.
-func (c *FakeLocalModelNodeGroups) Update(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (result *v1alpha1.LocalModelNodeGroup, err error) {
-	emptyResult := &v1alpha1.LocalModelNodeGroup{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(localmodelnodegroupsResource, c.ns, localModelNodeGroup, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.LocalModelNodeGroup), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeLocalModelNodeGroups) UpdateStatus(ctx context.Context, localModelNodeGroup *v1alpha1.LocalModelNodeGroup, opts v1.UpdateOptions) (result *v1alpha1.LocalModelNodeGroup, err error) {
-	emptyResult := &v1alpha1.LocalModelNodeGroup{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(localmodelnodegroupsResource, "status", c.ns, localModelNodeGroup, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.LocalModelNodeGroup), err
-}
-
-// Delete takes name of the localModelNodeGroup and deletes it. Returns an error if one occurs.
-func (c *FakeLocalModelNodeGroups) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(localmodelnodegroupsResource, c.ns, name, opts), &v1alpha1.LocalModelNodeGroup{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeLocalModelNodeGroups) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(localmodelnodegroupsResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha1.LocalModelNodeGroupList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched localModelNodeGroup.
-func (c *FakeLocalModelNodeGroups) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LocalModelNodeGroup, err error) {
-	emptyResult := &v1alpha1.LocalModelNodeGroup{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(localmodelnodegroupsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1alpha1.LocalModelNodeGroup), err
 }

@@ -34,18 +34,24 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 )
 
 type LocalModelNodeReconciler struct {
@@ -72,15 +78,47 @@ var (
 	fsHelper                   FileSystemInterface
 )
 
-func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode v1alpha1api.LocalModelNode, modelInfo v1alpha1api.LocalModelInfo) (*batchv1.Job, error) {
+// Returns the nodegroup of a node
+// NOTE: Assuming a node could only belong to 1 nodegroup
+func (c *LocalModelNodeReconciler) getNodeGroupFromNode(ctx context.Context, nodeName string) (*v1alpha1.LocalModelNodeGroup, error) {
+	node := &corev1.Node{}
+	if err := c.Get(ctx, types.NamespacedName{Name: nodeName}, node); err != nil {
+		return nil, err
+	}
+	nodeGroups := &v1alpha1.LocalModelNodeGroupList{}
+	if err := c.List(ctx, nodeGroups); err != nil {
+		return nil, err
+	}
+	for _, nodeGroup := range nodeGroups.Items {
+		matches, err := utils.CheckNodeAffinity(&nodeGroup.Spec.PersistentVolumeSpec, *node)
+		if err != nil {
+			return nil, err
+		}
+		if matches {
+			return &nodeGroup, nil
+		}
+	}
+
+	return nil, fmt.Errorf("did not find matching nodegroup for node: %s", nodeName)
+}
+
+func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode v1alpha1.LocalModelNode, modelInfo v1alpha1.LocalModelInfo) (*batchv1.Job, error) {
 	jobName := modelInfo.ModelName + "-" + localModelNode.ObjectMeta.Name
+	nodeGroup, err := c.getNodeGroupFromNode(ctx, nodeName)
+	if nodeGroup == nil {
+		c.Log.Error(err, "Failed to get node group for current node", "node name", nodeName)
+		return nil, err
+	}
+	pvcName := modelInfo.ModelName + "-" + nodeGroup.Name
+	c.Log.Info("Found the nodegroup of current node. Using the following PVC name to create download job", "current node", nodeName, "node group", nodeGroup.Name, "PVC name", pvcName)
+
 	container, err := c.getContainerSpecForStorageUri(ctx, modelInfo.SourceModelUri)
 	if err != nil {
 		return nil, err
 	}
 
 	container.Args = []string{modelInfo.SourceModelUri, MountPath}
-	container.VolumeMounts = []v1.VolumeMount{
+	container.VolumeMounts = []corev1.VolumeMount{
 		{
 			MountPath: MountPath,
 			Name:      PvcSourceMountName,
@@ -96,22 +134,22 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		},
 		Spec: batchv1.JobSpec{
 			TTLSecondsAfterFinished: &jobTTLSecondsAfterFinished,
-			Template: v1.PodTemplateSpec{
-				Spec: v1.PodSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
 					NodeName:      nodeName,
-					Containers:    []v1.Container{*container},
-					RestartPolicy: v1.RestartPolicyNever,
-					Volumes: []v1.Volume{
+					Containers:    []corev1.Container{*container},
+					RestartPolicy: corev1.RestartPolicyNever,
+					Volumes: []corev1.Volume{
 						{
 							Name: PvcSourceMountName,
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-									ClaimName: modelInfo.ModelName,
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: pvcName,
 								},
 							},
 						},
 					},
-					SecurityContext: &v1.PodSecurityContext{
+					SecurityContext: &corev1.PodSecurityContext{
 						FSGroup: FSGroup,
 					},
 				},
@@ -134,8 +172,8 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 }
 
 // Fetches container spec for model download container, use the default KServe image if not found
-func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*v1.Container, error) {
-	storageContainers := &v1alpha1api.ClusterStorageContainerList{}
+func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*corev1.Container, error) {
+	storageContainers := &v1alpha1.ClusterStorageContainerList{}
 	if err := c.Client.List(ctx, storageContainers); err != nil {
 		return nil, err
 	}
@@ -144,7 +182,7 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 		if sc.IsDisabled() {
 			continue
 		}
-		if sc.Spec.WorkloadType != v1alpha1api.LocalModelDownloadJob {
+		if sc.Spec.WorkloadType != v1alpha1.LocalModelDownloadJob {
 			continue
 		}
 		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
@@ -156,10 +194,10 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 		}
 	}
 
-	defaultContainer := &v1.Container{
+	defaultContainer := &corev1.Container{
 		Name:                     DownloadContainerName,
 		Image:                    defaultJobImage,
-		TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 	}
 	return defaultContainer, nil
 }
@@ -187,23 +225,25 @@ func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelName s
 	return latestJob, len(jobList.Items), nil
 }
 
-func getModelStatusFromJobStatus(jobStatus batchv1.JobStatus) v1alpha1api.ModelStatus {
+func getModelStatusFromJobStatus(jobStatus batchv1.JobStatus) v1alpha1.ModelStatus {
 	switch {
 	case jobStatus.Succeeded > 0:
-		return v1alpha1api.ModelDownloaded
+		return v1alpha1.ModelDownloaded
 	case jobStatus.Failed > 0:
-		return v1alpha1api.ModelDownloadError
+		return v1alpha1.ModelDownloadError
 	case jobStatus.Ready != nil && *jobStatus.Ready > 0:
-		return v1alpha1api.ModelDownloading
+		return v1alpha1.ModelDownloading
 	default:
-		return v1alpha1api.ModelDownloadPending
+		return v1alpha1.ModelDownloadPending
 	}
 }
 
 // Create jobs to download models if the model is not present locally
 // Update the status of the LocalModelNode CR
-func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1api.LocalModelNode) error {
-	newStatus := map[string]v1alpha1api.ModelStatus{}
+func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localModelNode *v1alpha1.LocalModelNode) error {
+	c.Log.Info("Downloading models to", "node", localModelNode.ObjectMeta.Name)
+
+	newStatus := map[string]v1alpha1.ModelStatus{}
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
 		c.Log.Info("checking model from spec", "model", modelInfo.ModelName)
 		var job *batchv1.Job
@@ -217,8 +257,8 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			// If folder exists and the job has been successfully completed, do nothing
 			// If the job is cleaned up, no new job is created because the status is already set to ModelDownloaded
 			if status, ok := localModelNode.Status.ModelStatus[modelInfo.ModelName]; ok {
-				if status == v1alpha1api.ModelDownloaded {
-					newStatus[modelInfo.ModelName] = v1alpha1api.ModelDownloaded
+				if status == v1alpha1.ModelDownloaded {
+					newStatus[modelInfo.ModelName] = v1alpha1.ModelDownloaded
 					continue
 				}
 			}
@@ -283,12 +323,14 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 }
 
 // Delete models that are not in the spec
-func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.LocalModelNode) error {
+func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalModelNode) error {
 	// 1. Scan model dir and get a list of existing folders representing downloaded models
 	foldersToRemove := map[string]struct{}{}
 	entries, err := fsHelper.getModelFolders()
 	if err != nil {
 		c.Log.Error(err, "Failed to list model folder")
+		// TODO Reviewer: Is the err ignored intentionally?
+		return err
 	}
 	for _, entry := range entries {
 		// Models could only exist in sub dir
@@ -309,13 +351,15 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1api.Local
 			c.Log.Info("Removing model", "model", modelName)
 			if err := fsHelper.removeModel(modelName); err != nil {
 				c.Log.Error(err, "Failed to remove model directory", "model", modelName)
+				// TODO Reviewer: Is the err ignored intentionally?
+				return err
 			}
 		}
 	}
 	return nil
 }
 
-func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNode v1alpha1api.LocalModelNode) error {
+func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNode v1alpha1.LocalModelNode) error {
 	// 1. Get all jobs for the LocalModelNode
 	jobs := &batchv1.JobList{}
 	labelSelector := map[string]string{"node": localModelNode.Name}
@@ -364,13 +408,13 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		// TODO we need a way to ensure that the local path on persistent volume is the same as the local path of the node agent DaemonSet.
 		err := fsHelper.ensureModelRootFolderExists()
 		if err != nil {
-			panic(fmt.Sprintf("Failed to ensure model root folder exists: %s", err.Error()))
+			panic("Failed to ensure model root folder exists: " + err.Error())
 		}
 	}
 
 	// Create Jobs to download models if the model is not present locally.
 	// 1. Check if LocalModelNode CR is for current node
-	localModelNode := v1alpha1api.LocalModelNode{}
+	localModelNode := v1alpha1.LocalModelNode{}
 	if err := c.Get(ctx, req.NamespacedName, &localModelNode); err != nil {
 		c.Log.Error(err, "Error getting LocalModelNode", "name", req.Name)
 		return reconcile.Result{}, client.IgnoreNotFound(err)
@@ -383,7 +427,12 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// 3. Kick off download jobs for all models in spec
-	localModelConfig, err := v1beta1.NewLocalModelConfig(c.Clientset)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.Clientset)
+	if err != nil {
+		c.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		return reconcile.Result{}, err
+	}
+	localModelConfig, err := v1beta1.NewLocalModelConfig(isvcConfigMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get local model config")
 		return reconcile.Result{}, err
@@ -413,7 +462,10 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1api.LocalModelNode{}).
+		// Do not reconcile on status change, when a job is created and the status is updated, the next reconcile is triggered immediately and
+		// there is a chance that the job is not returned when we list jobs, causing the same job to be created twice.
+		// Keep AnnotationChangedPredicate because we use it to trigger reconciliation in the test
+		For(&v1alpha1.LocalModelNode{}, builder.WithPredicates(predicate.Or(predicate.GenerationChangedPredicate{}, predicate.AnnotationChangedPredicate{}))).
 		Owns(&batchv1.Job{}).
 		Complete(c)
 }

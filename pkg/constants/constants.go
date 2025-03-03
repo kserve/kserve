@@ -103,8 +103,9 @@ var (
 	PrometheusPathAnnotationKey                 = "prometheus.io/path"
 	StorageReadonlyAnnotationKey                = "storage.kserve.io/readonly"
 	DefaultPrometheusPath                       = "/metrics"
-	QueueProxyAggregatePrometheusMetricsPort    = 9088
+	QueueProxyAggregatePrometheusMetricsPort    = "9088"
 	DefaultPodPrometheusPort                    = "9091"
+	NodeGroupAnnotationKey                      = KServeAPIGroupName + "/nodegroup"
 )
 
 // InferenceService Internal Annotations
@@ -151,19 +152,21 @@ var (
 
 // Controller Constants
 var (
-	ControllerLabelName             = KServeName + "-controller-manager"
-	DefaultIstioSidecarUID          = int64(1337)
-	DefaultMinReplicas              = 1
-	IstioInitContainerName          = "istio-init"
-	IstioInterceptModeRedirect      = "REDIRECT"
-	IstioInterceptionModeAnnotation = "sidecar.istio.io/interceptionMode"
-	IstioSidecarUIDAnnotationKey    = KServeAPIGroupName + "/storage-initializer-uid"
-	IstioSidecarStatusAnnotation    = "sidecar.istio.io/status"
+	ControllerLabelName                   = KServeName + "-controller-manager"
+	DefaultIstioSidecarUID                = int64(1337)
+	DefaultMinReplicas              int32 = 1
+	IstioInitContainerName                = "istio-init"
+	IstioInterceptModeRedirect            = "REDIRECT"
+	IstioInterceptionModeAnnotation       = "sidecar.istio.io/interceptionMode"
+	IstioSidecarUIDAnnotationKey          = KServeAPIGroupName + "/storage-initializer-uid"
+	IstioSidecarStatusAnnotation          = "sidecar.istio.io/status"
 )
 
-type AutoscalerClassType string
-type AutoscalerMetricsType string
-type AutoScalerKPAMetricsType string
+type (
+	AutoscalerClassType      string
+	AutoscalerMetricsType    string
+	AutoScalerKPAMetricsType string
+)
 
 var (
 	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
@@ -228,9 +231,7 @@ const (
 	GaudiGPUResourceType  = "habana.ai/gaudi"
 )
 
-var (
-	CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
-)
+var CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
 
 var GPUResourceTypeList = []string{
 	NvidiaGPUResourceType,
@@ -536,11 +537,6 @@ func getEnvOrDefault(key string, fallback string) string {
 	return fallback
 }
 
-// nolint: unused
-func isEnvVarMatched(envVar, matchtedValue string) bool {
-	return getEnvOrDefault(envVar, "") == matchtedValue
-}
-
 func InferenceServiceURL(scheme, name, namespace, domain string) string {
 	return fmt.Sprintf("%s://%s.%s.%s%s", scheme, name, namespace, domain, InferenceServicePrefix(name))
 }
@@ -602,7 +598,7 @@ func ModelConfigName(inferenceserviceName string, shardId int) string {
 }
 
 func InferenceServicePrefix(name string) string {
-	return fmt.Sprintf("/v1/models/%s", name)
+	return "/v1/models/" + name
 }
 
 func PredictPath(name string, protocol InferenceServiceProtocol) string {
