@@ -18,20 +18,17 @@ from typing import Tuple
 import pytest
 
 from kserve.protocol.rest.openai import (
-    EmbeddingRequest,
-    OpenAIEmbeddingModel,
+    OpenAIEncoderModel,
 )
-from kserve.protocol.rest.openai.types.openapi import (
-    CreateEmbeddingRequest,
-)
-from kserve.protocol.rest.openai.types.openapi import (
-    CreateEmbeddingResponse as Embedding,
+from kserve.protocol.rest.openai.types import (
+    Embedding,
+    EmbeddingCompletionRequest as EmbeddingRequest,
 )
 
 FIXTURES_PATH = Path(__file__).parent / "fixtures" / "openai"
 
 
-class DummyModel(OpenAIEmbeddingModel):
+class DummyModel(OpenAIEncoderModel):
     data: Tuple[Embedding]
 
     def __init__(self, data: Tuple[Embedding]):
@@ -51,7 +48,7 @@ def embedding():
 @pytest.fixture
 def embedding_create_params():
     with open(FIXTURES_PATH / "embedding_create_params.json") as f:
-        return CreateEmbeddingRequest.model_validate_json(f.read())
+        return EmbeddingRequest.model_validate_json(f.read())
 
 
 @pytest.fixture
@@ -65,9 +62,8 @@ class TestOpenAICreateEmbedding:
         self,
         dummy_model: DummyModel,
         embedding: Embedding,
-        embedding_create_params: CreateEmbeddingRequest,
+        embedding_create_params: EmbeddingRequest,
     ):
-        request = EmbeddingRequest(params=embedding_create_params)
-        c = await dummy_model.create_embedding(request)
+        c = await dummy_model.create_embedding(embedding_create_params)
         assert isinstance(c, Embedding)
         assert c.model_dump_json(indent=2) == embedding.model_dump_json(indent=2)

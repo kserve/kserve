@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -347,7 +348,13 @@ var _ = Describe("CachedModel controller", func() {
 				Spec: localModelSpec,
 			}
 			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
-			defer k8sClient.Delete(ctx, cachedModel)
+			defer func() {
+				Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName}, cachedModel)
+					return err != nil && errors.IsNotFound(err)
+				}, timeout, interval).Should(BeTrue(), "Should not get the local model after deletion")
+			}()
 			// No nodegroup annotation, should pick the default nodegroup,
 			// which is the first one in the model cache nodegroup list
 			isvc1 := &v1beta1.InferenceService{
@@ -662,16 +669,18 @@ var _ = Describe("CachedModel controller", func() {
 				defer k8sClient.Delete(ctx, node)
 			}
 
+			model1 := "iris1"
 			cachedModel1 := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "iris1",
+					Name: model1,
 				},
 				Spec: localModelSpec,
 			}
 			Expect(k8sClient.Create(ctx, cachedModel1)).Should(Succeed())
+			model2 := "iris2"
 			cachedModel2 := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: "iris2",
+					Name: model2,
 				},
 				Spec: localModelSpec,
 			}
@@ -705,6 +714,14 @@ var _ = Describe("CachedModel controller", func() {
 					return err == nil && len(localModelNode.Spec.LocalModels) == 0
 				}, timeout, interval).Should(BeTrue())
 			}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: model1}, cachedModel1)
+				return err != nil && errors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue(), "Should not get the local model after deletion")
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: model2}, cachedModel2)
+				return err != nil && errors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue(), "Should not get the local model after deletion")
 		})
 	})
 })

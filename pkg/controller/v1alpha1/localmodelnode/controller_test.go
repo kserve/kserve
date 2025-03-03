@@ -381,7 +381,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			// Delete the model folder
 			fsMock.clear()
 
-			// Manually trigger reconcillation
+			// Manually trigger reconciliation
 			patch := client.MergeFrom(localModelNode.DeepCopy())
 			localModelNode.Annotations = map[string]string{"foo": "bar"}
 			Expect(k8sClient.Patch(ctx, localModelNode, patch)).Should(Succeed())
