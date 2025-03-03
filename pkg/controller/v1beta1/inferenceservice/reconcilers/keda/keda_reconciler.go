@@ -59,7 +59,7 @@ func NewKedaReconciler(client client.Client,
 	}, nil
 }
 
-func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
+func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, minReplicas int32, maxReplicas int32,
 ) []kedav1alpha1.ScaleTriggers {
 	var triggers []kedav1alpha1.ScaleTriggers
 
@@ -87,6 +87,7 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 				})
 			} else if metric.Type == v1beta1.MetricSourceType(constants.AutoScalerExternal) {
 				triggerType := string(*metric.External.Metric.Backend)
+
 				serverAddress := metric.External.Metric.ServerAddress
 				query := metric.External.Metric.Query
 				targetValue = int(metric.External.Target.Value.AsApproximateFloat64())
@@ -104,6 +105,11 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 					if metric.External.Metric.Namespace != "" {
 						trigger.Metadata["namespace"] = metric.External.Metric.Namespace
 					}
+				}
+				if triggerType == "opentelemetry" {
+					trigger.Type = "external"
+					trigger.Metadata["clampMin"] = strconv.Itoa(int(minReplicas))
+					trigger.Metadata["clampMax"] = strconv.Itoa(int(maxReplicas))
 				}
 
 				triggers = append(triggers, trigger)
@@ -129,7 +135,6 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 ) *kedav1alpha1.ScaledObject {
-	triggers := getKedaMetrics(componentExtension)
 	annotations := componentMeta.GetAnnotations()
 
 	MinReplicas := componentExtension.MinReplicas
@@ -142,6 +147,7 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	if MaxReplicas < *MinReplicas {
 		MaxReplicas = *MinReplicas
 	}
+	triggers := getKedaMetrics(componentExtension, *MinReplicas, MaxReplicas)
 
 	scaledobject := &kedav1alpha1.ScaledObject{
 		ObjectMeta: metav1.ObjectMeta{

@@ -71,8 +71,9 @@ type LoggerSpec struct {
 type MetricsBackend string
 
 const (
-	PrometheusBackend MetricsBackend = "prometheus"
-	GraphiteBackend   MetricsBackend = "graphite"
+	PrometheusBackend    MetricsBackend = "prometheus"
+	GraphiteBackend      MetricsBackend = "graphite"
+	OpenTelemetryBackend MetricsBackend = "opentelemetry"
 )
 
 // Batcher specifies optional payload batching available for all components

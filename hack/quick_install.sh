@@ -127,7 +127,11 @@ if [ $installKeda = true ]; then
    helm repo add kedacore https://kedacore.github.io/charts
    helm install keda kedacore/keda --version ${KEDA_VERSION} --namespace keda --create-namespace --wait
    echo "😀 Successfully installed KEDA"
+
+   helm upgrade -i kedify-otel oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.5
+   echo "😀 Successfully installed KEDA"
 fi
+
 
 # Install Knative
 if [ "${deploymentMode}" = "Serverless" ]; then
