@@ -135,13 +135,12 @@ check: precommit
 		exit 1; \
 	fi
 
-# This clears all cached files and installed binaries.
+# This clears all the installed binaries.
 #
 # Whenever you run into issues with the target like `precommit` or `test`, try running this target.
 .PHONY: clean
 clean:
 	rm -rf $(LOCALBIN)
-	go clean -modcache
 
 # Run tests
 test: fmt vet manifests envtest test-qpext
