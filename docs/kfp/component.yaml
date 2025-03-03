@@ -1,0 +1,52 @@
+name: Serve a model with KServe 
+description: Serve Models using KServe 
+inputs:
+  - {name: Action,                    type: String, default: 'create',                            description: 'Action to execute on KServe'}
+  - {name: Model Name,                type: String, default: '',                                  description: 'Name to give to the deployed model'}
+  - {name: Model URI,                 type: String, default: '',                                  description: 'Path of the S3 or GCS compatible directory containing the model.'}
+  - {name: Canary Traffic Percent,    type: String, default: '100',                               description: 'The traffic split percentage between the candidate model and the last ready model'}
+  - {name: Namespace,                 type: String, default: '',                                  description: 'Kubernetes namespace where the KServe service is deployed.'}
+  - {name: Framework,                 type: String, default: '',                                  description: 'Machine Learning Framework for Model Serving.'}
+  - {name: Runtime Version,           type: String, default: 'latest',                            description: 'Runtime Version of Machine Learning Framework'}
+  - {name: Resource Requests,         type: String, default: '{"cpu": "0.5", "memory": "512Mi"}', description: 'CPU and Memory requests for Model Serving'}
+  - {name: Resource Limits,           type: String, default: '{"cpu": "1", "memory": "1Gi"}',     description: 'CPU and Memory limits for Model Serving'}
+  - {name: Custom Model Spec,         type: String, default: '{}',                                description: 'Custom model runtime container spec in JSON'}
+  - {name: Autoscaling Target,        type: String, default: '0',                                 description: 'Autoscaling Target Number'}
+  - {name: Service Account,           type: String, default: '',                                  description: 'ServiceAccount to use to run the InferenceService pod'}
+  - {name: Enable Istio Sidecar,      type: Bool,   default: 'True',                              description: 'Whether to enable istio sidecar injection'}
+  - {name: InferenceService YAML,     type: String, default: '{}',                                description: 'Raw InferenceService serialized YAML for deployment'}
+  - {name: Watch Timeout,             type: String, default: '300',                               description: "Timeout seconds for watching until InferenceService becomes ready."}
+  - {name: Min Replicas,              type: String, default: '-1',                                description: 'Minimum number of InferenceService replicas'}
+  - {name: Max Replicas,              type: String, default: '-1',                                description: 'Maximum number of InferenceService replicas'}
+  - {name: Request Timeout,           type: String, default: '60',                                description: "Specifies the number of seconds to wait before timing out a request to the component."}
+  - {name: Enable ISVC Status,        type: Bool,   default: 'True',                              description: "Specifies whether to store the inference service status as the output parameter"}
+
+outputs:
+  - {name: InferenceService Status,   type: String,                                               description: 'Status JSON output of InferenceService'}
+implementation:
+  container:
+    image: quay.io/aipipeline/kserve-component:v0.12.0
+    command: ['python']
+    args: [
+      -u, kservedeployer.py,
+      --action,                 {inputValue: Action},
+      --model-name,             {inputValue: Model Name},
+      --model-uri,              {inputValue: Model URI},
+      --canary-traffic-percent, {inputValue: Canary Traffic Percent},
+      --namespace,              {inputValue: Namespace},
+      --framework,              {inputValue: Framework},
+      --runtime-version,        {inputValue: Runtime Version},
+      --resource-requests,      {inputValue: Resource Requests},
+      --resource-limits,        {inputValue: Resource Limits},
+      --custom-model-spec,      {inputValue: Custom Model Spec},
+      --autoscaling-target,     {inputValue: Autoscaling Target},
+      --service-account,        {inputValue: Service Account},
+      --enable-istio-sidecar,   {inputValue: Enable Istio Sidecar},
+      --output-path,            {outputPath: InferenceService Status},
+      --inferenceservice-yaml,  {inputValue: InferenceService YAML},
+      --watch-timeout,          {inputValue: Watch Timeout},
+      --min-replicas,           {inputValue: Min Replicas},
+      --max-replicas,           {inputValue: Max Replicas},
+      --request-timeout,        {inputValue: Request Timeout},
+      --enable-isvc-status,     {inputValue: Enable ISVC Status}
+    ]
