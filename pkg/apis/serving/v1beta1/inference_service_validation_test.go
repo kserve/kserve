@@ -281,12 +281,25 @@ func TestCustomOK(t *testing.T) {
 	isvc.Spec.Predictor.PodSpec = PodSpec{
 		Containers: []corev1.Container{
 			{
+				Name:  constants.InferenceServiceContainerName,
 				Image: "some-image",
 			},
 		},
 	}
 	validator := InferenceServiceValidator{}
 	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	g.Expect(err).Should(gomega.Succeed())
+	g.Expect(warnings).Should(gomega.BeEmpty())
+
+	isvc.Spec.Predictor.PodSpec = PodSpec{
+		Containers: []corev1.Container{
+			{
+				Image: "some-image",
+			},
+		},
+	}
+	validator = InferenceServiceValidator{}
+	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
