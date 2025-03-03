@@ -151,7 +151,8 @@ class V2Endpoints:
         if model_version:
             raise NotImplementedError("Model versioning not supported yet.")
 
-        model_ready = await self.dataplane.model_ready(model_name)
+        # Disable predictor health check
+        model_ready = await self.dataplane.model_ready(model_name, True)
 
         if not model_ready:
             raise ModelNotReady(model_name)
