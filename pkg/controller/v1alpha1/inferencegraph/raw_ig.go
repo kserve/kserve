@@ -98,17 +98,6 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 		}
 	}
 
-	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
-	value, exists := config.Headers["propagate"]
-	if exists {
-		podSpec.Containers[0].Env = []v1.EnvVar{
-			{
-				Name:  constants.RouterHeadersPropagateEnvVar,
-				Value: strings.Join(value, ","),
-			},
-		}
-	}
-
 	return podSpec
 }
 
