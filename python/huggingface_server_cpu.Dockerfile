@@ -113,9 +113,6 @@ COPY --from=builder --chown=kserve:kserve kserve kserve
 ENV HF_HOME="/tmp/huggingface"
 # https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables#hfhubdisabletelemetry
 ENV HF_HUB_DISABLE_TELEMETRY="1"
-# https://github.com/vllm-project/vllm/issues/6152
-# Set the multiprocess method to spawn to avoid issues with cuda initialization for `mp` executor backend.
-ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 USER 1000
 ENTRYPOINT ["python", "-m", "huggingfaceserver"]
