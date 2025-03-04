@@ -16,8 +16,6 @@
 import pytest
 import openai
 import pytest_asyncio
-import requests
-import json
 
 from server import RemoteOpenAIServer
 
@@ -59,7 +57,9 @@ async def test_reasoning(client: openai.AsyncOpenAI, model_name: str):
     # Round 1
     messages = [{"role": "user", "content": "9.11 and 9.8, which is greater?"}]
 
-    chat_completion = await client.chat.completions.create(model=model_name, messages=messages)
+    chat_completion = await client.chat.completions.create(
+        model=model_name, messages=messages
+    )
 
     assert chat_completion.object != "error"
     reasoning_content = chat_completion.choices[0].message.reasoning_content
@@ -70,14 +70,17 @@ async def test_reasoning(client: openai.AsyncOpenAI, model_name: str):
     print("reasoning_content for Round 1:", reasoning_content)
     print("content for Round 1:", content)
 
-
     # Round 2
     messages.append({"role": "assistant", "content": content})
-    messages.append({
-        "role": "user",
-        "content": "How many Rs are there in the word 'strawberry'?",
-    })
-    chat_completion = await client.chat.completions.create(model=model_name, messages=messages)
+    messages.append(
+        {
+            "role": "user",
+            "content": "How many Rs are there in the word 'strawberry'?",
+        }
+    )
+    chat_completion = await client.chat.completions.create(
+        model=model_name, messages=messages
+    )
 
     assert chat_completion.object != "error"
     reasoning_content = chat_completion.choices[0].message.reasoning_content
@@ -87,4 +90,3 @@ async def test_reasoning(client: openai.AsyncOpenAI, model_name: str):
 
     print("reasoning_content for Round 2:", reasoning_content)
     print("content for Round 2:", content)
-    
