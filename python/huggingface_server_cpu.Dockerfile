@@ -8,16 +8,21 @@ ARG PYTHON=python3
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install --no-install-recommends --fix-missing -y \
+        g++-12 \
+        gcc-12 \
         libgl1 \
         libglib2.0-0 \
         libnuma1 \
         numactl \
-        python3-pip \
-        python3.10-venv && \
+        python3.10-venv \
+        python3.10-dev \
+        python3-pip && \
     apt-get clean && \
     apt-get autoclean && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
+
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
 
 RUN ln -sf "$(which ${PYTHON})" /usr/bin/python
 
@@ -31,15 +36,10 @@ RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update && \
     apt-get install --no-install-recommends --fix-missing -y \
         build-essential \
-        g++-12 \
-        gcc-12 \
         git \
-        libnuma-dev \
-        python3.10-dev && \        
+        libnuma-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12
 
 RUN python -m venv ${POETRY_HOME} && \
     ${POETRY_HOME}/bin/pip install --no-cache-dir --upgrade pip && \
