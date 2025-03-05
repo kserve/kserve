@@ -62,7 +62,7 @@ type PredictorSpec struct {
 	//    The field PodSpec.Containers is mutually exclusive with other predictors (e.g., TFServing). <br />
 	// 2) To provide a predictor (e.g., TFServing) and specify PodSpec overrides. <br />
 	// 3) To provide a pre/post-processing container for a predictor. <br />
-	// You must not specify a predictor unless you are using a custom predictor.
+	// You must not specify kserve-container on podSpec unless you are using a custom predictor.
 	PodSpec `json:",inline"`
 	// Component extension defines the deployment configurations for a predictor
 	ComponentExtensionSpec `json:",inline"`

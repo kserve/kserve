@@ -23,8 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"knative.dev/pkg/kmp"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
@@ -284,7 +282,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// that are present on the remote version.
 			err := k8sClient.Update(context.TODO(), expectedService, client.DryRunAll)
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(kmp.SafeDiff(actualService.Spec, expectedService.Spec)).To(Equal(""))
+			Expect(actualService.Spec).To(BeComparableTo(expectedService.Spec))
 			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			// update predictor
 			{

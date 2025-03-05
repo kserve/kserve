@@ -166,6 +166,58 @@ func TestCustomPredictorDefaulter(t *testing.T) {
 					},
 				},
 			},
+		}, "PredictorContainerWithoutName": {
+			spec: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Image: "custom-predictor:0.1.0",
+							Args: []string{
+								"--model_name",
+								"someName",
+								"--http_port",
+								"8080",
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+						},
+					},
+				},
+			},
+			expected: PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "custom-predictor:0.1.0",
+							Resources: corev1.ResourceRequirements{
+								Requests: defaultResource,
+								Limits:   defaultResource,
+							},
+							Args: []string{
+								"--model_name",
+								"someName",
+								"--http_port",
+								"8080",
+							},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "STORAGE_URI",
+									Value: "hdfs://modelzoo",
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -235,53 +287,6 @@ func TestCreateCustomPredictorContainer(t *testing.T) {
 			expectedContainerSpec: &corev1.Container{
 				Image:     "custom-predictor:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
-				Resources: requestedResource,
-				Args: []string{
-					"--model_name",
-					"someName",
-					"--http_port",
-					"8080",
-				},
-				Env: []corev1.EnvVar{
-					{
-						Name:  "STORAGE_URI",
-						Value: "hdfs://modelzoo",
-					},
-				},
-			},
-		}, "PredictorContainerWithoutName": {
-			isvc: InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "custom-predictor",
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						PodSpec: PodSpec{
-							Containers: []corev1.Container{
-								{
-									Image: "custom-predictor:0.1.0",
-									Args: []string{
-										"--model_name",
-										"someName",
-										"--http_port",
-										"8080",
-									},
-									Env: []corev1.EnvVar{
-										{
-											Name:  "STORAGE_URI",
-											Value: "hdfs://modelzoo",
-										},
-									},
-									Resources: requestedResource,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedContainerSpec: &corev1.Container{
-				Name:      constants.InferenceServiceContainerName,
-				Image:     "custom-predictor:0.1.0",
 				Resources: requestedResource,
 				Args: []string{
 					"--model_name",
