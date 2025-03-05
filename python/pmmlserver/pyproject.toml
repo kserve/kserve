@@ -10,7 +10,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
+python = ">=3.9.2,<3.13"
 kserve = { path = "../kserve", extras = ["storage"], develop = true }
 jpmml-evaluator = "~0.10.3"
 setuptools = "^70.0.0"
