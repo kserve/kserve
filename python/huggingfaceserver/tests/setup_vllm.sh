@@ -4,7 +4,7 @@ set -e
 
 echo "Installing vllm openvino"
 
-VLLM_VERSION=v0.7.2
+VLLM_VERSION=v0.7.3
 VLLM_DIR=vllm-clone
 
 source $(poetry env info -p)/bin/activate
