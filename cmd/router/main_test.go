@@ -1002,14 +1002,15 @@ func TestServerTimeout(t *testing.T) {
 
 			// Call the InferenceGraph
 			client := &http.Client{}
-			req, _ := http.NewRequest("POST", "http://localhost:"+strconv.Itoa(constants.RouterPort), bytes.NewBuffer(nil))
+			req, _ := http.NewRequest(http.MethodPost, "http://localhost:"+strconv.Itoa(constants.RouterPort), bytes.NewBuffer(nil))
 			resp, err := client.Do(req)
+			resp.Body.Close()
 
 			if testCase.expectError {
 				assert.Contains(t, err.Error(), "EOF")
 			} else {
-				assert.Nil(t, err)
-				assert.Equal(t, resp.StatusCode, http.StatusOK)
+				require.NoError(t, err)
+				assert.Equal(t, http.StatusOK, resp.StatusCode)
 			}
 		})
 	}

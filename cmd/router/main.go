@@ -155,7 +155,6 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 		}
 	}
 	resp, err := client.Do(req)
-
 	if err != nil {
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
 		return nil, 500, err
