@@ -1004,7 +1004,9 @@ func TestServerTimeout(t *testing.T) {
 			client := &http.Client{}
 			req, _ := http.NewRequest(http.MethodPost, "http://localhost:"+strconv.Itoa(constants.RouterPort), bytes.NewBuffer(nil))
 			resp, err := client.Do(req)
-			resp.Body.Close()
+			if resp != nil {
+				defer resp.Body.Close()
+			}
 
 			if testCase.expectError {
 				assert.Contains(t, err.Error(), "EOF")
