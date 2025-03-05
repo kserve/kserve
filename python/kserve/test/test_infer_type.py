@@ -41,6 +41,7 @@ class TestInferRequest:
     def test_to_grpc(self):
         infer_req = InferRequest(
             model_name="TestModel",
+            model_version="v1",
             request_id="123",
             parameters={"test-str": "dummy", "test-bool": True, "test-int": 100},
             infer_inputs=[
@@ -77,6 +78,7 @@ class TestInferRequest:
         )
         expected = ModelInferRequest(
             model_name="TestModel",
+            model_version="v1",
             id="123",
             parameters={
                 "test-str": InferParameter(string_param="dummy"),
