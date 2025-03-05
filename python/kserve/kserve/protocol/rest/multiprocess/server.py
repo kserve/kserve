@@ -38,6 +38,9 @@ class RESTServerProcess:
         log_config_file: Optional[str] = None,
     ) -> None:
         self._real_target = target
+        # Pipe is used to identify if the process is responsive.
+        # A ping request is sent from the parent_conn and is received by the child_conn which in turn responds with a pong.
+        # If the request times out, then the process is considered unresponsive. We then kill the process and recreate it.
         self._parent_conn, self._child_conn = mp.Pipe()
         self._process = spawn.Process(target=self.target, args=[sockets])
         self._log_config_file = log_config_file

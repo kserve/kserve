@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import os
 
@@ -31,7 +32,12 @@ from kserve import (
 
 import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
+from ..common.utils import (
+    KSERVE_TEST_NAMESPACE,
+    predict_isvc,
+    predict_grpc,
+    extract_process_ids_from_logs,
+)
 
 
 @pytest.mark.predictor
@@ -130,7 +136,7 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "512Mi"},
-                limits={"cpu": "1", "memory": "1Gi"},
+                limits={"cpu": "2", "memory": "1Gi"},
             ),
             args=["--workers=2"],
         ),
@@ -150,8 +156,27 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
-    assert res["predictions"] == [1, 1]
+    tasks = [
+        predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
+        for _ in range(25)
+    ]
+    responses = await asyncio.gather(*tasks)
+    for res in responses:
+        assert res["predictions"] == [1, 1]
+
+    pods = kserve_client.core_api.list_namespaced_pod(
+        KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+    )
+    # Wait for logs to be available
+    await asyncio.sleep(5)
+    logs = kserve_client.core_api.read_namespaced_pod_log(
+        name=pods.items[0].metadata.name,
+        namespace=pods.items[0].metadata.namespace,
+        container="kserve-container",
+    )
+    process_ids = extract_process_ids_from_logs(logs)
+    assert len(process_ids) == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
