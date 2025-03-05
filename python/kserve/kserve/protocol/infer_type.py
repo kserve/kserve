@@ -483,6 +483,7 @@ class InferRequest:
     parameters: Optional[Dict]
     inputs: List[InferInput]
     from_grpc: bool
+    model_version: Optional[str]
 
     def __init__(
         self,
@@ -493,6 +494,7 @@ class InferRequest:
         from_grpc: Optional[bool] = False,
         parameters: Optional[Union[Dict, MessageMap[str, InferParameter]]] = None,
         request_outputs: Optional[List[RequestedOutput]] = None,
+        model_version: Optional[str] = None,
     ):
         """InferRequest Data Model.
 
@@ -504,6 +506,7 @@ class InferRequest:
             from_grpc: Indicate if the data model is constructed from gRPC request.
             parameters: The additional inference parameters.
             request_outputs: The output tensors requested for this inference.
+            model_version: The version of the model.
         """
 
         self.id = request_id
@@ -517,6 +520,7 @@ class InferRequest:
             for i, raw_input in enumerate(raw_inputs):
                 self.inputs[i]._raw_data = raw_input
         self.request_outputs = request_outputs
+        self.model_version = model_version
 
     @property
     def use_binary_outputs(self) -> bool:
@@ -582,6 +586,7 @@ class InferRequest:
             from_grpc=True,
             parameters=request.parameters,
             request_outputs=request_outputs if request_outputs else None,
+            model_version=request.model_version,
         )
 
     @classmethod
@@ -834,6 +839,7 @@ class InferRequest:
         return ModelInferRequest(
             id=self.id,
             model_name=self.model_name,
+            model_version=self.model_version,
             inputs=infer_inputs,
             raw_input_contents=raw_input_contents,
             parameters=to_grpc_parameters(self.parameters) if self.parameters else None,
