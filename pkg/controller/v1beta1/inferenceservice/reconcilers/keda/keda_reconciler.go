@@ -110,6 +110,12 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, minReplicas in
 					trigger.Type = "external"
 					trigger.Metadata["clampMin"] = strconv.Itoa(int(minReplicas))
 					trigger.Metadata["clampMax"] = strconv.Itoa(int(maxReplicas))
+					trigger.Metadata["metricQuery"] = query
+					trigger.Metadata["targetValue"] = strconv.Itoa(targetValue)
+					trigger.Metadata["scalerAddress"] = serverAddress
+					delete(trigger.Metadata, "query")
+					delete(trigger.Metadata, "threshold")
+					delete(trigger.Metadata, "serverAddress")
 				}
 
 				triggers = append(triggers, trigger)

@@ -236,7 +236,7 @@ const (
 
 type MetricSource struct {
 	// MetricsBackend defines the scaling metric type watched by autoscaler
-	// possible values are prometheus, graphite.
+	// possible values are prometheus, graphite, opentelemetry.
 	// +optional
 	Backend *MetricsBackend `json:"backend,omitempty"`
 	// Address of MetricsBackend server.

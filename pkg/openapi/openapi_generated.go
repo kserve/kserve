@@ -6270,7 +6270,7 @@ func schema_pkg_apis_serving_v1beta1_MetricSource(ref common.ReferenceCallback) 
 				Properties: map[string]spec.Schema{
 					"backend": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
+							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
