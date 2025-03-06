@@ -569,16 +569,16 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 	if err != nil {
 		return errors.Wrapf(err, "fails to reconcile predictor")
 	}
-  		
-  kr, err := keda.NewKedaReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec)
+
+	kr, err := keda.NewKedaReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile keda")
+		return errors.Wrapf(err, "fails to reconcile keda")
 	}
 	// set ScaledObject Controller
 	if err := controllerutil.SetControllerReference(isvc, kr.ScaledObject, p.scheme); err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "fails to set ScaledObject owner reference for predictor")
+		return errors.Wrapf(err, "fails to set ScaledObject owner reference for predictor")
 	}
-  
+
 	isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
 	return nil
 }
