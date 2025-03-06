@@ -47,7 +47,7 @@ const (
 
 var (
 	agentConfig = &AgentConfig{
-		Image:         "gcr.io/kfserving/agent:latest",
+		Image:         "gcr.io/kserve/agent:latest",
 		CpuRequest:    AgentDefaultCPURequest,
 		CpuLimit:      AgentDefaultCPULimit,
 		MemoryRequest: AgentDefaultMemoryRequest,
@@ -55,18 +55,18 @@ var (
 	}
 
 	loggerConfig = &LoggerConfig{
-		Image:      "gcr.io/kfserving/agent:latest",
+		Image:      "gcr.io/kserve/agent:latest",
 		DefaultUrl: "http://httpbin.org/",
 	}
 	loggerTLSConfig = &LoggerConfig{
-		Image:         "gcr.io/kfserving/agent:latest",
+		Image:         "gcr.io/kserve/agent:latest",
 		DefaultUrl:    "https://httpbin.org/",
 		CaBundle:      "kserve-tls-bundle",
 		CaCertFile:    "ca.crt",
 		TlsSkipVerify: true,
 	}
 	batcherTestConfig = &BatcherConfig{
-		Image: "gcr.io/kfserving/batcher:latest",
+		Image: "gcr.io/kserve/batcher:latest",
 	}
 	agentResourceRequirement = corev1.ResourceRequirements{
 		Limits: map[corev1.ResourceName]resource.Quantity{
@@ -169,7 +169,10 @@ func TestAgentInjector(t *testing.T) {
 									MountPath: constants.ModelConfigDir,
 								},
 							},
-							Args: []string{"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models"},
+							Args: []string{
+								"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models", constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
+							},
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "agent-port",
@@ -333,6 +336,8 @@ func TestAgentInjector(t *testing.T) {
 								"predictor",
 								LoggerArgumentTlsSkipVerify,
 								"false",
+								constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
 							},
 							Ports: []corev1.ContainerPort{
 								{
@@ -461,6 +466,8 @@ func TestAgentInjector(t *testing.T) {
 								"Foo,Bar",
 								LoggerArgumentTlsSkipVerify,
 								"false",
+								constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
 							},
 							Ports: []corev1.ContainerPort{
 								{
@@ -597,6 +604,8 @@ func TestAgentInjector(t *testing.T) {
 								"30",
 								BatcherArgumentMaxLatency,
 								"100",
+								constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
 							},
 							Ports: []corev1.ContainerPort{
 								{
@@ -934,7 +943,7 @@ func TestAgentInjector(t *testing.T) {
 								"predictor",
 								LoggerArgumentTlsSkipVerify,
 								"false",
-								"--component-port",
+								constants.AgentComponentPortArgName,
 								constants.InferenceServiceDefaultHttpPort,
 							},
 							Ports: []corev1.ContainerPort{
@@ -1065,7 +1074,7 @@ func TestAgentInjector(t *testing.T) {
 								"predictor",
 								LoggerArgumentTlsSkipVerify,
 								"false",
-								"--component-port",
+								constants.AgentComponentPortArgName,
 								constants.InferenceServiceDefaultHttpPort,
 							},
 							Ports: []corev1.ContainerPort{
@@ -1199,7 +1208,10 @@ func TestAgentInjector(t *testing.T) {
 									MountPath: constants.ModelConfigDir,
 								},
 							},
-							Args: []string{"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models", "--component-port", "80"},
+							Args: []string{
+								"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models",
+								constants.AgentComponentPortArgName, "80",
+							},
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "agent-port",
@@ -1348,6 +1360,8 @@ func TestAgentInjector(t *testing.T) {
 								loggerTLSConfig.CaCertFile,
 								LoggerArgumentTlsSkipVerify,
 								strconv.FormatBool(loggerTLSConfig.TlsSkipVerify),
+								constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
 							},
 							Ports: []corev1.ContainerPort{
 								{

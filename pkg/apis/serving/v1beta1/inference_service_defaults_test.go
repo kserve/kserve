@@ -387,6 +387,7 @@ func TestCustomPredictorDefaultsConfig(t *testing.T) {
 				PodSpec: PodSpec{
 					Containers: []corev1.Container{
 						{
+							Name: constants.InferenceServiceContainerName,
 							Env: []corev1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
@@ -403,32 +404,8 @@ func TestCustomPredictorDefaultsConfig(t *testing.T) {
 	isvc.Spec.DeepCopy()
 	isvc.DefaultInferenceService(config, deployConfig, nil, nil)
 	g.Expect(isvc.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
-}
 
-func TestCustomPredictorDefaults(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	defaultResource := corev1.ResourceList{
-		corev1.ResourceCPU:    resource.MustParse("1"),
-		corev1.ResourceMemory: resource.MustParse("2Gi"),
-	}
-	config := &InferenceServicesConfig{
-		Explainers: ExplainersConfig{
-			ARTExplainer: ExplainerConfig{
-				ContainerImage:      "art",
-				DefaultImageVersion: "v0.4.0",
-			},
-		},
-		Resource: ResourceConfig{
-			CPULimit:      "1",
-			MemoryLimit:   "2Gi",
-			CPURequest:    "1",
-			MemoryRequest: "2Gi",
-		},
-	}
-	deployConfig := &DeployConfig{
-		DefaultDeploymentMode: "Serverless",
-	}
-	isvc := InferenceService{
+	isvcWithoutContainerName := InferenceService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "foo",
 			Namespace: "default",
@@ -450,10 +427,9 @@ func TestCustomPredictorDefaults(t *testing.T) {
 			},
 		},
 	}
-	resources := corev1.ResourceRequirements{Requests: defaultResource, Limits: defaultResource}
-	isvc.Spec.DeepCopy()
-	isvc.DefaultInferenceService(config, deployConfig, nil, nil)
-	g.Expect(isvc.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
+	isvcWithoutContainerName.Spec.DeepCopy()
+	isvcWithoutContainerName.DefaultInferenceService(config, deployConfig, nil, nil)
+	g.Expect(isvcWithoutContainerName.Spec.Predictor.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))
 }
 
 func TestInferenceServiceDefaultsModelMeshAnnotation(t *testing.T) {
