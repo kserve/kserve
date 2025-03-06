@@ -84,8 +84,7 @@ data:
       "enableMetricAggregation": "false",
       "enablePrometheusScraping" : "false"
     }
-    # annotation "security.opendatahub.io/enable-auth" is filtered out of the serviceAnnotationDisallowedList 
-    # when the inferenceService is using RawDeployment mode
+
   inferenceService: |-
     {
       "serviceAnnotationDisallowedList": [
