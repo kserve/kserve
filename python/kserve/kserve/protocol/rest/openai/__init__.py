@@ -12,29 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 from .openai_model import (
     ChatPrompt,
     CompletionRequest,
     ChatCompletionRequest,
-    EmbeddingRequest,
     OpenAIModel,
-    OpenAICompletionModel,
-    OpenAIEmbeddingModel,
+    OpenAIGenerativeModel,
+    OpenAIEncoderModel,
 )
 
 from .openai_proxy_model import OpenAIProxyModel
 from .openai_chat_adapter_model import OpenAIChatAdapterModel
-from .types import ChatCompletionRequestMessage
+from .types import ChatCompletionMessageParam
 
 __all__ = [
+    "OpenAIEncoderModel",
+    "OpenAIGenerativeModel",
     "OpenAIModel",
     "OpenAIChatAdapterModel",
-    "OpenAICompletionModel",
-    "OpenAIEmbeddingModel",
+    "OpenAIGenerativeModel",
+    "OpenAIEncoderModel",
     "OpenAIProxyModel",
     "ChatPrompt",
     "CompletionRequest",
     "ChatCompletionRequest",
-    "ChatCompletionRequestMessage",
-    "EmbeddingRequest",
+    "ChatCompletionMessageParam",
 ]
