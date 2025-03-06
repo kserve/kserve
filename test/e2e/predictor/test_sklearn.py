@@ -158,7 +158,7 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     tasks = [
         predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
-        for _ in range(30)
+        for _ in range(100)
     ]
     responses = await asyncio.gather(*tasks)
     for res in responses:
