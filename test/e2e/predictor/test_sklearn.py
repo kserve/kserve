@@ -135,8 +135,8 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
             ),
             storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
             resources=V1ResourceRequirements(
-                requests={"cpu": "1", "memory": "512Mi"},
-                limits={"cpu": "2", "memory": "1Gi"},
+                requests={"cpu": "2", "memory": "1Gi"},
+                limits={"cpu": "2", "memory": "2Gi"},
             ),
             args=["--workers=2"],
         ),
@@ -158,7 +158,7 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     tasks = [
         predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
-        for _ in range(25)
+        for _ in range(30)
     ]
     responses = await asyncio.gather(*tasks)
     for res in responses:
