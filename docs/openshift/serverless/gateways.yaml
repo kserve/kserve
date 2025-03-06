@@ -59,4 +59,4 @@ metadata:
   name: wildcard-certs
   namespace: istio-system
 type: kubernetes.io/tls
----
+
