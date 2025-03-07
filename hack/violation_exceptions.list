@@ -12,6 +12,7 @@ API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,ServingRuntimeSpec,SupportedModelFormats
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,StorageContainerSpec,SupportedUriFormats
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,TrainedModelList,Items
+API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,AutoScalingSpec,Metrics
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ComponentStatusSpec,Traffic
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,InferenceServiceList,Items
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,InferenceServicesConfig,ServiceAnnotationDisallowedList
