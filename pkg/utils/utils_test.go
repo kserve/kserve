@@ -31,6 +31,9 @@ import (
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials/gcs"
+
+	"github.com/stretchr/testify/assert"
+	v1 "k8s.io/api/core/v1"
 )
 
 func TestFilterUtil(t *testing.T) {
@@ -1143,4 +1146,36 @@ func TestGetGPUResourceQtyByType(t *testing.T) {
 			g.Expect(quantity.String()).Should(gomega.Equal(tt.expectedQuantity))
 		})
 	}
+}
+
+func TestCheckEnvsToRemove(t *testing.T) {
+	current := []v1.EnvVar{
+		{Name: "env1", Value: "value1"},
+		{Name: "env2", Value: "value2"},
+		{Name: "env3", Value: "value3"},
+		{Name: "env4", Value: "delete"},
+	}
+	desired := []v1.EnvVar{
+		{Name: "env2", Value: "value2"},
+		{Name: "env4", Value: "delete"},
+	}
+
+	needsToBeRemoved := []v1.EnvVar{
+		{Name: "env1", Value: "env_marked_for_deletion"},
+		{Name: "env3", Value: "env_marked_for_deletion"},
+	}
+	removed, keep := CheckEnvsToRemove(desired, current)
+	assert.Equal(t, needsToBeRemoved, removed)
+	assert.Equal(t, desired, keep)
+
+	// resultant list should contain both envs with the delete marker and the envs that needs to be kept as it is
+	finalList := append(desired, needsToBeRemoved...)
+	expected := []v1.EnvVar{
+		{Name: "env2", Value: "value2"},
+		// the original value is "delete", so, it should be in the needs to  be removed list
+		{Name: "env4", Value: "delete"},
+		{Name: "env1", Value: "env_marked_for_deletion"},
+		{Name: "env3", Value: "env_marked_for_deletion"},
+	}
+	assert.Equal(t, expected, finalList)
 }
