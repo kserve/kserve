@@ -241,7 +241,6 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 	}
 
 	if diff, err := kmp.SafeDiff(deployment.Spec, existingDeployment.Spec, ignoreFields); err != nil {
-		log.Error(err, "Failed to diff deployments", "Deployment", deployment.Name)
 		return constants.CheckResultUnknown, nil, err
 	} else if len(diff) > 0 {
 		log.Info("Deployment Updated", "Diff", diff)
