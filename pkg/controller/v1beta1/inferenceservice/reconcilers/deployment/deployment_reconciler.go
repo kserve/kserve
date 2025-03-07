@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/google/go-cmp/cmp/cmpopts"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -33,9 +34,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+
 	"k8s.io/utils/ptr"
+
 	"knative.dev/pkg/kmp"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -230,13 +232,15 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 		log.Error(err, "Failed to perform dry-run update of deployment", "Deployment", deployment.Name)
 		return constants.CheckResultUnknown, nil, err
 	}
+
 	if diff, err := kmp.SafeDiff(deployment.Spec, existingDeployment.Spec, ignoreFields); err != nil {
+		log.Error(err, "Failed to diff deployments", "Deployment", deployment.Name)
 		return constants.CheckResultUnknown, nil, err
-	} else if diff != "" {
+	} else if len(diff) > 0 {
 		log.Info("Deployment Updated", "Diff", diff)
 		return constants.CheckResultUpdate, existingDeployment, nil
 	}
-	return constants.CheckResultExisted, existingDeployment, nil
+	return constants.CheckResultExisted, deployment, nil
 }
 
 func setDefaultPodSpec(podSpec *corev1.PodSpec) {
@@ -370,7 +374,8 @@ func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerNa
 func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
 	for _, deployment := range r.DeploymentList {
 		// Reconcile Deployment
-		checkResult, _, err := r.checkDeploymentExist(ctx, r.client, deployment)
+		checkResult, originalDeployment, err := r.checkDeploymentExist(ctx, r.client, deployment)
+
 		if err != nil {
 			return nil, err
 		}
@@ -381,31 +386,59 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 		case constants.CheckResultCreate:
 			opErr = r.client.Create(ctx, deployment)
 		case constants.CheckResultUpdate:
-			curJson, err := json.Marshal(deployment)
-			if err != nil {
-				return nil, err
+			// Check if there are any envs to remove
+			// If there, its value will be set to "delete" so we can update the patchBytes with
+			// "patch": "delete"
+			// The strategic merge patch does not remove items from list just by removing it from the patch,
+			// to delete lists items using strategic merge patch, the $patch delete pattern is used.
+			// Example:
+			// - env:
+			//   - "name": "ENV1",
+			//     "$patch": "delete"
+			for i, deploymentC := range deployment.Spec.Template.Spec.Containers {
+				envs := []corev1.EnvVar{}
+				for _, OriginalC := range originalDeployment.Spec.Template.Spec.Containers {
+					if deploymentC.Name == OriginalC.Name {
+						envsToRemove, envsToKeep := utils.CheckEnvsToRemove(deploymentC.Env, OriginalC.Env)
+						if len(envsToRemove) > 0 {
+							envs = append(envs, envsToKeep...)
+							envs = append(envs, envsToRemove...)
+						} else {
+							envs = deploymentC.Env
+						}
+					}
+				}
+				deployment.Spec.Template.Spec.Containers[i].Env = envs
 			}
 
 			// To avoid the conflict between HPA and Deployment,
 			// we need to remove the Replicas field from the deployment spec
 			// For external autoscaler, it should not remove replicas
-			modDeployment := deployment.DeepCopy()
-			if modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
-				modDeployment.Spec.Replicas = nil
+			if deployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+				deployment.Spec.Replicas = nil
+				originalDeployment.Spec.Replicas = nil
 			}
 
-			modJson, err := json.Marshal(modDeployment)
+			curJson, err := json.Marshal(originalDeployment)
 			if err != nil {
 				return nil, err
 			}
+			modJson, err := json.Marshal(deployment)
+			if err != nil {
+				return nil, err
+			}
+
 			// Generate the strategic merge patch between the current and modified JSON
 			patchByte, err := strategicpatch.StrategicMergePatch(curJson, modJson, appsv1.Deployment{})
 			if err != nil {
 				return nil, err
 			}
 
+			// override the envs that needs to be removed with  "$patch": "delete"
+			patchByte = []byte(strings.ReplaceAll(string(patchByte), "\"value\":\""+utils.PLACEHOLDER_FOR_DELETION+"\"", "\"$patch\":\"delete\""))
+
 			// Patch the deployment object with the strategic merge patch
-			opErr = r.client.Patch(ctx, deployment, client.RawPatch(types.StrategicMergePatchType, patchByte))
+			opErr = r.client.Patch(ctx, deployment, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
 		}
 
 		if opErr != nil {
