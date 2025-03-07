@@ -436,7 +436,6 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 			modDeployment := deployment.DeepCopy()
 			if modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) ||
 				deployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
-
 				modDeployment.Spec.Replicas = nil
 				originalDeployment.Spec.Replicas = nil
 			}
