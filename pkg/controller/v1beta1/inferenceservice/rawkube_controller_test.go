@@ -97,7 +97,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}`,
 	}
 	Context("When creating inference service with raw kube predictor", func() {
-
 		It("Should have httproute/service/deployment/httproute created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
