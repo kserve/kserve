@@ -1773,10 +1773,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(context.TODO(), serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			deployed1 := &appsv1.Deployment{}
@@ -1806,15 +1803,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			isvcUpdated1 := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				// get the latest deployed version
-				err := k8sClient.Get(context.TODO(), serviceKey, inferenceService)
-				if err != nil {
+				if err := k8sClient.Get(context.TODO(), serviceKey, inferenceService); err != nil {
 					return false
 				}
 
 				isvcUpdated1 = inferenceService.DeepCopy()
 				isvcUpdated1.Spec.Predictor.Model.Env = append(isvcUpdated1.Spec.Predictor.Model.Env, newEnvs...)
-				err = k8sClient.Update(context.TODO(), isvcUpdated1)
-				if err != nil {
+				if err1 := k8sClient.Update(context.TODO(), isvcUpdated1); err1 != nil {
 					return false
 				}
 				return true
@@ -1833,8 +1828,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			isvcUpdated2 := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				// get the latest deployed version
-				err := k8sClient.Get(context.TODO(), serviceKey, isvcUpdated1)
-				if err != nil {
+				if err := k8sClient.Get(context.TODO(), serviceKey, isvcUpdated1); err != nil {
 					return false
 				}
 
@@ -1843,8 +1837,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				// Make sure the default envs were removed before updating the isvc
 				Expect(isvcUpdated2.Spec.Predictor.Model.Env).ToNot(ContainElements(defaultEnvs))
 
-				err = k8sClient.Update(context.TODO(), isvcUpdated2)
-				if err != nil {
+				if err1 := k8sClient.Update(context.TODO(), isvcUpdated2); err1 != nil {
 					return false
 				}
 				return true
