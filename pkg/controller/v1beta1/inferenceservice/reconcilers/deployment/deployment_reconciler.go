@@ -374,7 +374,6 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 	for _, deployment := range r.DeploymentList {
 		// Reconcile Deployment
 		checkResult, originalDeployment, err := r.checkDeploymentExist(ctx, r.client, deployment)
-
 		if err != nil {
 			return nil, err
 		}
