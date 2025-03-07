@@ -1168,7 +1168,9 @@ func TestCheckEnvsToRemove(t *testing.T) {
 	assert.Equal(t, desired, keep)
 
 	// resultant list should contain both envs with the delete marker and the envs that needs to be kept as it is
-	finalList := append(desired, needsToBeRemoved...)
+	finalList := []corev1.EnvVar{}
+	finalList = append(finalList, desired...)
+	finalList = append(finalList, needsToBeRemoved...)
 	expected := []corev1.EnvVar{
 		{Name: "env2", Value: "value2"},
 		// the original value is "delete", so, it should be in the needs to  be removed list
