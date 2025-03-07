@@ -225,7 +225,9 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	var queueProxyEnvs []corev1.EnvVar
 	var agentEnvs []corev1.EnvVar
 	queueProxyAvailable := false
-	for _, container := range pod.Spec.Containers {
+	transformerContainerIdx := -1
+	componentPort := constants.InferenceServiceDefaultHttpPort
+	for idx, container := range pod.Spec.Containers {
 		if container.Name == "queue-proxy" {
 			agentEnvs = make([]corev1.EnvVar, 0, len(container.Env))
 			agentEnvs = append(agentEnvs, container.Env...)
@@ -233,18 +235,33 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			queueProxyAvailable = true
 		}
 
-		if container.Name == "kserve-container" {
-			containerPort := constants.InferenceServiceDefaultHttpPort
-			if len(container.Ports) > 0 {
-				containerPort = strconv.Itoa(int(container.Ports[0].ContainerPort))
-			}
+		if container.Name == constants.TransformerContainerName {
+			transformerContainerIdx = idx
+		}
 
-			args = append(args, "--component-port", containerPort)
+		if container.Name == constants.InferenceServiceContainerName {
+			if len(container.Ports) > 0 {
+				componentPort = strconv.Itoa(int(container.Ports[0].ContainerPort))
+			}
 		}
 	}
+	// If the transformer container is present, use its port as the component port
+	if transformerContainerIdx != -1 {
+		transContainer := pod.Spec.Containers[transformerContainerIdx]
+		if len(transContainer.Ports) == 0 {
+			componentPort = constants.InferenceServiceDefaultHttpPort
+		} else {
+			componentPort = strconv.Itoa(int(transContainer.Ports[0].ContainerPort))
+		}
+	}
+	args = append(args, constants.AgentComponentPortArgName, componentPort)
 
 	if !queueProxyAvailable {
 		readinessProbe := pod.Spec.Containers[0].ReadinessProbe
+		// If the transformer container is present, use its readiness probe
+		if transformerContainerIdx != -1 {
+			readinessProbe = pod.Spec.Containers[transformerContainerIdx].ReadinessProbe
+		}
 
 		// Check if the readiness probe exists
 		if readinessProbe != nil {
