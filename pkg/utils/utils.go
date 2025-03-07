@@ -310,3 +310,29 @@ func IsValidCustomGPUArray(s string) bool {
 
 	return true
 }
+
+const PLACEHOLDER_FOR_DELETION = "env_marked_for_deletion"
+
+// CheckEnvsToRemove checks the current envs against the desired ones and returns the envs that needs to be
+// removed from the target env list and envs that need to be kept.
+// Returns envsToRemove, envsToKeep
+func CheckEnvsToRemove(desired, current []v1.EnvVar) ([]v1.EnvVar, []v1.EnvVar) {
+	var envsToRemove []v1.EnvVar
+	var envsToKeep []v1.EnvVar
+	for _, currentEnv := range current {
+		found := false
+		for _, desiredEnv := range desired {
+			if currentEnv.Name == desiredEnv.Name {
+				envsToKeep = append(envsToKeep, currentEnv)
+				found = true
+				break
+			}
+		}
+		if !found {
+			// replace the value of the found env to a placeholder to mark it for deletion
+			currentEnv.Value = PLACEHOLDER_FOR_DELETION
+			envsToRemove = append(envsToRemove, currentEnv)
+		}
+	}
+	return envsToRemove, envsToKeep
+}
