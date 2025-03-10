@@ -128,6 +128,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{
 									"serving.kserve.io/inferencegraph": graphName,
+									constants.KServeWorkloadKind:       "InferenceGraph",
 								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
@@ -265,6 +266,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{
 									"serving.kserve.io/inferencegraph": graphName,
+									constants.KServeWorkloadKind:       "InferenceGraph",
 								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
@@ -416,6 +418,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{
 									"serving.kserve.io/inferencegraph": graphName,
+									constants.KServeWorkloadKind:       "InferenceGraph",
 								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
@@ -743,6 +746,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{
 									"serving.kserve.io/inferencegraph": graphName,
+									constants.KServeWorkloadKind:       "InferenceGraph",
 								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
