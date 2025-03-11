@@ -18,6 +18,7 @@ package utils
 
 import (
 	"errors"
+	"reflect"
 	"strconv"
 	"testing"
 
@@ -598,6 +599,7 @@ func TestIsUnknownGpuResourceType(t *testing.T) {
 
 	scenarios := map[string]struct {
 		resources       corev1.ResourceRequirements
+		annotations     map[string]string
 		expectedUnknown bool
 	}{
 		"OnlyBasicResources": {
@@ -611,6 +613,7 @@ func TestIsUnknownGpuResourceType(t *testing.T) {
 					corev1.ResourceMemory: resource.MustParse("1Gi"),
 				},
 			},
+			annotations:     map[string]string{},
 			expectedUnknown: false,
 		},
 		"ValidGpuResource": {
@@ -626,6 +629,7 @@ func TestIsUnknownGpuResourceType(t *testing.T) {
 					corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
 				},
 			},
+			annotations:     map[string]string{},
 			expectedUnknown: false,
 		},
 		"UnknownGpuResource": {
@@ -641,7 +645,24 @@ func TestIsUnknownGpuResourceType(t *testing.T) {
 					corev1.ResourceName("unknown.com/gpu"): resource.MustParse("1"),
 				},
 			},
+			annotations:     map[string]string{},
 			expectedUnknown: true,
+		},
+		"UnknownGpuResourceWithAnnotation": {
+			resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:                       resource.MustParse("1"),
+					corev1.ResourceMemory:                    resource.MustParse("1Gi"),
+					corev1.ResourceName("unknown.com-1/gpu"): resource.MustParse("1"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:                       resource.MustParse("1"),
+					corev1.ResourceMemory:                    resource.MustParse("1Gi"),
+					corev1.ResourceName("unknown.com-1/gpu"): resource.MustParse("1"),
+				},
+			},
+			annotations:     map[string]string{constants.CustomGPUResourceTypesAnnotationKey: `["unknown.com-1/gpu"]`},
+			expectedUnknown: false,
 		},
 		"MixedResources": {
 			resources: corev1.ResourceRequirements{
@@ -656,20 +677,38 @@ func TestIsUnknownGpuResourceType(t *testing.T) {
 					corev1.ResourceName("unknown.com/gpu"): resource.MustParse("1"),
 				},
 			},
+			annotations:     map[string]string{},
 			expectedUnknown: true,
+		},
+		"MixedResourcesWithAnnotation": {
+			resources: corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{
+					corev1.ResourceCPU:                    resource.MustParse("1"),
+					corev1.ResourceMemory:                 resource.MustParse("1Gi"),
+					corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+				},
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:                       resource.MustParse("1"),
+					corev1.ResourceMemory:                    resource.MustParse("1Gi"),
+					corev1.ResourceName("unknown.com-2/gpu"): resource.MustParse("1"),
+				},
+			},
+			annotations:     map[string]string{constants.CustomGPUResourceTypesAnnotationKey: `["unknown.com-2/gpu"]`},
+			expectedUnknown: false,
 		},
 		"EmptyResources": {
 			resources: corev1.ResourceRequirements{
 				Limits:   corev1.ResourceList{},
 				Requests: corev1.ResourceList{},
 			},
+			annotations:     map[string]string{},
 			expectedUnknown: false,
 		},
 	}
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			result := IsUnknownGpuResourceType(scenario.resources, "")
+			result, _ := IsUnknownGpuResourceType(scenario.resources, scenario.annotations)
 			g.Expect(result).Should(gomega.Equal(scenario.expectedUnknown))
 		})
 	}
@@ -677,30 +716,35 @@ func TestIsUnknownGpuResourceType(t *testing.T) {
 
 func TestIsValidCustomGPUArray(t *testing.T) {
 	tests := []struct {
-		input    string
-		expected bool
+		input                       string
+		expected                    bool
+		expectedNewGPUResourceTypes []string
 	}{
-		{"[]", false},
-		{"[\"item1\", \"item2\"]", true},
-		{"[\"item1\", \"item2\", \"item3\"]", true},
-		{"[\"item1\", \"item2\", \"\"]", false},
-		{"[\"item1\", 42]", false},
-		{"[\"item1\", \"item2\",]", false},
-		{"[\"item1\", \"item2\", \"item3\"", false},
-		{"[item1, item2]", false},
-		{"[\"item1\", \"item2\" \"item3\"]", false},
-		{"[\"item1\", null]", false},
-		{"[\"item1\", true]", false},
-		{"[\"item1\", false]", false},
-		{"[\"item1\", \"item2\", 42]", false},
-		{"[\"item1\", \"item2\", \"item3\", \"\"]", false},
+		{"[\"custom-gpu-1.com/gpu\"]", true, []string{"custom-gpu-1.com/gpu"}},
+		{"[\"custom-gpu-1.com/gpu\",\"custom-gpu-2.com/gpu\"]", true, []string{"custom-gpu-1.com/gpu", "custom-gpu-2.com/gpu"}},
+		{"[\"custom-gpu-1.com/gpu\",\"custom-gpu-2.com/gpu\",\"custom-gpu-3.com/gpu\"]", true, []string{"custom-gpu-1.com/gpu", "custom-gpu-2.com/gpu", "custom-gpu-3.com/gpu"}},
+		{"[]", false, nil},
+		{"[\"\"custom-gpu-1.com/gpu\"\", \"\"custom-gpu-2.com/gpu\"\", \"\"]", false, nil},
+		{"[\"\"custom-gpu-1.com/gpu\"\", 42]", false, nil},
+		{"[\"\"custom-gpu-1.com/gpu\"\", \"\"custom-gpu-2.com/gpu\"\",]", false, nil},
+		{"[\"\"custom-gpu-1.com/gpu\"\", \"\"custom-gpu-2.com/gpu\"\", \"\"custom-gpu-3.com/gpu\"\"", false, nil},
+		{"[custom-gpu-1.com/gpu, custom-gpu-2.com/gpu]", false, nil},
+		{"[\"\"custom-gpu-1.com/gpu\"\", \"\"custom-gpu-2.com/gpu\"\" \"\"custom-gpu-3.com/gpu\"\"]", false, nil},
+		{"[\"\"custom-gpu-1.com/gpu\"\", null]", false, nil},
+		{"[\"\"custom-gpu-1.com/gpu\"\", true]", false, nil},
+		{"[\"\"custom-gpu-1.com/gpu\"\", false]", false, nil},
+		{"[\"\"custom-gpu-1.com/gpu\"\", \"\"custom-gpu-2.com/gpu\"\", 42]", false, nil},
+		{"[\"\"custom-gpu-1.com/gpu\"\", \"\"custom-gpu-2.com/gpu\"\", \"\"custom-gpu-3.com/gpu\"\", \"\"]", false, nil},
 	}
 
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
-			result := IsValidCustomGPUArray(test.input)
-			if result != test.expected {
-				t.Errorf("expected %v, got %v", test.expected, result)
+			newGPUResourceTypes, isValid := IsValidCustomGPUArray(test.input)
+			if isValid != test.expected {
+				t.Errorf("expected %v, got %v", test.expected, isValid)
+			}
+			if !reflect.DeepEqual(newGPUResourceTypes, test.expectedNewGPUResourceTypes) {
+				t.Errorf("expected %v, got %v", test.expectedNewGPUResourceTypes, newGPUResourceTypes)
 			}
 		})
 	}

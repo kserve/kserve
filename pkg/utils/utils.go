@@ -18,6 +18,7 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -253,7 +254,7 @@ func GetEnvVarValue(envVars []corev1.EnvVar, key string) (string, bool) {
 }
 
 // IsUnknownGpuResourceType check if the provided gpu resource type is unknown one
-func IsUnknownGpuResourceType(resources corev1.ResourceRequirements, customGpuResourceTypes string) bool {
+func IsUnknownGpuResourceType(resources corev1.ResourceRequirements, annotations map[string]string) (bool, error) {
 	basicResourceTypes := map[corev1.ResourceName]struct{}{
 		corev1.ResourceCPU:              {},
 		corev1.ResourceMemory:           {},
@@ -276,46 +277,48 @@ func IsUnknownGpuResourceType(resources corev1.ResourceRequirements, customGpuRe
 	addNonBasicResources(resources.Limits)
 	addNonBasicResources(resources.Requests)
 
-	// Validate GPU resource types
-	// If CustomGPUResourceTypesAnnotationKey is set, the specified custom GPU resource will be added to the available GPUResourceTypeList.
-	if customGpuResourceTypes != "" {
-		constants.GPUResourceTypeList = append(constants.GPUResourceTypeList, strings.Split(customGpuResourceTypes, ",")...)
+	// Update GPU resource type list
+	if err := UpdateGPUResourceTypeList(annotations); err != nil {
+		return false, err
 	}
 
+	// Validate GPU resource types
 	for _, gpuType := range constants.GPUResourceTypeList {
 		allowedGPUResourceName := corev1.ResourceName(gpuType)
 		delete(possibleGPUResourceType, allowedGPUResourceName) // Remove allowed GPU resource if exists
 	}
 
 	// Return true if there are unknown GPU resources
-	return len(possibleGPUResourceType) > 0
+	return len(possibleGPUResourceType) > 0, nil
 }
 
 // IsValidCustomGPUArray checks if the input string is a valid JSON array of strings.
 // It returns false if the array is empty, contains empty strings, or any non-string elements.
-func IsValidCustomGPUArray(s string) bool {
+// Otherwise, it returns true and the list of custom GPU types.
+func IsValidCustomGPUArray(s string) ([]string, bool) {
 	// Check if the input string is a valid JSON array
 	var arr []interface{}
 	if err := json.Unmarshal([]byte(s), &arr); err != nil {
-		return false // Not a valid JSON array
+		return nil, false // Not a valid JSON array
 	}
 
 	// Check if the array is empty
 	if len(arr) == 0 {
-		return false
+		return nil, false
 	}
-
+	customGPUTypes := []string{}
 	// Check each element to ensure they are all strings
 	for _, item := range arr {
 		if _, ok := item.(string); !ok {
-			return false // Found a non-string element
+			return nil, false // Found a non-string element
 		}
 		if item.(string) == "" {
-			return false // Found an empty string
+			return nil, false // Found an empty string
 		}
+		customGPUTypes = append(customGPUTypes, item.(string))
 	}
 
-	return true
+	return customGPUTypes, true
 }
 
 // StringToInt32 converts a given integer to int32. If the number exceeds the int32 limit, it returns an error.
@@ -325,4 +328,29 @@ func StringToInt32(number string) (int32, error) {
 		return 0, err
 	}
 	return int32(converted), err
+}
+
+// updateGPUResourceTypeList updates the constants.GPUResourceTypeList by reading customGPUResourceTypes from isvcAnnotations.
+func UpdateGPUResourceTypeList(isvcAnnotations map[string]string) error {
+	if customGPUResourceTypes := isvcAnnotations[constants.CustomGPUResourceTypesAnnotationKey]; customGPUResourceTypes != "" {
+		newGPUResourceTypes, isValid := IsValidCustomGPUArray(customGPUResourceTypes)
+		if !isValid {
+			return fmt.Errorf("invalid GPU format(%s) for %s annotation: must be a valid JSON array", customGPUResourceTypes, constants.CustomGPUResourceTypesAnnotationKey)
+		}
+
+		// Use a set to avoid duplicates
+		existingTypes := make(map[string]struct{}, len(constants.GPUResourceTypeList))
+		for _, t := range constants.GPUResourceTypeList {
+			existingTypes[t] = struct{}{}
+		}
+
+		// Add only unique GPU resource types
+		for _, t := range newGPUResourceTypes {
+			if _, exists := existingTypes[t]; !exists {
+				constants.GPUResourceTypeList = append(constants.GPUResourceTypeList, t)
+				existingTypes[t] = struct{}{}
+			}
+		}
+	}
+	return nil
 }
