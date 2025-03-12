@@ -966,3 +966,104 @@ func TestStringToInt32(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateGPUResourceTypeListByAnnotation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	combineGPU := func(customList []string) []string {
+		combindedList := append([]string{}, constants.DefaultGPUResourceTypeList...)
+		combindedList = append(combindedList, customList...)
+		return combindedList
+	}
+	tests := []struct {
+		name                 string
+		isvcAnnotations      map[string]string
+		expectedResourceList []string
+		expectError          types.GomegaMatcher
+	}{
+		{
+			name: "Valid GPU resources with unique types",
+			isvcAnnotations: map[string]string{
+				constants.CustomGPUResourceTypesAnnotationKey: "[\"custom-gpu-1.com/gpu\", \"custom-gpu-2.com/gpu\"]",
+			},
+			expectedResourceList: combineGPU([]string{"custom-gpu-1.com/gpu", "custom-gpu-2.com/gpu"}),
+			expectError:          gomega.BeNil(),
+		},
+		{
+			name: "Invalid GPU format (invalid JSON)",
+			isvcAnnotations: map[string]string{
+				constants.CustomGPUResourceTypesAnnotationKey: "[custom-gpu-1.com/gpu, custom-gpu-2.com/gpu", // Invalid JSON
+			},
+			expectedResourceList: nil,
+			expectError:          gomega.Not(gomega.BeNil()),
+		},
+		{
+			name: "Existing GPU resources in annotation",
+			isvcAnnotations: map[string]string{
+				constants.CustomGPUResourceTypesAnnotationKey: "[\"custom-gpu-1.com/gpu\"]",
+			},
+			expectedResourceList: combineGPU([]string{"custom-gpu-1.com/gpu"}), // Should not add anything
+			expectError:          gomega.BeNil(),
+		},
+	}
+
+	// Test each case
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Run the function to be tested
+			updatedList, err := UpdateGPUResourceTypeListByAnnotation(tt.isvcAnnotations)
+
+			g.Expect(updatedList).Should(gomega.Equal(tt.expectedResourceList))
+			g.Expect(err).Should(tt.expectError)
+		})
+	}
+}
+
+func TestUpdateGlobalGPUResourceTypeList(t *testing.T) {
+	g := gomega.NewWithT(t)
+	originalDefaultGPUResourceTypeList := append([]string{}, constants.DefaultGPUResourceTypeList...)
+	combineGPU := func(customList []string) []string {
+		combindedList := append([]string{}, constants.DefaultGPUResourceTypeList...)
+		combindedList = append(combindedList, customList...)
+		return combindedList
+	}
+
+	tests := []struct {
+		name                string
+		newGPUResourceTypes []string
+		expectedResult      []string
+	}{
+		{
+			name:                "Add new GPU resource types",
+			newGPUResourceTypes: []string{"custom-gpu-1.com/gpu", "custom-gpu-2.com/gpu"},
+			expectedResult:      combineGPU([]string{"custom-gpu-1.com/gpu", "custom-gpu-2.com/gpu"}),
+		},
+		{
+			name:                "Avoid duplicates",
+			newGPUResourceTypes: []string{"custom-gpu-1.com/gpu", constants.DefaultGPUResourceTypeList[0]},
+			expectedResult:      combineGPU([]string{"custom-gpu-1.com/gpu"}),
+		},
+		{
+			name:                "Avoid duplicates - 2",
+			newGPUResourceTypes: []string{"custom-gpu-1.com/gpu", "custom-gpu-1.com/gpu"},
+			expectedResult:      combineGPU([]string{"custom-gpu-1.com/gpu"}),
+		},
+		{
+			name:                "Empty new GPU resource types",
+			newGPUResourceTypes: []string{},
+			expectedResult:      combineGPU([]string{}),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Rest global GPU resource type list for next test case
+			constants.DefaultGPUResourceTypeList = originalDefaultGPUResourceTypeList
+
+			// Reset the constants for each test to ensure isolation
+			err := UpdateGlobalGPUResourceTypeList(tt.newGPUResourceTypes)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+			g.Expect(constants.DefaultGPUResourceTypeList).Should(gomega.Equal(tt.expectedResult))
+		})
+	}
+}

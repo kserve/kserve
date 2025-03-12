@@ -278,12 +278,13 @@ func IsUnknownGpuResourceType(resources corev1.ResourceRequirements, annotations
 	addNonBasicResources(resources.Requests)
 
 	// Update GPU resource type list
-	if err := UpdateGPUResourceTypeList(annotations); err != nil {
+	newGPUResourceTypeList, err := UpdateGPUResourceTypeListByAnnotation(annotations)
+	if err != nil {
 		return false, err
 	}
 
 	// Validate GPU resource types
-	for _, gpuType := range constants.GPUResourceTypeList {
+	for _, gpuType := range newGPUResourceTypeList {
 		allowedGPUResourceName := corev1.ResourceName(gpuType)
 		delete(possibleGPUResourceType, allowedGPUResourceName) // Remove allowed GPU resource if exists
 	}
@@ -330,27 +331,50 @@ func StringToInt32(number string) (int32, error) {
 	return int32(converted), err
 }
 
-// updateGPUResourceTypeList updates the constants.GPUResourceTypeList by reading customGPUResourceTypes from isvcAnnotations.
-func UpdateGPUResourceTypeList(isvcAnnotations map[string]string) error {
+// UpdateGPUResourceTypeListByAnnotation updates the GPU resource type list
+// by combining the global GPU resource types from inferenceservice-config with custom GPU resource types specified in the annotations.
+func UpdateGPUResourceTypeListByAnnotation(isvcAnnotations map[string]string) ([]string, error) {
+	// Deep copy
+	updatedGPUResourceTypes := append([]string{}, constants.DefaultGPUResourceTypeList...)
+
 	if customGPUResourceTypes := isvcAnnotations[constants.CustomGPUResourceTypesAnnotationKey]; customGPUResourceTypes != "" {
-		newGPUResourceTypes, isValid := IsValidCustomGPUArray(customGPUResourceTypes)
+		newGPUResourceTypesFromAnnotation, isValid := IsValidCustomGPUArray(customGPUResourceTypes)
 		if !isValid {
-			return fmt.Errorf("invalid GPU format(%s) for %s annotation: must be a valid JSON array", customGPUResourceTypes, constants.CustomGPUResourceTypesAnnotationKey)
+			return nil, fmt.Errorf("invalid GPU format(%s) for %s annotation: must be a valid JSON array", customGPUResourceTypes, constants.CustomGPUResourceTypesAnnotationKey)
 		}
 
 		// Use a set to avoid duplicates
-		existingTypes := make(map[string]struct{}, len(constants.GPUResourceTypeList))
-		for _, t := range constants.GPUResourceTypeList {
+		existingTypes := make(map[string]struct{}, len(constants.DefaultGPUResourceTypeList))
+		for _, t := range constants.DefaultGPUResourceTypeList {
 			existingTypes[t] = struct{}{}
 		}
 
 		// Add only unique GPU resource types
-		for _, t := range newGPUResourceTypes {
+		for _, t := range newGPUResourceTypesFromAnnotation {
 			if _, exists := existingTypes[t]; !exists {
-				constants.GPUResourceTypeList = append(constants.GPUResourceTypeList, t)
+				updatedGPUResourceTypes = append(updatedGPUResourceTypes, t)
 				existingTypes[t] = struct{}{}
 			}
 		}
 	}
+	return updatedGPUResourceTypes, nil
+}
+
+// UpdateGlobalGPUResourceTypeList adds new GPU resource types from inferenceservice-config to constants.GPUResourceTypeList.
+func UpdateGlobalGPUResourceTypeList(newGPUResourceTypes []string) error {
+	// Use a set to avoid duplicates
+	existingTypes := make(map[string]struct{}, len(constants.DefaultGPUResourceTypeList))
+	for _, t := range constants.DefaultGPUResourceTypeList {
+		existingTypes[t] = struct{}{}
+	}
+
+	// Add only unique GPU resource types
+	for _, t := range newGPUResourceTypes {
+		if _, exists := existingTypes[t]; !exists {
+			constants.DefaultGPUResourceTypeList = append(constants.DefaultGPUResourceTypeList, t)
+			existingTypes[t] = struct{}{}
+		}
+	}
+
 	return nil
 }

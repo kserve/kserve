@@ -95,6 +95,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelRevisionStates":          schema_pkg_apis_serving_v1beta1_ModelRevisionStates(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec":                    schema_pkg_apis_serving_v1beta1_ModelSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus":                  schema_pkg_apis_serving_v1beta1_ModelStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MultiNodeConfig":              schema_pkg_apis_serving_v1beta1_MultiNodeConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec":              schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec":                     schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec":             schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref),
@@ -1815,6 +1816,7 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 						},
 					},
 				},
+				
 			},
 		},
 	}
@@ -4434,6 +4436,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -5435,6 +5438,7 @@ func schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -6151,6 +6155,7 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -6423,6 +6428,7 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 	}
@@ -6835,6 +6841,33 @@ func schema_pkg_apis_serving_v1beta1_ModelStatus(ref common.ReferenceCallback) c
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_MultiNodeConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"customGPUResourceTypeList": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CustomGPUResourceTypeList is a list of custom GPU resource types that are allowed to be used in the ServingRuntime and inferenceService",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -7153,6 +7186,7 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -7478,6 +7512,7 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -7802,6 +7837,7 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -8582,6 +8618,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -9610,6 +9647,7 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -10023,6 +10061,7 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -10348,6 +10387,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -11240,6 +11280,7 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -12033,6 +12074,7 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
