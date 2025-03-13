@@ -13,6 +13,7 @@ YQ = $(LOCALBIN)/yq
 HELM_DOCS = $(LOCALBIN)/helm-docs
 BLACK_FMT = $(PYTHON_BIN)/black
 FLAKE8_LINT = $(PYTHON_BIN)/flake8
+POETRY = $(PYTHON_BIN)/poetry
 
 ## Tool versions.
 GOLANGCI_LINT_VERSION ?= v1.63
@@ -22,6 +23,8 @@ YQ_VERSION ?= v4.28.1
 HELM_DOCS_VERSION ?= v1.12.0
 BLACK_FMT_VERSION ?= 24.3
 FLAKE8_LINT_VERSION ?= 7.1
+POETRY_VERSION ?= 1.8.3
+
 
 
 .PHONY: golangci-lint
@@ -59,6 +62,9 @@ $(PYTHON_VENV): | $(LOCALBIN)
 
 $(BLACK_FMT) $(FLAKE8_LINT): $(PYTHON_VENV)
 	$(PYTHON_BIN)/pip install black==$(BLACK_FMT_VERSION) flake8==$(FLAKE8_LINT_VERSION)
+
+$(POETRY): $(PYTHON_VENV)
+	$(PYTHON_BIN)/pip install poetry==$(POETRY_VERSION) plugin/poetry-version-plugin
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary

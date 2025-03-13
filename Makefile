@@ -124,8 +124,24 @@ generate: controller-gen helm-docs
 	hack/python-sdk/client-gen.sh
 	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 
+# Update poetry.lock files
+poetry-lock: $(POETRY)
+# Update the kserve package first as other packages depends on it.
+	cd ./python && \
+	cd kserve && $(POETRY) lock --no-update && cd .. && \
+	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml"); do \
+		folder=$$(dirname "$$file"); \
+		echo "moving into folder $$folder"; \
+		case "$$folder" in \
+			*plugin*|plugin|kserve) \
+				echo -e "\033[33mSkipping folder $$folder\033[0m" ;; \
+			*) \
+				cd "$$folder" && $(POETRY) lock --no-update && cd - > /dev/null ;; \
+		esac; \
+	done
+
 # This runs all necessary steps to prepare for a commit.
-precommit: vet tidy go-lint py-fmt py-lint generate manifests
+precommit: vet tidy go-lint py-fmt py-lint generate manifests poetry-lock
 
 check: precommit
 	@if [ ! -z "`git status -s`" ]; then \
