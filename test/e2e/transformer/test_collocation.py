@@ -135,7 +135,7 @@ async def test_transformer_collocation(rest_v1_client):
 @pytest.mark.collocation
 @pytest.mark.asyncio(scope="session")
 async def test_transformer_collocation_runtime(rest_v1_client):
-    service_name = "custom-model-transformer-collocation"
+    service_name = "custom-model-trans-collocation-runtime"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
