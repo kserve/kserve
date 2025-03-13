@@ -1002,6 +1002,7 @@ func TestServerTimeout(t *testing.T) {
 
 			// Call the InferenceGraph
 			client := &http.Client{}
+			time.Sleep(100 * time.Millisecond) // prevent race condition
 			req, _ := http.NewRequest(http.MethodPost, "http://localhost:"+strconv.Itoa(constants.RouterPort), bytes.NewBuffer(nil))
 			resp, err := client.Do(req)
 			if resp != nil {
