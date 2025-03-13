@@ -282,7 +282,7 @@ func NewServiceConfig(clientset kubernetes.Interface) (*ServiceConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	serviceConfig := &ServiceConfig{}
+	serviceConfig := &ServiceConfig{ServiceClusterIPNone: true}
 	if service, ok := configMap.Data[ServiceConfigName]; ok {
 		err := json.Unmarshal([]byte(service), &serviceConfig)
 		if err != nil {

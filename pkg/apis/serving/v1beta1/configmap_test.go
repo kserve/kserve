@@ -48,7 +48,7 @@ var (
 		AdditionalDomain, AdditionalDomainExtra)
 	ServiceConfigData = fmt.Sprintf(`{
 		"serviceClusterIPNone" : %t
-	}`, true)
+	}`, false)
 
 	ISCVWithData = fmt.Sprintf(`{
 		"serviceAnnotationDisallowedList": ["%s","%s"],
@@ -134,6 +134,7 @@ func TestNewServiceConfig(t *testing.T) {
 	emp, err := NewServiceConfig(empty)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(emp).ShouldNot(gomega.BeNil())
+	g.Expect(emp.ServiceClusterIPNone).Should(gomega.BeTrue()) // In ODH the default is <true>
 
 	// with value
 	withTrue := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
@@ -145,7 +146,7 @@ func TestNewServiceConfig(t *testing.T) {
 	wt, err := NewServiceConfig(withTrue)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(wt).ShouldNot(gomega.BeNil())
-	g.Expect(wt.ServiceClusterIPNone).Should(gomega.BeTrue())
+	g.Expect(wt.ServiceClusterIPNone).Should(gomega.BeFalse())
 
 	// no value, should be nil
 	noValue := fakeclientset.NewSimpleClientset(&v1.ConfigMap{
@@ -157,7 +158,7 @@ func TestNewServiceConfig(t *testing.T) {
 	nv, err := NewServiceConfig(noValue)
 	g.Expect(err).Should(gomega.BeNil())
 	g.Expect(nv).ShouldNot(gomega.BeNil())
-	g.Expect(nv.ServiceClusterIPNone).Should(gomega.BeFalse())
+	g.Expect(nv.ServiceClusterIPNone).Should(gomega.BeTrue()) // In ODH the default is <true>
 }
 
 func TestInferenceServiceDisallowedLists(t *testing.T) {
