@@ -49,6 +49,7 @@ class V1beta1MetricSource(object):
     openapi_types = {
         'backend': 'str',
         'namespace': 'str',
+        'operation_over_time': 'str',
         'query': 'str',
         'server_address': 'str'
     }
@@ -56,11 +57,12 @@ class V1beta1MetricSource(object):
     attribute_map = {
         'backend': 'backend',
         'namespace': 'namespace',
+        'operation_over_time': 'operationOverTime',
         'query': 'query',
         'server_address': 'serverAddress'
     }
 
-    def __init__(self, backend=None, namespace=None, query=None, server_address=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, backend=None, namespace=None, operation_over_time=None, query=None, server_address=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1MetricSource - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -68,6 +70,7 @@ class V1beta1MetricSource(object):
 
         self._backend = None
         self._namespace = None
+        self._operation_over_time = None
         self._query = None
         self._server_address = None
         self.discriminator = None
@@ -76,6 +79,8 @@ class V1beta1MetricSource(object):
             self.backend = backend
         if namespace is not None:
             self.namespace = namespace
+        if operation_over_time is not None:
+            self.operation_over_time = operation_over_time
         if query is not None:
             self.query = query
         if server_address is not None:
@@ -126,6 +131,29 @@ class V1beta1MetricSource(object):
         """
 
         self._namespace = namespace
+
+    @property
+    def operation_over_time(self):
+        """Gets the operation_over_time of this V1beta1MetricSource.  # noqa: E501
+
+        OperationOverTime specifies the operation to aggregate the metrics over time  # noqa: E501
+
+        :return: The operation_over_time of this V1beta1MetricSource.  # noqa: E501
+        :rtype: str
+        """
+        return self._operation_over_time
+
+    @operation_over_time.setter
+    def operation_over_time(self, operation_over_time):
+        """Sets the operation_over_time of this V1beta1MetricSource.
+
+        OperationOverTime specifies the operation to aggregate the metrics over time  # noqa: E501
+
+        :param operation_over_time: The operation_over_time of this V1beta1MetricSource.  # noqa: E501
+        :type: str
+        """
+
+        self._operation_over_time = operation_over_time
 
     @property
     def query(self):

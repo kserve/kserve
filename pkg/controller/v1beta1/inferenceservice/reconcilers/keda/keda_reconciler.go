@@ -92,30 +92,29 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, minReplicas in
 				query := metric.External.Metric.Query
 				targetValue = int(metric.External.Target.Value.AsApproximateFloat64())
 
-				// create a trigger for the external metric
 				trigger := kedav1alpha1.ScaleTriggers{
-					Type: triggerType,
-					Metadata: map[string]string{
-						"serverAddress": serverAddress,
-						"query":         query,
-						"threshold":     strconv.Itoa(targetValue),
-					},
+					Metadata: map[string]string{},
 				}
-				if triggerType == string(constants.AutoScalerMetricsPrometheus) {
-					if metric.External.Metric.Namespace != "" {
-						trigger.Metadata["namespace"] = metric.External.Metric.Namespace
-					}
-				}
+
+				// KEDA external auto scaler (otel-add-on)
 				if triggerType == "opentelemetry" {
 					trigger.Type = "external"
-					trigger.Metadata["clampMin"] = strconv.Itoa(int(minReplicas))
-					trigger.Metadata["clampMax"] = strconv.Itoa(int(maxReplicas))
-					trigger.Metadata["metricQuery"] = query
-					trigger.Metadata["targetValue"] = strconv.Itoa(targetValue)
-					trigger.Metadata["scalerAddress"] = serverAddress
-					delete(trigger.Metadata, "query")
-					delete(trigger.Metadata, "threshold")
-					delete(trigger.Metadata, "serverAddress")
+					trigger.Metadata = map[string]string{
+						"clampMin":          strconv.Itoa(int(minReplicas)),
+						"clampMax":          strconv.Itoa(int(maxReplicas)),
+						"metricQuery":       query,
+						"targetValue":       strconv.Itoa(targetValue),
+						"scalerAddress":     serverAddress,
+						"operationOverTime": metric.External.Metric.OperationOverTime,
+					}
+				} else {
+					trigger.Type = triggerType
+					trigger.Metadata["serverAddress"] = serverAddress
+					trigger.Metadata["query"] = query
+					trigger.Metadata["threshold"] = strconv.Itoa(targetValue)
+					if triggerType == string(constants.AutoScalerMetricsPrometheus) && metric.External.Metric.Namespace != "" {
+						trigger.Metadata["namespace"] = metric.External.Metric.Namespace
+					}
 				}
 
 				triggers = append(triggers, trigger)

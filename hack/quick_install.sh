@@ -128,7 +128,7 @@ if [ $installKeda = true ]; then
    helm install keda kedacore/keda --version ${KEDA_VERSION} --namespace keda --create-namespace --wait
    echo "😀 Successfully installed KEDA"
 
-   helm upgrade -i kedify-otel oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.5
+   helm upgrade -i kedify-otel oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.6 --namespace keda --wait   
    echo "😀 Successfully installed KEDA"
 fi
 

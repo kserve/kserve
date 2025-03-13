@@ -291,7 +291,6 @@ func validateKEDAMetrics(metric ScaleMetric) error {
 
 // Validate of autoscaler KEDA metrics
 func validateKEDAMetricBackends(backend MetricsBackend) error {
-	println("---------------------------------------", backend)
 	if slices.Contains(constants.AutoscalerAllowedKEDAMetricBackendList, constants.AutoscalerMetricsType(backend)) {
 		return nil
 	}

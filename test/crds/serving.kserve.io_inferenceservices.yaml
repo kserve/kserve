@@ -6618,6 +6618,8 @@ spec:
                                       type: string
                                     namespace:
                                       type: string
+                                    operationOverTime:
+                                      type: string
                                     query:
                                       type: string
                                     serverAddress:
@@ -9696,6 +9698,8 @@ spec:
                                       - opentelemetry
                                       type: string
                                     namespace:
+                                      type: string
+                                    operationOverTime:
                                       type: string
                                     query:
                                       type: string
@@ -23948,6 +23952,8 @@ spec:
                                       - opentelemetry
                                       type: string
                                     namespace:
+                                      type: string
+                                    operationOverTime:
                                       type: string
                                     query:
                                       type: string

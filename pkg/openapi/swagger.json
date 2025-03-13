@@ -3474,6 +3474,10 @@
           "description": "For namespaced query",
           "type": "string"
         },
+        "operationOverTime": {
+          "description": "OperationOverTime specifies the operation to aggregate the metrics over time",
+          "type": "string"
+        },
         "query": {
           "description": "Query to run to get metrics from MetricsBackend",
           "type": "string"

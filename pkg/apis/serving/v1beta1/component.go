@@ -248,6 +248,9 @@ type MetricSource struct {
 	// For namespaced query
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
+	// OperationOverTime specifies the operation to aggregate the metrics over time
+	// +optional
+	OperationOverTime string `json:"operationOverTime,omitempty"`
 }
 
 // ScaleMetric enum
