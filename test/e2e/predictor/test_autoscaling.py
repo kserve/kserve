@@ -439,7 +439,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     """
     Test KEDA autoscaling with new InferenceService (auto_scaling) spec
     """
-    service_name = "isvc-sklearn-keda-scale-new-spec"
+    service_name = "isvc-sklearn-keda-scale-new-spec-2"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         max_replicas=5,
