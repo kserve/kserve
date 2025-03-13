@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	istio_networking "istio.io/api/networking/v1alpha3"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -190,6 +191,19 @@ func main() {
 				setupLog.Error(err, "unable to add Istio v1beta1 APIs to scheme")
 				os.Exit(1)
 			}
+		}
+	}
+
+	kedaFound, kedaCheckErr := utils.IsCrdAvailable(cfg, kedav1alpha1.SchemeGroupVersion.String(), constants.KedaScaledObjectKind)
+	if kedaCheckErr != nil {
+		setupLog.Error(ksvcCheckErr, "error when checking if KEDA ScaledObject kind is available")
+		os.Exit(1)
+	}
+	if kedaFound {
+		setupLog.Info("Setting up KEDA scheme")
+		if err := kedav1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+			setupLog.Error(err, "unable to add KEDA APIs to scheme")
+			os.Exit(1)
 		}
 	}
 

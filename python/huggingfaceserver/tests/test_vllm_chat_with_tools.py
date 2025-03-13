@@ -80,7 +80,7 @@ async def test_function_calling(client: openai.AsyncOpenAI, model_name: str):
     messages = [{"role": "user", "content": "What's the weather like in Paris today?"}]
 
     chat_completion = await client.chat.completions.create(
-        model=MODEL_NAME, messages=messages, tools=tools
+        model=model_name, messages=messages, tools=tools
     )
 
     assert chat_completion.object != "error"
@@ -111,7 +111,7 @@ async def test_function_calling(client: openai.AsyncOpenAI, model_name: str):
     )
 
     chat_completion_2 = await client.chat.completions.create(
-        model=MODEL_NAME,
+        model=model_name,
         messages=messages,
         tools=tools,
     )

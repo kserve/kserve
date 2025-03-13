@@ -44,6 +44,7 @@ from vllm.entrypoints.openai.api_server import (
 from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
 from vllm.entrypoints.chat_utils import load_chat_template
 from vllm.entrypoints.openai.protocol import ErrorResponse as engineError
+from vllm.entrypoints.openai.reasoning_parsers import ReasoningParserManager
 from .utils import build_vllm_engine_args
 
 
@@ -82,6 +83,16 @@ class VLLMModel(
             raise KeyError(
                 f"invalid tool call parser: {self.args.tool_call_parser} "
                 f"(chose from {{ {','.join(valide_tool_parses)} }})"
+            )
+
+        valid_reasoning_parses = ReasoningParserManager.reasoning_parsers.keys()
+        if (
+            self.args.enable_reasoning
+            and self.args.reasoning_parser not in valid_reasoning_parses
+        ):
+            raise KeyError(
+                f"invalid reasoning parser: {self.args.reasoning_parser} "
+                f"(chose from {{ {','.join(valid_reasoning_parses)} }})"
             )
 
         if torch.cuda.is_available():

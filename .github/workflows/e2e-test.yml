@@ -745,6 +745,7 @@ jobs:
         uses: ./.github/actions/kserve-dep-setup
         with:
           deployment-mode: "raw"
+          enable-keda: "true"
           network-layer: ${{ matrix.network-layer }}
 
       - name: Download base images

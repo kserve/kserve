@@ -66,7 +66,9 @@ func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
 	if len(c.Containers) == 0 {
 		c.Containers = append(c.Containers, corev1.Container{})
 	}
-	c.Containers[0].Name = constants.InferenceServiceContainerName
+	if len(c.Containers) == 1 || len(c.Containers[0].Name) == 0 {
+		c.Containers[0].Name = constants.InferenceServiceContainerName
+	}
 	setResourceRequirementDefaults(config, &c.Containers[0].Resources)
 }
 
