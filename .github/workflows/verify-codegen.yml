@@ -35,6 +35,13 @@ jobs:
           make generate
           make manifests
 
+      - name: Check formatting with black
+        uses: psf/black@stable
+        with:
+          options: "--check --diff --config python/pyproject.toml"
+          src: "."
+          version: "~= 24.3"
+
       - name: Verify
         shell: bash
         run: |
