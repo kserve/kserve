@@ -16,7 +16,7 @@ FLAKE8_LINT = $(PYTHON_BIN)/flake8
 POETRY = $(PYTHON_BIN)/poetry
 
 ## Tool versions.
-GOLANGCI_LINT_VERSION ?= v1.63
+GOLANGCI_LINT_VERSION ?= v1.64
 CONTROLLER_TOOLS_VERSION ?= v0.16.2
 ENVTEST_VERSION ?= latest
 YQ_VERSION ?= v4.28.1
@@ -64,7 +64,7 @@ $(BLACK_FMT) $(FLAKE8_LINT): $(PYTHON_VENV)
 	$(PYTHON_BIN)/pip install black==$(BLACK_FMT_VERSION) flake8==$(FLAKE8_LINT_VERSION)
 
 $(POETRY): $(PYTHON_VENV)
-	$(PYTHON_BIN)/pip install poetry==$(POETRY_VERSION) plugin/poetry-version-plugin
+	$(PYTHON_BIN)/pip install poetry==$(POETRY_VERSION) python/plugin/poetry-version-plugin
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary
