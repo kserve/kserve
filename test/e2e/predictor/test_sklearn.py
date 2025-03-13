@@ -133,10 +133,11 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
             model_format=V1beta1ModelFormat(
                 name="sklearn",
             ),
-            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            # TODO: Update the storage_uri to a public location
+            storage_uri="https://github.com/sivanantha321/models/raw/refs/heads/main/scikit-learn/news_grouping/news_grouping_model.zip",
             resources=V1ResourceRequirements(
-                requests={"cpu": "2", "memory": "1Gi"},
-                limits={"cpu": "2", "memory": "2Gi"},
+                requests={"cpu": "2", "memory": "2Gi"},
+                limits={"cpu": "2", "memory": "4Gi"},
             ),
             args=["--workers=2"],
         ),
@@ -157,12 +158,12 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     tasks = [
-        predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
-        for _ in range(30)
+        predict_isvc(rest_v1_client, service_name, "./data/news_grouping_input_v1.json")
+        for _ in range(25)
     ]
     responses = await asyncio.gather(*tasks)
     for res in responses:
-        assert res["predictions"] == [1, 1]
+        assert res["predictions"] == [19]
 
     pods = kserve_client.core_api.list_namespaced_pod(
         KSERVE_TEST_NAMESPACE,
