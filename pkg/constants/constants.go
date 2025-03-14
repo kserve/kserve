@@ -53,6 +53,8 @@ var (
 const (
 	RouterHeadersPropagateEnvVar = "PROPAGATE_HEADERS"
 	InferenceGraphLabel          = "serving.kserve.io/inferencegraph"
+	InferenceGraphAuthCRBName    = "kserve-inferencegraph-auth-verifiers"
+	InferenceGraphFinalizerName  = "inferencegraph.finalizers"
 )
 
 // TrainedModel Constants

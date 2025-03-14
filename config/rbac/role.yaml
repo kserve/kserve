@@ -38,9 +38,17 @@ rules:
   - ""
   resources:
   - secrets
-  - serviceaccounts
   verbs:
   - get
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
@@ -111,6 +119,17 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - kserve-inferencegraph-auth-verifiers
+  resources:
+  - clusterrolebindings
+  verbs:
+  - create
+  - get
+  - patch
+  - update
 - apiGroups:
   - route.openshift.io
   resources:

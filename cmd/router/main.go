@@ -18,10 +18,13 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"crypto/rand"
 	"encoding/json"
 	goerrors "errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net/http"
 	"os"
 	"regexp"
@@ -29,17 +32,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
+	flag "github.com/spf13/pflag"
 	"github.com/tidwall/gjson"
+	authnv1 "k8s.io/api/authentication/v1"
+	authzv1 "k8s.io/api/authorization/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	"crypto/rand"
-	"math/big"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	flag "github.com/spf13/pflag"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var log = logf.Log.WithName("InferenceGraphRouter")
@@ -335,9 +340,157 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 }
 
 var (
+	enableAuthFlag         = flag.Bool("enable-auth", false, "protect the inference graph with authorization")
+	graphName              = flag.String("inferencegraph-name", "", "the name of the associated inference graph Kubernetes resource")
 	jsonGraph              = flag.String("graph-json", "", "serialized json graph def")
 	compiledHeaderPatterns []*regexp.Regexp
 )
+
+// findBearerToken parses the standard HTTP Authorization header to find and return
+// a Bearer token that a client may have provided in the request. If the token
+// is found, it is returned. Else, an empty string is returned and the HTTP response
+// is sent to the client with proper status code and the reason for the request being
+// rejected.
+func findBearerToken(w http.ResponseWriter, r *http.Request) string {
+	// Find for HTTP Authentication header. Reject request if not available.
+	authHeader := r.Header.Get("Authorization")
+	if len(authHeader) == 0 {
+		w.Header().Set("X-Forbidden-Reason", "No credentials were provided")
+		w.WriteHeader(http.StatusUnauthorized)
+		return ""
+	}
+
+	// Parse Auth header
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == authHeader {
+		w.Header().Set("X-Forbidden-Reason", "Only Bearer tokens are supported")
+		w.WriteHeader(http.StatusUnauthorized)
+		return ""
+	}
+	return token
+}
+
+// validateTokenIsAuthenticated queries the Kubernetes cluster to find if the provided token is
+// valid and flagged as authenticated. If the token is usable, the result of the TokenReview
+// is returned. Otherwise, the HTTP response is sent rejecting the request and setting
+// a meaningful status code along with a reason (if available).
+func validateTokenIsAuthenticated(w http.ResponseWriter, token string, clientset *kubernetes.Clientset) *authnv1.TokenReview {
+	// Check the token is valid
+	tokenReview := authnv1.TokenReview{}
+	tokenReview.Spec.Token = token
+	tokenReviewResult, err := clientset.AuthenticationV1().TokenReviews().Create(context.Background(), &tokenReview, metav1.CreateOptions{})
+	if err != nil {
+		log.Error(err, "failed to create TokenReview when verifying credentials")
+		w.WriteHeader(http.StatusInternalServerError)
+		return nil
+	}
+	if len(tokenReviewResult.Status.Error) != 0 {
+		w.Header().Set("X-Forbidden-Reason", tokenReviewResult.Status.Error)
+		w.WriteHeader(http.StatusUnauthorized)
+		return nil
+	}
+	if !tokenReviewResult.Status.Authenticated {
+		w.Header().Set("X-Forbidden-Reason", "The provided token is unauthenticated")
+		w.WriteHeader(http.StatusUnauthorized)
+		return nil
+	}
+	return tokenReviewResult
+}
+
+// checkRequestIsAuthorized verifies that the user in the provided tokenReviewResult has privileges to query the
+// Kubernetes API and get the InferenceGraph resource that belongs to this pod. If so, the request is considered
+// as allowed and `true` is returned. Otherwise, the HTTP response is sent rejecting the request and setting
+// a meaningful status code along with a reason (if available).
+func checkRequestIsAuthorized(w http.ResponseWriter, _ *http.Request, tokenReviewResult *authnv1.TokenReview, clientset *kubernetes.Clientset) bool {
+	// Read pod namespace
+	const namespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+	namespaceBytes, err := os.ReadFile(namespaceFile)
+	if err != nil {
+		log.Error(err, "failed to read namespace file while verifying credentials")
+		w.WriteHeader(http.StatusInternalServerError)
+		return false
+	}
+	namespace := string(namespaceBytes)
+
+	// Check the subject is authorized to query the InferenceGraph
+	if len(*graphName) == 0 {
+		log.Error(errors.New("no graph name provided"), "the --inferencegraph-name flag wasn't provided")
+		w.WriteHeader(http.StatusInternalServerError)
+		return false
+	}
+	accessReview := authzv1.SubjectAccessReview{
+		Spec: authzv1.SubjectAccessReviewSpec{
+			ResourceAttributes: &authzv1.ResourceAttributes{
+				Namespace: namespace,
+				Verb:      "get",
+				Group:     "serving.kserve.io",
+				Resource:  "inferencegraphs",
+				Name:      *graphName,
+			},
+			User:   tokenReviewResult.Status.User.Username,
+			Groups: nil,
+		},
+	}
+
+	accessReviewResult, err := clientset.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), &accessReview, metav1.CreateOptions{})
+	if err != nil {
+		log.Error(err, "failed to create LocalSubjectAccessReview when verifying credentials")
+		w.WriteHeader(http.StatusInternalServerError)
+		return false
+	}
+	if accessReviewResult.Status.Allowed {
+		// Note: This is here so that the request is NOT allowed by default.
+		return true
+	}
+
+	w.Header().Add("X-Forbidden-Reason", "Access to the InferenceGraph is not allowed")
+	if len(accessReviewResult.Status.Reason) != 0 {
+		w.Header().Add("X-Forbidden-Reason", accessReviewResult.Status.Reason)
+	}
+	if len(accessReviewResult.Status.EvaluationError) != 0 {
+		w.Header().Add("X-Forbidden-Reason", accessReviewResult.Status.EvaluationError)
+	}
+
+	w.WriteHeader(http.StatusUnauthorized)
+	return false
+}
+
+// authMiddleware uses the Middleware pattern to protect the InferenceGraph behind authorization.
+// It expects that a Bearer token is provided in the request in the standard HTTP Authorization
+// header. The token is verified against Kubernetes using the TokenReview and SubjectAccessReview APIs.
+// If the token is valid and has enough privileges, the handler provided in the `next` argument is run.
+// Otherwise, `next` is not invoked and the reason for the rejection is sent in response headers.
+func authMiddleware(next http.Handler) (http.Handler, error) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		k8sConfig, k8sConfigErr := rest.InClusterConfig()
+		if k8sConfigErr != nil {
+			log.Error(k8sConfigErr, "failed to create rest configuration to connect to Kubernetes API")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		clientset, clientsetErr := kubernetes.NewForConfig(k8sConfig)
+		if clientsetErr != nil {
+			log.Error(k8sConfigErr, "failed to create Kubernetes client to connect to API")
+			return
+		}
+
+		token := findBearerToken(w, r)
+		if len(token) == 0 {
+			return
+		}
+
+		tokenReviewResult := validateTokenIsAuthenticated(w, token, clientset)
+		if tokenReviewResult == nil {
+			return
+		}
+
+		isAuthorized := checkRequestIsAuthorized(w, r, tokenReviewResult, clientset)
+		if isAuthorized {
+			next.ServeHTTP(w, r)
+		}
+	}), nil
+}
 
 func main() {
 	flag.Parse()
@@ -358,14 +511,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	http.HandleFunc("/", graphHandler)
+	var entrypointHandler http.Handler
+	entrypointHandler = http.HandlerFunc(graphHandler)
+	if *enableAuthFlag {
+		entrypointHandler, err = authMiddleware(entrypointHandler)
+		log.Info("This Router has authorization enabled")
+		if err != nil {
+			log.Error(err, "failed to create entrypoint handler")
+			os.Exit(1)
+		}
+	}
 
 	server := &http.Server{
-		Addr:         ":8080",                        // specify the address and port
-		Handler:      http.HandlerFunc(graphHandler), // specify your HTTP handler
-		ReadTimeout:  time.Minute,                    // set the maximum duration for reading the entire request, including the body
-		WriteTimeout: time.Minute,                    // set the maximum duration before timing out writes of the response
-		IdleTimeout:  3 * time.Minute,                // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		Addr:         ":8080",           // specify the address and port
+		Handler:      entrypointHandler, // specify your HTTP handler
+		ReadTimeout:  time.Minute,       // set the maximum duration for reading the entire request, including the body
+		WriteTimeout: time.Minute,       // set the maximum duration before timing out writes of the response
+		IdleTimeout:  3 * time.Minute,   // set the maximum amount of time to wait for the next request when keep-alives are enabled
 	}
 
 	err = server.ListenAndServeTLS("/etc/tls/private/tls.crt", "/etc/tls/private/tls.key")
