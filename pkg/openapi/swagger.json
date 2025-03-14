@@ -3467,7 +3467,7 @@
       "type": "object",
       "properties": {
         "backend": {
-          "description": "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
+          "description": "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.",
           "type": "string"
         },
         "namespace": {

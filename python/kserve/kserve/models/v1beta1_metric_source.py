@@ -85,7 +85,7 @@ class V1beta1MetricSource(object):
     def backend(self):
         """Gets the backend of this V1beta1MetricSource.  # noqa: E501
 
-        MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.  # noqa: E501
+        MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.  # noqa: E501
 
         :return: The backend of this V1beta1MetricSource.  # noqa: E501
         :rtype: str
@@ -96,7 +96,7 @@ class V1beta1MetricSource(object):
     def backend(self, backend):
         """Sets the backend of this V1beta1MetricSource.
 
-        MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.  # noqa: E501
+        MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.  # noqa: E501
 
         :param backend: The backend of this V1beta1MetricSource.  # noqa: E501
         :type: str
