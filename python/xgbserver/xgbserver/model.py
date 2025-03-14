@@ -23,7 +23,7 @@ from kserve.utils.utils import get_predict_input, get_predict_response
 from xgboost import XGBModel
 
 from kserve import Model
-from kserve.storage import Storage
+from storage import Storage
 
 BOOSTER_FILE_EXTENSIONS = (".bst", ".json", ".ubj")
 
