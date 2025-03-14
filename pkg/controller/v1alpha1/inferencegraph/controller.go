@@ -19,7 +19,7 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=create;get;update;patch;watch
+// +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=create;get;update;patch;watch;delete
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes/status,verbs=get
 package inferencegraph
 

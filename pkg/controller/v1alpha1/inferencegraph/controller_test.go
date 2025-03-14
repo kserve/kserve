@@ -30,6 +30,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -691,6 +692,149 @@ var _ = Describe("Inference Graph controller test", func() {
 				k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
 				return inferenceGraphSubmitted.Status.URL.Host
 			}, timeout, interval).Should(Equal(osRoute.Status.Ingress[0].Host))
+		})
+
+		It("Should not create ingress when cluster-local visibility is configured", func() {
+			By("By creating a new InferenceGraph")
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer func() { _ = k8sClient.Delete(context.TODO(), configMap) }()
+			graphName := "igraw-private"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			ctx := context.Background()
+			ig := &v1alpha1.InferenceGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
+					},
+					Labels: map[string]string{
+						constants.NetworkVisibility: constants.ClusterLocalVisibility,
+					},
+				},
+				Spec: v1alpha1.InferenceGraphSpec{
+					Nodes: map[string]v1alpha1.InferenceRouter{
+						v1alpha1.GraphRootNodeName: {
+							RouterType: v1alpha1.Sequence,
+							Steps: []v1alpha1.InferenceStep{
+								{
+									InferenceTarget: v1alpha1.InferenceTarget{
+										ServiceURL: "http://someservice.exmaple.com",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+			defer func() { _ = k8sClient.Delete(ctx, ig) }()
+
+			// The OpenShift route must not be created
+			actualK8sDeploymentCreated := &appsv1.Deployment{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, serviceKey, actualK8sDeploymentCreated)
+			}, timeout, interval).Should(Succeed())
+			actualK8sDeploymentCreated.Status.Conditions = []appsv1.DeploymentCondition{
+				{Type: appsv1.DeploymentAvailable},
+			}
+			Expect(k8sClient.Status().Update(ctx, actualK8sDeploymentCreated)).Should(Succeed())
+			osRoute := osv1.Route{}
+			Consistently(func() error {
+				osRouteKey := types.NamespacedName{Name: ig.GetName() + "-route", Namespace: ig.GetNamespace()}
+				return k8sClient.Get(ctx, osRouteKey, &osRoute)
+			}, timeout, interval).Should(WithTransform(errors.IsNotFound, BeTrue()))
+
+			// The InferenceGraph should have a cluster-internal hostname
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, serviceKey, ig)
+				return ig.Status.URL.Host
+			}, timeout, interval).Should(Equal(fmt.Sprintf("%s.%s.svc.cluster.local", graphName, "default")))
+		})
+
+		It("Should reconfigure InferenceGraph as private when cluster-local visibility is configured", func() {
+			By("By creating a new InferenceGraph")
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer func() { _ = k8sClient.Delete(context.TODO(), configMap) }()
+			graphName := "igraw-exposed-to-private"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			var serviceKey = expectedRequest.NamespacedName
+			ctx := context.Background()
+			ig := &v1alpha1.InferenceGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
+					},
+				},
+				Spec: v1alpha1.InferenceGraphSpec{
+					Nodes: map[string]v1alpha1.InferenceRouter{
+						v1alpha1.GraphRootNodeName: {
+							RouterType: v1alpha1.Sequence,
+							Steps: []v1alpha1.InferenceStep{
+								{
+									InferenceTarget: v1alpha1.InferenceTarget{
+										ServiceURL: "http://someservice.exmaple.com",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+			defer func() { _ = k8sClient.Delete(ctx, ig) }()
+
+			// Wait the OpenShift route to be created
+			actualK8sDeploymentCreated := &appsv1.Deployment{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, serviceKey, actualK8sDeploymentCreated)
+			}, timeout, interval).Should(Succeed())
+			actualK8sDeploymentCreated.Status.Conditions = []appsv1.DeploymentCondition{
+				{Type: appsv1.DeploymentAvailable},
+			}
+			Expect(k8sClient.Status().Update(ctx, actualK8sDeploymentCreated)).Should(Succeed())
+			osRoute := osv1.Route{}
+			Eventually(func() error {
+				osRouteKey := types.NamespacedName{Name: ig.GetName() + "-route", Namespace: ig.GetNamespace()}
+				return k8sClient.Get(ctx, osRouteKey, &osRoute)
+			}, timeout, interval).Should(Succeed())
+
+			// Reconfigure as private
+			Expect(k8sClient.Get(ctx, serviceKey, ig)).Should(Succeed())
+			if ig.Labels == nil {
+				ig.Labels = map[string]string{}
+			}
+			ig.Labels[constants.NetworkVisibility] = constants.ClusterLocalVisibility
+			Expect(k8sClient.Update(ctx, ig)).Should(Succeed())
+
+			// The OpenShift route should be deleted
+			Eventually(func() error {
+				osRouteKey := types.NamespacedName{Name: ig.GetName() + "-route", Namespace: ig.GetNamespace()}
+				return k8sClient.Get(ctx, osRouteKey, &osRoute)
+			}).Should(WithTransform(errors.IsNotFound, BeTrue()))
+
+			// The InferenceGraph should have a cluster-internal hostname
+			Eventually(func() string {
+				_ = k8sClient.Get(ctx, serviceKey, ig)
+				return ig.Status.URL.Host
+			}, timeout, interval).Should(Equal(fmt.Sprintf("%s.%s.svc.cluster.local", graphName, "default")))
 		})
 	})
 

@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package inferencegraph
 
 import (
@@ -10,11 +26,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrlLog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 type OpenShiftRouteReconciler struct {
@@ -39,6 +57,21 @@ func (r *OpenShiftRouteReconciler) Reconcile(ctx context.Context, inferenceGraph
 	err = client.IgnoreNotFound(r.Client.Get(ctx, nsName, &actualRoute))
 	if err != nil {
 		return "", err
+	}
+
+	if val, ok := inferenceGraph.Labels[constants.NetworkVisibility]; ok && val == constants.ClusterLocalVisibility {
+		privateHost := network.GetServiceHostname(inferenceGraph.GetName(), inferenceGraph.GetNamespace())
+		// The IG is private. Remove the route, if needed.
+		if len(actualRoute.Name) != 0 {
+			logger.Info("Deleting OpenShift Route for InferenceGraph", "namespace", desiredRoute.Namespace, "name", desiredRoute.Name)
+			err = r.Client.Delete(ctx, &actualRoute)
+			if err != nil {
+				return privateHost, err
+			}
+		}
+
+		// Return private hostname.
+		return privateHost, nil
 	}
 
 	if len(actualRoute.Name) == 0 {
