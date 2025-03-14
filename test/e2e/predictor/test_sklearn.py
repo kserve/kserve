@@ -11,6 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import os
 
@@ -31,7 +32,12 @@ from kserve import (
 
 import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, predict_isvc, predict_grpc
+from ..common.utils import (
+    KSERVE_TEST_NAMESPACE,
+    predict_isvc,
+    predict_grpc,
+    extract_process_ids_from_logs,
+)
 
 
 @pytest.mark.predictor
@@ -121,19 +127,35 @@ async def test_sklearn_v2_mlserver(rest_v2_client):
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_runtime_kserve(rest_v1_client):
     service_name = "isvc-sklearn-runtime"
+    service_account_name = "s3-reader"
+
+    # Create s3-reader service account with required annotations
+    service_account = client.V1ServiceAccount(
+        metadata=client.V1ObjectMeta(
+            name=service_account_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations={
+                "serving.kserve.io/s3-endpoint": "s3.amazonaws.com",
+                "serving.kserve.io/s3-usehttps": "1",
+                "serving.kserve.io/s3-useanoncredential": "true",
+            },
+        )
+    )
+
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
                 name="sklearn",
             ),
-            storage_uri="gs://kfserving-examples/models/sklearn/1.0/model",
+            storage_uri="gs://kfserving-examples/models/sklearn/newsgroup/model.joblib",
             resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                requests={"cpu": "2", "memory": "2Gi"},
+                limits={"cpu": "2", "memory": "4Gi"},
             ),
             args=["--workers=2"],
         ),
+        service_account_name="s3-reader",
     )
 
     isvc = V1beta1InferenceService(
@@ -148,11 +170,38 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
+
+    # Create the service account if it doesn't exist
+    kserve_client.core_api.create_namespaced_service_account(
+        namespace=KSERVE_TEST_NAMESPACE, body=service_account
+    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = await predict_isvc(rest_v1_client, service_name, "./data/iris_input.json")
-    assert res["predictions"] == [1, 1]
+    tasks = [
+        predict_isvc(rest_v1_client, service_name, "./data/news_grouping_input_v1.json")
+        for _ in range(25)
+    ]
+    responses = await asyncio.gather(*tasks)
+    for res in responses:
+        assert res["predictions"] == [19]
+
+    pods = kserve_client.core_api.list_namespaced_pod(
+        KSERVE_TEST_NAMESPACE,
+        label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+    )
+    # Wait for logs to be available
+    await asyncio.sleep(5)
+    logs = kserve_client.core_api.read_namespaced_pod_log(
+        name=pods.items[0].metadata.name,
+        namespace=pods.items[0].metadata.namespace,
+        container="kserve-container",
+    )
+    process_ids = extract_process_ids_from_logs(logs)
+    assert len(process_ids) == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.core_api.delete_namespaced_service_account(
+        name=service_account_name, namespace=KSERVE_TEST_NAMESPACE
+    )
 
 
 @pytest.mark.predictor
