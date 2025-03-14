@@ -160,7 +160,7 @@ func (e *Explainer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 
 	// Here we allow switch between knative and vanilla deployment
 	if e.deploymentMode == constants.RawDeployment {
-		r, err := raw.NewRawKubeReconciler(e.client, e.clientset, e.scheme, objectMeta, metav1.ObjectMeta{},
+		r, err := raw.NewRawKubeReconciler(e.client, e.clientset, e.scheme, constants.InferenceServiceResource, objectMeta, metav1.ObjectMeta{},
 			&isvc.Spec.Explainer.ComponentExtensionSpec, &podSpec, nil)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for explainer")

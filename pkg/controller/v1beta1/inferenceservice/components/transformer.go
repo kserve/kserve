@@ -188,7 +188,7 @@ func (p *Transformer) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, er
 
 	// Here we allow switch between knative and vanilla deployment
 	if p.deploymentMode == constants.RawDeployment {
-		r, err := raw.NewRawKubeReconciler(p.client, p.clientset, p.scheme, objectMeta, metav1.ObjectMeta{},
+		r, err := raw.NewRawKubeReconciler(p.client, p.clientset, p.scheme, constants.InferenceServiceResource, objectMeta, metav1.ObjectMeta{},
 			&isvc.Spec.Transformer.ComponentExtensionSpec, &podSpec, nil)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for transformer")

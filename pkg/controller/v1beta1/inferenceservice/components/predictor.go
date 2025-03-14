@@ -365,7 +365,7 @@ func (p *Predictor) Reconcile(isvc *v1beta1.InferenceService) (ctrl.Result, erro
 		rawDeployment = true
 		podLabelKey = constants.RawDeploymentAppLabel
 		// This is main RawKubeReconciler to create objects (deployment, svc, scaler)
-		r, err := raw.NewRawKubeReconciler(p.client, p.clientset, p.scheme, objectMeta, workerObjectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
+		r, err := raw.NewRawKubeReconciler(p.client, p.clientset, p.scheme, constants.InferenceServiceResource, objectMeta, workerObjectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 			&podSpec, workerPodSpec)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")

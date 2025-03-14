@@ -89,7 +89,6 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 			},
 		}
 	}
-
 	return podSpec
 }
 
@@ -145,7 +144,7 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 	objectMeta, componentExtSpec := constructForRawDeployment(graph)
 
 	// create the reconciler
-	reconciler, err := raw.NewRawKubeReconciler(cl, clientset, scheme, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
+	reconciler, err := raw.NewRawKubeReconciler(cl, clientset, scheme, constants.InferenceGraphResource, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
 
 	if err != nil {
 		return nil, reconciler.URL, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
@@ -158,6 +157,7 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 	}
 	// set Service Controller
 	for _, svc := range reconciler.Service.ServiceList {
+		svc.ObjectMeta.Annotations[constants.OpenshiftServingCertAnnotation] = graph.Name + constants.ServingCertSecretSuffix
 		if err := controllerutil.SetControllerReference(graph, svc, scheme); err != nil {
 			return nil, reconciler.URL, errors.Wrapf(err, "fails to set service owner reference for inference graph")
 		}

@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
 	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
@@ -51,6 +52,7 @@ type RawKubeReconciler struct {
 func NewRawKubeReconciler(client client.Client,
 	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
+	resourceType constants.ResourceType,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
@@ -76,7 +78,7 @@ func NewRawKubeReconciler(client client.Client,
 		log.Error(err1, "failed to get service config")
 	}
 
-	depl, err := deployment.NewDeploymentReconciler(client, clientset, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	depl, err := deployment.NewDeploymentReconciler(client, clientset, scheme, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
 	if err != nil {
 		return nil, err
 	}

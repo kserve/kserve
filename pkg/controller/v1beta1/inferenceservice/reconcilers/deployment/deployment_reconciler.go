@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -41,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"knative.dev/pkg/kmp"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -64,11 +64,12 @@ const (
 func NewDeploymentReconciler(client kclient.Client,
 	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
+	resourceType constants.ResourceType,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) (*DeploymentReconciler, error) {
-	deploymentList, err := createRawDeploymentODH(clientset, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	deploymentList, err := createRawDeploymentODH(clientset, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -80,20 +81,25 @@ func NewDeploymentReconciler(client kclient.Client,
 	}, nil
 }
 
-func createRawDeploymentODH(clientset kubernetes.Interface, componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
+func createRawDeploymentODH(clientset kubernetes.Interface, resourceType constants.ResourceType, componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) ([]*appsv1.Deployment, error) {
 	deploymentList, err := createRawDeployment(componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
 	if err != nil {
 		return nil, err
 	}
+	enableAuth := false
+	// Deployment list is for multi-node, we only need to add oauth proxy and serving sercret certs to the head deployment
+	headDeployment := deploymentList[0]
 	if val, ok := componentMeta.Annotations[constants.ODHKserveRawAuth]; ok && strings.EqualFold(val, "true") {
-		for _, deployment := range deploymentList {
-			err := addOauthContainerToDeployment(clientset, deployment, componentMeta, componentExt, podSpec)
-			if err != nil {
-				return nil, err
-			}
+		enableAuth = true
+		err := addOauthContainerToDeployment(clientset, headDeployment, componentMeta, componentExt, podSpec)
+		if err != nil {
+			return nil, err
 		}
+	}
+	if (resourceType == constants.InferenceServiceResource && enableAuth) || resourceType == constants.InferenceGraphResource {
+		mountServingSecretVolumeToDeployment(headDeployment, componentMeta, resourceType)
 	}
 	return deploymentList, nil
 }
@@ -187,6 +193,36 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	return deployment, nil
 }
 
+func mountServingSecretVolumeToDeployment(deployment *appsv1.Deployment, componentMeta metav1.ObjectMeta, resourceType constants.ResourceType) {
+	updatedPodSpec := deployment.Spec.Template.Spec.DeepCopy()
+	tlsSecretVolume := corev1.Volume{
+		Name: tlsVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName:  componentMeta.Name + constants.ServingCertSecretSuffix,
+				DefaultMode: func(i int32) *int32 { return &i }(420),
+			},
+		},
+	}
+
+	updatedPodSpec.Volumes = append(updatedPodSpec.Volumes, tlsSecretVolume)
+
+	containerName := "kserve-container"
+	if resourceType == constants.InferenceGraphResource {
+		containerName = componentMeta.Name
+	}
+	for i, container := range updatedPodSpec.Containers {
+		if container.Name == containerName {
+			updatedPodSpec.Containers[i].VolumeMounts = append(updatedPodSpec.Containers[i].VolumeMounts, corev1.VolumeMount{
+				Name:      tlsVolumeName,
+				MountPath: "/etc/tls/private",
+			})
+		}
+	}
+
+	deployment.Spec.Template.Spec = *updatedPodSpec
+}
+
 func addOauthContainerToDeployment(clientset kubernetes.Interface, deployment *appsv1.Deployment, componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec) error {
 	var isvcname string
@@ -223,16 +259,6 @@ func addOauthContainerToDeployment(clientset kubernetes.Interface, deployment *a
 		updatedPodSpec := deployment.Spec.Template.Spec.DeepCopy()
 		//	updatedPodSpec := podSpec.DeepCopy()
 		updatedPodSpec.Containers = append(updatedPodSpec.Containers, *oauthProxyContainer)
-		tlsSecretVolume := corev1.Volume{
-			Name: tlsVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  componentMeta.Name + constants.ServingCertSecretSuffix,
-					DefaultMode: func(i int32) *int32 { return &i }(420),
-				},
-			},
-		}
-		updatedPodSpec.Volumes = append(updatedPodSpec.Volumes, tlsSecretVolume)
 		deployment.Spec.Template.Spec = *updatedPodSpec
 	}
 	return nil
