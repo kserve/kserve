@@ -163,6 +163,8 @@ var (
 	IstioSidecarStatusAnnotation          = "sidecar.istio.io/status"
 )
 
+var OTelBackend = "opentelemetry"
+
 type (
 	AutoscalerClassType       string
 	AutoscalerMetricsType     string

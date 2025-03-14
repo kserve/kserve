@@ -20,6 +20,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	constants "github.com/kserve/kserve/pkg/constants"
+	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
+	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/otel"
+	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,24 +35,19 @@ import (
 	knapis "knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
-	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
-	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
 )
 
 var log = logf.Log.WithName("RawKubeReconciler")
 
 // RawKubeReconciler reconciles the Native K8S Resources
 type RawKubeReconciler struct {
-	client     client.Client
-	scheme     *runtime.Scheme
-	Deployment *deployment.DeploymentReconciler
-	Service    *service.ServiceReconciler
-	Scaler     *autoscaler.AutoscalerReconciler
-	URL        *knapis.URL
+	client        client.Client
+	scheme        *runtime.Scheme
+	Deployment    *deployment.DeploymentReconciler
+	Service       *service.ServiceReconciler
+	Scaler        *autoscaler.AutoscalerReconciler
+	OtelCollector *otel.OtelReconciler
+	URL           *knapis.URL
 }
 
 // NewRawKubeReconciler creates raw kubernetes resource reconciler.
@@ -57,6 +59,21 @@ func NewRawKubeReconciler(ctx context.Context, client client.Client,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
 ) (*RawKubeReconciler, error) {
+
+	var otelCollector *otel.OtelReconciler
+	metrics := componentExt.AutoScaling.Metrics
+	for _, metric := range metrics {
+		if metric.Type == v1beta1.ExternalMetricSourceType {
+			if *metric.External.Metric.Backend == v1beta1.MetricsBackend(constants.OTelBackend) {
+				var err error
+				otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, componentExt)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
 	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt)
 	if err != nil {
 		return nil, err
@@ -86,12 +103,13 @@ func NewRawKubeReconciler(ctx context.Context, client client.Client,
 	}
 
 	return &RawKubeReconciler{
-		client:     client,
-		scheme:     scheme,
-		Deployment: deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec),
-		Service:    service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
-		Scaler:     as,
-		URL:        url,
+		client:        client,
+		scheme:        scheme,
+		Deployment:    deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec),
+		Service:       service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
+		Scaler:        as,
+		otelCollector: otelCollector,
+		URL:           url,
 	}, nil
 }
 
@@ -116,6 +134,13 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment
 	_, err = r.Service.Reconcile(ctx)
 	if err != nil {
 		return nil, err
+	}
+	// reconcile OTel Collector
+	if r.otelCollector != nil {
+		err = r.otelCollector.Reconcile(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 	// reconcile HPA
 	err = r.Scaler.Reconcile(ctx)
