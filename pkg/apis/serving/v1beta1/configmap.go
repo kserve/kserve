@@ -42,6 +42,7 @@ const (
 	SecurityConfigName            = "security"
 	ServiceConfigName             = "service"
 	ResourceConfigName            = "resource"
+	MultiNodeConfigKeyName        = "multiNode"
 )
 
 const (
@@ -82,6 +83,12 @@ type InferenceServicesConfig struct {
 	ServiceLabelDisallowedList []string `json:"serviceLabelDisallowedList,omitempty"`
 	// Resource configurations
 	Resource ResourceConfig `json:"resource,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type MultiNodeConfig struct {
+	// CustomGPUResourceTypeList is a list of custom GPU resource types that are allowed to be used in the ServingRuntime and inferenceService
+	CustomGPUResourceTypeList []string `json:"customGPUResourceTypeList,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -179,6 +186,30 @@ func NewInferenceServicesConfig(isvcConfigMap *corev1.ConfigMap) (*InferenceServ
 		}
 	}
 	return icfg, nil
+}
+
+func NewMultiNodeConfig(isvcConfigMap *corev1.ConfigMap) (*MultiNodeConfig, error) {
+	mncfg := &MultiNodeConfig{}
+	for _, err := range []error{
+		getComponentConfig(MultiNodeConfigKeyName, isvcConfigMap, &mncfg),
+	} {
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if mnc, ok := isvcConfigMap.Data[MultiNodeConfigKeyName]; ok {
+		errisvc := json.Unmarshal([]byte(mnc), &mncfg)
+		if errisvc != nil {
+			return nil, fmt.Errorf("unable to parse multinode config json: %w", errisvc)
+		}
+		if mncfg.CustomGPUResourceTypeList == nil {
+			mncfg.CustomGPUResourceTypeList = constants.DefaultGPUResourceTypeList
+		}
+	} else {
+		mncfg.CustomGPUResourceTypeList = constants.DefaultGPUResourceTypeList
+	}
+	return mncfg, nil
 }
 
 func validateIngressGateway(ingressConfig *IngressConfig) error {

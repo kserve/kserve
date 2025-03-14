@@ -73,6 +73,24 @@ data:
           "my.custom.label.1"  
         ]
       }  
+    # ====================================== MultiNode CONFIGURATION ======================================
+    # Example   
+    multiNode: |-
+      {
+        "customGPUResourceTypeList": [
+          "custom.com/gpu"
+        ]
+      }
+    # Example of multinode configuration
+    multiNode: |-
+      {      
+        # CustomGPUResourceTypeList is a list of custom GPU resource types intended to identify the GPU type of a resource,
+        # not to restrict the user from using a specific GPU type.
+        # The MultiNode runtime pod will dynamically add GPU resources based on the registered GPU types.
+        "customGPUResourceTypeList": [
+          "custom.com/gpu"
+        ]
+      }  
      # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
      # Example
      storageInitializer: |-
@@ -116,7 +134,7 @@ data:
            # if pvc volume is provided in storageuri then the pvc volume is directly mounted to /mnt/models in the user container.
            # rather than symlink it to a shared volume. For more info see https://github.com/kserve/kserve/issues/2737
            "enableDirectPvcVolumeMount": true,
-    
+
            # enableModelcar enabled allows you to directly access an OCI container image by
            # using a source URL with an "oci://" schema.
            "enableModelcar": false,
@@ -482,7 +500,7 @@ data:
          # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/
          "defaultDeploymentMode": "Serverless"
        }
-    
+
      # ====================================== SERVICE CONFIGURATION ======================================
      # Example
      service: |-
@@ -686,12 +704,12 @@ data:
       "defaultJobImage" : "kserve/storage-initializer:latest",
       "fsGroup": 1000
     }
-  
+
   security: |-
     {
       "autoMountServiceAccountToken": true
     }
-    
+
   inferenceService: |-
     {
       "resource": {
