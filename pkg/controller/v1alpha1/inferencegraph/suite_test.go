@@ -48,6 +48,7 @@ import (
 var (
 	cfg       *rest.Config
 	k8sClient client.Client
+	ctx       context.Context
 )
 
 func TestAPIs(t *testing.T) {
@@ -57,7 +58,8 @@ func TestAPIs(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-	ctx, cancel := context.WithCancel(context.Background())
+	localCtx, cancel := context.WithCancel(context.Background())
+	ctx = localCtx
 	By("bootstrapping test environment")
 	crdDirectoryPaths := []string{
 		filepath.Join("..", "..", "..", "..", "test", "crds"),

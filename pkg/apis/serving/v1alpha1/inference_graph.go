@@ -17,10 +17,14 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // InferenceGraph is the Schema for the InferenceGraph API for multiple models
@@ -334,4 +338,26 @@ type InferenceGraphList struct {
 
 func init() {
 	SchemeBuilder.Register(&InferenceGraph{}, &InferenceGraphList{})
+}
+
+func (ig *InferenceGraph) HasAuthEnabled() bool {
+	return ig.GetAnnotations()[constants.EnableAuthAnnotationKey] == "true"
+}
+
+// ResolveServiceAccountName returns the ServiceAccount name to use for the InferenceGraph pod.
+// If the user has customized the name of the ServiceAccount, the custom name is used. If there is no
+// custom ServiceAccount the returned name depends on whether the IG is auth-protected:
+//   - If the IG is *not* auth-protected, `default` is returned (backwards compatibility)
+//   - If the IG is *not* auth-protected, the returned value is the name of the IG with `-auth-verifier` suffix
+//     in a try to stay close to principle of least privilege.
+func (ig *InferenceGraph) ResolveServiceAccountName() string {
+	if len(ig.Spec.ServiceAccountName) != 0 {
+		return ig.Spec.ServiceAccountName
+	}
+
+	if ig.HasAuthEnabled() {
+		return fmt.Sprintf("%s-auth-verifier", ig.GetName())
+	}
+
+	return "default"
 }

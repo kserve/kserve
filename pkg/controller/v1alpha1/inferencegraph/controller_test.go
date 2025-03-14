@@ -25,12 +25,16 @@ import (
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"knative.dev/pkg/kmp"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -816,6 +820,131 @@ var _ = Describe("Inference Graph controller test", func() {
 			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
 			Expect(err).ShouldNot(HaveOccurred())
 			Expect(actualKnServiceCreated.Spec).To(BeComparableTo(expectedKnService.Spec))
+		})
+	})
+
+	Context("When creating an IG in Raw deployment mode with auth", func() {
+		var configMap *corev1.ConfigMap
+		var inferenceGraph *v1alpha1.InferenceGraph
+
+		BeforeEach(func() {
+			configMap = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+
+			graphName := "igrawauth1"
+			inferenceGraph = &v1alpha1.InferenceGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      graphName,
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": string(constants.RawDeployment),
+						constants.EnableAuthAnnotationKey:  "true",
+					},
+				},
+				Spec: v1alpha1.InferenceGraphSpec{
+					Nodes: map[string]v1alpha1.InferenceRouter{
+						v1alpha1.GraphRootNodeName: {
+							RouterType: v1alpha1.Sequence,
+							Steps: []v1alpha1.InferenceStep{
+								{
+									InferenceTarget: v1alpha1.InferenceTarget{
+										ServiceURL: "http://someservice.exmaple.com",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, inferenceGraph)).Should(Succeed())
+		})
+		AfterEach(func() {
+			_ = k8sClient.Delete(ctx, inferenceGraph)
+			igKey := types.NamespacedName{Namespace: inferenceGraph.GetNamespace(), Name: inferenceGraph.GetName()}
+			Eventually(func() error { return k8sClient.Get(ctx, igKey, inferenceGraph) }, timeout, interval).ShouldNot(Succeed())
+
+			_ = k8sClient.Delete(ctx, configMap)
+			cmKey := types.NamespacedName{Namespace: configMap.GetNamespace(), Name: configMap.GetName()}
+			Eventually(func() error { return k8sClient.Get(ctx, cmKey, configMap) }, timeout, interval).ShouldNot(Succeed())
+		})
+
+		It("Should create or update a ClusterRoleBinding giving privileges to validate auth", func() {
+			Eventually(func(g Gomega) {
+				crbKey := types.NamespacedName{Name: constants.InferenceGraphAuthCRBName}
+				clusterRoleBinding := rbacv1.ClusterRoleBinding{}
+				g.Expect(k8sClient.Get(ctx, crbKey, &clusterRoleBinding)).To(Succeed())
+
+				crGVK, err := apiutil.GVKForObject(&rbacv1.ClusterRole{}, scheme.Scheme)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(clusterRoleBinding.RoleRef).To(Equal(rbacv1.RoleRef{
+					APIGroup: crGVK.Group,
+					Kind:     crGVK.Kind,
+					Name:     "system:auth-delegator",
+				}))
+				g.Expect(clusterRoleBinding.Subjects).To(ContainElement(rbacv1.Subject{
+					Kind:      "ServiceAccount",
+					APIGroup:  "",
+					Name:      inferenceGraph.ResolveServiceAccountName(),
+					Namespace: inferenceGraph.GetNamespace(),
+				}))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("Should create a ServiceAccount for querying the Kubernetes API to check tokens", func() {
+			Eventually(func(g Gomega) {
+				saKey := types.NamespacedName{Namespace: inferenceGraph.GetNamespace(), Name: inferenceGraph.ResolveServiceAccountName()}
+				serviceAccount := corev1.ServiceAccount{}
+				g.Expect(k8sClient.Get(ctx, saKey, &serviceAccount)).To(Succeed())
+				g.Expect(serviceAccount.OwnerReferences).ToNot(BeEmpty())
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("Should configure the InferenceGraph deployment with auth enabled", func() {
+			Eventually(func(g Gomega) {
+				igDeployment := appsv1.Deployment{}
+				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: inferenceGraph.GetNamespace(), Name: inferenceGraph.GetName()}, &igDeployment)).To(Succeed())
+				g.Expect(igDeployment.Spec.Template.Spec.AutomountServiceAccountToken).To(Equal(proto.Bool(true)))
+				g.Expect(igDeployment.Spec.Template.Spec.ServiceAccountName).To(Equal(inferenceGraph.ResolveServiceAccountName()))
+				g.Expect(igDeployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+				g.Expect(igDeployment.Spec.Template.Spec.Containers[0].Args).To(ContainElements("--enable-auth", "--inferencegraph-name", inferenceGraph.GetName()))
+			}, timeout, interval).Should(Succeed())
+		})
+
+		It("Should delete the ServiceAccount when the InferenceGraph is deleted", func() {
+			serviceAccount := corev1.ServiceAccount{}
+			saKey := types.NamespacedName{Namespace: inferenceGraph.GetNamespace(), Name: inferenceGraph.ResolveServiceAccountName()}
+
+			Eventually(func() error {
+				return k8sClient.Get(ctx, saKey, &serviceAccount)
+			}, timeout, interval).Should(Succeed())
+
+			Expect(k8sClient.Delete(ctx, inferenceGraph)).To(Succeed())
+			Eventually(func() error {
+				return k8sClient.Get(ctx, saKey, &serviceAccount)
+			}, timeout, interval).Should(WithTransform(errors.IsNotFound, BeTrue()))
+		})
+
+		It("Should remove the ServiceAccount as subject of the ClusterRoleBinding when the InferenceGraph is deleted", func() {
+			crbKey := types.NamespacedName{Name: constants.InferenceGraphAuthCRBName}
+
+			Eventually(func() []rbacv1.Subject {
+				clusterRoleBinding := rbacv1.ClusterRoleBinding{}
+				_ = k8sClient.Get(ctx, crbKey, &clusterRoleBinding)
+				return clusterRoleBinding.Subjects
+			}, timeout, interval).Should(ContainElement(HaveField("Name", inferenceGraph.ResolveServiceAccountName())))
+
+			Expect(k8sClient.Delete(ctx, inferenceGraph)).To(Succeed())
+			Eventually(func() []rbacv1.Subject {
+				clusterRoleBinding := rbacv1.ClusterRoleBinding{}
+				_ = k8sClient.Get(ctx, crbKey, &clusterRoleBinding)
+				return clusterRoleBinding.Subjects
+			}, timeout, interval).ShouldNot(ContainElement(HaveField("Name", inferenceGraph.ResolveServiceAccountName())))
 		})
 	})
 })
