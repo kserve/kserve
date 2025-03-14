@@ -1,19 +1,17 @@
 ARG CUDA_VERSION=12.4.1
-ARG VENV_PATH=prod_venv
-ARG PYTHON_VERSION=3.12
-ARG WORKSPACE_DIR=/kserve-workspace
+ARG VENV_PATH=/prod_venv
 
-#################### BASE BUILD IMAGE ####################
-# prepare basic build environment
+#################### BASE IMAGE ####################
+# TODO: Restore to base image after FlashInfer AOT wheel fixed
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS base
-
-ARG WORKSPACE_DIR
 ARG CUDA_VERSION=12.4.1
 ARG PYTHON_VERSION=3.12
 ENV DEBIAN_FRONTEND=noninteractive
 
+# Install Python and other dependencies
 RUN apt-get update -y \
-    && apt-get install -y ccache software-properties-common git curl sudo gcc python-is-python3 \
+    && apt-get install -y ccache software-properties-common git curl sudo \
+    && apt-get install -y libibverbs1 ibverbs-providers \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update -y \
     && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
@@ -22,13 +20,9 @@ RUN apt-get update -y \
     && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
     && python3 --version && python3 -m pip --version \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.8.3
-RUN --mount=type=cache,target=/root/.cache/pip curl -sSL https://install.python-poetry.org | python3 - --version $POETRY_VERSION -y
-ENV PATH="$PATH:${POETRY_HOME}/bin"
 
 # Workaround for https://github.com/openai/triton/issues/2507 and
 # https://github.com/pytorch/pytorch/issues/107960 -- hopefully
@@ -36,6 +30,13 @@ ENV PATH="$PATH:${POETRY_HOME}/bin"
 # or future versions of triton.
 RUN ldconfig /usr/local/cuda-$(echo $CUDA_VERSION | cut -d. -f1,2)/compat/
 
+WORKDIR /workspace
+
+
+#################### BUILD IMAGE ####################
+FROM base AS build
+
+#################### LMCache WHEEL BUILD ####################
 # cuda arch list used by torch
 # can be useful for both `dev` and `test`
 # explicitly set the list to avoid issues with torch 2.2
@@ -46,17 +47,7 @@ ENV TORCH_CUDA_ARCH_LIST=${torch_cuda_arch_list}
 ARG vllm_fa_cmake_gpu_arches='80-real;90-real'
 ENV VLLM_FA_CMAKE_GPU_ARCHES=${vllm_fa_cmake_gpu_arches}
 
-WORKDIR ${WORKSPACE_DIR}
 
-#################### BASE BUILD IMAGE ####################
-
-#################### WHEEL BUILD IMAGE ####################
-FROM base AS build
-
-ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.7.3
-
-################### LMCache WHEEL BUILD ###################
 # max jobs used by Ninja to build extensions
 ARG max_jobs=2
 ENV MAX_JOBS=${max_jobs}
@@ -73,26 +64,33 @@ RUN git clone https://github.com/LMCache/torchac_cuda.git
 RUN --mount=type=cache,target=/root/.cache/pip \
     python3 -m pip install -r LMCache/docker/requirements-build.txt
 
-WORKDIR ${WORKSPACE_DIR}/LMCache
+
+WORKDIR /workspace/LMCache
 RUN --mount=type=cache,target=/root/.cache/ccache \
     --mount=type=cache,target=/root/.cache/pip \
     python3 setup.py bdist_wheel --dist-dir=dist_lmcache
 
-WORKDIR ${WORKSPACE_DIR}/torchac_cuda
+WORKDIR /workspace/torchac_cuda
 RUN --mount=type=cache,target=/root/.cache/ccache \
     --mount=type=cache,target=/root/.cache/pip \
-    python3 setup.py bdist_wheel --dist-dir=${WORKSPACE_DIR}/LMCache/dist_lmcache
-################### LMCache WHEEL BUILD ###################
+    python3 setup.py bdist_wheel --dist-dir=/workspace/LMCache/dist_lmcache
 
-WORKDIR ${WORKSPACE_DIR}
+#################### vLLM installation ####################
 
+WORKDIR /
+
+ARG POETRY_HOME=/opt/poetry
+RUN --mount=type=cache,target=/root/.cache/pip curl -sSL https://install.python-poetry.org | python3 - --version 1.8.3 -y
+ENV PATH="$PATH:${POETRY_HOME}/bin"
+
+# Install vllm
+ARG VLLM_VERSION=0.7.3
+
+# Activate virtual env
 ARG VENV_PATH
-RUN python3 -m venv ${VENV_PATH}
-# Activate virtual env by setting VIRTUAL_ENV
-ENV VIRTUAL_ENV=${WORKSPACE_DIR}/${VENV_PATH}
-ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
-
-# From this point, all Python packages will be installed in the virtual environment and copied to the final image
+ENV VIRTUAL_ENV=${VENV_PATH}
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
 RUN cd kserve && poetry install --no-root --no-interaction --no-cache
@@ -104,7 +102,6 @@ RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
-# Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
 RUN --mount=type=cache,target=/root/.cache/pip pip install --upgrade pip && pip install vllm[runai,tensorizer]==${VLLM_VERSION}
 
@@ -115,14 +112,13 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install https://github.com/fl
 # some issues w.r.t. JIT compilation. Therefore we need to
 # install build dependencies for JIT compilation.
 # TODO: Remove this once FlashInfer AOT wheel is fixed
-RUN --mount=type=cache,target=/root/.cache/pip curl -sSLo requirements-build.txt https://github.com/vllm-project/vllm/raw/refs/tags/v${VLLM_VERSION}/requirements-build.txt \
+RUN --mount=type=cache,target=/root/.cache/pip curl -sSLo requirements-build.txt https://github.com/vllm-project/vllm/raw/refs/tags/v0.7.3/requirements-build.txt \
     && pip install -r requirements-build.txt
 
-# TODO: Add it to the pyproject.toml
-RUN --mount=type=cache,target=/root/.cache/pip pip install 'modelscope!=1.15.0' 'bitsandbytes>=0.45.0' 'timm==0.9.10'
+RUN --mount=type=cache,target=/root/.cache/pip pip install accelerate hf_transfer 'modelscope!=1.15.0' 'bitsandbytes>=0.45.0' 'timm==0.9.10' boto3
 
 # Install torchac_cuda and lmcache wheel
-RUN --mount=type=cache,target=/root/.cache/pip pip install ${WORKSPACE_DIR}/LMCache/dist_lmcache/*.whl --verbose
+RUN --mount=type=cache,target=/root/.cache/pip pip install /workspace/LMCache/dist_lmcache/*.whl --verbose
 
 # TODO: Remove this patch once the next vLLM release is available
 RUN git clone https://github.com/vllm-project/vllm.git
@@ -136,47 +132,24 @@ RUN cp vllm/vllm/distributed/kv_transfer/kv_connector/lmcache_connector.py \
 
 COPY vllm_parallel_state.patch parallel_state.patch
 RUN patch ${VENV_PATH}/lib/python3.12/site-packages/vllm/distributed/parallel_state.py parallel_state.patch
-#################### WHEEL BUILD IMAGE ####################
 
-#################### PROD IMAGE ####################
-# TODO: Restore to base image after FlashInfer AOT wheel fixed
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS prod
+#################### PRODUCTION IMAGE ####################
+FROM base AS prod
 
-ARG WORKSPACE_DIR
-ARG CUDA_VERSION=12.4.1
-ARG PYTHON_VERSION=3.12
-ENV DEBIAN_FRONTEND=noninteractive
-
-WORKDIR ${WORKSPACE_DIR}
-
-# Install Python and other dependencies
-RUN apt-get update -y \
-    && apt-get upgrade -y \
-    && apt-get install -y software-properties-common curl \
-    && apt-get install -y ffmpeg libsm6 libxext6 libgl1 gcc libibverbs-dev \
-    && add-apt-repository ppa:deadsnakes/ppa \
-    && apt-get update -y \
-    && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
-    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
-    && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
-    && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
-    && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
-    && python3 --version && python3 -m pip --version \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+WORKDIR /
 
 COPY third_party third_party
 
-
+# Activate virtual env
 ARG VENV_PATH
-# Activate virtual env by setting VIRTUAL_ENV
-ENV VIRTUAL_ENV=${WORKSPACE_DIR}/${VENV_PATH}
-ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
+ENV VIRTUAL_ENV=${VENV_PATH}
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
-COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/$VENV_PATH $VENV_PATH
-COPY --from=build ${WORKSPACE_DIR}/kserve kserve
-COPY --from=build ${WORKSPACE_DIR}/huggingfaceserver huggingfaceserver
+COPY --from=build --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
+COPY --from=build kserve kserve
+COPY --from=build huggingfaceserver huggingfaceserver
 
 # Set a writable Hugging Face home folder to avoid permission issue. See https://github.com/kserve/kserve/issues/3562
 ENV HF_HOME="/tmp/huggingface"
@@ -192,4 +165,3 @@ ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 USER 1000
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]
-#################### PROD IMAGE ####################
