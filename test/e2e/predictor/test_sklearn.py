@@ -127,20 +127,35 @@ async def test_sklearn_v2_mlserver(rest_v2_client):
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_runtime_kserve(rest_v1_client):
     service_name = "isvc-sklearn-runtime"
+    service_account_name = "s3-reader"
+
+    # Create s3-reader service account with required annotations
+    service_account = client.V1ServiceAccount(
+        metadata=client.V1ObjectMeta(
+            name=service_account_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations={
+                "serving.kserve.io/s3-endpoint": "s3.amazonaws.com",
+                "serving.kserve.io/s3-usehttps": "1",
+                "serving.kserve.io/s3-useanoncredential": "true",
+            },
+        )
+    )
+
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(
                 name="sklearn",
             ),
-            # TODO: Update the storage_uri to a public location
-            storage_uri="https://github.com/sivanantha321/models/raw/refs/heads/main/scikit-learn/news_grouping/news_grouping_model.zip",
+            storage_uri="gs://kfserving-examples/models/sklearn/newsgroup/model.joblib",
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "2Gi"},
                 limits={"cpu": "2", "memory": "4Gi"},
             ),
             args=["--workers=2"],
         ),
+        service_account_name="s3-reader",
     )
 
     isvc = V1beta1InferenceService(
@@ -154,6 +169,11 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
 
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+
+    # Create the service account if it doesn't exist
+    kserve_client.core_api.create_namespaced_service_account(
+        namespace=KSERVE_TEST_NAMESPACE, body=service_account
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
@@ -179,6 +199,9 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
     process_ids = extract_process_ids_from_logs(logs)
     assert len(process_ids) == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    kserve_client.core_api.delete_namespaced_service_account(
+        name=service_account_name, namespace=KSERVE_TEST_NAMESPACE
+    )
 
 
 @pytest.mark.predictor
