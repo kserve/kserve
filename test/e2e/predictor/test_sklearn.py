@@ -127,21 +127,6 @@ async def test_sklearn_v2_mlserver(rest_v2_client):
 @pytest.mark.asyncio(scope="session")
 async def test_sklearn_runtime_kserve(rest_v1_client):
     service_name = "isvc-sklearn-runtime"
-    service_account_name = "s3-reader"
-
-    # Create s3-reader service account with required annotations
-    service_account = client.V1ServiceAccount(
-        metadata=client.V1ObjectMeta(
-            name=service_account_name,
-            namespace=KSERVE_TEST_NAMESPACE,
-            annotations={
-                "serving.kserve.io/s3-endpoint": "s3.amazonaws.com",
-                "serving.kserve.io/s3-usehttps": "1",
-                "serving.kserve.io/s3-useanoncredential": "true",
-            },
-        )
-    )
-
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -155,7 +140,6 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
             ),
             args=["--workers=2"],
         ),
-        service_account_name="s3-reader",
     )
 
     isvc = V1beta1InferenceService(
