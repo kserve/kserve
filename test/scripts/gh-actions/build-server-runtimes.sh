@@ -82,9 +82,12 @@ pushd python >/dev/null
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${GITHUB_SHA}",compression-level=0 .
     echo "Disk usage after Building Huggingface CPU image:"
         df -hT
+  fi
+
+  if [[ " ${types[*]} " =~ "openvino" ]]; then
     echo "Building Huggingface CPU Openvino image"
     docker buildx build -t "${HUGGINGFACE_CPU_OPENVINO_IMG_TAG}" -f huggingface_server_cpu_openvino.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${GITHUB_SHA}",compression-level=0 .
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${GITHUB_SHA}-openvino",compression-level=0 .
     echo "Disk usage after Building Huggingface CPU Openvino image:"
         df -hT
   fi
