@@ -155,10 +155,6 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
 
-    # Create the service account if it doesn't exist
-    kserve_client.core_api.create_namespaced_service_account(
-        namespace=KSERVE_TEST_NAMESPACE, body=service_account
-    )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
     tasks = [
@@ -183,9 +179,6 @@ async def test_sklearn_runtime_kserve(rest_v1_client):
     process_ids = extract_process_ids_from_logs(logs)
     assert len(process_ids) == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-    kserve_client.core_api.delete_namespaced_service_account(
-        name=service_account_name, namespace=KSERVE_TEST_NAMESPACE
-    )
 
 
 @pytest.mark.predictor
