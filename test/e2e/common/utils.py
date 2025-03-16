@@ -407,3 +407,13 @@ def is_model_ready(
     base_url = f"{scheme}://{cluster_ip}{path}"
     headers = {"Host": host}
     return rest_client.is_model_ready(base_url, model_name, headers=headers)
+
+
+def extract_process_ids_from_logs(logs: str) -> set[int]:
+    process_ids = set()
+    for line in logs.splitlines():
+        tokens = line.strip().split()
+        if len(tokens) >= 5 and tokens[3] == "kserve.trace":
+            process_ids.add(int(tokens[2]))
+    logger.info("Extracted process ids: %s", process_ids)
+    return process_ids
