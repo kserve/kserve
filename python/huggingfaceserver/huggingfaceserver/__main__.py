@@ -171,10 +171,10 @@ else:
     )
 
     # auto for vLLM uses FP16 even for an FP32 model while HF uses FP32 causing inconsistency.
-    # To ensure consistency b/w vLLM and HF, we use FP16 for auto on GPU instances
-    # auto would use FP32 for CPU only instances.
+    # To ensure consistency b/w vLLM and HF,
+    # we use FP16 or the Model Config "torch_dtype" for auto as the default dtype in HF backend
     # FP16, BF16 and FP32 if explicitly mentioned would use those data types
-    default_dtype = "float16" if torch.cuda.is_available() else "float32"
+    default_dtype = "float16"
     dtype_choices = ["auto", "float16", "float32", "bfloat16", "float", "half"]
     parser.add_argument(
         "--dtype",
@@ -182,7 +182,7 @@ else:
         default="auto",
         choices=dtype_choices,
         help=f"data type to load the weights in. One of {dtype_choices}. "
-        f"Defaults to float16 for GPU and float32 for CPU systems",
+        f"Defaults to float16",
     )
 
 args, _ = parser.parse_known_args()
@@ -221,14 +221,23 @@ def load_model():
             "float": torch.float32,
         }
 
-        if "dtype" in args and args.dtype == "auto":
-            args.dtype = default_dtype
-
         model_config = AutoConfig.from_pretrained(
             str(model_id_or_path),
             revision=kwargs.get("model_revision", None),
             trust_remote_code=kwargs.get("trust_remote_code", False),
         )
+        if (
+            "dtype" in args
+            and args.dtype == "auto"
+            and hasattr(model_config, "torch_dtype")
+        ):
+            if model_config.torch_dtype == "float32":
+                args.dtype = "float16"  # override to ensure consistency with vLLM
+            else:
+                args.dtype = model_config.torch_dtype
+        else:
+            args.dtype = "float16"
+
         if kwargs.get("task", None):
             try:
                 task = MLTask[kwargs["task"]]
@@ -265,7 +274,7 @@ def load_model():
                 request_logger=request_logger,
             )
         else:
-            # Convert dtype from string to torch dtype. Default to float32
+            # Convert dtype from string to torch dtype. Default to float16
             dtype = kwargs.get("dtype", default_dtype)
             dtype = hf_dtype_map[dtype]
 
