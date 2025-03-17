@@ -108,7 +108,7 @@ func NewRawKubeReconciler(ctx context.Context, client client.Client,
 		Deployment:    deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec),
 		Service:       service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
 		Scaler:        as,
-		otelCollector: otelCollector,
+		OtelCollector: otelCollector,
 		URL:           url,
 	}, nil
 }
@@ -136,8 +136,8 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment
 		return nil, err
 	}
 	// reconcile OTel Collector
-	if r.otelCollector != nil {
-		err = r.otelCollector.Reconcile(ctx)
+	if r.OtelCollector != nil {
+		err = r.OtelCollector.Reconcile(ctx)
 		if err != nil {
 			return nil, err
 		}

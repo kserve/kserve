@@ -22,6 +22,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,12 +59,70 @@ func NewOtelReconciler(client client.Client,
 	}, nil
 }
 
+func getOtelConfig(metricFilter string) (string, error) {
+	config := map[string]interface{}{
+		"receivers": map[string]interface{}{
+			"prometheus": map[string]interface{}{
+				"config": map[string]interface{}{
+					"scrape_configs": []map[string]interface{}{
+						{
+							"job_name":        "otel-collector",
+							"scrape_interval": "5s", // TODO: is it configurable?
+							"static_configs": []map[string]interface{}{
+								{"targets": []string{"localhost:8080"}},
+							},
+						},
+					},
+				},
+			},
+		},
+		"processors": map[string]interface{}{
+			"filter/ottl": map[string]interface{}{
+				"error_mode": "ignore",
+				"metrics": map[string]interface{}{
+					"metric": []string{
+						fmt.Sprintf(`name == "%s"`, metricFilter), // TODO: re-check this
+					},
+				},
+			},
+		},
+		"exporters": map[string]interface{}{
+			"otlp": map[string]interface{}{
+				"endpoint":    "keda-otel-scaler.keda.svc:4317", // TODO: re-check this
+				"compression": "none",
+				"tls": map[string]interface{}{
+					"insecure": true,
+				},
+			},
+		},
+		"service": map[string]interface{}{
+			"pipelines": map[string]interface{}{
+				"metrics": map[string]interface{}{
+					"receivers":  []string{"prometheus"},
+					"processors": []string{"filter/ottl"},
+					"exporters":  []string{"otlp"},
+				},
+			},
+		},
+	}
+
+	yamlBytes, err := yaml.Marshal(config)
+	if err != nil {
+		return "", err
+	}
+
+	return string(yamlBytes), nil
+}
+
 func createOtelCollector(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 ) *otelv1alpha1.OpenTelemetryCollector {
 	annotations := componentMeta.GetAnnotations()
-
 	metricFilter := "process_cpu_seconds_total" // Set dynamically based on the metrics to be collected
+	configStr, err := getOtelConfig(metricFilter)
+	if err != nil {
+		return nil
+	}
 
 	otelCollector := &otelv1alpha1.OpenTelemetryCollector{
 		ObjectMeta: metav1.ObjectMeta{
@@ -73,38 +132,8 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 			Annotations: annotations,
 		},
 		Spec: otelv1alpha1.OpenTelemetryCollectorSpec{
-			Mode: otelv1alpha1.ModeSidecar,
-			Config: fmt.Sprintf(`
-				receivers:
-				prometheus:
-					config:
-					scrape_configs:
-						- job_name: 'otel-collector'
-						scrape_interval: 5s
-						static_configs:
-							- targets: ['0.0.0.0:8080']
-				
-				processors:
-				filter/ottl:
-					error_mode: ignore
-					metrics:
-					metric:
-						- 'type == %q'
-				
-				exporters:
-				otlp:
-					endpoint: keda-otel-scaler.keda.svc:4317
-					compression: "none"
-					tls:
-					insecure: true
-				
-				service:
-				pipelines:
-					metrics:
-					receivers: [prometheus]
-					processors: [filter/ottl]
-					exporters: [otlp]
-				`, metricFilter),
+			Mode:   otelv1alpha1.ModeSidecar,
+			Config: configStr,
 		},
 	}
 

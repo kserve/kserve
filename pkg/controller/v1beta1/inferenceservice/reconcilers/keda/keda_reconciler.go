@@ -100,12 +100,14 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, minReplicas in
 				if triggerType == "opentelemetry" {
 					trigger.Type = "external"
 					trigger.Metadata = map[string]string{
-						"clampMin":          strconv.Itoa(int(minReplicas)),
-						"clampMax":          strconv.Itoa(int(maxReplicas)),
-						"metricQuery":       query,
-						"targetValue":       strconv.Itoa(targetValue),
-						"scalerAddress":     serverAddress,
-						"operationOverTime": metric.External.Metric.OperationOverTime,
+						"clampMin":      strconv.Itoa(int(minReplicas)),
+						"clampMax":      strconv.Itoa(int(maxReplicas)),
+						"metricQuery":   query,
+						"targetValue":   strconv.Itoa(targetValue),
+						"scalerAddress": serverAddress,
+					}
+					if metric.External.Metric.OperationOverTime != "" {
+						trigger.Metadata["operationOverTime"] = metric.External.Metric.OperationOverTime
 					}
 				} else {
 					trigger.Type = triggerType
