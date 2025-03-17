@@ -1520,7 +1520,9 @@ class InferResponse:
 
 
 def to_grpc_parameters(
-    parameters: Union[Dict[str, Union[str, bool, int]], MessageMap[str, InferParameter]]
+    parameters: Union[
+        Dict[str, Union[str, bool, int]], MessageMap[str, InferParameter]
+    ],
 ) -> Dict[str, InferParameter]:
     """
     Converts REST parameters to GRPC InferParameter objects
@@ -1545,7 +1547,7 @@ def to_grpc_parameters(
 
 
 def to_http_parameters(
-    parameters: Union[dict, MessageMap[str, InferParameter]]
+    parameters: Union[dict, MessageMap[str, InferParameter]],
 ) -> Dict[str, Union[str, bool, int]]:
     """
     Converts GRPC InferParameter parameters to REST parameters

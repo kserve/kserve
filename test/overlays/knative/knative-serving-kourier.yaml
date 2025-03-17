@@ -90,8 +90,8 @@ spec:
       resources:
         - container: kourier-gateway
           requests:
-            cpu: 5m
-            memory: 32Mi
+            cpu: 200m
+            memory: 200Mi
           limits:
-            cpu: 100m
-            memory: 128Mi
+            cpu: 300m
+            memory: 500Mi
