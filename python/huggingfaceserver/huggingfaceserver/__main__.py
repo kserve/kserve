@@ -187,6 +187,7 @@ else:
 
 args, _ = parser.parse_known_args()
 
+
 def load_model():
     model_id_or_path = get_model_id_or_path(args)
 
