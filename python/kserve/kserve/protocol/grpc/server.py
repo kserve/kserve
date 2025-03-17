@@ -34,11 +34,13 @@ class GRPCServer:
         data_plane: DataPlane,
         model_repository_extension: ModelRepositoryExtension,
         kwargs: dict,
+        grace_period: int = 30,
     ):
         self._port = port
         self._data_plane = data_plane
         self._model_repository_extension = model_repository_extension
         self._server = None
+        self._grace_period = grace_period
         self._kwargs = kwargs
 
     async def start(self, max_workers):
@@ -73,7 +75,7 @@ class GRPCServer:
     async def stop(self, sig: int = None):
         if self._server:
             logger.info("Waiting for gRPC server shutdown")
-            await self._server.stop(grace=10)
+            await self._server.stop(grace=self._grace_period)
             logger.info("gRPC server shutdown complete")
 
 
@@ -85,6 +87,7 @@ class GRPCProcess(multiprocessing.Process):
         max_threads: int,
         data_plane: DataPlane,
         model_repository_extension: ModelRepositoryExtension,
+        kwargs: dict,
     ):
         super().__init__()
         self._data_plane = data_plane
@@ -92,12 +95,17 @@ class GRPCProcess(multiprocessing.Process):
         self._port = port
         self._max_threads = max_threads
         self._server = None
+        self._kwargs = kwargs
 
     def stop(self):
-        self._server.stop()
+        if self._server:
+            self._server.stop()
 
     def run(self):
         self._server = GRPCServer(
-            self._port, self._data_plane, self._model_repository_extension
+            self._port,
+            self._data_plane,
+            self._model_repository_extension,
+            kwargs=self._kwargs,
         )
         asyncio.run(self._server.start(self._max_threads))

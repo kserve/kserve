@@ -55,3 +55,7 @@ images:
 - name: huggingfaceserver
   newName: kserve/huggingfaceserver
   newTag: latest
+
+- name: huggingfaceserver-gpu
+  newName: kserve/huggingfaceserver
+  newTag: latest-gpu

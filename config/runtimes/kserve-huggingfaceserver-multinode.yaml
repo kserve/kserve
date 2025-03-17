@@ -16,7 +16,7 @@ spec:
     - v1
   containers:
     - name: kserve-container
-      image: kserve/huggingfaceserver:latest-gpu
+      image: huggingfaceserver-gpu:replace
       command:
       - "bash"
       - "-c"
@@ -103,7 +103,7 @@ spec:
     tensorParallelSize: 1
     containers:
       - name: worker-container
-        image: kserve/huggingfaceserver:latest-gpu
+        image: huggingfaceserver-gpu:replace
         command:
         - "bash"
         - "-c"
