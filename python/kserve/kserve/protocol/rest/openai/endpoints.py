@@ -21,6 +21,7 @@ from fastapi.responses import ORJSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import TypeAdapter, ValidationError
 from starlette.responses import StreamingResponse
+from vllm.entrypoints.utils import with_cancellation
 
 from kserve.protocol.rest.openai.types import (
     ChatCompletionRequest,
@@ -51,17 +52,18 @@ class OpenAIEndpoints:
         self.dataplane = dataplane
         self.start_time = int(time.time())
 
+    @with_cancellation
     async def create_completion(
         self,
-        raw_request: Request,
         request_body: CompletionRequest,
+        raw_request: Request,
         response: Response,
     ) -> Response:
         """Create completion handler.
 
         Args:
-            raw_request (Request): fastapi request object,
             request_body (CompletionCreateParams): Completion params body.
+            raw_request (Request): fastapi request object,
             response (Response): fastapi response object
 
         Returns:
@@ -70,7 +72,7 @@ class OpenAIEndpoints:
         try:
             params = CreateCompletionRequestAdapter.validate_python(request_body)
         except ValidationError as e:
-            raise RequestValidationError(errors=e.errors())
+            raise RequestValidationError from e
         params = request_body
         model_name = params.model
         model_ready = await self.dataplane.model_ready(model_name)
@@ -94,17 +96,18 @@ class OpenAIEndpoints:
         else:
             return completion
 
+    @with_cancellation
     async def create_chat_completion(
         self,
-        raw_request: Request,
         request_body: ChatCompletionRequest,
+        raw_request: Request,
         response: Response,
     ) -> Response:
         """Create chat completion handler.
 
         Args:
-            raw_request (Request): fastapi request object,
             request_body (ChatCompletionRequestAdapter): Chat completion params body.
+            raw_request (Request): fastapi request object,
             response (Response): fastapi response object
 
         Returns:
@@ -113,7 +116,7 @@ class OpenAIEndpoints:
         try:
             params = ChatCompletionRequestAdapter.validate_python(request_body)
         except ValidationError as e:
-            raise RequestValidationError(errors=e.errors())
+            raise RequestValidationError from e
         params = request_body
         model_name = params.model
         model_ready = await self.dataplane.model_ready(model_name)
@@ -138,24 +141,25 @@ class OpenAIEndpoints:
         else:
             return completion
 
+    @with_cancellation
     async def create_embedding(
         self,
-        raw_request: Request,
         request_body: EmbeddingRequest,
+        raw_request: Request,
         response: Response,
     ) -> Response:
         """Create embedding handler.
         Args:
+            request_body (EmbeddingRequestAdapter): Embedding params body.
             raw_request (Request): fastapi request object,
             model_name (str): Model name.
-            request_body (EmbeddingRequestAdapter): Embedding params body.
         Returns:
             InferenceResponse: Inference response object.
         """
         try:
             params = EmbeddingRequestAdapter.validate_python(request_body)
         except ValidationError as e:
-            raise RequestValidationError(errors=e.errors())
+            raise RequestValidationError from e
         params = request_body
         model_name = params.model
         model_ready = await self.dataplane.model_ready(model_name)
