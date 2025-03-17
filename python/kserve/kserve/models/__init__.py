@@ -96,6 +96,7 @@ from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
 from kserve.models.v1beta1_model_status import V1beta1ModelStatus
 from kserve.models.v1beta1_multi_node_config import V1beta1MultiNodeConfig
 from kserve.models.v1beta1_onnx_runtime_spec import V1beta1ONNXRuntimeSpec
+from kserve.models.v1beta1_otel_collector_config import V1beta1OtelCollectorConfig
 from kserve.models.v1beta1_pmml_spec import V1beta1PMMLSpec
 from kserve.models.v1beta1_paddle_server_spec import V1beta1PaddleServerSpec
 from kserve.models.v1beta1_pod_spec import V1beta1PodSpec

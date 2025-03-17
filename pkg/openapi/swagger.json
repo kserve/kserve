@@ -3990,6 +3990,17 @@
         }
       }
     },
+    "v1beta1.OtelCollectorConfig": {
+      "type": "object",
+      "properties": {
+        "otelExporterEndpoint": {
+          "type": "string"
+        },
+        "scrapeInterval": {
+          "type": "string"
+        }
+      }
+    },
     "v1beta1.PMMLSpec": {
       "description": "PMMLSpec defines arguments for configuring PMML model serving.",
       "type": "object",

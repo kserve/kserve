@@ -44,22 +44,26 @@ type OtelReconciler struct {
 	scheme        *runtime.Scheme
 	OTelCollector *otelv1alpha1.OpenTelemetryCollector
 	componentExt  *v1beta1.ComponentExtensionSpec
+	metric        v1beta1.MetricsSpec
 }
 
 func NewOtelReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
+	metric v1beta1.MetricsSpec,
+	otelConfig v1beta1.OtelCollectorConfig,
 ) (*OtelReconciler, error) {
 	return &OtelReconciler{
 		client:        client,
 		scheme:        scheme,
-		OTelCollector: createOtelCollector(componentMeta, componentExt),
+		OTelCollector: createOtelCollector(componentMeta, componentExt, metric, otelConfig),
 		componentExt:  componentExt,
+		metric:        metric,
 	}, nil
 }
 
-func getOtelConfig(metricFilter string) (string, error) {
+func getOtelConfig(metricFilter string, otelConfig v1beta1.OtelCollectorConfig) (string, error) {
 	config := map[string]interface{}{
 		"receivers": map[string]interface{}{
 			"prometheus": map[string]interface{}{
@@ -67,7 +71,7 @@ func getOtelConfig(metricFilter string) (string, error) {
 					"scrape_configs": []map[string]interface{}{
 						{
 							"job_name":        "otel-collector",
-							"scrape_interval": "5s", // TODO: is it configurable?
+							"scrape_interval": otelConfig.ScrapeInterval,
 							"static_configs": []map[string]interface{}{
 								{"targets": []string{"localhost:8080"}},
 							},
@@ -81,14 +85,14 @@ func getOtelConfig(metricFilter string) (string, error) {
 				"error_mode": "ignore",
 				"metrics": map[string]interface{}{
 					"metric": []string{
-						fmt.Sprintf(`name == "%s"`, metricFilter), // TODO: re-check this
+						fmt.Sprintf(`name == "%s"`, metricFilter),
 					},
 				},
 			},
 		},
 		"exporters": map[string]interface{}{
 			"otlp": map[string]interface{}{
-				"endpoint":    "keda-otel-scaler.keda.svc:4317", // TODO: re-check this
+				"endpoint":    otelConfig.OTelExporterEndpoint,
 				"compression": "none",
 				"tls": map[string]interface{}{
 					"insecure": true,
@@ -116,10 +120,12 @@ func getOtelConfig(metricFilter string) (string, error) {
 
 func createOtelCollector(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
+	metric v1beta1.MetricsSpec,
+	otelConfig v1beta1.OtelCollectorConfig,
 ) *otelv1alpha1.OpenTelemetryCollector {
 	annotations := componentMeta.GetAnnotations()
-	metricFilter := "process_cpu_seconds_total" // Set dynamically based on the metrics to be collected
-	configStr, err := getOtelConfig(metricFilter)
+	metricQuery := metric.External.Metric.Query
+	configStr, err := getOtelConfig(metricQuery, otelConfig)
 	if err != nil {
 		return nil
 	}
