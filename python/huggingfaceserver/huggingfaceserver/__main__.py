@@ -226,11 +226,11 @@ def load_model():
             revision=kwargs.get("model_revision", None),
             trust_remote_code=kwargs.get("trust_remote_code", False),
         )
-        if args.dtype == "auto" and hasattr(model_config, "torch_dtype"):
-            if model_config.torch_dtype == "float32":
-                args.dtype = "float16"  # override to ensure consistency with vLLM
-            else:
+        if args.dtype == "auto":
+            if hasattr(model_config, "torch_dtype"):
                 args.dtype = model_config.torch_dtype
+            else:
+                args.dtype = default_dtype
 
         if kwargs.get("task", None):
             try:
