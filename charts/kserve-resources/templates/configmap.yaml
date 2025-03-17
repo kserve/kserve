@@ -660,7 +660,8 @@ data:
         "caBundleVolumeMountPath": "{{ .Values.kserve.storage.caBundleVolumeMountPath }}",
         "enableModelcar": {{ .Values.kserve.storage.enableModelcar }},
         "cpuModelcar": "{{ .Values.kserve.storage.cpuModelcar }}",
-        "memoryModelcar": "{{ .Values.kserve.storage.memoryModelcar }}"
+        "memoryModelcar": "{{ .Values.kserve.storage.memoryModelcar }}",
+        "uidModelcar": {{ .Values.kserve.storage.uidModelcar }}
     }
   metricsAggregator: |-
     {
