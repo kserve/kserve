@@ -235,8 +235,6 @@ def load_model():
                 args.dtype = "float16"  # override to ensure consistency with vLLM
             else:
                 args.dtype = model_config.torch_dtype
-        else:
-            args.dtype = "float16"
 
         if kwargs.get("task", None):
             try:
