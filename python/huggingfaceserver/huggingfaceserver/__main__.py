@@ -148,18 +148,6 @@ parser.add_argument(
     "--disable_log_requests", action="store_true", help="Disable logging requests"
 )
 
-default_dtype = "float16" if torch.cuda.is_available() else "float32"
-if not vllm_available():
-    dtype_choices = ["auto", "float16", "float32", "bfloat16", "float", "half"]
-    parser.add_argument(
-        "--dtype",
-        required=False,
-        default="auto",
-        choices=dtype_choices,
-        help=f"data type to load the weights in. One of {dtype_choices}. "
-        f"Defaults to float16 for GPU and float32 for CPU systems",
-    )
-
 # The initial_args are required to determine whether the vLLM backend is enabled.
 initial_args, _ = parser.parse_known_args()
 model_id_or_path = get_model_id_or_path(initial_args)
@@ -182,15 +170,22 @@ else:
         "\n\nDefault: Unlimited",
     )
 
+    # auto for vLLM uses FP16 even for an FP32 model while HF uses FP32 causing inconsistency.
+    # To ensure consistency b/w vLLM and HF, we use FP16 for auto on GPU instances
+    # auto would use FP32 for CPU only instances.
+    # FP16, BF16 and FP32 if explicitly mentioned would use those data types
+    default_dtype = "float16" if torch.cuda.is_available() else "float32"
+    dtype_choices = ["auto", "float16", "float32", "bfloat16", "float", "half"]
+    parser.add_argument(
+        "--dtype",
+        required=False,
+        default="auto",
+        choices=dtype_choices,
+        help=f"data type to load the weights in. One of {dtype_choices}. "
+        f"Defaults to float16 for GPU and float32 for CPU systems",
+    )
+
 args, _ = parser.parse_known_args()
-
-# auto for vLLM uses FP16 even for an FP32 model while HF uses FP32 causing inconsistency.
-# To ensure consistency b/w vLLM and HF, we use FP16 for auto on GPU instances
-# auto would use FP32 for CPU only instances.
-# FP16, BF16 and FP32 if explicitly mentioned would use those data types
-if "dtype" in args and args.dtype == "auto":
-    args.dtype = default_dtype
-
 
 def load_model():
     model_id_or_path = get_model_id_or_path(args)
@@ -224,6 +219,9 @@ def load_model():
             "half": torch.float16,
             "float": torch.float32,
         }
+
+        if "dtype" in args and args.dtype == "auto":
+            args.dtype = default_dtype
 
         model_config = AutoConfig.from_pretrained(
             str(model_id_or_path),
