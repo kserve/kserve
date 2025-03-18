@@ -293,6 +293,7 @@ async def test_bert_sequence_classification_return_probabilities(bert_base_retur
         ]
     }
 
+
 @pytest.mark.asyncio
 async def test_bert_token_classification_return_prob(
     bert_token_classification_return_prob,
