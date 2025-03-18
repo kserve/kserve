@@ -112,7 +112,7 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install https://github.com/fl
 # some issues w.r.t. JIT compilation. Therefore we need to
 # install build dependencies for JIT compilation.
 # TODO: Remove this once FlashInfer AOT wheel is fixed
-RUN --mount=type=cache,target=/root/.cache/pip curl -sSLo requirements-build.txt https://github.com/vllm-project/vllm/raw/refs/tags/v0.7.3/requirements-build.txt \
+RUN --mount=type=cache,target=/root/.cache/pip curl -sSLo requirements-build.txt https://github.com/vllm-project/vl--extra-index-url https://wheels.vllm.ai/nightlylm/raw/refs/tags/v0.7.3/requirements-build.txt \
     && pip install -r requirements-build.txt
 
 RUN --mount=type=cache,target=/root/.cache/pip pip install accelerate hf_transfer 'modelscope!=1.15.0' 'bitsandbytes>=0.45.0' 'timm==0.9.10' boto3

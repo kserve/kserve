@@ -61,7 +61,7 @@ azure-storage-blob = { version = "^12.20.0", optional = true }
 azure-storage-file-share = { version = "^12.16.0", optional = true }
 azure-identity = { version = "^1.15.0", optional = true }
 boto3 = { version = "^1.29.0", optional = true }
-huggingface-hub = { version = "^0.24.5", extras = ["hf-transfer"], optional = true }
+huggingface-hub = { version = ">=0.26.0,<1.0", extras = ["hf-transfer"], optional = true }
 
 # Logging dependencies. They can be opted into by apps.
 asgi-logger = { version = "^0.1.0", optional = true }
