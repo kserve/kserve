@@ -54,7 +54,7 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.7.3
+ARG VLLM_VERSION=0.8.0rc2
 
 ################### LMCache WHEEL BUILD ###################
 # max jobs used by Ninja to build extensions
@@ -106,36 +106,27 @@ RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
 # Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
-RUN --mount=type=cache,target=/root/.cache/pip pip install --upgrade pip && pip install vllm[runai,tensorizer]==${VLLM_VERSION}
+# RUN --mount=type=cache,target=/root/.cache/pip pip install --upgrade pip && pip install vllm[runai,tensorizer]==${VLLM_VERSION}
+# TODO: Remove nightly build once vLLM 0.8.0 is released
+# vLLM 0.8.0rc2 nightly build
+ENV VLLM_COMMIT=37e380613220f607cb465fc15f72a4a033a98b23 
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install "vllm[runai,tensorizer] @ https://wheels.vllm.ai/${VLLM_COMMIT}/vllm-1.0.0.dev-cp38-abi3-manylinux1_x86_64.whl"
 
 # Install FlashInfer Attention backend
-RUN --mount=type=cache,target=/root/.cache/pip pip install https://github.com/flashinfer-ai/flashinfer/releases/download/v0.2.1.post1/flashinfer_python-0.2.1.post1+cu124torch2.5-cp38-abi3-linux_x86_64.whl
+RUN --mount=type=cache,target=/root/.cache/pip pip install https://github.com/flashinfer-ai/flashinfer/releases/download/v0.2.1.post2/flashinfer_python-0.2.1.post2+cu124torch2.6-cp38-abi3-linux_x86_64.whl
 
 # Although we build Flashinfer with AOT mode, there's still
 # some issues w.r.t. JIT compilation. Therefore we need to
 # install build dependencies for JIT compilation.
 # TODO: Remove this once FlashInfer AOT wheel is fixed
-RUN --mount=type=cache,target=/root/.cache/pip curl -sSLo requirements-build.txt https://github.com/vllm-project/vllm/raw/refs/tags/v${VLLM_VERSION}/requirements-build.txt \
+RUN --mount=type=cache,target=/root/.cache/pip curl -sSLo requirements-build.txt https://github.com/vllm-project/vllm/raw/refs/tags/v${VLLM_VERSION}/requirements/build.txt \
     && pip install -r requirements-build.txt
-
-# TODO: Add it to the pyproject.toml
-RUN --mount=type=cache,target=/root/.cache/pip pip install 'modelscope!=1.15.0' 'bitsandbytes>=0.45.0' 'timm==0.9.10'
 
 # Install torchac_cuda and lmcache wheel
 RUN --mount=type=cache,target=/root/.cache/pip pip install ${WORKSPACE_DIR}/LMCache/dist_lmcache/*.whl --verbose
 
-# TODO: Remove this patch once the next vLLM release is available
-RUN git clone https://github.com/vllm-project/vllm.git
-RUN cd vllm && git checkout 6d7f037 # https://github.com/vllm-project/vllm/commit/6d7f037748b2e7df64f3318e54101a1c80016f3c
-
-# Copy lmc_connector patch into vllm
-RUN cp vllm/vllm/distributed/kv_transfer/kv_connector/factory.py \
-    ${VENV_PATH}/lib/python3.12/site-packages/vllm/distributed/kv_transfer/kv_connector/
-RUN cp vllm/vllm/distributed/kv_transfer/kv_connector/lmcache_connector.py \
-    ${VENV_PATH}/lib/python3.12/site-packages/vllm/distributed/kv_transfer/kv_connector/
-
-COPY vllm_parallel_state.patch parallel_state.patch
-RUN patch ${VENV_PATH}/lib/python3.12/site-packages/vllm/distributed/parallel_state.py parallel_state.patch
+RUN --mount=type=cache,target=/root/.cache/pip pip install torch==2.6.0 torchvision==0.21
 #################### WHEEL BUILD IMAGE ####################
 
 #################### PROD IMAGE ####################
