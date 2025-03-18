@@ -103,6 +103,8 @@ DEFAULT_GRPC_PORT = 8081
 # Header containing the json length in case of REST raw response.
 INFERENCE_CONTENT_LENGTH_HEADER = "inference-header-content-length"
 
+FASTAPI_APP_IMPORT_STRING = "kserve.model_server:app"
+
 
 class ModelType(Enum):
     EXPLAINER = 1
