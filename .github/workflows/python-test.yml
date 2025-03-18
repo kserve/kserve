@@ -323,6 +323,8 @@ jobs:
           make dev_install
       - name: Test huggingfaceserver cpu
         run: |
+          sudo apt-get update
+          sudo apt-get install -y libnuma-dev
           cd python/huggingfaceserver
           bash tests/setup_vllm.sh
           poetry run -- pytest --cov=huggingfaceserver -vv

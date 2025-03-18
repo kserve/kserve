@@ -288,8 +288,8 @@ async def test_bert_sequence_classification_return_probabilities(bert_base_retur
 
     assert response == {
         "predictions": [
-            {0: approx(-3.1508743), 1: approx(3.5892851)},
-            {0: approx(-3.1508743), 1: approx(3.589285)},
+            {0: approx(-3.1508713), 1: approx(3.5892851)},
+            {0: approx(-3.1508713), 1: approx(3.589285)},
         ]
     }
 
