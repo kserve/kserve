@@ -398,7 +398,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -416,7 +416,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -469,7 +469,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -487,7 +487,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -504,7 +504,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							ParentRef: gatewayapiv1.ParentReference{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -948,7 +948,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -966,7 +966,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -1020,7 +1020,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -1038,7 +1038,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -1055,7 +1055,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							ParentRef: gatewayapiv1.ParentReference{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -1477,7 +1477,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -1495,7 +1495,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -1549,7 +1549,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -1567,7 +1567,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -1584,7 +1584,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							ParentRef: gatewayapiv1.ParentReference{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -2610,7 +2610,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -2628,7 +2628,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -2682,7 +2682,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -2700,7 +2700,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -2717,7 +2717,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							ParentRef: gatewayapiv1.ParentReference{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -3360,7 +3360,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -3378,7 +3378,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -3432,7 +3432,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -3450,7 +3450,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -3504,7 +3504,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -3522,7 +3522,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -3539,7 +3539,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							ParentRef: gatewayapiv1.ParentReference{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -4261,7 +4261,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -4305,7 +4305,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -4323,7 +4323,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -4377,7 +4377,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -4395,7 +4395,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -4449,7 +4449,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -4467,7 +4467,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -4484,7 +4484,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							ParentRef: gatewayapiv1.ParentReference{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -5032,7 +5032,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -5076,7 +5076,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -5094,7 +5094,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -5148,7 +5148,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -5166,7 +5166,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -5183,7 +5183,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							ParentRef: gatewayapiv1.ParentReference{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -5832,7 +5832,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -5876,7 +5876,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -5894,7 +5894,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -5948,7 +5948,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -5966,7 +5966,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -6020,7 +6020,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(transformerServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -6038,7 +6038,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -6055,7 +6055,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							ParentRef: gatewayapiv1.ParentReference{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -6781,7 +6781,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -6825,7 +6825,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -6869,7 +6869,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -6913,7 +6913,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -6931,7 +6931,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -6985,7 +6985,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(predictorServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -7003,7 +7003,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -7057,7 +7057,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
 											Group:     (*gatewayapiv1.Group)(ptr.To("")),
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      gatewayapiv1.ObjectName(explainerServiceKey.Name),
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To(serviceKey.Namespace)),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -7075,7 +7075,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},
@@ -7092,7 +7092,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							ParentRef: gatewayapiv1.ParentReference{
 								Name:      gatewayapiv1.ObjectName(kserveGateway.Name),
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace(kserveGateway.Namespace)),
 							},

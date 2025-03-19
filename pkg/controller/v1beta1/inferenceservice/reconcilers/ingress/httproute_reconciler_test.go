@@ -453,7 +453,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-predictor",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -470,7 +470,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      "kserve-gateway",
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace("kserve")),
 							},
@@ -582,7 +582,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-transformer",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -599,7 +599,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      "kserve-gateway",
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace("kserve")),
 							},
@@ -716,7 +716,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-explainer",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -758,7 +758,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-predictor",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -775,7 +775,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      "kserve-gateway",
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace("kserve")),
 							},
@@ -893,7 +893,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-explainer",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -935,7 +935,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-predictor",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -977,7 +977,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-explainer",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -1019,7 +1019,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-predictor",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -1036,7 +1036,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      "kserve-gateway",
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace("kserve")),
 							},
@@ -1119,7 +1119,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-transformer",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -1161,7 +1161,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-transformer",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -1178,7 +1178,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      "kserve-gateway",
-								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.KindGateway)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 								Namespace: ptr.To(gatewayapiv1.Namespace("kserve")),
 							},
@@ -1296,7 +1296,7 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-predictor",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -1313,7 +1313,7 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.KindGateway)),
 								Namespace: (*gatewayapiv1.Namespace)(ptr.To("kserve")),
 								Name:      gatewayapiv1.ObjectName("kserve-gateway"),
 							},
@@ -1461,7 +1461,7 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-transformer",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -1478,7 +1478,7 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.KindGateway)),
 								Namespace: (*gatewayapiv1.Namespace)(ptr.To("kserve")),
 								Name:      gatewayapiv1.ObjectName("kserve-gateway"),
 							},
@@ -1627,7 +1627,7 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 											Name:      "test-isvc-explainer",
 											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
 											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
@@ -1644,7 +1644,7 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.KindGateway)),
 								Namespace: (*gatewayapiv1.Namespace)(ptr.To("kserve")),
 								Name:      gatewayapiv1.ObjectName("kserve-gateway"),
 							},
