@@ -12,8 +12,8 @@ python = ">=3.9,<3.13"
 kserve = { path = "../kserve", extras = ["storage", "llm"], develop = true }
 transformers = ">=4.49.0"
 accelerate = "~0.32.0"
-torch = "~2.5.0"
-vllm = "^0.7.3"
+torch = "~2.6.0"
+vllm = "^0.8.0"
 bitsandbytes = ">=0.45.0"  # For loading bitsandbytes quantized models
 timm = "0.9.10"
 modelscope = "^1.16.0"

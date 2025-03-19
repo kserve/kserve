@@ -67,10 +67,10 @@ huggingface-hub = { version = ">=0.26.0,<1.0", extras = ["hf-transfer"], optiona
 asgi-logger = { version = "^0.1.0", optional = true }
 
 # Ray dependency
-ray = { version = "~2.40.0", extras = ["serve"], optional = true }
+ray = { version = "~2.43.0", extras = ["serve"], optional = true }
 
 # OpenAI Types dependency
-vllm = { version = "^0.7.3", optional = true }
+vllm = { version = "^0.8.0", optional = true }
 
 [tool.poetry.extras]
 storage = [
