@@ -151,11 +151,11 @@ func (o *OtelReconciler) Reconcile(ctx context.Context) error {
 	existing := &otelv1alpha1.OpenTelemetryCollector{}
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		log.Info("Updating OTelCollector", "namespace", desired.Namespace, "name", desired.Name)
 		if err := o.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing); err != nil {
 			return err
 		}
 
+		log.Info("Updating OTelCollector", "namespace", desired.Namespace, "name", desired.Name)
 		return o.client.Update(ctx, existing)
 	})
 	if err != nil {

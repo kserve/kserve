@@ -70,14 +70,16 @@ func NewRawKubeReconciler(ctx context.Context, client client.Client,
 		return nil, err
 	}
 
-	metrics := componentExt.AutoScaling.Metrics
-	for _, metric := range metrics {
-		if metric.Type == v1beta1.ExternalMetricSourceType {
-			if *metric.External.Metric.Backend == v1beta1.MetricsBackend(constants.OTelBackend) {
-				var err error
-				otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, componentExt, metric, *otelConfig)
-				if err != nil {
-					return nil, err
+	if componentExt.AutoScaling != nil {
+		metrics := componentExt.AutoScaling.Metrics
+		for _, metric := range metrics {
+			if metric.Type == v1beta1.ExternalMetricSourceType {
+				if *metric.External.Metric.Backend == v1beta1.MetricsBackend(constants.OTelBackend) {
+					var err error
+					otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, componentExt, metric, *otelConfig)
+					if err != nil {
+						return nil, err
+					}
 				}
 			}
 		}

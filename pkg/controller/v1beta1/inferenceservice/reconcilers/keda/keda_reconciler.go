@@ -181,11 +181,11 @@ func (r *KedaReconciler) Reconcile(ctx context.Context) error {
 	existing := &kedav1alpha1.ScaledObject{}
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		log.Info("Updating KEDA ScaledObject", "namespace", desired.Namespace, "name", desired.Name)
 		if err := r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing); err != nil {
 			return err
 		}
 
+		log.Info("Updating KEDA ScaledObject", "namespace", desired.Namespace, "name", desired.Name)
 		return r.client.Update(ctx, existing)
 	})
 	if err != nil {

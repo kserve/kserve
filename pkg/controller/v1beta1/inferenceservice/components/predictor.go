@@ -557,8 +557,10 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 		}
 	}
 	// set Otel Controller
-	if err := r.OtelCollector.SetControllerReferences(isvc, p.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set otel owner references for predictor")
+	if r.OtelCollector != nil {
+		if err := r.OtelCollector.SetControllerReferences(isvc, p.scheme); err != nil {
+			return errors.Wrapf(err, "fails to set otel owner references for predictor")
+		}
 	}
 	// set autoscaler Controller
 	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {
