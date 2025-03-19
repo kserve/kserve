@@ -41,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	aigwv1a1 "github.com/envoyproxy/ai-gateway/api/v1alpha1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -175,7 +176,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	ksvcFound, ksvcCheckErr := utils.IsCrdAvailable(cfg, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
+	ksvcFound, ksvcCheckErr := utils.IsCrdAvailable(cfg, knservingv1.SchemeGroupVersion.String(), constants.KindKnativeService)
 	if ksvcCheckErr != nil {
 		setupLog.Error(ksvcCheckErr, "error when checking if Knative Service kind is available")
 		os.Exit(1)
@@ -188,7 +189,7 @@ func main() {
 		}
 	}
 	if !ingressConfig.DisableIstioVirtualHost {
-		vsFound, vsCheckErr := utils.IsCrdAvailable(cfg, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
+		vsFound, vsCheckErr := utils.IsCrdAvailable(cfg, istioclientv1beta1.SchemeGroupVersion.String(), constants.KindIstioVirtualService)
 		if vsCheckErr != nil {
 			setupLog.Error(vsCheckErr, "error when checking if Istio VirtualServices are available")
 			os.Exit(1)
@@ -202,7 +203,7 @@ func main() {
 		}
 	}
 
-	kedaFound, kedaCheckErr := utils.IsCrdAvailable(cfg, kedav1alpha1.SchemeGroupVersion.String(), constants.KedaScaledObjectKind)
+	kedaFound, kedaCheckErr := utils.IsCrdAvailable(cfg, kedav1alpha1.SchemeGroupVersion.String(), constants.KindKedaScaledObject)
 	if kedaCheckErr != nil {
 		setupLog.Error(ksvcCheckErr, "error when checking if KEDA ScaledObject kind is available")
 		os.Exit(1)
@@ -238,6 +239,21 @@ func main() {
 	if err := corev1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Core APIs to scheme")
 		os.Exit(1)
+	}
+
+	aiGatewayFound, err := utils.IsCrdAvailable(cfg, aigwv1a1.SchemeBuilder.GroupVersion.String(), constants.KindAIServiceBackend)
+	if err != nil {
+		setupLog.Error(err, "error when checking if Envoy AI Gateway kind is available")
+		os.Exit(1)
+	}
+	if aiGatewayFound {
+		setupLog.Info("Setting up Envoy AI Gateway scheme")
+		if err := aigwv1a1.AddToScheme(mgr.GetScheme()); err != nil {
+			setupLog.Error(err, "unable to add Envoy AI Gateway APIs to scheme")
+			os.Exit(1)
+		}
+	} else {
+		setupLog.Info("The manager won't watch envoyproxy.ai/v1alpha1/AIServiceBackend resources because the CRD is not available.")
 	}
 
 	// Setup all Controllers

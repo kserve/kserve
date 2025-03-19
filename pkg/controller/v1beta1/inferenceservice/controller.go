@@ -49,12 +49,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	aigwv1a1 "github.com/envoyproxy/ai-gateway/api/v1alpha1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
+	aigateway "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/aigateway"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
@@ -200,7 +204,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Abort early if the resolved deployment mode is Serverless, but Knative Services are not available
 	if deploymentMode == constants.Serverless {
-		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
+		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KindKnativeService)
 		if checkKsvcErr != nil {
 			return reconcile.Result{}, checkKsvcErr
 		}
@@ -291,6 +295,12 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 			}
 		}
+		aiServiceBackendReconciler := aigateway.NewAIServiceBackendReconciler(r.Client, isvc, r.Log)
+		if isEnabled, ok := isvc.Annotations[constants.EnableAIGatewayAnnotationKey]; ok && strings.ToLower(isEnabled) == "true" {
+			if err := aiServiceBackendReconciler.Reconcile(ctx); err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile AIServiceBackend")
+			}
+		}
 	} else {
 		reconciler := ingress.NewIngressReconciler(r.Client, r.Clientset, r.Scheme, ingressConfig, isvcConfig)
 		r.Log.Info("Reconciling ingress for inference service", "isvc", isvc.Name)
@@ -377,12 +387,12 @@ func inferenceServiceStatusEqual(s1, s2 v1beta1.InferenceServiceStatus, deployme
 func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig, ingressConfig *v1beta1.IngressConfig) error {
 	r.ClientConfig = mgr.GetConfig()
 
-	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
+	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KindKnativeService)
 	if err != nil {
 		return err
 	}
 
-	kedaFound, err := utils.IsCrdAvailable(r.ClientConfig, kedav1alpha1.SchemeGroupVersion.String(), constants.KedaScaledObjectKind)
+	kedaFound, err := utils.IsCrdAvailable(r.ClientConfig, kedav1alpha1.SchemeGroupVersion.String(), constants.KindKedaScaledObject)
 	if err != nil {
 		return err
 	}
@@ -392,7 +402,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return err
 	}
 
-	vsFound, err := utils.IsCrdAvailable(r.ClientConfig, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
+	vsFound, err := utils.IsCrdAvailable(r.ClientConfig, istioclientv1beta1.SchemeGroupVersion.String(), constants.KindIstioVirtualService)
 	if err != nil {
 		return err
 	}
@@ -438,7 +448,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	}
 
 	if ingressConfig.EnableGatewayAPI {
-		gatewayapiFound, err := utils.IsCrdAvailable(r.ClientConfig, gatewayapiv1.GroupVersion.String(), constants.HTTPRouteKind)
+		gatewayapiFound, err := utils.IsCrdAvailable(r.ClientConfig, gatewayapiv1.GroupVersion.String(), constants.KindHTTPRoute)
 		if err != nil {
 			return err
 		}
@@ -451,6 +461,16 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		}
 	} else {
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
+	}
+
+	aiGatewayFound, err := utils.IsCrdAvailable(r.ClientConfig, aigwv1a1.SchemeBuilder.GroupVersion.String(), constants.KindAIServiceBackend)
+	if err != nil {
+		return err
+	}
+	if aiGatewayFound {
+		ctrlBuilder = ctrlBuilder.Owns(&aigwv1a1.AIServiceBackend{})
+	} else {
+		r.Log.Info("The InferenceService controller won't watch envoyproxy.ai/v1alpha1/AIServiceBackend resources because the CRD is not available.")
 	}
 
 	return ctrlBuilder.Complete(r)

@@ -211,7 +211,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		PropagateRawStatus(&graph.Status, deployment, url)
 	} else {
 		// Abort if Knative Services are not available
-		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
+		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KindKnativeService)
 		if checkKsvcErr != nil {
 			return reconcile.Result{}, checkKsvcErr
 		}
@@ -307,7 +307,7 @@ func inferenceGraphReadiness(status v1alpha1.InferenceGraphStatus) bool {
 func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig) error {
 	r.ClientConfig = mgr.GetConfig()
 
-	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
+	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KindKnativeService)
 	if err != nil {
 		return err
 	}
