@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	otelv1alpha1 "github.com/open-telemetry/opentelemetry-operator/apis/v1alpha1"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -42,7 +42,7 @@ var log = logf.Log.WithName("OTelReconciler")
 type OtelReconciler struct {
 	client        client.Client
 	scheme        *runtime.Scheme
-	OTelCollector *otelv1alpha1.OpenTelemetryCollector
+	OTelCollector *otelv1beta1.OpenTelemetryCollector
 	componentExt  *v1beta1.ComponentExtensionSpec
 	metric        v1beta1.MetricsSpec
 }
@@ -122,24 +122,63 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 	metric v1beta1.MetricsSpec,
 	otelConfig v1beta1.OtelCollectorConfig,
-) *otelv1alpha1.OpenTelemetryCollector {
-	annotations := componentMeta.GetAnnotations()
+) *otelv1beta1.OpenTelemetryCollector {
 	metricQuery := metric.External.Metric.Query
-	configStr, err := getOtelConfig(metricQuery, otelConfig)
-	if err != nil {
-		return nil
-	}
 
-	otelCollector := &otelv1alpha1.OpenTelemetryCollector{
+	otelCollector := &otelv1beta1.OpenTelemetryCollector{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        componentMeta.Name,
-			Namespace:   componentMeta.Namespace,
-			Labels:      componentMeta.Labels,
-			Annotations: annotations,
+			Name:      componentMeta.Name,
+			Namespace: componentMeta.Namespace,
 		},
-		Spec: otelv1alpha1.OpenTelemetryCollectorSpec{
-			Mode:   otelv1alpha1.ModeSidecar,
-			Config: configStr,
+		Spec: otelv1beta1.OpenTelemetryCollectorSpec{
+			Mode: otelv1beta1.ModeSidecar,
+			Config: otelv1beta1.Config{
+				Receivers: otelv1beta1.AnyConfig{Object: map[string]interface{}{
+					"prometheus": map[string]interface{}{
+						"config": map[string]interface{}{
+							"scrape_configs": []interface{}{
+								map[string]interface{}{
+									"job_name":        "otel-collector",
+									"scrape_interval": otelConfig.ScrapeInterval,
+									"static_configs": []interface{}{
+										map[string]interface{}{
+											"targets": []interface{}{"0.0.0.0:8080"},
+										},
+									},
+								},
+							},
+						},
+					},
+				}},
+				Processors: &otelv1beta1.AnyConfig{Object: map[string]interface{}{
+					"filter/ottl": map[string]interface{}{
+						"error_mode": "ignore",
+						"metrics": map[string]interface{}{
+							"metric": []interface{}{
+								fmt.Sprintf(`name == "%s"`, metricQuery),
+							},
+						},
+					},
+				}},
+				Exporters: otelv1beta1.AnyConfig{Object: map[string]interface{}{
+					"otlp": map[string]interface{}{
+						"endpoint":    otelConfig.OTelExporterEndpoint,
+						"compression": "none",
+						"tls": map[string]interface{}{
+							"insecure": true,
+						},
+					},
+				}},
+				Service: otelv1beta1.Service{
+					Pipelines: map[string]*otelv1beta1.Pipeline{
+						"metrics": {
+							Receivers:  []string{"prometheus"},
+							Processors: []string{"filter/ottl"},
+							Exporters:  []string{"otlp"},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -148,7 +187,7 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 
 func (o *OtelReconciler) Reconcile(ctx context.Context) error {
 	desired := o.OTelCollector
-	existing := &otelv1alpha1.OpenTelemetryCollector{}
+	existing := &otelv1beta1.OpenTelemetryCollector{}
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		if err := o.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing); err != nil {

@@ -46,7 +46,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	otelv1alpha1 "github.com/open-telemetry/opentelemetry-operator/apis/v1alpha1"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -372,7 +372,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return err
 	}
 
-	otelFound, err := utils.IsCrdAvailable(r.ClientConfig, otelv1alpha1.GroupVersion.String(), constants.OpenTelemetryCollector)
+	otelFound, err := utils.IsCrdAvailable(r.ClientConfig, otelv1beta1.GroupVersion.String(), constants.OpenTelemetryCollector)
 	if err != nil {
 		return err
 	}
@@ -405,7 +405,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	if otelFound {
 		// Only trigger reconciliation when the `spec` of the OpenTelemetryCollector changes,
 		// ignoring updates to `status` or metadata fields like `resourceVersion`.
-		ctrlBuilder = ctrlBuilder.Owns(&otelv1alpha1.OpenTelemetryCollector{}).
+		ctrlBuilder = ctrlBuilder.Owns(&otelv1beta1.OpenTelemetryCollector{}).
 			WithEventFilter(predicate.GenerationChangedPredicate{})
 	} else {
 		r.Log.Info("The InferenceService controller won't watch opentelemetry-collector resources because the CRD is not available.")
