@@ -54,7 +54,7 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.8.0rc2
+ARG VLLM_VERSION=0.8.0
 
 ################### LMCache WHEEL BUILD ###################
 # max jobs used by Ninja to build extensions
@@ -104,14 +104,12 @@ RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
+# Install torchac_cuda and lmcache wheel
+RUN --mount=type=cache,target=/root/.cache/pip pip install ${WORKSPACE_DIR}/LMCache/dist_lmcache/*.whl --verbose
+
 # Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
-# RUN --mount=type=cache,target=/root/.cache/pip pip install --upgrade pip && pip install vllm[runai,tensorizer]==${VLLM_VERSION}
-# TODO: Remove nightly build once vLLM 0.8.0 is released
-# vLLM 0.8.0rc2 nightly build
-ENV VLLM_COMMIT=37e380613220f607cb465fc15f72a4a033a98b23 
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install "vllm[runai,tensorizer] @ https://wheels.vllm.ai/${VLLM_COMMIT}/vllm-1.0.0.dev-cp38-abi3-manylinux1_x86_64.whl"
+RUN --mount=type=cache,target=/root/.cache/pip pip install --upgrade pip && pip install vllm[runai,tensorizer]==${VLLM_VERSION}
 
 # Install FlashInfer Attention backend
 RUN --mount=type=cache,target=/root/.cache/pip pip install https://github.com/flashinfer-ai/flashinfer/releases/download/v0.2.1.post2/flashinfer_python-0.2.1.post2+cu124torch2.6-cp38-abi3-linux_x86_64.whl
@@ -122,11 +120,6 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install https://github.com/fl
 # TODO: Remove this once FlashInfer AOT wheel is fixed
 RUN --mount=type=cache,target=/root/.cache/pip curl -sSLo requirements-build.txt https://github.com/vllm-project/vllm/raw/refs/tags/v${VLLM_VERSION}/requirements/build.txt \
     && pip install -r requirements-build.txt
-
-# Install torchac_cuda and lmcache wheel
-RUN --mount=type=cache,target=/root/.cache/pip pip install ${WORKSPACE_DIR}/LMCache/dist_lmcache/*.whl --verbose
-
-RUN --mount=type=cache,target=/root/.cache/pip pip install torch==2.6.0 torchvision==0.21
 #################### WHEEL BUILD IMAGE ####################
 
 #################### PROD IMAGE ####################

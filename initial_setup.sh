@@ -101,8 +101,7 @@ usermod -aG docker "$CURRENT_USER"
 # ====== 6. Pull required Docker images ======
 log "Pulling required Docker images..."
 docker pull redis/redis-stack
-docker pull sivanantha/huggingfaceserver:v0.8.0rc2
-docker pull sivanantha/huggingfaceserver:latest
+docker pull sivanantha/huggingfaceserver:v0.8.0
 docker pull sivanantha/lmcache-vllm:latest
 log "Docker images successfully pulled"
 
