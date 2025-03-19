@@ -107,6 +107,7 @@ var (
 	QueueProxyAggregatePrometheusMetricsPort    = "9088"
 	DefaultPodPrometheusPort                    = "9091"
 	NodeGroupAnnotationKey                      = KServeAPIGroupName + "/nodegroup"
+	EnableAIGatewayAnnotationKey                = KServeAPIGroupName + "/enable-aigateway"
 )
 
 // InferenceService Internal Annotations
@@ -326,6 +327,8 @@ const (
 	AggregateMetricsPortName            = "aggr-metric"
 )
 
+const DefaultTimeoutSeconds int64 = 60
+
 // Labels to put on kservice
 const (
 	KServiceComponentLabel = "component"
@@ -507,12 +510,13 @@ const (
 
 // CRD Kinds
 const (
-	IstioVirtualServiceKind = "VirtualService"
-	KnativeServiceKind      = "Service"
-	HTTPRouteKind           = "HTTPRoute"
-	GatewayKind             = "Gateway"
-	ServiceKind             = "Service"
-	KedaScaledObjectKind    = "ScaledObject"
+	KindIstioVirtualService = "VirtualService"
+	KindKnativeService      = "Service"
+	KindHTTPRoute           = "HTTPRoute"
+	KindGateway             = "Gateway"
+	KindService             = "Service"
+	KindKedaScaledObject    = "ScaledObject"
+	KindAIServiceBackend	= "AIServiceBackend"
 )
 
 // Model Parallel Options
