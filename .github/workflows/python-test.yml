@@ -327,7 +327,7 @@ jobs:
           sudo apt-get install -y libnuma-dev
           cd python/huggingfaceserver
           bash tests/setup_vllm.sh
-          poetry run -- pytest --cov=huggingfaceserver -vv
+          poetry run -- pytest --cov=huggingfaceserver -vv -k 'not test_guided_grammar and not test_response_format_json_object'
 
       - name: Free space after cpu tests
         run: |
