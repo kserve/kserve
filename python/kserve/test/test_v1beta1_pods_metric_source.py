@@ -30,8 +30,11 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1beta1_pods_metric_source import V1beta1PodsMetricSource  # noqa: E501
+from kserve.models.v1beta1_pods_metric_source import (
+    V1beta1PodsMetricSource,
+)  # noqa: E501
 from kserve.rest import ApiException
+
 
 class TestV1beta1PodsMetricSource(unittest.TestCase):
     """V1beta1PodsMetricSource unit test stubs"""
@@ -44,32 +47,35 @@ class TestV1beta1PodsMetricSource(unittest.TestCase):
 
     def make_instance(self, include_optional):
         """Test V1beta1PodsMetricSource
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.v1beta1_pods_metric_source.V1beta1PodsMetricSource()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return V1beta1PodsMetricSource(
-                metric = kserve.models.v1beta1/metric_source.v1beta1.MetricSource(
-                    backend = '0', 
-                    namespace = '0', 
-                    operation_over_time = '0', 
-                    query = '0', 
-                    server_address = '0', ), 
-                target = kserve.models.v1beta1/metric_target.v1beta1.MetricTarget(
-                    average_utilization = 56, 
-                    average_value = None, 
-                    type = '0', 
-                    value = None, )
+                metric=kserve.models.v1beta1_metric_source.V1beta1MetricSource(
+                    backend="0",
+                    namespace="0",
+                    operation_over_time="0",
+                    query="0",
+                    server_address="0",
+                ),
+                target=kserve.models.v1beta1_metric_target.V1beta1MetricTarget(
+                    average_utilization=56,
+                    average_value=None,
+                    type="0",
+                    value=None,
+                ),
             )
-        else :
+        else:
             return V1beta1PodsMetricSource(
-                target = kserve.models.v1beta1/metric_target.v1beta1.MetricTarget(
-                    average_utilization = 56, 
-                    average_value = None, 
-                    type = '0', 
-                    value = None, ),
-        )
+                target=kserve.models.v1beta1_metric_target.V1beta1MetricTarget(
+                    average_utilization=56,
+                    average_value=None,
+                    type="0",
+                    value=None,
+                ),
+            )
 
     def testV1beta1PodsMetricSource(self):
         """Test V1beta1PodsMetricSource"""
@@ -77,5 +83,5 @@ class TestV1beta1PodsMetricSource(unittest.TestCase):
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
