@@ -1,6 +1,6 @@
 module github.com/kserve/kserve
 
-go 1.23.6
+go 1.24.1
 
 require (
 	cloud.google.com/go/storage v1.50.0
@@ -17,7 +17,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/kedacore/keda/v2 v2.16.1
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/onsi/ginkgo/v2 v2.22.2
+	github.com/onsi/ginkgo/v2 v2.23.1
 	github.com/onsi/gomega v1.36.2
 	github.com/open-telemetry/opentelemetry-operator v0.113.0
 	github.com/pkg/errors v0.9.1
@@ -72,7 +72,7 @@ require (
 	github.com/envoyproxy/go-control-plane/envoy v1.32.4 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
-	github.com/expr-lang/expr v1.16.9 // indirect
+	github.com/expr-lang/expr v1.17.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
@@ -164,5 +164,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
 
-// Fixes CVE-2024-45338
-replace golang.org/x/net => golang.org/x/net v0.33.0
+// google.golang.org/grpc/stats/opentelemetry is used by the keda package.
+// To avoid ambiguous import error due to multiple module versions found for the same import path,
+// we force the version in google.golang.org/grpc (v1.71.0).
+replace google.golang.org/grpc/stats/opentelemetry => google.golang.org/grpc v1.71.0
