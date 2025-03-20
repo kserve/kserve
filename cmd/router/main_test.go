@@ -565,14 +565,12 @@ func TestCallServiceWhen1HeaderToPropagate(t *testing.T) {
 	require.NoError(t, err)
 
 	res, _, err := callService(model1Url.String(), jsonBytes, headers)
-	if err != nil {
-		t.Fatalf("callService failed: %v", err)
-	}
+	require.NoError(t, err)
+
 	var response map[string]interface{}
 	err = json.Unmarshal(res, &response)
-	if err != nil {
-		t.Fatalf("json.Unmarshal failed: %v", err)
-	}
+	require.NoError(t, err)
+
 	expectedResponse := map[string]interface{}{
 		"predictions":     "1",
 		"Test-Header-Key": "Test-Header-Value",
@@ -652,9 +650,8 @@ func TestCallServiceWhenMultipleHeadersToPropagate(t *testing.T) {
 func TestMalformedURL(t *testing.T) {
 	malformedURL := "http://single-1.default.{$your-domain}/switch"
 	_, response, err := callService(malformedURL, []byte{}, http.Header{})
-	if err != nil {
-		assert.Equal(t, 500, response)
-	}
+	require.Error(t, err)
+	require.Equal(t, 500, response)
 }
 
 func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
@@ -726,7 +723,7 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 		"Authorization": "Bearer Token",
 	}
 	fmt.Printf("final response:%v\n", response)
-	assert.Equal(t, expectedResponse, response)
+	require.Equal(t, expectedResponse, response)
 }
 
 func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing.T) {
@@ -796,5 +793,5 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingInvalidPattern(t *testing
 		"Authorization": "Bearer Token",
 	}
 	fmt.Printf("final response:%v\n", response)
-	assert.Equal(t, expectedResponse, response)
+	require.Equal(t, expectedResponse, response)
 }
