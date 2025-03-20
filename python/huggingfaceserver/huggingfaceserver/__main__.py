@@ -173,8 +173,9 @@ else:
     # auto for vLLM uses FP16 even for an FP32 model while HF uses FP32 causing inconsistency.
     # To ensure consistency b/w vLLM and HF,
     # we use FP16 or the Model Config "torch_dtype" for auto as the default dtype in HF backend
+    # auto would use FP32 for CPU only instances.
     # FP16, BF16 and FP32 if explicitly mentioned would use those data types
-    default_dtype = "float16"
+    default_dtype = "float16" if torch.cuda.is_available() else "float32"
     dtype_choices = ["auto", "float16", "float32", "bfloat16", "float", "half"]
     hf_dtype_map = {
         "float32": torch.float32,
@@ -189,7 +190,7 @@ else:
         default="auto",
         choices=dtype_choices,
         help=f"data type to load the weights in. One of {dtype_choices}. "
-        f"Defaults to float16",
+        f"Defaults to float16 for GPU and float32 for CPU systems",
     )
 
 
@@ -235,14 +236,11 @@ def load_model():
                 hasattr(model_config, "torch_dtype")
                 and model_config.torch_dtype is not None
             ):
-                if model_config.torch_dtype == torch.float32:
-                    dtype = "float16"  # override to ensure consistency with vLLM
-                else:
-                    dtype = model_config.torch_dtype
+                dtype = model_config.torch_dtype
             else:
                 dtype = default_dtype
 
-        dtype = hf_dtype_map[dtype] if dtype in hf_dtype_map else dtype
+        dtype = hf_dtype_map[dtype] if isinstance(dtype, str) else dtype
 
         if kwargs.get("task", None):
             try:
