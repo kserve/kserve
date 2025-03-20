@@ -60,7 +60,7 @@ class TestV1beta1PodsMetricSource(unittest.TestCase):
                     query="0",
                     server_address="0",
                 ),
-                target=kserve.models.v1beta1_ metric_target.V1beta1MetricTarget(
+                target=kserve.models.v1beta1_metric_target.V1beta1MetricTarget(
                     average_utilization=56,
                     average_value=None,
                     type="0",
