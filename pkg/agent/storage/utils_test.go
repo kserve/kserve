@@ -34,9 +34,7 @@ func TestCreate(t *testing.T) {
 	// This would get called in StartPullerAndProcessModels
 	syscall.Umask(0)
 
-	tmpDir, _ := os.MkdirTemp("", "test-create-")
-	defer os.RemoveAll(tmpDir)
-
+	tmpDir := os.TempDir()
 	folderPath := path.Join(tmpDir, "foo")
 	filePath := path.Join(folderPath, "bar.txt")
 	f, err := Create(filePath)
@@ -57,8 +55,7 @@ func TestCreate(t *testing.T) {
 func TestFileExists(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	syscall.Umask(0)
-	tmpDir, _ := os.MkdirTemp("", "test")
-	defer os.RemoveAll(tmpDir)
+	tmpDir := t.TempDir()
 
 	// Test case for existing file
 	f, err := os.CreateTemp(tmpDir, "tmpfile")
@@ -77,8 +74,12 @@ func TestFileExists(t *testing.T) {
 func TestRemoveDir(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	syscall.Umask(0)
-	tmpDir, _ := os.MkdirTemp("", "test")
-	subDir, _ := os.MkdirTemp(tmpDir, "test")
+	tmpDir := t.TempDir()
+
+	// Create a subdirectory within tmpDir
+	subDir := filepath.Join(tmpDir, "test")
+	err := os.Mkdir(subDir, 0o755)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	f, err := os.CreateTemp(subDir, "tmp")
 	if err != nil {
