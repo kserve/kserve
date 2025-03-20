@@ -9,7 +9,7 @@ ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.8.3
 
 # Install vllm
-ARG VLLM_VERSION=v0.7.3
+ARG VLLM_VERSION=v0.8.0
 
 RUN apt-get update -y && apt-get install -y \
     gcc python3.10-venv python3-dev python3-pip \
@@ -43,7 +43,7 @@ RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 WORKDIR /vllm
 RUN git clone --branch $VLLM_VERSION --depth 1 https://github.com/vllm-project/vllm.git . && \
     pip install --upgrade pip && \
-    pip install -r requirements-build.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
+    pip install -r requirements/openvino.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
     PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu" VLLM_TARGET_DEVICE="openvino" python -m pip install -v .
 
 FROM ${BASE_IMAGE} AS prod

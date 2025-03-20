@@ -8,9 +8,6 @@ FROM ${BASE_IMAGE} AS builder
 ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.8.3
 
-# Install vllm
-ARG VLLM_VERSION=0.7.3
-
 RUN apt-get update && apt-get upgrade -y && apt-get install gcc python3.10-venv python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip3 install poetry==${POETRY_VERSION}
@@ -31,8 +28,6 @@ COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaces
 RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
-
-RUN pip install --upgrade pip && pip install vllm==${VLLM_VERSION}
 
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS prod
 

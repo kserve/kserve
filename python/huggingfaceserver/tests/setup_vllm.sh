@@ -4,7 +4,7 @@ set -e
 
 echo "Installing vllm openvino"
 
-VLLM_VERSION=v0.7.3
+VLLM_VERSION=v0.8.0
 VLLM_DIR=vllm-clone
 
 source $(poetry env info -p)/bin/activate
@@ -13,7 +13,7 @@ mkdir $VLLM_DIR
 cd $VLLM_DIR
 git clone --branch $VLLM_VERSION --depth 1 https://github.com/vllm-project/vllm.git .
 pip install --upgrade pip && \
-pip install -r requirements-build.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
+pip install -r requirements/openvino.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
 PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu" VLLM_TARGET_DEVICE="openvino" python -m pip install -v .
 
 cd ..
