@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/pkg/errors"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -42,10 +43,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/yaml"
-
-	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
