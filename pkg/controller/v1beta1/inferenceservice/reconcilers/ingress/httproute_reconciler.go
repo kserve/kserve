@@ -46,7 +46,7 @@ const (
 	HTTPRouteParentStatusNotAvailable = "ParentStatusNotAvailable"
 )
 
-var DefaultTimeout = toGatewayAPIDuration(60)
+var DefaultTimeout = toGatewayAPIDuration(constants.DefaultTimeoutSeconds)
 
 type RawHTTPRouteReconciler struct {
 	client        client.Client
@@ -145,7 +145,7 @@ func createHTTPRouteRule(routeMatches []gatewayapiv1.HTTPRouteMatch, filters []g
 			{
 				BackendRef: gatewayapiv1.BackendRef{
 					BackendObjectReference: gatewayapiv1.BackendObjectReference{
-						Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
+						Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
 						Name:      gatewayapiv1.ObjectName(serviceName),
 						Namespace: (*gatewayapiv1.Namespace)(&namespace),
 						Port:      (*gatewayapiv1.PortNumber)(&port),
@@ -226,7 +226,7 @@ func createRawPredictorHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceSer
 				ParentRefs: []gatewayapiv1.ParentReference{
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.KindGateway)),
 						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
 						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
 					},
@@ -299,7 +299,7 @@ func createRawTransformerHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceS
 				ParentRefs: []gatewayapiv1.ParentReference{
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.KindGateway)),
 						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
 						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
 					},
@@ -374,7 +374,7 @@ func createRawExplainerHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceSer
 				ParentRefs: []gatewayapiv1.ParentReference{
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.KindGateway)),
 						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
 						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
 					},
@@ -542,7 +542,7 @@ func createRawTopLevelHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceServ
 				ParentRefs: []gatewayapiv1.ParentReference{
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.KindGateway)),
 						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
 						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
 					},
