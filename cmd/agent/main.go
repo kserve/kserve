@@ -118,7 +118,7 @@ type loggerArgs struct {
 	endpoint         string
 	component        string
 	metadataHeaders  []string
-	annotations      *map[string]string
+	annotations      map[string]string
 	certName         string
 	tlsSkipVerify    bool
 }
@@ -289,7 +289,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		os.Exit(-1)
 	}
 
-	annotationKVPair := map[string]string{}
+	var annotationKVPair map[string]string
 	for _, annotations := range *metadataAnnotations {
 		k, v, found := strings.Cut(annotations, "=")
 		if found {
@@ -308,7 +308,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		namespace:        *namespace,
 		component:        *component,
 		metadataHeaders:  *metadataHeaders,
-		annotations:      &annotationKVPair,
+		annotations:      annotationKVPair,
 		certName:         *CaCertFile,
 		tlsSkipVerify:    *TlsSkipVerify,
 	}

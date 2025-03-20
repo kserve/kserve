@@ -84,14 +84,14 @@ type LoggerHandler struct {
 	endpoint         string
 	next             http.Handler
 	metadataHeaders  []string
-	annotations      *map[string]string
+	annotations      map[string]string
 	certName         string
 	tlsSkipVerify    bool
 }
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 	inferenceService string, namespace string, endpoint string, component string, next http.Handler, metadataHeaders []string,
-	certName string, annotations *map[string]string, tlsSkipVerify bool,
+	certName string, annotations map[string]string, tlsSkipVerify bool,
 ) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
