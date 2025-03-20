@@ -596,6 +596,10 @@ func TestAgentInjector(t *testing.T) {
 								"predictor",
 								LoggerArgumentMetadataAnnotations,
 								"Foo=Bar,Fizz=Buzz",
+								LoggerArgumentTlsSkipVerify,
+								"false",
+								constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
 							},
 							Ports: []corev1.ContainerPort{
 								{
