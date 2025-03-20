@@ -23,6 +23,7 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/pkg/errors"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,16 +51,18 @@ func NewKedaReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
+	configMap *corev1.ConfigMap,
 ) (*KedaReconciler, error) {
 	return &KedaReconciler{
 		client:       client,
 		scheme:       scheme,
-		ScaledObject: createKedaScaledObject(componentMeta, componentExt),
+		ScaledObject: createKedaScaledObject(componentMeta, componentExt, configMap),
 		componentExt: componentExt,
 	}, nil
 }
 
-func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, minReplicas int32, maxReplicas int32,
+func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
+	minReplicas int32, maxReplicas int32, configMap *corev1.ConfigMap,
 ) []kedav1alpha1.ScaleTriggers {
 	var triggers []kedav1alpha1.ScaleTriggers
 
@@ -70,25 +73,49 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, minReplicas in
 	if componentExt.AutoScaling != nil {
 		metrics := componentExt.AutoScaling.Metrics
 		for _, metric := range metrics {
-			if metric.Type == v1beta1.MetricSourceType(constants.AutoScalerResource) {
+			switch metric.Type {
+			case v1beta1.MetricSourceType(constants.AutoScalerResource):
 				triggerType := string(*metric.Resource.Name)
 				metricType = autoscalingv2.MetricTargetType(metric.Resource.Target.Type)
+
 				if metricType == autoscalingv2.UtilizationMetricType {
 					targetValue = int(*metric.Resource.Target.AverageUtilization)
 				} else if metricType == autoscalingv2.AverageValueMetricType {
 					targetValue = int(metric.Resource.Target.AverageValue.AsApproximateFloat64())
 				}
 
-				// create a trigger for the resource
 				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 					Type:       triggerType,
 					Metadata:   map[string]string{"value": strconv.Itoa(targetValue)},
 					MetricType: metricType,
 				})
-			} else if metric.Type == v1beta1.MetricSourceType(constants.AutoScalerExternal) {
-				triggerType := string(*metric.External.Metric.Backend)
 
+			case v1beta1.MetricSourceType(constants.AutoScalerExternal):
+				triggerType := string(*metric.External.Metric.Backend)
 				serverAddress := metric.External.Metric.ServerAddress
+				query := metric.External.Metric.Query
+				targetValue = int(metric.External.Target.Value.AsApproximateFloat64())
+
+				trigger := kedav1alpha1.ScaleTriggers{
+					Type: triggerType,
+					Metadata: map[string]string{
+						"serverAddress": serverAddress,
+						"query":         query,
+						"threshold":     strconv.Itoa(targetValue),
+					},
+				}
+
+				if triggerType == string(constants.AutoScalerMetricsPrometheus) && metric.External.Metric.Namespace != "" {
+					trigger.Metadata["namespace"] = metric.External.Metric.Namespace
+				}
+
+				triggers = append(triggers, trigger)
+
+			case v1beta1.MetricSourceType(constants.AutoScalerPodMetric):
+				otelConfig, _ := v1beta1.NewOtelCollectorConfig(configMap)
+				OTelScalerEndpoint := otelConfig.OTelScalerEndpoint
+
+				triggerType := string(*metric.External.Metric.Backend)
 				query := metric.External.Metric.Query
 				targetValue = int(metric.External.Target.Value.AsApproximateFloat64())
 
@@ -96,7 +123,6 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, minReplicas in
 					Metadata: map[string]string{},
 				}
 
-				// KEDA external auto scaler (otel-add-on)
 				if triggerType == "opentelemetry" {
 					trigger.Type = "external"
 					trigger.Metadata = map[string]string{
@@ -104,18 +130,10 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, minReplicas in
 						"clampMax":      strconv.Itoa(int(maxReplicas)),
 						"metricQuery":   query,
 						"targetValue":   strconv.Itoa(targetValue),
-						"scalerAddress": serverAddress,
+						"scalerAddress": OTelScalerEndpoint,
 					}
 					if metric.External.Metric.OperationOverTime != "" {
 						trigger.Metadata["operationOverTime"] = metric.External.Metric.OperationOverTime
-					}
-				} else {
-					trigger.Type = triggerType
-					trigger.Metadata["serverAddress"] = serverAddress
-					trigger.Metadata["query"] = query
-					trigger.Metadata["threshold"] = strconv.Itoa(targetValue)
-					if triggerType == string(constants.AutoScalerMetricsPrometheus) && metric.External.Metric.Namespace != "" {
-						trigger.Metadata["namespace"] = metric.External.Metric.Namespace
 					}
 				}
 
@@ -141,6 +159,7 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, minReplicas in
 
 func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
+	configMap *corev1.ConfigMap,
 ) *kedav1alpha1.ScaledObject {
 	annotations := componentMeta.GetAnnotations()
 
@@ -154,7 +173,7 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	if MaxReplicas < *MinReplicas {
 		MaxReplicas = *MinReplicas
 	}
-	triggers := getKedaMetrics(componentExtension, *MinReplicas, MaxReplicas)
+	triggers := getKedaMetrics(componentExtension, *MinReplicas, MaxReplicas, configMap)
 
 	scaledobject := &kedav1alpha1.ScaledObject{
 		ObjectMeta: metav1.ObjectMeta{

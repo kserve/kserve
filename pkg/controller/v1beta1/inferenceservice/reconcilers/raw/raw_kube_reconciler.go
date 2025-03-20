@@ -66,10 +66,6 @@ func NewRawKubeReconciler(ctx context.Context, client client.Client,
 		log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return nil, err
 	}
-	otelConfig, err := v1beta1.NewOtelCollectorConfig(configMap)
-	if err != nil {
-		return nil, err
-	}
 
 	if componentExt.AutoScaling != nil {
 		metrics := componentExt.AutoScaling.Metrics
@@ -77,6 +73,10 @@ func NewRawKubeReconciler(ctx context.Context, client client.Client,
 			if metric.Type == v1beta1.ExternalMetricSourceType {
 				if *metric.External.Metric.Backend == v1beta1.MetricsBackend(constants.OTelBackend) {
 					var err error
+					otelConfig, err := v1beta1.NewOtelCollectorConfig(configMap)
+					if err != nil {
+						return nil, err
+					}
 					otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, metric, *otelConfig)
 					if err != nil {
 						return nil, err
@@ -86,7 +86,7 @@ func NewRawKubeReconciler(ctx context.Context, client client.Client,
 		}
 	}
 
-	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt)
+	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, configMap)
 	if err != nil {
 		return nil, err
 	}

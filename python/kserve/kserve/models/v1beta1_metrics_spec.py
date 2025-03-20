@@ -48,29 +48,34 @@ class V1beta1MetricsSpec(object):
     """
     openapi_types = {
         'external': 'V1beta1ExternalMetricSource',
+        'podmetric': 'V1beta1PodsMetricSource',
         'resource': 'V1beta1ResourceMetricSource',
         'type': 'str'
     }
 
     attribute_map = {
         'external': 'external',
+        'podmetric': 'podmetric',
         'resource': 'resource',
         'type': 'type'
     }
 
-    def __init__(self, external=None, resource=None, type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, external=None, podmetric=None, resource=None, type=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1MetricsSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._external = None
+        self._podmetric = None
         self._resource = None
         self._type = None
         self.discriminator = None
 
         if external is not None:
             self.external = external
+        if podmetric is not None:
+            self.podmetric = podmetric
         if resource is not None:
             self.resource = resource
         if type is not None:
@@ -98,6 +103,27 @@ class V1beta1MetricsSpec(object):
         self._external = external
 
     @property
+    def podmetric(self):
+        """Gets the podmetric of this V1beta1MetricsSpec.  # noqa: E501
+
+
+        :return: The podmetric of this V1beta1MetricsSpec.  # noqa: E501
+        :rtype: V1beta1PodsMetricSource
+        """
+        return self._podmetric
+
+    @podmetric.setter
+    def podmetric(self, podmetric):
+        """Sets the podmetric of this V1beta1MetricsSpec.
+
+
+        :param podmetric: The podmetric of this V1beta1MetricsSpec.  # noqa: E501
+        :type: V1beta1PodsMetricSource
+        """
+
+        self._podmetric = podmetric
+
+    @property
     def resource(self):
         """Gets the resource of this V1beta1MetricsSpec.  # noqa: E501
 
@@ -122,7 +148,7 @@ class V1beta1MetricsSpec(object):
     def type(self):
         """Gets the type of this V1beta1MetricsSpec.  # noqa: E501
 
-        type is the type of metric source.  It should be one of \"Resource\", \"External\", \"Resource\" or \"External\" each mapping to a matching field in the object.  # noqa: E501
+        type is the type of metric source.  It should be one of \"Resource\", \"External\", \"PodMetric\". \"Resource\" or \"External\" each mapping to a matching field in the object.  # noqa: E501
 
         :return: The type of this V1beta1MetricsSpec.  # noqa: E501
         :rtype: str
@@ -133,7 +159,7 @@ class V1beta1MetricsSpec(object):
     def type(self, type):
         """Sets the type of this V1beta1MetricsSpec.
 
-        type is the type of metric source.  It should be one of \"Resource\", \"External\", \"Resource\" or \"External\" each mapping to a matching field in the object.  # noqa: E501
+        type is the type of metric source.  It should be one of \"Resource\", \"External\", \"PodMetric\". \"Resource\" or \"External\" each mapping to a matching field in the object.  # noqa: E501
 
         :param type: The type of this V1beta1MetricsSpec.  # noqa: E501
         :type: str

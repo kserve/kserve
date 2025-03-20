@@ -23,7 +23,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,61 +60,6 @@ func NewOtelReconciler(client client.Client,
 	}, nil
 }
 
-func getOtelConfig(metricFilter string, otelConfig v1beta1.OtelCollectorConfig) (string, error) {
-	config := map[string]interface{}{
-		"receivers": map[string]interface{}{
-			"prometheus": map[string]interface{}{
-				"config": map[string]interface{}{
-					"scrape_configs": []map[string]interface{}{
-						{
-							"job_name":        "otel-collector",
-							"scrape_interval": otelConfig.ScrapeInterval,
-							"static_configs": []map[string]interface{}{
-								{"targets": []string{"localhost:8080"}},
-							},
-						},
-					},
-				},
-			},
-		},
-		"processors": map[string]interface{}{
-			"filter/ottl": map[string]interface{}{
-				"error_mode": "ignore",
-				"metrics": map[string]interface{}{
-					"metric": []string{
-						fmt.Sprintf(`name == "%s"`, metricFilter),
-					},
-				},
-			},
-		},
-		"exporters": map[string]interface{}{
-			"otlp": map[string]interface{}{
-				"endpoint":    otelConfig.OTelExporterEndpoint,
-				"compression": "none",
-				"tls": map[string]interface{}{
-					"insecure": true,
-				},
-			},
-		},
-		"service": map[string]interface{}{
-			"pipelines": map[string]interface{}{
-				"metrics": map[string]interface{}{
-					"receivers":  []string{"prometheus"},
-					"processors": []string{"filter/ottl"},
-					"exporters":  []string{"otlp"},
-				},
-			},
-		},
-	}
-
-	yamlBytes, err := yaml.Marshal(config)
-	if err != nil {
-		return "", err
-	}
-
-	return string(yamlBytes), nil
-}
-
 func createOtelCollector(componentMeta metav1.ObjectMeta,
 	metric v1beta1.MetricsSpec,
 	otelConfig v1beta1.OtelCollectorConfig,
@@ -139,7 +83,7 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 									"scrape_interval": otelConfig.ScrapeInterval,
 									"static_configs": []interface{}{
 										map[string]interface{}{
-											"targets": []interface{}{"0.0.0.0:8080"},
+											"targets": []interface{}{"localhost:8080"},
 										},
 									},
 								},
@@ -159,7 +103,7 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 				}},
 				Exporters: otelv1beta1.AnyConfig{Object: map[string]interface{}{
 					"otlp": map[string]interface{}{
-						"endpoint":    otelConfig.OTelExporterEndpoint,
+						"endpoint":    otelConfig.OTelReceiverEndpoint,
 						"compression": "none",
 						"tls": map[string]interface{}{
 							"insecure": true,

@@ -141,7 +141,7 @@ type AutoScalingSpec struct {
 // MetricsSpec specifies how to scale based on a single metric
 // (only `type` and one other matching field should be set at once).
 type MetricsSpec struct {
-	// type is the type of metric source.  It should be one of "Resource", "External",
+	// type is the type of metric source.  It should be one of "Resource", "External", "PodMetric".
 	// "Resource" or "External" each mapping to a matching field in the object.
 	Type MetricSourceType `json:"type,omitempty"`
 
@@ -160,6 +160,12 @@ type MetricsSpec struct {
 	// QPS from loadbalancer running outside of cluster).
 	// +optional
 	External *ExternalMetricSource `json:"external,omitempty"`
+
+	// pods refers to a metric describing each pod in the current scale target
+	// (for example, transactions-processed-per-second).  The values will be
+	// averaged together before being compared to the target value.
+	// +optional
+	Pods *PodsMetricSource `json:"podmetric,omitempty"`
 }
 
 // MetricSourceType indicates the type of metric.
@@ -195,6 +201,18 @@ type ExternalMetricSource struct {
 
 	// target specifies the target value for the given metric
 	Target MetricTarget `json:"target,omitempty"`
+}
+
+// PodsMetricSource indicates how to scale on a metric describing each pod in
+// the current scale target (for example, transactions-processed-per-second).
+// The values will be averaged together before being compared to the target
+// value.
+type PodsMetricSource struct {
+	// metric identifies the target metric by name and selector
+	Metric MetricSource `json:"metric,omitempty"`
+
+	// target specifies the target value for the given metric
+	Target MetricTarget `json:"target" protobuf:"bytes,2,name=target"`
 }
 
 // MetricTarget defines the target value, average value, or average utilization of a specific metric

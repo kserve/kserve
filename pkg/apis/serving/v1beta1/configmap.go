@@ -76,7 +76,8 @@ type ExplainersConfig struct {
 
 type OtelCollectorConfig struct {
 	ScrapeInterval       string `json:"scrapeInterval,omitempty"`
-	OTelExporterEndpoint string `json:"otelExporterEndpoint,omitempty"`
+	OTelReceiverEndpoint string `json:"otelReceiverEndpoint,omitempty"`
+	OTelScalerEndpoint   string `json:"otelScalerEndpoint,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

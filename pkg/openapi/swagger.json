@@ -3520,12 +3520,16 @@
           "description": "external refers to a global metric that is not associated with any Kubernetes object. It allows autoscaling based on information coming from components running outside of cluster (for example length of queue in cloud messaging service, or QPS from loadbalancer running outside of cluster).",
           "$ref": "#/definitions/v1beta1.ExternalMetricSource"
         },
+        "podmetric": {
+          "description": "pods refers to a metric describing each pod in the current scale target (for example, transactions-processed-per-second).  The values will be averaged together before being compared to the target value.",
+          "$ref": "#/definitions/v1beta1.PodsMetricSource"
+        },
         "resource": {
           "description": "resource refers to a resource metric (such as those specified in requests and limits) known to Kubernetes describing each pod in the current scale target (e.g. CPU or memory). Such metrics are built in to Kubernetes, and have special scaling options on top of those available to normal per-pod metrics using the \"pods\" source.",
           "$ref": "#/definitions/v1beta1.ResourceMetricSource"
         },
         "type": {
-          "description": "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"Resource\" or \"External\" each mapping to a matching field in the object.",
+          "description": "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"PodMetric\". \"Resource\" or \"External\" each mapping to a matching field in the object.",
           "type": "string"
         }
       }
@@ -3993,7 +3997,10 @@
     "v1beta1.OtelCollectorConfig": {
       "type": "object",
       "properties": {
-        "otelExporterEndpoint": {
+        "otelReceiverEndpoint": {
+          "type": "string"
+        },
+        "otelScalerEndpoint": {
           "type": "string"
         },
         "scrapeInterval": {
@@ -4611,6 +4618,25 @@
           },
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge,retainKeys"
+        }
+      }
+    },
+    "v1beta1.PodsMetricSource": {
+      "description": "PodsMetricSource indicates how to scale on a metric describing each pod in the current scale target (for example, transactions-processed-per-second). The values will be averaged together before being compared to the target value.",
+      "type": "object",
+      "required": [
+        "target"
+      ],
+      "properties": {
+        "metric": {
+          "description": "metric identifies the target metric by name and selector",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.MetricSource"
+        },
+        "target": {
+          "description": "target specifies the target value for the given metric",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.MetricTarget"
         }
       }
     },
