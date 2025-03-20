@@ -21,13 +21,13 @@ import (
 	"strconv"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	"github.com/pkg/errors"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -50,16 +50,18 @@ func NewKedaReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
+	configMap *corev1.ConfigMap,
 ) (*KedaReconciler, error) {
 	return &KedaReconciler{
 		client:       client,
 		scheme:       scheme,
-		ScaledObject: createKedaScaledObject(componentMeta, componentExt),
+		ScaledObject: createKedaScaledObject(componentMeta, componentExt, configMap),
 		componentExt: componentExt,
 	}, nil
 }
 
 func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
+	minReplicas int32, maxReplicas int32, configMap *corev1.ConfigMap,
 ) []kedav1alpha1.ScaleTriggers {
 	var triggers []kedav1alpha1.ScaleTriggers
 
@@ -70,28 +72,29 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 	if componentExt.AutoScaling != nil {
 		metrics := componentExt.AutoScaling.Metrics
 		for _, metric := range metrics {
-			if metric.Type == v1beta1.MetricSourceType(constants.AutoScalerResource) {
+			switch metric.Type {
+			case v1beta1.MetricSourceType(constants.AutoScalerResource):
 				triggerType := string(*metric.Resource.Name)
 				metricType = autoscalingv2.MetricTargetType(metric.Resource.Target.Type)
+
 				if metricType == autoscalingv2.UtilizationMetricType {
 					targetValue = int(*metric.Resource.Target.AverageUtilization)
 				} else if metricType == autoscalingv2.AverageValueMetricType {
 					targetValue = int(metric.Resource.Target.AverageValue.AsApproximateFloat64())
 				}
 
-				// create a trigger for the resource
 				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 					Type:       triggerType,
 					Metadata:   map[string]string{"value": strconv.Itoa(targetValue)},
 					MetricType: metricType,
 				})
-			} else if metric.Type == v1beta1.MetricSourceType(constants.AutoScalerExternal) {
+
+			case v1beta1.MetricSourceType(constants.AutoScalerExternal):
 				triggerType := string(*metric.External.Metric.Backend)
 				serverAddress := metric.External.Metric.ServerAddress
 				query := metric.External.Metric.Query
 				targetValue = int(metric.External.Target.Value.AsApproximateFloat64())
 
-				// create a trigger for the external metric
 				trigger := kedav1alpha1.ScaleTriggers{
 					Type: triggerType,
 					Metadata: map[string]string{
@@ -100,9 +103,36 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 						"threshold":     strconv.Itoa(targetValue),
 					},
 				}
-				if triggerType == string(constants.AutoScalerMetricsPrometheus) {
-					if metric.External.Metric.Namespace != "" {
-						trigger.Metadata["namespace"] = metric.External.Metric.Namespace
+
+				if triggerType == string(constants.AutoScalerMetricsPrometheus) && metric.External.Metric.Namespace != "" {
+					trigger.Metadata["namespace"] = metric.External.Metric.Namespace
+				}
+
+				triggers = append(triggers, trigger)
+
+			case v1beta1.MetricSourceType(constants.AutoScalerPodMetric):
+				otelConfig, _ := v1beta1.NewOtelCollectorConfig(configMap)
+				OTelScalerEndpoint := otelConfig.OTelScalerEndpoint
+
+				triggerType := string(*metric.External.Metric.Backend)
+				query := metric.External.Metric.Query
+				targetValue = int(metric.External.Target.Value.AsApproximateFloat64())
+
+				trigger := kedav1alpha1.ScaleTriggers{
+					Metadata: map[string]string{},
+				}
+
+				if triggerType == "opentelemetry" {
+					trigger.Type = "external"
+					trigger.Metadata = map[string]string{
+						"clampMin":      strconv.Itoa(int(minReplicas)),
+						"clampMax":      strconv.Itoa(int(maxReplicas)),
+						"metricQuery":   query,
+						"targetValue":   strconv.Itoa(targetValue),
+						"scalerAddress": OTelScalerEndpoint,
+					}
+					if metric.External.Metric.OperationOverTime != "" {
+						trigger.Metadata["operationOverTime"] = metric.External.Metric.OperationOverTime
 					}
 				}
 
@@ -128,8 +158,8 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 
 func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
+	configMap *corev1.ConfigMap,
 ) *kedav1alpha1.ScaledObject {
-	triggers := getKedaMetrics(componentExtension)
 	annotations := componentMeta.GetAnnotations()
 
 	MinReplicas := componentExtension.MinReplicas
@@ -142,6 +172,7 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	if MaxReplicas < *MinReplicas {
 		MaxReplicas = *MinReplicas
 	}
+	triggers := getKedaMetrics(componentExtension, *MinReplicas, MaxReplicas, configMap)
 
 	scaledobject := &kedav1alpha1.ScaledObject{
 		ObjectMeta: metav1.ObjectMeta{
@@ -163,27 +194,40 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	return scaledobject
 }
 
+func semanticScaledObjectEquals(desired, existing *kedav1alpha1.ScaledObject) bool {
+	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
+}
+
 func (r *KedaReconciler) Reconcile(ctx context.Context) error {
 	desired := r.ScaledObject
 	existing := &kedav1alpha1.ScaledObject{}
-
-	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		log.Info("Updating KEDA ScaledObject", "namespace", desired.Namespace, "name", desired.Name)
-		if err := r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing); err != nil {
+	err := r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
+	if err != nil {
+		if apierr.IsNotFound(err) {
+			log.Info("Creating KEDA ScaledObject resource", "name", desired.Name)
+			if err := r.client.Create(ctx, desired); err != nil {
+				log.Error(err, "Failed to create KEDA ScaledObject", "name", desired.Name)
+				return err
+			}
+		} else {
 			return err
 		}
-
-		return r.client.Update(ctx, existing)
-	})
-	if err != nil {
-		// Create scaledObject if it does not exist
-		if apierr.IsNotFound(err) {
-			log.Info("Creating KEDA ScaledObject", "namespace", desired.Namespace, "name", desired.Name)
-			return r.client.Create(ctx, desired)
+	} else {
+		// Set ResourceVersion which is required for update operation.
+		desired.ResourceVersion = existing.ResourceVersion
+		// Do a dry-run update to avoid diffs generated by default values.
+		// This will populate our local ScaledObject with any default values that are present on the remote version.
+		if err := r.client.Update(ctx, desired, client.DryRunAll); err != nil {
+			log.Error(err, "Failed to perform dry-run update for KEDA ScaledObject", "name", desired.Name)
+			return err
 		}
-		return errors.Wrapf(err, "fails to reconcile KEDA scaledObject")
+		if !semanticScaledObjectEquals(desired, existing) {
+			log.Info("Updating KEDA ScaledObject resource", "name", desired.Name)
+			if err := r.client.Update(ctx, desired); err != nil {
+				log.Error(err, "Failed to update KEDA ScaledObject", "name", desired.Name)
+			}
+		}
 	}
-
 	return nil
 }
 

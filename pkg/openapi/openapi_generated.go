@@ -96,9 +96,11 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec":                    schema_pkg_apis_serving_v1beta1_ModelSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus":                  schema_pkg_apis_serving_v1beta1_ModelStatus(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec":              schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.OtelCollectorConfig":          schema_pkg_apis_serving_v1beta1_OtelCollectorConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec":                     schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec":             schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodSpec":                      schema_pkg_apis_serving_v1beta1_PodSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodsMetricSource":             schema_pkg_apis_serving_v1beta1_PodsMetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":       schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig":               schema_pkg_apis_serving_v1beta1_ResourceConfig(ref),
@@ -6269,7 +6271,7 @@ func schema_pkg_apis_serving_v1beta1_MetricSource(ref common.ReferenceCallback) 
 				Properties: map[string]spec.Schema{
 					"backend": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
+							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -6291,6 +6293,13 @@ func schema_pkg_apis_serving_v1beta1_MetricSource(ref common.ReferenceCallback) 
 					"namespace": {
 						SchemaProps: spec.SchemaProps{
 							Description: "For namespaced query",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"operationOverTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OperationOverTime specifies the operation to aggregate the metrics over time",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -6352,7 +6361,7 @@ func schema_pkg_apis_serving_v1beta1_MetricsSpec(ref common.ReferenceCallback) c
 				Properties: map[string]spec.Schema{
 					"type": {
 						SchemaProps: spec.SchemaProps{
-							Description: "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"Resource\" or \"External\" each mapping to a matching field in the object.",
+							Description: "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"PodMetric\". \"Resource\" or \"External\" each mapping to a matching field in the object.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -6369,11 +6378,17 @@ func schema_pkg_apis_serving_v1beta1_MetricsSpec(ref common.ReferenceCallback) c
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource"),
 						},
 					},
+					"podmetric": {
+						SchemaProps: spec.SchemaProps{
+							Description: "pods refers to a metric describing each pod in the current scale target (for example, transactions-processed-per-second).  The values will be averaged together before being compared to the target value.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodsMetricSource"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodsMetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource"},
 	}
 }
 
@@ -7163,6 +7178,36 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_OtelCollectorConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"scrapeInterval": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"otelReceiverEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"otelScalerEndpoint": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -8269,6 +8314,36 @@ func schema_pkg_apis_serving_v1beta1_PodSpec(ref common.ReferenceCallback) commo
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_PodsMetricSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PodsMetricSource indicates how to scale on a metric describing each pod in the current scale target (for example, transactions-processed-per-second). The values will be averaged together before being compared to the target value.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metric": {
+						SchemaProps: spec.SchemaProps{
+							Description: "metric identifies the target metric by name and selector",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricSource"),
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Description: "target specifies the target value for the given metric",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"),
+						},
+					},
+				},
+				Required: []string{"target"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
 	}
 }
 

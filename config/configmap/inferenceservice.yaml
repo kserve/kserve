@@ -73,6 +73,16 @@ data:
           "my.custom.label.1"  
         ]
       }  
+     # ====================================== OTelCollector CONFIGURATION ======================================
+     # Example
+     opentelemetryCollector: |-
+       {
+         # scrapeInterval is the interval at which the OpenTelemetry Collector will scrape the metrics.
+         "scrapeInterval": "5s",
+         # OTelExporterEndpoint is the endpoint to which the OpenTelemetry Collector will export the metrics.
+         "OTelExporterEndpoint": "otel/opentelemetry-collector-contrib:latest",
+       }
+      
      # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
      # Example
      storageInitializer: |-
@@ -700,4 +710,11 @@ data:
           "cpuRequest": "1",
           "memoryRequest": "2Gi"
         }
+    }
+
+  opentelemetryCollector: |-
+    {
+      "scrapeInterval": "5s",
+      "otelReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
+      "otelScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
     }
