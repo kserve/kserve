@@ -21,12 +21,13 @@ import (
 	"fmt"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	constants "github.com/kserve/kserve/pkg/constants"
-	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
 	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/otel"
 	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,7 +77,7 @@ func NewRawKubeReconciler(ctx context.Context, client client.Client,
 			if metric.Type == v1beta1.ExternalMetricSourceType {
 				if *metric.External.Metric.Backend == v1beta1.MetricsBackend(constants.OTelBackend) {
 					var err error
-					otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, componentExt, metric, *otelConfig)
+					otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, metric, *otelConfig)
 					if err != nil {
 						return nil, err
 					}

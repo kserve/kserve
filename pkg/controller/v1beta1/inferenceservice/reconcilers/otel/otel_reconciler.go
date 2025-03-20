@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -43,22 +44,19 @@ type OtelReconciler struct {
 	client        client.Client
 	scheme        *runtime.Scheme
 	OTelCollector *otelv1beta1.OpenTelemetryCollector
-	componentExt  *v1beta1.ComponentExtensionSpec
 	metric        v1beta1.MetricsSpec
 }
 
 func NewOtelReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec,
 	metric v1beta1.MetricsSpec,
 	otelConfig v1beta1.OtelCollectorConfig,
 ) (*OtelReconciler, error) {
 	return &OtelReconciler{
 		client:        client,
 		scheme:        scheme,
-		OTelCollector: createOtelCollector(componentMeta, componentExt, metric, otelConfig),
-		componentExt:  componentExt,
+		OTelCollector: createOtelCollector(componentMeta, metric, otelConfig),
 		metric:        metric,
 	}, nil
 }
@@ -119,7 +117,6 @@ func getOtelConfig(metricFilter string, otelConfig v1beta1.OtelCollectorConfig) 
 }
 
 func createOtelCollector(componentMeta metav1.ObjectMeta,
-	componentExtension *v1beta1.ComponentExtensionSpec,
 	metric v1beta1.MetricsSpec,
 	otelConfig v1beta1.OtelCollectorConfig,
 ) *otelv1beta1.OpenTelemetryCollector {
