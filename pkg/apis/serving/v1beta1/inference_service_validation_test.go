@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -83,7 +82,7 @@ func TestValidAutoscalerClassTypeAndHPAMetrics(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeTestRawInferenceService()
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
 }
@@ -93,7 +92,7 @@ func TestInvalidAutoscalerClassType(t *testing.T) {
 	isvc := makeTestRawInferenceService()
 	isvc.ObjectMeta.Annotations["serving.kserve.io/autoscalerClass"] = "test"
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).ShouldNot(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -103,7 +102,7 @@ func TestValidTargetUtilizationPercentage(t *testing.T) {
 	isvc := makeTestRawInferenceService()
 	isvc.ObjectMeta.Annotations["serving.kserve.io/targetUtilizationPercentage"] = "70"
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -113,22 +112,22 @@ func TestInvalidTargetUtilizationPercentage(t *testing.T) {
 	isvc := makeTestRawInferenceService()
 	isvc.ObjectMeta.Annotations["serving.kserve.io/targetUtilizationPercentage"] = "101"
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).ShouldNot(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.ObjectMeta.Annotations["serving.kserve.io/targetUtilizationPercentage"] = "abc"
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).ShouldNot(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.ObjectMeta.Annotations["serving.kserve.io/targetUtilizationPercentage"] = "0"
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).ShouldNot(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.ObjectMeta.Annotations["serving.kserve.io/targetUtilizationPercentage"] = "99.9"
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).ShouldNot(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -138,7 +137,7 @@ func TestInvalidAutoscalerHPAMetrics(t *testing.T) {
 	isvc := makeTestRawInferenceService()
 	isvc.ObjectMeta.Annotations["serving.kserve.io/metrics"] = "test"
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).ShouldNot(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -148,7 +147,7 @@ func TestRejectMultipleModelSpecs(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.XGBoost = &XGBoostSpec{}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(ExactlyOneErrorFor(&isvc.Spec.Predictor)))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -161,7 +160,7 @@ func TestCustomizeDeploymentStrategyUnsupportedForServerless(t *testing.T) {
 		Type: appsv1.RecreateDeploymentStrategyType,
 	}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError("customizing deploymentStrategy is only supported for raw deployment mode"))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -171,7 +170,7 @@ func TestModelSpecAndCustomOverridesIsValid(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.PodSpec = PodSpec{ServiceAccountName: "test"}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -181,7 +180,7 @@ func TestRejectModelSpecMissing(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.Tensorflow = nil
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(ExactlyOneErrorFor(&isvc.Spec.Predictor)))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -191,7 +190,7 @@ func TestBadParallelismValues(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.ContainerConcurrency = proto.Int64(-1)
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(ParallelismLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -201,19 +200,19 @@ func TestBadReplicaValues(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(-1))
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(1))
 	isvc.Spec.Predictor.MaxReplicas = -1
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(2))
 	isvc.Spec.Predictor.MaxReplicas = 1
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
@@ -230,19 +229,19 @@ func TestBadReplicaValues(t *testing.T) {
 		},
 	}
 	isvc.Spec.Transformer.MinReplicas = ptr.To(int32(-1))
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.Spec.Transformer.MinReplicas = ptr.To(int32(1))
 	isvc.Spec.Transformer.MaxReplicas = -1
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.Spec.Transformer.MinReplicas = ptr.To(int32(2))
 	isvc.Spec.Transformer.MaxReplicas = 1
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
@@ -257,19 +256,19 @@ func TestBadReplicaValues(t *testing.T) {
 		},
 	}
 	isvc.Spec.Explainer.MinReplicas = ptr.To(int32(-1))
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.Spec.Explainer.MinReplicas = ptr.To(int32(1))
 	isvc.Spec.Explainer.MaxReplicas = -1
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.Spec.Explainer.MinReplicas = ptr.To(int32(2))
 	isvc.Spec.Explainer.MaxReplicas = 1
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -287,7 +286,7 @@ func TestCustomOK(t *testing.T) {
 		},
 	}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
@@ -299,7 +298,7 @@ func TestCustomOK(t *testing.T) {
 		},
 	}
 	validator = InferenceServiceValidator{}
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -309,7 +308,7 @@ func TestRejectBadTransformer(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Transformer = &TransformerSpec{}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(ExactlyOneErrorFor(isvc.Spec.Transformer)))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -319,7 +318,7 @@ func TestRejectBadExplainer(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Explainer = &ExplainerSpec{}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(ExactlyOneErrorFor(isvc.Spec.Explainer)))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -335,7 +334,7 @@ func TestGoodExplainer(t *testing.T) {
 		},
 	}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -345,7 +344,7 @@ func TestGoodName(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Name = "abc-123"
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -355,7 +354,7 @@ func TestRejectBadNameStartWithNumber(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Name = "1abcde"
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).ShouldNot(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -365,7 +364,7 @@ func TestRejectBadNameIncludeDot(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Name = "abc.de"
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).ShouldNot(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -403,7 +402,7 @@ func TestValidateTwoPredictorImplementationCollocation(t *testing.T) {
 		},
 	}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(ExactlyOneErrorFor(&isvc.Spec.Predictor)))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
