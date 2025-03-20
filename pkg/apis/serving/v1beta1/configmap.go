@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // ConfigMap Keys
@@ -198,17 +199,12 @@ func NewMultiNodeConfig(isvcConfigMap *corev1.ConfigMap) (*MultiNodeConfig, erro
 		}
 	}
 
-	if mnc, ok := isvcConfigMap.Data[MultiNodeConfigKeyName]; ok {
-		errisvc := json.Unmarshal([]byte(mnc), &mncfg)
-		if errisvc != nil {
-			return nil, fmt.Errorf("unable to parse multinode config json: %w", errisvc)
-		}
-		if mncfg.CustomGPUResourceTypeList == nil {
-			mncfg.CustomGPUResourceTypeList = constants.DefaultGPUResourceTypeList
-		}
-	} else {
-		mncfg.CustomGPUResourceTypeList = constants.DefaultGPUResourceTypeList
+	if mncfg.CustomGPUResourceTypeList == nil {
+		mncfg.CustomGPUResourceTypeList = []string{}
 	}
+
+	// update global GPU resource type list
+	utils.UpdateGlobalGPUResourceTypeList(append(mncfg.CustomGPUResourceTypeList, constants.DefaultGPUResourceTypeList...))
 	return mncfg, nil
 }
 

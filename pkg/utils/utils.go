@@ -343,7 +343,7 @@ func UpdateGPUResourceTypeListByAnnotation(isvcAnnotations map[string]string) ([
 			return nil, fmt.Errorf("invalid GPU format(%s) for %s annotation: must be a valid JSON array", customGPUResourceTypes, constants.CustomGPUResourceTypesAnnotationKey)
 		}
 
-		// Use a set to avoid duplicates
+		// Use a map to avoid duplicates
 		existingTypes := make(map[string]struct{}, len(constants.DefaultGPUResourceTypeList))
 		for _, t := range constants.DefaultGPUResourceTypeList {
 			existingTypes[t] = struct{}{}
@@ -362,7 +362,7 @@ func UpdateGPUResourceTypeListByAnnotation(isvcAnnotations map[string]string) ([
 
 // UpdateGlobalGPUResourceTypeList adds new GPU resource types from inferenceservice-config to constants.GPUResourceTypeList.
 func UpdateGlobalGPUResourceTypeList(newGPUResourceTypes []string) error {
-	// Use a set to avoid duplicates
+	// Use a map to avoid duplicates
 	existingTypes := make(map[string]struct{}, len(constants.DefaultGPUResourceTypeList))
 	for _, t := range constants.DefaultGPUResourceTypeList {
 		existingTypes[t] = struct{}{}
