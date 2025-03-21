@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -60,4 +62,18 @@ type LocalModelCacheList struct {
 
 func init() {
 	SchemeBuilder.Register(&LocalModelCache{}, &LocalModelCacheList{})
+}
+
+func (spec *LocalModelCacheSpec) MatchStorageURI(storageUri string) bool {
+	cachedUri := strings.TrimSuffix(spec.SourceModelUri, "/")
+	isvcStorageUri := strings.TrimSuffix(storageUri, "/")
+	if strings.HasPrefix(isvcStorageUri, cachedUri) {
+		if len(isvcStorageUri) == len(cachedUri) {
+			return true
+		}
+		if string(isvcStorageUri[len(cachedUri)]) == "/" {
+			return true
+		}
+	}
+	return false
 }
