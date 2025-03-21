@@ -51,7 +51,7 @@ async def test_paddle(rest_v1_client):
     service_name = "isvc-paddle"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -99,7 +99,7 @@ async def test_paddle_runtime(rest_v1_client):
     service_name = "isvc-paddle-runtime"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -148,7 +148,7 @@ async def test_paddle_v2_kserve(rest_v2_client):
     service_name = "isvc-paddle-v2-kserve"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -205,7 +205,7 @@ async def test_paddle_v2_grpc():
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=V1ObjectMeta(name=service_name, namespace=KSERVE_TEST_NAMESPACE),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
