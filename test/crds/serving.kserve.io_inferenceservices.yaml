@@ -8146,6 +8146,10 @@ spec:
                     type: object
                   logger:
                     properties:
+                      metadataAnnotations:
+                        items:
+                          type: string
+                        type: array
                       metadataHeaders:
                         items:
                           type: string
@@ -12598,6 +12602,10 @@ spec:
                     type: object
                   logger:
                     properties:
+                      metadataAnnotations:
+                        items:
+                          type: string
+                        type: array
                       metadataHeaders:
                         items:
                           type: string
@@ -25475,6 +25483,10 @@ spec:
                     type: object
                   logger:
                     properties:
+                      metadataAnnotations:
+                        items:
+                          type: string
+                        type: array
                       metadataHeaders:
                         items:
                           type: string
