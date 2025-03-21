@@ -216,7 +216,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		logMetadataAnnotations, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataAnnotationsInternalAnnotationKey]
 		if ok {
 			annotationKeys := strings.Split(logMetadataAnnotations, ",")
-			var kvPairs = []string{}
+			kvPairs := []string{}
 			for _, metadataAnnotation := range annotationKeys {
 				val, exists := pod.ObjectMeta.Annotations[metadataAnnotation]
 				if exists {
