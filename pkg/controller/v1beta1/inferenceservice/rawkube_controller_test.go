@@ -1282,6 +1282,30 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Namespace: serviceKey.Namespace}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(HaveOccurred())
+
+			// Replica should not be nil and it should be set to minReplicas if it was set.
+			updated_isvc := &v1beta1.InferenceService{}
+
+			Eventually(func() error {
+				return k8sClient.Get(ctx, serviceKey, updated_isvc)
+			}, timeout, interval).Should(Succeed())
+			if updated_isvc.Labels == nil {
+				updated_isvc.Labels = make(map[string]string)
+			}
+			updated_isvc.Spec.Predictor.ComponentExtensionSpec = v1beta1.ComponentExtensionSpec{
+				MinReplicas: intPtr(2),
+			}
+			Expect(k8sClient.Update(context.TODO(), updated_isvc)).NotTo(HaveOccurred())
+
+			updatedDeployment_isvc_updated := &appsv1.Deployment{}
+			Eventually(func() bool {
+				if err := k8sClient.Get(context.TODO(), predictorDeploymentKey, updatedDeployment_isvc_updated); err == nil {
+					return updatedDeployment_isvc_updated.Spec.Replicas != nil && *updatedDeployment_isvc_updated.Spec.Replicas == 2
+				} else {
+					return false
+				}
+			}, timeout, interval).Should(BeTrue())
+
 		})
 		It("Should have no ingress created if labeled as cluster-local", func() {
 			By("By creating a new InferenceService")
@@ -3193,6 +3217,86 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Verify deployments details
 			verifyTensorParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", constants.NvidiaGPUResourceType)
+		})
+		It("Should not set nil to replicas when multinode isvc(external autoscaler) is updated", func() {
+			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-6"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+
+			// Create a infereceService
+			isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      isvcName,
+					Namespace: isvcNamespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: &storageUri,
+							},
+						},
+						WorkerSpec: &v1beta1.WorkerSpec{
+							PipelineParallelSize: intPtr(3),
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, isvc)
+			})
+
+			// Verify if predictor deployment (default deployment) is created
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}, actualDefaultDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if worker node deployment is created.
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify deployments details
+			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", int32Ptr(2))
+
+			// Update a infereceService
+			By("updating the InferenceService")
+			updatedIsvc := &v1beta1.InferenceService{}
+			k8sClient.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvcNamespace}, updatedIsvc)
+			// Add label to isvc to create a new rs
+			if updatedIsvc.Labels == nil {
+				updatedIsvc.Labels = make(map[string]string)
+			}
+			updatedIsvc.Labels["newLabel"] = "test"
+
+			err := k8sClient.Update(ctx, updatedIsvc)
+			Expect(err).ShouldNot(HaveOccurred(), "Failed to update InferenceService with new label")
+
+			// Verify if predictor deployment (default deployment) has replicas
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}, actualDefaultDeployment); err == nil {
+					return actualDefaultDeployment.Spec.Replicas != nil && *actualDefaultDeployment.Spec.Replicas == 1
+				}
+				return false
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if worker node deployment has replicas
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment); err == nil {
+					return actualWorkerDeployment.Spec.Replicas != nil && *actualWorkerDeployment.Spec.Replicas == 2
+				}
+				return false
+			}, timeout, interval).Should(BeTrue())
 		})
 	})
 })
