@@ -3997,39 +3997,22 @@ func TestLocalModelPVC(t *testing.T) {
 		EnableDirectPvcVolumeMount: true, // enable direct volume mount for PVC
 	}
 	scenarios := map[string]struct {
-		storageUri               string
-		localModelLabel          string
-		localModelSourceUriLabel string
-		pvcName                  string
-		expectedSubPath          string
+		storageUri      string
+		localModelLabel string
+		pvcName         string
+		expectedSubPath string
 	}{
 		"basic": {
-			storageUri:               "s3://foo",
-			localModelLabel:          "bar",
-			localModelSourceUriLabel: "s3://foo",
-			pvcName:                  "model-h100",
-			expectedSubPath:          "models/bar/",
+			storageUri:      "s3://foo",
+			localModelLabel: "bar",
+			pvcName:         "model-h100",
+			expectedSubPath: "models/bar/",
 		},
 		"extra / at the end": {
-			storageUri:               "s3://foo/",
-			localModelLabel:          "bar",
-			localModelSourceUriLabel: "s3://foo",
-			pvcName:                  "model-h100",
-			expectedSubPath:          "models/bar/",
-		},
-		"subfolder": {
-			storageUri:               "s3://foo/model1",
-			localModelLabel:          "bar",
-			localModelSourceUriLabel: "s3://foo",
-			pvcName:                  "model-h100",
-			expectedSubPath:          "models/bar/model1",
-		},
-		"subfolder2": {
-			storageUri:               "s3://foo/model1",
-			localModelLabel:          "bar",
-			localModelSourceUriLabel: "s3://foo/",
-			pvcName:                  "model-h100",
-			expectedSubPath:          "models/bar/model1",
+			storageUri:      "s3://foo/",
+			localModelLabel: "bar",
+			pvcName:         "model-h100",
+			expectedSubPath: "models/bar/",
 		},
 	}
 
@@ -4043,7 +4026,6 @@ func TestLocalModelPVC(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageUri,
-					constants.LocalModelSourceUriAnnotationKey:                 scenario.localModelSourceUriLabel,
 					constants.LocalModelPVCNameAnnotationKey:                   scenario.pvcName,
 				},
 				Labels: map[string]string{

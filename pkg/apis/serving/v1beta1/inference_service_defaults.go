@@ -484,7 +484,6 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 		isvc.Annotations = make(map[string]string)
 	}
 	isvc.Labels[constants.LocalModelLabel] = localModel.Name
-	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = localModel.Spec.SourceModelUri
 	// Get node group from annotation when possible, otherwise fallback to use the first node group from localmodelcache
 	if nodeGroup, ok := isvc.Annotations[constants.NodeGroupAnnotationKey]; ok {
 		isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModel.Name + "-" + nodeGroup

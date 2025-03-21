@@ -247,12 +247,8 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 
 	// Mount pvc directly if local model label exists
 	if modelName, ok := pod.ObjectMeta.Labels[constants.LocalModelLabel]; ok {
-		subPath, _ := strings.CutPrefix(srcURI, pod.ObjectMeta.Annotations[constants.LocalModelSourceUriAnnotationKey])
-		if !strings.HasPrefix(subPath, "/") {
-			subPath = "/" + subPath
-		}
 		if pvcName, ok := pod.ObjectMeta.Annotations[constants.LocalModelPVCNameAnnotationKey]; ok {
-			srcURI = "pvc://" + pvcName + "/models/" + modelName + subPath
+			srcURI = "pvc://" + pvcName + "/models/" + modelName + "/"
 		} else {
 			return fmt.Errorf("Annotation %s not found", constants.LocalModelPVCNameAnnotationKey)
 		}
