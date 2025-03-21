@@ -331,6 +331,18 @@ kserve:
         sizeLimit: ""
       hostIPC:
         enabled: false
+    huggingfaceserver_multinode:
+      imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+      shm:
+        enabled: true
+        sizeLimit: "3Gi"
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3

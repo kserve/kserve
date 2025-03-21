@@ -30,15 +30,15 @@ import (
 )
 
 // KServe Constants
-var (
+const (
 	KServeName                       = "kserve"
 	KServeAPIGroupName               = "serving.kserve.io"
 	KnativeAutoscalingAPIGroupName   = "autoscaling.knative.dev"
 	KnativeServingAPIGroupNamePrefix = "serving.knative"
 	KnativeServingAPIGroupName       = KnativeServingAPIGroupNamePrefix + ".dev"
-	KServeNamespace                  = getEnvOrDefault("POD_NAMESPACE", "kserve")
-	KServeDefaultVersion             = "v0.5.0"
 )
+
+var KServeNamespace = getEnvOrDefault("POD_NAMESPACE", "kserve")
 
 // InferenceService Constants
 var (
@@ -165,14 +165,21 @@ var (
 )
 
 type (
-	AutoscalerClassType      string
-	AutoscalerMetricsType    string
-	AutoScalerKPAMetricsType string
+	AutoscalerClassType       string
+	AutoscalerMetricsType     string
+	AutoScalerKPAMetricsType  string
+	AutoscalerKedaMetricsType string
+	AutoScalerType            string
 )
 
 var (
 	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
 	AutoScalerKPAMetricsConcurrency AutoScalerKPAMetricsType = "concurrency"
+)
+
+var (
+	AutoScalerMetricsAverageValue AutoscalerKedaMetricsType = "AverageValue"
+	AutoScalerMetricsUtilization  AutoscalerKedaMetricsType = "Utilization"
 )
 
 // Autoscaler Default Class
@@ -184,34 +191,50 @@ var (
 var (
 	AutoscalerClassHPA      AutoscalerClassType = "hpa"
 	AutoscalerClassExternal AutoscalerClassType = "external"
+	AutoscalerClassKeda     AutoscalerClassType = "keda"
 )
 
 // Autoscaler Metrics
 var (
-	AutoScalerMetricsCPU AutoscalerMetricsType = "cpu"
+	AutoScalerMetricsCPU        AutoscalerMetricsType = "cpu"
+	AutoScalerMetricsMemory     AutoscalerMetricsType = "memory"
+	AutoScalerMetricsPrometheus AutoscalerMetricsType = "prometheus"
+	AutoScalerMetricsGraphite   AutoscalerMetricsType = "graphite"
 )
 
-// Autoscaler Memory metrics
 var (
-	AutoScalerMetricsMemory AutoscalerMetricsType = "memory"
+	AutoScalerResource AutoScalerType = "Resource"
+	AutoScalerExternal AutoScalerType = "External"
 )
 
 // Autoscaler Class Allowed List
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
 	AutoscalerClassExternal,
+	AutoscalerClassKeda,
 }
 
 // Autoscaler Metrics Allowed List
-var AutoscalerAllowedMetricsList = []AutoscalerMetricsType{
+var AutoscalerAllowedHPAMetricsList = []AutoscalerMetricsType{
 	AutoScalerMetricsCPU,
 	AutoScalerMetricsMemory,
+	AutoScalerMetricsPrometheus,
 }
 
 // Autoscaler KPA Metrics Allowed List
 var AutoScalerKPAMetricsAllowedList = []AutoScalerKPAMetricsType{
 	AutoScalerKPAMetricsConcurrency,
 	AutoScalerKPAMetricsRPS,
+}
+
+var AutoscalerAllowedKEDAMetricsList = []AutoscalerMetricsType{
+	AutoScalerMetricsCPU,
+	AutoScalerMetricsMemory,
+}
+
+var AutoscalerAllowedKEDAMetricBackendList = []AutoscalerMetricsType{
+	AutoScalerMetricsPrometheus,
+	AutoScalerMetricsGraphite,
 }
 
 // Autoscaler Default Metrics Value
@@ -309,6 +332,7 @@ const (
 	KServiceComponentLabel = "component"
 	KServiceModelLabel     = "model"
 	KServiceEndpointLabel  = "endpoint"
+	KServeWorkloadKind     = KServeAPIGroupName + "/kind"
 )
 
 // Labels for TrainedModel
@@ -489,6 +513,7 @@ const (
 	HTTPRouteKind           = "HTTPRoute"
 	GatewayKind             = "Gateway"
 	ServiceKind             = "Service"
+	KedaScaledObjectKind    = "ScaledObject"
 )
 
 // Model Parallel Options

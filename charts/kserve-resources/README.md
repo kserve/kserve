@@ -104,6 +104,13 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.0-rc1
 | kserve.servingruntime.huggingfaceserver.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.huggingfaceserver.tag | string | `"v0.15.0-rc1"` |  |
+| kserve.servingruntime.huggingfaceserver_multinode.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.huggingfaceserver_multinode.securityContext.allowPrivilegeEscalation | bool | `false` |  |
+| kserve.servingruntime.huggingfaceserver_multinode.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| kserve.servingruntime.huggingfaceserver_multinode.securityContext.privileged | bool | `false` |  |
+| kserve.servingruntime.huggingfaceserver_multinode.securityContext.runAsNonRoot | bool | `true` |  |
+| kserve.servingruntime.huggingfaceserver_multinode.shm.enabled | bool | `true` |  |
+| kserve.servingruntime.huggingfaceserver_multinode.shm.sizeLimit | string | `"3Gi"` |  |
 | kserve.servingruntime.lgbserver.image | string | `"kserve/lgbserver"` |  |
 | kserve.servingruntime.lgbserver.imagePullSecrets | list | `[]` |  |
 | kserve.servingruntime.lgbserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
