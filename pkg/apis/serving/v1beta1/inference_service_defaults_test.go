@@ -897,7 +897,8 @@ func TestLocalModelAnnotation(t *testing.T) {
 					Predictor: PredictorSpec{
 						PyTorch: &TorchServeSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI: proto.String("gs://testbucket2/testmodel"),
+								// This is not considered a match for "gs://testbucket/testmodel" on the LocalModelCache
+								StorageURI: proto.String("gs://testbucket/testmodel/foo"),
 							},
 						},
 					},

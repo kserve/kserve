@@ -469,7 +469,7 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	storageUri = *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
 	var localModel *v1alpha1.LocalModelCache
 	for i, model := range models.Items {
-		if strings.HasPrefix(storageUri, model.Spec.SourceModelUri) {
+		if strings.TrimSuffix(storageUri, "/") == strings.TrimSuffix(model.Spec.SourceModelUri, "/") {
 			localModel = &models.Items[i]
 			break
 		}
