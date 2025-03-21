@@ -19,7 +19,6 @@ package logger
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
