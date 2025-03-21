@@ -112,12 +112,22 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, err
 	}
 
+	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Clientset)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
+	}
+
+	// get annotations from isvc
+	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
+		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
+	})
+
 	deployConfig, err := v1beta1api.NewDeployConfig(r.Clientset)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
 	}
 
-	deploymentMode := isvcutils.GetDeploymentMode(isvc.Status.DeploymentMode, isvc.Annotations, deployConfig)
+	deploymentMode := isvcutils.GetDeploymentMode(isvc.Status.DeploymentMode, annotations, deployConfig)
 	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
 
 	if deploymentMode == constants.ModelMeshDeployment {
@@ -186,10 +196,6 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Setup reconcilers
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
-	isvcConfig, err := v1beta1api.NewInferenceServicesConfig(r.Clientset)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "fails to create InferenceServicesConfig")
-	}
 
 	// Reconcile cabundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset, r.Scheme)
