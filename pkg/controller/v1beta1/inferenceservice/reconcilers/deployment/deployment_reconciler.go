@@ -297,6 +297,14 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
 
+	// For multinode, it needs to keep original pods until new pods are ready with rollingUpdate strategy
+	if deployment.Spec.Strategy.Type == appsv1.RollingUpdateDeploymentStrategyType {
+		deployment.Spec.Strategy.RollingUpdate = &appsv1.RollingUpdateDeployment{
+			MaxUnavailable: &intstr.IntOrString{Type: intstr.String, StrVal: "0%"},
+			MaxSurge:       &intstr.IntOrString{Type: intstr.String, StrVal: "100%"},
+		}
+	}
+
 	deployment.Spec.Replicas = &replicas
 	return deployment
 }
