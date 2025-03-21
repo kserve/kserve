@@ -156,14 +156,9 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 				return fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, isvc.Name)
 			}
 
-			customGPUResourceTypes := isvc.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey]
-			if customGPUResourceTypes != "" {
-				if !utils.IsValidCustomGPUArray(customGPUResourceTypes) {
-					return fmt.Errorf(InvalidCustomGPUTypesAnnotationFormatError, isvc.Name, constants.CustomGPUResourceTypesAnnotationKey)
-				}
-			}
-
-			if utils.IsUnknownGpuResourceType(isvc.Spec.Predictor.Model.Resources, customGPUResourceTypes) {
+			if isUnknownGPUType, err := utils.IsUnknownGpuResourceType(isvc.Spec.Predictor.Model.Resources, isvc.Annotations); err != nil {
+				return err
+			} else if isUnknownGPUType {
 				return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
 			}
 
@@ -192,7 +187,9 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 
 		if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
 			for _, container := range isvc.Spec.Predictor.WorkerSpec.Containers {
-				if utils.IsUnknownGpuResourceType(container.Resources, isvc.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey]) {
+				if isUnknownGPUType, err := utils.IsUnknownGpuResourceType(container.Resources, isvc.Annotations); err != nil {
+					return err
+				} else if isUnknownGPUType {
 					return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
 				}
 			}

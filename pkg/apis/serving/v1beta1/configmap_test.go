@@ -64,6 +64,14 @@ var (
 		"serviceAnnotationDisallowedList": %s,
 		"serviceLabelDisallowedList": %s
 	}`, []string{}, []string{})
+
+	MultiNodeConfigData = `{
+		"customGPUResourceTypeList": [
+			"custom.com/gpu-1",
+			"custom.com/gpu-2"
+		]
+	}`
+	MultiNodeConfigNoData = `{}`
 )
 
 func TestNewInferenceServiceConfig(t *testing.T) {
@@ -76,6 +84,61 @@ func TestNewInferenceServiceConfig(t *testing.T) {
 	isvcConfig, err := NewInferenceServicesConfig(isvcConfigMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(isvcConfig).ShouldNot(gomega.BeNil())
+}
+
+func TestNewMultiNodeConfigWithNoData(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			MultiNodeConfigKeyName: MultiNodeConfigNoData,
+		},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	multiNodeCfg, err := NewMultiNodeConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(multiNodeCfg).ShouldNot(gomega.BeNil())
+	g.Expect(multiNodeCfg.CustomGPUResourceTypeList).To(gomega.Equal([]string{}))
+	g.Expect(constants.DefaultGPUResourceTypeList).To(gomega.Equal([]string{"nvidia.com/gpu", "amd.com/gpu", "intel.com/gpu", "habana.ai/gaudi"}))
+}
+
+func TestNewMultiNodeConfigWithoutData(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data:       map[string]string{},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	multiNodeCfg, err := NewMultiNodeConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(multiNodeCfg).ShouldNot(gomega.BeNil())
+	g.Expect(multiNodeCfg.CustomGPUResourceTypeList).To(gomega.Equal([]string{}))
+	g.Expect(constants.DefaultGPUResourceTypeList).To(gomega.Equal([]string{"nvidia.com/gpu", "amd.com/gpu", "intel.com/gpu", "habana.ai/gaudi"}))
+}
+
+func TestNewMultiNodeConfigWithData(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			MultiNodeConfigKeyName: MultiNodeConfigData,
+		},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	multiNodeCfg, err := NewMultiNodeConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(multiNodeCfg).ShouldNot(gomega.BeNil())
+	g.Expect(multiNodeCfg.CustomGPUResourceTypeList).To(gomega.Equal([]string{"custom.com/gpu-1", "custom.com/gpu-2"}))
+	g.Expect(constants.DefaultGPUResourceTypeList).To(gomega.Equal([]string{"nvidia.com/gpu", "amd.com/gpu", "intel.com/gpu", "habana.ai/gaudi", "custom.com/gpu-1", "custom.com/gpu-2"}))
 }
 
 func TestNewIngressConfig(t *testing.T) {
