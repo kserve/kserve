@@ -339,11 +339,23 @@ func compilePatterns(patterns []string) ([]*regexp.Regexp, error) {
 	return compiled, goerrors.Join(allErrors...)
 }
 
+// Mainly used for kubernetes readiness probe. It responds with "503 shutting down" if server is shutting down,
+// otherwise returns "200 OK".
+func readyHandler(w http.ResponseWriter, req *http.Request) {
+	if isShuttingDown {
+		http.Error(w, "shutting down", http.StatusServiceUnavailable)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
 var (
 	enableAuthFlag         = flag.Bool("enable-auth", false, "protect the inference graph with authorization")
 	graphName              = flag.String("inferencegraph-name", "", "the name of the associated inference graph Kubernetes resource")
 	jsonGraph              = flag.String("graph-json", "", "serialized json graph def")
 	compiledHeaderPatterns []*regexp.Regexp
+	isShuttingDown         = false
+	drainSleepDuration     = 30 * time.Second
 )
 
 // findBearerToken parses the standard HTTP Authorization header to find and return
@@ -535,4 +547,5 @@ func main() {
 		log.Error(err, "failed to listen on 8080")
 		os.Exit(1)
 	}
+	log.Info("Server gracefully shutdown")
 }

@@ -21,9 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	osv1 "github.com/openshift/api/route/v1"
@@ -41,6 +38,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ = Describe("Inference Graph controller test", func() {
@@ -76,6 +77,8 @@ var _ = Describe("Inference Graph controller test", func() {
 				}`,
 		}
 	)
+
+	var expectedReadinessProbe = constants.GetRouterReadinessProbe()
 
 	Context("When creating an inferencegraph with headers in global config", func() {
 		It("Should create a knative service with headers as env var of podspec", func() {
@@ -182,6 +185,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceMemory: resource.MustParse("100Mi"),
 												},
 											},
+											ReadinessProbe: expectedReadinessProbe,
 											SecurityContext: &v1.SecurityContext{
 												Privileged:               proto.Bool(false),
 												RunAsNonRoot:             proto.Bool(true),
@@ -340,6 +344,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													v1.ResourceMemory: resource.MustParse("123Mi"),
 												},
 											},
+											ReadinessProbe: expectedReadinessProbe,
 											SecurityContext: &v1.SecurityContext{
 												Privileged:               proto.Bool(false),
 												RunAsNonRoot:             proto.Bool(true),
@@ -527,6 +532,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													MountPath: "/etc/odh/openshift-service-ca-bundle",
 												},
 											},
+											ReadinessProbe: expectedReadinessProbe,
 										},
 									},
 									Affinity: &v1.Affinity{

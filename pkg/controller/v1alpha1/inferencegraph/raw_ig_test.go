@@ -61,6 +61,8 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 		},
 	}
 
+	expectedReadinessProbe := constants.GetRouterReadinessProbe()
+
 	testIGSpecs := map[string]*InferenceGraph{
 		"basic": {
 			ObjectMeta: metav1.ObjectMeta{
@@ -163,6 +165,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 							v1.ResourceMemory: resource.MustParse("100Mi"),
 						},
 					},
+					ReadinessProbe: expectedReadinessProbe,
 					SecurityContext: &v1.SecurityContext{
 						Privileged:               proto.Bool(false),
 						RunAsNonRoot:             proto.Bool(true),
@@ -202,6 +205,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 							v1.ResourceMemory: resource.MustParse("100Mi"),
 						},
 					},
+					ReadinessProbe: expectedReadinessProbe,
 					SecurityContext: &v1.SecurityContext{
 						Privileged:               proto.Bool(false),
 						RunAsNonRoot:             proto.Bool(true),
@@ -235,6 +239,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 							v1.ResourceMemory: resource.MustParse("100Mi"),
 						},
 					},
+					ReadinessProbe: expectedReadinessProbe,
 					SecurityContext: &v1.SecurityContext{
 						Privileged:               proto.Bool(false),
 						RunAsNonRoot:             proto.Bool(true),
