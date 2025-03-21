@@ -70,7 +70,7 @@ func NewRawKubeReconciler(ctx context.Context, client client.Client,
 	if componentExt.AutoScaling != nil {
 		metrics := componentExt.AutoScaling.Metrics
 		for _, metric := range metrics {
-			if metric.Type == v1beta1.ExternalMetricSourceType {
+			if metric.Type == v1beta1.PodMetricSourceType {
 				if *metric.External.Metric.Backend == v1beta1.MetricsBackend(constants.OTelBackend) {
 					var err error
 					otelConfig, err := v1beta1.NewOtelCollectorConfig(configMap)
@@ -137,6 +137,13 @@ func createRawURL(ingressConfig *v1beta1.IngressConfig, metadata metav1.ObjectMe
 
 // Reconcile ...
 func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
+	// reconcile OTel Collector
+	if r.OtelCollector != nil {
+		err := r.OtelCollector.Reconcile(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// reconcile Deployment
 	deploymentList, err := r.Deployment.Reconcile(ctx)
 	if err != nil {
@@ -147,13 +154,7 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment
 	if err != nil {
 		return nil, err
 	}
-	// reconcile OTel Collector
-	if r.OtelCollector != nil {
-		err = r.OtelCollector.Reconcile(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
+
 	// reconcile HPA
 	err = r.Scaler.Reconcile(ctx)
 	if err != nil {

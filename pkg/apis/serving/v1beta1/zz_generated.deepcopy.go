@@ -603,8 +603,8 @@ func (in *MetricsSpec) DeepCopyInto(out *MetricsSpec) {
 		*out = new(ExternalMetricSource)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Pods != nil {
-		in, out := &in.Pods, &out.Pods
+	if in.PodMetric != nil {
+		in, out := &in.PodMetric, &out.PodMetric
 		*out = new(PodsMetricSource)
 		(*in).DeepCopyInto(*out)
 	}

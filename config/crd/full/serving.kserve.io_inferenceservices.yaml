@@ -1322,6 +1322,7 @@ spec:
                                 enum:
                                   - Resource
                                   - External
+                                  - PodMetric
                                 type: string
                             type: object
                           type: array
@@ -4449,6 +4450,7 @@ spec:
                                 enum:
                                   - Resource
                                   - External
+                                  - PodMetric
                                 type: string
                             type: object
                           type: array
@@ -18749,6 +18751,7 @@ spec:
                                 enum:
                                   - Resource
                                   - External
+                                  - PodMetric
                                 type: string
                             type: object
                           type: array

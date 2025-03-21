@@ -262,6 +262,8 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 							case MetricSourceType(constants.AutoScalerExternal):
 								metricBackend := autoScaling.External.Metric.Backend
 								return validateKEDAMetricBackends(*metricBackend)
+							case MetricSourceType(constants.AutoScalerPodMetric):
+								return nil // TODO: validate pod metrics
 							default:
 								return fmt.Errorf("unknown auto scaling type class [%s] with value [%s]."+
 									"Valid types are Resource and External", class, autoScalingType)

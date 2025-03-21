@@ -165,11 +165,11 @@ type MetricsSpec struct {
 	// (for example, transactions-processed-per-second).  The values will be
 	// averaged together before being compared to the target value.
 	// +optional
-	Pods *PodsMetricSource `json:"podmetric,omitempty"`
+	PodMetric *PodsMetricSource `json:"podmetric,omitempty"`
 }
 
 // MetricSourceType indicates the type of metric.
-// +kubebuilder:validation:Enum=Resource;External
+// +kubebuilder:validation:Enum=Resource;External;PodMetric
 type MetricSourceType string
 
 const (
@@ -185,6 +185,10 @@ const (
 	// (for example length of queue in cloud messaging service, or
 	// QPS from loadbalancer running outside of cluster).
 	ExternalMetricSourceType MetricSourceType = "External"
+	// PodMetricSourceType indicates a metric describing each pod in the current
+	// scale target (for example, transactions-processed-per-second).  The values
+	// will be averaged together before being compared to the target value.
+	PodMetricSourceType MetricSourceType = "PodMetric"
 )
 
 type ResourceMetricSource struct {

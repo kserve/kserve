@@ -207,7 +207,7 @@ var (
 var (
 	AutoScalerResource  AutoScalerType = "Resource"
 	AutoScalerExternal  AutoScalerType = "External"
-	AutoScalerPodMetric AutoScalerType = "Pods"
+	AutoScalerPodMetric AutoScalerType = "PodMetric"
 )
 
 // Autoscaler Class Allowed List
