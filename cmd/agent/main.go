@@ -289,7 +289,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		os.Exit(-1)
 	}
 
-	var annotationKVPair map[string]string
+	var annotationKVPair map[string]string = map[string]string{}
 	for _, annotations := range *metadataAnnotations {
 		k, v, found := strings.Cut(annotations, "=")
 		if found {

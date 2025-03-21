@@ -137,8 +137,6 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	fmt.Println(eh.annotations)
-
 	// Get or Create an ID
 	id := getOrCreateID(r)
 	contentType := r.Header.Get("Content-Type")

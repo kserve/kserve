@@ -134,7 +134,7 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 	}
 	event.SetExtension(MetadataAttr, string(encodedMetadata))
 
-	if logReq.Annotations != nil {
+	if len(logReq.Annotations) > 0 {
 		bits, err := json.Marshal(logReq.Annotations)
 		if err != nil {
 			fmt.Println("failed to marshal annotations")
