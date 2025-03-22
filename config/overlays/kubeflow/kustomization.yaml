@@ -4,7 +4,7 @@ kind: Kustomization
 # Adds namespace to all resources.
 namespace: kubeflow
 resources:
-- ../../default
+- kserve.yaml
 - cluster-role.yaml
 
 # Labels to add to all resources and selectors.
@@ -50,7 +50,7 @@ replacements:
           - webhooks.*.clientConfig.service.namespace
       - select:
           kind: ValidatingWebhookConfiguration
-          name: localmodelcache.serving.kserve.io 
+          name: localmodelcache.serving.kserve.io
         fieldPaths:
           - webhooks.*.clientConfig.service.namespace
       - select:
@@ -63,14 +63,6 @@ replacements:
         options:
           delimiter: '.'
           index: 1
-      - select:
-          kind: CustomResourceDefinition
-          name: inferenceservices.serving.kserve.io
-        fieldPaths:
-          - metadata.annotations.[cert-manager.io/inject-ca-from]
-        options:
-          delimiter: '/'
-          index: 0
       - select:
           kind: MutatingWebhookConfiguration
           name: inferenceservice.serving.kserve.io
