@@ -13,6 +13,7 @@ kserve:
   service:
     serviceClusterIPNone: false
   storage:
+    enabled: true
     image: kserve/storage-initializer
     tag: *defaultVersion
 
@@ -24,7 +25,7 @@ kserve:
       capabilities:
         drop:
           - ALL
- 
+
     # -- Flag for enabling model sidecar feature.
     enableModelcar: false
 
@@ -268,6 +269,7 @@ kserve:
     knativeAddressableResolver:
       enabled: false
   servingruntime:
+    enabled: true
     modelNamePlaceholder: "{{.Name}}"
     tensorflow:
       image: tensorflow/serving
