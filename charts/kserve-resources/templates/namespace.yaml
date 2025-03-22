@@ -1,0 +1,10 @@
+{{- if eq .Release.Namespace "kserve" }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: kserve-controller-manager
+    controller-tools.k8s.io: "1.0"
+    istio-injection: disabled
+  name: {{ .Release.Namespace }}
+{{- end }}

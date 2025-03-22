@@ -91,6 +91,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.0
 | kserve.router.tag | string | `"v0.15.0"` |  |
 | kserve.security.autoMountServiceAccountToken | bool | `true` |  |
 | kserve.service.serviceClusterIPNone | bool | `false` |  |
+| kserve.servingruntime.enabled | bool | `true` |  |
 | kserve.servingruntime.art.defaultVersion | string | `"v0.15.0"` |  |
 | kserve.servingruntime.art.image | string | `"kserve/art-explainer"` |  |
 | kserve.servingruntime.art.imagePullSecrets | list | `[]` |  |
@@ -180,6 +181,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.0
 | kserve.servingruntime.xgbserver.securityContext.privileged | bool | `false` |  |
 | kserve.servingruntime.xgbserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.xgbserver.tag | string | `"v0.15.0"` |  |
+| kserve.storage.enabled | bool | `true` |  |
 | kserve.storage.caBundleConfigMapName | string | `""` | Mounted CA bundle config map name for storage initializer. |
 | kserve.storage.caBundleVolumeMountPath | string | `"/etc/ssl/custom-certs"` | Mounted path for CA bundle config map. |
 | kserve.storage.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
