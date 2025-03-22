@@ -32,7 +32,8 @@ PMML_IMG_TAG=${DOCKER_REPO}/${PMML_IMG}:${GITHUB_SHA}
 PADDLE_IMG_TAG=${DOCKER_REPO}/${PADDLE_IMG}:${GITHUB_SHA}
 CUSTOM_MODEL_GRPC_IMG_TAG=${DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${GITHUB_SHA}
 CUSTOM_TRANSFORMER_GRPC_IMG_TAG=${DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${GITHUB_SHA}
-HUGGINGFACE_CPU_OPENVINO_IMG_TAG=${DOCKER_REPO}/${HUGGINGFACE_IMG}:${GITHUB_SHA}
+HUGGINGFACE_CPU_IMG_TAG=${DOCKER_REPO}/${HUGGINGFACE_IMG}:${GITHUB_SHA}
+HUGGINGFACE_CPU_OPENVINO_IMG_TAG=${DOCKER_REPO}/${HUGGINGFACE_IMG}:${GITHUB_SHA}-openvino
 # Explainer images
 ART_IMG_TAG=${DOCKER_REPO}/${ART_IMG}:${GITHUB_SHA}
 # Transformer images
@@ -76,9 +77,17 @@ pushd python >/dev/null
       -o type=docker,dest="${DOCKER_IMAGES_PATH}/${CUSTOM_TRANSFORMER_GRPC_IMG}-${GITHUB_SHA}",compression-level=0 .
     echo "Disk usage after Building image transformer gRPC image:"
         df -hT
+    echo "Building Huggingface CPU image"
+    docker buildx build -t "${HUGGINGFACE_CPU_IMG_TAG}" -f huggingface_server_cpu.Dockerfile \
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${GITHUB_SHA}",compression-level=0 .
+    echo "Disk usage after Building Huggingface CPU image:"
+        df -hT
+  fi
+
+  if [[ " ${types[*]} " =~ "openvino" ]]; then
     echo "Building Huggingface CPU Openvino image"
     docker buildx build -t "${HUGGINGFACE_CPU_OPENVINO_IMG_TAG}" -f huggingface_server_cpu_openvino.Dockerfile \
-      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${GITHUB_SHA}",compression-level=0 .
+      -o type=docker,dest="${DOCKER_IMAGES_PATH}/${HUGGINGFACE_IMG}-${GITHUB_SHA}-openvino",compression-level=0 .
     echo "Disk usage after Building Huggingface CPU Openvino image:"
         df -hT
   fi
