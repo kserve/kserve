@@ -90,6 +90,7 @@ helm template $HELM_KSERVE_RESOURCES_DIR \
   --set kserve.storage.enabled=false \
   >> $INSTALL_PATH
 # Generate kserve_kubeflow.yaml
+cp $INSTALL_PATH config/overlays/kubeflow/kserve.yaml
 kubectl kustomize config/overlays/kubeflow | sed s/:latest/:$TAG/ > $KUBEFLOW_INSTALL_PATH
 # Generate kserve-cluster-resources.yaml
 helm template $HELM_KSERVE_RESOURCES_DIR \

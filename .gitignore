@@ -22,7 +22,7 @@ venv/
 
 # Mac file system
 **/.DS_Store
- 
+
 # editor and IDE paraphernalia
 .idea
 .editorconfig
@@ -45,6 +45,9 @@ venv/
 config/overlays/development/configmap/inferenceservice_patch.yaml
 config/overlays/development/*_patch.yaml
 config/overlays/dev-image-config/inferenceservice_patch.yaml
+
+# Ignore files for generate install
+config/overlays/kubeflow/kserve.yaml
 
 .ko.yaml
 
