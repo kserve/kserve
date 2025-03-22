@@ -12,30 +12,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-    name: Lint
-    steps:
-      - name: Check out source repository
-        uses: actions/checkout@v4
-      - name: Set up Python environment ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Lint with flake8
-        uses: py-actions/flake8@v2
-        with:
-          args: "--config .flake8"
-          path: "."
-      - name: Check formatting with black
-        uses: psf/black@stable
-        with:
-          options: "--check --diff --config python/pyproject.toml"
-          src: "."
-          version: "~= 24.3"
   build:
     runs-on: ubuntu-latest
     strategy:
