@@ -78,6 +78,8 @@ RUNTIMES_INSTALL_PATH=$INSTALL_DIR/kserve-cluster-resources.yaml
 
 HELM_KSERVE_CRD_DIR=charts/kserve-crd
 HELM_KSERVE_RESOURCES_DIR=charts/kserve-resources
+KUBEFLOW_OVERLAY_DIR=config/overlays/kubeflow
+KSERVE_OVERLAY_PATH=$KUBEFLOW_OVERLAY_DIR/kserve.yaml
 
 mkdir -p $INSTALL_DIR
 # Generate kserve.yaml
@@ -90,8 +92,15 @@ helm template $HELM_KSERVE_RESOURCES_DIR \
   --set kserve.storage.enabled=false \
   >> $INSTALL_PATH
 # Generate kserve_kubeflow.yaml
-cp $INSTALL_PATH config/overlays/kubeflow/kserve.yaml
-kubectl kustomize config/overlays/kubeflow | sed s/:latest/:$TAG/ > $KUBEFLOW_INSTALL_PATH
+helm template $HELM_KSERVE_CRD_DIR \
+  --namespace kubeflow \
+  > $KSERVE_OVERLAY_PATH
+helm template $HELM_KSERVE_RESOURCES_DIR \
+  --namespace kubeflow \
+  --set kserve.servingruntime.enabled=false \
+  --set kserve.storage.enabled=false \
+  >> $KSERVE_OVERLAY_PATH
+kubectl kustomize $KUBEFLOW_OVERLAY_DIR | sed s/:latest/:$TAG/ > $KUBEFLOW_INSTALL_PATH
 # Generate kserve-cluster-resources.yaml
 helm template $HELM_KSERVE_RESOURCES_DIR \
   --show-only templates/clusterservingruntimes.yaml \
