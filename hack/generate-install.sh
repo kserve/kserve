@@ -97,6 +97,7 @@ helm template $HELM_KSERVE_CRD_DIR \
   > $KSERVE_OVERLAY_PATH
 helm template $HELM_KSERVE_RESOURCES_DIR \
   --namespace kubeflow \
+  --set kserve.controller.gateway.ingressGateway.gateway="kubeflow/kubeflow-gateway" \
   --set kserve.servingruntime.enabled=false \
   --set kserve.storage.enabled=false \
   >> $KSERVE_OVERLAY_PATH
@@ -106,6 +107,3 @@ helm template $HELM_KSERVE_RESOURCES_DIR \
   --show-only templates/clusterservingruntimes.yaml \
   --show-only templates/clusterstoragecontainer.yaml \
   > $RUNTIMES_INSTALL_PATH
-
-# Update ingressGateway in inferenceservice configmap as 'kubeflow/kubeflow-gateway'
-yq -i 'select(.metadata.name == "inferenceservice-config").data.ingress |= (fromjson | .ingressGateway = "kubeflow/kubeflow-gateway" | tojson)' $KUBEFLOW_INSTALL_PATH
