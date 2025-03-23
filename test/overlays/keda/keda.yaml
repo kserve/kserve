@@ -1,0 +1,503 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/name: keda
+    app.kubernetes.io/part-of: keda-operator
+    app.kubernetes.io/version: 2.14.0
+  name: keda
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  labels:
+    app.kubernetes.io/part-of: keda-operator
+    app.kubernetes.io/version: 2.14.0
+  name: scaledobjects.keda.sh
+spec:
+  group: keda.sh
+  names:
+    kind: ScaledObject
+    listKind: ScaledObjectList
+    plural: scaledobjects
+    shortNames:
+    - so
+    singular: scaledobject
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.scaleTargetKind
+      name: ScaleTargetKind
+      type: string
+    - jsonPath: .spec.scaleTargetRef.name
+      name: ScaleTargetName
+      type: string
+    - jsonPath: .spec.minReplicaCount
+      name: Min
+      type: integer
+    - jsonPath: .spec.maxReplicaCount
+      name: Max
+      type: integer
+    - jsonPath: .spec.triggers[*].type
+      name: Triggers
+      type: string
+    - jsonPath: .spec.triggers[*].authenticationRef.name
+      name: Authentication
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Active")].status
+      name: Active
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Fallback")].status
+      name: Fallback
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Paused")].status
+      name: Paused
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ScaledObject is a specification for a ScaledObject resource
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ScaledObjectSpec is the spec for a ScaledObject resource
+            properties:
+              advanced:
+                description: AdvancedConfig specifies advance scaling options
+                properties:
+                  horizontalPodAutoscalerConfig:
+                    description: HorizontalPodAutoscalerConfig specifies horizontal
+                      scale config
+                    properties:
+                      behavior:
+                        description: |-
+                          HorizontalPodAutoscalerBehavior configures the scaling behavior of the target
+                          in both Up and Down directions (scaleUp and scaleDown fields respectively).
+                        properties:
+                          scaleDown:
+                            description: |-
+                              scaleDown is scaling policy for scaling Down.
+                              If not set, the default value is to allow to scale down to minReplicas pods, with a
+                              300 second stabilization window (i.e., the highest recommendation for
+                              the last 300sec is used).
+                            properties:
+                              policies:
+                                description: |-
+                                  policies is a list of potential scaling polices which can be used during scaling.
+                                  At least one policy must be specified, otherwise the HPAScalingRules will be discarded as invalid
+                                items:
+                                  description: HPAScalingPolicy is a single policy
+                                    which must hold true for a specified past interval.
+                                  properties:
+                                    periodSeconds:
+                                      description: |-
+                                        periodSeconds specifies the window of time for which the policy should hold true.
+                                        PeriodSeconds must be greater than zero and less than or equal to 1800 (30 min).
+                                      format: int32
+                                      type: integer
+                                    type:
+                                      description: type is used to specify the scaling
+                                        policy.
+                                      type: string
+                                    value:
+                                      description: |-
+                                        value contains the amount of change which is permitted by the policy.
+                                        It must be greater than zero
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - periodSeconds
+                                  - type
+                                  - value
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              selectPolicy:
+                                description: |-
+                                  selectPolicy is used to specify which policy should be used.
+                                  If not set, the default value Max is used.
+                                type: string
+                              stabilizationWindowSeconds:
+                                description: |-
+                                  stabilizationWindowSeconds is the number of seconds for which past recommendations should be
+                                  considered while scaling up or scaling down.
+                                  StabilizationWindowSeconds must be greater than or equal to zero and less than or equal to 3600 (one hour).
+                                  If not set, use the default values:
+                                  - For scale up: 0 (i.e. no stabilization is done).
+                                  - For scale down: 300 (i.e. the stabilization window is 300 seconds long).
+                                format: int32
+                                maximum: 3600
+                                minimum: 0
+                                type: integer
+                            type: object
+                          scaleUp:
+                            description: |-
+                              scaleUp is scaling policy for scaling Up.
+                              If not set, the default value is the higher of:
+                                * increase no more than 4 pods per 60 seconds
+                                * double the number of pods per 60 seconds
+                              No stabilization is used.
+                            properties:
+                              policies:
+                                description: |-
+                                  policies is a list of potential scaling polices which can be used during scaling.
+                                  At least one policy must be specified, otherwise the HPAScalingRules will be discarded as invalid
+                                items:
+                                  description: HPAScalingPolicy is a single policy
+                                    which must hold true for a specified past interval.
+                                  properties:
+                                    periodSeconds:
+                                      description: |-
+                                        periodSeconds specifies the window of time for which the policy should hold true.
+                                        PeriodSeconds must be greater than zero and less than or equal to 1800 (30 min).
+                                      format: int32
+                                      type: integer
+                                    type:
+                                      description: type is used to specify the scaling
+                                        policy.
+                                      type: string
+                                    value:
+                                      description: |-
+                                        value contains the amount of change which is permitted by the policy.
+                                        It must be greater than zero
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - periodSeconds
+                                  - type
+                                  - value
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                              selectPolicy:
+                                description: |-
+                                  selectPolicy is used to specify which policy should be used.
+                                  If not set, the default value Max is used.
+                                type: string
+                              stabilizationWindowSeconds:
+                                description: |-
+                                  stabilizationWindowSeconds is the number of seconds for which past recommendations should be
+                                  considered while scaling up or scaling down.
+                                  StabilizationWindowSeconds must be greater than or equal to zero and less than or equal to 3600 (one hour).
+                                  If not set, use the default values:
+                                  - For scale up: 0 (i.e. no stabilization is done).
+                                  - For scale down: 300 (i.e. the stabilization window is 300 seconds long).
+                                format: int32
+                                maximum: 3600
+                                minimum: 0
+                                type: integer
+                            type: object
+                        type: object
+                      name:
+                        type: string
+                    type: object
+                  restoreToOriginalReplicaCount:
+                    type: boolean
+                  scalingModifiers:
+                    description: ScalingModifiers describes advanced scaling logic
+                      options like formula
+                    properties:
+                      activationTarget:
+                        type: string
+                      formula:
+                        type: string
+                      metricType:
+                        description: |-
+                          MetricTargetType specifies the type of metric being targeted, and should be either
+                          "Value", "AverageValue", or "Utilization"
+                        type: string
+                      target:
+                        type: string
+                    type: object
+                type: object
+              cooldownPeriod:
+                format: int32
+                type: integer
+              fallback:
+                description: Fallback is the spec for fallback options
+                properties:
+                  failureThreshold:
+                    format: int32
+                    type: integer
+                  replicas:
+                    format: int32
+                    type: integer
+                required:
+                - failureThreshold
+                - replicas
+                type: object
+              idleReplicaCount:
+                format: int32
+                type: integer
+              initialCooldownPeriod:
+                format: int32
+                type: integer
+              maxReplicaCount:
+                format: int32
+                type: integer
+              minReplicaCount:
+                format: int32
+                type: integer
+              pollingInterval:
+                format: int32
+                type: integer
+              scaleTargetRef:
+                description: ScaleTarget holds the reference to the scale target Object
+                properties:
+                  apiVersion:
+                    type: string
+                  envSourceContainerName:
+                    type: string
+                  kind:
+                    type: string
+                  name:
+                    type: string
+                required:
+                - name
+                type: object
+              triggers:
+                items:
+                  description: ScaleTriggers reference the scaler that will be used
+                  properties:
+                    authenticationRef:
+                      description: |-
+                        AuthenticationRef points to the TriggerAuthentication or ClusterTriggerAuthentication object that
+                        is used to authenticate the scaler with the environment
+                      properties:
+                        kind:
+                          description: Kind of the resource being referred to. Defaults
+                            to TriggerAuthentication.
+                          type: string
+                        name:
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    metadata:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    metricType:
+                      description: |-
+                        MetricTargetType specifies the type of metric being targeted, and should be either
+                        "Value", "AverageValue", or "Utilization"
+                      type: string
+                    name:
+                      type: string
+                    type:
+                      type: string
+                    useCachedMetrics:
+                      type: boolean
+                  required:
+                  - metadata
+                  - type
+                  type: object
+                type: array
+            required:
+            - scaleTargetRef
+            - triggers
+            type: object
+          status:
+            description: ScaledObjectStatus is the status for a ScaledObject resource
+            properties:
+              compositeScalerName:
+                type: string
+              conditions:
+                description: Conditions an array representation to store multiple
+                  Conditions
+                items:
+                  description: Condition to store the condition state
+                  properties:
+                    message:
+                      description: A human readable message indicating details about
+                        the transition.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of condition
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              externalMetricNames:
+                items:
+                  type: string
+                type: array
+              health:
+                additionalProperties:
+                  description: HealthStatus is the status for a ScaledObject's health
+                  properties:
+                    numberOfFailures:
+                      format: int32
+                      type: integer
+                    status:
+                      description: HealthStatusType is an indication of whether the
+                        health status is happy or failing
+                      type: string
+                  type: object
+                type: object
+              hpaName:
+                type: string
+              lastActiveTime:
+                format: date-time
+                type: string
+              originalReplicaCount:
+                format: int32
+                type: integer
+              pausedReplicaCount:
+                format: int32
+                type: integer
+              resourceMetricNames:
+                items:
+                  type: string
+                type: array
+              scaleTargetGVKR:
+                description: GroupVersionKindResource provides unified structure for
+                  schema.GroupVersionKind and Resource
+                properties:
+                  group:
+                    type: string
+                  kind:
+                    type: string
+                  resource:
+                    type: string
+                  version:
+                    type: string
+                required:
+                - group
+                - kind
+                - resource
+                - version
+                type: object
+              scaleTargetKind:
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: keda-operator
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/name: keda-operator
+    app.kubernetes.io/part-of: keda-operator
+    app.kubernetes.io/version: 2.12.1
+  name: keda-operator
+  namespace: keda
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keda-operator
+  template:
+    metadata:
+      labels:
+        app: keda-operator
+        name: keda-operator
+      name: keda-operator
+    spec:
+      containers:
+      - args:
+        - --leader-elect
+        - --zap-log-level=info
+        - --zap-encoder=console
+        - --zap-time-encoding=rfc3339
+        - --enable-cert-rotation=true
+        command:
+        - /keda
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: WATCH_NAMESPACE
+          value: ""
+        - name: KEDA_HTTP_DEFAULT_TIMEOUT
+          value: ""
+        image: ghcr.io/kedacore/keda:2.12.1
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 25
+        name: keda-operator
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 20
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1000Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /certs
+          name: certificates
+          readOnly: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: keda-operator
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: certificates
+        secret:
+          defaultMode: 420
+          optional: true
+          secretName: kedaorg-certs
