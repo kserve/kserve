@@ -90,7 +90,7 @@ helm template $HELM_KSERVE_RESOURCES_DIR \
   --namespace kserve \
   --set kserve.servingruntime.enabled=false \
   --set kserve.storage.enabled=false \
-  >> $INSTALL_PATH
+  | sed '1s/^/---\n/' >> $INSTALL_PATH
 # Generate kserve_kubeflow.yaml
 helm template $HELM_KSERVE_CRD_DIR \
   --namespace kubeflow \
@@ -100,8 +100,8 @@ helm template $HELM_KSERVE_RESOURCES_DIR \
   --set kserve.controller.gateway.ingressGateway.gateway="kubeflow/kubeflow-gateway" \
   --set kserve.servingruntime.enabled=false \
   --set kserve.storage.enabled=false \
-  >> $KSERVE_OVERLAY_PATH
-kubectl kustomize $KUBEFLOW_OVERLAY_DIR | sed s/:latest/:$TAG/ > $KUBEFLOW_INSTALL_PATH
+  | sed '1s/^/---\n/' >> $KSERVE_OVERLAY_PATH
+kubectl kustomize $KUBEFLOW_OVERLAY_DIR > $KUBEFLOW_INSTALL_PATH
 # Generate kserve-cluster-resources.yaml
 helm template $HELM_KSERVE_RESOURCES_DIR \
   --show-only templates/clusterservingruntimes.yaml \
