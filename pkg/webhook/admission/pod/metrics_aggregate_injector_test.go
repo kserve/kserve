@@ -87,6 +87,64 @@ func TestInjectMetricsAggregator(t *testing.T) {
 				},
 			},
 		},
+		"EnableMetricAggTrueIdempotent": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.EnableMetricAggregation: "true",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "sklearn",
+						},
+						{
+							Name: "queue-proxy",
+							Env: []corev1.EnvVar{
+								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
+								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
+							},
+							Ports: []corev1.ContainerPort{
+								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
+								{Name: constants.AggregateMetricsPortName, ContainerPort: qpextAggregateMetricsPort, Protocol: "TCP"},
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.EnableMetricAggregation: "true",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "sklearn",
+						},
+						{
+							Name: "queue-proxy",
+							Env: []corev1.EnvVar{
+								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
+								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
+							},
+							Ports: []corev1.ContainerPort{
+								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
+								{Name: constants.AggregateMetricsPortName, ContainerPort: qpextAggregateMetricsPort, Protocol: "TCP"},
+							},
+						},
+					},
+				},
+			},
+		},
 		"EnableMetricAggNotSet": {
 			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -222,6 +280,70 @@ func TestInjectMetricsAggregator(t *testing.T) {
 				},
 			},
 		},
+		"setPromAnnotationTrueWithAggTrueIdempotent": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.EnableMetricAggregation:     "true",
+						constants.SetPrometheusAnnotation:     "true",
+						constants.PrometheusPortAnnotationKey: constants.QueueProxyAggregatePrometheusMetricsPort,
+						constants.PrometheusPathAnnotationKey: constants.DefaultPrometheusPath,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "sklearn",
+						},
+						{
+							Name: "queue-proxy",
+							Env: []corev1.EnvVar{
+								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
+								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
+							},
+							Ports: []corev1.ContainerPort{
+								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
+								{Name: constants.AggregateMetricsPortName, ContainerPort: qpextAggregateMetricsPort, Protocol: "TCP"},
+							},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.EnableMetricAggregation:     "true",
+						constants.SetPrometheusAnnotation:     "true",
+						constants.PrometheusPortAnnotationKey: constants.QueueProxyAggregatePrometheusMetricsPort,
+						constants.PrometheusPathAnnotationKey: constants.DefaultPrometheusPath,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "sklearn",
+						},
+						{
+							Name: "queue-proxy",
+							Env: []corev1.EnvVar{
+								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
+								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
+							},
+							Ports: []corev1.ContainerPort{
+								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
+								{Name: constants.AggregateMetricsPortName, ContainerPort: qpextAggregateMetricsPort, Protocol: "TCP"},
+							},
+						},
+					},
+				},
+			},
+		},
 		"setPromAnnotationTrueWithAggFalse": {
 			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
@@ -286,6 +408,67 @@ func TestInjectMetricsAggregator(t *testing.T) {
 						{
 							Name:  "queue-proxy",
 							Ports: []corev1.ContainerPort{{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"}},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.EnableMetricAggregation: "true",
+						constants.SetPrometheusAnnotation: "false",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "sklearn",
+						},
+						{
+							Name: "queue-proxy",
+							Env: []corev1.EnvVar{
+								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
+								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
+							},
+							Ports: []corev1.ContainerPort{
+								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
+								{Name: constants.AggregateMetricsPortName, ContainerPort: qpextAggregateMetricsPort, Protocol: "TCP"},
+							},
+						},
+					},
+				},
+			},
+			
+		},
+		"SetPromAnnotationFalseIdempotent": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.EnableMetricAggregation: "true",
+						constants.SetPrometheusAnnotation: "false",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "sklearn",
+						},
+						{
+							Name: "queue-proxy",
+							Env: []corev1.EnvVar{
+								{Name: constants.KServeContainerPrometheusMetricsPortEnvVarKey, Value: sklearnPrometheusPort},
+								{Name: constants.KServeContainerPrometheusMetricsPathEnvVarKey, Value: constants.DefaultPrometheusPath},
+								{Name: constants.QueueProxyAggregatePrometheusMetricsPortEnvVarKey, Value: constants.QueueProxyAggregatePrometheusMetricsPort},
+							},
+							Ports: []corev1.ContainerPort{
+								{Name: "http-usermetric", ContainerPort: 9091, Protocol: "TCP"},
+								{Name: constants.AggregateMetricsPortName, ContainerPort: qpextAggregateMetricsPort, Protocol: "TCP"},
+							},
 						},
 					},
 				},
