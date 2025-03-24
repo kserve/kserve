@@ -100,6 +100,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.OtelCollectorConfig":          schema_pkg_apis_serving_v1beta1_OtelCollectorConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec":                     schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec":             schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodMetricSource":              schema_pkg_apis_serving_v1beta1_PodMetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodSpec":                      schema_pkg_apis_serving_v1beta1_PodSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodsMetricSource":             schema_pkg_apis_serving_v1beta1_PodsMetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":       schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
@@ -6300,7 +6301,7 @@ func schema_pkg_apis_serving_v1beta1_MetricSource(ref common.ReferenceCallback) 
 					},
 					"operationOverTime": {
 						SchemaProps: spec.SchemaProps{
-							Description: "OperationOverTime specifies the operation to aggregate the metrics over time",
+							Description: "OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -6382,14 +6383,14 @@ func schema_pkg_apis_serving_v1beta1_MetricsSpec(ref common.ReferenceCallback) c
 					"podmetric": {
 						SchemaProps: spec.SchemaProps{
 							Description: "pods refers to a metric describing each pod in the current scale target (for example, transactions-processed-per-second).  The values will be averaged together before being compared to the target value.",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodsMetricSource"),
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodMetricSource"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodsMetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodMetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource"},
 	}
 }
 
@@ -7890,6 +7891,36 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_PodMetricSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "PodMetricSource indicates how to scale on a metric describing each pod in the current scale target (for example, transactions-processed-per-second). The values will be averaged together before being compared to the target value.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"metric": {
+						SchemaProps: spec.SchemaProps{
+							Description: "metric identifies the target metric by name and selector",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodsMetricSource"),
+						},
+					},
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Description: "target specifies the target value for the given metric",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"),
+						},
+					},
+				},
+				Required: []string{"target"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodsMetricSource"},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_PodSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -8349,29 +8380,39 @@ func schema_pkg_apis_serving_v1beta1_PodsMetricSource(ref common.ReferenceCallba
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "PodsMetricSource indicates how to scale on a metric describing each pod in the current scale target (for example, transactions-processed-per-second). The values will be averaged together before being compared to the target value.",
-				Type:        []string{"object"},
+				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"metric": {
+					"backend": {
 						SchemaProps: spec.SchemaProps{
-							Description: "metric identifies the target metric by name and selector",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricSource"),
+							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
-					"target": {
+					"serverAddress": {
 						SchemaProps: spec.SchemaProps{
-							Description: "target specifies the target value for the given metric",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"),
+							Description: "Address of MetricsBackend server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query to run to get metrics from MetricsBackend",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"operationOverTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
-				Required: []string{"target"},
 			},
 		},
-		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
 	}
 }
 

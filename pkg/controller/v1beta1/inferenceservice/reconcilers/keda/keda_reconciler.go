@@ -114,15 +114,15 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 				otelConfig, _ := v1beta1.NewOtelCollectorConfig(configMap)
 				OTelScalerEndpoint := otelConfig.OTelScalerEndpoint
 
-				triggerType := string(*metric.External.Metric.Backend)
-				query := metric.External.Metric.Query
-				targetValue = int(metric.External.Target.Value.AsApproximateFloat64())
+				triggerType := string(*metric.PodMetric.Metric.Backend)
+				query := metric.PodMetric.Metric.Query
+				targetValue = int(metric.PodMetric.Target.Value.AsApproximateFloat64())
 
 				trigger := kedav1alpha1.ScaleTriggers{
 					Metadata: map[string]string{},
 				}
 
-				if triggerType == "opentelemetry" {
+				if triggerType == string(constants.AutoScalerMetricsOpenTelemetry) {
 					trigger.Type = "external"
 					trigger.Metadata = map[string]string{
 						"clampMin":      strconv.Itoa(int(minReplicas)),
@@ -131,8 +131,8 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 						"targetValue":   strconv.Itoa(targetValue),
 						"scalerAddress": OTelScalerEndpoint,
 					}
-					if metric.External.Metric.OperationOverTime != "" {
-						trigger.Metadata["operationOverTime"] = metric.External.Metric.OperationOverTime
+					if metric.PodMetric.Metric.OperationOverTime != "" {
+						trigger.Metadata["operationOverTime"] = metric.PodMetric.Metric.OperationOverTime
 					}
 				}
 

@@ -3475,7 +3475,7 @@
           "type": "string"
         },
         "operationOverTime": {
-          "description": "OperationOverTime specifies the operation to aggregate the metrics over time",
+          "description": "OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.",
           "type": "string"
         },
         "query": {
@@ -3522,7 +3522,7 @@
         },
         "podmetric": {
           "description": "pods refers to a metric describing each pod in the current scale target (for example, transactions-processed-per-second).  The values will be averaged together before being compared to the target value.",
-          "$ref": "#/definitions/v1beta1.PodsMetricSource"
+          "$ref": "#/definitions/v1beta1.PodMetricSource"
         },
         "resource": {
           "description": "resource refers to a resource metric (such as those specified in requests and limits) known to Kubernetes describing each pod in the current scale target (e.g. CPU or memory). Such metrics are built in to Kubernetes, and have special scaling options on top of those available to normal per-pod metrics using the \"pods\" source.",
@@ -4369,6 +4369,25 @@
         }
       }
     },
+    "v1beta1.PodMetricSource": {
+      "description": "PodMetricSource indicates how to scale on a metric describing each pod in the current scale target (for example, transactions-processed-per-second). The values will be averaged together before being compared to the target value.",
+      "type": "object",
+      "required": [
+        "target"
+      ],
+      "properties": {
+        "metric": {
+          "description": "metric identifies the target metric by name and selector",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.PodsMetricSource"
+        },
+        "target": {
+          "description": "target specifies the target value for the given metric",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.MetricTarget"
+        }
+      }
+    },
     "v1beta1.PodSpec": {
       "description": "PodSpec is a description of a pod.",
       "type": "object",
@@ -4622,21 +4641,23 @@
       }
     },
     "v1beta1.PodsMetricSource": {
-      "description": "PodsMetricSource indicates how to scale on a metric describing each pod in the current scale target (for example, transactions-processed-per-second). The values will be averaged together before being compared to the target value.",
       "type": "object",
-      "required": [
-        "target"
-      ],
       "properties": {
-        "metric": {
-          "description": "metric identifies the target metric by name and selector",
-          "default": {},
-          "$ref": "#/definitions/v1beta1.MetricSource"
+        "backend": {
+          "description": "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.",
+          "type": "string"
         },
-        "target": {
-          "description": "target specifies the target value for the given metric",
-          "default": {},
-          "$ref": "#/definitions/v1beta1.MetricTarget"
+        "operationOverTime": {
+          "description": "OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.",
+          "type": "string"
+        },
+        "query": {
+          "description": "Query to run to get metrics from MetricsBackend",
+          "type": "string"
+        },
+        "serverAddress": {
+          "description": "Address of MetricsBackend server.",
+          "type": "string"
         }
       }
     },

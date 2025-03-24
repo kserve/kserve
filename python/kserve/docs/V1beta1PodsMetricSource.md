@@ -1,11 +1,12 @@
 # V1beta1PodsMetricSource
 
-PodsMetricSource indicates how to scale on a metric describing each pod in the current scale target (for example, transactions-processed-per-second). The values will be averaged together before being compared to the target value.
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**metric** | [**V1beta1MetricSource**](V1beta1MetricSource.md) |  | [optional] 
-**target** | [**V1beta1MetricTarget**](V1beta1MetricTarget.md) |  | 
+**backend** | **str** | MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry. | [optional] 
+**operation_over_time** | **str** | OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is &#39;last_one&#39;. | [optional] 
+**query** | **str** | Query to run to get metrics from MetricsBackend | [optional] 
+**server_address** | **str** | Address of MetricsBackend server. | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

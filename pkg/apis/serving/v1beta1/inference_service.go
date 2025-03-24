@@ -71,8 +71,15 @@ type LoggerSpec struct {
 type MetricsBackend string
 
 const (
-	PrometheusBackend    MetricsBackend = "prometheus"
-	GraphiteBackend      MetricsBackend = "graphite"
+	PrometheusBackend MetricsBackend = "prometheus"
+	GraphiteBackend   MetricsBackend = "graphite"
+)
+
+// MetricsBackend enum
+// +kubebuilder:validation:Enum=opentelemetry
+type PodsMetricsBackend string
+
+const (
 	OpenTelemetryBackend MetricsBackend = "opentelemetry"
 )
 

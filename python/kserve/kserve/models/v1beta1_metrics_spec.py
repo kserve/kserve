@@ -48,7 +48,7 @@ class V1beta1MetricsSpec(object):
     """
     openapi_types = {
         'external': 'V1beta1ExternalMetricSource',
-        'podmetric': 'V1beta1PodsMetricSource',
+        'podmetric': 'V1beta1PodMetricSource',
         'resource': 'V1beta1ResourceMetricSource',
         'type': 'str'
     }
@@ -108,7 +108,7 @@ class V1beta1MetricsSpec(object):
 
 
         :return: The podmetric of this V1beta1MetricsSpec.  # noqa: E501
-        :rtype: V1beta1PodsMetricSource
+        :rtype: V1beta1PodMetricSource
         """
         return self._podmetric
 
@@ -118,7 +118,7 @@ class V1beta1MetricsSpec(object):
 
 
         :param podmetric: The podmetric of this V1beta1MetricsSpec.  # noqa: E501
-        :type: V1beta1PodsMetricSource
+        :type: V1beta1PodMetricSource
         """
 
         self._podmetric = podmetric

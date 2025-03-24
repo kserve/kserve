@@ -41,7 +41,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
@@ -395,7 +394,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	}
 
 	if kedaFound {
-		ctrlBuilder = ctrlBuilder.Owns(&kedav1alpha1.ScaledObject{}).WithEventFilter(predicate.GenerationChangedPredicate{})
+		ctrlBuilder = ctrlBuilder.Owns(&kedav1alpha1.ScaledObject{})
 	} else {
 		r.Log.Info("The InferenceService controller won't watch keda.sh/v1/ScaledObject resources because the CRD is not available.")
 	}

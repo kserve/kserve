@@ -63,7 +63,12 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 	metric v1beta1.MetricsSpec,
 	otelConfig v1beta1.OtelCollectorConfig,
 ) *otelv1beta1.OpenTelemetryCollector {
-	metricQuery := metric.External.Metric.Query
+	metricQuery := metric.PodMetric.Metric.Query
+	port, ok := componentMeta.Annotations["prometheus.kserve.io/port"]
+	if !ok {
+		log.Info("Annotation prometheus.kserve.io/port is missing, using default value 8080 to configure OTel Collector")
+		port = "8080"
+	}
 
 	otelCollector := &otelv1beta1.OpenTelemetryCollector{
 		ObjectMeta: metav1.ObjectMeta{
@@ -82,7 +87,7 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 									"scrape_interval": otelConfig.ScrapeInterval,
 									"static_configs": []interface{}{
 										map[string]interface{}{
-											"targets": []interface{}{"localhost:8080"},
+											"targets": []interface{}{"localhost:" + port},
 										},
 									},
 								},
@@ -137,7 +142,7 @@ func (o *OtelReconciler) Reconcile(ctx context.Context) error {
 		if apierr.IsNotFound(err) {
 			log.Info("Creating OTel Collector resource", "name", desired.Name)
 			if err := o.client.Create(ctx, desired); err != nil {
-				log.Error(err, "Failed to create predictor HttpRoute", "name", desired.Name)
+				log.Error(err, "Failed to create OTel Collector resource", "name", desired.Name)
 				return err
 			}
 		} else {

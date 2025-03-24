@@ -7354,7 +7354,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorSObjectKey, actualOTelCollector) }, timeout).
 				Should(Succeed())
 
-			fmt.Printf("Actual OpenTelemetryCollector Spec ------------------------------------ : %+v\n", actualOTelCollector.Spec)
 			expectedOTelCollector := &otelv1beta1.OpenTelemetryCollector{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      predictorSObjectKey.Name,

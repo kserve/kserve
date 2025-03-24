@@ -52,7 +52,8 @@ type RawKubeReconciler struct {
 }
 
 // NewRawKubeReconciler creates raw kubernetes resource reconciler.
-func NewRawKubeReconciler(ctx context.Context, client client.Client,
+func NewRawKubeReconciler(ctx context.Context,
+	client client.Client,
 	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
@@ -71,7 +72,7 @@ func NewRawKubeReconciler(ctx context.Context, client client.Client,
 		metrics := componentExt.AutoScaling.Metrics
 		for _, metric := range metrics {
 			if metric.Type == v1beta1.PodMetricSourceType {
-				if *metric.External.Metric.Backend == v1beta1.MetricsBackend(constants.OTelBackend) {
+				if *metric.PodMetric.Metric.Backend == v1beta1.PodsMetricsBackend(constants.OTelBackend) {
 					var err error
 					otelConfig, err := v1beta1.NewOtelCollectorConfig(configMap)
 					if err != nil {

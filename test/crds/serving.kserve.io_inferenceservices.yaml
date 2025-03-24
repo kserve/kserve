@@ -6656,11 +6656,7 @@ spec:
                                   properties:
                                     backend:
                                       enum:
-                                      - prometheus
-                                      - graphite
                                       - opentelemetry
-                                      type: string
-                                    namespace:
                                       type: string
                                     operationOverTime:
                                       type: string
@@ -9784,11 +9780,7 @@ spec:
                                   properties:
                                     backend:
                                       enum:
-                                      - prometheus
-                                      - graphite
                                       - opentelemetry
-                                      type: string
-                                    namespace:
                                       type: string
                                     operationOverTime:
                                       type: string
@@ -24085,11 +24077,7 @@ spec:
                                   properties:
                                     backend:
                                       enum:
-                                      - prometheus
-                                      - graphite
                                       - opentelemetry
-                                      type: string
-                                    namespace:
                                       type: string
                                     operationOverTime:
                                       type: string

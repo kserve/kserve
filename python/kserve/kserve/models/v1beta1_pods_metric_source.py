@@ -47,72 +47,131 @@ class V1beta1PodsMetricSource(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'metric': 'V1beta1MetricSource',
-        'target': 'V1beta1MetricTarget'
+        'backend': 'str',
+        'operation_over_time': 'str',
+        'query': 'str',
+        'server_address': 'str'
     }
 
     attribute_map = {
-        'metric': 'metric',
-        'target': 'target'
+        'backend': 'backend',
+        'operation_over_time': 'operationOverTime',
+        'query': 'query',
+        'server_address': 'serverAddress'
     }
 
-    def __init__(self, metric=None, target=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, backend=None, operation_over_time=None, query=None, server_address=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PodsMetricSource - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._metric = None
-        self._target = None
+        self._backend = None
+        self._operation_over_time = None
+        self._query = None
+        self._server_address = None
         self.discriminator = None
 
-        if metric is not None:
-            self.metric = metric
-        self.target = target
+        if backend is not None:
+            self.backend = backend
+        if operation_over_time is not None:
+            self.operation_over_time = operation_over_time
+        if query is not None:
+            self.query = query
+        if server_address is not None:
+            self.server_address = server_address
 
     @property
-    def metric(self):
-        """Gets the metric of this V1beta1PodsMetricSource.  # noqa: E501
+    def backend(self):
+        """Gets the backend of this V1beta1PodsMetricSource.  # noqa: E501
 
+        MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.  # noqa: E501
 
-        :return: The metric of this V1beta1PodsMetricSource.  # noqa: E501
-        :rtype: V1beta1MetricSource
+        :return: The backend of this V1beta1PodsMetricSource.  # noqa: E501
+        :rtype: str
         """
-        return self._metric
+        return self._backend
 
-    @metric.setter
-    def metric(self, metric):
-        """Sets the metric of this V1beta1PodsMetricSource.
+    @backend.setter
+    def backend(self, backend):
+        """Sets the backend of this V1beta1PodsMetricSource.
 
+        MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.  # noqa: E501
 
-        :param metric: The metric of this V1beta1PodsMetricSource.  # noqa: E501
-        :type: V1beta1MetricSource
+        :param backend: The backend of this V1beta1PodsMetricSource.  # noqa: E501
+        :type: str
         """
 
-        self._metric = metric
+        self._backend = backend
 
     @property
-    def target(self):
-        """Gets the target of this V1beta1PodsMetricSource.  # noqa: E501
+    def operation_over_time(self):
+        """Gets the operation_over_time of this V1beta1PodsMetricSource.  # noqa: E501
 
+        OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.  # noqa: E501
 
-        :return: The target of this V1beta1PodsMetricSource.  # noqa: E501
-        :rtype: V1beta1MetricTarget
+        :return: The operation_over_time of this V1beta1PodsMetricSource.  # noqa: E501
+        :rtype: str
         """
-        return self._target
+        return self._operation_over_time
 
-    @target.setter
-    def target(self, target):
-        """Sets the target of this V1beta1PodsMetricSource.
+    @operation_over_time.setter
+    def operation_over_time(self, operation_over_time):
+        """Sets the operation_over_time of this V1beta1PodsMetricSource.
 
+        OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.  # noqa: E501
 
-        :param target: The target of this V1beta1PodsMetricSource.  # noqa: E501
-        :type: V1beta1MetricTarget
+        :param operation_over_time: The operation_over_time of this V1beta1PodsMetricSource.  # noqa: E501
+        :type: str
         """
-        if self.local_vars_configuration.client_side_validation and target is None:  # noqa: E501
-            raise ValueError("Invalid value for `target`, must not be `None`")  # noqa: E501
 
-        self._target = target
+        self._operation_over_time = operation_over_time
+
+    @property
+    def query(self):
+        """Gets the query of this V1beta1PodsMetricSource.  # noqa: E501
+
+        Query to run to get metrics from MetricsBackend  # noqa: E501
+
+        :return: The query of this V1beta1PodsMetricSource.  # noqa: E501
+        :rtype: str
+        """
+        return self._query
+
+    @query.setter
+    def query(self, query):
+        """Sets the query of this V1beta1PodsMetricSource.
+
+        Query to run to get metrics from MetricsBackend  # noqa: E501
+
+        :param query: The query of this V1beta1PodsMetricSource.  # noqa: E501
+        :type: str
+        """
+
+        self._query = query
+
+    @property
+    def server_address(self):
+        """Gets the server_address of this V1beta1PodsMetricSource.  # noqa: E501
+
+        Address of MetricsBackend server.  # noqa: E501
+
+        :return: The server_address of this V1beta1PodsMetricSource.  # noqa: E501
+        :rtype: str
+        """
+        return self._server_address
+
+    @server_address.setter
+    def server_address(self, server_address):
+        """Sets the server_address of this V1beta1PodsMetricSource.
+
+        Address of MetricsBackend server.  # noqa: E501
+
+        :param server_address: The server_address of this V1beta1PodsMetricSource.  # noqa: E501
+        :type: str
+        """
+
+        self._server_address = server_address
 
     def to_dict(self):
         """Returns the model properties as a dict"""

@@ -136,7 +136,7 @@ class V1beta1MetricSource(object):
     def operation_over_time(self):
         """Gets the operation_over_time of this V1beta1MetricSource.  # noqa: E501
 
-        OperationOverTime specifies the operation to aggregate the metrics over time  # noqa: E501
+        OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.  # noqa: E501
 
         :return: The operation_over_time of this V1beta1MetricSource.  # noqa: E501
         :rtype: str
@@ -147,7 +147,7 @@ class V1beta1MetricSource(object):
     def operation_over_time(self, operation_over_time):
         """Sets the operation_over_time of this V1beta1MetricSource.
 
-        OperationOverTime specifies the operation to aggregate the metrics over time  # noqa: E501
+        OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.  # noqa: E501
 
         :param operation_over_time: The operation_over_time of this V1beta1MetricSource.  # noqa: E501
         :type: str

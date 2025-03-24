@@ -165,7 +165,7 @@ type MetricsSpec struct {
 	// (for example, transactions-processed-per-second).  The values will be
 	// averaged together before being compared to the target value.
 	// +optional
-	PodMetric *PodsMetricSource `json:"podmetric,omitempty"`
+	PodMetric *PodMetricSource `json:"podmetric,omitempty"`
 }
 
 // MetricSourceType indicates the type of metric.
@@ -207,13 +207,13 @@ type ExternalMetricSource struct {
 	Target MetricTarget `json:"target,omitempty"`
 }
 
-// PodsMetricSource indicates how to scale on a metric describing each pod in
+// PodMetricSource indicates how to scale on a metric describing each pod in
 // the current scale target (for example, transactions-processed-per-second).
 // The values will be averaged together before being compared to the target
 // value.
-type PodsMetricSource struct {
+type PodMetricSource struct {
 	// metric identifies the target metric by name and selector
-	Metric MetricSource `json:"metric,omitempty"`
+	Metric PodsMetricSource `json:"metric,omitempty"`
 
 	// target specifies the target value for the given metric
 	Target MetricTarget `json:"target" protobuf:"bytes,2,name=target"`
@@ -271,6 +271,24 @@ type MetricSource struct {
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 	// OperationOverTime specifies the operation to aggregate the metrics over time
+	// possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.
+	// +optional
+	OperationOverTime string `json:"operationOverTime,omitempty"`
+}
+
+type PodsMetricSource struct {
+	// MetricsBackend defines the scaling metric type watched by autoscaler
+	// possible values are prometheus, graphite, opentelemetry.
+	// +optional
+	Backend *PodsMetricsBackend `json:"backend,omitempty"`
+	// Address of MetricsBackend server.
+	// +optional
+	ServerAddress string `json:"serverAddress,omitempty"`
+	// Query to run to get metrics from MetricsBackend
+	// +optional
+	Query string `json:"query,omitempty"`
+	// OperationOverTime specifies the operation to aggregate the metrics over time
+	// possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.
 	// +optional
 	OperationOverTime string `json:"operationOverTime,omitempty"`
 }
