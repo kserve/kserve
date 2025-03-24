@@ -54,7 +54,7 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.8.0
+ARG VLLM_VERSION=0.8.1
 
 ################### LMCache WHEEL BUILD ###################
 # max jobs used by Ninja to build extensions
