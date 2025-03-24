@@ -8396,6 +8396,13 @@ func schema_pkg_apis_serving_v1beta1_PodsMetricSource(ref common.ReferenceCallba
 							Format:      "",
 						},
 					},
+					"metricName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MetricName is the name of the metric in the backend",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"query": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Query to run to get metrics from MetricsBackend",

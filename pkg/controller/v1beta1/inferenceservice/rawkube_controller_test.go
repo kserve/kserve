@@ -7307,10 +7307,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Metrics: []v1beta1.MetricsSpec{
 									{
 										Type: v1beta1.MetricSourceType(constants.AutoScalerPodMetric),
-										External: &v1beta1.ExternalMetricSource{
-											Metric: v1beta1.MetricSource{
-												Backend: (*v1beta1.MetricsBackend)(&constants.AutoScalerMetricsOpenTelemetry),
-												Query:   "process_cpu_seconds_total",
+										PodMetric: &v1beta1.PodMetricSource{
+											Metric: v1beta1.PodsMetricSource{
+												Backend:    (*v1beta1.PodsMetricsBackend)(&constants.AutoScalerMetricsOpenTelemetry),
+												MetricName: "process_cpu_seconds_total",
+												Query:      "avg(process_cpu_seconds_total)",
 											},
 											Target: v1beta1.MetricTarget{
 												Type:  v1beta1.ValueMetricType,
@@ -7384,7 +7385,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								"error_mode": "ignore",
 								"metrics": map[string]interface{}{
 									"metric": []interface{}{
-										`name == "process_cpu_seconds_total"`,
+										`name != "process_cpu_seconds_total"`,
 									},
 								},
 							},
@@ -7410,7 +7411,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(actualOTelCollector.Spec.Config).To(gomega.Equal(expectedOTelCollector.Spec.Config))
+			Expect(actualOTelCollector.Spec.Config).To(gomega.BeComparableTo(expectedOTelCollector.Spec.Config))
 		})
 
 		It("Should have ingress/service/deployment/hpa created", func() {

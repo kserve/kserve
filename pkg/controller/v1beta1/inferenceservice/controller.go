@@ -39,8 +39,11 @@ import (
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
@@ -394,7 +397,18 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	}
 
 	if kedaFound {
-		ctrlBuilder = ctrlBuilder.Owns(&kedav1alpha1.ScaledObject{})
+		ctrlBuilder = ctrlBuilder.Owns(&kedav1alpha1.ScaledObject{}, builder.WithPredicates(predicate.Funcs{
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				_, ok := e.ObjectNew.(*kedav1alpha1.ScaledObject)
+				if !ok {
+					return false
+				}
+				// Ignore status updates for ScaledObject, only reconcile on spec changes
+				oldObj := e.ObjectOld.(*kedav1alpha1.ScaledObject)
+				newObj := e.ObjectNew.(*kedav1alpha1.ScaledObject)
+				return !equality.Semantic.DeepEqual(oldObj.Spec, newObj.Spec)
+			},
+		}))
 	} else {
 		r.Log.Info("The InferenceService controller won't watch keda.sh/v1/ScaledObject resources because the CRD is not available.")
 	}

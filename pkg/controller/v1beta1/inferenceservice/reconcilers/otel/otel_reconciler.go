@@ -63,7 +63,7 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 	metric v1beta1.MetricsSpec,
 	otelConfig v1beta1.OtelCollectorConfig,
 ) *otelv1beta1.OpenTelemetryCollector {
-	metricQuery := metric.PodMetric.Metric.Query
+	metricName := metric.PodMetric.Metric.MetricName
 	port, ok := componentMeta.Annotations["prometheus.kserve.io/port"]
 	if !ok {
 		log.Info("Annotation prometheus.kserve.io/port is missing, using default value 8080 to configure OTel Collector")
@@ -100,7 +100,7 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 						"error_mode": "ignore",
 						"metrics": map[string]interface{}{
 							"metric": []interface{}{
-								fmt.Sprintf(`name == "%s"`, metricQuery),
+								fmt.Sprintf(`name != "%s"`, metricName),
 							},
 						},
 					},

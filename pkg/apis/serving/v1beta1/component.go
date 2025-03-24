@@ -284,6 +284,9 @@ type PodsMetricSource struct {
 	// Address of MetricsBackend server.
 	// +optional
 	ServerAddress string `json:"serverAddress,omitempty"`
+	// MetricName is the name of the metric in the backend
+	// +optional
+	MetricName string `json:"metricName,omitempty"`
 	// Query to run to get metrics from MetricsBackend
 	// +optional
 	Query string `json:"query,omitempty"`

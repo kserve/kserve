@@ -48,6 +48,7 @@ class V1beta1PodsMetricSource(object):
     """
     openapi_types = {
         'backend': 'str',
+        'metric_name': 'str',
         'operation_over_time': 'str',
         'query': 'str',
         'server_address': 'str'
@@ -55,18 +56,20 @@ class V1beta1PodsMetricSource(object):
 
     attribute_map = {
         'backend': 'backend',
+        'metric_name': 'metricName',
         'operation_over_time': 'operationOverTime',
         'query': 'query',
         'server_address': 'serverAddress'
     }
 
-    def __init__(self, backend=None, operation_over_time=None, query=None, server_address=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, backend=None, metric_name=None, operation_over_time=None, query=None, server_address=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PodsMetricSource - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._backend = None
+        self._metric_name = None
         self._operation_over_time = None
         self._query = None
         self._server_address = None
@@ -74,6 +77,8 @@ class V1beta1PodsMetricSource(object):
 
         if backend is not None:
             self.backend = backend
+        if metric_name is not None:
+            self.metric_name = metric_name
         if operation_over_time is not None:
             self.operation_over_time = operation_over_time
         if query is not None:
@@ -103,6 +108,29 @@ class V1beta1PodsMetricSource(object):
         """
 
         self._backend = backend
+
+    @property
+    def metric_name(self):
+        """Gets the metric_name of this V1beta1PodsMetricSource.  # noqa: E501
+
+        MetricName is the name of the metric in the backend  # noqa: E501
+
+        :return: The metric_name of this V1beta1PodsMetricSource.  # noqa: E501
+        :rtype: str
+        """
+        return self._metric_name
+
+    @metric_name.setter
+    def metric_name(self, metric_name):
+        """Sets the metric_name of this V1beta1PodsMetricSource.
+
+        MetricName is the name of the metric in the backend  # noqa: E501
+
+        :param metric_name: The metric_name of this V1beta1PodsMetricSource.  # noqa: E501
+        :type: str
+        """
+
+        self._metric_name = metric_name
 
     @property
     def operation_over_time(self):

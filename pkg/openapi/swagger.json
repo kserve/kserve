@@ -4647,6 +4647,10 @@
           "description": "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.",
           "type": "string"
         },
+        "metricName": {
+          "description": "MetricName is the name of the metric in the backend",
+          "type": "string"
+        },
         "operationOverTime": {
           "description": "OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.",
           "type": "string"

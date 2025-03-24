@@ -53,29 +53,10 @@ class TestV1beta1PodsMetricSource(unittest.TestCase):
         # model = kserve.models.v1beta1_pods_metric_source.V1beta1PodsMetricSource()  # noqa: E501
         if include_optional:
             return V1beta1PodsMetricSource(
-                metric=kserve.models.v1beta1_metric_source.V1beta1MetricSource(
-                    backend="0",
-                    namespace="0",
-                    operation_over_time="0",
-                    query="0",
-                    server_address="0",
-                ),
-                target=kserve.models.v1beta1_metric_target.V1beta1MetricTarget(
-                    average_utilization=56,
-                    average_value=None,
-                    type="0",
-                    value=None,
-                ),
+                backend="0", operation_over_time="0", query="0", server_address="0"
             )
         else:
-            return V1beta1PodsMetricSource(
-                target=kserve.models.v1beta1_metric_target.V1beta1MetricTarget(
-                    average_utilization=56,
-                    average_value=None,
-                    type="0",
-                    value=None,
-                ),
-            )
+            return V1beta1PodsMetricSource()
 
     def testV1beta1PodsMetricSource(self):
         """Test V1beta1PodsMetricSource"""

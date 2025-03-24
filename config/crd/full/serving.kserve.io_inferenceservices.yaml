@@ -1246,6 +1246,8 @@ spec:
                                         enum:
                                           - opentelemetry
                                         type: string
+                                      metricName:
+                                        type: string
                                       operationOverTime:
                                         type: string
                                       query:
@@ -4369,6 +4371,8 @@ spec:
                                       backend:
                                         enum:
                                           - opentelemetry
+                                        type: string
+                                      metricName:
                                         type: string
                                       operationOverTime:
                                         type: string
@@ -18666,6 +18670,8 @@ spec:
                                       backend:
                                         enum:
                                           - opentelemetry
+                                        type: string
+                                      metricName:
                                         type: string
                                       operationOverTime:
                                         type: string

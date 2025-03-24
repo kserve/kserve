@@ -698,7 +698,7 @@ data:
 
   deploy: |-
     {
-      "defaultDeploymentMode": "RawDeployment"
+      "defaultDeploymentMode": "Serverless"
     }
 
   metricsAggregator: |-
