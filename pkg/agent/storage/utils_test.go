@@ -34,7 +34,7 @@ func TestCreate(t *testing.T) {
 	// This would get called in StartPullerAndProcessModels
 	syscall.Umask(0)
 
-	tmpDir := os.TempDir()
+	tmpDir := t.TempDir()
 	folderPath := path.Join(tmpDir, "foo")
 	filePath := path.Join(folderPath, "bar.txt")
 	f, err := Create(filePath)
