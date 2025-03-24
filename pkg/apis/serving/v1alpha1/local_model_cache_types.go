@@ -64,6 +64,7 @@ func init() {
 	SchemeBuilder.Register(&LocalModelCache{}, &LocalModelCacheList{})
 }
 
+// If the storageUri from inference service matches the sourceModelUri of the LocalModelCache or is a subdirectory of the sourceModelUri, return true
 func (spec *LocalModelCacheSpec) MatchStorageURI(storageUri string) bool {
 	cachedUri := strings.TrimSuffix(spec.SourceModelUri, "/")
 	isvcStorageUri := strings.TrimSuffix(storageUri, "/")
@@ -71,7 +72,9 @@ func (spec *LocalModelCacheSpec) MatchStorageURI(storageUri string) bool {
 		if len(isvcStorageUri) == len(cachedUri) {
 			return true
 		}
-		if string(isvcStorageUri[len(cachedUri)]) == "/" {
+
+		// If the storageUri is a subdirectory of the cachedUri, the next character after the cachedUri should be a "/"
+		if len(cachedUri) < len(isvcStorageUri) && string(isvcStorageUri[len(cachedUri)]) == "/" {
 			return true
 		}
 	}

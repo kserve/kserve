@@ -66,6 +66,12 @@ func TestLocalModelCache_MatchStorageURI(t *testing.T) {
 			isMatch:    false,
 		},
 		{
+			name:       "uriSpec does not match (2nd)",
+			spec:       uriSpec,
+			storageUri: "gs://bucket/foo",
+			isMatch:    false,
+		},
+		{
 			name:       "nonUriSpec match",
 			spec:       nonUriSpec,
 			storageUri: "foo:bar:baz",
