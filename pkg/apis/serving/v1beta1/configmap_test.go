@@ -94,7 +94,7 @@ func TestNewMultiNodeConfigWithNoData(t *testing.T) {
 		},
 	})
 
-	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	configMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 
 	multiNodeCfg, err := NewMultiNodeConfig(configMap)
@@ -111,7 +111,7 @@ func TestNewMultiNodeConfigWithoutData(t *testing.T) {
 		Data:       map[string]string{},
 	})
 
-	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	configMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 
 	multiNodeCfg, err := NewMultiNodeConfig(configMap)
@@ -130,7 +130,7 @@ func TestNewMultiNodeConfigWithData(t *testing.T) {
 		},
 	})
 
-	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	configMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 
 	multiNodeCfg, err := NewMultiNodeConfig(configMap)
