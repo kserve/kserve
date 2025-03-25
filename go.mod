@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/cloudevents/sdk-go/v2 v2.15.2
 	github.com/envoyproxy/ai-gateway v0.1.3
+	github.com/envoyproxy/gateway v1.3.0
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/getkin/kin-openapi v0.127.0
 	github.com/go-logr/logr v1.4.2

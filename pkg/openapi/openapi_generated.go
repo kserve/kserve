@@ -115,6 +115,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec":                  schema_pkg_apis_serving_v1beta1_StorageSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec":                schema_pkg_apis_serving_v1beta1_TFServingSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec":               schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TrafficPolicy":                schema_pkg_apis_serving_v1beta1_TrafficPolicy(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec":              schema_pkg_apis_serving_v1beta1_TransformerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec":                   schema_pkg_apis_serving_v1beta1_TritonSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.WorkerSpec":                   schema_pkg_apis_serving_v1beta1_WorkerSpec(ref),
@@ -5638,12 +5639,18 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref common.ReferenceCa
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec"),
 						},
 					},
+					"trafficPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TrafficPolicy defines the traffic policy for the inference service",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.TrafficPolicy"),
+						},
+					},
 				},
 				Required: []string{"predictor"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TrafficPolicy", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TransformerSpec"},
 	}
 }
 
@@ -10576,6 +10583,44 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageSpec", "k8s.io/api/core/v1.ContainerPort", "k8s.io/api/core/v1.ContainerResizePolicy", "k8s.io/api/core/v1.EnvFromSource", "k8s.io/api/core/v1.EnvVar", "k8s.io/api/core/v1.Lifecycle", "k8s.io/api/core/v1.Probe", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.SecurityContext", "k8s.io/api/core/v1.VolumeDevice", "k8s.io/api/core/v1.VolumeMount"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_TrafficPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"loadBalancer": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LoadBalancer defines the load balancer policy to be applied",
+							Ref:         ref("github.com/envoyproxy/gateway/api/v1alpha1.LoadBalancer"),
+						},
+					},
+					"retry": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Retry defines the retry strategy to be applied.",
+							Ref:         ref("github.com/envoyproxy/gateway/api/v1alpha1.Retry"),
+						},
+					},
+					"circuitBreaker": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CircuitBreaker defines the Circuit Breaker configuration.",
+							Ref:         ref("github.com/envoyproxy/gateway/api/v1alpha1.CircuitBreaker"),
+						},
+					},
+					"rateLimit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RateLimit defines the configuration associated with the Rate Limit policy.",
+							Ref:         ref("github.com/envoyproxy/gateway/api/v1alpha1.RateLimitSpec"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/envoyproxy/gateway/api/v1alpha1.CircuitBreaker", "github.com/envoyproxy/gateway/api/v1alpha1.LoadBalancer", "github.com/envoyproxy/gateway/api/v1alpha1.RateLimitSpec", "github.com/envoyproxy/gateway/api/v1alpha1.Retry"},
 	}
 }
 
