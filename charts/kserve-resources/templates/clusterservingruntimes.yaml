@@ -450,6 +450,9 @@ spec:
       image: "{{ .Values.kserve.servingruntime.huggingfaceserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceserver.tag }}"
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+      env:
+        - name: VLLM_USE_V1
+          value: 0
       securityContext:
           {{- with .Values.kserve.servingruntime.huggingfaceserver.securityContext}}
           {{- toYaml . | nindent 10 }}
