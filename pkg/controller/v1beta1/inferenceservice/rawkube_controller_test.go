@@ -19,6 +19,7 @@ package inferenceservice
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/onsi/gomega/format"
@@ -3193,6 +3194,143 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Verify deployments details
 			verifyTensorParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", constants.NvidiaGPUResourceType)
+		})
+	})
+	Context("When creating an inference service with modelcar and raw deployment", func() {
+		It("Should only have the ImagePullSecrets that are specified in the InferenceService", func() {
+			By("Updating an InferenceService with a new ImagePullSecret and checking the deployment")
+			var configMap = &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vllm-runtime",
+					Namespace: constants.KServeNamespace,
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							AutoSelect: proto.Bool(true),
+							Name:       "vLLM",
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []v1.Container{
+							{
+								Name:    constants.InferenceServiceContainerName,
+								Image:   "kserve/vllm:latest",
+								Command: []string{"bash", "-c"},
+								Args: []string{
+									"python2 -m vllm --model_name=${MODEL_NAME} --model_dir=${MODEL} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE}",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			serviceName := "modelcar-raw-deployment"
+			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: constants.KServeNamespace}}
+			var serviceKey = expectedRequest.NamespacedName
+			var storageUri = "oci://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":              "RawDeployment",
+						"serving.kserve.io/autoscalerClass":             "hpa",
+						"serving.kserve.io/metrics":                     "cpu",
+						"serving.kserve.io/targetUtilizationPercentage": "75",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: v1beta1.GetIntReference(1),
+							MaxReplicas: 2,
+						},
+						PodSpec: v1beta1.PodSpec{
+							ImagePullSecrets: []v1.LocalObjectReference{
+								{Name: "isvc-image-pull-secret"},
+							},
+						},
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "vLLM",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("0.14.0"),
+								Container: v1.Container{
+									Name: constants.InferenceServiceContainerName,
+									Resources: v1.ResourceRequirements{
+										Limits: v1.ResourceList{
+											constants.NvidiaGPUResourceType: resource.MustParse("1"),
+										},
+										Requests: v1.ResourceList{
+											constants.NvidiaGPUResourceType: resource.MustParse("1"),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			inferenceService := &v1beta1.InferenceService{}
+
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, serviceKey, inferenceService) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			actualDeployment := &appsv1.Deployment{}
+			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout, interval).
+				Should(Succeed())
+
+			Expect(actualDeployment.Spec.Template.Spec.ImagePullSecrets).To(HaveLen(1))
+			Expect(actualDeployment.Spec.Template.Spec.ImagePullSecrets[0].Name).To(Equal("isvc-image-pull-secret"))
+
+			Expect(k8sClient.Get(ctx, serviceKey, inferenceService)).Should(Succeed())
+			updateForInferenceService := inferenceService.DeepCopy()
+			updateForInferenceService.Spec.Predictor.PodSpec.ImagePullSecrets = []v1.LocalObjectReference{
+				{Name: "new-image-pull-secret"},
+			}
+			expectedImagePullSecrets := updateForInferenceService.Spec.Predictor.PodSpec.ImagePullSecrets
+			Eventually(func() error {
+				return k8sClient.Update(ctx, updateForInferenceService)
+			}, timeout, interval).Should(Succeed())
+
+			updatedDeployment := &appsv1.Deployment{}
+			Eventually(func() (bool, error) {
+				if err := k8sClient.Get(ctx, predictorDeploymentKey, updatedDeployment); err != nil {
+					return false, err
+				}
+				if len(updatedDeployment.Spec.Template.Spec.ImagePullSecrets) != 1 {
+					return false, nil
+				}
+				return reflect.DeepEqual(updatedDeployment.Spec.Template.Spec.ImagePullSecrets, expectedImagePullSecrets), nil
+			}, timeout, interval).Should(BeTrue())
+
 		})
 	})
 })
