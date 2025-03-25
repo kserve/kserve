@@ -190,19 +190,15 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 			return ctrl.Result{}, err
 		}
 
-		if stop, ok := isvc.Annotations[constants.StopResumeAnnotationKey]; ok && strings.EqualFold(stop, "true") {
+		stop, ok := isvc.Annotations[constants.StopResumeAnnotationKey]
+		if !ok {
+			stop = "false"
+		}
+
+		if strings.EqualFold(stop, "true") {
 			// Clear all statuses if the ISVC is stopped
 			p.Log.Info("Clearing ISVC status")
-			//isvc.Status = v1beta1.InferenceServiceStatus{}
-
-			// Set any remaining statuses to False with reason "Stopped"
-			for _, cond := range isvc.Status.Conditions {
-				cond.Status = corev1.ConditionFalse
-				cond.Reason = "Stopped"
-				isvc.Status.SetCondition(cond.Type, &cond)
-				fmt.Println("condition", &cond)
-			}
-			fmt.Println(&isvc.Status)
+			isvc.Status = v1beta1.InferenceServiceStatus{}
 
 			// Add the stopped condition
 			stopped_condition := &apis.Condition{
@@ -210,6 +206,14 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 				Status: corev1.ConditionTrue,
 			}
 			isvc.Status.SetCondition(v1beta1.Stopped, stopped_condition)
+
+			// Set the ready condition to False with reason Stopped
+			readyCond := &apis.Condition{
+				Type:   apis.ConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Stopped",
+			}
+			isvc.Status.SetCondition(apis.ConditionReady, readyCond)
 
 			return ctrl.Result{}, nil
 		} else {
