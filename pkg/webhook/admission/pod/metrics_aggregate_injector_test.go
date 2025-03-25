@@ -441,7 +441,6 @@ func TestInjectMetricsAggregator(t *testing.T) {
 					},
 				},
 			},
-			
 		},
 		"SetPromAnnotationFalseIdempotent": {
 			original: &corev1.Pod{
