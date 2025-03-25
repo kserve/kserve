@@ -3800,6 +3800,19 @@
         }
       }
     },
+    "v1beta1.MultiNodeConfig": {
+      "type": "object",
+      "properties": {
+        "customGPUResourceTypeList": {
+          "description": "CustomGPUResourceTypeList is a list of custom GPU resource types that are allowed to be used in the ServingRuntime and inferenceService",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        }
+      }
+    },
     "v1beta1.ONNXRuntimeSpec": {
       "description": "ONNXRuntimeSpec defines arguments for configuring ONNX model serving.",
       "type": "object",
