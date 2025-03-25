@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // ConfigMap Keys
@@ -42,6 +43,7 @@ const (
 	SecurityConfigName            = "security"
 	ServiceConfigName             = "service"
 	ResourceConfigName            = "resource"
+	MultiNodeConfigKeyName        = "multiNode"
 )
 
 const (
@@ -82,6 +84,12 @@ type InferenceServicesConfig struct {
 	ServiceLabelDisallowedList []string `json:"serviceLabelDisallowedList,omitempty"`
 	// Resource configurations
 	Resource ResourceConfig `json:"resource,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type MultiNodeConfig struct {
+	// CustomGPUResourceTypeList is a list of custom GPU resource types that are allowed to be used in the ServingRuntime and inferenceService
+	CustomGPUResourceTypeList []string `json:"customGPUResourceTypeList,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -179,6 +187,25 @@ func NewInferenceServicesConfig(isvcConfigMap *corev1.ConfigMap) (*InferenceServ
 		}
 	}
 	return icfg, nil
+}
+
+func NewMultiNodeConfig(isvcConfigMap *corev1.ConfigMap) (*MultiNodeConfig, error) {
+	mncfg := &MultiNodeConfig{}
+	for _, err := range []error{
+		getComponentConfig(MultiNodeConfigKeyName, isvcConfigMap, &mncfg),
+	} {
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if mncfg.CustomGPUResourceTypeList == nil {
+		mncfg.CustomGPUResourceTypeList = []string{}
+	}
+
+	// update global GPU resource type list
+	utils.UpdateGlobalGPUResourceTypeList(append(mncfg.CustomGPUResourceTypeList, constants.DefaultGPUResourceTypeList...))
+	return mncfg, nil
 }
 
 func validateIngressGateway(ingressConfig *IngressConfig) error {

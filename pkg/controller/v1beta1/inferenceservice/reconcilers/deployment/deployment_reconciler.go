@@ -330,11 +330,11 @@ func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerNa
 	// If CustomGPUResourceTypeAnnotationKey is set, the specified custom GPU resource will be added to the available GPUResourceTypeList.
 	customGPUResourceTypes := deployment.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey]
 	if customGPUResourceTypes != "" {
-		constants.GPUResourceTypeList = append(constants.GPUResourceTypeList, strings.Split(customGPUResourceTypes, ",")...)
+		constants.DefaultGPUResourceTypeList = append(constants.DefaultGPUResourceTypeList, strings.Split(customGPUResourceTypes, ",")...)
 	}
 	for i, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == targetContainerName {
-			for _, gpuType := range constants.GPUResourceTypeList {
+			for _, gpuType := range constants.DefaultGPUResourceTypeList {
 				resourceName := corev1.ResourceName(gpuType)
 				if qty, exists := deployment.Spec.Template.Spec.Containers[i].Resources.Limits[resourceName]; exists && !qty.IsZero() {
 					gpuResourceType = resourceName
