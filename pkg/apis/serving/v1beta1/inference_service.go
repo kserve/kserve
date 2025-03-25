@@ -21,6 +21,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	egwv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
+
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -37,6 +39,10 @@ type InferenceServiceSpec struct {
 	// transformer service calls to predictor service.
 	// +optional
 	Transformer *TransformerSpec `json:"transformer,omitempty"`
+
+	// TrafficPolicy defines the traffic policy for the inference service
+	// +optional
+	TrafficPolicy *TrafficPolicy `json:"trafficPolicy,omitempty"`
 }
 
 // LoggerType controls the scope of log publishing
@@ -101,6 +107,24 @@ type Batcher struct {
 	// Specifies the timeout of a batch
 	// +optional
 	Timeout *int `json:"timeout,omitempty"`
+}
+
+type TrafficPolicy struct {
+	// LoadBalancer defines the load balancer policy to be applied
+	// +optional
+	LoadBalancer *egwv1a1.LoadBalancer `json:"loadBalancer,omitempty"`
+
+	// Retry defines the retry strategy to be applied.
+	// +optional
+	Retry *egwv1a1.Retry `json:"retry,omitempty"`
+
+	// CircuitBreaker defines the Circuit Breaker configuration.
+	// +optional
+	CircuitBreaker *egwv1a1.CircuitBreaker `json:"circuitBreaker,omitempty"`
+
+	// RateLimit defines the configuration associated with the Rate Limit policy.
+	// +optional
+	RateLimit *egwv1a1.RateLimitSpec `json:"rateLimit,omitempty"`
 }
 
 // InferenceService is the Schema for the InferenceServices API

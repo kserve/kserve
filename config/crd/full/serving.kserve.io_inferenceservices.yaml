@@ -18194,6 +18194,422 @@ spec:
                           type: string
                       type: object
                   type: object
+                trafficPolicy:
+                  properties:
+                    circuitBreaker:
+                      properties:
+                        maxConnections:
+                          default: 1024
+                          format: int64
+                          maximum: 4294967295
+                          minimum: 0
+                          type: integer
+                        maxParallelRequests:
+                          default: 1024
+                          format: int64
+                          maximum: 4294967295
+                          minimum: 0
+                          type: integer
+                        maxParallelRetries:
+                          default: 1024
+                          format: int64
+                          maximum: 4294967295
+                          minimum: 0
+                          type: integer
+                        maxPendingRequests:
+                          default: 1024
+                          format: int64
+                          maximum: 4294967295
+                          minimum: 0
+                          type: integer
+                        maxRequestsPerConnection:
+                          format: int64
+                          maximum: 4294967295
+                          minimum: 0
+                          type: integer
+                      type: object
+                    loadBalancer:
+                      properties:
+                        consistentHash:
+                          properties:
+                            cookie:
+                              properties:
+                                attributes:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                                name:
+                                  type: string
+                                ttl:
+                                  type: string
+                              required:
+                                - name
+                              type: object
+                            header:
+                              properties:
+                                name:
+                                  type: string
+                              required:
+                                - name
+                              type: object
+                            tableSize:
+                              default: 65537
+                              format: int64
+                              maximum: 5000011
+                              minimum: 2
+                              type: integer
+                            type:
+                              enum:
+                                - SourceIP
+                                - Header
+                                - Cookie
+                              type: string
+                          required:
+                            - type
+                          type: object
+                          x-kubernetes-validations:
+                            - message: If consistent hash type is header, the header field must be set.
+                              rule: 'self.type == ''Header'' ? has(self.header) : !has(self.header)'
+                            - message: If consistent hash type is cookie, the cookie field must be set.
+                              rule: 'self.type == ''Cookie'' ? has(self.cookie) : !has(self.cookie)'
+                        slowStart:
+                          properties:
+                            window:
+                              type: string
+                          required:
+                            - window
+                          type: object
+                        type:
+                          enum:
+                            - ConsistentHash
+                            - LeastRequest
+                            - Random
+                            - RoundRobin
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                        - message: If LoadBalancer type is consistentHash, consistentHash field needs to be set.
+                          rule: 'self.type == ''ConsistentHash'' ? has(self.consistentHash) : !has(self.consistentHash)'
+                        - message: Currently SlowStart is only supported for RoundRobin and LeastRequest load balancers.
+                          rule: 'self.type in [''Random'', ''ConsistentHash''] ? !has(self.slowStart) : true '
+                    rateLimit:
+                      properties:
+                        global:
+                          properties:
+                            rules:
+                              items:
+                                properties:
+                                  clientSelectors:
+                                    items:
+                                      properties:
+                                        headers:
+                                          items:
+                                            properties:
+                                              invert:
+                                                default: false
+                                                type: boolean
+                                              name:
+                                                maxLength: 256
+                                                minLength: 1
+                                                type: string
+                                              type:
+                                                default: Exact
+                                                enum:
+                                                  - Exact
+                                                  - RegularExpression
+                                                  - Distinct
+                                                type: string
+                                              value:
+                                                maxLength: 1024
+                                                type: string
+                                            required:
+                                              - name
+                                            type: object
+                                          maxItems: 16
+                                          type: array
+                                        sourceCIDR:
+                                          properties:
+                                            type:
+                                              default: Exact
+                                              enum:
+                                                - Exact
+                                                - Distinct
+                                              type: string
+                                            value:
+                                              maxLength: 256
+                                              minLength: 1
+                                              type: string
+                                          required:
+                                            - value
+                                          type: object
+                                      type: object
+                                    maxItems: 8
+                                    type: array
+                                  cost:
+                                    properties:
+                                      request:
+                                        properties:
+                                          from:
+                                            enum:
+                                              - Number
+                                              - Metadata
+                                            type: string
+                                          metadata:
+                                            properties:
+                                              key:
+                                                type: string
+                                              namespace:
+                                                type: string
+                                            required:
+                                              - key
+                                              - namespace
+                                            type: object
+                                          number:
+                                            format: int64
+                                            type: integer
+                                        required:
+                                          - from
+                                        type: object
+                                        x-kubernetes-validations:
+                                          - message: only one of number or metadata can be specified
+                                            rule: '!(has(self.number) && has(self.metadata))'
+                                      response:
+                                        properties:
+                                          from:
+                                            enum:
+                                              - Number
+                                              - Metadata
+                                            type: string
+                                          metadata:
+                                            properties:
+                                              key:
+                                                type: string
+                                              namespace:
+                                                type: string
+                                            required:
+                                              - key
+                                              - namespace
+                                            type: object
+                                          number:
+                                            format: int64
+                                            type: integer
+                                        required:
+                                          - from
+                                        type: object
+                                        x-kubernetes-validations:
+                                          - message: only one of number or metadata can be specified
+                                            rule: '!(has(self.number) && has(self.metadata))'
+                                    type: object
+                                  limit:
+                                    properties:
+                                      requests:
+                                        type: integer
+                                      unit:
+                                        enum:
+                                          - Second
+                                          - Minute
+                                          - Hour
+                                          - Day
+                                        type: string
+                                    required:
+                                      - requests
+                                      - unit
+                                    type: object
+                                required:
+                                  - limit
+                                type: object
+                              maxItems: 64
+                              type: array
+                          required:
+                            - rules
+                          type: object
+                        local:
+                          properties:
+                            rules:
+                              items:
+                                properties:
+                                  clientSelectors:
+                                    items:
+                                      properties:
+                                        headers:
+                                          items:
+                                            properties:
+                                              invert:
+                                                default: false
+                                                type: boolean
+                                              name:
+                                                maxLength: 256
+                                                minLength: 1
+                                                type: string
+                                              type:
+                                                default: Exact
+                                                enum:
+                                                  - Exact
+                                                  - RegularExpression
+                                                  - Distinct
+                                                type: string
+                                              value:
+                                                maxLength: 1024
+                                                type: string
+                                            required:
+                                              - name
+                                            type: object
+                                          maxItems: 16
+                                          type: array
+                                        sourceCIDR:
+                                          properties:
+                                            type:
+                                              default: Exact
+                                              enum:
+                                                - Exact
+                                                - Distinct
+                                              type: string
+                                            value:
+                                              maxLength: 256
+                                              minLength: 1
+                                              type: string
+                                          required:
+                                            - value
+                                          type: object
+                                      type: object
+                                    maxItems: 8
+                                    type: array
+                                  cost:
+                                    properties:
+                                      request:
+                                        properties:
+                                          from:
+                                            enum:
+                                              - Number
+                                              - Metadata
+                                            type: string
+                                          metadata:
+                                            properties:
+                                              key:
+                                                type: string
+                                              namespace:
+                                                type: string
+                                            required:
+                                              - key
+                                              - namespace
+                                            type: object
+                                          number:
+                                            format: int64
+                                            type: integer
+                                        required:
+                                          - from
+                                        type: object
+                                        x-kubernetes-validations:
+                                          - message: only one of number or metadata can be specified
+                                            rule: '!(has(self.number) && has(self.metadata))'
+                                      response:
+                                        properties:
+                                          from:
+                                            enum:
+                                              - Number
+                                              - Metadata
+                                            type: string
+                                          metadata:
+                                            properties:
+                                              key:
+                                                type: string
+                                              namespace:
+                                                type: string
+                                            required:
+                                              - key
+                                              - namespace
+                                            type: object
+                                          number:
+                                            format: int64
+                                            type: integer
+                                        required:
+                                          - from
+                                        type: object
+                                        x-kubernetes-validations:
+                                          - message: only one of number or metadata can be specified
+                                            rule: '!(has(self.number) && has(self.metadata))'
+                                    type: object
+                                  limit:
+                                    properties:
+                                      requests:
+                                        type: integer
+                                      unit:
+                                        enum:
+                                          - Second
+                                          - Minute
+                                          - Hour
+                                          - Day
+                                        type: string
+                                    required:
+                                      - requests
+                                      - unit
+                                    type: object
+                                required:
+                                  - limit
+                                type: object
+                              maxItems: 16
+                              type: array
+                              x-kubernetes-validations:
+                                - message: response cost is not supported for Local Rate Limits
+                                  rule: self.all(foo, !has(foo.cost) || !has(foo.cost.response))
+                          type: object
+                        type:
+                          enum:
+                            - Global
+                            - Local
+                          type: string
+                      type: object
+                    retry:
+                      properties:
+                        numRetries:
+                          default: 2
+                          format: int32
+                          minimum: 0
+                          type: integer
+                        perRetry:
+                          properties:
+                            backOff:
+                              properties:
+                                baseInterval:
+                                  format: duration
+                                  type: string
+                                maxInterval:
+                                  format: duration
+                                  type: string
+                              type: object
+                            timeout:
+                              format: duration
+                              type: string
+                          type: object
+                        retryOn:
+                          properties:
+                            httpStatusCodes:
+                              items:
+                                exclusiveMaximum: true
+                                maximum: 600
+                                minimum: 100
+                                type: integer
+                              type: array
+                            triggers:
+                              items:
+                                enum:
+                                  - 5xx
+                                  - gateway-error
+                                  - reset
+                                  - connect-failure
+                                  - retriable-4xx
+                                  - refused-stream
+                                  - retriable-status-codes
+                                  - cancelled
+                                  - deadline-exceeded
+                                  - internal
+                                  - resource-exhausted
+                                  - unavailable
+                                type: string
+                              type: array
+                          type: object
+                      type: object
+                  type: object
                 transformer:
                   properties:
                     activeDeadlineSeconds:

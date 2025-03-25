@@ -3118,6 +3118,10 @@
           "default": {},
           "$ref": "#/definitions/v1beta1.PredictorSpec"
         },
+        "trafficPolicy": {
+          "description": "TrafficPolicy defines the traffic policy for the inference service",
+          "$ref": "#/definitions/v1beta1.TrafficPolicy"
+        },
         "transformer": {
           "description": "Transformer defines the pre/post processing before and after the predictor call, transformer service calls to predictor service.",
           "$ref": "#/definitions/v1beta1.TransformerSpec"
@@ -5873,6 +5877,27 @@
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
           "type": "string"
+        }
+      }
+    },
+    "v1beta1.TrafficPolicy": {
+      "type": "object",
+      "properties": {
+        "circuitBreaker": {
+          "description": "CircuitBreaker defines the Circuit Breaker configuration.",
+          "$ref": "#/definitions/github.com.envoyproxy.gateway.api.v1alpha1.CircuitBreaker"
+        },
+        "loadBalancer": {
+          "description": "LoadBalancer defines the load balancer policy to be applied",
+          "$ref": "#/definitions/github.com.envoyproxy.gateway.api.v1alpha1.LoadBalancer"
+        },
+        "rateLimit": {
+          "description": "RateLimit defines the configuration associated with the Rate Limit policy.",
+          "$ref": "#/definitions/github.com.envoyproxy.gateway.api.v1alpha1.RateLimitSpec"
+        },
+        "retry": {
+          "description": "Retry defines the retry strategy to be applied.",
+          "$ref": "#/definitions/github.com.envoyproxy.gateway.api.v1alpha1.Retry"
         }
       }
     },
