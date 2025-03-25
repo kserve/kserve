@@ -19,6 +19,9 @@ spec:
       image: huggingfaceserver:replace
       args:
         - --model_name={{.Name}}
+      env:
+        - name: VLLM_USE_V1
+          value: 0
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
