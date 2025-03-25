@@ -390,7 +390,6 @@ func createRawTopLevelHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceServ
 ) (*gatewayapiv1.HTTPRoute, error) {
 	var httpRouteRules []gatewayapiv1.HTTPRouteRule
 	var allowedHosts []gatewayapiv1.Hostname
-	additionalHosts := ingressConfig.AdditionalIngressDomains
 
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
@@ -417,14 +416,19 @@ func createRawTopLevelHTTPRoute(ctx context.Context, isvc *v1beta1.InferenceServ
 		return nil, fmt.Errorf("failed to generate top level ingress host: %w", err)
 	}
 	allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(topLevelHost))
+	domainList := []string{ingressConfig.IngressDomain}
+	additionalHosts := GetAdditionalHosts(&domainList, topLevelHost, ingressConfig)
 	// Add additional hosts to allowed hosts
 	if additionalHosts != nil {
-		hostMap := make(map[string]bool, len(*additionalHosts))
-		for _, host := range *additionalHosts {
+		hostMap := make(map[gatewayapiv1.Hostname]bool, len(allowedHosts))
+		for _, host := range allowedHosts {
 			hostMap[host] = true
 		}
-		for additionalHost := range hostMap {
-			allowedHosts = append(allowedHosts, gatewayapiv1.Hostname(additionalHost))
+		for _, additionalHost := range *additionalHosts {
+			gwHost := gatewayapiv1.Hostname(additionalHost)
+			if _, found := hostMap[gwHost]; !found {
+				allowedHosts = append(allowedHosts, gwHost)
+			}
 		}
 	}
 	// Add isvc name and namespace headers
