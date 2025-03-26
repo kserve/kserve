@@ -22,6 +22,8 @@ spec:
       env:
         - name: VLLM_USE_V1
           value: 0
+        - name: LMCACHE_USE_EXPERIMENTAL
+          value: "True"
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
