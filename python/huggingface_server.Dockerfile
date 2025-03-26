@@ -54,7 +54,7 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.8.1
+ARG VLLM_VERSION=0.8.2
 
 ################### LMCache WHEEL BUILD ###################
 # max jobs used by Ninja to build extensions
@@ -109,7 +109,8 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install ${WORKSPACE_DIR}/LMCa
 
 # Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
-RUN --mount=type=cache,target=/root/.cache/pip pip install --upgrade pip && pip install vllm[runai,tensorizer]==${VLLM_VERSION}
+# https://docs.vllm.ai/en/latest/models/extensions/fastsafetensor.html
+RUN --mount=type=cache,target=/root/.cache/pip pip install --upgrade pip && pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
 
 # Install FlashInfer Attention backend
 RUN --mount=type=cache,target=/root/.cache/pip pip install https://github.com/flashinfer-ai/flashinfer/releases/download/v0.2.1.post2/flashinfer_python-0.2.1.post2+cu124torch2.6-cp38-abi3-linux_x86_64.whl
