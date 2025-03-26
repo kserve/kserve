@@ -85,25 +85,25 @@ mkdir -p $INSTALL_DIR
 # Generate kserve.yaml
 helm template $HELM_KSERVE_CRD_DIR \
   --namespace kserve \
-  > $INSTALL_PATH
+  | yq eval -P --indent 2 - > $INSTALL_PATH
 helm template $HELM_KSERVE_RESOURCES_DIR \
   --namespace kserve \
   --set kserve.servingruntime.enabled=false \
   --set kserve.storage.enabled=false \
-  | sed '1s/^/---\n/' >> $INSTALL_PATH
+  | yq eval -P --indent 2 - | sed '1s/^/---\n/' >> $INSTALL_PATH
 # Generate kserve_kubeflow.yaml
 helm template $HELM_KSERVE_CRD_DIR \
   --namespace kubeflow \
-  > $KSERVE_OVERLAY_PATH
+  | yq eval -P --indent 2 - > $KSERVE_OVERLAY_PATH
 helm template $HELM_KSERVE_RESOURCES_DIR \
   --namespace kubeflow \
   --set kserve.controller.gateway.ingressGateway.gateway="kubeflow/kubeflow-gateway" \
   --set kserve.servingruntime.enabled=false \
   --set kserve.storage.enabled=false \
-  | sed '1s/^/---\n/' >> $KSERVE_OVERLAY_PATH
-kubectl kustomize $KUBEFLOW_OVERLAY_DIR > $KUBEFLOW_INSTALL_PATH
+  | yq eval -P --indent 2 - | sed '1s/^/---\n/' >> $KSERVE_OVERLAY_PATH
+kubectl kustomize $KUBEFLOW_OVERLAY_DIR | yq eval -P --indent 2 > $KUBEFLOW_INSTALL_PATH
 # Generate kserve-cluster-resources.yaml
 helm template $HELM_KSERVE_RESOURCES_DIR \
   --show-only templates/clusterservingruntimes.yaml \
   --show-only templates/clusterstoragecontainer.yaml \
-  > $RUNTIMES_INSTALL_PATH
+  | yq eval -P --indent 2 - > $RUNTIMES_INSTALL_PATH
