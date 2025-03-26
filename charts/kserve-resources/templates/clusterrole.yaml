@@ -22,14 +22,12 @@ rules:
   resources:
   - configmaps
   verbs:
-  - create
   - get
   - update
 - apiGroups:
   - ""
   resources:
   - events
-  - services
   verbs:
   - create
   - delete
@@ -42,7 +40,6 @@ rules:
   - ""
   resources:
   - namespaces
-  - pods
   verbs:
   - get
   - list
@@ -202,15 +199,8 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - clusterservingruntimes
-  - clusterservingruntimes/finalizers
-  - clusterstoragecontainers
   - inferencegraphs
   - inferencegraphs/finalizers
-  - inferenceservices
-  - inferenceservices/finalizers
-  - servingruntimes
-  - servingruntimes/finalizers
   - trainedmodels
   verbs:
   - create
@@ -223,20 +213,9 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - clusterservingruntimes/status
   - inferencegraphs/status
-  - inferenceservices/status
-  - servingruntimes/status
   - trainedmodels/status
   verbs:
   - get
   - patch
   - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - localmodelcaches
-  verbs:
-  - get
-  - list
-  - watch

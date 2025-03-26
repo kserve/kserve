@@ -513,6 +513,7 @@ const (
 	KindService             = "Service"
 	KindKedaScaledObject    = "ScaledObject"
 	KindAIServiceBackend	= "AIServiceBackend"
+	KindBackendTrafficPolicy = "BackendTrafficPolicy"
 	OpenTelemetryCollector  = "OpenTelemetryCollector"
 )
 
