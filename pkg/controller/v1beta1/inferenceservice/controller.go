@@ -52,6 +52,7 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	aigwv1a1 "github.com/envoyproxy/ai-gateway/api/v1alpha1"
+	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -98,7 +99,8 @@ import (
 // +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors/finalizers,verbs=get;list;watch;create;update;patch;delete
-
+// +kubebuilder:rbac:groups=envoyproxy.ai,resources=aiservicebackends,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=gateway.envoyproxy.io,resources=backendtrafficpolicies,verbs=get;list;watch;create;update;patch;delete
 // InferenceServiceState describes the Readiness of the InferenceService
 type InferenceServiceState string
 
@@ -471,6 +473,17 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Owns(&aigwv1a1.AIServiceBackend{})
 	} else {
 		r.Log.Info("The InferenceService controller won't watch envoyproxy.ai/v1alpha1/AIServiceBackend resources because the CRD is not available.")
+	}
+
+	egwFound, egwCheckErr := utils.IsCrdAvailable(r.ClientConfig, egv1a1.GroupVersion.String(), constants.KindBackendTrafficPolicy)	
+	if egwCheckErr != nil {
+		r.Log.Error(egwCheckErr, "error when checking if Envoy Gateway kind is available")
+		return egwCheckErr
+	}
+	if egwFound {
+		ctrlBuilder = ctrlBuilder.Owns(&egv1a1.BackendTrafficPolicy{})
+	} else {
+		r.Log.Info("The InferenceService controller won't watch gateway.envoyproxy.io/v1alpha1/BackendTrafficPolicy resources because the CRD is not available.")
 	}
 
 	return ctrlBuilder.Complete(r)

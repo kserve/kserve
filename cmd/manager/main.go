@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	aigwv1a1 "github.com/envoyproxy/ai-gateway/api/v1alpha1"
+	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -254,6 +255,19 @@ func main() {
 		}
 	} else {
 		setupLog.Info("The manager won't watch envoyproxy.ai/v1alpha1/AIServiceBackend resources because the CRD is not available.")
+	}
+
+	egwFound, egwCheckErr := utils.IsCrdAvailable(cfg, egv1a1.GroupVersion.String(), constants.KindBackendTrafficPolicy)	
+	if egwCheckErr != nil {
+		setupLog.Error(egwCheckErr, "error when checking if Envoy Gateway kind is available")
+		os.Exit(1)
+	}
+	if egwFound {
+		setupLog.Info("Setting up Envoy Gateway scheme")
+		if err := egv1a1.AddToScheme(mgr.GetScheme()); err != nil {
+			setupLog.Error(err, "unable to add BackendTrafficPolicy APIs to scheme")
+			os.Exit(1)
+		}
 	}
 
 	// Setup all Controllers
