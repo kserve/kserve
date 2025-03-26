@@ -167,6 +167,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Update Global GPU Resource Type List when custom GPU resource types are provided
+	_, err = v1beta1.NewMultiNodeConfig(isvcConfigMap)
+	if err != nil {
+		setupLog.Error(err, "unable to get multiNode config.")
+		os.Exit(1)
+	}
+
 	ksvcFound, ksvcCheckErr := utils.IsCrdAvailable(cfg, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 	if ksvcCheckErr != nil {
 		setupLog.Error(ksvcCheckErr, "error when checking if Knative Service kind is available")
