@@ -27,6 +27,7 @@ API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,ReadinessGates
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,Tolerations
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,Volumes
+API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodsMetricSource,MetricNames
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,InferenceGraphSpec,TimeoutSeconds
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,InferenceStep,StepName
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1alpha1,InferenceTarget,ServiceURL
@@ -43,9 +44,8 @@ API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,MetricsSpec,PodMetric
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ModelStatus,ModelCopies
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,ModelStatus,ModelRevisionStates
-API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,OtelCollectorConfig,OTelReceiverEndpoint
-API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,OtelCollectorConfig,OTelScalerEndpoint
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodSpec,DeprecatedServiceAccount
+API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodsMetricSource,MetricNames
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorExtensionSpec,StorageURI
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,HuggingFace
 API rule violation: names_match,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PredictorSpec,LightGBM

@@ -48,7 +48,7 @@ class V1beta1PodsMetricSource(object):
     """
     openapi_types = {
         'backend': 'str',
-        'metric_name': 'str',
+        'metric_name': 'list[str]',
         'operation_over_time': 'str',
         'query': 'str',
         'server_address': 'str'
@@ -90,7 +90,7 @@ class V1beta1PodsMetricSource(object):
     def backend(self):
         """Gets the backend of this V1beta1PodsMetricSource.  # noqa: E501
 
-        MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.  # noqa: E501
+        Backend defines the scaling metric type watched by the autoscaler. Possible value: opentelemetry.  # noqa: E501
 
         :return: The backend of this V1beta1PodsMetricSource.  # noqa: E501
         :rtype: str
@@ -101,7 +101,7 @@ class V1beta1PodsMetricSource(object):
     def backend(self, backend):
         """Sets the backend of this V1beta1PodsMetricSource.
 
-        MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.  # noqa: E501
+        Backend defines the scaling metric type watched by the autoscaler. Possible value: opentelemetry.  # noqa: E501
 
         :param backend: The backend of this V1beta1PodsMetricSource.  # noqa: E501
         :type: str
@@ -113,10 +113,10 @@ class V1beta1PodsMetricSource(object):
     def metric_name(self):
         """Gets the metric_name of this V1beta1PodsMetricSource.  # noqa: E501
 
-        MetricName is the name of the metric in the backend  # noqa: E501
+        MetricNames is the list of metric names in the backend.  # noqa: E501
 
         :return: The metric_name of this V1beta1PodsMetricSource.  # noqa: E501
-        :rtype: str
+        :rtype: list[str]
         """
         return self._metric_name
 
@@ -124,10 +124,10 @@ class V1beta1PodsMetricSource(object):
     def metric_name(self, metric_name):
         """Sets the metric_name of this V1beta1PodsMetricSource.
 
-        MetricName is the name of the metric in the backend  # noqa: E501
+        MetricNames is the list of metric names in the backend.  # noqa: E501
 
         :param metric_name: The metric_name of this V1beta1PodsMetricSource.  # noqa: E501
-        :type: str
+        :type: list[str]
         """
 
         self._metric_name = metric_name
@@ -136,7 +136,7 @@ class V1beta1PodsMetricSource(object):
     def operation_over_time(self):
         """Gets the operation_over_time of this V1beta1PodsMetricSource.  # noqa: E501
 
-        OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.  # noqa: E501
+        OperationOverTime specifies the operation to aggregate the metrics over time. Possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.  # noqa: E501
 
         :return: The operation_over_time of this V1beta1PodsMetricSource.  # noqa: E501
         :rtype: str
@@ -147,7 +147,7 @@ class V1beta1PodsMetricSource(object):
     def operation_over_time(self, operation_over_time):
         """Sets the operation_over_time of this V1beta1PodsMetricSource.
 
-        OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.  # noqa: E501
+        OperationOverTime specifies the operation to aggregate the metrics over time. Possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.  # noqa: E501
 
         :param operation_over_time: The operation_over_time of this V1beta1PodsMetricSource.  # noqa: E501
         :type: str
@@ -159,7 +159,7 @@ class V1beta1PodsMetricSource(object):
     def query(self):
         """Gets the query of this V1beta1PodsMetricSource.  # noqa: E501
 
-        Query to run to get metrics from MetricsBackend  # noqa: E501
+        Query specifies the query to run to get metrics from the MetricsBackend.  # noqa: E501
 
         :return: The query of this V1beta1PodsMetricSource.  # noqa: E501
         :rtype: str
@@ -170,7 +170,7 @@ class V1beta1PodsMetricSource(object):
     def query(self, query):
         """Sets the query of this V1beta1PodsMetricSource.
 
-        Query to run to get metrics from MetricsBackend  # noqa: E501
+        Query specifies the query to run to get metrics from the MetricsBackend.  # noqa: E501
 
         :param query: The query of this V1beta1PodsMetricSource.  # noqa: E501
         :type: str
@@ -182,7 +182,7 @@ class V1beta1PodsMetricSource(object):
     def server_address(self):
         """Gets the server_address of this V1beta1PodsMetricSource.  # noqa: E501
 
-        Address of MetricsBackend server.  # noqa: E501
+        ServerAddress specifies the address of the MetricsBackend server.  # noqa: E501
 
         :return: The server_address of this V1beta1PodsMetricSource.  # noqa: E501
         :rtype: str
@@ -193,7 +193,7 @@ class V1beta1PodsMetricSource(object):
     def server_address(self, server_address):
         """Sets the server_address of this V1beta1PodsMetricSource.
 
-        Address of MetricsBackend server.  # noqa: E501
+        ServerAddress specifies the address of the MetricsBackend server.  # noqa: E501
 
         :param server_address: The server_address of this V1beta1PodsMetricSource.  # noqa: E501
         :type: str

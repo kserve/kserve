@@ -6299,13 +6299,6 @@ func schema_pkg_apis_serving_v1beta1_MetricSource(ref common.ReferenceCallback) 
 							Format:      "",
 						},
 					},
-					"operationOverTime": {
-						SchemaProps: spec.SchemaProps{
-							Description: "OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 				},
 			},
 		},
@@ -7222,13 +7215,13 @@ func schema_pkg_apis_serving_v1beta1_OtelCollectorConfig(ref common.ReferenceCal
 							Format: "",
 						},
 					},
-					"otelReceiverEndpoint": {
+					"metricReceiverEndpoint": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
 						},
 					},
-					"otelScalerEndpoint": {
+					"metricScalerEndpoint": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
@@ -8384,35 +8377,43 @@ func schema_pkg_apis_serving_v1beta1_PodsMetricSource(ref common.ReferenceCallba
 				Properties: map[string]spec.Schema{
 					"backend": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite, opentelemetry.",
+							Description: "Backend defines the scaling metric type watched by the autoscaler. Possible value: opentelemetry.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"serverAddress": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Address of MetricsBackend server.",
+							Description: "ServerAddress specifies the address of the MetricsBackend server.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"metricName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MetricName is the name of the metric in the backend",
-							Type:        []string{"string"},
-							Format:      "",
+							Description: "MetricNames is the list of metric names in the backend.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
 						},
 					},
 					"query": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Query to run to get metrics from MetricsBackend",
+							Description: "Query specifies the query to run to get metrics from the MetricsBackend.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"operationOverTime": {
 						SchemaProps: spec.SchemaProps{
-							Description: "OperationOverTime specifies the operation to aggregate the metrics over time possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.",
+							Description: "OperationOverTime specifies the operation to aggregate the metrics over time. Possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

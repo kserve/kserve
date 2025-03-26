@@ -97,8 +97,10 @@ data:
        {
          # scrapeInterval is the interval at which the OpenTelemetry Collector will scrape the metrics.
          "scrapeInterval": "5s",
-         # OTelExporterEndpoint is the endpoint to which the OpenTelemetry Collector will export the metrics.
-         "OTelExporterEndpoint": "otel/opentelemetry-collector-contrib:latest",
+         # metricScalerEndpoint is the endpoint from which the KEDA's ScaledObject will scrape the metrics.
+         "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318",
+         # metricReceiverEndpoint is the endpoint from which the OpenTelemetry Collector will scrape the metrics.
+          "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317"
        }
       
      # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
@@ -733,6 +735,6 @@ data:
   opentelemetryCollector: |-
     {
       "scrapeInterval": "5s",
-      "otelReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
-      "otelScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
+      "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
+      "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
     }

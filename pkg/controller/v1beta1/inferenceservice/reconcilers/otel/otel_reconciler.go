@@ -63,7 +63,7 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 	metric v1beta1.MetricsSpec,
 	otelConfig v1beta1.OtelCollectorConfig,
 ) *otelv1beta1.OpenTelemetryCollector {
-	metricName := metric.PodMetric.Metric.MetricName
+	metricNames := metric.PodMetric.Metric.MetricNames
 	port, ok := componentMeta.Annotations["prometheus.kserve.io/port"]
 	if !ok {
 		log.Info("Annotation prometheus.kserve.io/port is missing, using default value 8080 to configure OTel Collector")
@@ -95,19 +95,10 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 						},
 					},
 				}},
-				Processors: &otelv1beta1.AnyConfig{Object: map[string]interface{}{
-					"filter/ottl": map[string]interface{}{
-						"error_mode": "ignore",
-						"metrics": map[string]interface{}{
-							"metric": []interface{}{
-								fmt.Sprintf(`name != "%s"`, metricName),
-							},
-						},
-					},
-				}},
+				Processors: &otelv1beta1.AnyConfig{Object: map[string]interface{}{}},
 				Exporters: otelv1beta1.AnyConfig{Object: map[string]interface{}{
 					"otlp": map[string]interface{}{
-						"endpoint":    otelConfig.OTelReceiverEndpoint,
+						"endpoint":    otelConfig.MetricReceiverEndpoint,
 						"compression": "none",
 						"tls": map[string]interface{}{
 							"insecure": true,
@@ -118,13 +109,31 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 					Pipelines: map[string]*otelv1beta1.Pipeline{
 						"metrics": {
 							Receivers:  []string{"prometheus"},
-							Processors: []string{"filter/ottl"},
+							Processors: []string{},
 							Exporters:  []string{"otlp"},
 						},
 					},
 				},
 			},
 		},
+	}
+
+	// Add filter processor to exclude the metric that is used for scaling if it is specified.
+	// otherwise, all metrics will be sent to the OTel backend.
+	if len(metricNames) > 0 {
+		metricFilters := []interface{}{}
+		for _, name := range metricNames {
+			metricFilters = append(metricFilters, fmt.Sprintf(`name != "%s"`, name))
+		}
+		otelCollector.Spec.Config.Processors = &otelv1beta1.AnyConfig{Object: map[string]interface{}{
+			"filter/ottl": map[string]interface{}{
+				"error_mode": "ignore",
+				"metrics": map[string]interface{}{
+					"metric": metricFilters,
+				},
+			},
+		}}
+		otelCollector.Spec.Config.Service.Pipelines["metrics"].Processors = []string{"filter/ottl"}
 	}
 
 	return otelCollector

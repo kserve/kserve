@@ -47,76 +47,76 @@ class V1beta1OtelCollectorConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'otel_receiver_endpoint': 'str',
-        'otel_scaler_endpoint': 'str',
+        'metric_receiver_endpoint': 'str',
+        'metric_scaler_endpoint': 'str',
         'scrape_interval': 'str'
     }
 
     attribute_map = {
-        'otel_receiver_endpoint': 'otelReceiverEndpoint',
-        'otel_scaler_endpoint': 'otelScalerEndpoint',
+        'metric_receiver_endpoint': 'metricReceiverEndpoint',
+        'metric_scaler_endpoint': 'metricScalerEndpoint',
         'scrape_interval': 'scrapeInterval'
     }
 
-    def __init__(self, otel_receiver_endpoint=None, otel_scaler_endpoint=None, scrape_interval=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, metric_receiver_endpoint=None, metric_scaler_endpoint=None, scrape_interval=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1OtelCollectorConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._otel_receiver_endpoint = None
-        self._otel_scaler_endpoint = None
+        self._metric_receiver_endpoint = None
+        self._metric_scaler_endpoint = None
         self._scrape_interval = None
         self.discriminator = None
 
-        if otel_receiver_endpoint is not None:
-            self.otel_receiver_endpoint = otel_receiver_endpoint
-        if otel_scaler_endpoint is not None:
-            self.otel_scaler_endpoint = otel_scaler_endpoint
+        if metric_receiver_endpoint is not None:
+            self.metric_receiver_endpoint = metric_receiver_endpoint
+        if metric_scaler_endpoint is not None:
+            self.metric_scaler_endpoint = metric_scaler_endpoint
         if scrape_interval is not None:
             self.scrape_interval = scrape_interval
 
     @property
-    def otel_receiver_endpoint(self):
-        """Gets the otel_receiver_endpoint of this V1beta1OtelCollectorConfig.  # noqa: E501
+    def metric_receiver_endpoint(self):
+        """Gets the metric_receiver_endpoint of this V1beta1OtelCollectorConfig.  # noqa: E501
 
 
-        :return: The otel_receiver_endpoint of this V1beta1OtelCollectorConfig.  # noqa: E501
+        :return: The metric_receiver_endpoint of this V1beta1OtelCollectorConfig.  # noqa: E501
         :rtype: str
         """
-        return self._otel_receiver_endpoint
+        return self._metric_receiver_endpoint
 
-    @otel_receiver_endpoint.setter
-    def otel_receiver_endpoint(self, otel_receiver_endpoint):
-        """Sets the otel_receiver_endpoint of this V1beta1OtelCollectorConfig.
+    @metric_receiver_endpoint.setter
+    def metric_receiver_endpoint(self, metric_receiver_endpoint):
+        """Sets the metric_receiver_endpoint of this V1beta1OtelCollectorConfig.
 
 
-        :param otel_receiver_endpoint: The otel_receiver_endpoint of this V1beta1OtelCollectorConfig.  # noqa: E501
+        :param metric_receiver_endpoint: The metric_receiver_endpoint of this V1beta1OtelCollectorConfig.  # noqa: E501
         :type: str
         """
 
-        self._otel_receiver_endpoint = otel_receiver_endpoint
+        self._metric_receiver_endpoint = metric_receiver_endpoint
 
     @property
-    def otel_scaler_endpoint(self):
-        """Gets the otel_scaler_endpoint of this V1beta1OtelCollectorConfig.  # noqa: E501
+    def metric_scaler_endpoint(self):
+        """Gets the metric_scaler_endpoint of this V1beta1OtelCollectorConfig.  # noqa: E501
 
 
-        :return: The otel_scaler_endpoint of this V1beta1OtelCollectorConfig.  # noqa: E501
+        :return: The metric_scaler_endpoint of this V1beta1OtelCollectorConfig.  # noqa: E501
         :rtype: str
         """
-        return self._otel_scaler_endpoint
+        return self._metric_scaler_endpoint
 
-    @otel_scaler_endpoint.setter
-    def otel_scaler_endpoint(self, otel_scaler_endpoint):
-        """Sets the otel_scaler_endpoint of this V1beta1OtelCollectorConfig.
+    @metric_scaler_endpoint.setter
+    def metric_scaler_endpoint(self, metric_scaler_endpoint):
+        """Sets the metric_scaler_endpoint of this V1beta1OtelCollectorConfig.
 
 
-        :param otel_scaler_endpoint: The otel_scaler_endpoint of this V1beta1OtelCollectorConfig.  # noqa: E501
+        :param metric_scaler_endpoint: The metric_scaler_endpoint of this V1beta1OtelCollectorConfig.  # noqa: E501
         :type: str
         """
 
-        self._otel_scaler_endpoint = otel_scaler_endpoint
+        self._metric_scaler_endpoint = metric_scaler_endpoint
 
     @property
     def scrape_interval(self):

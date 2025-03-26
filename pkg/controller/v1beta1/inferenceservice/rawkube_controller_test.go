@@ -7309,9 +7309,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type: v1beta1.MetricSourceType(constants.AutoScalerPodMetric),
 										PodMetric: &v1beta1.PodMetricSource{
 											Metric: v1beta1.PodsMetricSource{
-												Backend:    (*v1beta1.PodsMetricsBackend)(&constants.AutoScalerMetricsOpenTelemetry),
-												MetricName: "process_cpu_seconds_total",
-												Query:      "avg(process_cpu_seconds_total)",
+												Backend:     (*v1beta1.PodsMetricsBackend)(&constants.AutoScalerMetricsOpenTelemetry),
+												MetricNames: []string{"process_cpu_seconds_total"},
+												Query:       "avg(process_cpu_seconds_total)",
 											},
 											Target: v1beta1.MetricTarget{
 												Type:  v1beta1.ValueMetricType,

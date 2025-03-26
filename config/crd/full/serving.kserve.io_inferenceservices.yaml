@@ -1206,8 +1206,6 @@ spec:
                                         type: string
                                       namespace:
                                         type: string
-                                      operationOverTime:
-                                        type: string
                                       query:
                                         type: string
                                       serverAddress:
@@ -1247,7 +1245,9 @@ spec:
                                           - opentelemetry
                                         type: string
                                       metricName:
-                                        type: string
+                                        items:
+                                          type: string
+                                        type: array
                                       operationOverTime:
                                         type: string
                                       query:
@@ -4332,8 +4332,6 @@ spec:
                                         type: string
                                       namespace:
                                         type: string
-                                      operationOverTime:
-                                        type: string
                                       query:
                                         type: string
                                       serverAddress:
@@ -4373,7 +4371,9 @@ spec:
                                           - opentelemetry
                                         type: string
                                       metricName:
-                                        type: string
+                                        items:
+                                          type: string
+                                        type: array
                                       operationOverTime:
                                         type: string
                                       query:
@@ -18631,8 +18631,6 @@ spec:
                                         type: string
                                       namespace:
                                         type: string
-                                      operationOverTime:
-                                        type: string
                                       query:
                                         type: string
                                       serverAddress:
@@ -18672,7 +18670,9 @@ spec:
                                           - opentelemetry
                                         type: string
                                       metricName:
-                                        type: string
+                                        items:
+                                          type: string
+                                        type: array
                                       operationOverTime:
                                         type: string
                                       query:

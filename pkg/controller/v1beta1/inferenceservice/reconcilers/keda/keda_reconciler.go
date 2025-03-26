@@ -112,7 +112,10 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 
 			case v1beta1.MetricSourceType(constants.AutoScalerPodMetric):
 				otelConfig, _ := v1beta1.NewOtelCollectorConfig(configMap)
-				OTelScalerEndpoint := otelConfig.OTelScalerEndpoint
+				MetricScalerEndpoint := otelConfig.MetricScalerEndpoint
+				if metric.PodMetric.Metric.ServerAddress != "" {
+					MetricScalerEndpoint = metric.PodMetric.Metric.ServerAddress
+				}
 
 				triggerType := string(*metric.PodMetric.Metric.Backend)
 				query := metric.PodMetric.Metric.Query
@@ -129,7 +132,7 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 						"clampMax":      strconv.Itoa(int(maxReplicas)),
 						"metricQuery":   query,
 						"targetValue":   strconv.Itoa(targetValue),
-						"scalerAddress": OTelScalerEndpoint,
+						"scalerAddress": MetricScalerEndpoint,
 					}
 					if metric.PodMetric.Metric.OperationOverTime != "" {
 						trigger.Metadata["operationOverTime"] = metric.PodMetric.Metric.OperationOverTime

@@ -270,28 +270,24 @@ type MetricSource struct {
 	// For namespaced query
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
-	// OperationOverTime specifies the operation to aggregate the metrics over time
-	// possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.
-	// +optional
-	OperationOverTime string `json:"operationOverTime,omitempty"`
 }
 
 type PodsMetricSource struct {
-	// MetricsBackend defines the scaling metric type watched by autoscaler
-	// possible values are prometheus, graphite, opentelemetry.
+	// Backend defines the scaling metric type watched by the autoscaler.
+	// Possible value: opentelemetry.
 	// +optional
 	Backend *PodsMetricsBackend `json:"backend,omitempty"`
-	// Address of MetricsBackend server.
+	// ServerAddress specifies the address of the MetricsBackend server.
 	// +optional
 	ServerAddress string `json:"serverAddress,omitempty"`
-	// MetricName is the name of the metric in the backend
+	// MetricNames is the list of metric names in the backend.
 	// +optional
-	MetricName string `json:"metricName,omitempty"`
-	// Query to run to get metrics from MetricsBackend
+	MetricNames []string `json:"metricName,omitempty"`
+	// Query specifies the query to run to get metrics from the MetricsBackend.
 	// +optional
 	Query string `json:"query,omitempty"`
-	// OperationOverTime specifies the operation to aggregate the metrics over time
-	// possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.
+	// OperationOverTime specifies the operation to aggregate the metrics over time.
+	// Possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.
 	// +optional
 	OperationOverTime string `json:"operationOverTime,omitempty"`
 }
