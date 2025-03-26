@@ -22,7 +22,10 @@ import (
 	"reflect"
 	"strings"
 
+	aigwv1a1 "github.com/envoyproxy/ai-gateway/api/v1alpha1"
+	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"github.com/go-logr/logr"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/pkg/errors"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -42,11 +45,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/yaml"
-	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-	aigwv1a1 "github.com/envoyproxy/ai-gateway/api/v1alpha1"
-	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -56,6 +56,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/trafficpolicy"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -277,10 +278,17 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
 			}
 		}
-		aiServiceBackendReconciler := aigateway.NewAIServiceBackendReconciler(r.Client, isvc, r.Log)
+		// Reconcile AI Gateway if enabled
 		if isEnabled, ok := isvc.Annotations[constants.EnableAIGatewayAnnotationKey]; ok && strings.ToLower(isEnabled) == "true" {
+			aiServiceBackendReconciler := aigateway.NewAIServiceBackendReconciler(r.Client, isvc, r.Log)
 			if err := aiServiceBackendReconciler.Reconcile(ctx); err != nil {
 				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile AIServiceBackend")
+			}
+
+			// Reconcile BackendTrafficPolicy
+			backendTrafficPolicyReconciler := trafficpolicy.NewBackendTrafficPolicyReconciler(r.Client, isvc, r.Log)
+			if err := backendTrafficPolicyReconciler.Reconcile(ctx); err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile BackendTrafficPolicy")
 			}
 		}
 	} else {
