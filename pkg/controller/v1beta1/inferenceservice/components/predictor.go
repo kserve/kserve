@@ -427,10 +427,6 @@ func (p *Predictor) reconcileWorker(sRuntime v1alpha1.ServingRuntimeSpec, isvc *
 
 	sRuntimeWorkerAnnotations := sRuntime.WorkerSpec.Annotations
 	sRuntimeWorkerLabels := sRuntime.WorkerSpec.ServingRuntimePodSpec.Labels
-	// If CustomGPUResourceTypeAnnotationKey is set, the specified custom GPU resource will be added to the available GPUResourceTypeList.
-	if isvc.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey] != "" {
-		sRuntimeWorkerAnnotations[constants.CustomGPUResourceTypesAnnotationKey] = isvc.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey]
-	}
 
 	if workerPodSpec, err = multiNodeProcess(sRuntime, isvc, podSpec, annotations, isvcGeneration); err != nil {
 		return workerObjectMeta, workerPodSpec, err
