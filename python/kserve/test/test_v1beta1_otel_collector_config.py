@@ -53,7 +53,7 @@ class TestV1beta1OtelCollectorConfig(unittest.TestCase):
         # model = kserve.models.v1beta1_otel_collector_config.V1beta1OtelCollectorConfig()  # noqa: E501
         if include_optional:
             return V1beta1OtelCollectorConfig(
-                otel_receiver_endpoint="0", scrape_interval="0"
+                metric_receiver_endpoint="0", scrape_interval="0"
             )
         else:
             return V1beta1OtelCollectorConfig()

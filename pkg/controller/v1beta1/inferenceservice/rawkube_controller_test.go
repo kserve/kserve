@@ -7058,8 +7058,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}`,
 			"opentelemetryCollector": `{
 				"scrapeInterval": "5s",
-				"otelReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
-				"otelScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
+				"metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
+				"metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
 			}`,
 		}
 		It("Should have KEDA ScaledObject created", func() {
