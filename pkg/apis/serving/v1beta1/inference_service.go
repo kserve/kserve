@@ -109,6 +109,13 @@ type Batcher struct {
 	Timeout *int `json:"timeout,omitempty"`
 }
 
+// RateLimit specifies the rate limit configuration
+// Currently only global rate limit is supported
+type RateLimit struct {
+	// GlobalRateLimit defines global rate limit configuration.
+	Global egwv1a1.GlobalRateLimit `json:"global"`
+}
+
 type TrafficPolicy struct {
 	// LoadBalancer defines the load balancer policy to be applied
 	// +optional
@@ -124,7 +131,7 @@ type TrafficPolicy struct {
 
 	// RateLimit defines the configuration associated with the Rate Limit policy.
 	// +optional
-	RateLimit *egwv1a1.RateLimitSpec `json:"rateLimit,omitempty"`
+	RateLimit *RateLimit `json:"rateLimit,omitempty"`
 }
 
 // InferenceService is the Schema for the InferenceServices API

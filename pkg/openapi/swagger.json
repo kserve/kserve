@@ -5255,6 +5255,20 @@
         }
       }
     },
+    "v1beta1.RateLimit": {
+      "description": "RateLimit specifies the rate limit configuration Currently only global rate limit is supported",
+      "type": "object",
+      "required": [
+        "global"
+      ],
+      "properties": {
+        "global": {
+          "description": "GlobalRateLimit defines global rate limit configuration.",
+          "default": {},
+          "$ref": "#/definitions/github.com.envoyproxy.gateway.api.v1alpha1.GlobalRateLimit"
+        }
+      }
+    },
     "v1beta1.ResourceConfig": {
       "type": "object",
       "properties": {
@@ -5893,7 +5907,7 @@
         },
         "rateLimit": {
           "description": "RateLimit defines the configuration associated with the Rate Limit policy.",
-          "$ref": "#/definitions/github.com.envoyproxy.gateway.api.v1alpha1.RateLimitSpec"
+          "$ref": "#/definitions/v1beta1.RateLimit"
         },
         "retry": {
           "description": "Retry defines the retry strategy to be applied.",

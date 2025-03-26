@@ -49,7 +49,7 @@ class V1beta1TrafficPolicy(object):
     openapi_types = {
         'circuit_breaker': 'GithubComEnvoyproxyGatewayApiV1alpha1CircuitBreaker',
         'load_balancer': 'GithubComEnvoyproxyGatewayApiV1alpha1LoadBalancer',
-        'rate_limit': 'GithubComEnvoyproxyGatewayApiV1alpha1RateLimitSpec',
+        'rate_limit': 'V1beta1RateLimit',
         'retry': 'GithubComEnvoyproxyGatewayApiV1alpha1Retry'
     }
 
@@ -129,7 +129,7 @@ class V1beta1TrafficPolicy(object):
 
 
         :return: The rate_limit of this V1beta1TrafficPolicy.  # noqa: E501
-        :rtype: GithubComEnvoyproxyGatewayApiV1alpha1RateLimitSpec
+        :rtype: V1beta1RateLimit
         """
         return self._rate_limit
 
@@ -139,7 +139,7 @@ class V1beta1TrafficPolicy(object):
 
 
         :param rate_limit: The rate_limit of this V1beta1TrafficPolicy.  # noqa: E501
-        :type: GithubComEnvoyproxyGatewayApiV1alpha1RateLimitSpec
+        :type: V1beta1RateLimit
         """
 
         self._rate_limit = rate_limit

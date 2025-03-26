@@ -107,6 +107,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodSpec":                      schema_pkg_apis_serving_v1beta1_PodSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":       schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RateLimit":                    schema_pkg_apis_serving_v1beta1_RateLimit(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig":               schema_pkg_apis_serving_v1beta1_ResourceConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceMetricSource":         schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec":                  schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref),
@@ -9454,6 +9455,29 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_RateLimit(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "RateLimit specifies the rate limit configuration Currently only global rate limit is supported",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"global": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GlobalRateLimit defines global rate limit configuration.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/envoyproxy/gateway/api/v1alpha1.GlobalRateLimit"),
+						},
+					},
+				},
+				Required: []string{"global"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/envoyproxy/gateway/api/v1alpha1.GlobalRateLimit"},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_ResourceConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -10613,14 +10637,14 @@ func schema_pkg_apis_serving_v1beta1_TrafficPolicy(ref common.ReferenceCallback)
 					"rateLimit": {
 						SchemaProps: spec.SchemaProps{
 							Description: "RateLimit defines the configuration associated with the Rate Limit policy.",
-							Ref:         ref("github.com/envoyproxy/gateway/api/v1alpha1.RateLimitSpec"),
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.RateLimit"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/envoyproxy/gateway/api/v1alpha1.CircuitBreaker", "github.com/envoyproxy/gateway/api/v1alpha1.LoadBalancer", "github.com/envoyproxy/gateway/api/v1alpha1.RateLimitSpec", "github.com/envoyproxy/gateway/api/v1alpha1.Retry"},
+			"github.com/envoyproxy/gateway/api/v1alpha1.CircuitBreaker", "github.com/envoyproxy/gateway/api/v1alpha1.LoadBalancer", "github.com/envoyproxy/gateway/api/v1alpha1.Retry", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.RateLimit"},
 	}
 }
 
