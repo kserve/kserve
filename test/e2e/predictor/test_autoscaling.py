@@ -527,7 +527,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
                     podmetric=V1beta1PodMetricSource(
                         metric=V1beta1PodsMetricSource(
                             backend="opentelemetry",
-                            metric_name=["http_requests_per_second"],
+                            metric_names=["http_requests_per_second"],
                             query="http_requests_per_second",
                         ),
                         target=V1beta1MetricTarget(type="Value", value=50),

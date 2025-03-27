@@ -6656,7 +6656,7 @@ spec:
                                       enum:
                                       - opentelemetry
                                       type: string
-                                    metricName:
+                                    metricNames:
                                       items:
                                         type: string
                                       type: array
@@ -9782,7 +9782,7 @@ spec:
                                       enum:
                                       - opentelemetry
                                       type: string
-                                    metricName:
+                                    metricNames:
                                       items:
                                         type: string
                                       type: array
@@ -24081,7 +24081,7 @@ spec:
                                       enum:
                                       - opentelemetry
                                       type: string
-                                    metricName:
+                                    metricNames:
                                       items:
                                         type: string
                                       type: array
