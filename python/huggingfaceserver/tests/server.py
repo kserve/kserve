@@ -64,6 +64,7 @@ class RemoteOpenAIServer:
             env.update(env_dict)
         self.proc = subprocess.Popen(
             [
+                "VLLM_USE_V1=0"
                 "python",
                 "-m",
                 "huggingfaceserver",
