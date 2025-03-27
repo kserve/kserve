@@ -107,6 +107,7 @@ var (
 	QueueProxyAggregatePrometheusMetricsPort    = "9088"
 	DefaultPodPrometheusPort                    = "9091"
 	NodeGroupAnnotationKey                      = KServeAPIGroupName + "/nodegroup"
+	AutoUpdateAnnotationKey                     = KServeAPIGroupName + "/auto-update"
 )
 
 // InferenceService Internal Annotations
