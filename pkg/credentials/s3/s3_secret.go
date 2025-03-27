@@ -45,17 +45,17 @@ const (
 )
 
 type S3Config struct {
-	S3AccessKeyIDName        string `json:"s3AccessKeyIDName,omitempty"`
-	S3SecretAccessKeyName    string `json:"s3SecretAccessKeyName,omitempty"`
-	S3Endpoint               string `json:"s3Endpoint,omitempty"`
-	S3UseHttps               string `json:"s3UseHttps,omitempty"`
-	S3Region                 string `json:"s3Region,omitempty"`
-	S3VerifySSL              string `json:"s3VerifySSL,omitempty"`
-	S3UseVirtualBucket       string `json:"s3UseVirtualBucket,omitempty"`
-	S3UseAccelerate          string `json:"s3UseAccelerate,omitempty"`
-	S3UseAnonymousCredential string `json:"s3UseAnonymousCredential,omitempty"`
-	S3CABundleConfigMap      string `json:"s3CABundleConfigMap,omitempty"`
-	S3CABundle               string `json:"s3CABundle,omitempty"`
+	S3AccessKeyIDName        string `json:"s3AccessKeyIDName,omitempty" yaml:"s3AccessKeyIDName,omitempty"`
+	S3SecretAccessKeyName    string `json:"s3SecretAccessKeyName,omitempty" yaml:"s3SecretAccessKeyName,omitempty"`
+	S3Endpoint               string `json:"s3Endpoint,omitempty" yaml:"s3Endpoint,omitempty"`
+	S3UseHttps               string `json:"s3UseHttps,omitempty" yaml:"s3UseHttps,omitempty"`
+	S3Region                 string `json:"s3Region,omitempty" yaml:"s3Region,omitempty"`
+	S3VerifySSL              string `json:"s3VerifySSL,omitempty" yaml:"s3VerifySSL,omitempty"`
+	S3UseVirtualBucket       string `json:"s3UseVirtualBucket,omitempty" yaml:"s3UseVirtualBucket,omitempty"`
+	S3UseAccelerate          string `json:"s3UseAccelerate,omitempty" yaml:"s3UseAccelerate,omitempty"`
+	S3UseAnonymousCredential string `json:"s3UseAnonymousCredential,omitempty" yaml:"s3UseAnonymousCredential,omitempty"`
+	S3CABundleConfigMap      string `json:"s3CABundleConfigMap,omitempty" yaml:"s3CABundleConfigMap,omitempty"`
+	S3CABundle               string `json:"s3CABundle,omitempty" yaml:"s3CABundle,omitempty"`
 }
 
 var (
