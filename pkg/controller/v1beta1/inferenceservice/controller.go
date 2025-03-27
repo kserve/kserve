@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -45,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -111,6 +113,14 @@ type InferenceServiceReconciler struct {
 	Log          logr.Logger
 	Scheme       *runtime.Scheme
 	Recorder     record.EventRecorder
+}
+
+func convertToStringSlice(protocols []constants.InferenceServiceProtocol) []string {
+	result := make([]string, len(protocols))
+	for i, protocol := range protocols {
+		result[i] = string(protocol)
+	}
+	return result
 }
 
 func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -360,8 +370,60 @@ func inferenceServiceStatusEqual(s1, s2 v1beta1.InferenceServiceStatus, deployme
 	return equality.Semantic.DeepEqual(s1, s2)
 }
 
+func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	runtimeObj, ok := obj.(*v1alpha1.ServingRuntime)
+	protocolVersions := runtimeObj.Spec.ProtocolVersions
+	if protocolVersions == nil {
+		return nil
+	}
+
+	protocolVersionsAsStrings := []string{}
+	for _, protocolVersion := range protocolVersions {
+		protocolVersionsAsStrings = append(protocolVersionsAsStrings, string(protocolVersion))
+	}
+
+	if !ok || runtimeObj == nil || runtimeObj.Spec.SupportedModelFormats == nil {
+		return nil
+	}
+
+	var isvcList v1beta1.InferenceServiceList
+	// List all InferenceServices in the same namespace.
+	if err := r.Client.List(ctx, &isvcList, client.InNamespace(runtimeObj.Namespace)); err != nil {
+		r.Log.Error(err, "unable to list InferenceServices", "runtime", runtimeObj.Name)
+		return nil
+	}
+
+	var requests []reconcile.Request
+	supportedModelFormatNames := []string{}
+	for _, supportedModelFormat := range runtimeObj.Spec.SupportedModelFormats {
+		supportedModelFormatNames = append(supportedModelFormatNames, supportedModelFormat.Name)
+	}
+	for _, isvc := range isvcList.Items {
+		annotations := isvc.GetAnnotations()
+		if annotations != nil {
+			if autoUpdate, found := annotations[constants.AutoUpdateAnnotationKey]; found && autoUpdate == "false" {
+				r.Log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
+				continue
+			}
+		}
+		if isvc.Spec.Predictor.Model.ProtocolVersion == nil {
+			continue
+		}
+		if slices.Contains(supportedModelFormatNames, isvc.Spec.Predictor.Model.ModelFormat.Name) && slices.Contains(protocolVersionsAsStrings, string(*isvc.Spec.Predictor.Model.ProtocolVersion)) {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: isvc.Namespace,
+					Name:      isvc.Name,
+				},
+			})
+		}
+	}
+	return requests
+}
+
 func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig, ingressConfig *v1beta1.IngressConfig) error {
 	r.ClientConfig = mgr.GetConfig()
+	ctx := context.Background()
 
 	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 	if err != nil {
@@ -381,6 +443,33 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	vsFound, err := utils.IsCrdAvailable(r.ClientConfig, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
 	if err != nil {
 		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1beta1.InferenceService{}, "spec.predictor.model.runtime", func(rawObj client.Object) []string {
+		isvc, ok := rawObj.(*v1beta1.InferenceService)
+		if !ok {
+			return nil
+		}
+		if isvc.Spec.Predictor.Model == nil || isvc.Spec.Predictor.Model.Runtime == nil {
+			return nil
+		}
+		if *isvc.Spec.Predictor.Model.Runtime != "" {
+			return []string{*isvc.Spec.Predictor.Model.Runtime}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	servingRuntimesPredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldServingRuntime := e.ObjectOld.(*v1alpha1.ServingRuntime)
+			newServingRuntime := e.ObjectNew.(*v1alpha1.ServingRuntime)
+			return !reflect.DeepEqual(oldServingRuntime.Spec, newServingRuntime.Spec)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
@@ -439,7 +528,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
 	}
 
-	return ctrlBuilder.Complete(r)
+	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate)).Complete(r)
 }
 
 func (r *InferenceServiceReconciler) deleteExternalResources(ctx context.Context, isvc *v1beta1.InferenceService) error {
