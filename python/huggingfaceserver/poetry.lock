@@ -283,13 +283,13 @@ typing-extensions = ">=4.0.0"
 
 [[package]]
 name = "azure-storage-blob"
-version = "12.25.0"
+version = "12.25.1"
 description = "Microsoft Azure Blob Storage Client Library for Python"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "azure_storage_blob-12.25.0-py3-none-any.whl", hash = "sha256:a38e18bf10258fb19028f343db0d3d373280c6427a619c98c06d76485805b755"},
-    {file = "azure_storage_blob-12.25.0.tar.gz", hash = "sha256:42364ca8f9f49dbccd0acc10144ed47bb6770bf78719970b51915f048891abba"},
+    {file = "azure_storage_blob-12.25.1-py3-none-any.whl", hash = "sha256:1f337aab12e918ec3f1b638baada97550673911c4ceed892acc8e4e891b74167"},
+    {file = "azure_storage_blob-12.25.1.tar.gz", hash = "sha256:4f294ddc9bc47909ac66b8934bd26b50d2000278b10ad82cc109764fdc6e0e3b"},
 ]
 
 [package.dependencies]
@@ -2060,10 +2060,10 @@ six = "^1.16.0"
 tabulate = "^0.9.0"
 timing-asgi = "^0.3.0"
 uvicorn = {version = "^0.30.6", extras = ["standard"]}
-vllm = {version = "^0.8.2", optional = true}
+vllm = {version = "^0.8.1", optional = true}
 
 [package.extras]
-llm = ["vllm (>=0.8.2,<0.9.0)"]
+llm = ["vllm (>=0.8.1,<0.9.0)"]
 logging = ["asgi-logger (>=0.1.0,<0.2.0)"]
 ray = ["ray[serve] (>=2.44.0,<2.45.0)"]
 storage = ["azure-identity (>=1.15.0,<2.0.0)", "azure-storage-blob (>=12.20.0,<13.0.0)", "azure-storage-file-share (>=12.16.0,<13.0.0)", "boto3 (>=1.29.0,<2.0.0)", "google-cloud-storage (>=2.14.0,<3.0.0)", "huggingface-hub[hf-transfer] (>=0.26.0,<0.27.0)", "requests (>=2.32.2,<3.0.0)"]
@@ -5759,4 +5759,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "29a8334b83f39ca29531d05a42493f18622eeac6ac723d5d8167d9f468757bd8"
+content-hash = "0a4b0412ea17eb493f407981d0dd14275940e56b17ce6f80dbbafd8014e592f0"
