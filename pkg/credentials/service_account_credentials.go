@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -57,8 +58,8 @@ var (
 )
 
 type CredentialConfig struct {
-	S3                          s3.S3Config   `json:"s3,omitempty"`
-	GCS                         gcs.GCSConfig `json:"gcs,omitempty"`
+	S3                          s3.S3Config   `json:"s3,omitempty" yaml:"s3,omitempty"`
+	GCS                         gcs.GCSConfig `json:"gcs,omitempty" yaml:"gcs,omitempty"`
 	StorageSpecSecretName       string        `json:"storageSpecSecretName,omitempty"`
 	StorageSecretNameAnnotation string        `json:"storageSecretNameAnnotation,omitempty"`
 }
@@ -221,7 +222,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotatio
 		if secretName, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
 			err := c.mountSecretCredential(secretName, namespace, container, volumes)
 			if err != nil {
-				log.Error(err, "Failed to amount the secret credentials", "secretName", secretName)
+				log.Error(err, "Failed to mount the secret credentials", "secretName", secretName)
 				return err
 			}
 			return nil
@@ -237,6 +238,90 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotatio
 	}
 
 	return nil
+}
+
+func (c *CredentialBuilder) loggerCredentialsSecret(pod *corev1.Pod) (*corev1.Secret, error) {
+	loggerSecretName := pod.ObjectMeta.Annotations[constants.LoggerSecretNameKey]
+	if loggerSecretName == "" {
+		loggerSecretName = constants.LoggerDefaultSecretName
+		log.Info("No logging secret name configured, using default of", "loggerSecretName", loggerSecretName)
+	}
+	loggerCredentials, err := c.clientset.CoreV1().Secrets(pod.Namespace).Get(context.TODO(), loggerSecretName, metav1.GetOptions{})
+	if err != nil {
+		if apierr.IsNotFound(err) {
+			log.Info("Logging credentials secret not found, skipping mounting logger credentials")
+			return nil, err
+		}
+		log.Error(err, "Failed to find logging credentials secret", "loggerSecretName", loggerSecretName)
+		return nil, err
+	}
+	return loggerCredentials, nil
+}
+
+func (c *CredentialBuilder) LoggerCredentialPath(pod *corev1.Pod) (string, error) {
+	loggerCredentialPath := pod.ObjectMeta.Annotations[constants.LoggerCredentialPathKey]
+	if loggerCredentialPath == "" {
+		loggerCredentialPath = constants.LoggerDefaultCredentialPath
+		log.Info("No logging credential path configured, using default", "loggerCredentialPath", loggerCredentialPath)
+	}
+	return loggerCredentialPath, nil
+}
+
+func (c *CredentialBuilder) LoggerCredentialFile(pod *corev1.Pod) (string, error) {
+	loggerCredentialLocation, err := c.LoggerCredentialLocation(pod)
+	if err != nil {
+		return "", err
+	}
+
+	loggerCredentialFile := pod.ObjectMeta.Annotations[constants.LoggerCredentialFileKey]
+	if loggerCredentialFile == "" {
+		loggerCredentialFile = constants.LoggerDefaultCredentialFile
+		log.Info("No logging credential file provided, using default", "loggerCredentialFile", loggerCredentialFile)
+	}
+	return filepath.Join(loggerCredentialLocation, loggerCredentialFile), nil
+}
+
+func (c *CredentialBuilder) LoggerCredentialLocation(pod *corev1.Pod) (string, error) {
+	secret, err := c.loggerCredentialsSecret(pod)
+	if err != nil {
+		return "", err
+	}
+	path, err := c.LoggerCredentialPath(pod)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(path, secret.Name), nil
+}
+
+func (c *CredentialBuilder) MountLoggerCredential(pod *corev1.Pod, container *corev1.Container) {
+	loggerCredentials, err := c.loggerCredentialsSecret(pod)
+	if err != nil {
+		log.Error(err, "Failed to mount logger credentials")
+		return
+	}
+
+	loggingCredentialsVolumeName := loggerCredentials.Name + "-vol"
+
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name: loggingCredentialsVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: loggerCredentials.Name,
+			},
+		},
+	})
+
+	loggerPath, err := c.LoggerCredentialPath(pod)
+	if err != nil {
+		log.Error(err, "Failed to get logger credential location")
+		return
+	}
+
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      loggingCredentialsVolumeName,
+		MountPath: filepath.Join(loggerPath, loggerCredentials.Name),
+		ReadOnly:  true,
+	})
 }
 
 func (c *CredentialBuilder) mountSecretCredential(secretName string, namespace string,

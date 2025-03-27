@@ -63,6 +63,7 @@ var (
 	workers             = flag.Int("workers", 5, "Number of workers")
 	sourceUri           = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
 	logMode             = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
+	logCredentialsFile = flag.String("log-credentials", "", "The credentials file to use when logging")
 	inferenceService    = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
 	namespace           = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint            = flag.String("endpoint", "", "The endpoint name to add as header to log events")
@@ -153,7 +154,7 @@ func main() {
 	var loggerArgs *loggerArgs
 	if *logUrl != "" {
 		logger.Info("Starting logger")
-		loggerArgs = startLogger(*workers, logger)
+		loggerArgs = startLogger(*workers, logCredentialsFile, logger)
 	}
 
 	var batcherArgs *batcherArgs
@@ -264,18 +265,18 @@ func startBatcher(logger *zap.SugaredLogger) *batcherArgs {
 	}
 }
 
-func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
+func startLogger(workers int, storeCredentials *string, log *zap.SugaredLogger) *loggerArgs {
 	loggingMode := v1beta1.LoggerType(*logMode)
 	switch loggingMode {
 	case v1beta1.LogAll, v1beta1.LogRequest, v1beta1.LogResponse:
 	default:
-		logger.Errorf("Malformed log-mode %s", *logMode)
+		log.Errorf("Malformed log-mode %s", *logMode)
 		os.Exit(-1)
 	}
 
 	logUrlParsed, err := url.Parse(*logUrl)
 	if err != nil {
-		logger.Errorf("Malformed log-url %s", *logUrl)
+		log.Errorf("Malformed log-url %s", *logUrl)
 		os.Exit(-1)
 	}
 
@@ -285,8 +286,27 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 
 	sourceUriParsed, err := url.Parse(*sourceUri)
 	if err != nil {
-		logger.Errorf("Malformed source_uri %s", *sourceUri)
+		log.Errorw("Malformed source_uri %s", *sourceUri)
 		os.Exit(-1)
+	}
+
+	var store kfslogger.Store
+	if kfslogger.GetStorageStrategy(*logUrl) != kfslogger.HttpStorage {
+		if *storeCredentials != "" {
+			storeConfig, err := kfslogger.GetLoggerConfig(*storeCredentials, log)
+			if err != nil {
+				log.Errorw("Error getting logger credentials file", zap.Error(err))
+				os.Exit(-1)
+			}
+
+			if storeConfig != nil {
+				store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, storeConfig, log)
+				if err != nil {
+					log.Errorw("Error creating logger store", zap.Error(err))
+					os.Exit(-1)
+				}
+			}
+		}
 	}
 
 	var annotationKVPair map[string]string = map[string]string{}
@@ -295,13 +315,13 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		if found {
 			annotationKVPair[k] = v
 		} else {
-			logger.Errorf("annotation does not adhere to desired format got key: %s value: %s", k, v)
+			log.Errorf("annotation does not adhere to desired format got key: %s value: %s", k, v)
 			os.Exit(-1)
 		}
 	}
 
-	logger.Info("Starting the log dispatcher")
-	kfslogger.StartDispatcher(workers, logger)
+	log.Info("Starting the log dispatcher")
+	kfslogger.StartDispatcher(workers, store, log)
 	return &loggerArgs{
 		loggerType:       loggingMode,
 		logUrl:           logUrlParsed,
