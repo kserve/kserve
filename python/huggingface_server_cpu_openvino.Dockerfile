@@ -43,6 +43,8 @@ RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 WORKDIR /vllm
 RUN git clone --branch $VLLM_VERSION --depth 1 https://github.com/vllm-project/vllm.git . && \
     pip install --upgrade pip && \
+    pip uninstall -y torch torchvision torchaudio && \
+    pip install triton==3.1.0 && \
     pip install -r requirements/build.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
     PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu" VLLM_TARGET_DEVICE="openvino" python -m pip install -v .
 
