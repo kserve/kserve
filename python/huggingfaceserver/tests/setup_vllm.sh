@@ -35,7 +35,7 @@ case $VLLM_TARGET_DEVICE in
     openvino)
         pip uninstall -y torch torchvision torchaudio && \
         pip install triton==3.1.0 && \
-        pip install -r requirements/build.txt -r requirements/openvino.txt --extra-index-url ${TORCH_EXTRA_INDEX_URL}
+        pip install -r requirements/build.txt --extra-index-url ${TORCH_EXTRA_INDEX_URL}
         ;;
 esac
 
