@@ -88,8 +88,8 @@ ARG VLLM_TARGET_DEVICE=cpu
 ENV VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE}
 RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git && \
     cd vllm && \
-    pip install --no-cache-dir -v -r requirements-build.txt && \
-    pip install --no-cache-dir -v -r requirements-cpu.txt && \
+    pip install --no-cache-dir -v -r requirements/build.txt && \
+    pip install --no-cache-dir -v -r requirements/cpu.txt && \
     python setup.py bdist_wheel && \
     pip install --no-cache-dir dist/vllm-${VLLM_VERSION}*.whl
 
