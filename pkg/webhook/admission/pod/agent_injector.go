@@ -221,6 +221,8 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 				val, exists := pod.ObjectMeta.Annotations[metadataAnnotation]
 				if exists {
 					kvPairs = append(kvPairs, fmt.Sprintf("%s=%s", metadataAnnotation, val))
+				} else {
+					klog.Warningf("failed to find matching annotation %s on inference service", metadataAnnotation)
 				}
 			}
 			loggerArgs = append(loggerArgs, LoggerArgumentMetadataAnnotations, strings.Join(kvPairs, ","))
