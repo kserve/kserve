@@ -49,16 +49,18 @@ class V1beta1InferenceServiceSpec(object):
     openapi_types = {
         'explainer': 'V1beta1ExplainerSpec',
         'predictor': 'V1beta1PredictorSpec',
+        'traffic_policy': 'V1beta1TrafficPolicy',
         'transformer': 'V1beta1TransformerSpec'
     }
 
     attribute_map = {
         'explainer': 'explainer',
         'predictor': 'predictor',
+        'traffic_policy': 'trafficPolicy',
         'transformer': 'transformer'
     }
 
-    def __init__(self, explainer=None, predictor=None, transformer=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, explainer=None, predictor=None, traffic_policy=None, transformer=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServiceSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,12 +68,15 @@ class V1beta1InferenceServiceSpec(object):
 
         self._explainer = None
         self._predictor = None
+        self._traffic_policy = None
         self._transformer = None
         self.discriminator = None
 
         if explainer is not None:
             self.explainer = explainer
         self.predictor = predictor
+        if traffic_policy is not None:
+            self.traffic_policy = traffic_policy
         if transformer is not None:
             self.transformer = transformer
 
@@ -118,6 +123,27 @@ class V1beta1InferenceServiceSpec(object):
             raise ValueError("Invalid value for `predictor`, must not be `None`")  # noqa: E501
 
         self._predictor = predictor
+
+    @property
+    def traffic_policy(self):
+        """Gets the traffic_policy of this V1beta1InferenceServiceSpec.  # noqa: E501
+
+
+        :return: The traffic_policy of this V1beta1InferenceServiceSpec.  # noqa: E501
+        :rtype: V1beta1TrafficPolicy
+        """
+        return self._traffic_policy
+
+    @traffic_policy.setter
+    def traffic_policy(self, traffic_policy):
+        """Sets the traffic_policy of this V1beta1InferenceServiceSpec.
+
+
+        :param traffic_policy: The traffic_policy of this V1beta1InferenceServiceSpec.  # noqa: E501
+        :type: V1beta1TrafficPolicy
+        """
+
+        self._traffic_policy = traffic_policy
 
     @property
     def transformer(self):
