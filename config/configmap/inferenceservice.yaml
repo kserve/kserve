@@ -557,7 +557,7 @@ data:
       
      # ====================================== LOCALMODEL CONFIGURATION ======================================
      # Example
-     inferenceservice: |-
+     inferenceService: |-
        {
          "resource": {
              "cpuLimit": "1",
@@ -566,7 +566,7 @@ data:
              "memoryRequest": "2Gi"
            }
        }
-      inferenceservice: |-
+      inferenceService: |-
         {
           # resource contains the default resource configuration for the inference service.
           # you can override this configuration by specifying the resources in the inference service yaml.
