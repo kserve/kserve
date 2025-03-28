@@ -48,6 +48,8 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--max_model_len",
                 "512",
+                "--dtype",
+                "bfloat16",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "6Gi"},
@@ -98,6 +100,8 @@ def test_huggingface_vllm_openvino_openai_completions():
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--max_model_len",
                 "512",
+                "--dtype",
+                "bfloat16",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "6Gi"},
