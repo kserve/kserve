@@ -475,11 +475,9 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	var mergedWorkerPodSpec *corev1.PodSpec
 	var err error
 
-	targetisvcContainer := corev1.Container{}
-	if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
-		targetisvcContainer = isvc.Spec.Predictor.WorkerSpec.Containers[0]
-	}
-	_, workerContainer, mergedWorkerPodSpec, err = isvcutils.MergeServingRuntimeAndInferenceServiceSpecs(sRuntime.WorkerSpec.Containers, targetisvcContainer, isvc, constants.WorkerContainerName, sRuntime.WorkerSpec.ServingRuntimePodSpec, isvc.Spec.Predictor.WorkerSpec.PodSpec)
+	targetisvcContainer := isvc.Spec.Predictor.WorkerSpec.Container
+
+	_, workerContainer, mergedWorkerPodSpec, err = isvcutils.MergeServingRuntimeAndInferenceServiceSpecs(sRuntime.WorkerSpec.Containers, targetisvcContainer, isvc, constants.WorkerContainerName, sRuntime.WorkerSpec.ServingRuntimePodSpec, isvc.Spec.Predictor.PodSpec)
 	if err != nil {
 		return nil, err
 	}
