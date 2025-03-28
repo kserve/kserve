@@ -10,12 +10,14 @@ RUN apt-get update && \
     apt-get install --no-install-recommends --fix-missing -y \
         g++-12 \
         gcc-12 \
+        google-perftools \
         libgl1 \
         libglib2.0-0 \
+        libjemalloc2 \
         libnuma1 \
         numactl \
-        python3.10-venv \
         python3.10-dev \
+        python3.10-venv \
         python3-pip && \
     apt-get clean && \
     apt-get autoclean && \
@@ -113,6 +115,9 @@ COPY --from=builder --chown=kserve:kserve kserve kserve
 ENV HF_HOME="/tmp/huggingface"
 # https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables#hfhubdisabletelemetry
 ENV HF_HUB_DISABLE_TELEMETRY="1"
+
+# Use TCMalloc and jemalloc for better memory management
+ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libtcmalloc.so.4:/usr/lib/x86_64-linux-gnu/libjemalloc.so.2:${LD_PRELOAD}
 
 USER 1000
 ENTRYPOINT ["python", "-m", "huggingfaceserver"]
