@@ -12,8 +12,9 @@ python = ">=3.9,<3.13"
 kserve = { path = "../kserve", extras = ["storage", "llm"], develop = true }
 transformers = ">=4.49.0"
 accelerate = "~0.32.0"
-torch = "~2.6.0"
+torch = ">=2.5.0"
 vllm = "^0.8.1"
+flashinfer-python = "~0.2.3"
 setuptools = ">=70.0.0"
 
 [tool.poetry.group.test]
