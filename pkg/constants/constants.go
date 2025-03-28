@@ -164,6 +164,8 @@ var (
 	IstioSidecarStatusAnnotation          = "sidecar.istio.io/status"
 )
 
+var OTelBackend = "opentelemetry"
+
 type (
 	AutoscalerClassType       string
 	AutoscalerMetricsType     string
@@ -196,15 +198,17 @@ var (
 
 // Autoscaler Metrics
 var (
-	AutoScalerMetricsCPU        AutoscalerMetricsType = "cpu"
-	AutoScalerMetricsMemory     AutoscalerMetricsType = "memory"
-	AutoScalerMetricsPrometheus AutoscalerMetricsType = "prometheus"
-	AutoScalerMetricsGraphite   AutoscalerMetricsType = "graphite"
+	AutoScalerMetricsCPU           AutoscalerMetricsType = "cpu"
+	AutoScalerMetricsMemory        AutoscalerMetricsType = "memory"
+	AutoScalerMetricsPrometheus    AutoscalerMetricsType = "prometheus"
+	AutoScalerMetricsGraphite      AutoscalerMetricsType = "graphite"
+	AutoScalerMetricsOpenTelemetry AutoscalerMetricsType = "opentelemetry"
 )
 
 var (
-	AutoScalerResource AutoScalerType = "Resource"
-	AutoScalerExternal AutoScalerType = "External"
+	AutoScalerResource  AutoScalerType = "Resource"
+	AutoScalerExternal  AutoScalerType = "External"
+	AutoScalerPodMetric AutoScalerType = "PodMetric"
 )
 
 // Autoscaler Class Allowed List
@@ -235,6 +239,10 @@ var AutoscalerAllowedKEDAMetricsList = []AutoscalerMetricsType{
 var AutoscalerAllowedKEDAMetricBackendList = []AutoscalerMetricsType{
 	AutoScalerMetricsPrometheus,
 	AutoScalerMetricsGraphite,
+}
+
+var AutoscalerAllowedPodMetricBackendList = []AutoscalerMetricsType{
+	AutoScalerMetricsOpenTelemetry,
 }
 
 // Autoscaler Default Metrics Value
@@ -514,6 +522,7 @@ const (
 	GatewayKind             = "Gateway"
 	ServiceKind             = "Service"
 	KedaScaledObjectKind    = "ScaledObject"
+	OpenTelemetryCollector  = "OpenTelemetryCollector"
 )
 
 // Model Parallel Options

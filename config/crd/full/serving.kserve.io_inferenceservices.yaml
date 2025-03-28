@@ -1202,8 +1202,53 @@ spec:
                                         enum:
                                           - prometheus
                                           - graphite
+                                          - opentelemetry
                                         type: string
                                       namespace:
+                                        type: string
+                                      query:
+                                        type: string
+                                      serverAddress:
+                                        type: string
+                                    type: object
+                                  target:
+                                    properties:
+                                      averageUtilization:
+                                        format: int32
+                                        type: integer
+                                      averageValue:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      type:
+                                        enum:
+                                          - Utilization
+                                          - Value
+                                          - AverageValue
+                                        type: string
+                                      value:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
+                              podmetric:
+                                properties:
+                                  metric:
+                                    properties:
+                                      backend:
+                                        enum:
+                                          - opentelemetry
+                                        type: string
+                                      metricNames:
+                                        items:
+                                          type: string
+                                        type: array
+                                      operationOverTime:
                                         type: string
                                       query:
                                         type: string
@@ -1273,6 +1318,7 @@ spec:
                                 enum:
                                   - Resource
                                   - External
+                                  - PodMetric
                                 type: string
                             type: object
                           type: array
@@ -4284,8 +4330,53 @@ spec:
                                         enum:
                                           - prometheus
                                           - graphite
+                                          - opentelemetry
                                         type: string
                                       namespace:
+                                        type: string
+                                      query:
+                                        type: string
+                                      serverAddress:
+                                        type: string
+                                    type: object
+                                  target:
+                                    properties:
+                                      averageUtilization:
+                                        format: int32
+                                        type: integer
+                                      averageValue:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      type:
+                                        enum:
+                                          - Utilization
+                                          - Value
+                                          - AverageValue
+                                        type: string
+                                      value:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
+                              podmetric:
+                                properties:
+                                  metric:
+                                    properties:
+                                      backend:
+                                        enum:
+                                          - opentelemetry
+                                        type: string
+                                      metricNames:
+                                        items:
+                                          type: string
+                                        type: array
+                                      operationOverTime:
                                         type: string
                                       query:
                                         type: string
@@ -4355,6 +4446,7 @@ spec:
                                 enum:
                                   - Resource
                                   - External
+                                  - PodMetric
                                 type: string
                             type: object
                           type: array
@@ -18539,8 +18631,53 @@ spec:
                                         enum:
                                           - prometheus
                                           - graphite
+                                          - opentelemetry
                                         type: string
                                       namespace:
+                                        type: string
+                                      query:
+                                        type: string
+                                      serverAddress:
+                                        type: string
+                                    type: object
+                                  target:
+                                    properties:
+                                      averageUtilization:
+                                        format: int32
+                                        type: integer
+                                      averageValue:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                      type:
+                                        enum:
+                                          - Utilization
+                                          - Value
+                                          - AverageValue
+                                        type: string
+                                      value:
+                                        anyOf:
+                                          - type: integer
+                                          - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
+                              podmetric:
+                                properties:
+                                  metric:
+                                    properties:
+                                      backend:
+                                        enum:
+                                          - opentelemetry
+                                        type: string
+                                      metricNames:
+                                        items:
+                                          type: string
+                                        type: array
+                                      operationOverTime:
                                         type: string
                                       query:
                                         type: string
@@ -18610,6 +18747,7 @@ spec:
                                 enum:
                                   - Resource
                                   - External
+                                  - PodMetric
                                 type: string
                             type: object
                           type: array

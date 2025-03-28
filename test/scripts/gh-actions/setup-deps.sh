@@ -100,6 +100,7 @@ if [[ $DEPLOYMENT_MODE == "raw" ]]; then
   if [[ $ENABLE_KEDA == "true" ]]; then
     echo "Installing KEDA ..."
     kubectl apply -f ./test/overlays/keda/keda.yaml
+    kubectl apply -f ./test/overlays/opentelemetry/opentelemetry-operator.yaml
   fi
 fi
 

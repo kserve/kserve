@@ -23,6 +23,7 @@ import (
 	"os"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	istio_networking "istio.io/api/networking/v1alpha3"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -210,6 +211,19 @@ func main() {
 		setupLog.Info("Setting up KEDA scheme")
 		if err := kedav1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 			setupLog.Error(err, "unable to add KEDA APIs to scheme")
+			os.Exit(1)
+		}
+	}
+
+	otelFound, otelCheckErr := utils.IsCrdAvailable(cfg, otelv1beta1.GroupVersion.String(), constants.OpenTelemetryCollector)
+	if otelCheckErr != nil {
+		setupLog.Error(ksvcCheckErr, "error when checking if OpentelemetryCollector kind is available")
+		os.Exit(1)
+	}
+	if otelFound {
+		setupLog.Info("Setting up OTEL scheme")
+		if err := otelv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
+			setupLog.Error(err, "unable to add OTEL APIs to scheme")
 			os.Exit(1)
 		}
 	}
