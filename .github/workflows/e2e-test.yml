@@ -37,8 +37,6 @@ env:
   CUSTOM_MODEL_GRPC_IMG: "custom-model-grpc"
   CUSTOM_MODEL_GRPC_IMG_TAG: "kserve/custom-model-grpc:${{ github.sha }}"
   HUGGINGFACE_IMG: "huggingfaceserver"
-  HUGGINGFACE_CPU_IMG: "huggingfaceserver"
-  HUGGINGFACE_CPU_OPENVINO_IMG: "huggingfaceserver"
   # Explainer images
   ART_IMG: "art-explainer"
   # Transformer images
