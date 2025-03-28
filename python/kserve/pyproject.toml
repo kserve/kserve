@@ -39,6 +39,11 @@ fastapi = ">=0.115.3"
 cloudevents = "^1.6.2"
 six = "^1.16.0"
 kubernetes = ">=23.3.0"
+# durationpy is a dependency of kubernetes, the 0.7 version breaks the build:
+# durationpy (0.7) not supporting PEP 517 builds.
+#  Invalid dash-separated key 'description-file' in 'metadata' (setup.cfg), please use the underscore name 'description_file' instead.
+# tag the same version used by vllm, 0.9
+durationpy = "^0.9.0"
 python-dateutil = "^2.8.0"
 numpy = "^1.26.0"
 psutil = "^5.9.6"

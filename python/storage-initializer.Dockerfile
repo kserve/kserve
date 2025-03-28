@@ -1,12 +1,22 @@
 ARG VENV_PATH=/prod_venv
 
 ## Builder
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest AS builder
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS builder
 
 # Install Python and dependencies
-RUN microdnf install -y --setopt=ubi-8-appstream-rpms.module_hotfixes=1 --disablerepo=* \
-    --enablerepo=ubi-8-baseos-rpms --enablerepo=ubi-8-appstream-rpms python3.11 python3.11-devel \
-    gcc libffi-devel openssl-devel krb5-workstation krb5-libs && microdnf clean all
+RUN microdnf install -y --setopt=ubi-9-appstream-rpms.module_hotfixes=1 --disablerepo=* \
+    --enablerepo=ubi-9-baseos-rpms --enablerepo=ubi-9-appstream-rpms \
+      python3.11-devel \
+      python3.11 \
+      gcc \
+      libffi-devel \
+      openssl-devel \
+      krb5-workstation \
+      krb5-libs  \
+      krb5-devel  \
+    && microdnf clean all \
+    && alternatives --install /usr/bin/python python /usr/bin/python3.11 1
+
 
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
@@ -29,7 +39,7 @@ RUN cd kserve && poetry install --no-interaction --no-cache --extras "storage"
 RUN pip install --no-cache-dir krbcontext==0.10 hdfs~=2.6.0 requests-kerberos==0.14.0
 
 ## Runtime
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest AS prod
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest AS prod
 
 COPY third_party third_party
 
@@ -38,9 +48,10 @@ ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-RUN microdnf install -y --setopt=ubi-8-appstream-rpms.module_hotfixes=1 --disablerepo=* \
-    --enablerepo=ubi-8-baseos-rpms --enablerepo=ubi-8-appstream-rpms shadow-utils python3.11 python3.11-devel && \
-    microdnf clean all
+RUN microdnf install -y --setopt=ubi-9-appstream-rpms.module_hotfixes=1 --disablerepo=* \
+    --enablerepo=ubi-9-baseos-rpms --enablerepo=ubi-9-appstream-rpms shadow-utils python3.11 python3.11-devel \
+    && microdnf clean all \
+    &&  alternatives --install /usr/bin/python python3 /usr/bin/python3.11 1
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
