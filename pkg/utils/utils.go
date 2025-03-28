@@ -336,3 +336,9 @@ func CheckEnvsToRemove(desired, current []v1.EnvVar) ([]v1.EnvVar, []v1.EnvVar) 
 	}
 	return envsToRemove, envsToKeep
 }
+
+// ToPointer returns a pointer to the value passed in
+func ToPointer[T any](value T) *T {
+	tmp := value
+	return &tmp
+}

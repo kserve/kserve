@@ -3117,6 +3117,9 @@
         "domainTemplate": {
           "type": "string"
         },
+        "enableGatewayApi": {
+          "type": "boolean"
+        },
         "ingressClassName": {
           "type": "string"
         },
@@ -3127,6 +3130,9 @@
           "type": "string"
         },
         "knativeLocalGatewayService": {
+          "type": "string"
+        },
+        "kserveIngressGateway": {
           "type": "string"
         },
         "localGateway": {

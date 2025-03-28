@@ -14,6 +14,7 @@
 
 
 import os
+import uuid
 from kubernetes import client
 
 from kserve import KServeClient
@@ -217,10 +218,19 @@ async def test_raw_transformer_collocation(rest_v1_client):
         for pod in pods.items:
             print(pod)
         raise e
-    is_ready = await is_model_ready(rest_v1_client, service_name, model_name) is True
+    is_ready = (
+        await is_model_ready(
+            rest_v1_client, service_name, model_name, network_layer=network_layer
+        )
+        is True
+    )
     assert is_ready is True
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/transformer.json", model_name=model_name
+        rest_v1_client,
+        service_name,
+        "./data/transformer.json",
+        model_name=model_name,
+        network_layer=network_layer,
     )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

@@ -130,7 +130,7 @@ deploy-ci: manifests
 
 deploy-helm: manifests
 	helm install kserve-crd charts/kserve-crd/ --wait --timeout 180s
-	helm install kserve charts/kserve-resources/ --wait --timeout 180s
+	helm install kserve charts/kserve-resources/ --wait --timeout 180s -n kserve --create-namespace
 
 undeploy:
 	kubectl delete -k config/default

@@ -12,7 +12,13 @@
 # limitations under the License.
 
 import os
+import uuid
+
 from kubernetes import client
+from kubernetes.client import V1ResourceRequirements
+from kubernetes.client import V1Container
+from kubernetes.client import V1EnvVar
+import pytest
 
 from kserve import KServeClient
 from kserve import constants
@@ -21,10 +27,7 @@ from kserve import V1beta1TransformerSpec
 from kserve import V1beta1TorchServeSpec
 from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
-from kubernetes.client import V1ResourceRequirements
-from kubernetes.client import V1Container
-from kubernetes.client import V1EnvVar
-import pytest
+
 from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
@@ -97,7 +100,11 @@ async def test_transformer(rest_v1_client):
         raise e
 
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/transformer.json", model_name="mnist"
+        rest_v1_client,
+        service_name,
+        "./data/transformer.json",
+        model_name="mnist",
+        network_layer=network_layer,
     )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

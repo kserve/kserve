@@ -20,8 +20,8 @@ package v1alpha1
 
 import (
 	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,25 +38,17 @@ type ClusterServingRuntimeLister interface {
 
 // clusterServingRuntimeLister implements the ClusterServingRuntimeLister interface.
 type clusterServingRuntimeLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1alpha1.ClusterServingRuntime]
 }
 
 // NewClusterServingRuntimeLister returns a new ClusterServingRuntimeLister.
 func NewClusterServingRuntimeLister(indexer cache.Indexer) ClusterServingRuntimeLister {
-	return &clusterServingRuntimeLister{indexer: indexer}
-}
-
-// List lists all ClusterServingRuntimes in the indexer.
-func (s *clusterServingRuntimeLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterServingRuntime, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ClusterServingRuntime))
-	})
-	return ret, err
+	return &clusterServingRuntimeLister{listers.New[*v1alpha1.ClusterServingRuntime](indexer, v1alpha1.Resource("clusterservingruntime"))}
 }
 
 // ClusterServingRuntimes returns an object that can list and get ClusterServingRuntimes.
 func (s *clusterServingRuntimeLister) ClusterServingRuntimes(namespace string) ClusterServingRuntimeNamespaceLister {
-	return clusterServingRuntimeNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return clusterServingRuntimeNamespaceLister{listers.NewNamespaced[*v1alpha1.ClusterServingRuntime](s.ResourceIndexer, namespace)}
 }
 
 // ClusterServingRuntimeNamespaceLister helps list and get ClusterServingRuntimes.
@@ -74,26 +66,5 @@ type ClusterServingRuntimeNamespaceLister interface {
 // clusterServingRuntimeNamespaceLister implements the ClusterServingRuntimeNamespaceLister
 // interface.
 type clusterServingRuntimeNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all ClusterServingRuntimes in the indexer for a given namespace.
-func (s clusterServingRuntimeNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.ClusterServingRuntime, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.ClusterServingRuntime))
-	})
-	return ret, err
-}
-
-// Get retrieves the ClusterServingRuntime from the indexer for a given namespace and name.
-func (s clusterServingRuntimeNamespaceLister) Get(name string) (*v1alpha1.ClusterServingRuntime, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("clusterservingruntime"), name)
-	}
-	return obj.(*v1alpha1.ClusterServingRuntime), nil
+	listers.ResourceIndexer[*v1alpha1.ClusterServingRuntime]
 }
