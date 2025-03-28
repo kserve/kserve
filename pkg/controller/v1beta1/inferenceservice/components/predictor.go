@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -188,6 +189,41 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		if kstatus, err = p.reconcileKnativeDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
 			return ctrl.Result{}, err
 		}
+
+		forceStopRuntime := "false"
+		if val, exist := isvc.Annotations[constants.StopResumeAnnotationKey]; exist {
+			forceStopRuntime = val
+		}
+
+		if strings.EqualFold(forceStopRuntime, "true") {
+			// Clear all statuses if the ISVC is stopped
+			p.Log.Info("Clearing ISVC status")
+			isvc.Status = v1beta1.InferenceServiceStatus{}
+
+			// Add the stopped condition
+			stopped_condition := &apis.Condition{
+				Type:   v1beta1.Stopped,
+				Status: corev1.ConditionTrue,
+			}
+			isvc.Status.SetCondition(v1beta1.Stopped, stopped_condition)
+
+			// Set the ready condition to False with reason Stopped
+			readyCond := &apis.Condition{
+				Type:   apis.ConditionReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Stopped",
+			}
+			isvc.Status.SetCondition(apis.ConditionReady, readyCond)
+
+			return ctrl.Result{}, nil
+		} else {
+			resume_condition := &apis.Condition{
+				Type:   v1beta1.Stopped,
+				Status: corev1.ConditionFalse,
+			}
+			isvc.Status.SetCondition(v1beta1.Stopped, resume_condition)
+			isvc.Status.PropagateStatus(v1beta1.PredictorComponent, kstatus)
+		}
 	}
 
 	statusSpec := isvc.Status.Components[v1beta1.PredictorComponent]
@@ -200,6 +236,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "fails to list inferenceservice pods by label")
 	}
+
 	if isvc.Status.PropagateModelStatus(statusSpec, predictorPods, rawDeployment, kstatus) {
 		return ctrl.Result{}, nil
 	} else {
