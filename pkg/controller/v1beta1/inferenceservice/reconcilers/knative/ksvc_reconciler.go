@@ -232,12 +232,12 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 
 func (r *KsvcReconciler) Reconcile(ctx context.Context) (*knservingv1.ServiceStatus, error) {
 	desired := r.Service
-	stop, ok := desired.Spec.Template.Annotations[constants.StopResumeAnnotationKey]
-	if !ok {
-		stop = "false"
-	}
-
 	existing := &knservingv1.Service{}
+
+	forceStopRuntime := "false"
+	if val, exist := desired.Spec.Template.Annotations[constants.StopResumeAnnotationKey]; exist {
+		forceStopRuntime = val
+	}
 
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		log.Info("Updating knative service", "namespace", desired.Namespace, "name", desired.Name)
@@ -245,7 +245,7 @@ func (r *KsvcReconciler) Reconcile(ctx context.Context) (*knservingv1.ServiceSta
 			return err
 		}
 
-		if strings.EqualFold(stop, "true") {
+		if strings.EqualFold(forceStopRuntime, "true") {
 			log.Info("Stopping knative service", "namespace", existing.Namespace, "name", existing.Name)
 			if existing.GetDeletionTimestamp() == nil { // check if the ksvc was already deleted
 				err := r.client.Delete(ctx, existing)
@@ -280,7 +280,7 @@ func (r *KsvcReconciler) Reconcile(ctx context.Context) (*knservingv1.ServiceSta
 	if err != nil {
 		// Create service if it does not exist
 		if apierr.IsNotFound(err) {
-			if strings.EqualFold(stop, "false") {
+			if strings.EqualFold(forceStopRuntime, "false") {
 				log.Info("Creating knative service", "namespace", desired.Namespace, "name", desired.Name)
 				return &desired.Status, r.client.Create(ctx, desired)
 			}

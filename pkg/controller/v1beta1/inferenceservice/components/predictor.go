@@ -190,12 +190,12 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 			return ctrl.Result{}, err
 		}
 
-		stop, ok := isvc.Annotations[constants.StopResumeAnnotationKey]
-		if !ok {
-			stop = "false"
+		forceStopRuntime := "false"
+		if val, exist := isvc.Annotations[constants.StopResumeAnnotationKey]; exist {
+			forceStopRuntime = val
 		}
 
-		if strings.EqualFold(stop, "true") {
+		if strings.EqualFold(forceStopRuntime, "true") {
 			// Clear all statuses if the ISVC is stopped
 			p.Log.Info("Clearing ISVC status")
 			isvc.Status = v1beta1.InferenceServiceStatus{}
