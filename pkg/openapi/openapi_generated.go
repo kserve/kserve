@@ -7906,7 +7906,6 @@ func schema_pkg_apis_serving_v1beta1_PodMetricSource(ref common.ReferenceCallbac
 						},
 					},
 				},
-				Required: []string{"target"},
 			},
 		},
 		Dependencies: []string{

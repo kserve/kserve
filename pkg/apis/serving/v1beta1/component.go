@@ -216,7 +216,7 @@ type PodMetricSource struct {
 	Metric PodsMetricSource `json:"metric,omitempty"`
 
 	// target specifies the target value for the given metric
-	Target MetricTarget `json:"target" protobuf:"bytes,2,name=target"`
+	Target MetricTarget `json:"target,omitempty"`
 }
 
 // MetricTarget defines the target value, average value, or average utilization of a specific metric

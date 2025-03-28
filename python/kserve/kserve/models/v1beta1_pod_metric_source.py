@@ -68,7 +68,8 @@ class V1beta1PodMetricSource(object):
 
         if metric is not None:
             self.metric = metric
-        self.target = target
+        if target is not None:
+            self.target = target
 
     @property
     def metric(self):
@@ -109,8 +110,6 @@ class V1beta1PodMetricSource(object):
         :param target: The target of this V1beta1PodMetricSource.  # noqa: E501
         :type: V1beta1MetricTarget
         """
-        if self.local_vars_configuration.client_side_validation and target is None:  # noqa: E501
-            raise ValueError("Invalid value for `target`, must not be `None`")  # noqa: E501
 
         self._target = target
 

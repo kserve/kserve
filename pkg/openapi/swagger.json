@@ -4368,9 +4368,6 @@
     "v1beta1.PodMetricSource": {
       "description": "PodMetricSource indicates how to scale on a metric describing each pod in the current scale target (for example, transactions-processed-per-second). The values will be averaged together before being compared to the target value.",
       "type": "object",
-      "required": [
-        "target"
-      ],
       "properties": {
         "metric": {
           "description": "metric identifies the target metric by name and selector",

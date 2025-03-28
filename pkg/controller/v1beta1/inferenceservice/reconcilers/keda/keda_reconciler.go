@@ -52,17 +52,21 @@ func NewKedaReconciler(client client.Client,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	configMap *corev1.ConfigMap,
 ) (*KedaReconciler, error) {
+	scaledObject, err := createKedaScaledObject(componentMeta, componentExt, configMap)
+	if err != nil {
+		return nil, err
+	}
 	return &KedaReconciler{
 		client:       client,
 		scheme:       scheme,
-		ScaledObject: createKedaScaledObject(componentMeta, componentExt, configMap),
+		ScaledObject: scaledObject,
 		componentExt: componentExt,
 	}, nil
 }
 
 func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 	minReplicas int32, maxReplicas int32, configMap *corev1.ConfigMap,
-) []kedav1alpha1.ScaleTriggers {
+) ([]kedav1alpha1.ScaleTriggers, error) {
 	var triggers []kedav1alpha1.ScaleTriggers
 
 	metricType := autoscalingv2.UtilizationMetricType
@@ -111,7 +115,10 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 				triggers = append(triggers, trigger)
 
 			case v1beta1.MetricSourceType(constants.AutoScalerPodMetric):
-				otelConfig, _ := v1beta1.NewOtelCollectorConfig(configMap)
+				otelConfig, err := v1beta1.NewOtelCollectorConfig(configMap)
+				if err != nil {
+					return nil, err
+				}
 				MetricScalerEndpoint := otelConfig.MetricScalerEndpoint
 				if metric.PodMetric.Metric.ServerAddress != "" {
 					MetricScalerEndpoint = metric.PodMetric.Metric.ServerAddress
@@ -156,13 +163,13 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 			MetricType: metricType,
 		})
 	}
-	return triggers
+	return triggers, nil
 }
 
 func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 	configMap *corev1.ConfigMap,
-) *kedav1alpha1.ScaledObject {
+) (*kedav1alpha1.ScaledObject, error) {
 	annotations := componentMeta.GetAnnotations()
 
 	MinReplicas := componentExtension.MinReplicas
@@ -175,7 +182,10 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 	if MaxReplicas < *MinReplicas {
 		MaxReplicas = *MinReplicas
 	}
-	triggers := getKedaMetrics(componentExtension, *MinReplicas, MaxReplicas, configMap)
+	triggers, err := getKedaMetrics(componentExtension, *MinReplicas, MaxReplicas, configMap)
+	if err != nil {
+		return nil, err
+	}
 
 	scaledobject := &kedav1alpha1.ScaledObject{
 		ObjectMeta: metav1.ObjectMeta{
@@ -194,7 +204,7 @@ func createKedaScaledObject(componentMeta metav1.ObjectMeta,
 		},
 	}
 
-	return scaledobject
+	return scaledobject, nil
 }
 
 func semanticScaledObjectEquals(desired, existing *kedav1alpha1.ScaledObject) bool {

@@ -67,7 +67,7 @@ func NewRawKubeReconciler(ctx context.Context,
 		log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return nil, err
 	}
-
+	// create OTel Collector if pod metrics is enabled for auto-scaling
 	if componentExt.AutoScaling != nil {
 		metrics := componentExt.AutoScaling.Metrics
 		for _, metric := range metrics {

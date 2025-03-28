@@ -238,6 +238,9 @@ var AutoscalerAllowedKEDAMetricsList = []AutoscalerMetricsType{
 var AutoscalerAllowedKEDAMetricBackendList = []AutoscalerMetricsType{
 	AutoScalerMetricsPrometheus,
 	AutoScalerMetricsGraphite,
+}
+
+var AutoscalerAllowedPodMetricBackendList = []AutoscalerMetricsType{
 	AutoScalerMetricsOpenTelemetry,
 }
 
