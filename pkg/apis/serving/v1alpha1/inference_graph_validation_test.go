@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -271,7 +270,7 @@ func TestInferenceGraph_ValidateCreate(t *testing.T) {
 				ig.update(igField, value)
 			}
 			ig.Spec.Nodes = scenario.nodes
-			warnings, err := validator.ValidateCreate(context.Background(), ig)
+			warnings, err := validator.ValidateCreate(t.Context(), ig)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -311,7 +310,7 @@ func TestInferenceGraph_ValidateUpdate(t *testing.T) {
 				ig.update(igField, value)
 			}
 			ig.Spec.Nodes = scenario.nodes
-			warnings, err := validator.ValidateUpdate(context.Background(), old, ig)
+			warnings, err := validator.ValidateUpdate(t.Context(), old, ig)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -349,7 +348,7 @@ func TestInferenceGraph_ValidateDelete(t *testing.T) {
 				ig.update(igField, value)
 			}
 			ig.Spec.Nodes = scenario.nodes
-			warnings, err := validator.ValidateDelete(context.Background(), ig)
+			warnings, err := validator.ValidateDelete(t.Context(), ig)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
