@@ -189,6 +189,7 @@ data:
            "additionalIngressDomains": ["additional-example.com", "additional-example-1.com"],
            "ingressClassName" : "istio",
            "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
+           "pathTemplate": ""
            "urlScheme": "http",
            "disableIstioVirtualHost": false,
            "disableIngressCreation": false
@@ -272,7 +273,7 @@ data:
            # Name of the inference service ( {{- "{{ .Name }}" -}} )
            # Namespace of the inference service ( {{- "{{ .Namespace }}" -}} )
            # For more info https://github.com/kserve/kserve/issues/2257.
-           # NOTE: This configuration only applicable to serverless deployment.
+           # If path template is empty the default path template is ""
            "pathTemplate": "/serving/{{ .Namespace }}/{{ .Name }}"
        }
 
@@ -573,6 +574,7 @@ data:
             {{- end}}
         ],
         "domainTemplate": "{{ .Values.kserve.controller.gateway.domainTemplate }}",
+        "pathTemplate": "{{ .Values.kserve.controller.gateway.pathTemplate }}",
         "urlScheme": "{{ .Values.kserve.controller.gateway.urlScheme }}",
         "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }},
         "disableIngressCreation": {{ .Values.kserve.controller.gateway.disableIngressCreation }}
