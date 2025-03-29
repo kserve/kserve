@@ -3,6 +3,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: kserve-leader-election-role
+  namespace: {{ .Release.Namespace }}
 rules:
 - apiGroups:
   - coordination.k8s.io
