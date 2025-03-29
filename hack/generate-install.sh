@@ -72,38 +72,44 @@ if [[ ! " ${RELEASES[@]} " =~ " ${TAG} " ]]; then
 fi
 
 INSTALL_DIR=./install/$TAG
-INSTALL_PATH=$INSTALL_DIR/kserve.yaml
-KUBEFLOW_INSTALL_PATH=$INSTALL_DIR/kserve_kubeflow.yaml
-RUNTIMES_INSTALL_PATH=$INSTALL_DIR/kserve-cluster-resources.yaml
 
 HELM_KSERVE_CRD_DIR=charts/kserve-crd
 HELM_KSERVE_RESOURCES_DIR=charts/kserve-resources
 KUBEFLOW_OVERLAY_DIR=config/overlays/kubeflow
-KSERVE_OVERLAY_PATH=$KUBEFLOW_OVERLAY_DIR/kserve.yaml
 
 mkdir -p $INSTALL_DIR
+
+generate_yaml() {
+    local helm_dir=$1
+    local namespace=$2
+    local output_path=$3
+    shift 3
+    helm template "$helm_dir" --namespace "$namespace" "$@" | yq eval -P --indent 2 - > "$output_path"
+}
+
+append_yaml() {
+    local helm_dir=$1
+    local namespace=$2
+    local output_path=$3
+    shift 3
+    helm template "$helm_dir" --namespace "$namespace" "$@" | yq eval -P --indent 2 - | sed '1s/^/---\n/' >> "$output_path"
+}
+
 # Generate kserve.yaml
-helm template $HELM_KSERVE_CRD_DIR \
-  --namespace kserve \
-  | yq eval -P --indent 2 - > $INSTALL_PATH
-helm template $HELM_KSERVE_RESOURCES_DIR \
-  --namespace kserve \
-  --set kserve.servingruntime.enabled=false \
-  --set kserve.storage.enabled=false \
-  | yq eval -P --indent 2 - | sed '1s/^/---\n/' >> $INSTALL_PATH
+generate_yaml $HELM_KSERVE_CRD_DIR kserve $INSTALL_DIR/kserve.yaml
+append_yaml $HELM_KSERVE_RESOURCES_DIR kserve $INSTALL_DIR/kserve.yaml \
+    --set kserve.servingruntime.enabled=false \
+    --set kserve.storage.enabled=false
+
 # Generate kserve_kubeflow.yaml
-helm template $HELM_KSERVE_CRD_DIR \
-  --namespace kubeflow \
-  | yq eval -P --indent 2 - > $KSERVE_OVERLAY_PATH
-helm template $HELM_KSERVE_RESOURCES_DIR \
-  --namespace kubeflow \
-  --set kserve.controller.gateway.ingressGateway.gateway="kubeflow/kubeflow-gateway" \
-  --set kserve.servingruntime.enabled=false \
-  --set kserve.storage.enabled=false \
-  | yq eval -P --indent 2 - | sed '1s/^/---\n/' >> $KSERVE_OVERLAY_PATH
-kubectl kustomize $KUBEFLOW_OVERLAY_DIR | yq eval -P --indent 2 > $KUBEFLOW_INSTALL_PATH
+generate_yaml $HELM_KSERVE_CRD_DIR kubeflow $KUBEFLOW_OVERLAY_DIR/kserve.yaml
+append_yaml $HELM_KSERVE_RESOURCES_DIR kubeflow $KUBEFLOW_OVERLAY_DIR/kserve.yaml \
+    --set kserve.controller.gateway.ingressGateway.gateway="kubeflow/kubeflow-gateway" \
+    --set kserve.servingruntime.enabled=false \
+    --set kserve.storage.enabled=false
+kubectl kustomize $KUBEFLOW_OVERLAY_DIR | yq eval -P --indent 2 > $INSTALL_DIR/kserve_kubeflow.yaml
+
 # Generate kserve-cluster-resources.yaml
-helm template $HELM_KSERVE_RESOURCES_DIR \
-  --show-only templates/clusterservingruntimes.yaml \
-  --show-only templates/clusterstoragecontainer.yaml \
-  | yq eval -P --indent 2 - > $RUNTIMES_INSTALL_PATH
+generate_yaml $HELM_KSERVE_RESOURCES_DIR "" $INSTALL_DIR/kserve-cluster-resources.yaml \
+    --show-only templates/clusterservingruntimes.yaml \
+    --show-only templates/clusterstoragecontainer.yaml
