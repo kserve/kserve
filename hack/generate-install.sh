@@ -71,44 +71,46 @@ if [[ ! " ${RELEASES[@]} " =~ " ${TAG} " ]]; then
 fi
 
 INSTALL_DIR=./install/$TAG
-INSTALL_PATH=$INSTALL_DIR/kserve.yaml
-KUBEFLOW_INSTALL_PATH=$INSTALL_DIR/kserve_kubeflow.yaml
-RUNTIMES_INSTALL_PATH=$INSTALL_DIR/kserve-cluster-resources.yaml
+
+HELM_KSERVE_CRD_DIR=charts/kserve-crd
+HELM_KSERVE_RESOURCES_DIR=charts/kserve-resources
+KUBEFLOW_OVERLAY_DIR=config/overlays/kubeflow
 
 mkdir -p $INSTALL_DIR
-kubectl kustomize config/default | sed s/:latest/:$TAG/ > $INSTALL_PATH
-kubectl kustomize config/overlays/kubeflow | sed s/:latest/:$TAG/ > $KUBEFLOW_INSTALL_PATH
-kubectl kustomize config/clusterresources | sed s/:latest/:$TAG/ > $RUNTIMES_INSTALL_PATH
 
-# Update ingressGateway in inferenceservice configmap as 'kubeflow/kubeflow-gateway'
-yq -i 'select(.metadata.name == "inferenceservice-config").data.ingress |= (fromjson | .ingressGateway = "kubeflow/kubeflow-gateway" | tojson)' $KUBEFLOW_INSTALL_PATH
+generate_yaml() {
+    local helm_dir=$1
+    local namespace=$2
+    local output_path=$3
+    shift 3
+    helm template "$helm_dir" --namespace "$namespace" "$@" | yq eval -P --indent 2 - > "$output_path"
+}
 
-# Create a temp directory for final CRD
-temp_dir=$(mktemp -d)
-delimeter_lines=$(cat -n ${INSTALL_PATH} |grep '\-\-\-'|cut -f1)
-start_line=1
-for end_line in $delimeter_lines
-do
-  sed -n "${start_line},$((end_line-1))p" "${INSTALL_PATH}" > "${temp_dir}/temp_output_file.yaml"
-  start_line=$(( end_line+1 ))
-  kind=$(yq '.kind' "${temp_dir}/temp_output_file.yaml")
-  plural_name=$(yq  '.spec.names.plural' "${temp_dir}/temp_output_file.yaml")
-  if [[ $kind == 'CustomResourceDefinition' ]]
-  then
-     group=$(yq '.spec.group' "${temp_dir}/temp_output_file.yaml")     
-     mv "${temp_dir}/temp_output_file.yaml" "${temp_dir}/${group}_${plural_name}.yaml"
-  fi
-done
+append_yaml() {
+    local helm_dir=$1
+    local namespace=$2
+    local output_path=$3
+    shift 3
+    helm template "$helm_dir" --namespace "$namespace" "$@" | yq eval -P --indent 2 - | sed '1s/^/---\n/' >> "$output_path"
+}
 
-# Copy CRD files to charts crds directory
-cp ${temp_dir}/serving.kserve.io_clusterservingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_clusterservingruntimes.yaml
-cp ${temp_dir}/serving.kserve.io_inferenceservices.yaml charts/kserve-crd/templates/serving.kserve.io_inferenceservices.yaml
-cp ${temp_dir}/serving.kserve.io_trainedmodels.yaml charts/kserve-crd/templates/serving.kserve.io_trainedmodels.yaml
-cp ${temp_dir}/serving.kserve.io_inferencegraphs.yaml charts/kserve-crd/templates/serving.kserve.io_inferencegraphs.yaml
-cp ${temp_dir}/serving.kserve.io_servingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
-cp ${temp_dir}/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/templates/serving.kserve.io_clusterstoragecontainers.yaml
-cp ${temp_dir}/serving.kserve.io_localmodelnodegroups.yaml charts/kserve-crd/templates/serving.kserve.io_localmodelnodegroups.yaml
-cp ${temp_dir}/serving.kserve.io_localmodelcaches.yaml charts/kserve-crd/templates/serving.kserve.io_localmodelcaches.yaml
+# Generate kserve.yaml
+generate_yaml $HELM_KSERVE_CRD_DIR kserve $INSTALL_DIR/kserve.yaml
+append_yaml $HELM_KSERVE_RESOURCES_DIR kserve $INSTALL_DIR/kserve.yaml \
+    --set kserve.servingruntime.enabled=false \
+    --set kserve.storage.enabled=false \
+    --set kserve.localmodel.enabled=true
 
-# Clean temp directory
-rm -rf ${temp_dir}
+# Generate kserve_kubeflow.yaml
+generate_yaml $HELM_KSERVE_CRD_DIR kubeflow $KUBEFLOW_OVERLAY_DIR/kserve.yaml
+append_yaml $HELM_KSERVE_RESOURCES_DIR kubeflow $KUBEFLOW_OVERLAY_DIR/kserve.yaml \
+    --set kserve.controller.gateway.ingressGateway.gateway="kubeflow/kubeflow-gateway" \
+    --set kserve.servingruntime.enabled=false \
+    --set kserve.storage.enabled=false \
+    --set kserve.localmodel.enabled=true
+kubectl kustomize $KUBEFLOW_OVERLAY_DIR | yq eval -P --indent 2 > $INSTALL_DIR/kserve_kubeflow.yaml
+
+# Generate kserve-cluster-resources.yaml
+generate_yaml $HELM_KSERVE_RESOURCES_DIR "" $INSTALL_DIR/kserve-cluster-resources.yaml \
+    --show-only templates/clusterservingruntimes.yaml \
+    --show-only templates/clusterstoragecontainer.yaml

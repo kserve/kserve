@@ -13,6 +13,7 @@ kserve:
   service:
     serviceClusterIPNone: false
   storage:
+    enabled: true
     image: kserve/storage-initializer
     tag: *defaultVersion
 
@@ -24,7 +25,7 @@ kserve:
       capabilities:
         drop:
           - ALL
- 
+
     # -- Flag for enabling model sidecar feature.
     enableModelcar: false
 
@@ -182,7 +183,7 @@ kserve:
       ingressGateway:
         # -- enableGatewayApi controls whether to use the Gateway API for ingress routing instead of kuberetes Ingress.
         enableGatewayApi: false
-        # -- kserveGateway specifies the name and namespace of the Gateway which handles the network traffic from outside the cluster. 
+        # -- kserveGateway specifies the name and namespace of the Gateway which handles the network traffic from outside the cluster.
         # This is only used when Gateway API is enabled. The gateway should be specified in format <gateway namespace>/<gateway name>
         kserveGateway: kserve/kserve-ingress-gateway
         # -- createGateway controls whether to create the default Gateway resource for ingress routing as part of the installation. This is only used when Gateway API is enabled.
@@ -268,6 +269,7 @@ kserve:
     knativeAddressableResolver:
       enabled: false
   servingruntime:
+    enabled: true
     modelNamePlaceholder: "{{.Name}}"
     tensorflow:
       image: tensorflow/serving
