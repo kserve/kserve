@@ -69,7 +69,7 @@ type PredictorSpec struct {
 }
 
 type WorkerSpec struct {
-	PodSpec `json:",inline"`
+	corev1.Container `json:",inline"`
 
 	// PipelineParallelSize defines the number of parallel workers.
 	// It also represents the number of replicas in the worker set, where each worker set serves as a scaling unit.

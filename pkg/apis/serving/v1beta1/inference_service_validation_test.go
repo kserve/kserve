@@ -651,7 +651,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 							},
 						},
 						WorkerSpec: &WorkerSpec{
-							PodSpec:            PodSpec{},
+							Container:          corev1.Container{},
 							TensorParallelSize: intPtr(0),
 						},
 					},
@@ -679,7 +679,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 							},
 						},
 						WorkerSpec: &WorkerSpec{
-							PodSpec:              PodSpec{},
+							Container:            corev1.Container{},
 							PipelineParallelSize: intPtr(1),
 						},
 					},
@@ -742,17 +742,13 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 							},
 						},
 						WorkerSpec: &WorkerSpec{
-							PodSpec: PodSpec{
-								Containers: []corev1.Container{
-									{
-										Resources: corev1.ResourceRequirements{
-											Limits: corev1.ResourceList{
-												"unknownGPU.com/gpu": resource.MustParse("1"),
-											},
-											Requests: corev1.ResourceList{
-												"unknownGPU.com/gpu": resource.MustParse("1"),
-											},
-										},
+							Container: corev1.Container{
+								Resources: corev1.ResourceRequirements{
+									Limits: corev1.ResourceList{
+										"unknownGPU.com/gpu": resource.MustParse("1"),
+									},
+									Requests: corev1.ResourceList{
+										"unknownGPU.com/gpu": resource.MustParse("1"),
 									},
 								},
 							},
@@ -811,38 +807,6 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 				},
 			},
 			expected: gomega.Equal(fmt.Errorf(InvalidAutoScalerError, "foo-8", constants.AutoscalerClassHPA)),
-		},
-		"When multiple containers set in WorkerSpec, then it should return error": {
-			isvc: &InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-9",
-					Namespace: "default",
-					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
-					},
-				},
-				Spec: InferenceServiceSpec{
-					Predictor: PredictorSpec{
-						Model: &ModelSpec{
-							ModelFormat: ModelFormat{
-								Name: "huggingface",
-							},
-							PredictorExtensionSpec: PredictorExtensionSpec{
-								StorageURI: &pvcStorageUri,
-							},
-						},
-						WorkerSpec: &WorkerSpec{
-							PodSpec: PodSpec{
-								Containers: []corev1.Container{
-									{},
-									{},
-								},
-							},
-						},
-					},
-				},
-			},
-			expected: gomega.Equal(fmt.Errorf(DisallowedMultipleContainersInWorkerSpecError, "foo-9")),
 		},
 	}
 

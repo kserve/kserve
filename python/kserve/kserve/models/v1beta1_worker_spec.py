@@ -47,683 +47,352 @@ class V1beta1WorkerSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'active_deadline_seconds': 'int',
-        'affinity': 'V1Affinity',
-        'automount_service_account_token': 'bool',
-        'containers': 'list[V1Container]',
-        'dns_config': 'V1PodDNSConfig',
-        'dns_policy': 'str',
-        'enable_service_links': 'bool',
-        'ephemeral_containers': 'list[V1EphemeralContainer]',
-        'host_aliases': 'list[V1HostAlias]',
-        'host_ipc': 'bool',
-        'host_network': 'bool',
-        'host_pid': 'bool',
-        'host_users': 'bool',
-        'hostname': 'str',
-        'image_pull_secrets': 'list[V1LocalObjectReference]',
-        'init_containers': 'list[V1Container]',
-        'node_name': 'str',
-        'node_selector': 'dict(str, str)',
-        'os': 'V1PodOS',
-        'overhead': 'dict(str, ResourceQuantity)',
+        'args': 'list[str]',
+        'command': 'list[str]',
+        'env': 'list[V1EnvVar]',
+        'env_from': 'list[V1EnvFromSource]',
+        'image': 'str',
+        'image_pull_policy': 'str',
+        'lifecycle': 'V1Lifecycle',
+        'liveness_probe': 'V1Probe',
+        'name': 'str',
         'pipeline_parallel_size': 'int',
-        'preemption_policy': 'str',
-        'priority': 'int',
-        'priority_class_name': 'str',
-        'readiness_gates': 'list[V1PodReadinessGate]',
-        'resource_claims': 'list[V1PodResourceClaim]',
+        'ports': 'list[V1ContainerPort]',
+        'readiness_probe': 'V1Probe',
+        'resize_policy': 'list[V1ContainerResizePolicy]',
         'resources': 'V1ResourceRequirements',
         'restart_policy': 'str',
-        'runtime_class_name': 'str',
-        'scheduler_name': 'str',
-        'scheduling_gates': 'list[V1PodSchedulingGate]',
-        'security_context': 'V1PodSecurityContext',
-        'service_account': 'str',
-        'service_account_name': 'str',
-        'set_hostname_as_fqdn': 'bool',
-        'share_process_namespace': 'bool',
-        'subdomain': 'str',
+        'security_context': 'V1SecurityContext',
+        'startup_probe': 'V1Probe',
+        'stdin': 'bool',
+        'stdin_once': 'bool',
         'tensor_parallel_size': 'int',
-        'termination_grace_period_seconds': 'int',
-        'tolerations': 'list[V1Toleration]',
-        'topology_spread_constraints': 'list[V1TopologySpreadConstraint]',
-        'volumes': 'list[V1Volume]'
+        'termination_message_path': 'str',
+        'termination_message_policy': 'str',
+        'tty': 'bool',
+        'volume_devices': 'list[V1VolumeDevice]',
+        'volume_mounts': 'list[V1VolumeMount]',
+        'working_dir': 'str'
     }
 
     attribute_map = {
-        'active_deadline_seconds': 'activeDeadlineSeconds',
-        'affinity': 'affinity',
-        'automount_service_account_token': 'automountServiceAccountToken',
-        'containers': 'containers',
-        'dns_config': 'dnsConfig',
-        'dns_policy': 'dnsPolicy',
-        'enable_service_links': 'enableServiceLinks',
-        'ephemeral_containers': 'ephemeralContainers',
-        'host_aliases': 'hostAliases',
-        'host_ipc': 'hostIPC',
-        'host_network': 'hostNetwork',
-        'host_pid': 'hostPID',
-        'host_users': 'hostUsers',
-        'hostname': 'hostname',
-        'image_pull_secrets': 'imagePullSecrets',
-        'init_containers': 'initContainers',
-        'node_name': 'nodeName',
-        'node_selector': 'nodeSelector',
-        'os': 'os',
-        'overhead': 'overhead',
+        'args': 'args',
+        'command': 'command',
+        'env': 'env',
+        'env_from': 'envFrom',
+        'image': 'image',
+        'image_pull_policy': 'imagePullPolicy',
+        'lifecycle': 'lifecycle',
+        'liveness_probe': 'livenessProbe',
+        'name': 'name',
         'pipeline_parallel_size': 'pipelineParallelSize',
-        'preemption_policy': 'preemptionPolicy',
-        'priority': 'priority',
-        'priority_class_name': 'priorityClassName',
-        'readiness_gates': 'readinessGates',
-        'resource_claims': 'resourceClaims',
+        'ports': 'ports',
+        'readiness_probe': 'readinessProbe',
+        'resize_policy': 'resizePolicy',
         'resources': 'resources',
         'restart_policy': 'restartPolicy',
-        'runtime_class_name': 'runtimeClassName',
-        'scheduler_name': 'schedulerName',
-        'scheduling_gates': 'schedulingGates',
         'security_context': 'securityContext',
-        'service_account': 'serviceAccount',
-        'service_account_name': 'serviceAccountName',
-        'set_hostname_as_fqdn': 'setHostnameAsFQDN',
-        'share_process_namespace': 'shareProcessNamespace',
-        'subdomain': 'subdomain',
+        'startup_probe': 'startupProbe',
+        'stdin': 'stdin',
+        'stdin_once': 'stdinOnce',
         'tensor_parallel_size': 'tensorParallelSize',
-        'termination_grace_period_seconds': 'terminationGracePeriodSeconds',
-        'tolerations': 'tolerations',
-        'topology_spread_constraints': 'topologySpreadConstraints',
-        'volumes': 'volumes'
+        'termination_message_path': 'terminationMessagePath',
+        'termination_message_policy': 'terminationMessagePolicy',
+        'tty': 'tty',
+        'volume_devices': 'volumeDevices',
+        'volume_mounts': 'volumeMounts',
+        'working_dir': 'workingDir'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, pipeline_parallel_size=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, tensor_parallel_size=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, args=None, command=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', pipeline_parallel_size=None, ports=None, readiness_probe=None, resize_policy=None, resources=None, restart_policy=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, tensor_parallel_size=None, termination_message_path=None, termination_message_policy=None, tty=None, volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1WorkerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._active_deadline_seconds = None
-        self._affinity = None
-        self._automount_service_account_token = None
-        self._containers = None
-        self._dns_config = None
-        self._dns_policy = None
-        self._enable_service_links = None
-        self._ephemeral_containers = None
-        self._host_aliases = None
-        self._host_ipc = None
-        self._host_network = None
-        self._host_pid = None
-        self._host_users = None
-        self._hostname = None
-        self._image_pull_secrets = None
-        self._init_containers = None
-        self._node_name = None
-        self._node_selector = None
-        self._os = None
-        self._overhead = None
+        self._args = None
+        self._command = None
+        self._env = None
+        self._env_from = None
+        self._image = None
+        self._image_pull_policy = None
+        self._lifecycle = None
+        self._liveness_probe = None
+        self._name = None
         self._pipeline_parallel_size = None
-        self._preemption_policy = None
-        self._priority = None
-        self._priority_class_name = None
-        self._readiness_gates = None
-        self._resource_claims = None
+        self._ports = None
+        self._readiness_probe = None
+        self._resize_policy = None
         self._resources = None
         self._restart_policy = None
-        self._runtime_class_name = None
-        self._scheduler_name = None
-        self._scheduling_gates = None
         self._security_context = None
-        self._service_account = None
-        self._service_account_name = None
-        self._set_hostname_as_fqdn = None
-        self._share_process_namespace = None
-        self._subdomain = None
+        self._startup_probe = None
+        self._stdin = None
+        self._stdin_once = None
         self._tensor_parallel_size = None
-        self._termination_grace_period_seconds = None
-        self._tolerations = None
-        self._topology_spread_constraints = None
-        self._volumes = None
+        self._termination_message_path = None
+        self._termination_message_policy = None
+        self._tty = None
+        self._volume_devices = None
+        self._volume_mounts = None
+        self._working_dir = None
         self.discriminator = None
 
-        if active_deadline_seconds is not None:
-            self.active_deadline_seconds = active_deadline_seconds
-        if affinity is not None:
-            self.affinity = affinity
-        if automount_service_account_token is not None:
-            self.automount_service_account_token = automount_service_account_token
-        if containers is not None:
-            self.containers = containers
-        if dns_config is not None:
-            self.dns_config = dns_config
-        if dns_policy is not None:
-            self.dns_policy = dns_policy
-        if enable_service_links is not None:
-            self.enable_service_links = enable_service_links
-        if ephemeral_containers is not None:
-            self.ephemeral_containers = ephemeral_containers
-        if host_aliases is not None:
-            self.host_aliases = host_aliases
-        if host_ipc is not None:
-            self.host_ipc = host_ipc
-        if host_network is not None:
-            self.host_network = host_network
-        if host_pid is not None:
-            self.host_pid = host_pid
-        if host_users is not None:
-            self.host_users = host_users
-        if hostname is not None:
-            self.hostname = hostname
-        if image_pull_secrets is not None:
-            self.image_pull_secrets = image_pull_secrets
-        if init_containers is not None:
-            self.init_containers = init_containers
-        if node_name is not None:
-            self.node_name = node_name
-        if node_selector is not None:
-            self.node_selector = node_selector
-        if os is not None:
-            self.os = os
-        if overhead is not None:
-            self.overhead = overhead
+        if args is not None:
+            self.args = args
+        if command is not None:
+            self.command = command
+        if env is not None:
+            self.env = env
+        if env_from is not None:
+            self.env_from = env_from
+        if image is not None:
+            self.image = image
+        if image_pull_policy is not None:
+            self.image_pull_policy = image_pull_policy
+        if lifecycle is not None:
+            self.lifecycle = lifecycle
+        if liveness_probe is not None:
+            self.liveness_probe = liveness_probe
+        if name is not None:
+            self.name = name
         if pipeline_parallel_size is not None:
             self.pipeline_parallel_size = pipeline_parallel_size
-        if preemption_policy is not None:
-            self.preemption_policy = preemption_policy
-        if priority is not None:
-            self.priority = priority
-        if priority_class_name is not None:
-            self.priority_class_name = priority_class_name
-        if readiness_gates is not None:
-            self.readiness_gates = readiness_gates
-        if resource_claims is not None:
-            self.resource_claims = resource_claims
+        if ports is not None:
+            self.ports = ports
+        if readiness_probe is not None:
+            self.readiness_probe = readiness_probe
+        if resize_policy is not None:
+            self.resize_policy = resize_policy
         if resources is not None:
             self.resources = resources
         if restart_policy is not None:
             self.restart_policy = restart_policy
-        if runtime_class_name is not None:
-            self.runtime_class_name = runtime_class_name
-        if scheduler_name is not None:
-            self.scheduler_name = scheduler_name
-        if scheduling_gates is not None:
-            self.scheduling_gates = scheduling_gates
         if security_context is not None:
             self.security_context = security_context
-        if service_account is not None:
-            self.service_account = service_account
-        if service_account_name is not None:
-            self.service_account_name = service_account_name
-        if set_hostname_as_fqdn is not None:
-            self.set_hostname_as_fqdn = set_hostname_as_fqdn
-        if share_process_namespace is not None:
-            self.share_process_namespace = share_process_namespace
-        if subdomain is not None:
-            self.subdomain = subdomain
+        if startup_probe is not None:
+            self.startup_probe = startup_probe
+        if stdin is not None:
+            self.stdin = stdin
+        if stdin_once is not None:
+            self.stdin_once = stdin_once
         if tensor_parallel_size is not None:
             self.tensor_parallel_size = tensor_parallel_size
-        if termination_grace_period_seconds is not None:
-            self.termination_grace_period_seconds = termination_grace_period_seconds
-        if tolerations is not None:
-            self.tolerations = tolerations
-        if topology_spread_constraints is not None:
-            self.topology_spread_constraints = topology_spread_constraints
-        if volumes is not None:
-            self.volumes = volumes
+        if termination_message_path is not None:
+            self.termination_message_path = termination_message_path
+        if termination_message_policy is not None:
+            self.termination_message_policy = termination_message_policy
+        if tty is not None:
+            self.tty = tty
+        if volume_devices is not None:
+            self.volume_devices = volume_devices
+        if volume_mounts is not None:
+            self.volume_mounts = volume_mounts
+        if working_dir is not None:
+            self.working_dir = working_dir
 
     @property
-    def active_deadline_seconds(self):
-        """Gets the active_deadline_seconds of this V1beta1WorkerSpec.  # noqa: E501
+    def args(self):
+        """Gets the args of this V1beta1WorkerSpec.  # noqa: E501
 
-        Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers. Value must be a positive integer.  # noqa: E501
+        Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell  # noqa: E501
 
-        :return: The active_deadline_seconds of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: int
+        :return: The args of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: list[str]
         """
-        return self._active_deadline_seconds
+        return self._args
 
-    @active_deadline_seconds.setter
-    def active_deadline_seconds(self, active_deadline_seconds):
-        """Sets the active_deadline_seconds of this V1beta1WorkerSpec.
+    @args.setter
+    def args(self, args):
+        """Sets the args of this V1beta1WorkerSpec.
 
-        Optional duration in seconds the pod may be active on the node relative to StartTime before the system will actively try to mark it failed and kill associated containers. Value must be a positive integer.  # noqa: E501
+        Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell  # noqa: E501
 
-        :param active_deadline_seconds: The active_deadline_seconds of this V1beta1WorkerSpec.  # noqa: E501
-        :type: int
+        :param args: The args of this V1beta1WorkerSpec.  # noqa: E501
+        :type: list[str]
         """
 
-        self._active_deadline_seconds = active_deadline_seconds
+        self._args = args
 
     @property
-    def affinity(self):
-        """Gets the affinity of this V1beta1WorkerSpec.  # noqa: E501
+    def command(self):
+        """Gets the command of this V1beta1WorkerSpec.  # noqa: E501
 
+        Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell  # noqa: E501
 
-        :return: The affinity of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: V1Affinity
+        :return: The command of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: list[str]
         """
-        return self._affinity
+        return self._command
 
-    @affinity.setter
-    def affinity(self, affinity):
-        """Sets the affinity of this V1beta1WorkerSpec.
+    @command.setter
+    def command(self, command):
+        """Sets the command of this V1beta1WorkerSpec.
 
+        Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell  # noqa: E501
 
-        :param affinity: The affinity of this V1beta1WorkerSpec.  # noqa: E501
-        :type: V1Affinity
+        :param command: The command of this V1beta1WorkerSpec.  # noqa: E501
+        :type: list[str]
         """
 
-        self._affinity = affinity
+        self._command = command
 
     @property
-    def automount_service_account_token(self):
-        """Gets the automount_service_account_token of this V1beta1WorkerSpec.  # noqa: E501
+    def env(self):
+        """Gets the env of this V1beta1WorkerSpec.  # noqa: E501
 
-        AutomountServiceAccountToken indicates whether a service account token should be automatically mounted.  # noqa: E501
+        List of environment variables to set in the container. Cannot be updated.  # noqa: E501
 
-        :return: The automount_service_account_token of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: bool
+        :return: The env of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: list[V1EnvVar]
         """
-        return self._automount_service_account_token
+        return self._env
 
-    @automount_service_account_token.setter
-    def automount_service_account_token(self, automount_service_account_token):
-        """Sets the automount_service_account_token of this V1beta1WorkerSpec.
+    @env.setter
+    def env(self, env):
+        """Sets the env of this V1beta1WorkerSpec.
 
-        AutomountServiceAccountToken indicates whether a service account token should be automatically mounted.  # noqa: E501
+        List of environment variables to set in the container. Cannot be updated.  # noqa: E501
 
-        :param automount_service_account_token: The automount_service_account_token of this V1beta1WorkerSpec.  # noqa: E501
-        :type: bool
+        :param env: The env of this V1beta1WorkerSpec.  # noqa: E501
+        :type: list[V1EnvVar]
         """
 
-        self._automount_service_account_token = automount_service_account_token
+        self._env = env
 
     @property
-    def containers(self):
-        """Gets the containers of this V1beta1WorkerSpec.  # noqa: E501
+    def env_from(self):
+        """Gets the env_from of this V1beta1WorkerSpec.  # noqa: E501
 
-        List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.  # noqa: E501
+        List of sources to populate environment variables in the container. The keys defined within a source must be a C_IDENTIFIER. All invalid keys will be reported as an event when the container is starting. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.  # noqa: E501
 
-        :return: The containers of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: list[V1Container]
+        :return: The env_from of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: list[V1EnvFromSource]
         """
-        return self._containers
+        return self._env_from
 
-    @containers.setter
-    def containers(self, containers):
-        """Sets the containers of this V1beta1WorkerSpec.
+    @env_from.setter
+    def env_from(self, env_from):
+        """Sets the env_from of this V1beta1WorkerSpec.
 
-        List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.  # noqa: E501
+        List of sources to populate environment variables in the container. The keys defined within a source must be a C_IDENTIFIER. All invalid keys will be reported as an event when the container is starting. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.  # noqa: E501
 
-        :param containers: The containers of this V1beta1WorkerSpec.  # noqa: E501
-        :type: list[V1Container]
+        :param env_from: The env_from of this V1beta1WorkerSpec.  # noqa: E501
+        :type: list[V1EnvFromSource]
         """
 
-        self._containers = containers
+        self._env_from = env_from
 
     @property
-    def dns_config(self):
-        """Gets the dns_config of this V1beta1WorkerSpec.  # noqa: E501
+    def image(self):
+        """Gets the image of this V1beta1WorkerSpec.  # noqa: E501
 
+        Container image name. More info: https://kubernetes.io/docs/concepts/containers/images This field is optional to allow higher level config management to default or override container images in workload controllers like Deployments and StatefulSets.  # noqa: E501
 
-        :return: The dns_config of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: V1PodDNSConfig
-        """
-        return self._dns_config
-
-    @dns_config.setter
-    def dns_config(self, dns_config):
-        """Sets the dns_config of this V1beta1WorkerSpec.
-
-
-        :param dns_config: The dns_config of this V1beta1WorkerSpec.  # noqa: E501
-        :type: V1PodDNSConfig
-        """
-
-        self._dns_config = dns_config
-
-    @property
-    def dns_policy(self):
-        """Gets the dns_policy of this V1beta1WorkerSpec.  # noqa: E501
-
-        Set DNS policy for the pod. Defaults to \"ClusterFirst\". Valid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'. DNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy. To have DNS options set along with hostNetwork, you have to specify DNS policy explicitly to 'ClusterFirstWithHostNet'.  # noqa: E501
-
-        :return: The dns_policy of this V1beta1WorkerSpec.  # noqa: E501
+        :return: The image of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: str
         """
-        return self._dns_policy
+        return self._image
 
-    @dns_policy.setter
-    def dns_policy(self, dns_policy):
-        """Sets the dns_policy of this V1beta1WorkerSpec.
+    @image.setter
+    def image(self, image):
+        """Sets the image of this V1beta1WorkerSpec.
 
-        Set DNS policy for the pod. Defaults to \"ClusterFirst\". Valid values are 'ClusterFirstWithHostNet', 'ClusterFirst', 'Default' or 'None'. DNS parameters given in DNSConfig will be merged with the policy selected with DNSPolicy. To have DNS options set along with hostNetwork, you have to specify DNS policy explicitly to 'ClusterFirstWithHostNet'.  # noqa: E501
+        Container image name. More info: https://kubernetes.io/docs/concepts/containers/images This field is optional to allow higher level config management to default or override container images in workload controllers like Deployments and StatefulSets.  # noqa: E501
 
-        :param dns_policy: The dns_policy of this V1beta1WorkerSpec.  # noqa: E501
+        :param image: The image of this V1beta1WorkerSpec.  # noqa: E501
         :type: str
         """
 
-        self._dns_policy = dns_policy
+        self._image = image
 
     @property
-    def enable_service_links(self):
-        """Gets the enable_service_links of this V1beta1WorkerSpec.  # noqa: E501
+    def image_pull_policy(self):
+        """Gets the image_pull_policy of this V1beta1WorkerSpec.  # noqa: E501
 
-        EnableServiceLinks indicates whether information about services should be injected into pod's environment variables, matching the syntax of Docker links. Optional: Defaults to true.  # noqa: E501
+        Image pull policy. One of Always, Never, IfNotPresent. Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images  # noqa: E501
 
-        :return: The enable_service_links of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: bool
-        """
-        return self._enable_service_links
-
-    @enable_service_links.setter
-    def enable_service_links(self, enable_service_links):
-        """Sets the enable_service_links of this V1beta1WorkerSpec.
-
-        EnableServiceLinks indicates whether information about services should be injected into pod's environment variables, matching the syntax of Docker links. Optional: Defaults to true.  # noqa: E501
-
-        :param enable_service_links: The enable_service_links of this V1beta1WorkerSpec.  # noqa: E501
-        :type: bool
-        """
-
-        self._enable_service_links = enable_service_links
-
-    @property
-    def ephemeral_containers(self):
-        """Gets the ephemeral_containers of this V1beta1WorkerSpec.  # noqa: E501
-
-        List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.  # noqa: E501
-
-        :return: The ephemeral_containers of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: list[V1EphemeralContainer]
-        """
-        return self._ephemeral_containers
-
-    @ephemeral_containers.setter
-    def ephemeral_containers(self, ephemeral_containers):
-        """Sets the ephemeral_containers of this V1beta1WorkerSpec.
-
-        List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.  # noqa: E501
-
-        :param ephemeral_containers: The ephemeral_containers of this V1beta1WorkerSpec.  # noqa: E501
-        :type: list[V1EphemeralContainer]
-        """
-
-        self._ephemeral_containers = ephemeral_containers
-
-    @property
-    def host_aliases(self):
-        """Gets the host_aliases of this V1beta1WorkerSpec.  # noqa: E501
-
-        HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.  # noqa: E501
-
-        :return: The host_aliases of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: list[V1HostAlias]
-        """
-        return self._host_aliases
-
-    @host_aliases.setter
-    def host_aliases(self, host_aliases):
-        """Sets the host_aliases of this V1beta1WorkerSpec.
-
-        HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.  # noqa: E501
-
-        :param host_aliases: The host_aliases of this V1beta1WorkerSpec.  # noqa: E501
-        :type: list[V1HostAlias]
-        """
-
-        self._host_aliases = host_aliases
-
-    @property
-    def host_ipc(self):
-        """Gets the host_ipc of this V1beta1WorkerSpec.  # noqa: E501
-
-        Use the host's ipc namespace. Optional: Default to false.  # noqa: E501
-
-        :return: The host_ipc of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: bool
-        """
-        return self._host_ipc
-
-    @host_ipc.setter
-    def host_ipc(self, host_ipc):
-        """Sets the host_ipc of this V1beta1WorkerSpec.
-
-        Use the host's ipc namespace. Optional: Default to false.  # noqa: E501
-
-        :param host_ipc: The host_ipc of this V1beta1WorkerSpec.  # noqa: E501
-        :type: bool
-        """
-
-        self._host_ipc = host_ipc
-
-    @property
-    def host_network(self):
-        """Gets the host_network of this V1beta1WorkerSpec.  # noqa: E501
-
-        Host networking requested for this pod. Use the host's network namespace. If this option is set, the ports that will be used must be specified. Default to false.  # noqa: E501
-
-        :return: The host_network of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: bool
-        """
-        return self._host_network
-
-    @host_network.setter
-    def host_network(self, host_network):
-        """Sets the host_network of this V1beta1WorkerSpec.
-
-        Host networking requested for this pod. Use the host's network namespace. If this option is set, the ports that will be used must be specified. Default to false.  # noqa: E501
-
-        :param host_network: The host_network of this V1beta1WorkerSpec.  # noqa: E501
-        :type: bool
-        """
-
-        self._host_network = host_network
-
-    @property
-    def host_pid(self):
-        """Gets the host_pid of this V1beta1WorkerSpec.  # noqa: E501
-
-        Use the host's pid namespace. Optional: Default to false.  # noqa: E501
-
-        :return: The host_pid of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: bool
-        """
-        return self._host_pid
-
-    @host_pid.setter
-    def host_pid(self, host_pid):
-        """Sets the host_pid of this V1beta1WorkerSpec.
-
-        Use the host's pid namespace. Optional: Default to false.  # noqa: E501
-
-        :param host_pid: The host_pid of this V1beta1WorkerSpec.  # noqa: E501
-        :type: bool
-        """
-
-        self._host_pid = host_pid
-
-    @property
-    def host_users(self):
-        """Gets the host_users of this V1beta1WorkerSpec.  # noqa: E501
-
-        Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host. This field is alpha-level and is only honored by servers that enable the UserNamespacesSupport feature.  # noqa: E501
-
-        :return: The host_users of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: bool
-        """
-        return self._host_users
-
-    @host_users.setter
-    def host_users(self, host_users):
-        """Sets the host_users of this V1beta1WorkerSpec.
-
-        Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host. This field is alpha-level and is only honored by servers that enable the UserNamespacesSupport feature.  # noqa: E501
-
-        :param host_users: The host_users of this V1beta1WorkerSpec.  # noqa: E501
-        :type: bool
-        """
-
-        self._host_users = host_users
-
-    @property
-    def hostname(self):
-        """Gets the hostname of this V1beta1WorkerSpec.  # noqa: E501
-
-        Specifies the hostname of the Pod If not specified, the pod's hostname will be set to a system-defined value.  # noqa: E501
-
-        :return: The hostname of this V1beta1WorkerSpec.  # noqa: E501
+        :return: The image_pull_policy of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: str
         """
-        return self._hostname
+        return self._image_pull_policy
 
-    @hostname.setter
-    def hostname(self, hostname):
-        """Sets the hostname of this V1beta1WorkerSpec.
+    @image_pull_policy.setter
+    def image_pull_policy(self, image_pull_policy):
+        """Sets the image_pull_policy of this V1beta1WorkerSpec.
 
-        Specifies the hostname of the Pod If not specified, the pod's hostname will be set to a system-defined value.  # noqa: E501
+        Image pull policy. One of Always, Never, IfNotPresent. Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images  # noqa: E501
 
-        :param hostname: The hostname of this V1beta1WorkerSpec.  # noqa: E501
+        :param image_pull_policy: The image_pull_policy of this V1beta1WorkerSpec.  # noqa: E501
         :type: str
         """
 
-        self._hostname = hostname
+        self._image_pull_policy = image_pull_policy
 
     @property
-    def image_pull_secrets(self):
-        """Gets the image_pull_secrets of this V1beta1WorkerSpec.  # noqa: E501
+    def lifecycle(self):
+        """Gets the lifecycle of this V1beta1WorkerSpec.  # noqa: E501
 
-        ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod  # noqa: E501
 
-        :return: The image_pull_secrets of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: list[V1LocalObjectReference]
+        :return: The lifecycle of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: V1Lifecycle
         """
-        return self._image_pull_secrets
+        return self._lifecycle
 
-    @image_pull_secrets.setter
-    def image_pull_secrets(self, image_pull_secrets):
-        """Sets the image_pull_secrets of this V1beta1WorkerSpec.
+    @lifecycle.setter
+    def lifecycle(self, lifecycle):
+        """Sets the lifecycle of this V1beta1WorkerSpec.
 
-        ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod  # noqa: E501
 
-        :param image_pull_secrets: The image_pull_secrets of this V1beta1WorkerSpec.  # noqa: E501
-        :type: list[V1LocalObjectReference]
+        :param lifecycle: The lifecycle of this V1beta1WorkerSpec.  # noqa: E501
+        :type: V1Lifecycle
         """
 
-        self._image_pull_secrets = image_pull_secrets
+        self._lifecycle = lifecycle
 
     @property
-    def init_containers(self):
-        """Gets the init_containers of this V1beta1WorkerSpec.  # noqa: E501
+    def liveness_probe(self):
+        """Gets the liveness_probe of this V1beta1WorkerSpec.  # noqa: E501
 
-        List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/  # noqa: E501
 
-        :return: The init_containers of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: list[V1Container]
+        :return: The liveness_probe of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: V1Probe
         """
-        return self._init_containers
+        return self._liveness_probe
 
-    @init_containers.setter
-    def init_containers(self, init_containers):
-        """Sets the init_containers of this V1beta1WorkerSpec.
+    @liveness_probe.setter
+    def liveness_probe(self, liveness_probe):
+        """Sets the liveness_probe of this V1beta1WorkerSpec.
 
-        List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/  # noqa: E501
 
-        :param init_containers: The init_containers of this V1beta1WorkerSpec.  # noqa: E501
-        :type: list[V1Container]
+        :param liveness_probe: The liveness_probe of this V1beta1WorkerSpec.  # noqa: E501
+        :type: V1Probe
         """
 
-        self._init_containers = init_containers
+        self._liveness_probe = liveness_probe
 
     @property
-    def node_name(self):
-        """Gets the node_name of this V1beta1WorkerSpec.  # noqa: E501
+    def name(self):
+        """Gets the name of this V1beta1WorkerSpec.  # noqa: E501
 
-        NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename  # noqa: E501
+        Name of the container specified as a DNS_LABEL. Each container in a pod must have a unique name (DNS_LABEL). Cannot be updated.  # noqa: E501
 
-        :return: The node_name of this V1beta1WorkerSpec.  # noqa: E501
+        :return: The name of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: str
         """
-        return self._node_name
+        return self._name
 
-    @node_name.setter
-    def node_name(self, node_name):
-        """Sets the node_name of this V1beta1WorkerSpec.
+    @name.setter
+    def name(self, name):
+        """Sets the name of this V1beta1WorkerSpec.
 
-        NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename  # noqa: E501
+        Name of the container specified as a DNS_LABEL. Each container in a pod must have a unique name (DNS_LABEL). Cannot be updated.  # noqa: E501
 
-        :param node_name: The node_name of this V1beta1WorkerSpec.  # noqa: E501
+        :param name: The name of this V1beta1WorkerSpec.  # noqa: E501
         :type: str
         """
 
-        self._node_name = node_name
-
-    @property
-    def node_selector(self):
-        """Gets the node_selector of this V1beta1WorkerSpec.  # noqa: E501
-
-        NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/  # noqa: E501
-
-        :return: The node_selector of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: dict(str, str)
-        """
-        return self._node_selector
-
-    @node_selector.setter
-    def node_selector(self, node_selector):
-        """Sets the node_selector of this V1beta1WorkerSpec.
-
-        NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/  # noqa: E501
-
-        :param node_selector: The node_selector of this V1beta1WorkerSpec.  # noqa: E501
-        :type: dict(str, str)
-        """
-
-        self._node_selector = node_selector
-
-    @property
-    def os(self):
-        """Gets the os of this V1beta1WorkerSpec.  # noqa: E501
-
-
-        :return: The os of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: V1PodOS
-        """
-        return self._os
-
-    @os.setter
-    def os(self, os):
-        """Sets the os of this V1beta1WorkerSpec.
-
-
-        :param os: The os of this V1beta1WorkerSpec.  # noqa: E501
-        :type: V1PodOS
-        """
-
-        self._os = os
-
-    @property
-    def overhead(self):
-        """Gets the overhead of this V1beta1WorkerSpec.  # noqa: E501
-
-        Overhead represents the resource overhead associated with running a pod for a given RuntimeClass. This field will be autopopulated at admission time by the RuntimeClass admission controller. If the RuntimeClass admission controller is enabled, overhead must not be set in Pod create requests. The RuntimeClass admission controller will reject Pod create requests which have the overhead already set. If RuntimeClass is configured and selected in the PodSpec, Overhead will be set to the value defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero. More info: https://git.k8s.io/enhancements/keps/sig-node/688-pod-overhead/README.md  # noqa: E501
-
-        :return: The overhead of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: dict(str, ResourceQuantity)
-        """
-        return self._overhead
-
-    @overhead.setter
-    def overhead(self, overhead):
-        """Sets the overhead of this V1beta1WorkerSpec.
-
-        Overhead represents the resource overhead associated with running a pod for a given RuntimeClass. This field will be autopopulated at admission time by the RuntimeClass admission controller. If the RuntimeClass admission controller is enabled, overhead must not be set in Pod create requests. The RuntimeClass admission controller will reject Pod create requests which have the overhead already set. If RuntimeClass is configured and selected in the PodSpec, Overhead will be set to the value defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero. More info: https://git.k8s.io/enhancements/keps/sig-node/688-pod-overhead/README.md  # noqa: E501
-
-        :param overhead: The overhead of this V1beta1WorkerSpec.  # noqa: E501
-        :type: dict(str, ResourceQuantity)
-        """
-
-        self._overhead = overhead
+        self._name = name
 
     @property
     def pipeline_parallel_size(self):
@@ -749,119 +418,71 @@ class V1beta1WorkerSpec(object):
         self._pipeline_parallel_size = pipeline_parallel_size
 
     @property
-    def preemption_policy(self):
-        """Gets the preemption_policy of this V1beta1WorkerSpec.  # noqa: E501
+    def ports(self):
+        """Gets the ports of this V1beta1WorkerSpec.  # noqa: E501
 
-        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.  # noqa: E501
+        List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.  # noqa: E501
 
-        :return: The preemption_policy of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: str
+        :return: The ports of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: list[V1ContainerPort]
         """
-        return self._preemption_policy
+        return self._ports
 
-    @preemption_policy.setter
-    def preemption_policy(self, preemption_policy):
-        """Sets the preemption_policy of this V1beta1WorkerSpec.
+    @ports.setter
+    def ports(self, ports):
+        """Sets the ports of this V1beta1WorkerSpec.
 
-        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.  # noqa: E501
+        List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.  # noqa: E501
 
-        :param preemption_policy: The preemption_policy of this V1beta1WorkerSpec.  # noqa: E501
-        :type: str
+        :param ports: The ports of this V1beta1WorkerSpec.  # noqa: E501
+        :type: list[V1ContainerPort]
         """
 
-        self._preemption_policy = preemption_policy
+        self._ports = ports
 
     @property
-    def priority(self):
-        """Gets the priority of this V1beta1WorkerSpec.  # noqa: E501
+    def readiness_probe(self):
+        """Gets the readiness_probe of this V1beta1WorkerSpec.  # noqa: E501
 
-        The priority value. Various system components use this field to find the priority of the pod. When Priority Admission Controller is enabled, it prevents users from setting this field. The admission controller populates this field from PriorityClassName. The higher the value, the higher the priority.  # noqa: E501
 
-        :return: The priority of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: int
+        :return: The readiness_probe of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: V1Probe
         """
-        return self._priority
+        return self._readiness_probe
 
-    @priority.setter
-    def priority(self, priority):
-        """Sets the priority of this V1beta1WorkerSpec.
+    @readiness_probe.setter
+    def readiness_probe(self, readiness_probe):
+        """Sets the readiness_probe of this V1beta1WorkerSpec.
 
-        The priority value. Various system components use this field to find the priority of the pod. When Priority Admission Controller is enabled, it prevents users from setting this field. The admission controller populates this field from PriorityClassName. The higher the value, the higher the priority.  # noqa: E501
 
-        :param priority: The priority of this V1beta1WorkerSpec.  # noqa: E501
-        :type: int
+        :param readiness_probe: The readiness_probe of this V1beta1WorkerSpec.  # noqa: E501
+        :type: V1Probe
         """
 
-        self._priority = priority
+        self._readiness_probe = readiness_probe
 
     @property
-    def priority_class_name(self):
-        """Gets the priority_class_name of this V1beta1WorkerSpec.  # noqa: E501
+    def resize_policy(self):
+        """Gets the resize_policy of this V1beta1WorkerSpec.  # noqa: E501
 
-        If specified, indicates the pod's priority. \"system-node-critical\" and \"system-cluster-critical\" are two special keywords which indicate the highest priorities with the former being the highest priority. Any other name must be defined by creating a PriorityClass object with that name. If not specified, the pod priority will be default or zero if there is no default.  # noqa: E501
+        Resources resize policy for the container.  # noqa: E501
 
-        :return: The priority_class_name of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: str
+        :return: The resize_policy of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: list[V1ContainerResizePolicy]
         """
-        return self._priority_class_name
+        return self._resize_policy
 
-    @priority_class_name.setter
-    def priority_class_name(self, priority_class_name):
-        """Sets the priority_class_name of this V1beta1WorkerSpec.
+    @resize_policy.setter
+    def resize_policy(self, resize_policy):
+        """Sets the resize_policy of this V1beta1WorkerSpec.
 
-        If specified, indicates the pod's priority. \"system-node-critical\" and \"system-cluster-critical\" are two special keywords which indicate the highest priorities with the former being the highest priority. Any other name must be defined by creating a PriorityClass object with that name. If not specified, the pod priority will be default or zero if there is no default.  # noqa: E501
+        Resources resize policy for the container.  # noqa: E501
 
-        :param priority_class_name: The priority_class_name of this V1beta1WorkerSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._priority_class_name = priority_class_name
-
-    @property
-    def readiness_gates(self):
-        """Gets the readiness_gates of this V1beta1WorkerSpec.  # noqa: E501
-
-        If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates  # noqa: E501
-
-        :return: The readiness_gates of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: list[V1PodReadinessGate]
-        """
-        return self._readiness_gates
-
-    @readiness_gates.setter
-    def readiness_gates(self, readiness_gates):
-        """Sets the readiness_gates of this V1beta1WorkerSpec.
-
-        If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates  # noqa: E501
-
-        :param readiness_gates: The readiness_gates of this V1beta1WorkerSpec.  # noqa: E501
-        :type: list[V1PodReadinessGate]
+        :param resize_policy: The resize_policy of this V1beta1WorkerSpec.  # noqa: E501
+        :type: list[V1ContainerResizePolicy]
         """
 
-        self._readiness_gates = readiness_gates
-
-    @property
-    def resource_claims(self):
-        """Gets the resource_claims of this V1beta1WorkerSpec.  # noqa: E501
-
-        ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.  This is an alpha field and requires enabling the DynamicResourceAllocation feature gate.  This field is immutable.  # noqa: E501
-
-        :return: The resource_claims of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: list[V1PodResourceClaim]
-        """
-        return self._resource_claims
-
-    @resource_claims.setter
-    def resource_claims(self, resource_claims):
-        """Sets the resource_claims of this V1beta1WorkerSpec.
-
-        ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.  This is an alpha field and requires enabling the DynamicResourceAllocation feature gate.  This field is immutable.  # noqa: E501
-
-        :param resource_claims: The resource_claims of this V1beta1WorkerSpec.  # noqa: E501
-        :type: list[V1PodResourceClaim]
-        """
-
-        self._resource_claims = resource_claims
+        self._resize_policy = resize_policy
 
     @property
     def resources(self):
@@ -888,7 +509,7 @@ class V1beta1WorkerSpec(object):
     def restart_policy(self):
         """Gets the restart_policy of this V1beta1WorkerSpec.  # noqa: E501
 
-        Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy  # noqa: E501
+        RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.  # noqa: E501
 
         :return: The restart_policy of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: str
@@ -899,7 +520,7 @@ class V1beta1WorkerSpec(object):
     def restart_policy(self, restart_policy):
         """Sets the restart_policy of this V1beta1WorkerSpec.
 
-        Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy  # noqa: E501
+        RestartPolicy defines the restart behavior of individual containers in a pod. This field may only be set for init containers, and the only allowed value is \"Always\". For non-init containers or when this field is not specified, the restart behavior is defined by the Pod's restart policy and the container type. Setting the RestartPolicy as \"Always\" for the init container will have the following effect: this init container will be continually restarted on exit until all regular containers have terminated. Once all regular containers have completed, all init containers with restartPolicy \"Always\" will be shut down. This lifecycle differs from normal init containers and is often referred to as a \"sidecar\" container. Although this init container still starts in the init container sequence, it does not wait for the container to complete before proceeding to the next init container. Instead, the next init container starts immediately after this init container is started, or after any startupProbe has successfully completed.  # noqa: E501
 
         :param restart_policy: The restart_policy of this V1beta1WorkerSpec.  # noqa: E501
         :type: str
@@ -908,81 +529,12 @@ class V1beta1WorkerSpec(object):
         self._restart_policy = restart_policy
 
     @property
-    def runtime_class_name(self):
-        """Gets the runtime_class_name of this V1beta1WorkerSpec.  # noqa: E501
-
-        RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class  # noqa: E501
-
-        :return: The runtime_class_name of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._runtime_class_name
-
-    @runtime_class_name.setter
-    def runtime_class_name(self, runtime_class_name):
-        """Sets the runtime_class_name of this V1beta1WorkerSpec.
-
-        RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class  # noqa: E501
-
-        :param runtime_class_name: The runtime_class_name of this V1beta1WorkerSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._runtime_class_name = runtime_class_name
-
-    @property
-    def scheduler_name(self):
-        """Gets the scheduler_name of this V1beta1WorkerSpec.  # noqa: E501
-
-        If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.  # noqa: E501
-
-        :return: The scheduler_name of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._scheduler_name
-
-    @scheduler_name.setter
-    def scheduler_name(self, scheduler_name):
-        """Sets the scheduler_name of this V1beta1WorkerSpec.
-
-        If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler.  # noqa: E501
-
-        :param scheduler_name: The scheduler_name of this V1beta1WorkerSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._scheduler_name = scheduler_name
-
-    @property
-    def scheduling_gates(self):
-        """Gets the scheduling_gates of this V1beta1WorkerSpec.  # noqa: E501
-
-        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  # noqa: E501
-
-        :return: The scheduling_gates of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: list[V1PodSchedulingGate]
-        """
-        return self._scheduling_gates
-
-    @scheduling_gates.setter
-    def scheduling_gates(self, scheduling_gates):
-        """Sets the scheduling_gates of this V1beta1WorkerSpec.
-
-        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  # noqa: E501
-
-        :param scheduling_gates: The scheduling_gates of this V1beta1WorkerSpec.  # noqa: E501
-        :type: list[V1PodSchedulingGate]
-        """
-
-        self._scheduling_gates = scheduling_gates
-
-    @property
     def security_context(self):
         """Gets the security_context of this V1beta1WorkerSpec.  # noqa: E501
 
 
         :return: The security_context of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: V1PodSecurityContext
+        :rtype: V1SecurityContext
         """
         return self._security_context
 
@@ -992,125 +544,77 @@ class V1beta1WorkerSpec(object):
 
 
         :param security_context: The security_context of this V1beta1WorkerSpec.  # noqa: E501
-        :type: V1PodSecurityContext
+        :type: V1SecurityContext
         """
 
         self._security_context = security_context
 
     @property
-    def service_account(self):
-        """Gets the service_account of this V1beta1WorkerSpec.  # noqa: E501
+    def startup_probe(self):
+        """Gets the startup_probe of this V1beta1WorkerSpec.  # noqa: E501
 
-        DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.  # noqa: E501
 
-        :return: The service_account of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: str
+        :return: The startup_probe of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: V1Probe
         """
-        return self._service_account
+        return self._startup_probe
 
-    @service_account.setter
-    def service_account(self, service_account):
-        """Sets the service_account of this V1beta1WorkerSpec.
+    @startup_probe.setter
+    def startup_probe(self, startup_probe):
+        """Sets the startup_probe of this V1beta1WorkerSpec.
 
-        DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.  # noqa: E501
 
-        :param service_account: The service_account of this V1beta1WorkerSpec.  # noqa: E501
-        :type: str
+        :param startup_probe: The startup_probe of this V1beta1WorkerSpec.  # noqa: E501
+        :type: V1Probe
         """
 
-        self._service_account = service_account
+        self._startup_probe = startup_probe
 
     @property
-    def service_account_name(self):
-        """Gets the service_account_name of this V1beta1WorkerSpec.  # noqa: E501
+    def stdin(self):
+        """Gets the stdin of this V1beta1WorkerSpec.  # noqa: E501
 
-        ServiceAccountName is the name of the ServiceAccount to use to run this pod. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/  # noqa: E501
+        Whether this container should allocate a buffer for stdin in the container runtime. If this is not set, reads from stdin in the container will always result in EOF. Default is false.  # noqa: E501
 
-        :return: The service_account_name of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._service_account_name
-
-    @service_account_name.setter
-    def service_account_name(self, service_account_name):
-        """Sets the service_account_name of this V1beta1WorkerSpec.
-
-        ServiceAccountName is the name of the ServiceAccount to use to run this pod. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/  # noqa: E501
-
-        :param service_account_name: The service_account_name of this V1beta1WorkerSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._service_account_name = service_account_name
-
-    @property
-    def set_hostname_as_fqdn(self):
-        """Gets the set_hostname_as_fqdn of this V1beta1WorkerSpec.  # noqa: E501
-
-        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\Tcpip\\\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
-
-        :return: The set_hostname_as_fqdn of this V1beta1WorkerSpec.  # noqa: E501
+        :return: The stdin of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: bool
         """
-        return self._set_hostname_as_fqdn
+        return self._stdin
 
-    @set_hostname_as_fqdn.setter
-    def set_hostname_as_fqdn(self, set_hostname_as_fqdn):
-        """Sets the set_hostname_as_fqdn of this V1beta1WorkerSpec.
+    @stdin.setter
+    def stdin(self, stdin):
+        """Sets the stdin of this V1beta1WorkerSpec.
 
-        If true the pod's hostname will be configured as the pod's FQDN, rather than the leaf name (the default). In Linux containers, this means setting the FQDN in the hostname field of the kernel (the nodename field of struct utsname). In Windows containers, this means setting the registry value of hostname for the registry key HKEY_LOCAL_MACHINE\\\\SYSTEM\\\\CurrentControlSet\\\\Services\\\\Tcpip\\\\Parameters to FQDN. If a pod does not have FQDN, this has no effect. Default to false.  # noqa: E501
+        Whether this container should allocate a buffer for stdin in the container runtime. If this is not set, reads from stdin in the container will always result in EOF. Default is false.  # noqa: E501
 
-        :param set_hostname_as_fqdn: The set_hostname_as_fqdn of this V1beta1WorkerSpec.  # noqa: E501
+        :param stdin: The stdin of this V1beta1WorkerSpec.  # noqa: E501
         :type: bool
         """
 
-        self._set_hostname_as_fqdn = set_hostname_as_fqdn
+        self._stdin = stdin
 
     @property
-    def share_process_namespace(self):
-        """Gets the share_process_namespace of this V1beta1WorkerSpec.  # noqa: E501
+    def stdin_once(self):
+        """Gets the stdin_once of this V1beta1WorkerSpec.  # noqa: E501
 
-        Share a single process namespace between all of the containers in a pod. When this is set containers will be able to view and signal processes from other containers in the same pod, and the first process in each container will not be assigned PID 1. HostPID and ShareProcessNamespace cannot both be set. Optional: Default to false.  # noqa: E501
+        Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false  # noqa: E501
 
-        :return: The share_process_namespace of this V1beta1WorkerSpec.  # noqa: E501
+        :return: The stdin_once of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: bool
         """
-        return self._share_process_namespace
+        return self._stdin_once
 
-    @share_process_namespace.setter
-    def share_process_namespace(self, share_process_namespace):
-        """Sets the share_process_namespace of this V1beta1WorkerSpec.
+    @stdin_once.setter
+    def stdin_once(self, stdin_once):
+        """Sets the stdin_once of this V1beta1WorkerSpec.
 
-        Share a single process namespace between all of the containers in a pod. When this is set containers will be able to view and signal processes from other containers in the same pod, and the first process in each container will not be assigned PID 1. HostPID and ShareProcessNamespace cannot both be set. Optional: Default to false.  # noqa: E501
+        Whether the container runtime should close the stdin channel after it has been opened by a single attach. When stdin is true the stdin stream will remain open across multiple attach sessions. If stdinOnce is set to true, stdin is opened on container start, is empty until the first client attaches to stdin, and then remains open and accepts data until the client disconnects, at which time stdin is closed and remains closed until the container is restarted. If this flag is false, a container processes that reads from stdin will never receive an EOF. Default is false  # noqa: E501
 
-        :param share_process_namespace: The share_process_namespace of this V1beta1WorkerSpec.  # noqa: E501
+        :param stdin_once: The stdin_once of this V1beta1WorkerSpec.  # noqa: E501
         :type: bool
         """
 
-        self._share_process_namespace = share_process_namespace
-
-    @property
-    def subdomain(self):
-        """Gets the subdomain of this V1beta1WorkerSpec.  # noqa: E501
-
-        If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.  # noqa: E501
-
-        :return: The subdomain of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._subdomain
-
-    @subdomain.setter
-    def subdomain(self, subdomain):
-        """Sets the subdomain of this V1beta1WorkerSpec.
-
-        If specified, the fully qualified Pod hostname will be \"<hostname>.<subdomain>.<pod namespace>.svc.<cluster domain>\". If not specified, the pod will not have a domainname at all.  # noqa: E501
-
-        :param subdomain: The subdomain of this V1beta1WorkerSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._subdomain = subdomain
+        self._stdin_once = stdin_once
 
     @property
     def tensor_parallel_size(self):
@@ -1136,96 +640,142 @@ class V1beta1WorkerSpec(object):
         self._tensor_parallel_size = tensor_parallel_size
 
     @property
-    def termination_grace_period_seconds(self):
-        """Gets the termination_grace_period_seconds of this V1beta1WorkerSpec.  # noqa: E501
+    def termination_message_path(self):
+        """Gets the termination_message_path of this V1beta1WorkerSpec.  # noqa: E501
 
-        Optional duration in seconds the pod needs to terminate gracefully. May be decreased in delete request. Value must be non-negative integer. The value zero indicates stop immediately via the kill signal (no opportunity to shut down). If this value is nil, the default grace period will be used instead. The grace period is the duration in seconds after the processes running in the pod are sent a termination signal and the time when the processes are forcibly halted with a kill signal. Set this value longer than the expected cleanup time for your process. Defaults to 30 seconds.  # noqa: E501
+        Optional: Path at which the file to which the container's termination message will be written is mounted into the container's filesystem. Message written is intended to be brief final status, such as an assertion failure message. Will be truncated by the node if greater than 4096 bytes. The total message length across all containers will be limited to 12kb. Defaults to /dev/termination-log. Cannot be updated.  # noqa: E501
 
-        :return: The termination_grace_period_seconds of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: int
+        :return: The termination_message_path of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: str
         """
-        return self._termination_grace_period_seconds
+        return self._termination_message_path
 
-    @termination_grace_period_seconds.setter
-    def termination_grace_period_seconds(self, termination_grace_period_seconds):
-        """Sets the termination_grace_period_seconds of this V1beta1WorkerSpec.
+    @termination_message_path.setter
+    def termination_message_path(self, termination_message_path):
+        """Sets the termination_message_path of this V1beta1WorkerSpec.
 
-        Optional duration in seconds the pod needs to terminate gracefully. May be decreased in delete request. Value must be non-negative integer. The value zero indicates stop immediately via the kill signal (no opportunity to shut down). If this value is nil, the default grace period will be used instead. The grace period is the duration in seconds after the processes running in the pod are sent a termination signal and the time when the processes are forcibly halted with a kill signal. Set this value longer than the expected cleanup time for your process. Defaults to 30 seconds.  # noqa: E501
+        Optional: Path at which the file to which the container's termination message will be written is mounted into the container's filesystem. Message written is intended to be brief final status, such as an assertion failure message. Will be truncated by the node if greater than 4096 bytes. The total message length across all containers will be limited to 12kb. Defaults to /dev/termination-log. Cannot be updated.  # noqa: E501
 
-        :param termination_grace_period_seconds: The termination_grace_period_seconds of this V1beta1WorkerSpec.  # noqa: E501
-        :type: int
+        :param termination_message_path: The termination_message_path of this V1beta1WorkerSpec.  # noqa: E501
+        :type: str
         """
 
-        self._termination_grace_period_seconds = termination_grace_period_seconds
+        self._termination_message_path = termination_message_path
 
     @property
-    def tolerations(self):
-        """Gets the tolerations of this V1beta1WorkerSpec.  # noqa: E501
+    def termination_message_policy(self):
+        """Gets the termination_message_policy of this V1beta1WorkerSpec.  # noqa: E501
 
-        If specified, the pod's tolerations.  # noqa: E501
+        Indicate how the termination message should be populated. File will use the contents of terminationMessagePath to populate the container status message on both success and failure. FallbackToLogsOnError will use the last chunk of container log output if the termination message file is empty and the container exited with an error. The log output is limited to 2048 bytes or 80 lines, whichever is smaller. Defaults to File. Cannot be updated.  # noqa: E501
 
-        :return: The tolerations of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: list[V1Toleration]
+        :return: The termination_message_policy of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: str
         """
-        return self._tolerations
+        return self._termination_message_policy
 
-    @tolerations.setter
-    def tolerations(self, tolerations):
-        """Sets the tolerations of this V1beta1WorkerSpec.
+    @termination_message_policy.setter
+    def termination_message_policy(self, termination_message_policy):
+        """Sets the termination_message_policy of this V1beta1WorkerSpec.
 
-        If specified, the pod's tolerations.  # noqa: E501
+        Indicate how the termination message should be populated. File will use the contents of terminationMessagePath to populate the container status message on both success and failure. FallbackToLogsOnError will use the last chunk of container log output if the termination message file is empty and the container exited with an error. The log output is limited to 2048 bytes or 80 lines, whichever is smaller. Defaults to File. Cannot be updated.  # noqa: E501
 
-        :param tolerations: The tolerations of this V1beta1WorkerSpec.  # noqa: E501
-        :type: list[V1Toleration]
+        :param termination_message_policy: The termination_message_policy of this V1beta1WorkerSpec.  # noqa: E501
+        :type: str
         """
 
-        self._tolerations = tolerations
+        self._termination_message_policy = termination_message_policy
 
     @property
-    def topology_spread_constraints(self):
-        """Gets the topology_spread_constraints of this V1beta1WorkerSpec.  # noqa: E501
+    def tty(self):
+        """Gets the tty of this V1beta1WorkerSpec.  # noqa: E501
 
-        TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed.  # noqa: E501
+        Whether this container should allocate a TTY for itself, also requires 'stdin' to be true. Default is false.  # noqa: E501
 
-        :return: The topology_spread_constraints of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: list[V1TopologySpreadConstraint]
+        :return: The tty of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: bool
         """
-        return self._topology_spread_constraints
+        return self._tty
 
-    @topology_spread_constraints.setter
-    def topology_spread_constraints(self, topology_spread_constraints):
-        """Sets the topology_spread_constraints of this V1beta1WorkerSpec.
+    @tty.setter
+    def tty(self, tty):
+        """Sets the tty of this V1beta1WorkerSpec.
 
-        TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed.  # noqa: E501
+        Whether this container should allocate a TTY for itself, also requires 'stdin' to be true. Default is false.  # noqa: E501
 
-        :param topology_spread_constraints: The topology_spread_constraints of this V1beta1WorkerSpec.  # noqa: E501
-        :type: list[V1TopologySpreadConstraint]
+        :param tty: The tty of this V1beta1WorkerSpec.  # noqa: E501
+        :type: bool
         """
 
-        self._topology_spread_constraints = topology_spread_constraints
+        self._tty = tty
 
     @property
-    def volumes(self):
-        """Gets the volumes of this V1beta1WorkerSpec.  # noqa: E501
+    def volume_devices(self):
+        """Gets the volume_devices of this V1beta1WorkerSpec.  # noqa: E501
 
-        List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes  # noqa: E501
+        volumeDevices is the list of block devices to be used by the container.  # noqa: E501
 
-        :return: The volumes of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: list[V1Volume]
+        :return: The volume_devices of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: list[V1VolumeDevice]
         """
-        return self._volumes
+        return self._volume_devices
 
-    @volumes.setter
-    def volumes(self, volumes):
-        """Sets the volumes of this V1beta1WorkerSpec.
+    @volume_devices.setter
+    def volume_devices(self, volume_devices):
+        """Sets the volume_devices of this V1beta1WorkerSpec.
 
-        List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes  # noqa: E501
+        volumeDevices is the list of block devices to be used by the container.  # noqa: E501
 
-        :param volumes: The volumes of this V1beta1WorkerSpec.  # noqa: E501
-        :type: list[V1Volume]
+        :param volume_devices: The volume_devices of this V1beta1WorkerSpec.  # noqa: E501
+        :type: list[V1VolumeDevice]
         """
 
-        self._volumes = volumes
+        self._volume_devices = volume_devices
+
+    @property
+    def volume_mounts(self):
+        """Gets the volume_mounts of this V1beta1WorkerSpec.  # noqa: E501
+
+        Pod volumes to mount into the container's filesystem. Cannot be updated.  # noqa: E501
+
+        :return: The volume_mounts of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: list[V1VolumeMount]
+        """
+        return self._volume_mounts
+
+    @volume_mounts.setter
+    def volume_mounts(self, volume_mounts):
+        """Sets the volume_mounts of this V1beta1WorkerSpec.
+
+        Pod volumes to mount into the container's filesystem. Cannot be updated.  # noqa: E501
+
+        :param volume_mounts: The volume_mounts of this V1beta1WorkerSpec.  # noqa: E501
+        :type: list[V1VolumeMount]
+        """
+
+        self._volume_mounts = volume_mounts
+
+    @property
+    def working_dir(self):
+        """Gets the working_dir of this V1beta1WorkerSpec.  # noqa: E501
+
+        Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.  # noqa: E501
+
+        :return: The working_dir of this V1beta1WorkerSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._working_dir
+
+    @working_dir.setter
+    def working_dir(self, working_dir):
+        """Sets the working_dir of this V1beta1WorkerSpec.
+
+        Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.  # noqa: E501
+
+        :param working_dir: The working_dir of this V1beta1WorkerSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._working_dir = working_dir
 
     def to_dict(self):
         """Returns the model properties as a dict"""

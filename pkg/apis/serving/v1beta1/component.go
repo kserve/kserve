@@ -51,7 +51,6 @@ const (
 	InvalidUnknownGPUTypeError                       = "the InferenceService %q is invalid: Unknown GPU resource type. Set 'serving.kserve.io/gpu-resource-types' annotation to use custom gpu resource type"
 	InvalidWorkerSpecPipelineParallelSizeValueError  = "the InferenceService %q is invalid: WorkerSpec.PipelineParallelSize cannot be less than 2(%s)"
 	InvalidWorkerSpecTensorParallelSizeValueError    = "the InferenceService %q is invalid: WorkerSpec.TensorParallelSize cannot be less than 1(%s)"
-	DisallowedMultipleContainersInWorkerSpecError    = "the InferenceService %q is invalid: setting multiple containers in workerSpec is not allowed"
 	DisallowedWorkerSpecPipelineParallelSizeEnvError = "the InferenceService %q is invalid: setting PIPELINE_PARALLEL_SIZE in environment variables is not allowed"
 	DisallowedWorkerSpecTensorParallelSizeEnvError   = "the InferenceService %q is invalid: setting TENSOR_PARALLEL_SIZE in environment variables is not allowed"
 )
