@@ -67,7 +67,7 @@ type LoggerSpec struct {
 }
 
 // MetricsBackend enum
-// +kubebuilder:validation:Enum=prometheus;graphite;opentelemetry
+// +kubebuilder:validation:Enum=prometheus;graphite
 type MetricsBackend string
 
 const (
