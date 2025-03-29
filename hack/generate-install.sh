@@ -99,14 +99,16 @@ append_yaml() {
 generate_yaml $HELM_KSERVE_CRD_DIR kserve $INSTALL_DIR/kserve.yaml
 append_yaml $HELM_KSERVE_RESOURCES_DIR kserve $INSTALL_DIR/kserve.yaml \
     --set kserve.servingruntime.enabled=false \
-    --set kserve.storage.enabled=false
+    --set kserve.storage.enabled=false \
+    --set kserve.localmodel.enabled=true
 
 # Generate kserve_kubeflow.yaml
 generate_yaml $HELM_KSERVE_CRD_DIR kubeflow $KUBEFLOW_OVERLAY_DIR/kserve.yaml
 append_yaml $HELM_KSERVE_RESOURCES_DIR kubeflow $KUBEFLOW_OVERLAY_DIR/kserve.yaml \
     --set kserve.controller.gateway.ingressGateway.gateway="kubeflow/kubeflow-gateway" \
     --set kserve.servingruntime.enabled=false \
-    --set kserve.storage.enabled=false
+    --set kserve.storage.enabled=false \
+    --set kserve.localmodel.enabled=true
 kubectl kustomize $KUBEFLOW_OVERLAY_DIR | yq eval -P --indent 2 > $INSTALL_DIR/kserve_kubeflow.yaml
 
 # Generate kserve-cluster-resources.yaml
