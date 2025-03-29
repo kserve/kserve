@@ -6624,7 +6624,6 @@ spec:
                                       enum:
                                       - prometheus
                                       - graphite
-                                      - opentelemetry
                                       type: string
                                     namespace:
                                       type: string
@@ -9748,7 +9747,6 @@ spec:
                                       enum:
                                       - prometheus
                                       - graphite
-                                      - opentelemetry
                                       type: string
                                     namespace:
                                       type: string
@@ -24045,7 +24043,6 @@ spec:
                                       enum:
                                       - prometheus
                                       - graphite
-                                      - opentelemetry
                                       type: string
                                     namespace:
                                       type: string
