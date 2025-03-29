@@ -140,7 +140,7 @@ type AutoScalingSpec struct {
 // MetricsSpec specifies how to scale based on a single metric
 // (only `type` and one other matching field should be set at once).
 type MetricsSpec struct {
-	// type is the type of metric source.  It should be one of "Resource", "External",
+	// type is the type of metric source.  It should be one of "Resource", "External", "PodMetric".
 	// "Resource" or "External" each mapping to a matching field in the object.
 	Type MetricSourceType `json:"type,omitempty"`
 
@@ -159,10 +159,16 @@ type MetricsSpec struct {
 	// QPS from loadbalancer running outside of cluster).
 	// +optional
 	External *ExternalMetricSource `json:"external,omitempty"`
+
+	// pods refers to a metric describing each pod in the current scale target
+	// (for example, transactions-processed-per-second).  The values will be
+	// averaged together before being compared to the target value.
+	// +optional
+	PodMetric *PodMetricSource `json:"podmetric,omitempty"`
 }
 
 // MetricSourceType indicates the type of metric.
-// +kubebuilder:validation:Enum=Resource;External
+// +kubebuilder:validation:Enum=Resource;External;PodMetric
 type MetricSourceType string
 
 const (
@@ -178,6 +184,10 @@ const (
 	// (for example length of queue in cloud messaging service, or
 	// QPS from loadbalancer running outside of cluster).
 	ExternalMetricSourceType MetricSourceType = "External"
+	// PodMetricSourceType indicates a metric describing each pod in the current
+	// scale target (for example, transactions-processed-per-second).  The values
+	// will be averaged together before being compared to the target value.
+	PodMetricSourceType MetricSourceType = "PodMetric"
 )
 
 type ResourceMetricSource struct {
@@ -191,6 +201,18 @@ type ResourceMetricSource struct {
 type ExternalMetricSource struct {
 	// metric identifies the target metric by name and selector
 	Metric MetricSource `json:"metric,omitempty"`
+
+	// target specifies the target value for the given metric
+	Target MetricTarget `json:"target,omitempty"`
+}
+
+// PodMetricSource indicates how to scale on a metric describing each pod in
+// the current scale target (for example, transactions-processed-per-second).
+// The values will be averaged together before being compared to the target
+// value.
+type PodMetricSource struct {
+	// metric identifies the target metric by name and selector
+	Metric PodsMetricSource `json:"metric,omitempty"`
 
 	// target specifies the target value for the given metric
 	Target MetricTarget `json:"target,omitempty"`
@@ -247,6 +269,26 @@ type MetricSource struct {
 	// For namespaced query
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
+}
+
+type PodsMetricSource struct {
+	// Backend defines the scaling metric type watched by the autoscaler.
+	// Possible value: opentelemetry.
+	// +optional
+	Backend *PodsMetricsBackend `json:"backend,omitempty"`
+	// ServerAddress specifies the address of the MetricsBackend server.
+	// +optional
+	ServerAddress string `json:"serverAddress,omitempty"`
+	// MetricNames is the list of metric names in the backend.
+	// +optional
+	MetricNames []string `json:"metricNames,omitempty"`
+	// Query specifies the query to run to get metrics from the MetricsBackend.
+	// +optional
+	Query string `json:"query,omitempty"`
+	// OperationOverTime specifies the operation to aggregate the metrics over time.
+	// Possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.
+	// +optional
+	OperationOverTime string `json:"operationOverTime,omitempty"`
 }
 
 // ScaleMetric enum

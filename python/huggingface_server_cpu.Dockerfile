@@ -55,8 +55,8 @@ RUN python -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 ARG IPEX_EXTRA_INDEX_URL="https://pytorch-extension.intel.com/release-whl/stable/cpu/us/"
-ARG TORCH_VERSION=2.5.0
-ARG TORCHVISION_VERSION=0.20.1
+ARG TORCH_VERSION=2.6.0
+ARG TORCHVISION_VERSION=0.21.0
 
 # Install kserve
 COPY kserve kserve
@@ -79,7 +79,7 @@ RUN pip install --no-cache-dir --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extr
     intel-openmp
 
 # install vllm
-ARG VLLM_VERSION=0.7.3
+ARG VLLM_VERSION=0.8.1
 ARG VLLM_CPU_DISABLE_AVX512=true
 ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 ARG VLLM_CPU_AVX512BF16=1
@@ -88,8 +88,8 @@ ARG VLLM_TARGET_DEVICE=cpu
 ENV VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE}
 RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git && \
     cd vllm && \
-    pip install --no-cache-dir -v -r requirements-build.txt && \
-    pip install --no-cache-dir -v -r requirements-cpu.txt && \
+    pip install --no-cache-dir -v -r requirements/build.txt && \
+    pip install --no-cache-dir -v -r requirements/cpu.txt && \
     python setup.py bdist_wheel && \
     pip install --no-cache-dir dist/vllm-${VLLM_VERSION}*.whl
 
