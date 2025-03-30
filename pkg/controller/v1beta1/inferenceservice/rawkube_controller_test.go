@@ -7189,7 +7189,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							Type: "memory",
 							Metadata: map[string]string{
-								"value": "10Gi",
+								"value": "10737418240.000000",
 							},
 							MetricType: autoscalingv2.AverageValueMetricType,
 						},
@@ -7483,10 +7483,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
-						"serving.kserve.io/autoscalerClass":             "hpa",
-						"serving.kserve.io/metrics":                     "cpu",
-						"serving.kserve.io/targetUtilizationPercentage": "75",
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "hpa",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -7494,6 +7492,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: ptr.To(int32(1)),
 							MaxReplicas: 3,
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.ResourceMetricCPU,
+											Target: v1beta1.MetricTarget{
+												Type:               v1beta1.UtilizationMetricType,
+												AverageUtilization: ptr.To(int32(75)),
+											},
+										},
+									},
+								},
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{

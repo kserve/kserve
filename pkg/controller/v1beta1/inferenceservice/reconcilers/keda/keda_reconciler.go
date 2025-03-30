@@ -19,10 +19,10 @@ package keda
 import (
 	"context"
 	"fmt"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"strconv"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -77,15 +77,15 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 			switch metric.Type {
 			case v1beta1.ResourceMetricSourceType:
 				triggerType := string(metric.Resource.Name)
-				metricType := autoscalingv2.MetricTargetType(metric.Resource.Target.Type)
+				metricType := metric.Resource.Target.Type
 				var targetValue string
-				if metricType == autoscalingv2.UtilizationMetricType {
-					if metric.Resource.Name == v1beta1.ResourceMetricCPU && metric.Resource.Target.AverageUtilization != nil {
+				if metricType == v1beta1.UtilizationMetricType {
+					if metric.Resource.Name == v1beta1.ResourceMetricCPU && metric.Resource.Target.AverageUtilization == nil {
 						defaultUtilization := &constants.DefaultCPUUtilization
 						metric.Resource.Target.AverageUtilization = defaultUtilization
 					}
 					targetValue = fmt.Sprintf("%d", metric.Resource.Target.AverageUtilization)
-				} else if metricType == autoscalingv2.AverageValueMetricType {
+				} else if metricType == v1beta1.AverageValueMetricType && metric.Resource.Target.AverageValue != nil {
 					targetValue = metric.Resource.Target.AverageValue.String()
 				} else {
 					targetValue = fmt.Sprintf("%f", metric.Resource.Target.Value.AsApproximateFloat64())
@@ -93,7 +93,7 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 					Type:       triggerType,
 					Metadata:   map[string]string{"value": targetValue},
-					MetricType: metricType,
+					MetricType: autoscalingv2.MetricTargetType(metricType),
 				})
 			case v1beta1.ExternalMetricSourceType:
 				triggerType := string(metric.External.Metric.Backend)

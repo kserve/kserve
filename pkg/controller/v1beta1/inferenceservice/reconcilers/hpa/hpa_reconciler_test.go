@@ -94,7 +94,7 @@ func TestCreateHPA(t *testing.T) {
 							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: corev1.ResourceName("cpu"),
 								Target: autoscalingv2.MetricTarget{
-									Type:               "Utilization",
+									Type:               autoscalingv2.UtilizationMetricType,
 									AverageUtilization: &defaultUtilization,
 								},
 							},
@@ -208,6 +208,55 @@ func TestCreateHPA(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "predictor hpa memory utilization metric",
+			args: args{
+				objectMeta: metav1.ObjectMeta{},
+				componentExt: &v1beta1.ComponentExtensionSpec{
+					MinReplicas: nil,
+					MaxReplicas: 0,
+					AutoScaling: &v1beta1.AutoScalingSpec{
+						Metrics: []v1beta1.MetricsSpec{
+							{
+								Type: v1beta1.ResourceMetricSourceType,
+								Resource: &v1beta1.ResourceMetricSource{
+									Name: v1beta1.ResourceMetricMemory,
+									Target: v1beta1.MetricTarget{
+										Type:               v1beta1.UtilizationMetricType,
+										AverageUtilization: ptr.To(int32(80)),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+					},
+					MinReplicas: &defaultMinReplicas,
+					MaxReplicas: 1,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: corev1.ResourceName("memory"),
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(80)),
+								},
+							},
+						},
+					},
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+				},
+			},
+			err: nil,
+		},
+		{
 			name: "predictor hpa memory metric",
 			args: args{
 				objectMeta: metav1.ObjectMeta{},
@@ -221,6 +270,7 @@ func TestCreateHPA(t *testing.T) {
 								Resource: &v1beta1.ResourceMetricSource{
 									Name: v1beta1.ResourceMetricMemory,
 									Target: v1beta1.MetricTarget{
+										Type:         v1beta1.AverageValueMetricType,
 										AverageValue: ptr.To(resource.MustParse("1Gi")),
 									},
 								},

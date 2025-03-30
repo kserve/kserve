@@ -63,13 +63,17 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) ([]autoscalingv
 		for _, metric := range componentExt.AutoScaling.Metrics {
 			switch metric.Resource.Name {
 			case v1beta1.ResourceMetricCPU:
+				averageUtilization := &constants.DefaultCPUUtilization
+				if metric.Resource.Target.AverageUtilization != nil {
+					averageUtilization = metric.Resource.Target.AverageUtilization
+				}
 				ms := autoscalingv2.MetricSpec{
 					Type: autoscalingv2.ResourceMetricSourceType,
 					Resource: &autoscalingv2.ResourceMetricSource{
 						Name: corev1.ResourceName(metric.Resource.Name),
 						Target: autoscalingv2.MetricTarget{
 							Type:               autoscalingv2.UtilizationMetricType,
-							AverageUtilization: metric.Resource.Target.AverageUtilization,
+							AverageUtilization: averageUtilization,
 						},
 					},
 				}
@@ -79,11 +83,14 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) ([]autoscalingv
 					Type: autoscalingv2.ResourceMetricSourceType,
 					Resource: &autoscalingv2.ResourceMetricSource{
 						Name: corev1.ResourceName(metric.Resource.Name),
-						Target: autoscalingv2.MetricTarget{
-							Type:         autoscalingv2.AverageValueMetricType,
-							AverageValue: metric.Resource.Target.AverageValue,
-						},
 					},
+				}
+				if metric.Resource.Target.Type == v1beta1.UtilizationMetricType {
+					ms.Resource.Target.Type = autoscalingv2.UtilizationMetricType
+					ms.Resource.Target.AverageUtilization = metric.Resource.Target.AverageUtilization
+				} else if metric.Resource.Target.Type == v1beta1.AverageValueMetricType {
+					ms.Resource.Target.Type = autoscalingv2.AverageValueMetricType
+					ms.Resource.Target.AverageValue = metric.Resource.Target.AverageValue
 				}
 				metrics = append(metrics, ms)
 			}
