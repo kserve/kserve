@@ -26,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	v2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -93,17 +92,17 @@ type ComponentExtensionSpec struct {
 	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
 	// +optional
 	ScaleTarget *int32 `json:"scaleTarget,omitempty"`
-	// AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.
-	// +optional
-	AutoScaling *AutoScalingSpec `json:"autoScaling,omitempty"`
-	// ScaleMetric defines the scaling metric type watched by autoscaler
+	// ScaleMetric defines the scaling metric type watched by autoscaler.
 	// possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
 	// +optional
 	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
 	// Type of metric to use. Options are Utilization, or AverageValue.
 	// +optional
-	ScaleMetricType *v2.MetricTargetType `json:"scaleMetricType,omitempty"`
+	ScaleMetricType *MetricTargetType `json:"scaleMetricType,omitempty"`
+	// AutoScaling autoscaling spec which is backed up HPA or KEDA.
+	// +optional
+	AutoScaling *AutoScalingSpec `json:"autoScaling,omitempty"`
 	// ContainerConcurrency specifies how many requests can be processed concurrently, this sets the hard limit of the container
 	// concurrency(https://knative.dev/docs/serving/autoscaling/concurrency).
 	// +optional
@@ -143,7 +142,7 @@ type AutoScalingSpec struct {
 type MetricsSpec struct {
 	// type is the type of metric source.  It should be one of "Resource", "External", "PodMetric".
 	// "Resource" or "External" each mapping to a matching field in the object.
-	Type MetricSourceType `json:"type,omitempty"`
+	Type MetricSourceType `json:"type"`
 
 	// resource refers to a resource metric (such as those specified in
 	// requests and limits) known to Kubernetes describing each pod in the
@@ -157,7 +156,7 @@ type MetricsSpec struct {
 	// with any Kubernetes object. It allows autoscaling based on information
 	// coming from components running outside of cluster
 	// (for example length of queue in cloud messaging service, or
-	// QPS from loadbalancer running outside of cluster).
+	// QPS from load balancer running outside of cluster).
 	// +optional
 	External *ExternalMetricSource `json:"external,omitempty"`
 
@@ -193,18 +192,18 @@ const (
 
 type ResourceMetricSource struct {
 	// name is the name of the resource in question.
-	Name *ScaleMetric `json:"name,omitempty"`
+	Name ScaleMetric `json:"name"`
 
 	// target specifies the target value for the given metric
-	Target MetricTarget `json:"target,omitempty"`
+	Target MetricTarget `json:"target"`
 }
 
 type ExternalMetricSource struct {
 	// metric identifies the target metric by name and selector
-	Metric MetricSource `json:"metric,omitempty"`
+	Metric ExternalMetrics `json:"metric"`
 
 	// target specifies the target value for the given metric
-	Target MetricTarget `json:"target,omitempty"`
+	Target MetricTarget `json:"target"`
 }
 
 // PodMetricSource indicates how to scale on a metric describing each pod in
@@ -213,10 +212,10 @@ type ExternalMetricSource struct {
 // value.
 type PodMetricSource struct {
 	// metric identifies the target metric by name and selector
-	Metric PodsMetricSource `json:"metric,omitempty"`
+	Metric PodMetrics `json:"metric"`
 
 	// target specifies the target value for the given metric
-	Target MetricTarget `json:"target,omitempty"`
+	Target MetricTarget `json:"target"`
 }
 
 // MetricTarget defines the target value, average value, or average utilization of a specific metric
@@ -256,11 +255,11 @@ const (
 	AverageValueMetricType MetricTargetType = "AverageValue"
 )
 
-type MetricSource struct {
+type ExternalMetrics struct {
 	// MetricsBackend defines the scaling metric type watched by autoscaler
 	// possible values are prometheus, graphite.
 	// +optional
-	Backend *MetricsBackend `json:"backend,omitempty"`
+	Backend MetricsBackend `json:"backend"`
 	// Address of MetricsBackend server.
 	// +optional
 	ServerAddress string `json:"serverAddress,omitempty"`
@@ -272,18 +271,18 @@ type MetricSource struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-type PodsMetricSource struct {
+type PodMetrics struct {
 	// Backend defines the scaling metric type watched by the autoscaler.
 	// Possible value: opentelemetry.
 	// +optional
-	Backend *PodsMetricsBackend `json:"backend,omitempty"`
-	// ServerAddress specifies the address of the MetricsBackend server.
+	Backend PodsMetricsBackend `json:"backend"`
+	// ServerAddress specifies the address of the PodsMetricsBackend server.
 	// +optional
 	ServerAddress string `json:"serverAddress,omitempty"`
 	// MetricNames is the list of metric names in the backend.
 	// +optional
 	MetricNames []string `json:"metricNames,omitempty"`
-	// Query specifies the query to run to get metrics from the MetricsBackend.
+	// Query specifies the query to run to get metrics from the PodsMetricsBackend.
 	// +optional
 	Query string `json:"query,omitempty"`
 	// OperationOverTime specifies the operation to aggregate the metrics over time.
@@ -301,6 +300,15 @@ const (
 	MetricMemory      ScaleMetric = "memory"
 	MetricConcurrency ScaleMetric = "concurrency"
 	MetricRPS         ScaleMetric = "rps"
+)
+
+// ResourceMetric enum
+// +kubebuilder:validation:Enum=cpu;memory
+type ResourceMetric string
+
+const (
+	ResourceMetricCPU    ResourceMetric = "cpu"
+	ResourceMetricMemory ResourceMetric = "memory"
 )
 
 // Default the ComponentExtensionSpec

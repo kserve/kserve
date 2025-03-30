@@ -7113,24 +7113,36 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			serviceKey := expectedRequest.NamespacedName
 			storageUri := "s3://test/mnist/export"
+			qty := resource.MustParse("10Gi")
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "keda",
+						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
+						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassKeda),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
-							MinReplicas:     ptr.To(int32(1)),
-							MaxReplicas:     3,
-							ScaleMetric:     (*v1beta1.ScaleMetric)(&constants.AutoScalerMetricsMemory),
-							ScaleMetricType: (*autoscalingv2.MetricTargetType)(&constants.AutoScalerMetricsUtilization),
-							ScaleTarget:     ptr.To(int32(10)),
+							MinReplicas: ptr.To(int32(1)),
+							MaxReplicas: 3,
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.MetricMemory,
+											Target: v1beta1.MetricTarget{
+												Type:  v1beta1.AverageValueMetricType,
+												Value: &qty,
+											},
+										},
+									},
+								},
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -7175,11 +7187,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 					Triggers: []kedav1alpha1.ScaleTriggers{
 						{
-							Type: string("memory"),
+							Type: "memory",
 							Metadata: map[string]string{
-								"value": "10",
+								"value": "10Gi",
 							},
-							MetricType: autoscalingv2.MetricTargetType(constants.AutoScalerMetricsUtilization),
+							MetricType: autoscalingv2.AverageValueMetricType,
 						},
 					},
 					MinReplicaCount: proto.Int32(1),
@@ -7309,7 +7321,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Type: v1beta1.MetricSourceType(constants.AutoScalerPodMetric),
 										PodMetric: &v1beta1.PodMetricSource{
 											Metric: v1beta1.PodsMetricSource{
-												Backend:     (*v1beta1.PodsMetricsBackend)(&constants.AutoScalerMetricsOpenTelemetry),
+												Backend:     v1beta1.OpenTelemetryBackend,
 												MetricNames: []string{"process_cpu_seconds_total"},
 												Query:       "avg(process_cpu_seconds_total)",
 											},

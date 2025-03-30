@@ -75,12 +75,12 @@ const (
 	GraphiteBackend   MetricsBackend = "graphite"
 )
 
-// MetricsBackend enum
+// PodsMetricsBackend PodsMetricsBackend enum
 // +kubebuilder:validation:Enum=opentelemetry
 type PodsMetricsBackend string
 
 const (
-	OpenTelemetryBackend MetricsBackend = "opentelemetry"
+	OpenTelemetryBackend PodsMetricsBackend = "opentelemetry"
 )
 
 // Batcher specifies optional payload batching available for all components

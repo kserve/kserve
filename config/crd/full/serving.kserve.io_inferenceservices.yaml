@@ -1234,6 +1234,9 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - metric
+                                  - target
                                 type: object
                               podmetric:
                                 properties:
@@ -1278,6 +1281,9 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - metric
+                                  - target
                                 type: object
                               resource:
                                 properties:
@@ -1312,6 +1318,9 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - name
+                                  - target
                                 type: object
                               type:
                                 enum:
@@ -1319,6 +1328,8 @@ spec:
                                   - External
                                   - PodMetric
                                 type: string
+                            required:
+                              - type
                             type: object
                           type: array
                       type: object
@@ -2895,6 +2906,10 @@ spec:
                         - rps
                       type: string
                     scaleMetricType:
+                      enum:
+                        - Utilization
+                        - Value
+                        - AverageValue
                       type: string
                     scaleTarget:
                       format: int32
@@ -4357,6 +4372,9 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - metric
+                                  - target
                                 type: object
                               podmetric:
                                 properties:
@@ -4401,6 +4419,9 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - metric
+                                  - target
                                 type: object
                               resource:
                                 properties:
@@ -4435,6 +4456,9 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - name
+                                  - target
                                 type: object
                               type:
                                 enum:
@@ -4442,6 +4466,8 @@ spec:
                                   - External
                                   - PodMetric
                                 type: string
+                            required:
+                              - type
                             type: object
                           type: array
                       type: object
@@ -10838,6 +10864,10 @@ spec:
                         - rps
                       type: string
                     scaleMetricType:
+                      enum:
+                        - Utilization
+                        - Value
+                        - AverageValue
                       type: string
                     scaleTarget:
                       format: int32
@@ -18653,6 +18683,9 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - metric
+                                  - target
                                 type: object
                               podmetric:
                                 properties:
@@ -18697,6 +18730,9 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - metric
+                                  - target
                                 type: object
                               resource:
                                 properties:
@@ -18731,6 +18767,9 @@ spec:
                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                     type: object
+                                required:
+                                  - name
+                                  - target
                                 type: object
                               type:
                                 enum:
@@ -18738,6 +18777,8 @@ spec:
                                   - External
                                   - PodMetric
                                 type: string
+                            required:
+                              - type
                             type: object
                           type: array
                       type: object
@@ -20314,6 +20355,10 @@ spec:
                         - rps
                       type: string
                     scaleMetricType:
+                      enum:
+                        - Utilization
+                        - Value
+                        - AverageValue
                       type: string
                     scaleTarget:
                       format: int32
