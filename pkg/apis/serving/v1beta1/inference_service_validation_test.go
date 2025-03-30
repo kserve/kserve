@@ -104,7 +104,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 									{
 										Type: ResourceMetricSourceType,
 										Resource: &ResourceMetricSource{
-											Name: MetricCPU,
+											Name: ResourceMetricCPU,
 											Target: MetricTarget{
 												AverageUtilization: ptr.To(int32(80)),
 											},
@@ -142,7 +142,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 									{
 										Type: ResourceMetricSourceType,
 										Resource: &ResourceMetricSource{
-											Name: MetricMemory,
+											Name: ResourceMetricMemory,
 											Target: MetricTarget{
 												AverageValue: ptr.To(resource.MustParse("1Gi")),
 											},
@@ -370,7 +370,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 									{
 										Type: ResourceMetricSourceType,
 										Resource: &ResourceMetricSource{
-											Name: MetricCPU,
+											Name: ResourceMetricCPU,
 											Target: MetricTarget{
 												Type:               UtilizationMetricType,
 												AverageUtilization: ptr.To(int32(80)),
@@ -409,7 +409,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 									{
 										Type: ResourceMetricSourceType,
 										Resource: &ResourceMetricSource{
-											Name: MetricMemory,
+											Name: ResourceMetricMemory,
 											Target: MetricTarget{
 												Type:         AverageValueMetricType,
 												AverageValue: ptr.To(resource.MustParse("1Gi")),

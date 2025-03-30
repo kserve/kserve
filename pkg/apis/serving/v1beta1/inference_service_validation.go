@@ -110,10 +110,6 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
-	if err := validateAutoscalerTargetUtilizationPercentage(isvc); err != nil {
-		return allWarnings, err
-	}
-
 	if err := validateMultiNodeVariables(isvc); err != nil {
 		return allWarnings, err
 	}
@@ -255,19 +251,6 @@ func validateHPAMetrics(metric ScaleMetric) error {
 	return fmt.Errorf("[%s] is not a supported metric", metric)
 }
 
-// Validate of Autoscaling targetUtilizationPercentage
-func validateAutoscalerTargetUtilizationPercentage(isvc *InferenceService) error {
-	annotations := isvc.ObjectMeta.Annotations
-	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
-		t, err := strconv.Atoi(value)
-		if err != nil {
-			return errors.New("the target utilization percentage should be a [1-100] integer")
-		}
-		return validateTargetUtilization(int32(t))
-	}
-	return nil
-}
-
 func validateTargetUtilization(targetValue int32) error {
 	if targetValue < 1 || targetValue > 100 {
 		return errors.New("the target utilization percentage should be a [1-100] integer")
@@ -349,12 +332,12 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 				if err := validateScaleTarget(metric.Resource.Target); err != nil {
 					return err
 				}
-				if metric.Resource.Name == MetricCPU {
+				if metric.Resource.Name == ResourceMetricCPU {
 					if metric.Resource.Target.Type != UtilizationMetricType {
 						return errors.New("the cpu target value type should be Utilization")
 					}
 					return validateTargetUtilization(*metric.Resource.Target.AverageUtilization)
-				} else if metric.Resource.Name == MetricMemory {
+				} else if metric.Resource.Name == ResourceMetricMemory {
 					if metric.Resource.Target.Type != AverageValueMetricType {
 						return errors.New("the memory target value type should be AverageValue")
 					}

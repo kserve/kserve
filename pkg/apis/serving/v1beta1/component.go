@@ -55,7 +55,7 @@ const (
 	DisallowedWorkerSpecTensorParallelSizeEnvError   = "the InferenceService %q is invalid: setting TENSOR_PARALLEL_SIZE in environment variables is not allowed"
 )
 
-// Constants
+// SupportedStorageSpecURIPrefixList Constants
 var (
 	SupportedStorageSpecURIPrefixList = []string{"s3://", "hdfs://", "webhdfs://"}
 )
@@ -192,7 +192,7 @@ const (
 
 type ResourceMetricSource struct {
 	// name is the name of the resource in question.
-	Name ScaleMetric `json:"name"`
+	Name ResourceMetric `json:"name"`
 
 	// target specifies the target value for the given metric
 	Target MetricTarget `json:"target"`
