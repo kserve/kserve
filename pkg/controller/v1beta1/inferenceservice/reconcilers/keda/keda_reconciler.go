@@ -75,12 +75,12 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 		metrics := componentExt.AutoScaling.Metrics
 		for _, metric := range metrics {
 			switch metric.Type {
-			case v1beta1.MetricSourceType(constants.AutoScalerResource):
+			case v1beta1.ResourceMetricSourceType:
 				triggerType := string(metric.Resource.Name)
 				metricType := autoscalingv2.MetricTargetType(metric.Resource.Target.Type)
 				var targetValue string
 				if metricType == autoscalingv2.UtilizationMetricType {
-					if metric.Resource.Name == v1beta1.MetricCPU && metric.Resource.Target.AverageUtilization != nil {
+					if metric.Resource.Name == v1beta1.ResourceMetricCPU && metric.Resource.Target.AverageUtilization != nil {
 						defaultUtilization := &constants.DefaultCPUUtilization
 						metric.Resource.Target.AverageUtilization = defaultUtilization
 					}
@@ -95,7 +95,7 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 					Metadata:   map[string]string{"value": targetValue},
 					MetricType: metricType,
 				})
-			case v1beta1.MetricSourceType(constants.AutoScalerExternal):
+			case v1beta1.ExternalMetricSourceType:
 				triggerType := string(metric.External.Metric.Backend)
 				serverAddress := metric.External.Metric.ServerAddress
 				query := metric.External.Metric.Query
@@ -112,7 +112,7 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 					trigger.Metadata["namespace"] = metric.External.Metric.Namespace
 				}
 				triggers = append(triggers, trigger)
-			case v1beta1.MetricSourceType(constants.AutoScalerPodMetric):
+			case v1beta1.PodMetricSourceType:
 				otelConfig, err := v1beta1.NewOtelCollectorConfig(configMap)
 				if err != nil {
 					return nil, err

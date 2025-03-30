@@ -88,8 +88,11 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) ([]autoscalingv
 				metrics = append(metrics, ms)
 			}
 		}
-	} else if componentExt.ScaleMetric != nil {
-		resourceName := corev1.ResourceName(*componentExt.ScaleMetric)
+	} else {
+		resourceName := corev1.ResourceCPU
+		if componentExt.ScaleMetric != nil {
+			resourceName = corev1.ResourceName(*componentExt.ScaleMetric)
+		}
 		if resourceName == corev1.ResourceCPU {
 			var utilization int32
 			if componentExt.ScaleTarget != nil {
@@ -100,6 +103,21 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) ([]autoscalingv
 			metricTarget := autoscalingv2.MetricTarget{
 				Type:               autoscalingv2.UtilizationMetricType,
 				AverageUtilization: &utilization,
+			}
+			resourceMetricSource := &autoscalingv2.ResourceMetricSource{
+				Name:   resourceName,
+				Target: metricTarget,
+			}
+			ms := autoscalingv2.MetricSpec{
+				Type:     autoscalingv2.ResourceMetricSourceType,
+				Resource: resourceMetricSource,
+			}
+			metrics = append(metrics, ms)
+		} else if resourceName == corev1.ResourceMemory && componentExt.ScaleTarget != nil {
+			// For memory, we do not set the default scale target.
+			metricTarget := autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: componentExt.ScaleTarget,
 			}
 			resourceMetricSource := &autoscalingv2.ResourceMetricSource{
 				Name:   resourceName,

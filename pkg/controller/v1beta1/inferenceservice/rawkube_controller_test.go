@@ -7134,7 +7134,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									{
 										Type: v1beta1.ResourceMetricSourceType,
 										Resource: &v1beta1.ResourceMetricSource{
-											Name: v1beta1.MetricMemory,
+											Name: v1beta1.ResourceMetricMemory,
 											Target: v1beta1.MetricTarget{
 												Type:  v1beta1.AverageValueMetricType,
 												Value: &qty,
@@ -7318,9 +7318,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							AutoScaling: &v1beta1.AutoScalingSpec{
 								Metrics: []v1beta1.MetricsSpec{
 									{
-										Type: v1beta1.MetricSourceType(constants.AutoScalerPodMetric),
+										Type: v1beta1.PodMetricSourceType,
 										PodMetric: &v1beta1.PodMetricSource{
-											Metric: v1beta1.PodsMetricSource{
+											Metric: v1beta1.PodMetrics{
 												Backend:     v1beta1.OpenTelemetryBackend,
 												MetricNames: []string{"process_cpu_seconds_total"},
 												Query:       "avg(process_cpu_seconds_total)",

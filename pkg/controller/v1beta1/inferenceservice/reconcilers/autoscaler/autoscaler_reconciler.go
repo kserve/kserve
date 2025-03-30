@@ -99,9 +99,9 @@ func createAutoscaler(client client.Client,
 	}
 }
 
-// Reconcile autoscaling resources for HPA, KEDA ScalerObject.
+// Reconcile autoscaling resources for HPA, KEDA ScaledObject.
 func (r *AutoscalerReconciler) Reconcile(ctx context.Context) error {
-	// reconcile Autoscaler
+	// reconcile Autoscaling resources
 	err := r.Autoscaler.Reconcile(ctx)
 	if err != nil {
 		return err

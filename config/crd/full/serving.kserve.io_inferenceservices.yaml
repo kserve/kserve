@@ -1291,8 +1291,6 @@ spec:
                                     enum:
                                       - cpu
                                       - memory
-                                      - concurrency
-                                      - rps
                                     type: string
                                   target:
                                     properties:
@@ -4429,8 +4427,6 @@ spec:
                                     enum:
                                       - cpu
                                       - memory
-                                      - concurrency
-                                      - rps
                                     type: string
                                   target:
                                     properties:
@@ -18740,8 +18736,6 @@ spec:
                                     enum:
                                       - cpu
                                       - memory
-                                      - concurrency
-                                      - rps
                                     type: string
                                   target:
                                     properties:
