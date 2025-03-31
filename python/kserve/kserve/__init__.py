@@ -112,5 +112,4 @@ from .models.v1beta1_resource_metric_source import V1beta1ResourceMetricSource
 from .models.v1beta1_metric_identifier import V1beta1MetricIdentifier
 from .models.v1beta1_metric_target import V1beta1MetricTarget
 from .models.v1beta1_metrics_spec import V1beta1MetricsSpec
-from .models.v1beta1_pods_metric_source import V1beta1PodsMetricSource
 from .models.v1beta1_pod_metric_source import V1beta1PodMetricSource
