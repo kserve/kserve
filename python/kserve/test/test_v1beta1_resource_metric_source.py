@@ -66,7 +66,7 @@ class TestV1beta1ResourceMetricSource(unittest.TestCase):
                 name="0",
                 target=kserve.models.v1beta1_metric_target.V1beta1MetricTarget(
                     type="0",
-                )
+                ),
             )
 
     def testV1beta1ResourceMetricSource(self):
