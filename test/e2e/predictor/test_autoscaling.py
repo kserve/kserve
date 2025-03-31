@@ -265,8 +265,10 @@ async def test_sklearn_rolling_update():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    updated_annotations = {"serving.kserve.io/deploymentMode": "RawDeployment",
-                           "serving.kserve.io/customAnnotation": "TestAnnotation"}
+    updated_annotations = {
+        "serving.kserve.io/deploymentMode": "RawDeployment",
+        "serving.kserve.io/customAnnotation": "TestAnnotation",
+    }
 
     updated_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -330,7 +332,10 @@ async def test_sklearn_keda_scale_new_spec_resource(rest_v1_client, network_laye
         ),
     )
 
-    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment", "serving.kserve.io/autoscalerClass": "keda"}
+    annotations = {
+        "serving.kserve.io/deploymentMode": "RawDeployment",
+        "serving.kserve.io/autoscalerClass": "keda",
+    }
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -402,7 +407,10 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
         ),
     )
 
-    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment", "serving.kserve.io/autoscalerClass": "keda"}
+    annotations = {
+        "serving.kserve.io/deploymentMode": "RawDeployment",
+        "serving.kserve.io/autoscalerClass": "keda",
+    }
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -475,8 +483,11 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
         ),
     )
 
-    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment", "serving.kserve.io/autoscalerClass": "keda",
-                   "sidecar.opentelemetry.io/inject": f"{service_name}-predictor"}
+    annotations = {
+        "serving.kserve.io/deploymentMode": "RawDeployment",
+        "serving.kserve.io/autoscalerClass": "keda",
+        "sidecar.opentelemetry.io/inject": f"{service_name}-predictor",
+    }
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
