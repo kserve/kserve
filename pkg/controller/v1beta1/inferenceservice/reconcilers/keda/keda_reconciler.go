@@ -78,16 +78,20 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 			case v1beta1.ResourceMetricSourceType:
 				triggerType := string(metric.Resource.Name)
 				metricType := metric.Resource.Target.Type
-				var targetValue string
+				targetValue := "0"
 				if metricType == v1beta1.UtilizationMetricType {
-					if metric.Resource.Name == v1beta1.ResourceMetricCPU && metric.Resource.Target.AverageUtilization == nil {
-						defaultUtilization := &constants.DefaultCPUUtilization
-						metric.Resource.Target.AverageUtilization = defaultUtilization
+					averageUtil := metric.Resource.Target.AverageUtilization
+					if metric.Resource.Name == v1beta1.ResourceMetricCPU {
+						if metric.Resource.Target.AverageUtilization == nil {
+							averageUtil = &constants.DefaultCPUUtilization
+						}
 					}
-					targetValue = fmt.Sprintf("%d", metric.Resource.Target.AverageUtilization)
+					if metric.Resource.Target.AverageUtilization != nil {
+						targetValue = fmt.Sprintf("%d", averageUtil)
+					}
 				} else if metricType == v1beta1.AverageValueMetricType && metric.Resource.Target.AverageValue != nil {
 					targetValue = metric.Resource.Target.AverageValue.String()
-				} else {
+				} else if metricType == v1beta1.ValueMetricType && metric.Resource.Target.Value != nil {
 					targetValue = fmt.Sprintf("%f", metric.Resource.Target.Value.AsApproximateFloat64())
 				}
 				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
