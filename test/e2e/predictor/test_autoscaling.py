@@ -541,7 +541,7 @@ async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_lay
     assert trigger_type == "external"
     assert trigger_metadata["metricQuery"] == "http_requests_per_second"
     assert trigger_metadata["scalerAddress"] == "keda-otel-scaler.keda.svc:4318"
-    assert trigger_metadata["targetValue"] == "50"
+    assert trigger_metadata["targetValue"] == "50.000000"
     res = await predict_isvc(
         rest_v1_client, service_name, INPUT, network_layer=network_layer
     )
