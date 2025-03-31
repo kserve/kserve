@@ -76,18 +76,20 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainerSpec":                schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExplainersConfig":             schema_pkg_apis_serving_v1beta1_ExplainersConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource":         schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics":              schema_pkg_apis_serving_v1beta1_ExternalMetrics(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.FailureInfo":                  schema_pkg_apis_serving_v1beta1_FailureInfo(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec":       schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceService":             schema_pkg_apis_serving_v1beta1_InferenceService(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceDefaulter":    schema_pkg_apis_serving_v1beta1_InferenceServiceDefaulter(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceList":         schema_pkg_apis_serving_v1beta1_InferenceServiceList(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceSpec":         schema_pkg_apis_serving_v1beta1_InferenceServiceSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceStatus":       schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceValidator":    schema_pkg_apis_serving_v1beta1_InferenceServiceValidator(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServicesConfig":      schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.IngressConfig":                schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                 schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":             schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                   schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricSource":                 schema_pkg_apis_serving_v1beta1_MetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget":                 schema_pkg_apis_serving_v1beta1_MetricTarget(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricsSpec":                  schema_pkg_apis_serving_v1beta1_MetricsSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelCopies":                  schema_pkg_apis_serving_v1beta1_ModelCopies(ref),
@@ -101,8 +103,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec":                     schema_pkg_apis_serving_v1beta1_PMMLSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec":             schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodMetricSource":              schema_pkg_apis_serving_v1beta1_PodMetricSource(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodMetrics":                   schema_pkg_apis_serving_v1beta1_PodMetrics(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodSpec":                      schema_pkg_apis_serving_v1beta1_PodSpec(ref),
-		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodsMetricSource":             schema_pkg_apis_serving_v1beta1_PodsMetricSource(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorExtensionSpec":       schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.PredictorSpec":                schema_pkg_apis_serving_v1beta1_PredictorSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ResourceConfig":               schema_pkg_apis_serving_v1beta1_ResourceConfig(ref),
@@ -1819,6 +1821,7 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 						},
 					},
 				},
+				
 			},
 		},
 	}
@@ -2414,15 +2417,9 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 							Format:      "int32",
 						},
 					},
-					"autoScaling": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
-						},
-					},
 					"scaleMetric": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Description: "ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -2432,6 +2429,12 @@ func schema_pkg_apis_serving_v1beta1_ComponentExtensionSpec(ref common.Reference
 							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"autoScaling": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AutoScaling autoscaling spec which is backed up HPA or KEDA.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
 						},
 					},
 					"containerConcurrency": {
@@ -4438,6 +4441,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -4919,15 +4923,9 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Format:      "int32",
 						},
 					},
-					"autoScaling": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
-						},
-					},
 					"scaleMetric": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Description: "ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -4937,6 +4935,12 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"autoScaling": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AutoScaling autoscaling spec which is backed up HPA or KEDA.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
 						},
 					},
 					"containerConcurrency": {
@@ -5048,7 +5052,7 @@ func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCa
 						SchemaProps: spec.SchemaProps{
 							Description: "metric identifies the target metric by name and selector",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricSource"),
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics"),
 						},
 					},
 					"target": {
@@ -5059,10 +5063,52 @@ func schema_pkg_apis_serving_v1beta1_ExternalMetricSource(ref common.ReferenceCa
 						},
 					},
 				},
+				Required: []string{"metric", "target"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricSource", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetrics", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_ExternalMetrics(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"backend": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Address of MetricsBackend server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query to run to get metrics from MetricsBackend",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "For namespaced query",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -5439,6 +5485,7 @@ func schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -5490,6 +5537,17 @@ func schema_pkg_apis_serving_v1beta1_InferenceService(ref common.ReferenceCallba
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_InferenceServiceDefaulter(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InferenceServiceDefaulter is responsible for setting default values on the InferenceService when created or updated.\n\nNOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods, as it is used only for temporary operations and does not need to be deeply copied.",
+				Type:        []string{"object"},
+			},
+		},
 	}
 }
 
@@ -5671,6 +5729,17 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref common.Reference
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ComponentStatusSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus", "knative.dev/pkg/apis.Condition", "knative.dev/pkg/apis.URL", "knative.dev/pkg/apis/duck/v1.Addressable"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_InferenceServiceValidator(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "InferenceServiceValidator is responsible for validating the InferenceService resource when it is created, updated, or deleted.\n\nNOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods, as this struct is used only for temporary operations and does not need to be deeply copied.",
+				Type:        []string{"object"},
+			},
+		},
 	}
 }
 
@@ -6155,6 +6224,7 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -6261,46 +6331,6 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 	}
 }
 
-func schema_pkg_apis_serving_v1beta1_MetricSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"backend": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"serverAddress": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Address of MetricsBackend server.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"query": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Query to run to get metrics from MetricsBackend",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"namespace": {
-						SchemaProps: spec.SchemaProps{
-							Description: "For namespaced query",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_pkg_apis_serving_v1beta1_MetricTarget(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -6353,6 +6383,7 @@ func schema_pkg_apis_serving_v1beta1_MetricsSpec(ref common.ReferenceCallback) c
 					"type": {
 						SchemaProps: spec.SchemaProps{
 							Description: "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"PodMetric\". \"Resource\" or \"External\" each mapping to a matching field in the object.",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -6365,7 +6396,7 @@ func schema_pkg_apis_serving_v1beta1_MetricsSpec(ref common.ReferenceCallback) c
 					},
 					"external": {
 						SchemaProps: spec.SchemaProps{
-							Description: "external refers to a global metric that is not associated with any Kubernetes object. It allows autoscaling based on information coming from components running outside of cluster (for example length of queue in cloud messaging service, or QPS from loadbalancer running outside of cluster).",
+							Description: "external refers to a global metric that is not associated with any Kubernetes object. It allows autoscaling based on information coming from components running outside of cluster (for example length of queue in cloud messaging service, or QPS from load balancer running outside of cluster).",
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ExternalMetricSource"),
 						},
 					},
@@ -6376,6 +6407,7 @@ func schema_pkg_apis_serving_v1beta1_MetricsSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				Required: []string{"type"},
 			},
 		},
 		Dependencies: []string{
@@ -6433,6 +6465,7 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 	}
@@ -7190,6 +7223,7 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -7545,6 +7579,7 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -7869,6 +7904,7 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -7887,7 +7923,7 @@ func schema_pkg_apis_serving_v1beta1_PodMetricSource(ref common.ReferenceCallbac
 						SchemaProps: spec.SchemaProps{
 							Description: "metric identifies the target metric by name and selector",
 							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodsMetricSource"),
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodMetrics"),
 						},
 					},
 					"target": {
@@ -7898,10 +7934,67 @@ func schema_pkg_apis_serving_v1beta1_PodMetricSource(ref common.ReferenceCallbac
 						},
 					},
 				},
+				Required: []string{"metric", "target"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodsMetricSource"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PodMetrics"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_PodMetrics(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"backend": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Backend defines the scaling metric type watched by the autoscaler. Possible value: opentelemetry.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverAddress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServerAddress specifies the address of the PodsMetricsBackend server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metricNames": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MetricNames is the list of metric names in the backend.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"query": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Query specifies the query to run to get metrics from the PodsMetricsBackend.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"operationOverTime": {
+						SchemaProps: spec.SchemaProps{
+							Description: "OperationOverTime specifies the operation to aggregate the metrics over time. Possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -8360,61 +8453,6 @@ func schema_pkg_apis_serving_v1beta1_PodSpec(ref common.ReferenceCallback) commo
 	}
 }
 
-func schema_pkg_apis_serving_v1beta1_PodsMetricSource(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"backend": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Backend defines the scaling metric type watched by the autoscaler. Possible value: opentelemetry.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"serverAddress": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ServerAddress specifies the address of the MetricsBackend server.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metricNames": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MetricNames is the list of metric names in the backend.",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-					"query": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Query specifies the query to run to get metrics from the MetricsBackend.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"operationOverTime": {
-						SchemaProps: spec.SchemaProps{
-							Description: "OperationOverTime specifies the operation to aggregate the metrics over time. Possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -8733,6 +8771,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -9280,15 +9319,9 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Format:      "int32",
 						},
 					},
-					"autoScaling": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
-						},
-					},
 					"scaleMetric": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Description: "ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -9298,6 +9331,12 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"autoScaling": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AutoScaling autoscaling spec which is backed up HPA or KEDA.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
 						},
 					},
 					"containerConcurrency": {
@@ -9424,6 +9463,7 @@ func schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref common.ReferenceCa
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Description: "name is the name of the resource in question.",
+							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -9436,6 +9476,7 @@ func schema_pkg_apis_serving_v1beta1_ResourceMetricSource(ref common.ReferenceCa
 						},
 					},
 				},
+				Required: []string{"name", "target"},
 			},
 		},
 		Dependencies: []string{
@@ -9761,6 +9802,7 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -10174,6 +10216,7 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -10499,6 +10542,7 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -10974,15 +11018,9 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							Format:      "int32",
 						},
 					},
-					"autoScaling": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
-							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
-						},
-					},
 					"scaleMetric": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+							Description: "ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -10992,6 +11030,12 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							Description: "Type of metric to use. Options are Utilization, or AverageValue.",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"autoScaling": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AutoScaling autoscaling spec which is backed up HPA or KEDA.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec"),
 						},
 					},
 					"containerConcurrency": {
@@ -11391,6 +11435,7 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
@@ -12184,6 +12229,7 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				
 			},
 		},
 		Dependencies: []string{
