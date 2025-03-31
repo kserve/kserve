@@ -249,6 +249,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 		hostname, err := routeReconciler.Reconcile(ctx, graph)
 		url.Host = hostname
+		url.Scheme = "https"
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile Route for InferenceGraph")
 		}

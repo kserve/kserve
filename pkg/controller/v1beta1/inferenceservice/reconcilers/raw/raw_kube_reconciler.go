@@ -87,7 +87,7 @@ func NewRawKubeReconciler(client client.Client,
 		client:     client,
 		scheme:     scheme,
 		Deployment: depl,
-		Service:    service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
+		Service:    service.NewServiceReconciler(client, scheme, resourceType, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
 		Scaler:     as,
 		URL:        url,
 	}, nil

@@ -48,6 +48,7 @@ type ServiceReconciler struct {
 
 func NewServiceReconciler(client client.Client,
 	scheme *runtime.Scheme,
+	resourceType constants.ResourceType,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, multiNodeEnabled bool,
@@ -55,12 +56,12 @@ func NewServiceReconciler(client client.Client,
 	return &ServiceReconciler{
 		client:       client,
 		scheme:       scheme,
-		ServiceList:  createService(componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
+		ServiceList:  createService(resourceType, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
 		componentExt: componentExt,
 	}
 }
 
-func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
+func createService(resourceType constants.ResourceType, componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, multiNodeEnabled bool, serviceConfig *v1beta1.ServiceConfig) []*corev1.Service {
 	var svcList []*corev1.Service
 	var isWorkerContainer bool
@@ -75,11 +76,11 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 
 	if !multiNodeEnabled {
 		// If multiNodeEnabled is false, only defaultSvc will be created.
-		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec, serviceConfig)
+		defaultSvc := createDefaultSvc(resourceType, componentMeta, componentExt, podSpec, serviceConfig)
 		svcList = append(svcList, defaultSvc)
 	} else if multiNodeEnabled && !isWorkerContainer {
 		// If multiNodeEnabled is true, both defaultSvc and headSvc will be created.
-		defaultSvc := createDefaultSvc(componentMeta, componentExt, podSpec, serviceConfig)
+		defaultSvc := createDefaultSvc(resourceType, componentMeta, componentExt, podSpec, serviceConfig)
 		svcList = append(svcList, defaultSvc)
 
 		headSvc := createHeadlessSvc(componentMeta)
@@ -89,7 +90,7 @@ func createService(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compon
 	return svcList
 }
 
-func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
+func createDefaultSvc(resourceType constants.ResourceType, componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, serviceConfig *v1beta1.ServiceConfig) *corev1.Service {
 	var servicePorts []corev1.ServicePort
 
@@ -175,28 +176,32 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 	}
 	service.ObjectMeta.Annotations[constants.OpenshiftServingCertAnnotation] = componentMeta.Name + constants.ServingCertSecretSuffix
 
-	if val, ok := componentMeta.Annotations[constants.ODHKserveRawAuth]; ok && strings.EqualFold(val, "true") {
-		httpsPort := corev1.ServicePort{
-			Name: "https",
-			Port: constants.OauthProxyPort,
-			TargetPort: intstr.IntOrString{
-				Type:   intstr.String,
-				StrVal: "https",
-			},
-			Protocol: corev1.ProtocolTCP,
-		}
-		ports := service.Spec.Ports
-		replaced := false
-		for i, port := range ports {
-			if port.Port == constants.CommonDefaultHttpPort {
-				ports[i] = httpsPort
-				replaced = true
+	if resourceType == constants.InferenceGraphResource {
+		servicePorts[0].Port = int32(443)
+	} else {
+		if val, ok := componentMeta.Annotations[constants.ODHKserveRawAuth]; ok && strings.EqualFold(val, "true") {
+			httpsPort := corev1.ServicePort{
+				Name: "https",
+				Port: constants.OauthProxyPort,
+				TargetPort: intstr.IntOrString{
+					Type:   intstr.String,
+					StrVal: "https",
+				},
+				Protocol: corev1.ProtocolTCP,
 			}
+			ports := service.Spec.Ports
+			replaced := false
+			for i, port := range ports {
+				if port.Port == constants.CommonDefaultHttpPort {
+					ports[i] = httpsPort
+					replaced = true
+				}
+			}
+			if !replaced {
+				ports = append(ports, httpsPort)
+			}
+			service.Spec.Ports = ports
 		}
-		if !replaced {
-			ports = append(ports, httpsPort)
-		}
-		service.Spec.Ports = ports
 	}
 
 	if serviceConfig != nil && serviceConfig.ServiceClusterIPNone {

@@ -95,9 +95,12 @@ func createRawDeploymentODH(clientset kubernetes.Interface, resourceType constan
 	headDeployment := deploymentList[0]
 	if val, ok := componentMeta.Annotations[constants.ODHKserveRawAuth]; ok && strings.EqualFold(val, "true") {
 		enableAuth = true
-		err := addOauthContainerToDeployment(clientset, headDeployment, componentMeta, componentExt, podSpec)
-		if err != nil {
-			return nil, err
+
+		if resourceType != constants.InferenceGraphResource { // InferenceGraphs don't use oauth-proxy
+			err := addOauthContainerToDeployment(clientset, headDeployment, componentMeta, componentExt, podSpec)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	if (resourceType == constants.InferenceServiceResource && enableAuth) || resourceType == constants.InferenceGraphResource {
