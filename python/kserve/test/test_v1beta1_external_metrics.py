@@ -50,14 +50,15 @@ class TestV1beta1ExternalMetrics(unittest.TestCase):
         # model = kserve.models.v1beta1_external_metrics.V1beta1ExternalMetrics()  # noqa: E501
         if include_optional :
             return V1beta1ExternalMetrics(
-                backend = '0', 
-                namespace = '0', 
-                query = '0', 
+                backend = '0',
+                namespace = '0',
+                query = '0',
                 server_address = '0'
             )
         else :
             return V1beta1ExternalMetrics(
-        )
+                backend = '0',
+            )
 
     def testV1beta1ExternalMetrics(self):
         """Test V1beta1ExternalMetrics"""

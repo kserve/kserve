@@ -66,6 +66,9 @@ class TestV1beta1PodMetricSource(unittest.TestCase):
             )
         else:
             return V1beta1PodMetricSource(
+                metric=kserve.models.v1beta1_pods_metric_source.V1beta1PodsMetricSource(
+                    backend="0",
+                ),
                 target=kserve.models.v1beta1_metric_target.V1beta1MetricTarget(
                     average_utilization=56,
                     average_value=None,
