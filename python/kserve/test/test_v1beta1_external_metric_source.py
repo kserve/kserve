@@ -53,7 +53,7 @@ class TestV1beta1ExternalMetricSource(unittest.TestCase):
         # model = kserve.models.v1beta1_external_metric_source.V1beta1ExternalMetricSource()  # noqa: E501
         if include_optional:
             return V1beta1ExternalMetricSource(
-                metric=kserve.models.v1beta1_metric_identifier.V1beta1MetricIdentifier(
+                metric=kserve.models.v1beta1_external_metrics.V1beta1ExternalMetrics(
                     backend="0",
                     query="0",
                     server_address="0",
@@ -67,7 +67,7 @@ class TestV1beta1ExternalMetricSource(unittest.TestCase):
             )
         else:
             return V1beta1ExternalMetricSource(
-                metric=kserve.models.v1beta1_metric_identifier.V1beta1MetricIdentifier(
+                metric=kserve.models.v1beta1_external_metrics.V1beta1ExternalMetrics(
                     backend="0",
                 ),
                 target=kserve.models.v1beta1_metric_target.V1beta1MetricTarget(
