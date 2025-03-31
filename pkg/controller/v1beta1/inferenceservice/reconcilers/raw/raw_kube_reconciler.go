@@ -62,7 +62,7 @@ func NewRawKubeReconciler(ctx context.Context,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
 ) (*RawKubeReconciler, error) {
 	var otelCollector *otel.OtelReconciler
-	configMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
 	if err != nil {
 		log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return nil, err
@@ -72,9 +72,8 @@ func NewRawKubeReconciler(ctx context.Context,
 		metrics := componentExt.AutoScaling.Metrics
 		for _, metric := range metrics {
 			if metric.Type == v1beta1.PodMetricSourceType {
-				if *metric.PodMetric.Metric.Backend == v1beta1.PodsMetricsBackend(constants.OTelBackend) {
-					var err error
-					otelConfig, err := v1beta1.NewOtelCollectorConfig(configMap)
+				if metric.PodMetric.Metric.Backend == v1beta1.PodsMetricsBackend(constants.OTelBackend) {
+					otelConfig, err := v1beta1.NewOtelCollectorConfig(isvcConfigMap)
 					if err != nil {
 						return nil, err
 					}
@@ -87,11 +86,7 @@ func NewRawKubeReconciler(ctx context.Context,
 		}
 	}
 
-	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, configMap)
-	if err != nil {
-		return nil, err
-	}
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
+	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, isvcConfigMap)
 	if err != nil {
 		return nil, err
 	}
@@ -150,6 +145,7 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment
 	if err != nil {
 		return nil, err
 	}
+
 	// reconcile Service
 	_, err = r.Service.Reconcile(ctx)
 	if err != nil {
