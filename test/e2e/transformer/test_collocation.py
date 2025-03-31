@@ -14,7 +14,6 @@
 
 
 import os
-import uuid
 from kubernetes import client
 
 from kserve import KServeClient
@@ -135,7 +134,7 @@ async def test_transformer_collocation(rest_v1_client):
 @pytest.mark.skip(
     "The torchserve container fails in OpenShift with permission denied errors"
 )
-async def test_raw_transformer_collocation(rest_v1_client):
+async def test_raw_transformer_collocation(rest_v1_client, network_layer):
     service_name = "raw-custom-model-collocation"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(

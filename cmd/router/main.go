@@ -27,9 +27,11 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"os/signal"
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -534,6 +536,8 @@ func main() {
 		}
 	}
 
+	http.HandleFunc(constants.RouterReadinessEndpoint, readyHandler)
+
 	server := &http.Server{
 		Addr:         ":8080",           // specify the address and port
 		Handler:      entrypointHandler, // specify your HTTP handler
@@ -542,9 +546,33 @@ func main() {
 		IdleTimeout:  3 * time.Minute,   // set the maximum amount of time to wait for the next request when keep-alives are enabled
 	}
 
-	err = server.ListenAndServeTLS("/etc/tls/private/tls.crt", "/etc/tls/private/tls.key")
-	if err != nil {
-		log.Error(err, "failed to listen on 8080")
+	go func() {
+		err = server.ListenAndServe()
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error(err, fmt.Sprintf("Failed to serve on address %v", server.Addr))
+			os.Exit(1)
+		}
+	}()
+
+	// Blocks until SIGTERM or SIGINT is received
+	handleSignals(server)
+}
+
+func handleSignals(server *http.Server) {
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, os.Interrupt, syscall.SIGTERM)
+
+	sig := <-signalChan
+	log.Info("Received shutdown signal", "signal", sig)
+	// Fail the readiness probe
+	isShuttingDown = true
+	log.Info(fmt.Sprintf("Sleeping %v to allow K8s propagation of non-ready state", drainSleepDuration))
+	// Sleep to give networking a little bit more time to remove the pod
+	// from its configuration and propagate that to all loadbalancers and nodes.
+	time.Sleep(drainSleepDuration)
+	// Shut down the server gracefully
+	if err := server.Shutdown(context.Background()); err != nil {
+		log.Error(err, "Failed to shutdown the server gracefully")
 		os.Exit(1)
 	}
 	log.Info("Server gracefully shutdown")

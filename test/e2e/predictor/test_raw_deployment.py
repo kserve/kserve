@@ -139,7 +139,7 @@ async def test_raw_deployment_runtime_kserve(rest_v1_client, network_layer):
 @pytest.mark.skip(
     "The custom-model-grpc image fails in OpenShift with a permission denied error"
 )
-async def test_isvc_with_multiple_container_port():
+async def test_isvc_with_multiple_container_port(network_layer):
     service_name = "raw-multiport-custom-model"
     model_name = "custom-model"
 
