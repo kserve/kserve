@@ -66,7 +66,14 @@ class TestV1beta1ExternalMetricSource(unittest.TestCase):
                 ),
             )
         else:
-            return V1beta1ExternalMetricSource()
+            return V1beta1ExternalMetricSource(
+                metric=kserve.models.v1beta1_metric_identifier.V1beta1MetricIdentifier(
+                    backend="0",
+                ),
+                target=kserve.models.v1beta1_metric_target.V1beta1MetricTarget(
+                    type="0",
+                ),
+            )
 
     def testV1beta1ExternalMetricSource(self):
         """Test V1beta1ExternalMetricSource"""
