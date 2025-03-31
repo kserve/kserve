@@ -30,12 +30,13 @@ from kserve import (
     V1beta1ResourceMetricSource,
     V1beta1MetricTarget,
     V1beta1ExternalMetricSource,
+    V1beta1ExternalMetrics,
     V1beta1MetricsSpec,
     V1beta1PodMetricSource,
+    V1beta1PodMetrics,
 )
 
-from python.kserve.kserve.models.v1beta1_external_metrics import V1beta1ExternalMetrics
-from python.kserve.kserve.models.v1beta1_pod_metrics import V1beta1PodMetrics
+
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict_isvc
 
