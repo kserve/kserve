@@ -15,6 +15,7 @@ package hpa
 
 import (
 	"context"
+
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -45,10 +46,7 @@ func NewHPAReconciler(client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 ) (*HPAReconciler, error) {
-	hpa, err := createHPA(componentMeta, componentExt)
-	if err != nil {
-		return nil, err
-	}
+	hpa := createHPA(componentMeta, componentExt)
 	return &HPAReconciler{
 		client:       client,
 		scheme:       scheme,
@@ -57,7 +55,7 @@ func NewHPAReconciler(client client.Client,
 	}, nil
 }
 
-func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) ([]autoscalingv2.MetricSpec, error) {
+func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2.MetricSpec {
 	var metrics []autoscalingv2.MetricSpec
 	if componentExt.AutoScaling != nil {
 		for _, metric := range componentExt.AutoScaling.Metrics {
@@ -137,12 +135,12 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) ([]autoscalingv
 			metrics = append(metrics, ms)
 		}
 	}
-	return metrics, nil
+	return metrics
 }
 
 func createHPA(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-) (*autoscalingv2.HorizontalPodAutoscaler, error) {
+) *autoscalingv2.HorizontalPodAutoscaler {
 	var minReplicas int32
 	if componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas {
 		minReplicas = constants.DefaultMinReplicas
@@ -154,10 +152,7 @@ func createHPA(componentMeta metav1.ObjectMeta,
 	if maxReplicas < minReplicas {
 		maxReplicas = minReplicas
 	}
-	metrics, err := getHPAMetrics(componentExt)
-	if err != nil {
-		return nil, err
-	}
+	metrics := getHPAMetrics(componentExt)
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: componentMeta,
 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
@@ -172,7 +167,7 @@ func createHPA(componentMeta metav1.ObjectMeta,
 			Behavior:    &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 		},
 	}
-	return hpa, nil
+	return hpa
 }
 
 // checkHPAExist checks if the hpa exists?

@@ -264,6 +264,7 @@ func validateScaleTarget(target MetricTarget) error {
 		if target.AverageUtilization == nil {
 			return errors.New("the AverageUtilization type should be set")
 		}
+		return validateTargetUtilization(*target.AverageUtilization)
 	case AverageValueMetricType:
 		if target.AverageValue == nil {
 			return errors.New("the AverageValue type should be set")
@@ -329,36 +330,36 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 				if metric.Resource == nil {
 					return errors.New("metricSpec.Resource is not set for resource metric source type")
 				}
-				if err := validateScaleTarget(metric.Resource.Target); err != nil {
-					return err
-				}
-				if metric.Resource.Name == ResourceMetricCPU {
+				switch metric.Resource.Name {
+				case ResourceMetricCPU:
 					if metric.Resource.Target.Type != UtilizationMetricType {
 						return errors.New("the cpu target value type should be Utilization")
 					}
-					return validateTargetUtilization(*metric.Resource.Target.AverageUtilization)
-				} else if metric.Resource.Name == ResourceMetricMemory {
-					if metric.Resource.Target.Type != AverageValueMetricType {
-						return errors.New("the memory target value type should be AverageValue")
+				case ResourceMetricMemory:
+					if metric.Resource.Target.Type != AverageValueMetricType && metric.Resource.Target.Type != UtilizationMetricType {
+						return errors.New("the memory target value type should be AverageValue or Utilization")
 					}
-					if metric.Resource.Target.AverageValue.Cmp(resource.MustParse("1Mi")) < 0 {
+					if metric.Resource.Target.Type == AverageValueMetricType && metric.Resource.Target.AverageValue.Cmp(resource.MustParse("1Mi")) < 0 {
 						return errors.New("the memory target value should be greater than 1 MiB")
 					}
-				} else {
+				default:
 					return fmt.Errorf("resource type %s is not supported", metric.Resource.Name)
+				}
+				if err := validateScaleTarget(metric.Resource.Target); err != nil {
+					return err
 				}
 			case ExternalMetricSourceType:
 				if metric.External == nil {
 					return errors.New("metricSpec.External is not set for external metric source type")
-				}
-				if err := validateScaleTarget(metric.External.Target); err != nil {
-					return err
 				}
 				if metric.External.Metric.Query == "" {
 					return errors.New("the query should not be empty")
 				}
 				if metric.External.Target.Value == nil {
 					return errors.New("the target threshold value should not be empty")
+				}
+				if err := validateScaleTarget(metric.External.Target); err != nil {
+					return err
 				}
 			case PodMetricSourceType:
 				if metric.PodMetric == nil {

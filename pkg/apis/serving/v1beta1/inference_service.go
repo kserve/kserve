@@ -75,7 +75,7 @@ const (
 	GraphiteBackend   MetricsBackend = "graphite"
 )
 
-// PodsMetricsBackend PodsMetricsBackend enum
+// PodsMetricsBackend enum
 // +kubebuilder:validation:Enum=opentelemetry
 type PodsMetricsBackend string
 

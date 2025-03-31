@@ -19,8 +19,9 @@ package keda
 import (
 	"context"
 	"fmt"
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"strconv"
+
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -79,7 +80,8 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 				triggerType := string(metric.Resource.Name)
 				metricType := metric.Resource.Target.Type
 				targetValue := "0"
-				if metricType == v1beta1.UtilizationMetricType {
+				switch metricType {
+				case v1beta1.UtilizationMetricType:
 					averageUtil := metric.Resource.Target.AverageUtilization
 					if metric.Resource.Name == v1beta1.ResourceMetricCPU {
 						if metric.Resource.Target.AverageUtilization == nil {
@@ -89,10 +91,14 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 					if metric.Resource.Target.AverageUtilization != nil {
 						targetValue = fmt.Sprintf("%d", averageUtil)
 					}
-				} else if metricType == v1beta1.AverageValueMetricType && metric.Resource.Target.AverageValue != nil {
-					targetValue = metric.Resource.Target.AverageValue.String()
-				} else if metricType == v1beta1.ValueMetricType && metric.Resource.Target.Value != nil {
-					targetValue = fmt.Sprintf("%f", metric.Resource.Target.Value.AsApproximateFloat64())
+				case v1beta1.AverageValueMetricType:
+					if metric.Resource.Target.AverageValue != nil {
+						targetValue = metric.Resource.Target.AverageValue.String()
+					}
+				case v1beta1.ValueMetricType:
+					if metric.Resource.Target.Value != nil {
+						targetValue = fmt.Sprintf("%f", metric.Resource.Target.Value.AsApproximateFloat64())
+					}
 				}
 				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 					Type:       triggerType,

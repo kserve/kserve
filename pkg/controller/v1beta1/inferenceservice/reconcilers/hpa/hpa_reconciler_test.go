@@ -16,8 +16,9 @@ limitations under the License.
 package hpa
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
@@ -366,11 +367,10 @@ func TestCreateHPA(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := createHPA(tt.args.objectMeta, tt.args.componentExt)
+			got := createHPA(tt.args.objectMeta, tt.args.componentExt)
 			if diff := cmp.Diff(tt.expected, got); diff != "" {
 				t.Errorf("Test %q unexpected hpa (-want +got): %v", tt.name, diff)
 			}
-			assert.Equal(t, tt.err, err)
 		})
 	}
 }

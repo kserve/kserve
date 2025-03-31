@@ -157,8 +157,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassHPA),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -240,8 +240,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         string(constants.RawDeployment),
-								"serving.kserve.io/autoscalerClass":                        string(constants.AutoscalerClassHPA),
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -712,8 +712,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassHPA),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -791,8 +791,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         string(constants.RawDeployment),
-								"serving.kserve.io/autoscalerClass":                        string(constants.AutoscalerClassHPA),
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1196,7 +1196,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualHPA.Spec).To(BeComparableTo(expectedHPA.Spec))
 		})
 		It("Should have httproute/service/deployment created", func() {
-			By("By creating a new InferenceService with AutoscalerClassExternal")
+			By("By creating a new InferenceService with AutoscalerClass External")
 			// Create configmap
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1252,8 +1252,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassExternal),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -1316,8 +1316,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         string(constants.RawDeployment),
-								"serving.kserve.io/autoscalerClass":                        string(constants.AutoscalerClassExternal),
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassExternal),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1767,8 +1767,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassHPA),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -1849,8 +1849,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -2179,8 +2179,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassHPA),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -2261,8 +2261,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -2771,8 +2771,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassHPA),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -2873,8 +2873,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -2974,8 +2974,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								"serving.kserve.io/deploymentMode":  "RawDeployment",
-								"serving.kserve.io/autoscalerClass": "hpa",
+								constants.DeploymentMode:  string(constants.RawDeployment),
+								constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -3666,8 +3666,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassHPA),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -3771,8 +3771,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -3872,8 +3872,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								"serving.kserve.io/deploymentMode":  "RawDeployment",
-								"serving.kserve.io/autoscalerClass": "hpa",
+								constants.DeploymentMode:  string(constants.RawDeployment),
+								constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -4596,8 +4596,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassHPA),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -4679,8 +4679,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -5236,8 +5236,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassHPA),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -5341,8 +5341,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -5442,8 +5442,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								"serving.kserve.io/deploymentMode":  "RawDeployment",
-								"serving.kserve.io/autoscalerClass": "hpa",
+								constants.DeploymentMode:  string(constants.RawDeployment),
+								constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -6181,8 +6181,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "hpa",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -6286,8 +6286,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -6387,8 +6387,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								"serving.kserve.io/deploymentMode":  "RawDeployment",
-								"serving.kserve.io/autoscalerClass": "hpa",
+								constants.DeploymentMode:  string(constants.RawDeployment),
+								constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -7202,8 +7202,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassKeda),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassKeda),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -7387,9 +7387,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassKeda),
-						"sidecar.opentelemetry.io/inject":   "true",
+						constants.DeploymentMode:          string(constants.RawDeployment),
+						constants.AutoscalerClass:         string(constants.AutoscalerClassKeda),
+						"sidecar.opentelemetry.io/inject": "true",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -7565,8 +7565,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassHPA),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -7646,8 +7646,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         string(constants.RawDeployment),
-								"serving.kserve.io/autoscalerClass":                        string(constants.AutoscalerClassHPA),
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -8049,8 +8049,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassExternal),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8146,8 +8146,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassExternal),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8205,8 +8205,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassExternal),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8258,8 +8258,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  string(constants.RawDeployment),
-						"serving.kserve.io/autoscalerClass": string(constants.AutoscalerClassExternal),
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
