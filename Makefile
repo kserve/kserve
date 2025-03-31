@@ -144,6 +144,7 @@ poetry-lock: $(POETRY)
 # This runs all necessary steps to prepare for a commit.
 precommit: vet tidy go-lint py-fmt py-lint generate manifests poetry-lock
 
+# This is used by CI to ensure that the precommit checks are met.
 check: precommit
 	@if [ ! -z "`git status -s`" ]; then \
 		echo "The following differences will fail CI until committed:"; \
