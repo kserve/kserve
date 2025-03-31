@@ -22,9 +22,6 @@ import (
 	"os"
 	"strings"
 
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -36,12 +33,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -194,41 +192,6 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 		} else {
 			return strings.Replace(predictorStatus.URL.Host, "-"+string(constants.Predictor), "",
 				1)
-		}
-	}
-}
-
-func getAdditionalHosts(domainList *[]string, serviceHost string, config *v1beta1.IngressConfig, additionalHosts *[]string) {
-	// Include additional ingressDomain to the domains (both internal and external)
-	subdomain := ""
-	if domainList != nil && len(*domainList) != 0 {
-		for _, domain := range *domainList {
-			res, found := strings.CutSuffix(serviceHost, domain)
-			if found {
-				subdomain = res
-				break
-			}
-		}
-	}
-	if len(subdomain) != 0 && config.AdditionalIngressDomains != nil && len(*config.AdditionalIngressDomains) > 0 {
-		// len(subdomain) != 0 means we have found the subdomain.
-		// If the list of the additionalIngressDomains is not empty, we will append the valid host created by the
-		// additional ingress domain.
-		// Deduplicate the domains in the additionalIngressDomains, making sure that the returned additionalHosts
-		// do not have duplicate domains.
-		deduplicateMap := map[string]bool{}
-		for _, domain := range *config.AdditionalIngressDomains {
-			// If the domain is redundant, go to the next element.
-			if !deduplicateMap[domain] {
-				host := fmt.Sprintf("%s%s", subdomain, domain)
-				if err := validation.IsDNS1123Subdomain(host); len(err) > 0 {
-					log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not valid", domain),
-						"Failed to get the valid host name")
-					continue
-				}
-				*additionalHosts = append(*additionalHosts, host)
-				deduplicateMap[domain] = true
-			}
 		}
 	}
 }
@@ -501,12 +464,12 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		expBackend = constants.DefaultExplainerServiceName(isvc.Name)
 	}
 
-	additionalHosts := &[]string{}
+	var additionalHosts *[]string
 	hosts := []string{
 		network.GetServiceHostname(isvc.Name, isvc.Namespace),
 	}
 	if !isInternal {
-		getAdditionalHosts(domainList, serviceHost, config, additionalHosts)
+		additionalHosts = GetAdditionalHosts(domainList, serviceHost, config)
 	}
 
 	if isvc.Spec.Explainer != nil {
@@ -665,14 +628,15 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 
 	if !isInternal {
 		// We only append the additional hosts, when the ingress is not internal.
-		hostMap := map[string]bool{}
+		hostMap := make(map[string]bool, len(hosts))
 		for _, host := range hosts {
 			hostMap[host] = true
 		}
-
-		for _, additionalHost := range *additionalHosts {
-			if !hostMap[additionalHost] {
-				hosts = append(hosts, additionalHost)
+		if additionalHosts != nil && len(*additionalHosts) != 0 {
+			for _, additionalHost := range *additionalHosts {
+				if !hostMap[additionalHost] {
+					hosts = append(hosts, additionalHost)
+				}
 			}
 		}
 	}

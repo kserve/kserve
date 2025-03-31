@@ -22,6 +22,7 @@ import (
 	"time"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/kserve/kserve/pkg/utils"
@@ -355,7 +356,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedTopLevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -893,7 +894,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -1422,7 +1423,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -2347,7 +2348,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			topLevelHost := fmt.Sprintf("%s.%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s.%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -3088,7 +3089,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -3980,7 +3981,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -4740,7 +4741,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			prefixUrlPath := fmt.Sprintf("/serving/%s/%s", serviceKey.Namespace, serviceKey.Name)
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", "example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace)), "example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -5532,7 +5533,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			prefixUrlPath := fmt.Sprintf("/serving/%s/%s", serviceKey.Namespace, serviceKey.Name)
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", "example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace)), "example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -6472,7 +6473,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			prefixUrlPath := fmt.Sprintf("/serving/%s/%s", serviceKey.Namespace, serviceKey.Name)
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", "example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace)), "example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -7055,6 +7056,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
 				"enableDirectPvcVolumeMount": false
 			}`,
+			"opentelemetryCollector": `{
+				"scrapeInterval": "5s",
+				"metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
+				"metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
+			}`,
 		}
 		It("Should have KEDA ScaledObject created", func() {
 			By("By creating a new InferenceService")
@@ -7228,6 +7234,184 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedScaledObject)).NotTo(gomega.HaveOccurred())
+		})
+
+		It("Should have OpenTelemetry Collector created", func() {
+			By("By creating a new InferenceService")
+			// Create configmap
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving-raw",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			serviceName := "raw-foo-3"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "keda",
+						"sidecar.opentelemetry.io/inject":   "true",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: ptr.To(int32(1)),
+							MaxReplicas: 3,
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.MetricSourceType(constants.AutoScalerPodMetric),
+										PodMetric: &v1beta1.PodMetricSource{
+											Metric: v1beta1.PodsMetricSource{
+												Backend:     (*v1beta1.PodsMetricsBackend)(&constants.AutoScalerMetricsOpenTelemetry),
+												MetricNames: []string{"process_cpu_seconds_total"},
+												Query:       "avg(process_cpu_seconds_total)",
+											},
+											Target: v1beta1.MetricTarget{
+												Type:  v1beta1.ValueMetricType,
+												Value: &resource.Quantity{},
+											},
+										},
+									},
+								},
+							},
+						},
+
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: corev1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			inferenceService := &v1beta1.InferenceService{}
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			actualOTelCollector := &otelv1beta1.OpenTelemetryCollector{}
+
+			predictorSObjectKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorSObjectKey, actualOTelCollector) }, timeout).
+				Should(Succeed())
+
+			expectedOTelCollector := &otelv1beta1.OpenTelemetryCollector{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      predictorSObjectKey.Name,
+					Namespace: predictorSObjectKey.Namespace,
+				},
+				Spec: otelv1beta1.OpenTelemetryCollectorSpec{
+					Mode: "sidecar",
+					Config: otelv1beta1.Config{
+						Receivers: otelv1beta1.AnyConfig{Object: map[string]interface{}{
+							"prometheus": map[string]interface{}{
+								"config": map[string]interface{}{
+									"scrape_configs": []interface{}{
+										map[string]interface{}{
+											"job_name":        "otel-collector",
+											"scrape_interval": "5s",
+											"static_configs": []interface{}{
+												map[string]interface{}{
+													"targets": []interface{}{"localhost:8080"},
+												},
+											},
+										},
+									},
+								},
+							},
+						}},
+						Processors: &otelv1beta1.AnyConfig{Object: map[string]interface{}{
+							"filter/ottl": map[string]interface{}{
+								"error_mode": "ignore",
+								"metrics": map[string]interface{}{
+									"metric": []interface{}{
+										`name != "process_cpu_seconds_total"`,
+									},
+								},
+							},
+						}},
+						Exporters: otelv1beta1.AnyConfig{Object: map[string]interface{}{
+							"otlp": map[string]interface{}{
+								"endpoint":    "keda-otel-scaler.keda.svc:4317",
+								"compression": "none",
+								"tls": map[string]interface{}{
+									"insecure": true,
+								},
+							},
+						}},
+						Service: otelv1beta1.Service{
+							Pipelines: map[string]*otelv1beta1.Pipeline{
+								"metrics": {
+									Receivers:  []string{"prometheus"},
+									Processors: []string{"filter/ottl"},
+									Exporters:  []string{"otlp"},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(actualOTelCollector.Spec.Config).To(gomega.BeComparableTo(expectedOTelCollector.Spec.Config))
 		})
 
 		It("Should have ingress/service/deployment/hpa created", func() {

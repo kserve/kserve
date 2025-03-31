@@ -91,6 +91,18 @@ data:
           "custom.com/gpu"
         ]
       }  
+     # ====================================== OTelCollector CONFIGURATION ======================================
+     # Example
+     opentelemetryCollector: |-
+       {
+         # scrapeInterval is the interval at which the OpenTelemetry Collector will scrape the metrics.
+         "scrapeInterval": "5s",
+         # metricScalerEndpoint is the endpoint from which the KEDA's ScaledObject will scrape the metrics.
+         "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318",
+         # metricReceiverEndpoint is the endpoint from which the OpenTelemetry Collector will scrape the metrics.
+          "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317"
+       }
+      
      # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
      # Example
      storageInitializer: |-
@@ -718,4 +730,11 @@ data:
           "cpuRequest": "1",
           "memoryRequest": "2Gi"
         }
+    }
+
+  opentelemetryCollector: |-
+    {
+      "scrapeInterval": "5s",
+      "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
+      "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
     }
