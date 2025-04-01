@@ -19,11 +19,14 @@ package v1beta1
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"text/template"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -38,12 +41,21 @@ const (
 	LocalModelConfigName          = "localModel"
 	SecurityConfigName            = "security"
 	ServiceConfigName             = "service"
+	ResourceConfigName            = "resource"
 )
 
 const (
 	DefaultDomainTemplate = "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"
 	DefaultIngressDomain  = "example.com"
 	DefaultUrlScheme      = "http"
+)
+
+// Error messages
+const (
+	ErrKserveIngressGatewayRequired         = "invalid ingress config - kserveIngressGateway is required"
+	ErrInvalidKserveIngressGatewayFormat    = "invalid ingress config - kserveIngressGateway should be in the format <namespace>/<name>"
+	ErrInvalidKserveIngressGatewayName      = "invalid ingress config - kserveIngressGateway gateway name is invalid"
+	ErrInvalidKserveIngressGatewayNamespace = "invalid ingress config - kserveIngressGateway gateway namespace is invalid"
 )
 
 // +kubebuilder:object:generate=false
@@ -68,10 +80,14 @@ type InferenceServicesConfig struct {
 	ServiceAnnotationDisallowedList []string `json:"serviceAnnotationDisallowedList,omitempty"`
 	// ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions
 	ServiceLabelDisallowedList []string `json:"serviceLabelDisallowedList,omitempty"`
+	// Resource configurations
+	Resource ResourceConfig `json:"resource,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
+	EnableGatewayAPI           bool      `json:"enableGatewayApi,omitempty"`
+	KserveIngressGateway       string    `json:"kserveIngressGateway,omitempty"`
 	IngressGateway             string    `json:"ingressGateway,omitempty"`
 	KnativeLocalGatewayService string    `json:"knativeLocalGatewayService,omitempty"`
 	LocalGateway               string    `json:"localGateway,omitempty"`
@@ -108,6 +124,15 @@ type LocalModelConfig struct {
 	FSGroup                      *int64 `json:"fsGroup,omitempty"`
 	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
+	DisableVolumeManagement      bool   `json:"disableVolumeManagement,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type ResourceConfig struct {
+	CPULimit      string `json:"cpuLimit,omitempty"`
+	MemoryLimit   string `json:"memoryLimit,omitempty"`
+	CPURequest    string `json:"cpuRequest,omitempty"`
+	MemoryRequest string `json:"memoryRequest,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -132,6 +157,7 @@ func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServi
 	icfg := &InferenceServicesConfig{}
 	for _, err := range []error{
 		getComponentConfig(ExplainerConfigKeyName, configMap, &icfg.Explainers),
+		getComponentConfig(InferenceServiceConfigKeyName, configMap, &icfg),
 	} {
 		if err != nil {
 			return nil, err
@@ -161,6 +187,25 @@ func NewInferenceServicesConfig(clientset kubernetes.Interface) (*InferenceServi
 	return icfg, nil
 }
 
+func validateIngressGateway(ingressConfig *IngressConfig) error {
+	if ingressConfig.KserveIngressGateway == "" {
+		return errors.New(ErrKserveIngressGatewayRequired)
+	}
+	splits := strings.Split(ingressConfig.KserveIngressGateway, "/")
+	if len(splits) != 2 {
+		return errors.New(ErrInvalidKserveIngressGatewayFormat)
+	}
+	errs := validation.IsDNS1123Label(splits[0])
+	if len(errs) != 0 {
+		return errors.New(ErrInvalidKserveIngressGatewayNamespace)
+	}
+	errs = validation.IsDNS1123Label(splits[1])
+	if len(errs) != 0 {
+		return errors.New(ErrInvalidKserveIngressGatewayName)
+	}
+	return nil
+}
+
 func NewIngressConfig(clientset kubernetes.Interface) (*IngressConfig, error) {
 	configMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
@@ -172,7 +217,14 @@ func NewIngressConfig(clientset kubernetes.Interface) (*IngressConfig, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse ingress config json: %w", err)
 		}
-
+		if ingressConfig.EnableGatewayAPI {
+			if ingressConfig.KserveIngressGateway == "" {
+				return nil, fmt.Errorf("invalid ingress config - kserveIngressGateway is required")
+			}
+			if err := validateIngressGateway(ingressConfig); err != nil {
+				return nil, err
+			}
+		}
 		if ingressConfig.IngressGateway == "" {
 			return nil, fmt.Errorf("invalid ingress config - ingressGateway is required")
 		}

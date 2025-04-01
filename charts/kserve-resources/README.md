@@ -27,8 +27,12 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.controller.gateway.disableIstioVirtualHost | bool | `false` | DisableIstioVirtualHost controls whether to use istio as network layer for top level component routing or path based routing. This configuration is only applicable for Serverless mode, when disabled Istio is no longer required. |
 | kserve.controller.gateway.domain | string | `"example.com"` | Ingress domain for RawDeployment mode, for Serverless it is configured in Knative. |
 | kserve.controller.gateway.domainTemplate | string | `"{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}"` | Ingress domain template for RawDeployment mode, for Serverless mode it is configured in Knative. |
-| kserve.controller.gateway.ingressGateway.className | string | `"istio"` |  |
-| kserve.controller.gateway.ingressGateway.gateway | string | `"knative-serving/knative-ingress-gateway"` |  |
+| kserve.controller.gateway.ingressGateway | object | `{"className":"istio","createGateway":false,"enableGatewayApi":false,"gateway":"knative-serving/knative-ingress-gateway","kserveGateway":"kserve/kserve-ingress-gateway"}` | ingressGateway specifies the gateway which handles the network traffic from outside the cluster. |
+| kserve.controller.gateway.ingressGateway.className | string | `"istio"` | class specifies the ingress class name. If Gateway API is enabled, this will not affect the ingress routing. |
+| kserve.controller.gateway.ingressGateway.createGateway | bool | `false` | createGateway controls whether to create the default Gateway resource for ingress routing as part of the installation. This is only used when Gateway API is enabled. |
+| kserve.controller.gateway.ingressGateway.enableGatewayApi | bool | `false` | enableGatewayApi controls whether to use the Gateway API for ingress routing instead of kuberetes Ingress. |
+| kserve.controller.gateway.ingressGateway.gateway | string | `"knative-serving/knative-ingress-gateway"` | gateway specifies the name and namespace of the Knative's ingress gateway. |
+| kserve.controller.gateway.ingressGateway.kserveGateway | string | `"kserve/kserve-ingress-gateway"` | kserveGateway specifies the name and namespace of the Gateway which handles the network traffic from outside the cluster.  This is only used when Gateway API is enabled. The gateway should be specified in format <gateway namespace>/<gateway name> |
 | kserve.controller.gateway.localGateway.gateway | string | `"knative-serving/knative-local-gateway"` | localGateway specifies the gateway which handles the network traffic within the cluster. |
 | kserve.controller.gateway.localGateway.gatewayService | string | `"knative-local-gateway.istio-system.svc.cluster.local"` | localGatewayService specifies the hostname of the local gateway service. |
 | kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` | knativeLocalGatewayService specifies the hostname of the Knative's local gateway service. When unset, the value of "localGatewayService" will be used. When enabling strict mTLS in Istio, KServe local gateway should be created and pointed to the Knative local gateway. |
@@ -59,6 +63,10 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.controller.tolerations | list | `[]` | A list of Kubernetes Tolerations, if required. For more information, see [Toleration v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#toleration-v1-core).  For example:   tolerations:   - key: foo.bar.com/role     operator: Equal     value: master     effect: NoSchedule |
 | kserve.controller.topologySpreadConstraints | list | `[]` | A list of Kubernetes TopologySpreadConstraints, if required. For more information, see [Topology spread constraint v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#topologyspreadconstraint-v1-core  For example:   topologySpreadConstraints:   - maxSkew: 2     topologyKey: topology.kubernetes.io/zone     whenUnsatisfiable: ScheduleAnyway     labelSelector:       matchLabels:         app.kubernetes.io/instance: kserve-controller-manager         app.kubernetes.io/component: controller |
 | kserve.controller.webhookServiceAnnotations | object | `{}` | Optional additional annotations to add to the webhook service. |
+| kserve.inferenceservice.resources.limits.cpu | string | `"100m"` |  |
+| kserve.inferenceservice.resources.limits.memory | string | `"256Mi"` |  |
+| kserve.inferenceservice.resources.requests.cpu | string | `"100m"` |  |
+| kserve.inferenceservice.resources.requests.memory | string | `"256Mi"` |  |
 | kserve.localmodel.agent.affinity | object | `{}` |  |
 | kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
@@ -70,6 +78,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.14.0
 | kserve.localmodel.agent.tolerations | list | `[]` |  |
 | kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.tag | string | `"v0.14.0"` |  |
+| kserve.localmodel.disableVolumeManagement | bool | `false` |  |
 | kserve.localmodel.enabled | bool | `false` |  |
 | kserve.localmodel.jobNamespace | string | `"kserve-localmodel-jobs"` |  |
 | kserve.localmodel.jobTTLSecondsAfterFinished | int | `3600` |  |

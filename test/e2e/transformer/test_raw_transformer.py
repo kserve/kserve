@@ -12,7 +12,12 @@
 # limitations under the License.
 
 import os
+
 from kubernetes import client
+from kubernetes.client import V1ResourceRequirements
+from kubernetes.client import V1Container
+from kubernetes.client import V1EnvVar
+import pytest
 
 from kserve import KServeClient
 from kserve import constants
@@ -21,10 +26,7 @@ from kserve import V1beta1TransformerSpec
 from kserve import V1beta1TorchServeSpec
 from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
-from kubernetes.client import V1ResourceRequirements
-from kubernetes.client import V1Container
-from kubernetes.client import V1EnvVar
-import pytest
+
 from ..common.utils import predict_isvc
 from ..common.utils import KSERVE_TEST_NAMESPACE
 
@@ -34,7 +36,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 @pytest.mark.skip(
     "The torchserve container fails in OpenShift with permission denied errors"
 )
-async def test_transformer(rest_v1_client):
+async def test_transformer(rest_v1_client, network_layer):
     service_name = "raw-transformer"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -71,7 +73,7 @@ async def test_transformer(rest_v1_client):
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
         ),
@@ -97,7 +99,11 @@ async def test_transformer(rest_v1_client):
         raise e
 
     res = await predict_isvc(
-        rest_v1_client, service_name, "./data/transformer.json", model_name="mnist"
+        rest_v1_client,
+        service_name,
+        "./data/transformer.json",
+        model_name="mnist",
+        network_layer=network_layer,
     )
     assert res["predictions"][0] == 2
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

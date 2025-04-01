@@ -14,6 +14,7 @@
 import base64
 import json
 import os
+import uuid
 
 import numpy as np
 import pytest
@@ -65,7 +66,7 @@ async def test_custom_model_grpc():
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -146,7 +147,7 @@ async def test_predictor_grpc_with_transformer_grpc():
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -229,7 +230,7 @@ async def test_predictor_grpc_with_transformer_http(rest_v2_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -323,7 +324,7 @@ async def test_predictor_rest_with_transformer_rest(rest_v2_client):
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name, namespace=KSERVE_TEST_NAMESPACE
         ),
@@ -369,5 +370,94 @@ async def test_predictor_rest_with_transformer_rest(rest_v2_client):
         model_name=model_name,
     )
     points = ["%.3f" % point for point in list(res.outputs[0].data)]
+    assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
+async def test_predictor_grpc_with_transformer_grpc_raw(network_layer):
+    suffix = str(uuid.uuid4())[1:6]
+    service_name = "model-grpc-trans-grpc-raw-" + suffix
+    model_name = "custom-model"
+
+    predictor = V1beta1PredictorSpec(
+        containers=[
+            V1Container(
+                name="kserve-container",
+                image="kserve/custom-model-grpc:" + os.environ.get("GITHUB_SHA"),
+                resources=V1ResourceRequirements(
+                    requests={"cpu": "50m", "memory": "128Mi"},
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+                ports=[
+                    V1ContainerPort(
+                        container_port=8081, name="h2c-port", protocol="TCP"
+                    )
+                ],
+                args=["--model_name", model_name],
+            )
+        ]
+    )
+
+    transformer = V1beta1TransformerSpec(
+        containers=[
+            V1Container(
+                name="kserve-container",
+                image="kserve/custom-image-transformer-grpc:"
+                + os.environ.get("GITHUB_SHA"),
+                resources=V1ResourceRequirements(
+                    requests={"cpu": "50m", "memory": "128Mi"},
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+                ports=[
+                    V1ContainerPort(
+                        container_port=8081, name="grpc-port", protocol="TCP"
+                    )
+                ],
+                args=["--model_name", model_name, "--predictor_protocol", "grpc-v2"],
+            )
+        ]
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations={"serving.kserve.io/deploymentMode": "RawDeployment"},
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    json_file = open("./data/custom_model_input.json")
+    data = json.load(json_file)
+    payload = [
+        {
+            "name": "input-0",
+            "shape": [],
+            "datatype": "BYTES",
+            "contents": {
+                "bytes_contents": [
+                    base64.b64decode(data["instances"][0]["image"]["b64"])
+                ]
+            },
+        }
+    ]
+    response = await predict_grpc(
+        service_name=service_name,
+        payload=payload,
+        model_name=model_name,
+        network_layer=network_layer,
+    )
+    fields = response.outputs[0].data
+    points = ["%.3f" % (point) for point in list(fields)]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

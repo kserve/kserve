@@ -20,8 +20,8 @@ package v1alpha1
 
 import (
 	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,25 +38,17 @@ type LocalModelNodeLister interface {
 
 // localModelNodeLister implements the LocalModelNodeLister interface.
 type localModelNodeLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1alpha1.LocalModelNode]
 }
 
 // NewLocalModelNodeLister returns a new LocalModelNodeLister.
 func NewLocalModelNodeLister(indexer cache.Indexer) LocalModelNodeLister {
-	return &localModelNodeLister{indexer: indexer}
-}
-
-// List lists all LocalModelNodes in the indexer.
-func (s *localModelNodeLister) List(selector labels.Selector) (ret []*v1alpha1.LocalModelNode, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.LocalModelNode))
-	})
-	return ret, err
+	return &localModelNodeLister{listers.New[*v1alpha1.LocalModelNode](indexer, v1alpha1.Resource("localmodelnode"))}
 }
 
 // LocalModelNodes returns an object that can list and get LocalModelNodes.
 func (s *localModelNodeLister) LocalModelNodes(namespace string) LocalModelNodeNamespaceLister {
-	return localModelNodeNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return localModelNodeNamespaceLister{listers.NewNamespaced[*v1alpha1.LocalModelNode](s.ResourceIndexer, namespace)}
 }
 
 // LocalModelNodeNamespaceLister helps list and get LocalModelNodes.
@@ -74,26 +66,5 @@ type LocalModelNodeNamespaceLister interface {
 // localModelNodeNamespaceLister implements the LocalModelNodeNamespaceLister
 // interface.
 type localModelNodeNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all LocalModelNodes in the indexer for a given namespace.
-func (s localModelNodeNamespaceLister) List(selector labels.Selector) (ret []*v1alpha1.LocalModelNode, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha1.LocalModelNode))
-	})
-	return ret, err
-}
-
-// Get retrieves the LocalModelNode from the indexer for a given namespace and name.
-func (s localModelNodeNamespaceLister) Get(name string) (*v1alpha1.LocalModelNode, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha1.Resource("localmodelnode"), name)
-	}
-	return obj.(*v1alpha1.LocalModelNode), nil
+	listers.ResourceIndexer[*v1alpha1.LocalModelNode]
 }

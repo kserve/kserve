@@ -210,7 +210,6 @@ next_time_for_github_request = datetime.now()
 
 
 def wait_before_retry(url):
-    global next_time_for_github_request
     if "github.com" in url:
         if datetime.now() < next_time_for_github_request:
             sleep((next_time_for_github_request - datetime.now()).seconds + extra_wait)

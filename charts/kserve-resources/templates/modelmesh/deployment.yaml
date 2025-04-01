@@ -58,7 +58,7 @@ spec:
           httpGet:
             path: /healthz
             port: 8081
-          initialDelaySeconds: 15
+          initialDelaySeconds: 30
           periodSeconds: 10
         name: manager
         ports:
@@ -69,7 +69,7 @@ spec:
           httpGet:
             path: /readyz
             port: 8081
-          initialDelaySeconds: 10
+          initialDelaySeconds: 30
           periodSeconds: 5
         resources:
           limits:

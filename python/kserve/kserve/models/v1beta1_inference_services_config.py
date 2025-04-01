@@ -48,28 +48,33 @@ class V1beta1InferenceServicesConfig(object):
     """
     openapi_types = {
         'explainers': 'V1beta1ExplainersConfig',
+        'resource': 'V1beta1ResourceConfig',
         'service_annotation_disallowed_list': 'list[str]',
         'service_label_disallowed_list': 'list[str]'
     }
 
     attribute_map = {
         'explainers': 'explainers',
+        'resource': 'resource',
         'service_annotation_disallowed_list': 'serviceAnnotationDisallowedList',
         'service_label_disallowed_list': 'serviceLabelDisallowedList'
     }
 
-    def __init__(self, explainers=None, service_annotation_disallowed_list=None, service_label_disallowed_list=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, explainers=None, resource=None, service_annotation_disallowed_list=None, service_label_disallowed_list=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServicesConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._explainers = None
+        self._resource = None
         self._service_annotation_disallowed_list = None
         self._service_label_disallowed_list = None
         self.discriminator = None
 
         self.explainers = explainers
+        if resource is not None:
+            self.resource = resource
         if service_annotation_disallowed_list is not None:
             self.service_annotation_disallowed_list = service_annotation_disallowed_list
         if service_label_disallowed_list is not None:
@@ -97,6 +102,27 @@ class V1beta1InferenceServicesConfig(object):
             raise ValueError("Invalid value for `explainers`, must not be `None`")  # noqa: E501
 
         self._explainers = explainers
+
+    @property
+    def resource(self):
+        """Gets the resource of this V1beta1InferenceServicesConfig.  # noqa: E501
+
+
+        :return: The resource of this V1beta1InferenceServicesConfig.  # noqa: E501
+        :rtype: V1beta1ResourceConfig
+        """
+        return self._resource
+
+    @resource.setter
+    def resource(self, resource):
+        """Sets the resource of this V1beta1InferenceServicesConfig.
+
+
+        :param resource: The resource of this V1beta1InferenceServicesConfig.  # noqa: E501
+        :type: V1beta1ResourceConfig
+        """
+
+        self._resource = resource
 
     @property
     def service_annotation_disallowed_list(self):

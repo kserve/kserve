@@ -221,7 +221,9 @@ data:
      # ====================================== INGRESS CONFIGURATION ======================================
      # Example
      ingress: |-
-       {
+       {    
+           "enableGatewayApi": false,
+           "kserveIngressGateway": "kserve/kserve-ingress-gateway",
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
            "localGateway" : "knative-serving/knative-local-gateway",
            "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
@@ -234,7 +236,17 @@ data:
            "disableIngressCreation": false
        }
      ingress: |-
-       {
+       {   
+           # enableGatewayApi specifies whether to use Gateway API instead of Ingress to serve external traffic.
+           "enableGatewayApi": false,
+
+           # KServe implements [Gateway API](https://gateway-api.sigs.k8s.io/) to serve external traffic. 
+           # By default, KServe configures a default gateway to serve external traffic.
+           # But, KServe can be configured to use a custom gateway by modifying this configuration.
+           # The gateway should be specified in format <gateway namespace>/<gateway name>
+           # NOTE: This configuration only applicable for raw deployment.
+           "kserveIngressGateway": "kserve/kserve-ingress-gateway",
+     
            # ingressGateway specifies the ingress gateway to serve external traffic.
            # The gateway should be specified in format <gateway namespace>/<gateway name>
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
@@ -511,8 +523,42 @@ data:
          "jobTTLSecondsAfterFinished": 3600,
          # The frequency at which the local model agent reconciles the local models
          # This is to detect if models are missing from local disk
-         "reconcilationFrequencyInSecs": 60
+         "reconcilationFrequencyInSecs": 60,
+         # This is to disable localmodel pv and pvc management for namespaces without isvcs
+         "disableVolumeManagement": false
        }
+      
+     # ====================================== LOCALMODEL CONFIGURATION ======================================
+     # Example
+     inferenceservice: |-
+       {
+         "resource": {
+             "cpuLimit": "1",
+             "memoryLimit": "2Gi",
+             "cpuRequest": "1",
+             "memoryRequest": "2Gi"
+           }
+       }
+      inferenceservice: |-
+        {
+          # resource contains the default resource configuration for the inference service.
+          # you can override this configuration by specifying the resources in the inference service yaml.
+          # If you want to unbound the resource (limits and requests), you can set the value to null or "" 
+          # or just remove the specific field from the config.
+          "resource": {
+              # cpuLimit is the limits.cpu to set for the inference service.
+              "cpuLimit": "1",
+              
+              # memoryLimit is the limits.memory to set for the inference service.
+              "memoryLimit": "2Gi",
+              
+              # cpuRequest is the requests.cpu to set for the inference service.
+              "cpuRequest": "1",
+              
+              # memoryRequest is the requests.memory to set for the inference service.
+              "memoryRequest": "2Gi"
+            }
+        }
 
   explainers: |-
     {
@@ -559,7 +605,9 @@ data:
     }
 
   ingress: |-
-    {
+    {   
+        "enableGatewayApi": false,
+        "kserveIngressGateway": "kserve/kserve-ingress-gateway",
         "ingressGateway" : "knative-serving/knative-ingress-gateway",
         "localGateway" : "knative-serving/knative-local-gateway",
         "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
@@ -637,4 +685,14 @@ data:
   service: |-
     {
         "serviceClusterIPNone": true
+    }
+    
+  inferenceservice: |-
+    {
+      "resource": {
+          "cpuLimit": "1",
+          "memoryLimit": "2Gi",
+          "cpuRequest": "1",
+          "memoryRequest": "2Gi"
+        }
     }
