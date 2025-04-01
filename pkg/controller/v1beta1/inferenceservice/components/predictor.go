@@ -195,7 +195,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		}
 
 		forceStopRuntime := "false"
-		if val, exist := isvc.Annotations[constants.StopResumeAnnotationKey]; exist {
+		if val, exist := isvc.Annotations[constants.StopAnnotationKey]; exist {
 			forceStopRuntime = val
 		}
 

@@ -235,7 +235,7 @@ func (r *KsvcReconciler) Reconcile(ctx context.Context) (*knservingv1.ServiceSta
 	existing := &knservingv1.Service{}
 
 	forceStopRuntime := "false"
-	if val, exist := desired.Spec.Template.Annotations[constants.StopResumeAnnotationKey]; exist {
+	if val, exist := desired.Spec.Template.Annotations[constants.StopAnnotationKey]; exist {
 		forceStopRuntime = val
 	}
 
