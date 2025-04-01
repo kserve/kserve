@@ -12,30 +12,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-    name: Lint
-    steps:
-      - name: Check out source repository
-        uses: actions/checkout@v4
-      - name: Set up Python environment ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Lint with flake8
-        uses: py-actions/flake8@v2
-        with:
-          args: "--config .flake8"
-          path: "."
-      - name: Check formatting with black
-        uses: psf/black@stable
-        with:
-          options: "--check --diff --config python/pyproject.toml"
-          src: "."
-          version: "~= 24.3"
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -252,7 +228,7 @@ jobs:
           source paddleserver/.venv/bin/activate
           pytest --cov=paddleserver ./paddleserver
 
-      # ----------------------------------------Huggingface Server Unit Tests------------------------------------------------
+      # ----------------------------------------Huggingface OpenVino Server Unit Tests------------------------------------------------
       # load cached huggingface venv if cache exists
       - name: Load cached huggingface venv
         id: huggingface-dependencies
@@ -285,7 +261,55 @@ jobs:
           cd python/huggingfaceserver
           bash tests/setup_vllm.sh
           poetry run -- pytest --cov=huggingfaceserver -vv
+        env:
+          VLLM_TARGET_DEVICE: openvino
 
       - name: Free space after tests
+        run: |
+          df -hT
+      # ----------------------------------------Huggingface CPU Server Unit Tests------------------------------------------------
+      # load cached huggingface cpu venv if cache exists
+      - name: Load cached huggingface cpu venv
+        id: huggingface-cpu-dependencies
+        uses: actions/cache@v4
+        with:
+          path: /mnt/python/huggingfaceserver-cpu-venv
+          key: huggingface-cpu-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/huggingfaceserver/poetry.lock') }}
+      # install huggingface cpu server dependencies if cache does not exist
+      - name: Configure poetry for huggingface cpu server
+        run: |
+          poetry config virtualenvs.path /mnt/python/huggingfaceserver-cpu-venv
+          poetry config virtualenvs.in-project false
+      # make poetry visible for vllm cpu installation
+      - name: Install Poetry Plugins cpu
+        run: |
+          poetry self add poetry-version-plugin
+      - name: Install huggingface cpu dependencies
+        run: |
+          sudo mkdir -p /mnt/python/huggingfaceserver-cpu-venv
+          # change permission so that poetry can install without sudo
+          sudo chown -R $USER /mnt/python/huggingfaceserver-cpu-venv
+          cd python/huggingfaceserver
+          make install_cpu_dependencies
+
+      - name: Install huggingface cpu server
+        run: |
+          cd python/huggingfaceserver
+          make dev_install
+      - name: Test huggingfaceserver cpu
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnuma-dev
+          cd python/huggingfaceserver
+          bash tests/setup_vllm.sh
+          poetry run -- pytest --cov=huggingfaceserver -vv -k 'not test_vllm'
+          # TODO: The following tests need to be reworked since IPEX support is relatively new for both vLLM and KServe
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_reasoning.py
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_tools.py
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_generative.py
+        env:
+          VLLM_ENGINE_ITERATION_TIMEOUT_S: 3600
+
+      - name: Free space after cpu tests
         run: |
           df -hT

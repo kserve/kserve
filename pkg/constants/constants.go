@@ -164,80 +164,70 @@ var (
 	IstioSidecarStatusAnnotation          = "sidecar.istio.io/status"
 )
 
+var OTelBackend = "opentelemetry"
+
 type (
-	AutoscalerClassType       string
-	AutoscalerMetricsType     string
-	AutoScalerKPAMetricsType  string
-	AutoscalerKedaMetricsType string
-	AutoScalerType            string
+	AutoscalerClassType                string
+	AutoscalerHPAMetricsType           string
+	AutoScalerKPAMetricsType           string
+	AutoscalerKedaMetricsType          string
+	AutoScalerMetricsSourceType        string
+	AutoScalerMetricsSourceBackendType string
+	AutoScalerType                     string
 )
 
-var (
-	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
-	AutoScalerKPAMetricsConcurrency AutoScalerKPAMetricsType = "concurrency"
-)
-
-var (
-	AutoScalerMetricsAverageValue AutoscalerKedaMetricsType = "AverageValue"
-	AutoScalerMetricsUtilization  AutoscalerKedaMetricsType = "Utilization"
-)
-
-// Autoscaler Default Class
-var (
+// DefaultAutoscalerClass Autoscaler Default Class
+const (
 	DefaultAutoscalerClass = AutoscalerClassHPA
 )
 
-// Autoscaler Class
-var (
+// Supported Autoscaler Class
+const (
 	AutoscalerClassHPA      AutoscalerClassType = "hpa"
+	AutoscalerClassKPA      AutoscalerClassType = "kpa"
 	AutoscalerClassExternal AutoscalerClassType = "external"
 	AutoscalerClassKeda     AutoscalerClassType = "keda"
 )
 
-// Autoscaler Metrics
+// HPA Metrics Types
 var (
-	AutoScalerMetricsCPU        AutoscalerMetricsType = "cpu"
-	AutoScalerMetricsMemory     AutoscalerMetricsType = "memory"
-	AutoScalerMetricsPrometheus AutoscalerMetricsType = "prometheus"
-	AutoScalerMetricsGraphite   AutoscalerMetricsType = "graphite"
+	AutoScalerMetricsCPU    AutoscalerHPAMetricsType = "cpu"
+	AutoScalerMetricsMemory AutoscalerHPAMetricsType = "memory"
 )
 
-var (
-	AutoScalerResource AutoScalerType = "Resource"
-	AutoScalerExternal AutoScalerType = "External"
+// KPA Metrics Types
+const (
+	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
+	AutoScalerKPAMetricsConcurrency AutoScalerKPAMetricsType = "concurrency"
 )
 
-// Autoscaler Class Allowed List
+// KEDA metrics source type
+const (
+	AutoScalerMetricsSourcePrometheus    AutoScalerMetricsSourceBackendType = "prometheus"
+	AutoScalerMetricsSourceGraphite      AutoScalerMetricsSourceBackendType = "graphite"
+	AutoScalerMetricsSourceOpenTelemetry AutoScalerMetricsSourceBackendType = "opentelemetry"
+)
+
+// AutoscalerAllowedClassList Autoscaler Class types
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
 	AutoscalerClassExternal,
 	AutoscalerClassKeda,
 }
 
-// Autoscaler Metrics Allowed List
-var AutoscalerAllowedHPAMetricsList = []AutoscalerMetricsType{
+// AutoscalerAllowedHPAMetricsList allowed resource metrics List.
+var AutoscalerAllowedHPAMetricsList = []AutoscalerHPAMetricsType{
 	AutoScalerMetricsCPU,
 	AutoScalerMetricsMemory,
-	AutoScalerMetricsPrometheus,
 }
 
-// Autoscaler KPA Metrics Allowed List
-var AutoScalerKPAMetricsAllowedList = []AutoScalerKPAMetricsType{
+// AutoscalerAllowedKPAMetricsList allowed KPA metrics list.
+var AutoscalerAllowedKPAMetricsList = []AutoScalerKPAMetricsType{
 	AutoScalerKPAMetricsConcurrency,
 	AutoScalerKPAMetricsRPS,
 }
 
-var AutoscalerAllowedKEDAMetricsList = []AutoscalerMetricsType{
-	AutoScalerMetricsCPU,
-	AutoScalerMetricsMemory,
-}
-
-var AutoscalerAllowedKEDAMetricBackendList = []AutoscalerMetricsType{
-	AutoScalerMetricsPrometheus,
-	AutoScalerMetricsGraphite,
-}
-
-// Autoscaler Default Metrics Value
+// DefaultCPUUtilization Autoscaler Default Metrics Value
 var (
 	DefaultCPUUtilization int32 = 80
 )
@@ -373,13 +363,13 @@ const (
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
 
-// Default path to mount CA bundle configmap volume
+// DefaultCaBundleVolumeMountPath Default path to mount CA bundle configmap volume
 const DefaultCaBundleVolumeMountPath = "/etc/ssl/custom-certs"
 
-// Default name for CA bundle file
+// DefaultCaBundleFileName Default name for CA bundle file
 const DefaultCaBundleFileName = "cabundle.crt"
 
-// Default CA bundle configmap name that will be created in the user namespace.
+// DefaultGlobalCaBundleConfigMapName Default CA bundle configmap name that will be created in the user namespace.
 const DefaultGlobalCaBundleConfigMapName = "global-ca-bundle"
 
 // Custom CA bundle configmap Environment Variables
@@ -514,6 +504,7 @@ const (
 	GatewayKind             = "Gateway"
 	ServiceKind             = "Service"
 	KedaScaledObjectKind    = "ScaledObject"
+	OpenTelemetryCollector  = "OpenTelemetryCollector"
 )
 
 // Model Parallel Options

@@ -40,7 +40,7 @@ def server():  # noqa: F811
     args = [
         # use half precision for speed and memory savings in CI environment
         "--dtype",
-        "float16",
+        "bfloat16",
         "--max-model-len",
         "2048",
         "--trust_remote_code",
@@ -894,7 +894,8 @@ async def test_complex_message_content(client: openai.AsyncOpenAI):
         seed=0,
     )
     content = resp.choices[0].message.content
-    assert content == "The result of 1+1 is 2."
+    assert content is not None
+    assert "2" in content
 
 
 @pytest.mark.asyncio

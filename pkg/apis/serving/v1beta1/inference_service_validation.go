@@ -47,12 +47,13 @@ const (
 var (
 	// logger for the validation webhook.
 	validatorLogger = logf.Log.WithName("inferenceservice-v1beta1-validation-webhook")
-	// regular expressions for validation of isvc name
+	// IsvcRegexp regular expressions for validation of isvc name
 	IsvcRegexp = regexp.MustCompile("^" + IsvcNameFmt + "$")
 )
 
 // +kubebuilder:object:generate=false
 // +k8s:openapi-gen=false
+
 // InferenceServiceValidator is responsible for validating the InferenceService resource
 // when it is created, updated, or deleted.
 //
@@ -106,10 +107,6 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	}
 
 	if err := validateInferenceServiceAutoscaler(isvc); err != nil {
-		return allWarnings, err
-	}
-
-	if err := validateAutoscalerTargetUtilizationPercentage(isvc); err != nil {
 		return allWarnings, err
 	}
 
@@ -204,14 +201,21 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	annotationClass := annotations[autoscaling.ClassAnnotationKey]
 	autoscalerClass := annotations[constants.AutoscalerClass]
 
-	switch {
-	case deploymentMode == string(constants.RawDeployment) || annotationClass == string(autoscaling.HPA):
-		return validateScalingHPACompExtension(compExtSpec)
-	case deploymentMode == string(constants.RawDeployment) || autoscalerClass == string(constants.AutoscalerClassKeda):
-		return validateScalingKedaCompExtension(compExtSpec)
+	switch deploymentMode {
+	case string(constants.RawDeployment):
+		switch autoscalerClass {
+		case string(constants.AutoscalerClassHPA):
+			return validateScalingHPACompExtension(compExtSpec)
+		case string(constants.AutoscalerClassKeda):
+			return validateScalingKedaCompExtension(compExtSpec)
+		}
 	default:
+		if annotationClass == autoscaling.HPA {
+			return validateScalingHPACompExtension(compExtSpec)
+		}
 		return validateScalingKPACompExtension(compExtSpec)
 	}
+	return nil
 }
 
 // Validation of isvc name
@@ -230,49 +234,7 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 	if ok {
 		for _, item := range constants.AutoscalerAllowedClassList {
 			if class == item {
-				switch class {
-				case constants.AutoscalerClassHPA:
-					if metric, ok := annotations[constants.AutoscalerMetrics]; ok {
-						return validateHPAMetrics(ScaleMetric(metric))
-					} else {
-						return nil
-					}
-				case constants.AutoscalerClassKeda:
-					componentExtensionSpec := isvc.Spec.Predictor.ComponentExtensionSpec
-					// checks for conflicts between ScaleMetric and AutoScaling configurations
-					if componentExtensionSpec.ScaleMetric != nil {
-						if componentExtensionSpec.AutoScaling != nil {
-							return errors.New("There is a conflicts between ScaleMetric and AutoScaling." +
-								"Please use AutoScaling if you want to use KEDA")
-						}
-					}
-
-					if componentExtensionSpec.ScaleMetric != nil {
-						metric := componentExtensionSpec.ScaleMetric
-						return validateKEDAMetrics(*metric)
-					}
-
-					if componentExtensionSpec.AutoScaling != nil {
-						for _, autoScaling := range componentExtensionSpec.AutoScaling.Metrics {
-							autoScalingType := autoScaling.Type
-							switch autoScalingType {
-							case MetricSourceType(constants.AutoScalerResource):
-								resourceName := autoScaling.Resource.Name
-								return validateKEDAMetrics(*resourceName)
-							case MetricSourceType(constants.AutoScalerExternal):
-								metricBackend := autoScaling.External.Metric.Backend
-								return validateKEDAMetricBackends(*metricBackend)
-							default:
-								return fmt.Errorf("unknown auto scaling type class [%s] with value [%s]."+
-									"Valid types are Resource and External", class, autoScalingType)
-							}
-						}
-					}
-				case constants.AutoscalerClassExternal:
-					return nil
-				default:
-					return fmt.Errorf("unknown autoscaler class [%s]", class)
-				}
+				return nil
 			}
 		}
 		return fmt.Errorf("[%s] is not a supported autoscaler class type", value)
@@ -281,42 +243,37 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 	return nil
 }
 
-// Validate of autoscaler KEDA metrics
-func validateKEDAMetrics(metric ScaleMetric) error {
-	if slices.Contains(constants.AutoscalerAllowedKEDAMetricsList, constants.AutoscalerMetricsType(metric)) {
-		return nil
-	}
-	return fmt.Errorf("[%s] is not a supported metric in KEDA.\n", metric)
-}
-
-// Validate of autoscaler KEDA metrics
-func validateKEDAMetricBackends(backend MetricsBackend) error {
-	if slices.Contains(constants.AutoscalerAllowedKEDAMetricBackendList, constants.AutoscalerMetricsType(backend)) {
-		return nil
-	}
-	return fmt.Errorf("[%s] is not a supported metric backend in KEDA.\n", backend)
-}
-
-// Validate of autoscaler HPA metrics
+// Validation for allowed HPA metrics
 func validateHPAMetrics(metric ScaleMetric) error {
-	if slices.Contains(constants.AutoscalerAllowedHPAMetricsList, constants.AutoscalerMetricsType(metric)) {
+	if slices.Contains(constants.AutoscalerAllowedHPAMetricsList, constants.AutoscalerHPAMetricsType(metric)) {
 		return nil
 	}
 	return fmt.Errorf("[%s] is not a supported metric", metric)
 }
 
-// Validate of autoscaler targetUtilizationPercentage
-func validateAutoscalerTargetUtilizationPercentage(isvc *InferenceService) error {
-	annotations := isvc.ObjectMeta.Annotations
-	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
-		t, err := strconv.Atoi(value)
-		if err != nil {
-			return errors.New("the target utilization percentage should be a [1-100] integer")
-		} else if t < 1 || t > 100 {
-			return errors.New("the target utilization percentage should be a [1-100] integer")
+func validateTargetUtilization(targetValue int32) error {
+	if targetValue < 1 || targetValue > 100 {
+		return errors.New("the target utilization percentage should be a [1-100] integer")
+	}
+	return nil
+}
+
+func validateScaleTarget(target MetricTarget) error {
+	switch target.Type {
+	case UtilizationMetricType:
+		if target.AverageUtilization == nil {
+			return errors.New("the AverageUtilization type should be set")
+		}
+		return validateTargetUtilization(*target.AverageUtilization)
+	case AverageValueMetricType:
+		if target.AverageValue == nil {
+			return errors.New("the AverageValue type should be set")
+		}
+	case ValueMetricType:
+		if target.Value == nil {
+			return errors.New("the Value type should be set")
 		}
 	}
-
 	return nil
 }
 
@@ -342,42 +299,84 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 		}
 	}
 
+	if compExtSpec.AutoScaling != nil {
+		for _, metricSpec := range compExtSpec.AutoScaling.Metrics {
+			metricType := metricSpec.Type
+			switch metricType {
+			case ResourceMetricSourceType:
+				if metricSpec.Resource == nil {
+					return errors.New("metricSpec.Resource is not set for resource metric source type")
+				}
+			default:
+				return fmt.Errorf("invalid HPA metric source type with value [%s],"+
+					"valid metric source types are Resource", metricType)
+			}
+		}
+	}
+
 	return nil
 }
 
 func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error {
-	metric := MetricCPU
 	if compExtSpec.ScaleMetric != nil {
-		metric = *compExtSpec.ScaleMetric
+		return errors.New("ScaleMetric is not supported for KEDA")
 	}
 
-	if compExtSpec.ScaleTarget != nil {
-		target := *compExtSpec.ScaleTarget
-		if metric == MetricCPU && target < 1 || target > 100 {
-			return errors.New("the target utilization percentage should be a [1-100] integer")
-		}
-
-		if metric == MetricMemory && target < 1 {
-			return errors.New("the target memory should be greater than 1 MiB")
-		}
-	}
 	if compExtSpec.AutoScaling != nil {
-		for _, autoScaling := range compExtSpec.AutoScaling.Metrics {
-			if autoScaling.Type == MetricSourceType(constants.AutoScalerResource) {
-				resourceName := autoScaling.Resource.Name
-				if *resourceName == MetricCPU && *autoScaling.Resource.Target.AverageUtilization < 1 ||
-					*autoScaling.Resource.Target.AverageUtilization > 100 {
-					return errors.New("the target utilization percentage should be a [1-100] intege")
-				} else if *resourceName == MetricMemory && autoScaling.Resource.Target.AverageValue.Cmp(resource.MustParse("1Mi")) < 0 {
-					return errors.New("the target memory should be greater than 1 MiB")
+		for _, metric := range compExtSpec.AutoScaling.Metrics {
+			metricType := metric.Type
+			switch metricType {
+			case ResourceMetricSourceType:
+				if metric.Resource == nil {
+					return errors.New("metricSpec.Resource is not set for resource metric source type")
 				}
-			} else if autoScaling.Type == MetricSourceType(constants.AutoScalerExternal) {
-				if autoScaling.External.Metric.Query == "" {
+				switch metric.Resource.Name {
+				case ResourceMetricCPU:
+					if metric.Resource.Target.Type != UtilizationMetricType {
+						return errors.New("the cpu target value type should be Utilization")
+					}
+				case ResourceMetricMemory:
+					if metric.Resource.Target.Type != AverageValueMetricType && metric.Resource.Target.Type != UtilizationMetricType {
+						return errors.New("the memory target value type should be AverageValue or Utilization")
+					}
+					if metric.Resource.Target.Type == AverageValueMetricType && metric.Resource.Target.AverageValue.Cmp(resource.MustParse("1Mi")) < 0 {
+						return errors.New("the memory target value should be greater than 1 MiB")
+					}
+				default:
+					return fmt.Errorf("resource type %s is not supported", metric.Resource.Name)
+				}
+				if err := validateScaleTarget(metric.Resource.Target); err != nil {
+					return err
+				}
+			case ExternalMetricSourceType:
+				if metric.External == nil {
+					return errors.New("metricSpec.External is not set for external metric source type")
+				}
+				if metric.External.Metric.Query == "" {
 					return errors.New("the query should not be empty")
 				}
-				if autoScaling.External.Target.Value == nil {
-					return errors.New("the Thresold value should not be empty")
+				if metric.External.Target.Value == nil {
+					return errors.New("the target threshold value should not be empty")
 				}
+				if err := validateScaleTarget(metric.External.Target); err != nil {
+					return err
+				}
+			case PodMetricSourceType:
+				if metric.PodMetric == nil {
+					return errors.New("metricSpec.PodMetric is not set for pod metric source type")
+				}
+				if metric.PodMetric.Metric.Query == "" {
+					return errors.New("the query should not be empty")
+				}
+				if metric.PodMetric.Target.Value == nil {
+					return errors.New("the target threshold value should not be empty")
+				}
+				if err := validateScaleTarget(metric.PodMetric.Target); err != nil {
+					return err
+				}
+			default:
+				return fmt.Errorf("unknown KEDA metric type with value [%s]."+
+					"Valid types are Resource,External,PodMetric", metricType)
 			}
 		}
 	}
@@ -385,7 +384,7 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 }
 
 func validateKPAMetrics(metric ScaleMetric) error {
-	for _, item := range constants.AutoScalerKPAMetricsAllowedList {
+	for _, item := range constants.AutoscalerAllowedKPAMetricsList {
 		if item == constants.AutoScalerKPAMetricsType(metric) {
 			return nil
 		}
