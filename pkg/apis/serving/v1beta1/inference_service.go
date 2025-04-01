@@ -78,6 +78,14 @@ const (
 	GraphiteBackend   MetricsBackend = "graphite"
 )
 
+// PodsMetricsBackend enum
+// +kubebuilder:validation:Enum=opentelemetry
+type PodsMetricsBackend string
+
+const (
+	OpenTelemetryBackend PodsMetricsBackend = "opentelemetry"
+)
+
 // Batcher specifies optional payload batching available for all components
 type Batcher struct {
 	// Specifies the max number of requests to trigger a batch

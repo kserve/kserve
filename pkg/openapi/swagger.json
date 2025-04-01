@@ -1288,7 +1288,7 @@
           }
         },
         "autoScaling": {
-          "description": "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
+          "description": "AutoScaling autoscaling spec which is backed up HPA or KEDA.",
           "$ref": "#/definitions/v1beta1.AutoScalingSpec"
         },
         "batcher": {
@@ -1332,7 +1332,7 @@
           "format": "int32"
         },
         "scaleMetric": {
-          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
         "scaleMetricType": {
@@ -2478,7 +2478,7 @@
           "$ref": "#/definitions/v1beta1.ARTExplainerSpec"
         },
         "autoScaling": {
-          "description": "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
+          "description": "AutoScaling autoscaling spec which is backed up HPA or KEDA.",
           "$ref": "#/definitions/v1beta1.AutoScalingSpec"
         },
         "automountServiceAccountToken": {
@@ -2679,7 +2679,7 @@
           "type": "string"
         },
         "scaleMetric": {
-          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
         "scaleMetricType": {
@@ -2789,16 +2789,42 @@
     },
     "v1beta1.ExternalMetricSource": {
       "type": "object",
+      "required": [
+        "metric",
+        "target"
+      ],
       "properties": {
         "metric": {
           "description": "metric identifies the target metric by name and selector",
           "default": {},
-          "$ref": "#/definitions/v1beta1.MetricSource"
+          "$ref": "#/definitions/v1beta1.ExternalMetrics"
         },
         "target": {
           "description": "target specifies the target value for the given metric",
           "default": {},
           "$ref": "#/definitions/v1beta1.MetricTarget"
+        }
+      }
+    },
+    "v1beta1.ExternalMetrics": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "description": "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
+          "type": "string",
+          "default": ""
+        },
+        "namespace": {
+          "description": "For namespaced query",
+          "type": "string"
+        },
+        "query": {
+          "description": "Query to run to get metrics from MetricsBackend",
+          "type": "string"
+        },
+        "serverAddress": {
+          "description": "Address of MetricsBackend server.",
+          "type": "string"
         }
       }
     },
@@ -3039,6 +3065,10 @@
         }
       }
     },
+    "v1beta1.InferenceServiceDefaulter": {
+      "description": "InferenceServiceDefaulter is responsible for setting default values on the InferenceService when created or updated.\n\nNOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods, as it is used only for temporary operations and does not need to be deeply copied.",
+      "type": "object"
+    },
     "v1beta1.InferenceServiceList": {
       "description": "InferenceServiceList contains a list of Service",
       "type": "object",
@@ -3139,6 +3169,10 @@
           "$ref": "#/definitions/knative.URL"
         }
       }
+    },
+    "v1beta1.InferenceServiceValidator": {
+      "description": "InferenceServiceValidator is responsible for validating the InferenceService resource when it is created, updated, or deleted.\n\nNOTE: The +kubebuilder:object:generate=false marker prevents controller-gen from generating DeepCopy methods, as this struct is used only for temporary operations and does not need to be deeply copied.",
+      "type": "object"
     },
     "v1beta1.InferenceServicesConfig": {
       "type": "object",
@@ -3471,27 +3505,6 @@
         }
       }
     },
-    "v1beta1.MetricSource": {
-      "type": "object",
-      "properties": {
-        "backend": {
-          "description": "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
-          "type": "string"
-        },
-        "namespace": {
-          "description": "For namespaced query",
-          "type": "string"
-        },
-        "query": {
-          "description": "Query to run to get metrics from MetricsBackend",
-          "type": "string"
-        },
-        "serverAddress": {
-          "description": "Address of MetricsBackend server.",
-          "type": "string"
-        }
-      }
-    },
     "v1beta1.MetricTarget": {
       "description": "MetricTarget defines the target value, average value, or average utilization of a specific metric",
       "type": "object",
@@ -3519,18 +3532,26 @@
     "v1beta1.MetricsSpec": {
       "description": "MetricsSpec specifies how to scale based on a single metric (only `type` and one other matching field should be set at once).",
       "type": "object",
+      "required": [
+        "type"
+      ],
       "properties": {
         "external": {
-          "description": "external refers to a global metric that is not associated with any Kubernetes object. It allows autoscaling based on information coming from components running outside of cluster (for example length of queue in cloud messaging service, or QPS from loadbalancer running outside of cluster).",
+          "description": "external refers to a global metric that is not associated with any Kubernetes object. It allows autoscaling based on information coming from components running outside of cluster (for example length of queue in cloud messaging service, or QPS from load balancer running outside of cluster).",
           "$ref": "#/definitions/v1beta1.ExternalMetricSource"
+        },
+        "podmetric": {
+          "description": "pods refers to a metric describing each pod in the current scale target (for example, transactions-processed-per-second).  The values will be averaged together before being compared to the target value.",
+          "$ref": "#/definitions/v1beta1.PodMetricSource"
         },
         "resource": {
           "description": "resource refers to a resource metric (such as those specified in requests and limits) known to Kubernetes describing each pod in the current scale target (e.g. CPU or memory). Such metrics are built in to Kubernetes, and have special scaling options on top of those available to normal per-pod metrics using the \"pods\" source.",
           "$ref": "#/definitions/v1beta1.ResourceMetricSource"
         },
         "type": {
-          "description": "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"Resource\" or \"External\" each mapping to a matching field in the object.",
-          "type": "string"
+          "description": "type is the type of metric source.  It should be one of \"Resource\", \"External\", \"PodMetric\". \"Resource\" or \"External\" each mapping to a matching field in the object.",
+          "type": "string",
+          "default": ""
         }
       }
     },
@@ -3994,6 +4015,20 @@
         }
       }
     },
+    "v1beta1.OtelCollectorConfig": {
+      "type": "object",
+      "properties": {
+        "metricReceiverEndpoint": {
+          "type": "string"
+        },
+        "metricScalerEndpoint": {
+          "type": "string"
+        },
+        "scrapeInterval": {
+          "type": "string"
+        }
+      }
+    },
     "v1beta1.PMMLSpec": {
       "description": "PMMLSpec defines arguments for configuring PMML model serving.",
       "type": "object",
@@ -4351,6 +4386,56 @@
         },
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.PodMetricSource": {
+      "description": "PodMetricSource indicates how to scale on a metric describing each pod in the current scale target (for example, transactions-processed-per-second). The values will be averaged together before being compared to the target value.",
+      "type": "object",
+      "required": [
+        "metric",
+        "target"
+      ],
+      "properties": {
+        "metric": {
+          "description": "metric identifies the target metric by name and selector",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.PodMetrics"
+        },
+        "target": {
+          "description": "target specifies the target value for the given metric",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.MetricTarget"
+        }
+      }
+    },
+    "v1beta1.PodMetrics": {
+      "type": "object",
+      "properties": {
+        "backend": {
+          "description": "Backend defines the scaling metric type watched by the autoscaler. Possible value: opentelemetry.",
+          "type": "string",
+          "default": ""
+        },
+        "metricNames": {
+          "description": "MetricNames is the list of metric names in the backend.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "operationOverTime": {
+          "description": "OperationOverTime specifies the operation to aggregate the metrics over time. Possible values are last_one, avg, max, min, rate, count. Default is 'last_one'.",
+          "type": "string"
+        },
+        "query": {
+          "description": "Query specifies the query to run to get metrics from the PodsMetricsBackend.",
+          "type": "string"
+        },
+        "serverAddress": {
+          "description": "ServerAddress specifies the address of the PodsMetricsBackend server.",
           "type": "string"
         }
       }
@@ -4810,7 +4895,7 @@
           }
         },
         "autoScaling": {
-          "description": "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
+          "description": "AutoScaling autoscaling spec which is backed up HPA or KEDA.",
           "$ref": "#/definitions/v1beta1.AutoScalingSpec"
         },
         "automountServiceAccountToken": {
@@ -5039,7 +5124,7 @@
           "type": "string"
         },
         "scaleMetric": {
-          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
         "scaleMetricType": {
@@ -5177,10 +5262,15 @@
     },
     "v1beta1.ResourceMetricSource": {
       "type": "object",
+      "required": [
+        "name",
+        "target"
+      ],
       "properties": {
         "name": {
           "description": "name is the name of the resource in question.",
-          "type": "string"
+          "type": "string",
+          "default": ""
         },
         "target": {
           "description": "target specifies the target value for the given metric",
@@ -5800,7 +5890,7 @@
           }
         },
         "autoScaling": {
-          "description": "AutoScaling to be used for autoscaling spec. Could be used for Keda autoscaling.",
+          "description": "AutoScaling autoscaling spec which is backed up HPA or KEDA.",
           "$ref": "#/definitions/v1beta1.AutoScalingSpec"
         },
         "automountServiceAccountToken": {
@@ -6001,7 +6091,7 @@
           "type": "string"
         },
         "scaleMetric": {
-          "description": "ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
+          "description": "ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).",
           "type": "string"
         },
         "scaleMetricType": {

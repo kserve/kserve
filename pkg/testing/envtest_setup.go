@@ -26,6 +26,7 @@ import (
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/onsi/gomega"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	"k8s.io/client-go/kubernetes/scheme"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -62,6 +63,9 @@ func SetupEnvTest(crdDirectoryPaths []string) *envtest.Environment {
 	}
 	if err := kedav1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
 		log.Error(err, "Failed to add KEDA scheme")
+	}
+	if err := otelv1beta1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
+		log.Error(err, "Failed to add OpenTelemetry scheme")
 	}
 	return t
 }
