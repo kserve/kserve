@@ -74,3 +74,7 @@ docker-compose.yml
 
 # Istio installer downloaded by quick install
 istio-*
+
+test/scripts/openshift-ci/build*.log
+test/scripts/openshift-ci/setup*.log
+test/scripts/openshift-ci/run*.log

@@ -224,7 +224,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createService(tt.args.componentMeta, tt.args.componentExt, tt.args.podSpec, tt.args.multiNodeEnabled, emptyServiceConfig)
+			got := createService(constants.InferenceServiceResource, tt.args.componentMeta, tt.args.componentExt, tt.args.podSpec, tt.args.multiNodeEnabled, emptyServiceConfig)
 			for i, service := range got {
 				if diff := cmp.Diff(tt.expected[i], service); diff != "" {
 					t.Errorf("Test %q unexpected service (-want +got): %v", tt.name, diff)
@@ -282,7 +282,7 @@ func runTestServiceCreate(serviceConfig *v1beta1.ServiceConfig, expectedClusterI
 	componentExt := &v1beta1.ComponentExtensionSpec{}
 	podSpec := &corev1.PodSpec{}
 
-	service := createService(componentMeta, componentExt, podSpec, false, serviceConfig)
+	service := createService(constants.InferenceServiceResource, componentMeta, componentExt, podSpec, false, serviceConfig)
 	assert.Equal(t, componentMeta, service[0].ObjectMeta, "Expected ObjectMeta to be equal")
 	assert.Equal(t, map[string]string{"app": "isvc.test-service"}, service[0].Spec.Selector, "Expected Selector to be equal")
 	assert.Equal(t, expectedClusterIP, service[0].Spec.ClusterIP, "Expected ClusterIP to be equal")

@@ -658,6 +658,10 @@ var _ = Describe("Inference Graph controller test", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 
+			// ODH Svc checks
+			Expect(actualK8sServiceCreated.Spec.Ports[0].Port).To(Equal(int32(443)))
+			Expect(actualK8sServiceCreated.Spec.Ports[0].TargetPort.IntVal).To(Equal(int32(8080)))
+
 			//No KNative Service should get created in Raw deployment mode
 			actualKnServiceCreated := &knservingv1.Service{}
 			Eventually(func() bool {
@@ -708,6 +712,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
 				return inferenceGraphSubmitted.Status.URL.Host
 			}, timeout, interval).Should(Equal(osRoute.Status.Ingress[0].Host))
+			Expect(inferenceGraphSubmitted.Status.URL.Scheme).To(Equal("https"))
 		})
 
 		It("Should not create ingress when cluster-local visibility is configured", func() {
@@ -774,6 +779,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				_ = k8sClient.Get(ctx, serviceKey, ig)
 				return ig.Status.URL.Host
 			}, timeout, interval).Should(Equal(fmt.Sprintf("%s.%s.svc.cluster.local", graphName, "default")))
+			Expect(ig.Status.URL.Scheme).To(Equal("https"))
 		})
 
 		It("Should reconfigure InferenceGraph as private when cluster-local visibility is configured", func() {
@@ -1012,7 +1018,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				g.Expect(k8sClient.Get(ctx, types.NamespacedName{Namespace: inferenceGraph.GetNamespace(), Name: inferenceGraph.GetName()}, &igDeployment)).To(Succeed())
 				g.Expect(igDeployment.Spec.Template.Spec.AutomountServiceAccountToken).To(Equal(proto.Bool(true)))
 				g.Expect(igDeployment.Spec.Template.Spec.ServiceAccountName).To(Equal(getServiceAccountNameForGraph(inferenceGraph)))
-				// g.Expect(igDeployment.Spec.Template.Spec.Containers).To(HaveLen(1)) // TODO: Restore in RHOAIENG-21300
+				g.Expect(igDeployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 				g.Expect(igDeployment.Spec.Template.Spec.Containers[0].Args).To(ContainElements("--enable-auth", "--inferencegraph-name", inferenceGraph.GetName()))
 			}, timeout, interval).Should(Succeed())
 		})

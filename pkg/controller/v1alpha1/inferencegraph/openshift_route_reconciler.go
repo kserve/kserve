@@ -104,6 +104,9 @@ func (r *OpenShiftRouteReconciler) buildOpenShiftRoute(inferenceGraph *v1alpha1.
 			Port: &v1.RoutePort{
 				TargetPort: intstr.FromString(inferenceGraph.GetName()),
 			},
+			TLS: &v1.TLSConfig{
+				Termination: v1.TLSTerminationReencrypt,
+			},
 		},
 	}
 
