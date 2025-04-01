@@ -580,7 +580,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Define InferenceService
 			isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
 			isvc.Annotations = map[string]string{}
-			isvc.Annotations[constants.StopResumeAnnotationKey] = "false"
+			isvc.Annotations[constants.StopAnnotationKey] = "false"
 			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, isvc)
 			time.Sleep(10 * time.Second)
@@ -619,7 +619,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Define InferenceService
 			isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
 			isvc.Annotations = map[string]string{}
-			isvc.Annotations[constants.StopResumeAnnotationKey] = "true"
+			isvc.Annotations[constants.StopAnnotationKey] = "true"
 			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, isvc)
 

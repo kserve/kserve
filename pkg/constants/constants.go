@@ -94,7 +94,7 @@ var (
 	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
 	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/min-scale"
 	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/max-scale"
-	StopResumeAnnotationKey                     = KServeAPIGroupName + "/stop"
+	StopAnnotationKey                           = KServeAPIGroupName + "/stop"
 	RollOutDurationAnnotationKey                = KnativeServingAPIGroupName + "/rollout-duration"
 	KnativeOpenshiftEnablePassthroughKey        = "serving.knative.openshift.io/enablePassthrough"
 	EnableMetricAggregation                     = KServeAPIGroupName + "/enable-metric-aggregation"
