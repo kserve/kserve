@@ -39,7 +39,6 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
