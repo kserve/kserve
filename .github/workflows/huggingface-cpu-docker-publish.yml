@@ -13,7 +13,7 @@ on:
   pull_request:
 
 env:
-  IMAGE_NAME: huggingfaceserver 
+  IMAGE_NAME: huggingfaceserver
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -40,7 +40,7 @@ jobs:
         with:
           platforms: linux/amd64
           context: python
-          file: python/huggingface_server_cpu_openvino.Dockerfile
+          file: python/huggingface_server_cpu.Dockerfile
           push: false
           # https://github.com/docker/buildx/issues/1533
           provenance: false
@@ -94,7 +94,7 @@ jobs:
         with:
           platforms: linux/amd64
           context: python
-          file: python/huggingface_server_cpu_openvino.Dockerfile
+          file: python/huggingface_server_cpu.Dockerfile
           push: true
           tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
           # https://github.com/docker/buildx/issues/1533

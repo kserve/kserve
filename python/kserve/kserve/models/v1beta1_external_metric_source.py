@@ -47,7 +47,7 @@ class V1beta1ExternalMetricSource(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'metric': 'V1beta1MetricSource',
+        'metric': 'V1beta1ExternalMetrics',
         'target': 'V1beta1MetricTarget'
     }
 
@@ -66,10 +66,8 @@ class V1beta1ExternalMetricSource(object):
         self._target = None
         self.discriminator = None
 
-        if metric is not None:
-            self.metric = metric
-        if target is not None:
-            self.target = target
+        self.metric = metric
+        self.target = target
 
     @property
     def metric(self):
@@ -77,7 +75,7 @@ class V1beta1ExternalMetricSource(object):
 
 
         :return: The metric of this V1beta1ExternalMetricSource.  # noqa: E501
-        :rtype: V1beta1MetricSource
+        :rtype: V1beta1ExternalMetrics
         """
         return self._metric
 
@@ -87,8 +85,10 @@ class V1beta1ExternalMetricSource(object):
 
 
         :param metric: The metric of this V1beta1ExternalMetricSource.  # noqa: E501
-        :type: V1beta1MetricSource
+        :type: V1beta1ExternalMetrics
         """
+        if self.local_vars_configuration.client_side_validation and metric is None:  # noqa: E501
+            raise ValueError("Invalid value for `metric`, must not be `None`")  # noqa: E501
 
         self._metric = metric
 
@@ -110,6 +110,8 @@ class V1beta1ExternalMetricSource(object):
         :param target: The target of this V1beta1ExternalMetricSource.  # noqa: E501
         :type: V1beta1MetricTarget
         """
+        if self.local_vars_configuration.client_side_validation and target is None:  # noqa: E501
+            raise ValueError("Invalid value for `target`, must not be `None`")  # noqa: E501
 
         self._target = target
 
