@@ -56,6 +56,7 @@ async def client(lora_server):
         yield async_client
 
 
+@pytest.mark.vllm_cpu
 @pytest.mark.asyncio
 async def test_lora_chat(client: openai.AsyncOpenAI):
 
@@ -80,6 +81,7 @@ async def test_lora_chat(client: openai.AsyncOpenAI):
     assert message.content is not None and len(message.content) >= 0
 
 
+@pytest.mark.vllm_cpu
 @pytest.mark.asyncio
 async def test_lora_chat_stream(client: openai.AsyncOpenAI):
     stream = await client.chat.completions.create(
