@@ -88,16 +88,14 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 							averageUtil = &constants.DefaultCPUUtilization
 						}
 					}
-					if metric.Resource.Target.AverageUtilization != nil {
-						targetValue = fmt.Sprintf("%d", averageUtil)
-					}
+					targetValue = strconv.Itoa(int(*averageUtil))
 				case v1beta1.AverageValueMetricType:
 					if metric.Resource.Target.AverageValue != nil {
 						targetValue = metric.Resource.Target.AverageValue.String()
 					}
 				case v1beta1.ValueMetricType:
 					if metric.Resource.Target.Value != nil {
-						targetValue = fmt.Sprintf("%f", metric.Resource.Target.Value.AsApproximateFloat64())
+						targetValue = metric.Resource.Target.Value.String()
 					}
 				}
 				triggers = append(triggers, kedav1alpha1.ScaleTriggers{
