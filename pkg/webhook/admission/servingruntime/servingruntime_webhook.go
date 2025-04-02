@@ -44,10 +44,7 @@ const (
 	ProrityIsNotSameServingRuntimeError                 = "%s under the servingruntime %s"
 	ProrityIsNotSameClusterServingRuntimeError          = "%s under the clusterservingruntime %s"
 	InvalidUnknownGPUTypeError                          = "unknown GPU resource type in a container(%s)"
-	InvalidWorkerSpecSizeValueError                     = "the WorkerSpec.PipelineParallelSize cannot be less than 2(%d)"
-	MissingPipelineParallelSizeValueError               = "pipelineParallelSize must be set when WorkerSpec is set"
-	MissingTensorParallelSizeValueError                 = "tensorParallelSize must be set when WorkerSpec is set"
-	InvalidWorkerSpecPipelineParallelSizeValueError     = "the WorkerSpec.PipelineParallelSize cannot be less than 2 (%s) because WorkerSpec.PipelineParallelSize should include at least 1 head node and 1 worker node"
+	InvalidWorkerSpecPipelineParallelSizeValueError     = "the WorkerSpec.PipelineParallelSize cannot be less than 1(%s)"
 	InvalidWorkerSpecTensorParallelSizeValueError       = "the WorkerSpec.TensorParallelSize cannot be less than 1(%s)"
 	InvalidMultiNodeSpecError                           = "the %s %s is invalid: %s"
 	DisallowedMultipleContainersInWorkerSpecError       = "setting multiple containers in workerSpec is not allowed"
@@ -223,39 +220,31 @@ func validateMultiNodeSpec(newSpec *v1alpha1.ServingRuntimeSpec, existingSpec *v
 					return errors.New(DisallowedWorkerSpecTensorParallelSizeEnvError)
 				}
 
-				if isUnknownGPUType, err := utils.IsUnknownGpuResourceType(container.Resources, newSpec.Annotations); err != nil {
+				if hadUnknownGpuType, err := utils.HasUnknownGpuResourceType(container.Resources, newSpec.Annotations); err != nil {
 					return err
-				} else if isUnknownGPUType {
+				} else if hadUnknownGpuType {
 					return fmt.Errorf(InvalidUnknownGPUTypeError, constants.InferenceServiceContainerName)
 				}
 			}
 		}
 		workerContainer := newSpec.WorkerSpec.Containers[0]
 		if workerContainer.Name == constants.WorkerContainerName {
-			if isUnknownGPUType, err := utils.IsUnknownGpuResourceType(workerContainer.Resources, newSpec.Annotations); err != nil {
+			if hadUnknownGpuType, err := utils.HasUnknownGpuResourceType(workerContainer.Resources, newSpec.Annotations); err != nil {
 				return err
-			} else if isUnknownGPUType {
+			} else if hadUnknownGpuType {
 				return fmt.Errorf(InvalidUnknownGPUTypeError, constants.WorkerContainerName)
 			}
 		}
 
-		if newSpec.WorkerSpec.PipelineParallelSize == nil {
-			return errors.New(MissingPipelineParallelSizeValueError)
-		}
-
-		if newSpec.WorkerSpec.TensorParallelSize == nil {
-			return errors.New(MissingTensorParallelSizeValueError)
-		}
-
 		// WorkerSpec.PipelineParallelSize should not be less than 2.
 		pipelineParallelSize := *newSpec.WorkerSpec.PipelineParallelSize
-		if pipelineParallelSize < 2 {
+		if pipelineParallelSize < constants.DefaultPipelineParallelSize {
 			return fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, strconv.Itoa(pipelineParallelSize))
 		}
 
 		// WorkerSpec.TensorParallelSize should not be less than 1
 		tensorParallelSize := *newSpec.WorkerSpec.TensorParallelSize
-		if tensorParallelSize < 1 {
+		if tensorParallelSize < constants.DefaultTensorParallelSize {
 			return fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, strconv.Itoa(tensorParallelSize))
 		}
 	}
