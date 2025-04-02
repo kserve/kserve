@@ -42,16 +42,6 @@ import (
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
-// Constants
-var (
-	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "oci://", "hf://"}
-)
-
-const (
-	AzureBlobURL      = "blob.core.windows.net"
-	AzureBlobURIRegEx = "https://(.+?).blob.core.windows.net/(.+)"
-)
-
 // IsMMSPredictor Only enable MMS predictor when predictor config sets MMS to true and neither
 // storage uri nor storage spec is set
 func IsMMSPredictor(predictor *v1beta1.PredictorSpec) bool {
@@ -356,16 +346,16 @@ func ValidateStorageURI(ctx context.Context, storageURI *string, client client.C
 	}
 
 	// need to verify Azure Blob first, because it uses http(s):// prefix
-	if strings.Contains(*storageURI, AzureBlobURL) {
-		azureURIMatcher := regexp.MustCompile(AzureBlobURIRegEx)
+	if strings.Contains(*storageURI, constants.AzureBlobURL) {
+		azureURIMatcher := regexp.MustCompile(constants.AzureBlobURIRegEx)
 		if parts := azureURIMatcher.FindStringSubmatch(*storageURI); parts != nil {
 			return nil
 		}
-	} else if utils.IsPrefixSupported(*storageURI, SupportedStorageURIPrefixList) {
+	} else if utils.IsPrefixSupported(*storageURI, constants.SupportedStorageURIPrefixList) {
 		return nil
 	}
 
-	return fmt.Errorf(v1beta1.UnsupportedStorageURIFormatError, strings.Join(SupportedStorageURIPrefixList, ", "), *storageURI)
+	return fmt.Errorf(v1beta1.UnsupportedStorageURIFormatError, strings.Join(constants.SupportedStorageURIPrefixList, ", "), *storageURI)
 }
 
 // Function to add a new environment variable to a specific container in the PodSpec

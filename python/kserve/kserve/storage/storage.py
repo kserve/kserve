@@ -48,10 +48,24 @@ _AZURE_FILE_RE = [
 _LOCAL_PREFIX = "file://"
 _URI_RE = "https?://(.+)/(.+)"
 _HTTP_PREFIX = "http(s)://"
-_HEADERS_SUFFIX = "-headers"
 _PVC_PREFIX = "/mnt/pvc"
 _HF_PREFIX = "hf://"
 
+_SUPPORTED_PROTOCOLS = [
+    _GCS_PREFIX,
+    _S3_PREFIX,
+    _HDFS_PREFIX,
+    _WEBHDFS_PREFIX,
+    _AZURE_BLOB_RE,
+    _AZURE_FILE_RE,
+    _LOCAL_PREFIX,
+    _URI_RE,
+    _HTTP_PREFIX,
+    _HF_PREFIX,
+    _PVC_PREFIX,
+]
+
+_HEADERS_SUFFIX = "-headers"
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 
@@ -101,10 +115,8 @@ class Storage(object):
                 model_dir = Storage._download_hf(uri, out_dir)
             else:
                 raise Exception(
-                    "Cannot recognize storage type for "
-                    + uri
-                    + "\n'%s', '%s', '%s', and '%s' are the current available storage type."
-                    % (_GCS_PREFIX, _S3_PREFIX, _LOCAL_PREFIX, _HTTP_PREFIX)
+                    "Cannot recognize storage type for '%s'. \n'%s' are the current available storage type."
+                    % (uri, _SUPPORTED_PROTOCOLS)
                 )
 
         logger.info("Successfully copied %s to %s", uri, out_dir)
