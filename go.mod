@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.55.6
 	github.com/cloudevents/sdk-go/v2 v2.15.2
 	github.com/fsnotify/fsnotify v1.8.0
-	github.com/getkin/kin-openapi v0.127.0
+	github.com/getkin/kin-openapi v0.131.0
 	github.com/go-logr/logr v1.4.2
 	github.com/go-logr/zapr v1.3.0
 	github.com/gofrs/uuid/v5 v5.3.0
@@ -99,7 +99,6 @@ require (
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/invopop/yaml v0.3.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.1-0.20220621161143-b0104c826a24 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
@@ -110,6 +109,8 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037 // indirect
+	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
@@ -167,4 +168,6 @@ require (
 // google.golang.org/grpc/stats/opentelemetry is used by the keda package.
 // To avoid ambiguous import error due to multiple module versions found for the same import path,
 // we force the version in google.golang.org/grpc (v1.71.0).
-replace google.golang.org/grpc/stats/opentelemetry => google.golang.org/grpc v1.71.0
+// Instead of replacing the path directly, exclude the problematic package
+// This avoids "module used for two different module paths" error
+exclude google.golang.org/grpc/stats/opentelemetry v0.0.0-00010101000000-000000000000
