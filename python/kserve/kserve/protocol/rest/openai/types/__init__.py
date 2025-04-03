@@ -29,9 +29,20 @@ from vllm.entrypoints.openai.protocol import (
     ModelCard as Model,
     ModelList,
 )
-from vllm.entrypoints.openai.protocol import ChatCompletionRequest, ChatCompletionResponse as ChatCompletion
-from vllm.entrypoints.openai.protocol import CompletionRequest, CompletionResponse as Completion
-from vllm.entrypoints.openai.protocol import EmbeddingRequest, EmbeddingResponse as Embedding, EmbeddingResponseData, EmbeddingCompletionRequest
+from vllm.entrypoints.openai.protocol import (
+    ChatCompletionRequest,
+    ChatCompletionResponse as ChatCompletion,
+)
+from vllm.entrypoints.openai.protocol import (
+    CompletionRequest,
+    CompletionResponse as Completion,
+)
+from vllm.entrypoints.openai.protocol import (
+    EmbeddingRequest,
+    EmbeddingResponse as Embedding,
+    EmbeddingResponseData,
+    EmbeddingCompletionRequest,
+)
 from vllm.entrypoints.chat_utils import (
     ChatCompletionContentPartParam,
     CustomChatCompletionMessageParam,
@@ -40,6 +51,10 @@ from vllm.entrypoints.chat_utils import (
     ChatCompletionContentPartTextParam,
     ChatCompletionAssistantMessageParam,
     ConversationMessage,
+)
+from vllm.entrypoints.openai.protocol import (
+    TranscriptionRequest,
+    TranscriptionResponse,
 )
 
 from typing import Optional
@@ -90,4 +105,6 @@ __all__ = [
     "EmbeddingResponseData",
     "Model",
     "ModelList",
+    "TranscriptionRequest",
+    "TranscriptionResponse",
 ]

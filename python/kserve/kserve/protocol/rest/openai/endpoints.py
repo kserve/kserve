@@ -14,12 +14,10 @@
 
 import os
 import time
-from typing import AsyncGenerator
+from typing import Annotated, AsyncGenerator
 
-from fastapi import APIRouter, FastAPI, Request, Response
+from fastapi import APIRouter, FastAPI, Form, Request, Response
 from fastapi.responses import ORJSONResponse
-from fastapi.exceptions import RequestValidationError
-from pydantic import TypeAdapter, ValidationError
 from starlette.responses import StreamingResponse
 from vllm.entrypoints.utils import with_cancellation
 
@@ -30,6 +28,7 @@ from kserve.protocol.rest.openai.types import (
     ErrorResponse,
     Model,
     ModelList,
+    TranscriptionRequest,
 )
 
 from ....errors import ModelNotReady
@@ -40,11 +39,6 @@ OPENAI_ROUTE_PREFIX = os.environ.get("KSERVE_OPENAI_ROUTE_PREFIX", "/openai")
 
 if len(OPENAI_ROUTE_PREFIX) > 0 and not OPENAI_ROUTE_PREFIX.startswith("/"):
     OPENAI_ROUTE_PREFIX = f"/{OPENAI_ROUTE_PREFIX}"
-
-
-CreateCompletionRequestAdapter = TypeAdapter(CompletionRequest)
-ChatCompletionRequestAdapter = TypeAdapter(ChatCompletionRequest)
-EmbeddingRequestAdapter = TypeAdapter(EmbeddingRequest)
 
 
 class OpenAIEndpoints:
@@ -67,12 +61,8 @@ class OpenAIEndpoints:
             response (Response): fastapi response object
 
         Returns:
-            InferenceResponse: Inference response object.
+            Response: fastapi response object.
         """
-        try:
-            params = CreateCompletionRequestAdapter.validate_python(request_body)
-        except ValidationError as e:
-            raise RequestValidationError from e
         params = request_body
         model_name = params.model
         model_ready = await self.dataplane.model_ready(model_name)
@@ -111,12 +101,8 @@ class OpenAIEndpoints:
             response (Response): fastapi response object
 
         Returns:
-            InferenceResponse: Inference response object.
+            Response: fastapi response object.
         """
-        try:
-            params = ChatCompletionRequestAdapter.validate_python(request_body)
-        except ValidationError as e:
-            raise RequestValidationError from e
         params = request_body
         model_name = params.model
         model_ready = await self.dataplane.model_ready(model_name)
@@ -154,12 +140,8 @@ class OpenAIEndpoints:
             raw_request (Request): fastapi request object,
             model_name (str): Model name.
         Returns:
-            InferenceResponse: Inference response object.
+            Response: fastapi response object.
         """
-        try:
-            params = EmbeddingRequestAdapter.validate_python(request_body)
-        except ValidationError as e:
-            raise RequestValidationError from e
         params = request_body
         model_name = params.model
         model_ready = await self.dataplane.model_ready(model_name)
@@ -182,6 +164,44 @@ class OpenAIEndpoints:
             return StreamingResponse(embedding, media_type="text/event-stream")
         else:
             return embedding
+
+    @with_cancellation
+    async def create_transcription(
+        self,
+        request: Annotated[TranscriptionRequest, Form()],
+        raw_request: Request,
+        response: Response,
+    ):
+        """Create transcription handler.
+        Args:
+            request (TranscriptionRequest): Transcription params body.
+            raw_request (Request): fastapi request object,
+            response (Response): fastapi response object
+        Returns:
+            Response: fastapi response object.
+        """
+        model_name = request.model
+        model_ready = await self.dataplane.model_ready(model_name)
+
+        if not model_ready:
+            raise ModelNotReady(model_name)
+
+        transcription = await self.dataplane.create_transcription(
+            model_name=model_name,
+            request=request,
+            raw_request=raw_request,
+            headers=raw_request.headers,
+            response=response,
+        )
+        if isinstance(transcription, ErrorResponse):
+            return ORJSONResponse(
+                content=transcription.model_dump(),
+                status_code=int(transcription.error.code),
+            )
+        elif isinstance(transcription, AsyncGenerator):
+            return StreamingResponse(transcription, media_type="text/event-stream")
+        else:
+            return transcription
 
     async def models(
         self,
@@ -234,6 +254,13 @@ def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):
     openai_router.add_api_route(
         r"/v1/embeddings",
         endpoints.create_embedding,
+        methods=["POST"],
+        response_model_exclude_none=True,
+        response_model_exclude_unset=True,
+    )
+    openai_router.add_api_route(
+        r"/v1/audio/transcriptions",
+        endpoints.create_transcription,
         methods=["POST"],
         response_model_exclude_none=True,
         response_model_exclude_unset=True,

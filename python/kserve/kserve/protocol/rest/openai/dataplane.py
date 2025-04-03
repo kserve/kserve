@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from http import HTTPStatus
 from typing import AsyncGenerator, List, Union
 
 from fastapi import Request, Response
+from starlette.datastructures import Headers
+
+from kserve.protocol.rest.openai.errors import create_error_response
 from kserve.protocol.rest.openai.types import (
     ChatCompletion,
     ChatCompletionRequest,
@@ -23,11 +27,16 @@ from kserve.protocol.rest.openai.types import (
     Embedding,
     EmbeddingRequest,
     ErrorResponse,
+    TranscriptionRequest,
+    TranscriptionResponse,
 )
-from starlette.datastructures import Headers
-
 from ...dataplane import DataPlane
-from .openai_model import OpenAIModel, OpenAIGenerativeModel, OpenAIEncoderModel
+from .openai_model import (
+    OpenAIModel,
+    OpenAIGenerativeModel,
+    OpenAIEncoderModel,
+    OpenAITranscriptionModel,
+)
 
 
 class OpenAIDataPlane(DataPlane):
@@ -50,15 +59,17 @@ class OpenAIDataPlane(DataPlane):
             headers: (Headers): Request headers.
             response: (Response): FastAPI response object
         Returns:
-            response: A non-streaming or streaming completion response.
+            response: A non-streaming or streaming completion response or an error response.
 
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIGenerativeModel):
-            raise RuntimeError(f"Model {model_name} does not support completion")
-
+            return create_error_response(
+                message=f"Model {model_name} does not support Completions API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
         context = {"headers": dict(headers), "response": response}
         return await model.create_completion(
             request=request, raw_request=raw_request, context=context
@@ -80,14 +91,17 @@ class OpenAIDataPlane(DataPlane):
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
-            response: A non-streaming or streaming chat completion response
+            response: A non-streaming or streaming chat completion response or an error response.
 
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIGenerativeModel):
-            raise RuntimeError(f"Model {model_name} does not support chat completion")
+            return create_error_response(
+                message=f"Model {model_name} does not support Chat Completion API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
 
         context = {"headers": dict(headers), "response": response}
         return await model.create_chat_completion(
@@ -111,18 +125,58 @@ class OpenAIDataPlane(DataPlane):
             headers: (Headers): Request headers.
             response: (Response): FastAPI response object
         Returns:
-            response: A non-streaming or streaming embedding response.
+            response: A non-streaming or streaming embedding response or an error response.
 
         Raises:
             InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIEncoderModel):
-            raise RuntimeError(f"Model {model_name} does not support embedding")
+            return create_error_response(
+                message=f"Model {model_name} does not support Embeddings API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
 
         context = {"headers": dict(headers), "response": response}
         return await model.create_embedding(
             request=request, raw_request=raw_request, context=context
+        )
+
+    async def create_transcription(
+        self,
+        model_name: str,
+        request: TranscriptionRequest,
+        raw_request: Request,
+        headers: Headers,
+        response: Response,
+    ) -> Union[AsyncGenerator[str, None], TranscriptionResponse, ErrorResponse]:
+        """Generate the text with the provided text prompt.
+
+        Args:
+            model_name (str): Model name.
+            request (TranscriptionRequest): Params to create a transcription.
+            raw_request (Request): fastapi request object.
+            headers: (Headers): Request headers.
+            response: (Response): fastapi response object
+        Returns:
+            response: A non-streaming or streaming transcription response or an error response.
+
+        Raises:
+            InvalidInput: An error when the body bytes can't be decoded as JSON.
+        """
+        model = await self.get_model(model_name)
+        if not isinstance(model, OpenAITranscriptionModel):
+            return create_error_response(
+                message=f"Model {model_name} does not support Transcriptions API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
+        audio_data = await request.file.read()
+        context = {"headers": dict(headers), "response": response}
+        return await model.create_transcription(
+            audio_data=audio_data,
+            request=request,
+            raw_request=raw_request,
+            context=context,
         )
 
     async def models(self) -> List[OpenAIModel]:
