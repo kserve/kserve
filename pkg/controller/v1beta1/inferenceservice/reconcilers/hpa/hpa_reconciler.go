@@ -213,7 +213,7 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 
 func shouldDeleteHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
 	desiredAutoscalerClass, hasDesiredAutoscalerClass := desired.Annotations[constants.AutoscalerClass]
-	return hasDesiredAutoscalerClass && constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassExternal
+	return false
 }
 
 func shouldCreateHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
