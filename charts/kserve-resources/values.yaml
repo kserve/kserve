@@ -1,11 +1,15 @@
 kserve:
-  version: &defaultVersion v0.15.0-rc0
+  version: &defaultVersion v0.15.0
   agent:
     image: kserve/agent
     tag: *defaultVersion
   router:
     image: kserve/router
     tag: *defaultVersion
+    # -- Specifies when to pull router image from registry.
+    imagePullPolicy: "IfNotPresent"
+    # -- specifies the list of secrets to be used for pulling the router image from registry.
+    imagePullSecrets: []
   service:
     serviceClusterIPNone: false
   storage:
@@ -327,6 +331,18 @@ kserve:
         sizeLimit: ""
       hostIPC:
         enabled: false
+    huggingfaceserver_multinode:
+      imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+      shm:
+        enabled: true
+        sizeLimit: "3Gi"
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3

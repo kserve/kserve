@@ -48,6 +48,8 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--max_model_len",
                 "512",
+                "--dtype",
+                "bfloat16",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "6Gi"},
@@ -74,7 +76,7 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
     res = generate(service_name, "./data/opt_125m_input_generate.json")
     assert (
         res["choices"][0]["message"]["content"]
-        == "I'm not sure if this is a good idea, but I'm not sure if I should be"
+        == "I'm not sure if this is a good idea, but I'm going to try to get a"
     )
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -98,6 +100,8 @@ def test_huggingface_vllm_openvino_openai_completions():
                 "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
                 "--max_model_len",
                 "512",
+                "--dtype",
+                "bfloat16",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "6Gi"},
@@ -120,7 +124,6 @@ def test_huggingface_vllm_openvino_openai_completions():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-
     res = generate(
         service_name, "./data/opt_125m_completion_input.json", chat_completions=False
     )

@@ -128,6 +128,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{
 									"serving.kserve.io/inferencegraph": graphName,
+									constants.KServeWorkloadKind:       "InferenceGraph",
 								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
@@ -265,6 +266,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{
 									"serving.kserve.io/inferencegraph": graphName,
+									constants.KServeWorkloadKind:       "InferenceGraph",
 								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
@@ -416,6 +418,7 @@ var _ = Describe("Inference Graph controller test", func() {
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{
 									"serving.kserve.io/inferencegraph": graphName,
+									constants.KServeWorkloadKind:       "InferenceGraph",
 								},
 								Annotations: map[string]string{
 									"autoscaling.knative.dev/min-scale": "1",
@@ -668,6 +671,151 @@ var _ = Describe("Inference Graph controller test", func() {
 
 				return false
 			}, timeout, interval).Should(BeTrue())
+		})
+	})
+
+	Context("When creating an IG with tolerations in the spec", func() {
+		It("Should propagate to underlying pod", func() {
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			graphName := "singlenode4"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			ctx := context.Background()
+			ig := &v1alpha1.InferenceGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": string(constants.Serverless),
+					},
+				},
+
+				Spec: v1alpha1.InferenceGraphSpec{
+					Nodes: map[string]v1alpha1.InferenceRouter{
+						v1alpha1.GraphRootNodeName: {
+							RouterType: v1alpha1.Sequence,
+							Steps: []v1alpha1.InferenceStep{
+								{
+									InferenceTarget: v1alpha1.InferenceTarget{
+										ServiceURL: "http://someservice.example.com",
+									},
+								},
+							},
+						},
+					},
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      "key1",
+							Operator: corev1.TolerationOpEqual,
+							Value:    "value1",
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+			defer k8sClient.Delete(ctx, ig)
+			inferenceGraphSubmitted := &v1alpha1.InferenceGraph{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceGraphSubmitted)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			actualKnServiceCreated := &knservingv1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), serviceKey, actualKnServiceCreated)
+			}, timeout).
+				Should(Succeed())
+
+			expectedKnService := &knservingv1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: knservingv1.ServiceSpec{
+					ConfigurationSpec: knservingv1.ConfigurationSpec{
+						Template: knservingv1.RevisionTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Labels: map[string]string{
+									"serving.kserve.io/inferencegraph": graphName,
+									constants.KServeWorkloadKind:       "InferenceGraph",
+								},
+								Annotations: map[string]string{
+									"autoscaling.knative.dev/min-scale": "1",
+									"autoscaling.knative.dev/class":     "kpa.autoscaling.knative.dev",
+									"serving.kserve.io/deploymentMode":  "Serverless",
+								},
+							},
+							Spec: knservingv1.RevisionSpec{
+								ContainerConcurrency: nil,
+								TimeoutSeconds:       nil,
+								PodSpec: corev1.PodSpec{
+									Containers: []corev1.Container{
+										{
+											Image: "kserve/router:v0.10.0",
+											Env: []corev1.EnvVar{
+												{
+													Name:  "PROPAGATE_HEADERS",
+													Value: "Authorization,Intuit_tid",
+												},
+											},
+											Args: []string{
+												"--graph-json",
+												"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.example.com\"}]}},\"resources\":{},\"tolerations\":[{\"key\":\"key1\",\"operator\":\"Equal\",\"value\":\"value1\",\"effect\":\"NoSchedule\"}]}",
+											},
+											Resources: corev1.ResourceRequirements{
+												Limits: corev1.ResourceList{
+													corev1.ResourceCPU:    resource.MustParse("100m"),
+													corev1.ResourceMemory: resource.MustParse("500Mi"),
+												},
+												Requests: corev1.ResourceList{
+													corev1.ResourceCPU:    resource.MustParse("100m"),
+													corev1.ResourceMemory: resource.MustParse("100Mi"),
+												},
+											},
+											ReadinessProbe: expectedReadinessProbe,
+											SecurityContext: &corev1.SecurityContext{
+												Privileged:               proto.Bool(false),
+												RunAsNonRoot:             proto.Bool(true),
+												ReadOnlyRootFilesystem:   proto.Bool(true),
+												AllowPrivilegeEscalation: proto.Bool(false),
+												Capabilities: &corev1.Capabilities{
+													Drop: []corev1.Capability{corev1.Capability("ALL")},
+												},
+											},
+										},
+									},
+									Tolerations: []corev1.Toleration{
+										{
+											Key:      "key1",
+											Operator: corev1.TolerationOpEqual,
+											Value:    "value1",
+											Effect:   corev1.TaintEffectNoSchedule,
+										},
+									},
+									AutomountServiceAccountToken: proto.Bool(false),
+								},
+							},
+						},
+					},
+				},
+			}
+			// Set ResourceVersion which is required for update operation.
+			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
+
+			// Do a dry-run update. This will populate our local knative service object with any default values
+			// that are present on the remote version.
+			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(actualKnServiceCreated.Spec).To(BeComparableTo(expectedKnService.Spec))
 		})
 	})
 })

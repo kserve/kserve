@@ -30,15 +30,15 @@ import (
 )
 
 // KServe Constants
-var (
+const (
 	KServeName                       = "kserve"
 	KServeAPIGroupName               = "serving.kserve.io"
 	KnativeAutoscalingAPIGroupName   = "autoscaling.knative.dev"
 	KnativeServingAPIGroupNamePrefix = "serving.knative"
 	KnativeServingAPIGroupName       = KnativeServingAPIGroupNamePrefix + ".dev"
-	KServeNamespace                  = getEnvOrDefault("POD_NAMESPACE", "kserve")
-	KServeDefaultVersion             = "v0.5.0"
 )
+
+var KServeNamespace = getEnvOrDefault("POD_NAMESPACE", "kserve")
 
 // InferenceService Constants
 var (
@@ -69,11 +69,12 @@ var (
 
 // Model agent Constants
 const (
-	AgentContainerName    = "agent"
-	AgentConfigMapKeyName = "agent"
-	AgentEnableFlag       = "--enable-puller"
-	AgentConfigDirArgName = "--config-dir"
-	AgentModelDirArgName  = "--model-dir"
+	AgentContainerName        = "agent"
+	AgentConfigMapKeyName     = "agent"
+	AgentEnableFlag           = "--enable-puller"
+	AgentConfigDirArgName     = "--config-dir"
+	AgentModelDirArgName      = "--model-dir"
+	AgentComponentPortArgName = "--component-port"
 )
 
 // InferenceLogger Constants
@@ -162,57 +163,70 @@ var (
 	IstioSidecarStatusAnnotation          = "sidecar.istio.io/status"
 )
 
+var OTelBackend = "opentelemetry"
+
 type (
-	AutoscalerClassType      string
-	AutoscalerMetricsType    string
-	AutoScalerKPAMetricsType string
+	AutoscalerClassType                string
+	AutoscalerHPAMetricsType           string
+	AutoScalerKPAMetricsType           string
+	AutoscalerKedaMetricsType          string
+	AutoScalerMetricsSourceType        string
+	AutoScalerMetricsSourceBackendType string
+	AutoScalerType                     string
 )
 
+// DefaultAutoscalerClass Autoscaler Default Class
+const (
+	DefaultAutoscalerClass = AutoscalerClassHPA
+)
+
+// Supported Autoscaler Class
+const (
+	AutoscalerClassHPA      AutoscalerClassType = "hpa"
+	AutoscalerClassKPA      AutoscalerClassType = "kpa"
+	AutoscalerClassExternal AutoscalerClassType = "external"
+	AutoscalerClassKeda     AutoscalerClassType = "keda"
+)
+
+// HPA Metrics Types
 var (
+	AutoScalerMetricsCPU    AutoscalerHPAMetricsType = "cpu"
+	AutoScalerMetricsMemory AutoscalerHPAMetricsType = "memory"
+)
+
+// KPA Metrics Types
+const (
 	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
 	AutoScalerKPAMetricsConcurrency AutoScalerKPAMetricsType = "concurrency"
 )
 
-// Autoscaler Default Class
-var (
-	DefaultAutoscalerClass = AutoscalerClassHPA
+// KEDA metrics source type
+const (
+	AutoScalerMetricsSourcePrometheus    AutoScalerMetricsSourceBackendType = "prometheus"
+	AutoScalerMetricsSourceGraphite      AutoScalerMetricsSourceBackendType = "graphite"
+	AutoScalerMetricsSourceOpenTelemetry AutoScalerMetricsSourceBackendType = "opentelemetry"
 )
 
-// Autoscaler Class
-var (
-	AutoscalerClassHPA      AutoscalerClassType = "hpa"
-	AutoscalerClassExternal AutoscalerClassType = "external"
-)
-
-// Autoscaler Metrics
-var (
-	AutoScalerMetricsCPU AutoscalerMetricsType = "cpu"
-)
-
-// Autoscaler Memory metrics
-var (
-	AutoScalerMetricsMemory AutoscalerMetricsType = "memory"
-)
-
-// Autoscaler Class Allowed List
+// AutoscalerAllowedClassList Autoscaler Class types
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
 	AutoscalerClassExternal,
+	AutoscalerClassKeda,
 }
 
-// Autoscaler Metrics Allowed List
-var AutoscalerAllowedMetricsList = []AutoscalerMetricsType{
+// AutoscalerAllowedHPAMetricsList allowed resource metrics List.
+var AutoscalerAllowedHPAMetricsList = []AutoscalerHPAMetricsType{
 	AutoScalerMetricsCPU,
 	AutoScalerMetricsMemory,
 }
 
-// Autoscaler KPA Metrics Allowed List
-var AutoScalerKPAMetricsAllowedList = []AutoScalerKPAMetricsType{
+// AutoscalerAllowedKPAMetricsList allowed KPA metrics list.
+var AutoscalerAllowedKPAMetricsList = []AutoScalerKPAMetricsType{
 	AutoScalerKPAMetricsConcurrency,
 	AutoScalerKPAMetricsRPS,
 }
 
-// Autoscaler Default Metrics Value
+// DefaultCPUUtilization Autoscaler Default Metrics Value
 var (
 	DefaultCPUUtilization int32 = 80
 )
@@ -233,7 +247,7 @@ const (
 
 var CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
 
-var GPUResourceTypeList = []string{
+var DefaultGPUResourceTypeList = []string{
 	NvidiaGPUResourceType,
 	AmdGPUResourceType,
 	IntelGPUResourceType,
@@ -307,6 +321,7 @@ const (
 	KServiceComponentLabel = "component"
 	KServiceModelLabel     = "model"
 	KServiceEndpointLabel  = "endpoint"
+	KServeWorkloadKind     = KServeAPIGroupName + "/kind"
 )
 
 // Labels for TrainedModel
@@ -340,19 +355,20 @@ const (
 	TransformerContainerName = "transformer-container"
 
 	// WorkerContainerName is for worker node container
-	WorkerContainerName = "worker-container"
+	WorkerContainerName     = "worker-container"
+	QueueProxyContainerName = "queue-proxy"
 )
 
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
 
-// Default path to mount CA bundle configmap volume
+// DefaultCaBundleVolumeMountPath Default path to mount CA bundle configmap volume
 const DefaultCaBundleVolumeMountPath = "/etc/ssl/custom-certs"
 
-// Default name for CA bundle file
+// DefaultCaBundleFileName Default name for CA bundle file
 const DefaultCaBundleFileName = "cabundle.crt"
 
-// Default CA bundle configmap name that will be created in the user namespace.
+// DefaultGlobalCaBundleConfigMapName Default CA bundle configmap name that will be created in the user namespace.
 const DefaultGlobalCaBundleConfigMapName = "global-ca-bundle"
 
 // Custom CA bundle configmap Environment Variables
@@ -486,6 +502,8 @@ const (
 	HTTPRouteKind           = "HTTPRoute"
 	GatewayKind             = "Gateway"
 	ServiceKind             = "Service"
+	KedaScaledObjectKind    = "ScaledObject"
+	OpenTelemetryCollector  = "OpenTelemetryCollector"
 )
 
 // Model Parallel Options

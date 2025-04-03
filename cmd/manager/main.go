@@ -22,6 +22,8 @@ import (
 	"net/http"
 	"os"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	istio_networking "istio.io/api/networking/v1alpha3"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -166,6 +168,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Update Global GPU Resource Type List when custom GPU resource types are provided
+	_, err = v1beta1.NewMultiNodeConfig(isvcConfigMap)
+	if err != nil {
+		setupLog.Error(err, "unable to get multiNode config.")
+		os.Exit(1)
+	}
+
 	ksvcFound, ksvcCheckErr := utils.IsCrdAvailable(cfg, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 	if ksvcCheckErr != nil {
 		setupLog.Error(ksvcCheckErr, "error when checking if Knative Service kind is available")
@@ -190,6 +199,32 @@ func main() {
 				setupLog.Error(err, "unable to add Istio v1beta1 APIs to scheme")
 				os.Exit(1)
 			}
+		}
+	}
+
+	kedaFound, kedaCheckErr := utils.IsCrdAvailable(cfg, kedav1alpha1.SchemeGroupVersion.String(), constants.KedaScaledObjectKind)
+	if kedaCheckErr != nil {
+		setupLog.Error(ksvcCheckErr, "error when checking if KEDA ScaledObject kind is available")
+		os.Exit(1)
+	}
+	if kedaFound {
+		setupLog.Info("Setting up KEDA scheme")
+		if err := kedav1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+			setupLog.Error(err, "unable to add KEDA APIs to scheme")
+			os.Exit(1)
+		}
+	}
+
+	otelFound, otelCheckErr := utils.IsCrdAvailable(cfg, otelv1beta1.GroupVersion.String(), constants.OpenTelemetryCollector)
+	if otelCheckErr != nil {
+		setupLog.Error(ksvcCheckErr, "error when checking if OpentelemetryCollector kind is available")
+		os.Exit(1)
+	}
+	if otelFound {
+		setupLog.Info("Setting up OTEL scheme")
+		if err := otelv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
+			setupLog.Error(err, "unable to add OTEL APIs to scheme")
+			os.Exit(1)
 		}
 	}
 

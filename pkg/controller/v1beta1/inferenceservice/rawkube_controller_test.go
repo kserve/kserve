@@ -21,16 +21,22 @@ import (
 	"fmt"
 	"time"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
+
+	"github.com/kserve/kserve/pkg/utils"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
-	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,7 +50,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ = Describe("v1beta1 inference service controller", func() {
@@ -145,16 +150,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 			serviceKey := expectedRequest.NamespacedName
 			storageUri := "s3://test/mnist/export"
+			qty := resource.MustParse("10Gi")
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
-						"serving.kserve.io/autoscalerClass":             "hpa",
-						"serving.kserve.io/metrics":                     "cpu",
-						"serving.kserve.io/targetUtilizationPercentage": "75",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -163,6 +167,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							MinReplicas:    ptr.To(int32(1)),
 							MaxReplicas:    3,
 							TimeoutSeconds: ptr.To(int64(30)),
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.ResourceMetricMemory,
+											Target: v1beta1.MetricTarget{
+												Type:         v1beta1.AverageValueMetricType,
+												AverageValue: &qty,
+											},
+										},
+									},
+								},
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -222,10 +240,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
-								"serving.kserve.io/metrics":                                "cpu",
-								"serving.kserve.io/targetUtilizationPercentage":            "75",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -351,7 +367,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedTopLevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -566,7 +582,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// check HPA
 			var minReplicas int32 = 1
 			var maxReplicas int32 = 3
-			var cpuUtilization int32 = 75
 			var stabilizationWindowSeconds int32 = 0
 			selectPolicy := autoscalingv2.MaxChangePolicySelect
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
@@ -589,10 +604,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							Type: autoscalingv2.ResourceMetricSourceType,
 							Resource: &autoscalingv2.ResourceMetricSource{
-								Name: corev1.ResourceCPU,
+								Name: corev1.ResourceMemory,
 								Target: autoscalingv2.MetricTarget{
-									Type:               "Utilization",
-									AverageUtilization: &cpuUtilization,
+									Type:         autoscalingv2.AverageValueMetricType,
+									AverageValue: &qty,
 								},
 							},
 						},
@@ -630,6 +645,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualHPA.Spec).To(BeComparableTo(expectedHPA.Spec))
 		})
+
 		It("Should have httproute/service/deployment/hpa created with DeploymentStrategy", func() {
 			By("By creating a new InferenceService with DeploymentStrategy in PredictorSpec")
 			// Create configmap
@@ -690,15 +706,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			var progressDeadlineSeconds int32 = 600
 			var gracePeriod int64 = 30
 			ctx := context.Background()
+			var cpuUtilization int32 = 75
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
-						"serving.kserve.io/autoscalerClass":             "hpa",
-						"serving.kserve.io/metrics":                     "cpu",
-						"serving.kserve.io/targetUtilizationPercentage": "75",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -708,6 +723,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							MaxReplicas: 3,
 							DeploymentStrategy: &appsv1.DeploymentStrategy{
 								Type: appsv1.RecreateDeploymentStrategyType,
+							},
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.ResourceMetricCPU,
+											Target: v1beta1.MetricTarget{
+												Type:               v1beta1.UtilizationMetricType,
+												AverageUtilization: &cpuUtilization,
+											},
+										},
+									},
+								},
 							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
@@ -762,10 +791,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
-								"serving.kserve.io/metrics":                                "cpu",
-								"serving.kserve.io/targetUtilizationPercentage":            "75",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -889,7 +916,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -1105,7 +1132,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// check HPA
 			var minReplicas int32 = 1
 			var maxReplicas int32 = 3
-			var cpuUtilization int32 = 75
 			var stabilizationWindowSeconds int32 = 0
 			selectPolicy := autoscalingv2.MaxChangePolicySelect
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
@@ -1130,7 +1156,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: corev1.ResourceCPU,
 								Target: autoscalingv2.MetricTarget{
-									Type:               "Utilization",
+									Type:               autoscalingv2.UtilizationMetricType,
 									AverageUtilization: &cpuUtilization,
 								},
 							},
@@ -1170,7 +1196,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualHPA.Spec).To(BeComparableTo(expectedHPA.Spec))
 		})
 		It("Should have httproute/service/deployment created", func() {
-			By("By creating a new InferenceService with AutoscalerClassExternal")
+			By("By creating a new InferenceService with AutoscalerClass External")
 			// Create configmap
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1226,8 +1252,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -1290,8 +1316,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "external",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassExternal),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1418,7 +1444,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -1741,10 +1767,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
-						"serving.kserve.io/autoscalerClass":             "hpa",
-						"serving.kserve.io/metrics":                     "cpu",
-						"serving.kserve.io/targetUtilizationPercentage": "75",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -1752,6 +1776,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: ptr.To(int32(1)),
 							MaxReplicas: 3,
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.ResourceMetricCPU,
+											Target: v1beta1.MetricTarget{
+												Type:               v1beta1.UtilizationMetricType,
+												AverageUtilization: ptr.To(int32(75)),
+											},
+										},
+									},
+								},
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -1811,10 +1849,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
-								"serving.kserve.io/metrics":                                "cpu",
-								"serving.kserve.io/targetUtilizationPercentage":            "75",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -2143,10 +2179,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
-						"serving.kserve.io/autoscalerClass":             "hpa",
-						"serving.kserve.io/metrics":                     "cpu",
-						"serving.kserve.io/targetUtilizationPercentage": "75",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -2154,6 +2188,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: ptr.To(int32(1)),
 							MaxReplicas: 3,
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.ResourceMetricCPU,
+											Target: v1beta1.MetricTarget{
+												Type:               v1beta1.UtilizationMetricType,
+												AverageUtilization: ptr.To(int32(75)),
+											},
+										},
+									},
+								},
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -2213,10 +2261,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
-								"serving.kserve.io/metrics":                                "cpu",
-								"serving.kserve.io/targetUtilizationPercentage":            "75",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -2343,7 +2389,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			topLevelHost := fmt.Sprintf("%s.%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s.%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -2725,10 +2771,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
-						"serving.kserve.io/autoscalerClass":             "hpa",
-						"serving.kserve.io/metrics":                     "cpu",
-						"serving.kserve.io/targetUtilizationPercentage": "75",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -2736,6 +2780,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: ptr.To(minReplicas),
 							MaxReplicas: maxReplicas,
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.ResourceMetricCPU,
+											Target: v1beta1.MetricTarget{
+												Type:               v1beta1.UtilizationMetricType,
+												AverageUtilization: ptr.To(int32(75)),
+											},
+										},
+									},
+								},
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -2815,10 +2873,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
-								"serving.kserve.io/metrics":                                "cpu",
-								"serving.kserve.io/targetUtilizationPercentage":            "75",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -2918,10 +2974,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								"serving.kserve.io/deploymentMode":              "RawDeployment",
-								"serving.kserve.io/autoscalerClass":             "hpa",
-								"serving.kserve.io/metrics":                     "cpu",
-								"serving.kserve.io/targetUtilizationPercentage": "75",
+								constants.DeploymentMode:  string(constants.RawDeployment),
+								constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -3084,7 +3138,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -3612,10 +3666,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
-						"serving.kserve.io/autoscalerClass":             "hpa",
-						"serving.kserve.io/metrics":                     "cpu",
-						"serving.kserve.io/targetUtilizationPercentage": "75",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -3623,6 +3675,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: ptr.To(minReplicas),
 							MaxReplicas: maxReplicas,
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.ResourceMetricCPU,
+											Target: v1beta1.MetricTarget{
+												Type:               v1beta1.UtilizationMetricType,
+												AverageUtilization: ptr.To(int32(75)),
+											},
+										},
+									},
+								},
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -3705,10 +3771,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
-								"serving.kserve.io/metrics":                                "cpu",
-								"serving.kserve.io/targetUtilizationPercentage":            "75",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -3808,10 +3872,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								"serving.kserve.io/deploymentMode":              "RawDeployment",
-								"serving.kserve.io/autoscalerClass":             "hpa",
-								"serving.kserve.io/metrics":                     "cpu",
-								"serving.kserve.io/targetUtilizationPercentage": "75",
+								constants.DeploymentMode:  string(constants.RawDeployment),
+								constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -3976,7 +4038,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			topLevelHost := fmt.Sprintf("%s-%s.%s", serviceKey.Name, serviceKey.Namespace, "example.com")
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace))},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -4534,10 +4596,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
-						"serving.kserve.io/autoscalerClass":             "hpa",
-						"serving.kserve.io/metrics":                     "cpu",
-						"serving.kserve.io/targetUtilizationPercentage": "75",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -4546,6 +4606,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							MinReplicas:    ptr.To(int32(1)),
 							MaxReplicas:    3,
 							TimeoutSeconds: ptr.To(int64(30)),
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.ResourceMetricCPU,
+											Target: v1beta1.MetricTarget{
+												Type:               v1beta1.UtilizationMetricType,
+												AverageUtilization: ptr.To(int32(75)),
+											},
+										},
+									},
+								},
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -4605,10 +4679,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
-								"serving.kserve.io/metrics":                                "cpu",
-								"serving.kserve.io/targetUtilizationPercentage":            "75",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -4736,7 +4808,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			prefixUrlPath := fmt.Sprintf("/serving/%s/%s", serviceKey.Namespace, serviceKey.Name)
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", "example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace)), "example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -5021,7 +5093,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: corev1.ResourceCPU,
 								Target: autoscalingv2.MetricTarget{
-									Type:               "Utilization",
+									Type:               autoscalingv2.UtilizationMetricType,
 									AverageUtilization: &cpuUtilization,
 								},
 							},
@@ -5164,10 +5236,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
-						"serving.kserve.io/autoscalerClass":             "hpa",
-						"serving.kserve.io/metrics":                     "cpu",
-						"serving.kserve.io/targetUtilizationPercentage": "75",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -5175,6 +5245,19 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: ptr.To(minReplicas),
 							MaxReplicas: maxReplicas,
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.ResourceMetricCPU,
+											Target: v1beta1.MetricTarget{
+												Type: v1beta1.UtilizationMetricType,
+											},
+										},
+									},
+								},
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -5258,10 +5341,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
-								"serving.kserve.io/metrics":                                "cpu",
-								"serving.kserve.io/targetUtilizationPercentage":            "75",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -5361,10 +5442,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								"serving.kserve.io/deploymentMode":              "RawDeployment",
-								"serving.kserve.io/autoscalerClass":             "hpa",
-								"serving.kserve.io/metrics":                     "cpu",
-								"serving.kserve.io/targetUtilizationPercentage": "75",
+								constants.DeploymentMode:  string(constants.RawDeployment),
+								constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -5528,7 +5607,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			prefixUrlPath := fmt.Sprintf("/serving/%s/%s", serviceKey.Namespace, serviceKey.Name)
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", "example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace)), "example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -5872,7 +5951,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).Should(BeEmpty())
 
 			// check predictor HPA
-			var cpuUtilization int32 = 75
+			var defaultCpuUtilization int32 = 80
 			var stabilizationWindowSeconds int32 = 0
 			selectPolicy := autoscalingv2.MaxChangePolicySelect
 			actualPredictorHPA := &autoscalingv2.HorizontalPodAutoscaler{}
@@ -5897,8 +5976,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: corev1.ResourceCPU,
 								Target: autoscalingv2.MetricTarget{
-									Type:               "Utilization",
-									AverageUtilization: &cpuUtilization,
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: &defaultCpuUtilization,
 								},
 							},
 						},
@@ -6102,10 +6181,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
-						"serving.kserve.io/autoscalerClass":             "hpa",
-						"serving.kserve.io/metrics":                     "cpu",
-						"serving.kserve.io/targetUtilizationPercentage": "75",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -6113,6 +6190,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: ptr.To(minReplicas),
 							MaxReplicas: maxReplicas,
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.ResourceMetricCPU,
+											Target: v1beta1.MetricTarget{
+												Type:               v1beta1.UtilizationMetricType,
+												AverageUtilization: ptr.To(int32(75)),
+											},
+										},
+									},
+								},
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -6195,10 +6286,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
-								"serving.kserve.io/metrics":                                "cpu",
-								"serving.kserve.io/targetUtilizationPercentage":            "75",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -6298,10 +6387,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
-								"serving.kserve.io/deploymentMode":              "RawDeployment",
-								"serving.kserve.io/autoscalerClass":             "hpa",
-								"serving.kserve.io/metrics":                     "cpu",
-								"serving.kserve.io/targetUtilizationPercentage": "75",
+								constants.DeploymentMode:  string(constants.RawDeployment),
+								constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -6468,7 +6555,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			prefixUrlPath := fmt.Sprintf("/serving/%s/%s", serviceKey.Namespace, serviceKey.Name)
 			expectedToplevelHttpRoute := gatewayapiv1.HTTPRoute{
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), "additional.example.com", "example.com"},
+					Hostnames: []gatewayapiv1.Hostname{gatewayapiv1.Hostname(topLevelHost), gatewayapiv1.Hostname(fmt.Sprintf("%s-%s.additional.example.com", serviceKey.Name, serviceKey.Namespace)), "example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -7051,7 +7138,375 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
 				"enableDirectPvcVolumeMount": false
 			}`,
+			"opentelemetryCollector": `{
+				"scrapeInterval": "5s",
+				"metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
+				"metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
+			}`,
 		}
+		It("Should have KEDA ScaledObject created", func() {
+			By("By creating a new InferenceService")
+			// Create configmap
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving-raw",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			serviceName := "raw-foo-1"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
+			qty := resource.MustParse("10Gi")
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassKeda),
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: ptr.To(int32(1)),
+							MaxReplicas: 3,
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.ResourceMetricMemory,
+											Target: v1beta1.MetricTarget{
+												Type:         v1beta1.AverageValueMetricType,
+												AverageValue: &qty,
+											},
+										},
+									},
+								},
+							},
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: corev1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			inferenceService := &v1beta1.InferenceService{}
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			actualScaledObject := &kedav1alpha1.ScaledObject{}
+
+			predictorSObjectKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorSObjectKey, actualScaledObject) }, timeout).
+				Should(Succeed())
+
+			expectedScaledobject := &kedav1alpha1.ScaledObject{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      predictorSObjectKey.Name,
+					Namespace: predictorSObjectKey.Namespace,
+				},
+				Spec: kedav1alpha1.ScaledObjectSpec{
+					ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+						Name: predictorSObjectKey.Name,
+					},
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{
+							Type: "memory",
+							Metadata: map[string]string{
+								"value": "10Gi",
+							},
+							MetricType: autoscalingv2.AverageValueMetricType,
+						},
+					},
+					MinReplicaCount: proto.Int32(1),
+					MaxReplicaCount: proto.Int32(3),
+				},
+			}
+			Expect(actualScaledObject.Spec).To(gomega.Equal(expectedScaledobject.Spec))
+
+			// check service
+			actualService := &corev1.Service{}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
+				Should(Succeed())
+
+			expectedService := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      predictorServiceKey.Name,
+					Namespace: predictorServiceKey.Namespace,
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       constants.PredictorServiceName(serviceName),
+							Protocol:   "TCP",
+							Port:       80,
+							TargetPort: intstr.IntOrString{Type: 0, IntVal: 8080, StrVal: ""},
+						},
+					},
+					Type:            "ClusterIP",
+					SessionAffinity: "None",
+					Selector: map[string]string{
+						"app": "isvc." + constants.PredictorServiceName(serviceName),
+					},
+				},
+			}
+			actualService.Spec.ClusterIP = ""
+			actualService.Spec.ClusterIPs = nil
+			actualService.Spec.IPFamilies = nil
+			actualService.Spec.IPFamilyPolicy = nil
+			actualService.Spec.InternalTrafficPolicy = nil
+			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
+
+			// check isvc status
+			updatedScaledObject := actualScaledObject.DeepCopy()
+			updatedScaledObject.Status.Conditions = []kedav1alpha1.Condition{
+				{
+					Type:   kedav1alpha1.ConditionReady,
+					Status: kedav1alpha1.GetInitializedConditions().GetActiveCondition().Status,
+				},
+			}
+			Expect(k8sClient.Status().Update(context.TODO(), updatedScaledObject)).NotTo(gomega.HaveOccurred())
+		})
+
+		It("Should have OpenTelemetry Collector created", func() {
+			By("By creating a new InferenceService")
+			// Create configmap
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving-raw",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			serviceName := "raw-foo-3"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						constants.DeploymentMode:          string(constants.RawDeployment),
+						constants.AutoscalerClass:         string(constants.AutoscalerClassKeda),
+						"sidecar.opentelemetry.io/inject": "true",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: ptr.To(int32(1)),
+							MaxReplicas: 3,
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.PodMetricSourceType,
+										PodMetric: &v1beta1.PodMetricSource{
+											Metric: v1beta1.PodMetrics{
+												Backend:     v1beta1.OpenTelemetryBackend,
+												MetricNames: []string{"process_cpu_seconds_total"},
+												Query:       "avg(process_cpu_seconds_total)",
+											},
+											Target: v1beta1.MetricTarget{
+												Type:  v1beta1.ValueMetricType,
+												Value: &resource.Quantity{},
+											},
+										},
+									},
+								},
+							},
+						},
+
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: corev1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			inferenceService := &v1beta1.InferenceService{}
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			actualOTelCollector := &otelv1beta1.OpenTelemetryCollector{}
+
+			predictorSObjectKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorSObjectKey, actualOTelCollector) }, timeout).
+				Should(Succeed())
+
+			expectedOTelCollector := &otelv1beta1.OpenTelemetryCollector{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      predictorSObjectKey.Name,
+					Namespace: predictorSObjectKey.Namespace,
+				},
+				Spec: otelv1beta1.OpenTelemetryCollectorSpec{
+					Mode: "sidecar",
+					Config: otelv1beta1.Config{
+						Receivers: otelv1beta1.AnyConfig{Object: map[string]interface{}{
+							"prometheus": map[string]interface{}{
+								"config": map[string]interface{}{
+									"scrape_configs": []interface{}{
+										map[string]interface{}{
+											"job_name":        "otel-collector",
+											"scrape_interval": "5s",
+											"static_configs": []interface{}{
+												map[string]interface{}{
+													"targets": []interface{}{"localhost:8080"},
+												},
+											},
+										},
+									},
+								},
+							},
+						}},
+						Processors: &otelv1beta1.AnyConfig{Object: map[string]interface{}{
+							"filter/ottl": map[string]interface{}{
+								"error_mode": "ignore",
+								"metrics": map[string]interface{}{
+									"metric": []interface{}{
+										`name != "process_cpu_seconds_total"`,
+									},
+								},
+							},
+						}},
+						Exporters: otelv1beta1.AnyConfig{Object: map[string]interface{}{
+							"otlp": map[string]interface{}{
+								"endpoint":    "keda-otel-scaler.keda.svc:4317",
+								"compression": "none",
+								"tls": map[string]interface{}{
+									"insecure": true,
+								},
+							},
+						}},
+						Service: otelv1beta1.Service{
+							Pipelines: map[string]*otelv1beta1.Pipeline{
+								"metrics": {
+									Receivers:  []string{"prometheus"},
+									Processors: []string{"filter/ottl"},
+									Exporters:  []string{"otlp"},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(actualOTelCollector.Spec.Config).To(gomega.BeComparableTo(expectedOTelCollector.Spec.Config))
+		})
 
 		It("Should have ingress/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
@@ -7110,10 +7565,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":              "RawDeployment",
-						"serving.kserve.io/autoscalerClass":             "hpa",
-						"serving.kserve.io/metrics":                     "cpu",
-						"serving.kserve.io/targetUtilizationPercentage": "75",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -7121,6 +7574,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
 							MinReplicas: ptr.To(int32(1)),
 							MaxReplicas: 3,
+							AutoScaling: &v1beta1.AutoScalingSpec{
+								Metrics: []v1beta1.MetricsSpec{
+									{
+										Type: v1beta1.ResourceMetricSourceType,
+										Resource: &v1beta1.ResourceMetricSource{
+											Name: v1beta1.ResourceMetricCPU,
+											Target: v1beta1.MetricTarget{
+												Type:               v1beta1.UtilizationMetricType,
+												AverageUtilization: ptr.To(int32(75)),
+											},
+										},
+									},
+								},
+							},
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
@@ -7179,10 +7646,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
-								"serving.kserve.io/deploymentMode":                         "RawDeployment",
-								"serving.kserve.io/autoscalerClass":                        "hpa",
-								"serving.kserve.io/metrics":                                "cpu",
-								"serving.kserve.io/targetUtilizationPercentage":            "75",
+								constants.DeploymentMode:                                   string(constants.RawDeployment),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassHPA),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -7433,7 +7898,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: corev1.ResourceCPU,
 								Target: autoscalingv2.MetricTarget{
-									Type:               "Utilization",
+									Type:               autoscalingv2.UtilizationMetricType,
 									AverageUtilization: &cpuUtilization,
 								},
 							},
@@ -7584,8 +8049,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -7681,8 +8146,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -7740,8 +8205,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -7793,8 +8258,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{

@@ -15,6 +15,8 @@
 
 import os
 import uuid
+from kserve.models.v1beta1_model_format import V1beta1ModelFormat
+from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
 from kubernetes import client
 
 from kserve import KServeClient
@@ -130,6 +132,90 @@ async def test_transformer_collocation(rest_v1_client):
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.collocation
+@pytest.mark.asyncio(scope="session")
+async def test_transformer_collocation_runtime(rest_v1_client):
+    service_name = "custom-model-trans-collocation-runtime"
+    model_name = "mnist"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="pytorch",
+            ),
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
+            protocol_version="v1",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "100m", "memory": "4Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
+            ),
+        ),
+        containers=[
+            V1Container(
+                name=TRANSFORMER_CONTAINER,
+                image=os.environ.get("IMAGE_TRANSFORMER_IMG_TAG"),
+                args=[
+                    f"--model_name={model_name}",
+                    "--http_port=8090",
+                    "--grpc_port=8091",
+                    "--predictor_host=localhost:8085",
+                    "--enable_predictor_health_check",
+                ],
+                ports=[V1ContainerPort(container_port=8090, protocol="TCP")],
+                resources=V1ResourceRequirements(
+                    requests={"cpu": "10m", "memory": "128Mi"},
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+                readiness_probe=client.V1Probe(
+                    http_get=client.V1HTTPGetAction(
+                        path=f"/v1/models/{model_name}", port=8090
+                    )
+                ),
+            ),
+        ],
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    try:
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    except RuntimeError as e:
+        print(
+            kserve_client.api_instance.get_namespaced_custom_object(
+                "serving.knative.dev",
+                "v1",
+                KSERVE_TEST_NAMESPACE,
+                "services",
+                service_name + "-predictor",
+            )
+        )
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        )
+        for pod in pods.items:
+            print(pod)
+        raise e
+    is_ready = await is_model_ready(rest_v1_client, service_name, model_name) is True
+    assert is_ready is True
+    res = await predict_isvc(
+        rest_v1_client, service_name, "./data/transformer.json", model_name=model_name
+    )
+    assert res["predictions"][0] == 2
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_raw_transformer_collocation(rest_v1_client, network_layer):
@@ -177,6 +263,102 @@ async def test_raw_transformer_collocation(rest_v1_client, network_layer):
                 resources=V1ResourceRequirements(
                     requests={"cpu": "10m", "memory": "128Mi"},
                     limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+            ),
+        ],
+    )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            annotations={"serving.kserve.io/deploymentMode": "RawDeployment"},
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    try:
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    except RuntimeError as e:
+        print(
+            kserve_client.api_instance.get_namespaced_custom_object(
+                "serving.knative.dev",
+                "v1",
+                KSERVE_TEST_NAMESPACE,
+                "services",
+                service_name + "-predictor",
+            )
+        )
+        pods = kserve_client.core_api.list_namespaced_pod(
+            KSERVE_TEST_NAMESPACE,
+            label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
+        )
+        for pod in pods.items:
+            print(pod)
+        raise e
+    is_ready = (
+        await is_model_ready(
+            rest_v1_client, service_name, model_name, network_layer=network_layer
+        )
+        is True
+    )
+    assert is_ready is True
+    res = await predict_isvc(
+        rest_v1_client,
+        service_name,
+        "./data/transformer.json",
+        model_name=model_name,
+        network_layer=network_layer,
+    )
+    assert res["predictions"][0] == 2
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
+async def test_raw_transformer_collocation_runtime(rest_v1_client, network_layer):
+    suffix = str(uuid.uuid4())[1:5]
+    service_name = "raw-custom-pred-collocation-" + suffix
+    model_name = "mnist"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="pytorch",
+            ),
+            storage_uri="gs://kfserving-examples/models/torchserve/image_classifier/v1",
+            protocol_version="v1",
+            resources=V1ResourceRequirements(
+                requests={"cpu": "100m", "memory": "4Gi"},
+                limits={"cpu": "1", "memory": "4Gi"},
+            ),
+        ),
+        containers=[
+            V1Container(
+                name=TRANSFORMER_CONTAINER,
+                image=os.environ.get("IMAGE_TRANSFORMER_IMG_TAG"),
+                args=[
+                    f"--model_name={model_name}",
+                    "--http_port=8090",
+                    "--grpc_port=8091",
+                    "--predictor_host=localhost:8085",
+                    "--enable_predictor_health_check",
+                ],
+                ports=[V1ContainerPort(container_port=8090, protocol="TCP")],
+                resources=V1ResourceRequirements(
+                    requests={"cpu": "10m", "memory": "128Mi"},
+                    limits={"cpu": "100m", "memory": "1Gi"},
+                ),
+                readiness_probe=client.V1Probe(
+                    http_get=client.V1HTTPGetAction(
+                        path=f"/v1/models/{model_name}", port=8090
+                    )
                 ),
             ),
         ],

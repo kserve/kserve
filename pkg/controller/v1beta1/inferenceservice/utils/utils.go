@@ -182,9 +182,9 @@ func GetDeploymentMode(annotations map[string]string, deployConfig *v1beta1.Depl
 	return constants.DeploymentModeType(deployConfig.DefaultDeploymentMode)
 }
 
-// MergeRuntimeContainers Merge the predictor Container struct with the runtime Container struct, allowing users
+// MergeRuntimeContainers Merge the predictor or transformer Container struct with the runtime Container struct, allowing users
 // to override runtime container settings from the predictor spec.
-func MergeRuntimeContainers(runtimeContainer *corev1.Container, predictorContainer *corev1.Container) (*corev1.Container, error) {
+func MergeRuntimeContainers(runtimeContainer *corev1.Container, isvcContainer *corev1.Container) (*corev1.Container, error) {
 	// Save runtime container name, as the name can be overridden as empty string during the Unmarshal below
 	// since the Name field does not have the 'omitempty' struct tag.
 	runtimeContainerName := runtimeContainer.Name
@@ -195,7 +195,7 @@ func MergeRuntimeContainers(runtimeContainer *corev1.Container, predictorContain
 		return nil, err
 	}
 
-	overrides, err := json.Marshal(predictorContainer)
+	overrides, err := json.Marshal(isvcContainer)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func MergeRuntimeContainers(runtimeContainer *corev1.Container, predictorContain
 	}
 
 	// Strategic merge patch will replace args but more useful behaviour here is to concatenate
-	mergedContainer.Args = append(append([]string{}, runtimeContainer.Args...), predictorContainer.Args...)
+	mergedContainer.Args = append(append([]string{}, runtimeContainer.Args...), isvcContainer.Args...)
 
 	return &mergedContainer, nil
 }
@@ -400,15 +400,18 @@ func AddEnvVarToPodSpec(podSpec *corev1.PodSpec, containerName, envName, envValu
 	return nil
 }
 
-func MergeServingRuntimeAndInferenceServiceSpecs(srContainers []corev1.Container, isvcContainer corev1.Container, isvc *v1beta1.InferenceService, targetContainerName string, srPodSpec v1alpha1.ServingRuntimePodSpec, isvcPodSpec v1beta1.PodSpec) (int, *corev1.Container, *corev1.PodSpec, error) {
-	var err error
-	containerIndexInSR := -1
-	for i := range srContainers {
-		if srContainers[i].Name == targetContainerName {
-			containerIndexInSR = i
-			break
+func GetContainerIndexByName(containers []corev1.Container, containerName string) int {
+	for i, container := range containers {
+		if container.Name == containerName {
+			return i
 		}
 	}
+	return -1
+}
+
+func MergeServingRuntimeAndInferenceServiceSpecs(srContainers []corev1.Container, isvcContainer corev1.Container, isvc *v1beta1.InferenceService, targetContainerName string, srPodSpec v1alpha1.ServingRuntimePodSpec, isvcPodSpec v1beta1.PodSpec) (int, *corev1.Container, *corev1.PodSpec, error) {
+	var err error
+	containerIndexInSR := GetContainerIndexByName(srContainers, targetContainerName)
 	if containerIndexInSR == -1 {
 		errMsg := fmt.Sprintf("failed to find %s in ServingRuntime containers", targetContainerName)
 		isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{

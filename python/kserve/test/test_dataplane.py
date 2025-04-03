@@ -21,6 +21,7 @@ from unittest import mock
 from unittest.mock import patch
 
 import avro
+import grpc
 import httpx
 import pytest
 import tomlkit
@@ -36,7 +37,7 @@ from typing import AsyncIterator, Union
 from kserve.errors import InvalidInput, ModelNotFound
 from kserve.model import PredictorProtocol, PredictorConfig
 from kserve.protocol.dataplane import DataPlane
-from kserve.protocol.rest.openai import CompletionRequest, OpenAICompletionModel
+from kserve.protocol.rest.openai import CompletionRequest, OpenAIGenerativeModel
 from kserve.model_repository import ModelRepository
 from kserve.ray import RayModel
 from test.test_server import (
@@ -423,7 +424,7 @@ class TestDataPlaneAvroCloudEvent:
 class TestDataPlaneOpenAI:
     MODEL_NAME = "TestModel"
 
-    class DummyOpenAIModel(OpenAICompletionModel):
+    class DummyOpenAIModel(OpenAIGenerativeModel):
         async def create_completion(
             self, params: CompletionRequest
         ) -> Union[Completion, AsyncIterator[Completion]]:
@@ -440,15 +441,15 @@ class TestDataPlaneOpenAI:
         repo.update(openai_model)
         dataplane = DataPlane(model_registry=repo)
 
-        with pytest.raises(InvalidInput) as exc:
+        with pytest.raises(ValueError) as exc:
             await dataplane.infer(
                 model_name=self.MODEL_NAME,
                 request={},
             )
 
         assert (
-            exc.value.reason
-            == "Model TestModel is of type OpenAICompletionModel. It does not support the infer method."
+            exc.value.args[0]
+            == "Model of type DummyOpenAIModel does not support inference"
         )
 
 
@@ -689,9 +690,7 @@ class TestDataplaneTransformer:
     async def test_model_readiness_v2(self, httpx_mock):
         # scenario: getting a 2xx response from predictor
         predictor_host = "ready.host"
-        httpx_mock.add_response(
-            url=re.compile(f"http://{predictor_host}/v2/*"), json={"ready": True}
-        )
+        httpx_mock.add_response(url=re.compile(f"http://{predictor_host}/v2/*"))
         dataplane = DataPlane(
             model_registry=ModelRepository(),
             predictor_config=PredictorConfig(
@@ -707,10 +706,11 @@ class TestDataplaneTransformer:
         dataplane._model_registry.update(ready_model)
         assert (await dataplane.model_ready(ready_model.name)) is True
 
-        # scenario: getting a 2xx response from predictor and model not ready
-        predictor_host = "ready.host"
+        # scenario: getting a 400 response from predictor and model not ready
+        predictor_host = "triton-not-ready.host"
+        # Triton returns a non-200 response if model is not ready
         httpx_mock.add_response(
-            url=re.compile(f"http://{predictor_host}/v2/*"), json={"ready": False}
+            url=re.compile(f"http://{predictor_host}/v2/*"), status_code=400
         )
         dataplane = DataPlane(
             model_registry=ModelRepository(),
@@ -727,7 +727,10 @@ class TestDataplaneTransformer:
         dataplane._model_registry.update(not_ready_model)
         assert (await dataplane.model_ready(not_ready_model.name)) is False
 
-        # scenario: not a 2xx response from predictor
+        # scenario: 503 response from predictor
+        # According to V2 protocol, 200 status code indicates true and a 4xx status code indicates false.
+        # The HTTP response body should be empty.
+        # However, KServe returns 503 when not ready
         predictor_host = "not-ready.host"
         httpx_mock.add_response(
             url=re.compile(f"http://{predictor_host}/v2/*"), status_code=503
@@ -746,6 +749,27 @@ class TestDataplaneTransformer:
         not_ready_model = DummyModel("NotReadyModel")
         dataplane._model_registry.update(not_ready_model)
         assert await dataplane.model_ready(not_ready_model.name) is False
+
+        # Connection error
+        predictor_host = "not-reachable.host"
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.REST_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        # Transformer model is not ready
+        not_ready_model = DummyModel("NotReadyModel")
+        dataplane._model_registry.update(not_ready_model)
+        httpx_mock.add_exception(
+            url=re.compile(f"http://{predictor_host}/v2/*"),
+            exception=httpx.ConnectError("All connection attempts failed"),
+        )
+        assert (await dataplane.model_ready(not_ready_model.name)) is False
 
     @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
     async def test_model_readiness_grpc_v2(self, mock_grpc_client):
@@ -783,7 +807,7 @@ class TestDataplaneTransformer:
                 predictor_health_check=True,
             ),
         )
-        # Transformer model ready
+        # Transformer model is not ready
         not_ready_model = DummyModel("NotReadyModel")
         dataplane._model_registry.update(not_ready_model)
         mock_is_model_ready = mock.AsyncMock(return_value=False)
@@ -792,6 +816,22 @@ class TestDataplaneTransformer:
         mock_grpc_client.assert_called_with(
             url=predictor_host, timeout=5, retries=2, use_ssl=False
         )
+
+        # Connection error
+        predictor_host = "not-reachable.host"
+        dataplane = DataPlane(
+            model_registry=ModelRepository(),
+            predictor_config=PredictorConfig(
+                predictor_host=predictor_host,
+                predictor_protocol=PredictorProtocol.GRPC_V2.value,
+                predictor_request_retries=2,
+                predictor_request_timeout_seconds=5,
+                predictor_health_check=True,
+            ),
+        )
+        dataplane._model_registry.update(ready_model)
+        mock_grpc_client.side_effect = grpc.RpcError("Mocked exception")
+        assert (await dataplane.model_ready(ready_model.name)) is False
 
     @patch("kserve.protocol.dataplane.InferenceClientFactory.get_grpc_client")
     @patch("kserve.protocol.dataplane.InferenceClientFactory.get_rest_client")

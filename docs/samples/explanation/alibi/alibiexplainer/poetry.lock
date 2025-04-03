@@ -1865,7 +1865,7 @@ files = [
 
 [[package]]
 name = "kserve"
-version = "0.15.0rc0"
+version = "0.15.0"
 description = "KServe Python SDK"
 optional = false
 python-versions = ">=3.9,<3.13"

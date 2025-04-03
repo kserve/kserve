@@ -9,7 +9,7 @@ ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.8.3
 
 # Install vllm
-ARG VLLM_VERSION=v0.7.2
+ARG VLLM_VERSION=v0.8.1
 
 RUN apt-get update -y && apt-get install -y \
     gcc python3.10-venv python3-dev python3-pip \
@@ -43,7 +43,12 @@ RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 WORKDIR /vllm
 RUN git clone --branch $VLLM_VERSION --depth 1 https://github.com/vllm-project/vllm.git . && \
     pip install --upgrade pip && \
-    pip install -r requirements-build.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
+    # Running uninstall command to avoid conflict with the one installed by poetry
+    # TODO: Plan to migrate all tests from OpenVINO to IPEX in the future
+    # as vLLM is ending support for OpenVINO in favour of IPEX
+    pip uninstall -y torch torchvision torchaudio && \
+    pip install triton==3.1.0 && \
+    pip install -r requirements/build.txt --extra-index-url https://download.pytorch.org/whl/cpu && \
     PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu" VLLM_TARGET_DEVICE="openvino" python -m pip install -v .
 
 FROM ${BASE_IMAGE} AS prod
@@ -71,6 +76,7 @@ ENV HF_HUB_DISABLE_TELEMETRY="1"
 # https://github.com/vllm-project/vllm/issues/6152
 # Set the multiprocess method to spawn to avoid issues with cuda initialization for `mp` executor backend.
 ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
+ENV VLLM_USE_V1="0"
 
 USER 1000
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]

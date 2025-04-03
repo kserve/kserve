@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kserve"
-version = "0.15.0rc0"
+version = "0.15.0"
 description = "KServe Python SDK"
 authors = [
     "The KServe Authors <dsun20@bloomberg.net>",
@@ -61,13 +61,16 @@ azure-storage-blob = { version = "^12.20.0", optional = true }
 azure-storage-file-share = { version = "^12.16.0", optional = true }
 azure-identity = { version = "^1.15.0", optional = true }
 boto3 = { version = "^1.29.0", optional = true }
-huggingface-hub = { version = "^0.24.5", extras = ["hf-transfer"], optional = true }
+huggingface-hub = { version = "^0.26.0", extras = ["hf-transfer"], optional = true }
 
 # Logging dependencies. They can be opted into by apps.
 asgi-logger = { version = "^0.1.0", optional = true }
 
 # Ray dependency
-ray = { version = "~2.35.0", extras = ["serve"], optional = true }
+ray = { version = "~2.44.0", extras = ["serve"], optional = true }
+
+# OpenAI Types dependency
+vllm = { version = "^0.8.1", optional = true }
 
 [tool.poetry.extras]
 storage = [
@@ -86,6 +89,10 @@ logging = [
 ray = [
     "ray"
 ]
+llm = [
+    "vllm"
+]
+
 [tool.poetry.group.test]
 optional = true
 
