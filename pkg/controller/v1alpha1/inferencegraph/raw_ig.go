@@ -68,6 +68,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 				Name:  graph.ObjectMeta.Name,
 				Image: config.Image,
 				Args: []string{
+					"--enable-tls",
 					"--graph-json",
 					string(bytes),
 				},

@@ -352,6 +352,7 @@ func readyHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 var (
+	enableTlsFlag          = flag.Bool("enable-tls", false, "enable TLS for the router")
 	enableAuthFlag         = flag.Bool("enable-auth", false, "protect the inference graph with authorization")
 	graphName              = flag.String("inferencegraph-name", "", "the name of the associated inference graph Kubernetes resource")
 	jsonGraph              = flag.String("graph-json", "", "serialized json graph def")
@@ -547,7 +548,11 @@ func main() {
 	}
 
 	go func() {
-		err = server.ListenAndServe()
+		if *enableTlsFlag {
+			err = server.ListenAndServeTLS("/etc/tls/private/tls.crt", "/etc/tls/private/tls.key")
+		} else {
+			err = server.ListenAndServe()
+		}
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Error(err, fmt.Sprintf("Failed to serve on address %v", server.Addr))
 			os.Exit(1)
