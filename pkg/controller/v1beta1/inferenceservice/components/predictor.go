@@ -200,7 +200,13 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		}
 
 		if strings.EqualFold(forceStopRuntime, "true") {
-			// Clear all statuses if the ISVC is stopped
+			// Exit early if we have already set the status to stopped
+			existing_stopped_condition := isvc.Status.GetCondition(v1beta1.Stopped)
+			if existing_stopped_condition != nil && existing_stopped_condition.Status == corev1.ConditionTrue {
+				return ctrl.Result{}, nil
+			}
+
+			// Clear all statuses
 			p.Log.Info("Clearing ISVC status")
 			isvc.Status = v1beta1.InferenceServiceStatus{}
 

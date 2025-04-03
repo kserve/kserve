@@ -78,9 +78,44 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 	serviceHost := getServiceHost(isvc)
 	serviceUrl := getServiceUrl(isvc, ir.ingressConfig)
 	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
-	if serviceHost == "" || serviceUrl == "" {
+
+	// Check if the isvc is stopped
+	forceStopRuntime := "false"
+	if val, exist := isvc.Annotations[constants.StopAnnotationKey]; exist {
+		forceStopRuntime = val
+	}
+
+	if strings.EqualFold(forceStopRuntime, "true") {
+		// Delete the service
+		existingService := &corev1.Service{}
+		if err := ir.client.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, existingService); err == nil {
+			log.Info("Delete services")
+			if err := ir.client.Delete(ctx, existingService); err != nil {
+				return err
+			}
+		} else if !apierr.IsNotFound(err) {
+			return err
+		}
+
+		// Delete the virtualservice
+		existingVService := &istioclientv1beta1.VirtualService{}
+		if err := ir.client.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, existingVService); err == nil {
+			log.Info("Delete vservices")
+			if err := ir.client.Delete(ctx, existingVService); err != nil {
+				return err
+			}
+		} else if !apierr.IsNotFound(err) {
+			return err
+		}
+
 		return nil
 	}
+
+	if serviceHost == "" || serviceUrl == "" {
+		log.Info("Service host or url is empty")
+		return nil
+	}
+
 	// When Istio virtual host is disabled, we return the underlying component url.
 	// When Istio virtual host is enabled. we return the url using inference service virtual host name and redirect to the corresponding transformer, predictor or explainer url.
 	if !disableIstioVirtualHost {
