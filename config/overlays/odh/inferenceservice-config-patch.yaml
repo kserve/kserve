@@ -95,3 +95,8 @@ data:
         "security.opendatahub.io/enable-auth"
       ]
      }
+
+  security: |-
+    {
+      "autoMountServiceAccountToken": false
+    }

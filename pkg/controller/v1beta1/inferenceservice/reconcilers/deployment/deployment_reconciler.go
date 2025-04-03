@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes"
 
@@ -269,6 +270,8 @@ func addOauthContainerToDeployment(clientset kubernetes.Interface, deployment *a
 		}
 		updatedPodSpec := deployment.Spec.Template.Spec.DeepCopy()
 		//	updatedPodSpec := podSpec.DeepCopy()
+		// ODH override. See : https://issues.redhat.com/browse/RHOAIENG-19904
+		updatedPodSpec.AutomountServiceAccountToken = proto.Bool(true)
 		updatedPodSpec.Containers = append(updatedPodSpec.Containers, *oauthProxyContainer)
 		deployment.Spec.Template.Spec = *updatedPodSpec
 	}
