@@ -27,6 +27,7 @@ set -o pipefail
 : "${KSERVE_AGENT_IMAGE:=quay.io/opendatahub/kserve-agent:latest}"
 : "${KSERVE_ROUTER_IMAGE:=quay.io/opendatahub/kserve-router:latest}"
 : "${STORAGE_INITIALIZER_IMAGE:=quay.io/opendatahub/kserve-storage-initializer:latest}"
+: "${ODH_MODEL_CONTROLLER_IMAGE:=quay.io/opendatahub/odh-model-controller:fast}"
 
 echo "SKLEARN_IMAGE=$SKLEARN_IMAGE"
 echo "KSERVE_CONTROLLER_IMAGE=$KSERVE_CONTROLLER_IMAGE"
@@ -112,7 +113,9 @@ if [ "$1" != "raw" ]; then
     sed "s/{{ .ControlPlane.Namespace }}/istio-system/g" |
     oc create -f -
 
-  oc apply -k $PROJECT_ROOT/test/scripts/openshift-ci
+  kustomize build $PROJECT_ROOT/test/scripts/openshift-ci |
+    sed "s|quay.io/opendatahub/odh-model-controller:fast|${ODH_MODEL_CONTROLLER_IMAGE}|" |
+    oc apply -n kserve -f -
   oc wait --for=condition=ready pod -l app=odh-model-controller -n kserve --timeout=300s
 fi
 
