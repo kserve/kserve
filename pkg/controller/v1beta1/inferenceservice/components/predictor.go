@@ -30,7 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -464,12 +466,10 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 
 	// Initialize PipelineParallelSize and TensorParallelSize if not set
 	if sRuntime.WorkerSpec.PipelineParallelSize == nil {
-		sRuntime.WorkerSpec.PipelineParallelSize = new(int)
-		*sRuntime.WorkerSpec.PipelineParallelSize = constants.DefaultPipelineParallelSize
+		sRuntime.WorkerSpec.PipelineParallelSize = ptr.To(constants.DefaultPipelineParallelSize)
 	}
 	if sRuntime.WorkerSpec.TensorParallelSize == nil {
-		sRuntime.WorkerSpec.TensorParallelSize = new(int)
-		*sRuntime.WorkerSpec.TensorParallelSize = constants.DefaultTensorParallelSize
+		sRuntime.WorkerSpec.TensorParallelSize = ptr.To(constants.DefaultTensorParallelSize)
 	}
 
 	// Set the PipelineParallelSize from InferenceService to ServingRuntime workerSpec.PipelineParallelSize
@@ -500,7 +500,7 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 	if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
 		targetisvcContainer = isvc.Spec.Predictor.WorkerSpec.Containers[0]
 	}
-	_, workerContainer, mergedWorkerPodSpec, err = isvcutils.MergeServingRuntimeAndInferenceServiceSpecs(sRuntime.WorkerSpec.Containers, targetisvcContainer, isvc, constants.WorkerContainerName, sRuntime.WorkerSpec.ServingRuntimePodSpec, isvc.Spec.Predictor.PodSpec)
+	_, workerContainer, mergedWorkerPodSpec, err = isvcutils.MergeServingRuntimeAndInferenceServiceSpecs(sRuntime.WorkerSpec.Containers, targetisvcContainer, isvc, constants.WorkerContainerName, sRuntime.WorkerSpec.ServingRuntimePodSpec, isvc.Spec.Predictor.WorkerSpec.PodSpec)
 	if err != nil {
 		return nil, err
 	}
