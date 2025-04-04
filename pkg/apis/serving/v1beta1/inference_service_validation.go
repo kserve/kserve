@@ -153,9 +153,11 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 				return fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, isvc.Name)
 			}
 
-			if isUnknownGPUType, err := utils.IsUnknownGpuResourceType(isvc.Spec.Predictor.Model.Resources, isvc.Annotations); err != nil {
+			hadUnknownGpuType, err := utils.HasUnknownGpuResourceType(isvc.Spec.Predictor.Model.Resources, isvc.Annotations)
+			if err != nil {
 				return err
-			} else if isUnknownGPUType {
+			}
+			if hadUnknownGpuType {
 				return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
 			}
 
@@ -172,21 +174,23 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 			}
 		}
 
-		// WorkerSpec.PipelineParallelSize should not be less than 2 (head + worker)
-		if pps := isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize; pps != nil && *pps < 2 {
+		// WorkerSpec.PipelineParallelSize should not be less than 1
+		if pps := isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize; pps != nil && *pps < constants.DefaultPipelineParallelSize {
 			return fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, isvc.Name, strconv.Itoa(*pps))
 		}
 
 		// WorkerSpec.TensorParallelSize should not be less than 1.
-		if tps := isvc.Spec.Predictor.WorkerSpec.TensorParallelSize; tps != nil && *tps < 1 {
+		if tps := isvc.Spec.Predictor.WorkerSpec.TensorParallelSize; tps != nil && *tps < constants.DefaultTensorParallelSize {
 			return fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, isvc.Name, strconv.Itoa(*tps))
 		}
 
 		if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
 			for _, container := range isvc.Spec.Predictor.WorkerSpec.Containers {
-				if isUnknownGPUType, err := utils.IsUnknownGpuResourceType(container.Resources, isvc.Annotations); err != nil {
+				hadUnknownGpuType, err := utils.HasUnknownGpuResourceType(container.Resources, isvc.Annotations)
+				if err != nil {
 					return err
-				} else if isUnknownGPUType {
+				}
+				if hadUnknownGpuType {
 					return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
 				}
 			}

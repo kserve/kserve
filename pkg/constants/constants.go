@@ -506,16 +506,19 @@ const (
 	OpenTelemetryCollector  = "OpenTelemetryCollector"
 )
 
-// Model Parallel Options
+// MultiNode environment variables
 const (
 	TensorParallelSizeEnvName   = "TENSOR_PARALLEL_SIZE"
 	PipelineParallelSizeEnvName = "PIPELINE_PARALLEL_SIZE"
+	RayNodeCountEnvName         = "RAY_NODE_COUNT"
+	RequestGPUCountEnvName      = "REQUEST_GPU_COUNT"
 )
 
-// Model Parallel Options Default value
+// MultiNode default values
 const (
-	DefaultTensorParallelSize   = "1"
-	DefaultPipelineParallelSize = "2"
+	DefaultTensorParallelSize   = 1
+	DefaultPipelineParallelSize = 1
+	DefaultGPUCount             = 1
 )
 
 // Multi Node Labels
@@ -534,8 +537,8 @@ func GetRawWorkerServiceLabel(service string) string {
 	return "isvc." + service + "-" + WorkerNodeSuffix
 }
 
-// GeHeadServiceName generate head service name
-func GeHeadServiceName(service string, isvcGeneration string) string {
+// GetHeadServiceName generate head service name
+func GetHeadServiceName(service string, isvcGeneration string) string {
 	isvcName := strings.TrimSuffix(service, "-predictor")
 	return isvcName + "-" + MultiNodeHead + "-" + isvcGeneration
 }
