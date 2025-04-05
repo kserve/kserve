@@ -124,6 +124,12 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return reconcile.Result{}, err
 	}
+	// Check if it is stopped
+	forceStopRuntime := "false"
+	if val, exist := isvc.Annotations[constants.StopAnnotationKey]; exist {
+		forceStopRuntime = val
+	}
+
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
 	if err != nil {
 		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
@@ -257,6 +263,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.RoutesReady)
 		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
 	}
+
 	// Reconcile ingress
 	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
 	if err != nil {
@@ -297,6 +304,36 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if err = r.updateStatus(ctx, isvc, deploymentMode); err != nil {
 		r.Recorder.Event(isvc, corev1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
+	}
+
+	if strings.EqualFold(forceStopRuntime, "true") {
+		// Delete the service
+		existingService := &corev1.Service{}
+		if err := r.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, existingService); err != nil {
+			if apierr.IsNotFound(err) {
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, err
+		} else {
+			r.Log.Info("Delete services")
+			if err := r.Delete(ctx, existingService); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		// Delete the virtualservice
+		existingVService := &istioclientv1beta1.VirtualService{}
+		if err := r.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, existingVService); err != nil {
+			if apierr.IsNotFound(err) {
+				return ctrl.Result{}, nil
+			}
+			return ctrl.Result{}, err
+		} else {
+			r.Log.Info("Delete vservices")
+			if err := r.Delete(ctx, existingVService); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 	}
 
 	return ctrl.Result{}, nil
