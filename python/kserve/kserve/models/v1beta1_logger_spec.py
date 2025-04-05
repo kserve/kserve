@@ -47,34 +47,62 @@ class V1beta1LoggerSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'metadata_annotations': 'list[str]',
         'metadata_headers': 'list[str]',
         'mode': 'str',
         'url': 'str'
     }
 
     attribute_map = {
+        'metadata_annotations': 'metadataAnnotations',
         'metadata_headers': 'metadataHeaders',
         'mode': 'mode',
         'url': 'url'
     }
 
-    def __init__(self, metadata_headers=None, mode=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, metadata_annotations=None, metadata_headers=None, mode=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LoggerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._metadata_annotations = None
         self._metadata_headers = None
         self._mode = None
         self._url = None
         self.discriminator = None
 
+        if metadata_annotations is not None:
+            self.metadata_annotations = metadata_annotations
         if metadata_headers is not None:
             self.metadata_headers = metadata_headers
         if mode is not None:
             self.mode = mode
         if url is not None:
             self.url = url
+
+    @property
+    def metadata_annotations(self):
+        """Gets the metadata_annotations of this V1beta1LoggerSpec.  # noqa: E501
+
+        Matched inference service annotations for propagating to inference logger cloud events.  # noqa: E501
+
+        :return: The metadata_annotations of this V1beta1LoggerSpec.  # noqa: E501
+        :rtype: list[str]
+        """
+        return self._metadata_annotations
+
+    @metadata_annotations.setter
+    def metadata_annotations(self, metadata_annotations):
+        """Sets the metadata_annotations of this V1beta1LoggerSpec.
+
+        Matched inference service annotations for propagating to inference logger cloud events.  # noqa: E501
+
+        :param metadata_annotations: The metadata_annotations of this V1beta1LoggerSpec.  # noqa: E501
+        :type: list[str]
+        """
+
+        self._metadata_annotations = metadata_annotations
 
     @property
     def metadata_headers(self):

@@ -6325,6 +6325,21 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 							},
 						},
 					},
+					"metadataAnnotations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Matched inference service annotations for propagating to inference logger cloud events.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

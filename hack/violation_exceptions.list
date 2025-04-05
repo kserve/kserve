@@ -17,6 +17,7 @@ API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,InferenceServiceList,Items
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,InferenceServicesConfig,ServiceAnnotationDisallowedList
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,InferenceServicesConfig,ServiceLabelDisallowedList
+API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,LoggerSpec,MetadataAnnotations
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,LoggerSpec,MetadataHeaders
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,MultiNodeConfig,CustomGPUResourceTypeList
 API rule violation: list_type_missing,github.com/kserve/kserve/pkg/apis/serving/v1beta1,PodMetrics,MetricNames
