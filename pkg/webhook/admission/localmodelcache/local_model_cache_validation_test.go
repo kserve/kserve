@@ -16,7 +16,6 @@ limitations under the License.
 package localmodelcache
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -106,7 +105,7 @@ func TestUnableToDeleteLocalModelCacheWithActiveIsvc(t *testing.T) {
 	}
 	fakeClient := fake.NewClientBuilder().WithObjects(&isvc).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
-	warnings, err := validator.ValidateDelete(context.Background(), &lmc)
+	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
 	g.Expect(warnings).NotTo(gomega.BeNil())
 	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s is being used by InferenceService %s", lmc.Name, isvc.Name)))
 }
@@ -122,7 +121,7 @@ func TestUnableToCreateLocalModelCacheWithSameStorageURI(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithObjects(&lmc).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
 	newLmc := makeTestLocalModelCacheWithSameStorageURI()
-	warnings, err := validator.ValidateCreate(context.Background(), &newLmc)
+	warnings, err := validator.ValidateCreate(t.Context(), &newLmc)
 	g.Expect(warnings).NotTo(gomega.BeNil())
 	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s has the same StorageURI %s", lmc.Name, newLmc.Spec.SourceModelUri)))
 }
