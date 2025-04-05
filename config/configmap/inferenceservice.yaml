@@ -42,17 +42,17 @@ data:
            }
        }
     # ====================================== ISVC CONFIGURATION ======================================
-    # Example   
+    # Example - setting custom annotation  
      inferenceService: |-
-      {
-        "serviceAnnotationDisallowedList": [
-          "my.custom.annotation/1"  
-        ],
-        "serviceLabelDisallowedList": [
-          "my.custom.label.1"  
-        ]
+       {
+         "serviceAnnotationDisallowedList": [
+            "my.custom.annotation/1"  
+         ],
+         "serviceLabelDisallowedList": [
+            "my.custom.label.1"  
+         ]
        }
-    # Example of isvc configuration
+    # Example - setting custom annotation
     inferenceService: |-
       {
         # ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative 
@@ -72,7 +72,38 @@ data:
         "serviceLabelDisallowedList": [
           "my.custom.label.1"  
         ]
-      }  
+      } 
+    # Example - setting custom resource
+    inferenceService: |-
+      {
+        "resource": {
+          "cpuLimit": "1",
+          "memoryLimit": "2Gi",
+          "cpuRequest": "1",
+          "memoryRequest": "2Gi"
+        }
+      }
+    # Example - setting custom resource
+    inferenceService: |-
+      {
+        # resource contains the default resource configuration for the inference service.
+        # you can override this configuration by specifying the resources in the inference service yaml.
+        # If you want to unbound the resource (limits and requests), you can set the value to null or "" 
+        # or just remove the specific field from the config.
+        "resource": {
+           # cpuLimit is the limits.cpu to set for the inference service.
+           "cpuLimit": "1",
+    
+           # memoryLimit is the limits.memory to set for the inference service.
+           "memoryLimit": "2Gi",
+    
+           # cpuRequest is the requests.cpu to set for the inference service.
+           "cpuRequest": "1",
+    
+           # memoryRequest is the requests.memory to set for the inference service.
+           "memoryRequest": "2Gi"
+        }
+     }
     # ====================================== MultiNode CONFIGURATION ======================================
     # Example   
     multiNode: |-
@@ -566,38 +597,6 @@ data:
          # This is to disable localmodel pv and pvc management for namespaces without isvcs
          "disableVolumeManagement": false
        }
-      
-     # ====================================== LOCALMODEL CONFIGURATION ======================================
-     # Example
-     inferenceservice: |-
-       {
-         "resource": {
-             "cpuLimit": "1",
-             "memoryLimit": "2Gi",
-             "cpuRequest": "1",
-             "memoryRequest": "2Gi"
-           }
-       }
-      inferenceservice: |-
-        {
-          # resource contains the default resource configuration for the inference service.
-          # you can override this configuration by specifying the resources in the inference service yaml.
-          # If you want to unbound the resource (limits and requests), you can set the value to null or "" 
-          # or just remove the specific field from the config.
-          "resource": {
-              # cpuLimit is the limits.cpu to set for the inference service.
-              "cpuLimit": "1",
-              
-              # memoryLimit is the limits.memory to set for the inference service.
-              "memoryLimit": "2Gi",
-              
-              # cpuRequest is the requests.cpu to set for the inference service.
-              "cpuRequest": "1",
-              
-              # memoryRequest is the requests.memory to set for the inference service.
-              "memoryRequest": "2Gi"
-            }
-        }
 
   explainers: |-
     {
