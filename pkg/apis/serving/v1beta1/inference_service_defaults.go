@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
-	"strings"
 
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
@@ -45,6 +44,7 @@ var mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook
 
 // +kubebuilder:object:generate=false
 // +k8s:openapi-gen=false
+
 // InferenceServiceDefaulter is responsible for setting default values on the InferenceService
 // when created or updated.
 //
@@ -457,8 +457,6 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	if models == nil {
 		return
 	}
-	// Todo: support multiple storage uris?
-	var storageUri string
 	var predictor ComponentImplementation
 	if predictor = isvc.Spec.Predictor.GetImplementation(); predictor == nil {
 		return
@@ -466,10 +464,10 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	if predictor.GetStorageUri() == nil {
 		return
 	}
-	storageUri = *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
+	isvcStorageUri := *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
 	var localModel *v1alpha1.LocalModelCache
 	for i, model := range models.Items {
-		if strings.HasPrefix(storageUri, model.Spec.SourceModelUri) {
+		if model.Spec.MatchStorageURI(isvcStorageUri) {
 			localModel = &models.Items[i]
 			break
 		}

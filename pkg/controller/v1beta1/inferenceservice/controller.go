@@ -23,6 +23,8 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	"github.com/pkg/errors"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -39,13 +41,14 @@ import (
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/yaml"
-
-	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -87,6 +90,9 @@ import (
 // +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors/finalizers,verbs=get;list;watch;create;update;patch;delete
 
 // InferenceServiceState describes the Readiness of the InferenceService
 type InferenceServiceState string
@@ -367,6 +373,11 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return err
 	}
 
+	otelFound, err := utils.IsCrdAvailable(r.ClientConfig, otelv1beta1.GroupVersion.String(), constants.OpenTelemetryCollector)
+	if err != nil {
+		return err
+	}
+
 	vsFound, err := utils.IsCrdAvailable(r.ClientConfig, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
 	if err != nil {
 		return err
@@ -374,7 +385,8 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1beta1.InferenceService{}).
-		Owns(&appsv1.Deployment{})
+		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.Service{})
 
 	if ksvcFound {
 		ctrlBuilder = ctrlBuilder.Owns(&knservingv1.Service{})
@@ -383,9 +395,26 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	}
 
 	if kedaFound {
-		ctrlBuilder = ctrlBuilder.Owns(&kedav1alpha1.ScaledObject{})
+		ctrlBuilder = ctrlBuilder.Owns(&kedav1alpha1.ScaledObject{}, builder.WithPredicates(predicate.Funcs{
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				_, ok := e.ObjectNew.(*kedav1alpha1.ScaledObject)
+				if !ok {
+					return false
+				}
+				// Ignore status updates for ScaledObject, only reconcile on spec changes
+				oldObj := e.ObjectOld.(*kedav1alpha1.ScaledObject)
+				newObj := e.ObjectNew.(*kedav1alpha1.ScaledObject)
+				return !equality.Semantic.DeepEqual(oldObj.Spec, newObj.Spec)
+			},
+		}))
 	} else {
 		r.Log.Info("The InferenceService controller won't watch keda.sh/v1/ScaledObject resources because the CRD is not available.")
+	}
+
+	if otelFound {
+		ctrlBuilder = ctrlBuilder.Owns(&otelv1beta1.OpenTelemetryCollector{})
+	} else {
+		r.Log.Info("The InferenceService controller won't watch opentelemetry-collector resources because the CRD is not available.")
 	}
 
 	if vsFound && !ingressConfig.DisableIstioVirtualHost {

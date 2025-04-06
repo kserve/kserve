@@ -26,7 +26,7 @@ KSERVE_LOGGER_FORMAT = (
     "%(asctime)s.%(msecs)03d %(process)s %(name)s "
     "%(levelname)s [%(filename)s:%(funcName)s():%(lineno)s] %(message)s"
 )
-KSERVE_TRACE_LOGGER_FORMAT = "%(asctime)s.%(msecs)03d %(name)s %(message)s"
+KSERVE_TRACE_LOGGER_FORMAT = "%(asctime)s.%(msecs)03d %(process)s %(name)s %(message)s"
 KSERVE_LOGGER_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 KSERVE_LOG_CONFIG = {
@@ -46,7 +46,7 @@ KSERVE_LOG_CONFIG = {
         "uvicorn": {
             "()": "uvicorn.logging.DefaultFormatter",
             "datefmt": KSERVE_LOGGER_DATE_FORMAT,
-            "fmt": "%(asctime)s.%(msecs)03d %(name)s %(levelprefix)s %(message)s",
+            "fmt": "%(asctime)s.%(msecs)03d %(process)s %(name)s %(levelprefix)s %(message)s",
             "use_colors": None,
         },
         "uvicorn_access": {

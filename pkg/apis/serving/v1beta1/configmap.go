@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // ConfigMap Keys
@@ -42,6 +43,8 @@ const (
 	SecurityConfigName            = "security"
 	ServiceConfigName             = "service"
 	ResourceConfigName            = "resource"
+	MultiNodeConfigKeyName        = "multiNode"
+	OtelCollectorConfigName       = "opentelemetryCollector"
 )
 
 const (
@@ -71,6 +74,12 @@ type ExplainersConfig struct {
 	ARTExplainer ExplainerConfig `json:"art,omitempty"`
 }
 
+type OtelCollectorConfig struct {
+	ScrapeInterval         string `json:"scrapeInterval,omitempty"`
+	MetricReceiverEndpoint string `json:"metricReceiverEndpoint,omitempty"`
+	MetricScalerEndpoint   string `json:"metricScalerEndpoint,omitempty"`
+}
+
 // +kubebuilder:object:generate=false
 type InferenceServicesConfig struct {
 	// Explainer configurations
@@ -82,6 +91,12 @@ type InferenceServicesConfig struct {
 	ServiceLabelDisallowedList []string `json:"serviceLabelDisallowedList,omitempty"`
 	// Resource configurations
 	Resource ResourceConfig `json:"resource,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+type MultiNodeConfig struct {
+	// CustomGPUResourceTypeList is a list of custom GPU resource types that are allowed to be used in the ServingRuntime and inferenceService
+	CustomGPUResourceTypeList []string `json:"customGPUResourceTypeList,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -147,6 +162,17 @@ func GetInferenceServiceConfigMap(ctx context.Context, clientset kubernetes.Inte
 	}
 }
 
+func NewOtelCollectorConfig(isvcConfigMap *corev1.ConfigMap) (*OtelCollectorConfig, error) {
+	otelConfig := &OtelCollectorConfig{}
+	if otel, ok := isvcConfigMap.Data[OtelCollectorConfigName]; ok {
+		err := json.Unmarshal([]byte(otel), otelConfig)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse otel config json: %w", err)
+		}
+	}
+	return otelConfig, nil
+}
+
 func NewInferenceServicesConfig(isvcConfigMap *corev1.ConfigMap) (*InferenceServicesConfig, error) {
 	icfg := &InferenceServicesConfig{}
 	for _, err := range []error{
@@ -179,6 +205,25 @@ func NewInferenceServicesConfig(isvcConfigMap *corev1.ConfigMap) (*InferenceServ
 		}
 	}
 	return icfg, nil
+}
+
+func NewMultiNodeConfig(isvcConfigMap *corev1.ConfigMap) (*MultiNodeConfig, error) {
+	mncfg := &MultiNodeConfig{}
+	for _, err := range []error{
+		getComponentConfig(MultiNodeConfigKeyName, isvcConfigMap, &mncfg),
+	} {
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if mncfg.CustomGPUResourceTypeList == nil {
+		mncfg.CustomGPUResourceTypeList = []string{}
+	}
+
+	// update global GPU resource type list
+	utils.UpdateGlobalGPUResourceTypeList(append(mncfg.CustomGPUResourceTypeList, constants.DefaultGPUResourceTypeList...))
+	return mncfg, nil
 }
 
 func validateIngressGateway(ingressConfig *IngressConfig) error {

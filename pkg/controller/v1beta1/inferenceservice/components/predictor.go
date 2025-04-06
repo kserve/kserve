@@ -37,7 +37,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/keda"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
@@ -427,10 +426,6 @@ func (p *Predictor) reconcileWorker(sRuntime v1alpha1.ServingRuntimeSpec, isvc *
 
 	sRuntimeWorkerAnnotations := sRuntime.WorkerSpec.Annotations
 	sRuntimeWorkerLabels := sRuntime.WorkerSpec.ServingRuntimePodSpec.Labels
-	// If CustomGPUResourceTypeAnnotationKey is set, the specified custom GPU resource will be added to the available GPUResourceTypeList.
-	if isvc.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey] != "" {
-		sRuntimeWorkerAnnotations[constants.CustomGPUResourceTypesAnnotationKey] = isvc.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey]
-	}
 
 	if workerPodSpec, err = multiNodeProcess(sRuntime, isvc, podSpec, annotations, isvcGeneration); err != nil {
 		return workerObjectMeta, workerPodSpec, err
@@ -560,6 +555,12 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 			return errors.Wrapf(err, "fails to set service owner reference for predictor")
 		}
 	}
+	// set Otel Controller
+	if r.OtelCollector != nil {
+		if err := r.OtelCollector.SetControllerReferences(isvc, p.scheme); err != nil {
+			return errors.Wrapf(err, "fails to set otel owner references for predictor")
+		}
+	}
 	// set autoscaler Controller
 	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {
 		return errors.Wrapf(err, "fails to set autoscaler owner references for predictor")
@@ -568,15 +569,6 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 	deploymentList, err := r.Reconcile(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "fails to reconcile predictor")
-	}
-
-	kr, err := keda.NewKedaReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec)
-	if err != nil {
-		return errors.Wrapf(err, "fails to reconcile keda")
-	}
-	// set ScaledObject Controller
-	if err := controllerutil.SetControllerReference(isvc, kr.ScaledObject, p.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set ScaledObject owner reference for predictor")
 	}
 
 	isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
