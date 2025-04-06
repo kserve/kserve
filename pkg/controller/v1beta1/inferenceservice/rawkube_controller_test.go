@@ -36,7 +36,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1723,7 +1722,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("InferenceService should reconcile the deployment if auto-update annotation is not present", func() {
 			// Create configmap
 			isvcNamespace := constants.KServeNamespace
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -1733,7 +1732,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 			Eventually(func() error {
-				cm := &v1.ConfigMap{}
+				cm := &corev1.ConfigMap{}
 				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: isvcNamespace}, cm)
 			}, timeout, interval).Should(Succeed())
 			isvcName := "isvc-enable-auto-update-missing"
@@ -1764,7 +1763,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"key2": "val2FromSR",
 							"key3": "val3FromSR",
 						},
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    constants.InferenceServiceContainerName,
 								Image:   "pytorch/serving:1.14.0",
@@ -1778,7 +1777,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Resources: defaultResource,
 							},
 						},
-						ImagePullSecrets: []v1.LocalObjectReference{
+						ImagePullSecrets: []corev1.LocalObjectReference{
 							{Name: "sr-image-pull-secret"},
 						},
 					},
@@ -1809,7 +1808,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -1819,7 +1818,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 			}
 
-			createdConfigMap := &v1.ConfigMap{}
+			createdConfigMap := &corev1.ConfigMap{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: isvcNamespace}, createdConfigMap)
 			}, timeout, interval).Should(Succeed())
@@ -1869,7 +1868,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("InferenceService should reconcile the deployment if auto-update is enabled ", func() {
 			// Create configmap
 			isvcNamespace := constants.KServeNamespace
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: isvcNamespace,
@@ -1879,7 +1878,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 			Eventually(func() error {
-				cm := &v1.ConfigMap{}
+				cm := &corev1.ConfigMap{}
 				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: isvcNamespace}, cm)
 			}, timeout, interval).Should(Succeed())
 			isvcName := "isvc-enable-auto-update-true"
@@ -1910,7 +1909,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"key2": "val2FromSR",
 							"key3": "val3FromSR",
 						},
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    constants.InferenceServiceContainerName,
 								Image:   "pytorch/serving:1.14.0",
@@ -1924,7 +1923,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Resources: defaultResource,
 							},
 						},
-						ImagePullSecrets: []v1.LocalObjectReference{
+						ImagePullSecrets: []corev1.LocalObjectReference{
 							{Name: "sr-image-pull-secret"},
 						},
 					},
@@ -1953,7 +1952,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -2010,7 +2009,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("InferenceService should not reconcile the deployment if auto-update is disabled", func() {
 			// Create configmap
 			isvcNamespace := constants.KServeNamespace
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: isvcNamespace,
@@ -2020,7 +2019,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 			Eventually(func() error {
-				cm := &v1.ConfigMap{}
+				cm := &corev1.ConfigMap{}
 				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: isvcNamespace}, cm)
 			}, timeout, interval).Should(Succeed())
 			isvcName := "isvc-enable-auto-update-false"
@@ -2051,7 +2050,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"key2": "val2FromSR",
 							"key3": "val3FromSR",
 						},
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    constants.InferenceServiceContainerName,
 								Image:   "pytorch/serving:1.14.0",
@@ -2065,7 +2064,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Resources: defaultResource,
 							},
 						},
-						ImagePullSecrets: []v1.LocalObjectReference{
+						ImagePullSecrets: []corev1.LocalObjectReference{
 							{Name: "sr-image-pull-secret"},
 						},
 					},
@@ -2095,7 +2094,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -2146,7 +2145,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("InferenceService should reconcile only if the matching serving runtime was updated even if multiple exist", func() {
 			// Create configmap
 			isvcNamespace := constants.KServeNamespace
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: isvcNamespace,
@@ -2156,7 +2155,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
 			Eventually(func() error {
-				cm := &v1.ConfigMap{}
+				cm := &corev1.ConfigMap{}
 				return k8sClient.Get(context.TODO(), types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: isvcNamespace}, cm)
 			}, timeout, interval).Should(Succeed())
 			isvcNamePytorch := "isvc-enable-auto-update-multiple-pytorch"
@@ -2190,7 +2189,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"key2": "val2FromSR",
 							"key3": "val3FromSR",
 						},
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    constants.InferenceServiceContainerName,
 								Image:   "pytorch/serving:1.14.0",
@@ -2204,7 +2203,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Resources: defaultResource,
 							},
 						},
-						ImagePullSecrets: []v1.LocalObjectReference{
+						ImagePullSecrets: []corev1.LocalObjectReference{
 							{Name: "sr-image-pull-secret"},
 						},
 					},
@@ -2241,7 +2240,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"key2": "val2FromSR",
 							"key3": "val3FromSR",
 						},
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    constants.InferenceServiceContainerName,
 								Image:   "tensorflow/serving:1.14.0",
@@ -2255,7 +2254,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								Resources: defaultResource,
 							},
 						},
-						ImagePullSecrets: []v1.LocalObjectReference{
+						ImagePullSecrets: []corev1.LocalObjectReference{
 							{Name: "sr-image-pull-secret"},
 						},
 					},
@@ -2285,7 +2284,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -2321,7 +2320,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -2373,7 +2372,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			tensorflowDeploymentName := constants.PredictorServiceName(serviceKeyTensorflow.Name)
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: tensorflowDeploymentName, Namespace: serviceKeyTensorflow.Namespace}, tensorFlowDeploymentAfterUpdate)).Should(Succeed())
 			Expect(tensorFlowDeploymentAfterUpdate.Spec.Template.Labels["key1"]).Should(Equal("val1FromSR"))
-
 		})
 	})
 	Context("When creating inference service with raw kube predictor and ingress creation disabled", func() {
