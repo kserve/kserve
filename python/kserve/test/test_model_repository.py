@@ -49,13 +49,20 @@ class DummyOpenAIEmbeddingModel(OpenAIEncoderModel):
 
 def test_adding_kserve_model():
     repo = ModelRepository()
-    repo.update(Model(name="kserve-model"))
+    model = Model(name="kserve-model")
+    repo.update(model)
 
     actual = repo.get_model("kserve-model")
 
     assert actual is not None
     assert isinstance(actual, Model)
     assert actual.name == "kserve-model"
+
+    repo.update(model, name="additional-model-name")
+    actual = repo.get_model("additional-model-name")
+    assert actual is not None
+    assert isinstance(actual, Model)
+    assert actual is model
 
 
 def test_adding_openai_completion_model():

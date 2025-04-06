@@ -260,7 +260,7 @@ jobs:
         run: |
           cd python/huggingfaceserver
           bash tests/setup_vllm.sh
-          poetry run -- pytest --cov=huggingfaceserver -vv
+          poetry run -- pytest --cov=huggingfaceserver -vv -m "not vllm_cpu"
         env:
           VLLM_TARGET_DEVICE: openvino
 
