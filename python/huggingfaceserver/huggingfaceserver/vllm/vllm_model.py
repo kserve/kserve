@@ -38,14 +38,11 @@ from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
 from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
 from vllm.entrypoints.openai.tool_parsers import ToolParserManager
 from vllm.entrypoints.openai.serving_models import BaseModelPath, OpenAIServingModels
-from vllm.entrypoints.openai.api_server import (
-    build_async_engine_client_from_engine_args,
-)
 from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
 from vllm.entrypoints.chat_utils import load_chat_template
 from vllm.entrypoints.openai.protocol import ErrorResponse as engineError
 from vllm.entrypoints.openai.reasoning_parsers import ReasoningParserManager
-from .utils import build_vllm_engine_args
+from .utils import build_async_engine_client_from_engine_args,build_vllm_engine_args
 
 
 class VLLMModel(
@@ -99,7 +96,7 @@ class VLLMModel(
             self.vllm_engine_args.tensor_parallel_size = torch.cuda.device_count()
 
         async with build_async_engine_client_from_engine_args(
-            self.vllm_engine_args, disable_frontend_multiprocessing=True
+            self.vllm_engine_args, self.args.disable_frontend_multiprocessing
         ) as engine_client:
             self.engine_client = engine_client
             if self.args.served_model_name is not None:
