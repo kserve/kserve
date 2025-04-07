@@ -180,17 +180,14 @@ class VLLMModel(
         pass
 
     def stop_engine(self):
-        # print(type(self.engine_client))
-        # if self.engine_client:
-        #     # V1 AsyncLLM
-        #     if envs.VLLM_USE_V1:
-        #         print("Stopping VLLM V1 engine")
-        #         self.engine_client.shutdown()
+        if self.engine_client:
+            # V1 AsyncLLM
+            if envs.VLLM_USE_V1:
+                self.engine_client.shutdown()
 
-        #     # V0 AsyncLLMEngine
-        #     else:
-        #         print("Stopping VLLM V0 engine")
-        #         self.engine_client.shutdown_background_loop()
+            # V0 AsyncLLMEngine
+            else:
+                self.engine_client.shutdown_background_loop()
         self.ready = False
 
     async def healthy(self) -> bool:
