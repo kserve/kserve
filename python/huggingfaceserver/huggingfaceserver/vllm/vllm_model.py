@@ -30,6 +30,7 @@ from kserve.protocol.rest.openai.types import (
     ErrorResponse,
 )
 
+import vllm.envs as envs
 from vllm import AsyncEngineArgs
 from vllm.entrypoints.logger import RequestLogger
 from vllm.engine.protocol import EngineClient
@@ -110,7 +111,7 @@ class VLLMModel(
             ]
 
             self.log_stats = not self.args.disable_log_stats
-            self.model_config = await engine_client.get_model_config()
+            self.model_config = await self.engine_client.get_model_config()
 
             resolved_chat_template = load_chat_template(self.args.chat_template)
 
@@ -179,8 +180,17 @@ class VLLMModel(
         pass
 
     def stop_engine(self):
-        if hasattr(self.engine_client, "shutdown"):
-            self.engine_client.shutdown()
+        # print(type(self.engine_client))
+        # if self.engine_client:
+        #     # V1 AsyncLLM
+        #     if envs.VLLM_USE_V1:
+        #         print("Stopping VLLM V1 engine")
+        #         self.engine_client.shutdown()
+
+        #     # V0 AsyncLLMEngine
+        #     else:
+        #         print("Stopping VLLM V0 engine")
+        #         self.engine_client.shutdown_background_loop()
         self.ready = False
 
     async def healthy(self) -> bool:

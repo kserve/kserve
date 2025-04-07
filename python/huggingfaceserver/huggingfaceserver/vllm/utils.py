@@ -94,19 +94,25 @@ async def build_async_engine_client_from_engine_args(
 
         from vllm.v1.engine.async_llm import AsyncLLM
         async_llm: Optional[AsyncLLM] = None
-        async_llm = AsyncLLM.from_vllm_config(
-            vllm_config=vllm_config,
-            usage_context=usage_context,
-            disable_log_requests=engine_args.disable_log_requests,
-            disable_log_stats=engine_args.disable_log_stats)
-        yield async_llm
+        try:
+            async_llm = AsyncLLM.from_vllm_config(
+                vllm_config=vllm_config,
+                usage_context=usage_context,
+                disable_log_requests=engine_args.disable_log_requests,
+                disable_log_stats=engine_args.disable_log_stats)
+            yield async_llm
+        finally:
+            print("V1 AsyncLLM build complete")
 
-    # V0 AsyncLLM.
+    # V0 AsyncLLMEngine.
     else:
         engine_client: Optional[EngineClient] = None
-        engine_client = AsyncLLMEngine.from_vllm_config(
-            vllm_config=vllm_config,
-            usage_context=usage_context,
-            disable_log_requests=engine_args.disable_log_requests,
-            disable_log_stats=engine_args.disable_log_stats)
-        yield engine_client
+        try:
+            engine_client = AsyncLLMEngine.from_vllm_config(
+                vllm_config=vllm_config,
+                usage_context=usage_context,
+                disable_log_requests=engine_args.disable_log_requests,
+                disable_log_stats=engine_args.disable_log_stats)
+            yield engine_client
+        finally:
+            print("V0 AsyncLLMEngine build complete")
