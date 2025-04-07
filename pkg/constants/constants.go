@@ -518,7 +518,6 @@ const (
 const (
 	DefaultTensorParallelSize   = 1
 	DefaultPipelineParallelSize = 1
-	DefaultGPUCount             = 1
 )
 
 // Multi Node Labels
