@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from argparse import ArgumentParser
-from typing import Any, AsyncIterator, Optional,Union
+from typing import Any, AsyncIterator, Optional, Union
 from pathlib import Path
 from contextlib import asynccontextmanager
 
@@ -68,6 +68,7 @@ def build_vllm_engine_args(args) -> "AsyncEngineArgs":
         return None
     return AsyncEngineArgs.from_cli_args(args)
 
+
 @asynccontextmanager
 async def build_async_engine_client_from_engine_args(
     engine_args: AsyncEngineArgs,
@@ -90,16 +91,19 @@ async def build_async_engine_client_from_engine_args(
         if disable_frontend_multiprocessing:
             logger.warning(
                 "V1 is enabled, but got --disable-frontend-multiprocessing. "
-                "To disable frontend multiprocessing, set VLLM_USE_V1=0.")
+                "To disable frontend multiprocessing, set VLLM_USE_V1=0."
+            )
 
         from vllm.v1.engine.async_llm import AsyncLLM
+
         async_llm: Optional[AsyncLLM] = None
         try:
             async_llm = AsyncLLM.from_vllm_config(
                 vllm_config=vllm_config,
                 usage_context=usage_context,
                 disable_log_requests=engine_args.disable_log_requests,
-                disable_log_stats=engine_args.disable_log_stats)
+                disable_log_stats=engine_args.disable_log_stats,
+            )
             yield async_llm
         finally:
             print("V1 AsyncLLM build complete")
@@ -112,7 +116,8 @@ async def build_async_engine_client_from_engine_args(
                 vllm_config=vllm_config,
                 usage_context=usage_context,
                 disable_log_requests=engine_args.disable_log_requests,
-                disable_log_stats=engine_args.disable_log_stats)
+                disable_log_stats=engine_args.disable_log_stats,
+            )
             yield engine_client
         finally:
             print("V0 AsyncLLMEngine build complete")
