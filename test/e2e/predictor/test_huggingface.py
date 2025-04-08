@@ -30,7 +30,7 @@ from kserve import (
 )
 from kserve.constants import constants
 from ..common.utils import KSERVE_TEST_NAMESPACE, generate, embed, predict_isvc
-from .test_output import (
+from .expected_outputs import (
     huggingface_text_embedding_expected_output,
     huggingface_sequence_classification_with_probabilities_expected_output,
 )

@@ -407,3 +407,6 @@ huggingface_sequence_classification_with_probabilities_expected_output = [
         1: approx(2.5094059, abs=0.000009),
     }
 ]
+
+
+whisper_winning_call_transcription_expected_output = " >> And the old one, fit John the way to Edgar Martinez. >> One more to line up with Philan for our base camp. Here comes joy. Here is June and the third base. They're going to wave him in. The throw to the plate will be late, the Mariners are going to play. For the American League championship, I don't believe it. It just continues by all five."
