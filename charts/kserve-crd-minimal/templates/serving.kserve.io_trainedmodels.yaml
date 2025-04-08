@@ -7,6 +7,9 @@ metadata:
 spec:
   group: serving.kserve.io
   names:
+    categories:
+    - all
+    - kserve
     kind: TrainedModel
     listKind: TrainedModelList
     plural: trainedmodels

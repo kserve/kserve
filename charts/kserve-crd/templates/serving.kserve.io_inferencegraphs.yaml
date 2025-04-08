@@ -13,6 +13,9 @@ spec:
     shortNames:
     - ig
     singular: inferencegraph
+    categories:
+      - all
+      - kserve
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
