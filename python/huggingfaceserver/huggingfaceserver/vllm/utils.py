@@ -106,7 +106,7 @@ async def build_async_engine_client_from_engine_args(
             )
             yield async_llm
         finally:
-            print("V1 AsyncLLM build complete")
+            logger.info("V1 AsyncLLM build complete")
 
     # V0 AsyncLLMEngine.
     else:
@@ -120,4 +120,4 @@ async def build_async_engine_client_from_engine_args(
             )
             yield engine_client
         finally:
-            print("V0 AsyncLLMEngine build complete")
+            logger.info("V0 AsyncLLMEngine build complete")
