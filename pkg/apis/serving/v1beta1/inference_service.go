@@ -108,7 +108,7 @@ type Batcher struct {
 // +kubebuilder:printcolumn:name="PrevRolledoutRevision",type="string",JSONPath=".status.components.predictor.traffic[?(@.tag=='prev')].revisionName"
 // +kubebuilder:printcolumn:name="LatestReadyRevision",type="string",JSONPath=".status.components.predictor.traffic[?(@.latestRevision==true)].revisionName"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:resource:path=inferenceservices,shortName=isvc
+// +kubebuilder:resource:path=inferenceservices,shortName=isvc,categories={all,kserve}
 // +kubebuilder:storageversion
 type InferenceService struct {
 	metav1.TypeMeta   `json:",inline"`
