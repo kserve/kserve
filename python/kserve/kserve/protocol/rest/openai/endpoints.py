@@ -184,7 +184,7 @@ class OpenAIEndpoints:
             return StreamingResponse(embedding, media_type="text/event-stream")
         else:
             return embedding
-    
+
     async def create_rerank(
         self,
         raw_request: Request,

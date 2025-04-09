@@ -47,7 +47,7 @@ class DummyOpenAIGenerativeModel(OpenAIGenerativeModel):
 class DummyOpenAIEncoderModel(OpenAIEncoderModel):
     async def create_embedding(self, params: EmbeddingRequest) -> Embedding:
         pass
-    
+
     async def create_rerank(self, params: RerankRequest) -> Rerank:
         pass
 

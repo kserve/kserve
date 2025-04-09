@@ -47,15 +47,18 @@ def server():  # noqa: F811
 async def test_rerank_texts(server: RemoteOpenAIServer, model_name: str):
     query = "What is the capital of France?"
     documents = [
-        "The capital of Brazil is Brasilia.", "The capital of France is Paris."
+        "The capital of Brazil is Brasilia.",
+        "The capital of France is Paris.",
     ]
 
-    rerank_response = requests.post(server.url_for("rerank"),
-                                    json={
-                                        "model": model_name,
-                                        "query": query,
-                                        "documents": documents,
-                                    })
+    rerank_response = requests.post(
+        server.url_for("rerank"),
+        json={
+            "model": model_name,
+            "query": query,
+            "documents": documents,
+        },
+    )
     rerank_response.raise_for_status()
     rerank = Rerank.model_validate(rerank_response.json())
 
@@ -75,16 +78,14 @@ async def test_top_n(server: RemoteOpenAIServer, model_name: str):
     query = "What is the capital of France?"
     documents = [
         "The capital of Brazil is Brasilia.",
-        "The capital of France is Paris.", "Cross-encoder models are neat"
+        "The capital of France is Paris.",
+        "Cross-encoder models are neat",
     ]
 
-    rerank_response = requests.post(server.url_for("rerank"),
-                                    json={
-                                        "model": model_name,
-                                        "query": query,
-                                        "documents": documents,
-                                        "top_n": 2
-                                    })
+    rerank_response = requests.post(
+        server.url_for("rerank"),
+        json={"model": model_name, "query": query, "documents": documents, "top_n": 2},
+    )
     rerank_response.raise_for_status()
     rerank = Rerank.model_validate(rerank_response.json())
 
@@ -103,18 +104,14 @@ async def test_top_n(server: RemoteOpenAIServer, model_name: str):
 async def test_rerank_max_model_len(server: RemoteOpenAIServer, model_name: str):
     query = "What is the capital of France?" * 100
     documents = [
-        "The capital of Brazil is Brasilia.", "The capital of France is Paris."
+        "The capital of Brazil is Brasilia.",
+        "The capital of France is Paris.",
     ]
 
-    rerank_response = requests.post(server.url_for("rerank"),
-                                    json={
-                                        "model": model_name,
-                                        "query": query,
-                                        "documents": documents
-                                    })
+    rerank_response = requests.post(
+        server.url_for("rerank"),
+        json={"model": model_name, "query": query, "documents": documents},
+    )
     assert rerank_response.status_code == 400
     # Assert just a small fragments of the response
-    assert "Please reduce the length of the input." in \
-        rerank_response.text
-
-
+    assert "Please reduce the length of the input." in rerank_response.text

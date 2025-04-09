@@ -96,7 +96,7 @@ class OpenAIEncoderModel(OpenAIModel):
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
         pass
-    
+
     @abstractmethod
     async def create_rerank(
         self,

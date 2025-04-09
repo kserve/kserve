@@ -173,14 +173,15 @@ class VLLMModel(
                 if self.model_config.task == "embed"
                 else None
             )
-            
+
             self.serving_reranking = (
                 ServingScores(
                     self.engine_client,
                     self.model_config,
                     self.openai_serving_models,
-                    request_logger=self.request_logger
-                ) if self.model_config.task == "score"
+                    request_logger=self.request_logger,
+                )
+                if self.model_config.task == "score"
                 else None
             )
 
@@ -263,16 +264,14 @@ class VLLMModel(
             )
 
         return response
-    
+
     async def create_rerank(
         self,
         request: RerankRequest,
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Rerank, ErrorResponse]:
-        response = await self.serving_reranking.do_rerank(
-            request, raw_request
-        )
+        response = await self.serving_reranking.do_rerank(request, raw_request)
 
         if isinstance(response, engineError):
             return create_error_response(

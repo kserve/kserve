@@ -41,7 +41,7 @@ class DummyModel(OpenAIEncoderModel):
 
     async def create_embedding(self, request: EmbeddingRequest) -> Embedding:
         return self.embedding_data[0]
-    
+
     async def create_rerank(self, request: RerankRequest) -> Rerank:
         return self.rerank_data[0]
 
@@ -86,7 +86,7 @@ class TestOpenAICreateEmbedding:
         c = await dummy_model_encoder.create_embedding(embedding_create_params)
         assert isinstance(c, Embedding)
         assert c.model_dump_json(indent=2) == embedding.model_dump_json(indent=2)
-    
+
     @pytest.mark.asyncio
     async def test_create_rerank(
         self,

@@ -126,7 +126,7 @@ class OpenAIDataPlane(DataPlane):
         return await model.create_embedding(
             request=request, raw_request=raw_request, context=context
         )
-    
+
     async def create_rerank(
         self,
         model_name: str,
