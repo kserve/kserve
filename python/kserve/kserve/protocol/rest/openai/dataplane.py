@@ -23,6 +23,8 @@ from kserve.protocol.rest.openai.types import (
     Embedding,
     EmbeddingRequest,
     ErrorResponse,
+    RerankRequest,
+    Rerank,
 )
 from starlette.datastructures import Headers
 
@@ -122,6 +124,35 @@ class OpenAIDataPlane(DataPlane):
 
         context = {"headers": dict(headers), "response": response}
         return await model.create_embedding(
+            request=request, raw_request=raw_request, context=context
+        )
+    
+    async def create_rerank(
+        self,
+        model_name: str,
+        request: RerankRequest,
+        raw_request: Request,
+        headers: Headers,
+        response: Response,
+    ) -> Union[AsyncGenerator[str, None], Rerank, ErrorResponse]:
+        """Generate the text with the provided text prompt.
+        Args:
+            model_name (str): Model name.
+            request (RerankRequest): Params to create rerank response.
+            raw_request (Request): fastapi request object.
+            headers: (Headers): Request headers.
+            response: (Response): FastAPI response object
+        Returns:
+            response: A non-streaming or streaming rerank response.
+        Raises:
+            InvalidInput: An error when the body bytes can't be decoded as JSON.
+        """
+        model = await self.get_model(model_name)
+        if not isinstance(model, OpenAIEncoderModel):
+            raise RuntimeError(f"Model {model_name} does not support rerank")
+
+        context = {"headers": dict(headers), "response": response}
+        return await model.create_rerank(
             request=request, raw_request=raw_request, context=context
         )
 
