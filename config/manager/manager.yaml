@@ -28,8 +28,8 @@ spec:
       - command:
         - /manager
         args:
-        # When changing arguments, make sure to review the args in manager_auth_proxy_patch.yaml
-        # and update as needed.
+        - "--metrics-addr=:8443"
+        - "--metrics-secure"
         - "--leader-elect"
         image: ko://github.com/kserve/kserve/cmd/manager
         imagePullPolicy: Always
@@ -72,22 +72,38 @@ spec:
             cpu: 100m
             memory: 200Mi
         ports:
+        - containerPort: 8443
+          name: https
+          protocol: TCP
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
-          name: cert
+          name: webhook-cert
+          readOnly: true
+        - mountPath: /tmp/k8s-metrics-server/serving-certs
+          name: metrics-cert
           readOnly: true
       terminationGracePeriodSeconds: 10
       volumes:
-      - name: cert
+      - name: webhook-cert
         secret:
           defaultMode: 420
           secretName: kserve-webhook-server-cert
+      - name: metrics-cert
+        secret:
+          defaultMode: 420
+          secretName: kserve-metrics-server-cert
 ---
 apiVersion: v1
 kind: Secret
 metadata:
-  name: kserve-webhook-server-secret
+  name: kserve-webhook-server-cert
+  namespace: kserve
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kserve-metrics-server-cert
   namespace: kserve

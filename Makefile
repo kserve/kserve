@@ -76,7 +76,7 @@ manifests: controller-gen yq
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodelnode-agent-role paths=./pkg/controller/v1alpha1/localmodelnode output:rbac:artifacts:config=config/rbac/localmodelnode
 	# Copy the cluster role to the helm chart
-	cp config/rbac/auth_proxy_role.yaml charts/kserve-resources/templates/clusterrole.yaml
+	cp config/rbac/metrics_auth_role.yaml charts/kserve-resources/templates/clusterrole.yaml
 	cat config/rbac/role.yaml >> charts/kserve-resources/templates/clusterrole.yaml
 	# Copy the local model role with Helm chart while keeping the Helm template condition
 	echo '{{- if .Values.kserve.localmodel.enabled }}' > charts/kserve-resources/templates/localmodel/role.yaml
