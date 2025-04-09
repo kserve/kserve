@@ -23,20 +23,27 @@ from kserve.protocol.rest.openai import (
 from kserve.protocol.rest.openai.types import (
     Embedding,
     EmbeddingCompletionRequest as EmbeddingRequest,
+    RerankRequest,
+    Rerank,
 )
 
 FIXTURES_PATH = Path(__file__).parent / "fixtures" / "openai"
 
 
 class DummyModel(OpenAIEncoderModel):
-    data: Tuple[Embedding]
+    embedding_data: Tuple[Embedding]
+    rerank_data: Tuple[Rerank]
 
-    def __init__(self, data: Tuple[Embedding]):
+    def __init__(self, embedding_data: Tuple[Embedding], rerank_data: Tuple[Rerank]):
         super().__init__("dummy-model")
-        self.data = data
+        self.embedding_data = embedding_data
+        self.rerank_data = rerank_data
 
     async def create_embedding(self, request: EmbeddingRequest) -> Embedding:
-        return self.data[0]
+        return self.embedding_data[0]
+    
+    async def create_rerank(self, request: RerankRequest) -> Rerank:
+        return self.rerank_data[0]
 
 
 @pytest.fixture
@@ -52,18 +59,48 @@ def embedding_create_params():
 
 
 @pytest.fixture
-def dummy_model(embedding):
-    return DummyModel((embedding,))
+def dummy_model_embedding(embedding):
+    rerank_mock = Rerank()  # You can mock a Rerank object here if needed
+    return DummyModel(embedding_data=(embedding,), rerank_data=(rerank_mock,))
+
+
+@pytest.fixture
+def rerank():
+    with open(FIXTURES_PATH / "rerank.json") as f:
+        return Rerank.model_validate_json(f.read())
+
+
+@pytest.fixture
+def rerank_create_params():
+    with open(FIXTURES_PATH / "rerank_create_params.json") as f:
+        return RerankRequest.model_validate_json(f.read())
+
+
+@pytest.fixture
+def dummy_model_rerank(rerank):
+    embedding_mock = Embedding()  # You can mock a Rerank object here if needed
+    return DummyModel(embedding_data=(embedding_mock,), rerank_data=(rerank,))
 
 
 class TestOpenAICreateEmbedding:
     @pytest.mark.asyncio
     async def test_create_embedding(
         self,
-        dummy_model: DummyModel,
+        dummy_model_embedding: DummyModel,
         embedding: Embedding,
         embedding_create_params: EmbeddingRequest,
     ):
-        c = await dummy_model.create_embedding(embedding_create_params)
+        c = await dummy_model_embedding.create_embedding(embedding_create_params)
         assert isinstance(c, Embedding)
         assert c.model_dump_json(indent=2) == embedding.model_dump_json(indent=2)
+    
+    @pytest.mark.asyncio
+    async def test_create_rerank(
+        self,
+        dummy_model_rerank: DummyModel,
+        rerank: Rerank,
+        rerank_create_params: RerankRequest,
+    ):
+        c = await dummy_model_rerank.create_rerank(rerank_create_params)
+        assert isinstance(c, Rerank)
+        assert c.model_dump_json(indent=2) == rerank.model_dump_json(indent=2)
