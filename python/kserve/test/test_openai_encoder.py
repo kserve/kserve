@@ -59,12 +59,6 @@ def embedding_create_params():
 
 
 @pytest.fixture
-def dummy_model_embedding(embedding):
-    rerank_mock = Rerank()  # You can mock a Rerank object here if needed
-    return DummyModel(embedding_data=(embedding,), rerank_data=(rerank_mock,))
-
-
-@pytest.fixture
 def rerank():
     with open(FIXTURES_PATH / "rerank.json") as f:
         return Rerank.model_validate_json(f.read())
@@ -77,30 +71,29 @@ def rerank_create_params():
 
 
 @pytest.fixture
-def dummy_model_rerank(rerank):
-    embedding_mock = Embedding()  # You can mock a Rerank object here if needed
-    return DummyModel(embedding_data=(embedding_mock,), rerank_data=(rerank,))
+def dummy_model_encoder(embedding, rerank):
+    return DummyModel(embedding_data=(embedding,), rerank_data=(rerank,))
 
 
 class TestOpenAICreateEmbedding:
     @pytest.mark.asyncio
     async def test_create_embedding(
         self,
-        dummy_model_embedding: DummyModel,
+        dummy_model_encoder: DummyModel,
         embedding: Embedding,
         embedding_create_params: EmbeddingRequest,
     ):
-        c = await dummy_model_embedding.create_embedding(embedding_create_params)
+        c = await dummy_model_encoder.create_embedding(embedding_create_params)
         assert isinstance(c, Embedding)
         assert c.model_dump_json(indent=2) == embedding.model_dump_json(indent=2)
     
     @pytest.mark.asyncio
     async def test_create_rerank(
         self,
-        dummy_model_rerank: DummyModel,
+        dummy_model_encoder: DummyModel,
         rerank: Rerank,
         rerank_create_params: RerankRequest,
     ):
-        c = await dummy_model_rerank.create_rerank(rerank_create_params)
+        c = await dummy_model_encoder.create_rerank(rerank_create_params)
         assert isinstance(c, Rerank)
         assert c.model_dump_json(indent=2) == rerank.model_dump_json(indent=2)
