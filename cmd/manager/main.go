@@ -18,6 +18,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"net/http"
 	"os"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -37,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -64,20 +67,24 @@ const (
 // Options defines the program configurable options that may be passed on the command line.
 type Options struct {
 	metricsAddr          string
+	metricsSecure        bool
 	webhookPort          int
 	enableLeaderElection bool
 	probeAddr            string
 	zapOpts              zap.Options
+	enableHTTP2          bool
 }
 
 // DefaultOptions returns the default values for the program options.
 func DefaultOptions() Options {
 	return Options{
-		metricsAddr:          ":8080",
+		metricsAddr:          ":8443",
+		metricsSecure:        true,
 		webhookPort:          9443,
 		enableLeaderElection: false,
 		probeAddr:            ":8081",
 		zapOpts:              zap.Options{},
+		enableHTTP2:          false,
 	}
 }
 
@@ -85,11 +92,13 @@ func DefaultOptions() Options {
 func GetOptions() Options {
 	opts := DefaultOptions()
 	flag.StringVar(&opts.metricsAddr, "metrics-addr", opts.metricsAddr, "The address the metric endpoint binds to.")
+	flag.BoolVar(&opts.metricsSecure, "metrics-secure", opts.metricsSecure, "Whether to serve metric via HTTPS.")
 	flag.IntVar(&opts.webhookPort, "webhook-port", opts.webhookPort, "The port that the webhook server binds to.")
 	flag.BoolVar(&opts.enableLeaderElection, "leader-elect", opts.enableLeaderElection,
 		"Enable leader election for kserve controller manager. "+
 			"Enabling this will ensure there is only one active kserve controller manager.")
 	flag.StringVar(&opts.probeAddr, "health-probe-addr", opts.probeAddr, "The address the probe endpoint binds to.")
+	flag.BoolVar(&opts.enableHTTP2, "enable-http2", false, "If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	opts.zapOpts.BindFlags(flag.CommandLine)
 	flag.Parse()
 	return opts
@@ -120,14 +129,38 @@ func main() {
 		os.Exit(1)
 	}
 
+	// http/2 should be disabled due to its vulnerabilities. More specifically, disabling http/2 will
+	// prevent from being vulnerable to the HTTP/2 Stream Cancellation and
+	// Rapid Reset CVEs. For more information see:
+	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
+	// - https://github.com/advisories/GHSA-4374-p667-p6c8
+	disableHTTP2 := func(c *tls.Config) {
+		setupLog.Info("disabling http/2")
+		c.NextProtos = []string{"http/1.1"}
+	}
+
+	var tlsOpts []func(*tls.Config)
+	if !options.enableHTTP2 {
+		tlsOpts = append(tlsOpts, disableHTTP2)
+	}
+
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("Setting up manager")
 	mgr, err := manager.New(cfg, manager.Options{
 		Metrics: metricsserver.Options{
-			BindAddress: options.metricsAddr,
+			BindAddress:   options.metricsAddr,
+			SecureServing: options.metricsSecure,
+			FilterProvider: func() func(c *rest.Config, httpClient *http.Client) (metricsserver.Filter, error) {
+				if options.metricsSecure {
+					return filters.WithAuthenticationAndAuthorization
+				}
+				return nil
+			}(),
+			TLSOpts: tlsOpts,
 		},
 		WebhookServer: webhook.NewServer(webhook.Options{
-			Port: options.webhookPort,
+			Port:    options.webhookPort,
+			TLSOpts: tlsOpts,
 		}),
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
