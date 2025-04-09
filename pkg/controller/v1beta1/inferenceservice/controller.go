@@ -372,6 +372,11 @@ func inferenceServiceStatusEqual(s1, s2 v1beta1.InferenceServiceStatus, deployme
 
 func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
 	runtimeObj, ok := obj.(*v1alpha1.ServingRuntime)
+
+	if !ok || runtimeObj == nil || runtimeObj.Spec.SupportedModelFormats == nil {
+		return nil
+	}
+
 	protocolVersions := runtimeObj.Spec.ProtocolVersions
 	if protocolVersions == nil {
 		return nil
@@ -381,11 +386,6 @@ func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj
 	for _, protocolVersion := range protocolVersions {
 		protocolVersionsAsStrings = append(protocolVersionsAsStrings, string(protocolVersion))
 	}
-
-	if !ok || runtimeObj == nil || runtimeObj.Spec.SupportedModelFormats == nil {
-		return nil
-	}
-
 	var isvcList v1beta1.InferenceServiceList
 	// List all InferenceServices in the same namespace.
 	if err := r.Client.List(ctx, &isvcList, client.InNamespace(runtimeObj.Namespace)); err != nil {
