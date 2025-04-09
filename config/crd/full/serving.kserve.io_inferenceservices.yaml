@@ -1198,6 +1198,13 @@ spec:
                             properties:
                               external:
                                 properties:
+                                  authenticationRef:
+                                    properties:
+                                      name:
+                                        type: string
+                                    required:
+                                      - name
+                                    type: object
                                   metric:
                                     properties:
                                       backend:
@@ -4355,6 +4362,13 @@ spec:
                             properties:
                               external:
                                 properties:
+                                  authenticationRef:
+                                    properties:
+                                      name:
+                                        type: string
+                                    required:
+                                      - name
+                                    type: object
                                   metric:
                                     properties:
                                       backend:
@@ -18713,6 +18727,13 @@ spec:
                             properties:
                               external:
                                 properties:
+                                  authenticationRef:
+                                    properties:
+                                      name:
+                                        type: string
+                                    required:
+                                      - name
+                                    type: object
                                   metric:
                                     properties:
                                       backend:

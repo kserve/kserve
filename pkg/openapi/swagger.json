@@ -2923,6 +2923,15 @@
         }
       }
     },
+    "v1beta1.ExtMetricAuth": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
     "v1beta1.ExternalMetricSource": {
       "type": "object",
       "required": [
@@ -2930,6 +2939,11 @@
         "target"
       ],
       "properties": {
+        "authenticationRef": {
+          "description": "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.ExtMetricAuth"
+        },
         "metric": {
           "description": "metric identifies the target metric by name and selector",
           "default": {},

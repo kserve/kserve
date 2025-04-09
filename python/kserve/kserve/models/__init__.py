@@ -79,6 +79,7 @@ from kserve.models.v1beta1_explainer_config import V1beta1ExplainerConfig
 from kserve.models.v1beta1_explainer_extension_spec import V1beta1ExplainerExtensionSpec
 from kserve.models.v1beta1_explainer_spec import V1beta1ExplainerSpec
 from kserve.models.v1beta1_explainers_config import V1beta1ExplainersConfig
+from kserve.models.v1beta1_ext_metric_auth import V1beta1ExtMetricAuth
 from kserve.models.v1beta1_external_metric_source import V1beta1ExternalMetricSource
 from kserve.models.v1beta1_external_metrics import V1beta1ExternalMetrics
 from kserve.models.v1beta1_failure_info import V1beta1FailureInfo
