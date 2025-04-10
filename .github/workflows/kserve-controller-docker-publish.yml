@@ -85,10 +85,10 @@ jobs:
           [[ "$VERSION" =~ ^release- ]] && VERSION=$(echo $VERSION | sed 's/^release-//')-latest
 
           TAGS=$IMAGE_ID:$VERSION
-          
+
           # If a vX.Y.Z release is being built, also update the vX.Y tag.
           [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && TAGS=$TAGS,$IMAGE_ID:$(echo $VERSION | sed 's/\(.*\)\.[[:digit:]]\+$/\1/')
-          
+
           echo CONTAINER_TAGS=$TAGS >> $GITHUB_ENV
 
       - name: Build and push

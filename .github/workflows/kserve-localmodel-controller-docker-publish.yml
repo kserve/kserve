@@ -58,15 +58,17 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to DockerHub
+      - name: Login to Quay
         uses: docker/login-action@v3
+
         with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: quay.io
+          username: ${{ secrets.QUAY_USER }}
+          password: ${{ secrets.QUAY_PASSWORD }}
 
       - name: export version variable
         run: |
-          IMAGE_ID=kserve/$IMAGE_NAME
+          IMAGE_ID=quay.io/${{ vars.QUAY_OWNER }}/$IMAGE_NAME
 
           # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
@@ -79,17 +81,20 @@ jobs:
 
           # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latest
+          [[ "$VERSION" =~ ^release- ]] && VERSION=$(echo $VERSION | sed 's/^release-//')-latest
 
-          echo VERSION=$VERSION >> $GITHUB_ENV
-          echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
+          TAGS=$IMAGE_ID:$VERSION
+
+          # If a vX.Y.Z release is being built, also update the vX.Y tag.
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && TAGS=$TAGS,$IMAGE_ID:$(echo $VERSION | sed 's/\(.*\)\.[[:digit:]]\+$/\1/')
+
+          echo CONTAINER_TAGS=$TAGS >> $GITHUB_ENV
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64,linux/arm/v7,linux/arm64/v8,linux/ppc64le,linux/s390x
+          platforms: linux/amd64,linux/arm64/v8,linux/ppc64le,linux/s390x
           context: .
-          file: localmodel.Dockerfile
+          file: Dockerfile
           push: true
-          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
-          # https://github.com/docker/buildx/issues/1533
-          provenance: false
+          tags: ${{ env.CONTAINER_TAGS }}
