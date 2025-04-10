@@ -60,7 +60,6 @@ class RemoteOpenAIServer:
         # the current process might initialize cuda,
         # to be safe, we should use spawn method
         env["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
-        env["VLLM_USE_V1"] = "0"
         if env_dict is not None:
             env.update(env_dict)
         self.proc = subprocess.Popen(
