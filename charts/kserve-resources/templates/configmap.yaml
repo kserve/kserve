@@ -582,8 +582,8 @@ data:
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
         "cpuLimit": "1",
-        "imagePullPolicy": "{{ .Values.kserve.router.imagePullPolicy }}"
-        "imagePullSecrets": "{{ .Values.kserve.router.imagePullSecrets }}"
+        "imagePullPolicy": "{{ .Values.kserve.router.imagePullPolicy }}",
+        "imagePullSecrets": {{ .Values.kserve.router.imagePullSecrets }}
     }
   credentials: |-
     {
