@@ -42,7 +42,7 @@ from vllm.entrypoints.openai.serving_models import BaseModelPath, OpenAIServingM
 from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
 from vllm.entrypoints.chat_utils import load_chat_template
 from vllm.entrypoints.openai.protocol import ErrorResponse as engineError
-from vllm.entrypoints.openai.reasoning_parsers import ReasoningParserManager
+from vllm.reasoning import ReasoningParserManager
 from .utils import build_async_engine_client_from_engine_args, build_vllm_engine_args
 
 
