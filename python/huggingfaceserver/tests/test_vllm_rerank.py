@@ -52,7 +52,7 @@ async def test_rerank_texts(server: RemoteOpenAIServer, model_name: str):
     ]
 
     rerank_response = requests.post(
-        server.url_for("rerank"),
+        server.url_for("openai/v1", "rerank"),
         json={
             "model": model_name,
             "query": query,
@@ -83,7 +83,7 @@ async def test_top_n(server: RemoteOpenAIServer, model_name: str):
     ]
 
     rerank_response = requests.post(
-        server.url_for("rerank"),
+        server.url_for("openai/v1", "rerank"),
         json={"model": model_name, "query": query, "documents": documents, "top_n": 2},
     )
     rerank_response.raise_for_status()
@@ -109,7 +109,7 @@ async def test_rerank_max_model_len(server: RemoteOpenAIServer, model_name: str)
     ]
 
     rerank_response = requests.post(
-        server.url_for("rerank"),
+        server.url_for("openai/v1", "rerank"),
         json={"model": model_name, "query": query, "documents": documents},
     )
     assert rerank_response.status_code == 400

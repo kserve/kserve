@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from http import HTTPStatus
 from typing import AsyncGenerator, List, Union
 
 from fastapi import Request, Response
+from starlette.datastructures import Headers
+
+from kserve.protocol.rest.openai.errors import create_error_response
 from kserve.protocol.rest.openai.types import (
     ChatCompletion,
     ChatCompletionRequest,
@@ -26,10 +30,12 @@ from kserve.protocol.rest.openai.types import (
     RerankRequest,
     Rerank,
 )
-from starlette.datastructures import Headers
-
 from ...dataplane import DataPlane
-from .openai_model import OpenAIModel, OpenAIGenerativeModel, OpenAIEncoderModel
+from .openai_model import (
+    OpenAIModel,
+    OpenAIGenerativeModel,
+    OpenAIEncoderModel,
+)
 
 
 class OpenAIDataPlane(DataPlane):
@@ -52,14 +58,14 @@ class OpenAIDataPlane(DataPlane):
             headers: (Headers): Request headers.
             response: (Response): FastAPI response object
         Returns:
-            response: A non-streaming or streaming completion response.
-
-        Raises:
-            InvalidInput: An error when the body bytes can't be decoded as JSON.
+            response: A non-streaming or streaming completion response or an error response.
         """
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIGenerativeModel):
-            raise RuntimeError(f"Model {model_name} does not support completion")
+            return create_error_response(
+                message=f"Model {model_name} does not support Completions API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
 
         context = {"headers": dict(headers), "response": response}
         return await model.create_completion(
@@ -82,14 +88,14 @@ class OpenAIDataPlane(DataPlane):
             headers: (Optional[Dict[str, str]]): Request headers.
 
         Returns:
-            response: A non-streaming or streaming chat completion response
-
-        Raises:
-            InvalidInput: An error when the body bytes can't be decoded as JSON.
+            response: A non-streaming or streaming chat completion response or an error response.
         """
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIGenerativeModel):
-            raise RuntimeError(f"Model {model_name} does not support chat completion")
+            return create_error_response(
+                message=f"Model {model_name} does not support Chat Completion API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
 
         context = {"headers": dict(headers), "response": response}
         return await model.create_chat_completion(
@@ -113,14 +119,14 @@ class OpenAIDataPlane(DataPlane):
             headers: (Headers): Request headers.
             response: (Response): FastAPI response object
         Returns:
-            response: A non-streaming or streaming embedding response.
-
-        Raises:
-            InvalidInput: An error when the body bytes can't be decoded as JSON.
+            response: A non-streaming or streaming embedding response or an error response.
         """
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIEncoderModel):
-            raise RuntimeError(f"Model {model_name} does not support embedding")
+            return create_error_response(
+                message=f"Model {model_name} does not support Embeddings API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
 
         context = {"headers": dict(headers), "response": response}
         return await model.create_embedding(
@@ -143,13 +149,15 @@ class OpenAIDataPlane(DataPlane):
             headers: (Headers): Request headers.
             response: (Response): FastAPI response object
         Returns:
-            response: A non-streaming or streaming rerank response.
-        Raises:
-            InvalidInput: An error when the body bytes can't be decoded as JSON.
+            Returns:
+            response: A non-streaming or streaming embedding response or an error response.
         """
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIEncoderModel):
-            raise RuntimeError(f"Model {model_name} does not support rerank")
+            return create_error_response(
+                message=f"Model {model_name} does not support Rerank API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
 
         context = {"headers": dict(headers), "response": response}
         return await model.create_rerank(
