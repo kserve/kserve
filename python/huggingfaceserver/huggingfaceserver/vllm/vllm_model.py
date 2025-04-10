@@ -296,7 +296,7 @@ class VLLMModel(
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Rerank, ErrorResponse]:
-        if self.openai_serving_embedding is None:
+        if self.serving_reranking is None:
             return create_error_response(
                 message="The model does not support Rerank API",
                 status_code=HTTPStatus.BAD_REQUEST,
