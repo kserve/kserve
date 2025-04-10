@@ -127,7 +127,7 @@ jobs:
         run: |
           cd python/kserve-numpy-1-x
           make install_dependencies
-      - name: Install kserve pydantic v1
+      - name: Install kserve numpy 1-x
         run: |
           cd python/kserve-numpy-1-x
           make dev_install
