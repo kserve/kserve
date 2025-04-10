@@ -106,6 +106,40 @@ jobs:
           cd python
           source kserve-pydantic-v1/.venv/bin/activate
           pytest --cov=kserve ./kserve-pydantic-v1
+      
+      # ----------------------------------------Kserve Numpy 1.x Unit Tests--------------------------------------------
+      - name: Setup kserve numpy 1-x directory
+        run: |
+          mkdir -p python/kserve-numpy-1-x
+          cp -r python/kserve/* python/kserve-numpy-1-x
+          cd python/kserve-numpy-1-x
+          # update the lock file without installing dependencies
+          poetry update "numpy<2.0" --lock
+      - name: Load cached kserve numpy 1-x venv
+        id: cached-kserve-numpy-1-x-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/kserve-numpy-1-x/.venv
+          key: kserve-numpy-1-x-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve-numpy-1-x/poetry.lock') }}
+      # install kserve numpy 1-x dependencies if cache does not exist
+      - name: Install kserve numpy 1-x dependencies
+        if: ${{ steps.cached-kserve-numpy-1-x-dependencies.outputs.cache-hit != 'true' }}
+        run: |
+          cd python/kserve-numpy-1-x
+          make install_dependencies
+      - name: Install kserve pydantic v1
+        run: |
+          cd python/kserve-numpy-1-x
+          make dev_install
+      - name: View numpy version
+        run: |
+          cd python/kserve-numpy-1-x
+          poetry show numpy
+      - name: Test kserve numpy 1-x
+        run: |
+          cd python
+          source kserve-numpy-1-x/.venv/bin/activate
+          pytest --cov=kserve ./kserve-numpy-1-x
 
       # ----------------------------------------Sklearn Server Unit Tests------------------------------------------------
       # load cached sklearn venv if cache exists
