@@ -35,6 +35,7 @@ import (
 
 const (
 	LoggerConfigMapKeyName         = "logger"
+	LogSchemaConfigMapKeyName      = "logSchema"
 	LoggerArgumentLogUrl           = "--log-url"
 	LoggerArgumentSourceUri        = "--source-uri"
 	LoggerArgumentMode             = "--log-mode"
@@ -45,6 +46,7 @@ const (
 	LoggerArgumentCaCertFile       = "--logger-ca-cert-file"
 	LoggerArgumentTlsSkipVerify    = "--logger-tls-skip-verify"
 	LoggerArgumentMetadataHeaders  = "--metadata-headers"
+	LoggerArgumentCustomLogSchema  = "--custom-log-schema"
 )
 
 type AgentConfig struct {
@@ -56,15 +58,17 @@ type AgentConfig struct {
 }
 
 type LoggerConfig struct {
-	Image         string `json:"image"`
-	CpuRequest    string `json:"cpuRequest"`
-	CpuLimit      string `json:"cpuLimit"`
-	MemoryRequest string `json:"memoryRequest"`
-	MemoryLimit   string `json:"memoryLimit"`
-	DefaultUrl    string `json:"defaultUrl"`
-	CaBundle      string `json:"caBundle"`
-	CaCertFile    string `json:"caCertFile"`
-	TlsSkipVerify bool   `json:"tlsSkipVerify"`
+	Image                   string `json:"image"`
+	CpuRequest              string `json:"cpuRequest"`
+	CpuLimit                string `json:"cpuLimit"`
+	MemoryRequest           string `json:"memoryRequest"`
+	MemoryLimit             string `json:"memoryLimit"`
+	DefaultUrl              string `json:"defaultUrl"`
+	CaBundle                string `json:"caBundle"`
+	CaCertFile              string `json:"caCertFile"`
+	TlsSkipVerify           bool   `json:"tlsSkipVerify"`
+	EnableCustomLogSchema   bool   `json:"enableCustomLogSchema"`
+	CustomLogSchemaLocation string `json:"customLogSchemaLocation"`
 }
 
 type AgentInjector struct {
@@ -220,6 +224,13 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		}
 		// Whether to skip TLS verification. If not present in the ConfigMap, this will default to `false`
 		args = append(args, LoggerArgumentTlsSkipVerify, strconv.FormatBool(ag.loggerConfig.TlsSkipVerify))
+
+		// If a custom log format is specified, the agent container needs to know what schema to load.
+		customSchema, ok := pod.ObjectMeta.Annotations[constants.LoggerCustomLogSchemaInternalAnnotationKey]
+		if ok && ag.loggerConfig.EnableCustomLogSchema {
+			args = append(args, LoggerArgumentCustomLogSchema)
+			args = append(args, customSchema)
+		}
 	}
 
 	var queueProxyEnvs []corev1.EnvVar
@@ -358,6 +369,31 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		agentContainer.VolumeMounts = append(agentContainer.VolumeMounts, corev1.VolumeMount{
 			Name:      constants.LoggerCaBundleVolume,
 			MountPath: constants.LoggerCaCertMountPath,
+			ReadOnly:  true,
+		})
+	}
+
+	//If custom log schemas are enabled and a custom log schema location is provided, we mount it
+	if injectLogger && ag.loggerConfig.EnableCustomLogSchema && ag.loggerConfig.CustomLogSchemaLocation != "" {
+		// Optional. If the ConfigMap is not found, this will not make the Pod fail
+		optionalVolume := true
+		configMapVolume := corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: ag.loggerConfig.CustomLogSchemaLocation,
+				},
+				Optional: &optionalVolume,
+			},
+		}
+
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name:         constants.LoggerCustomSchemaVolume,
+			VolumeSource: configMapVolume,
+		})
+
+		agentContainer.VolumeMounts = append(agentContainer.VolumeMounts, corev1.VolumeMount{
+			Name:      constants.LoggerCustomSchemaVolume,
+			MountPath: constants.LoggerCustomSchemaMountPath,
 			ReadOnly:  true,
 		})
 	}

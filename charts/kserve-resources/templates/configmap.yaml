@@ -585,6 +585,7 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1",
         "defaultUrl": "http://default-broker"
+        "enableCustomLogSchema": false
     }
   storageInitializer: |-
     {
