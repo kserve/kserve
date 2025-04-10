@@ -60,9 +60,6 @@ class OpenAIDataPlane(DataPlane):
             response: (Response): FastAPI response object
         Returns:
             response: A non-streaming or streaming completion response or an error response.
-
-        Raises:
-            InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIGenerativeModel):
@@ -92,9 +89,6 @@ class OpenAIDataPlane(DataPlane):
 
         Returns:
             response: A non-streaming or streaming chat completion response or an error response.
-
-        Raises:
-            InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIGenerativeModel):
@@ -126,9 +120,6 @@ class OpenAIDataPlane(DataPlane):
             response: (Response): FastAPI response object
         Returns:
             response: A non-streaming or streaming embedding response or an error response.
-
-        Raises:
-            InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAIEncoderModel):
@@ -160,9 +151,6 @@ class OpenAIDataPlane(DataPlane):
             response: (Response): fastapi response object
         Returns:
             response: A non-streaming or streaming transcription response or an error response.
-
-        Raises:
-            InvalidInput: An error when the body bytes can't be decoded as JSON.
         """
         model = await self.get_model(model_name)
         if not isinstance(model, OpenAITranscriptionModel):
