@@ -1372,3 +1372,239 @@ func TestDeploymentModeUpdate(t *testing.T) {
 func intPtr(i int) *int {
 	return &i
 }
+
+func TestValidateUpdate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validator := InferenceServiceValidator{}
+
+	scenarios := map[string]struct {
+		oldISVC    *InferenceService
+		newISVC    *InferenceService
+		errMatcher gomega.OmegaMatcher
+	}{
+		"Valid update with no changes": {
+			oldISVC: func() *InferenceService {
+				isvc := makeTestInferenceService()
+				return &isvc
+			}(),
+			newISVC: func() *InferenceService {
+				isvc := makeTestInferenceService()
+				return &isvc
+			}(),
+			errMatcher: gomega.BeNil(),
+		},
+		"Valid update with annotation change": {
+			oldISVC: func() *InferenceService {
+				isvc := makeTestInferenceService()
+				return &isvc
+			}(),
+			newISVC: func() *InferenceService {
+				isvc := makeTestInferenceService()
+				isvc.Annotations = map[string]string{"new-annotation": "value"}
+				return &isvc
+			}(),
+			errMatcher: gomega.BeNil(),
+		},
+		"Invalid update with unsupported autoscaler class": {
+			oldISVC: func() *InferenceService {
+				isvc := makeTestInferenceService()
+				return &isvc
+			}(),
+			newISVC: func() *InferenceService {
+				isvc := makeTestInferenceService()
+				isvc.Annotations = map[string]string{"serving.kserve.io/autoscalerClass": "unsupported"}
+				return &isvc
+			}(),
+			errMatcher: gomega.MatchError("[unsupported] is not a supported autoscaler class type"),
+		},
+		"Valid update with resource changes": {
+			oldISVC: func() *InferenceService {
+				isvc := makeTestInferenceService()
+				return &isvc
+			}(),
+			newISVC: func() *InferenceService {
+				isvc := makeTestInferenceService()
+				isvc.Spec.Predictor.Tensorflow.PredictorExtensionSpec.RuntimeVersion = proto.String("1.15.0")
+				return &isvc
+			}(),
+			errMatcher: gomega.BeNil(),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			_, err := validator.ValidateUpdate(context.Background(), scenario.oldISVC, scenario.newISVC)
+			g.Expect(err).Should(scenario.errMatcher)
+		})
+	}
+}
+func TestValidateScalingKedaCompExtension(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		compExtSpec *ComponentExtensionSpec
+		errMatcher  gomega.OmegaMatcher
+	}{
+		"Valid KEDA CPU metrics with utilization target": {
+			compExtSpec: &ComponentExtensionSpec{
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: ResourceMetricSourceType,
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricCPU,
+								Target: MetricTarget{
+									Type:               UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(80)),
+								},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Valid KEDA Memory metrics with average value target": {
+			compExtSpec: &ComponentExtensionSpec{
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: ResourceMetricSourceType,
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricMemory,
+								Target: MetricTarget{
+									Type:         AverageValueMetricType,
+									AverageValue: ptr.To(resource.MustParse("2Gi")),
+								},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Invalid KEDA CPU metrics without resource target": {
+			compExtSpec: &ComponentExtensionSpec{
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: ResourceMetricSourceType,
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricCPU,
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the cpu target value type should be Utilization"),
+		},
+		"Invalid KEDA Memory metrics with low average value target": {
+			compExtSpec: &ComponentExtensionSpec{
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: ResourceMetricSourceType,
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricMemory,
+								Target: MetricTarget{
+									Type:         AverageValueMetricType,
+									AverageValue: ptr.To(resource.MustParse("500Ki")),
+								},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the memory target value should be greater than 1 MiB"),
+		},
+		"Invalid KEDA external metrics without query": {
+			compExtSpec: &ComponentExtensionSpec{
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: ExternalMetricSourceType,
+							External: &ExternalMetricSource{
+								Metric: ExternalMetrics{
+									Backend: PrometheusBackend,
+								},
+								Target: MetricTarget{
+									Type:  ValueMetricType,
+									Value: ptr.To(resource.MustParse("10")),
+								},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the query should not be empty"),
+		},
+		"Invalid KEDA pod metrics without target value": {
+			compExtSpec: &ComponentExtensionSpec{
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: PodMetricSourceType,
+							PodMetric: &PodMetricSource{
+								Metric: PodMetrics{
+									Backend: OpenTelemetryBackend,
+									Query:   "avg(vllm_requests_running)",
+								},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the target threshold value should not be empty"),
+		},
+		"Invalid KEDA metric type": {
+			compExtSpec: &ComponentExtensionSpec{
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: "InvalidMetricType",
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("unknown KEDA metric type with value [InvalidMetricType].Valid types are Resource,External,PodMetric"),
+		},
+		"Invalid ScaleMetric for KEDA": {
+			compExtSpec: &ComponentExtensionSpec{
+				ScaleMetric: ptr.To(MetricCPU),
+			},
+			errMatcher: gomega.MatchError("ScaleMetric is not supported for KEDA"),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			err := validateScalingKedaCompExtension(scenario.compExtSpec)
+			g.Expect(err).Should(scenario.errMatcher)
+		})
+	}
+}
+func TestValidateDelete(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc       *InferenceService
+		errMatcher gomega.OmegaMatcher
+	}{
+		"Valid InferenceService deletion": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			validator := InferenceServiceValidator{}
+			_, err := validator.ValidateDelete(context.Background(), scenario.isvc)
+			g.Expect(err).Should(scenario.errMatcher)
+		})
+	}
+}

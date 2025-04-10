@@ -336,3 +336,699 @@ func TestValidateIngressGateway(t *testing.T) {
 		})
 	}
 }
+
+func TestNewLocalModelConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test with no configuration
+	clientsetNoConfig := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+	})
+	configMapNoConfig, err := GetInferenceServiceConfigMap(context.Background(), clientsetNoConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	localModelConfigEmpty, err := NewLocalModelConfig(configMapNoConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(localModelConfigEmpty).ShouldNot(gomega.BeNil())
+	g.Expect(localModelConfigEmpty.Enabled).To(gomega.BeFalse())
+	g.Expect(localModelConfigEmpty.JobNamespace).To(gomega.BeEmpty())
+	g.Expect(localModelConfigEmpty.DefaultJobImage).To(gomega.BeEmpty())
+	g.Expect(localModelConfigEmpty.FSGroup).To(gomega.BeNil())
+	g.Expect(localModelConfigEmpty.JobTTLSecondsAfterFinished).To(gomega.BeNil())
+	g.Expect(localModelConfigEmpty.ReconcilationFrequencyInSecs).To(gomega.BeNil())
+	g.Expect(localModelConfigEmpty.DisableVolumeManagement).To(gomega.BeFalse())
+
+	// Test with full configuration
+	fsGroup := int64(1000)
+	ttl := int32(300)
+	reconcileFreq := int64(60)
+
+	fullConfig := fmt.Sprintf(`{
+		"enabled": true,
+		"jobNamespace": "test-namespace",
+		"defaultJobImage": "test-image:latest",
+		"fsGroup": %d,
+		"jobTTLSecondsAfterFinished": %d,
+		"reconcilationFrequencyInSecs": %d,
+		"disableVolumeManagement": true
+	}`, fsGroup, ttl, reconcileFreq)
+
+	clientsetFullConfig := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			LocalModelConfigName: fullConfig,
+		},
+	})
+
+	configMapFullConfig, err := GetInferenceServiceConfigMap(context.Background(), clientsetFullConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	localModelConfigFull, err := NewLocalModelConfig(configMapFullConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(localModelConfigFull).ShouldNot(gomega.BeNil())
+	g.Expect(localModelConfigFull.Enabled).To(gomega.BeTrue())
+	g.Expect(localModelConfigFull.JobNamespace).To(gomega.Equal("test-namespace"))
+	g.Expect(localModelConfigFull.DefaultJobImage).To(gomega.Equal("test-image:latest"))
+	g.Expect(*localModelConfigFull.FSGroup).To(gomega.Equal(fsGroup))
+	g.Expect(*localModelConfigFull.JobTTLSecondsAfterFinished).To(gomega.Equal(ttl))
+	g.Expect(*localModelConfigFull.ReconcilationFrequencyInSecs).To(gomega.Equal(reconcileFreq))
+	g.Expect(localModelConfigFull.DisableVolumeManagement).To(gomega.BeTrue())
+
+	// Test with invalid JSON
+	clientsetInvalidConfig := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			LocalModelConfigName: `{invalid-json}`,
+		},
+	})
+
+	configMapInvalidConfig, err := GetInferenceServiceConfigMap(context.Background(), clientsetInvalidConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	_, err = NewLocalModelConfig(configMapInvalidConfig)
+	g.Expect(err).Should(gomega.HaveOccurred())
+}
+
+func TestNewSecurityConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test with no security configuration
+	clientsetNoConfig := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+	})
+	configMapNoConfig, err := GetInferenceServiceConfigMap(context.Background(), clientsetNoConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	securityConfigEmpty, err := NewSecurityConfig(configMapNoConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(securityConfigEmpty).ShouldNot(gomega.BeNil())
+	g.Expect(securityConfigEmpty.AutoMountServiceAccountToken).To(gomega.BeFalse())
+
+	// Test with security configuration - autoMountServiceAccountToken: true
+	clientsetWithConfig := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			SecurityConfigName: `{"autoMountServiceAccountToken": true}`,
+		},
+	})
+	configMapWithConfig, err := GetInferenceServiceConfigMap(context.Background(), clientsetWithConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	securityConfig, err := NewSecurityConfig(configMapWithConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(securityConfig).ShouldNot(gomega.BeNil())
+	g.Expect(securityConfig.AutoMountServiceAccountToken).To(gomega.BeTrue())
+
+	// Test with security configuration - autoMountServiceAccountToken: false
+	clientsetWithFalseConfig := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			SecurityConfigName: `{"autoMountServiceAccountToken": false}`,
+		},
+	})
+	configMapWithFalseConfig, err := GetInferenceServiceConfigMap(context.Background(), clientsetWithFalseConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	securityConfigFalse, err := NewSecurityConfig(configMapWithFalseConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(securityConfigFalse).ShouldNot(gomega.BeNil())
+	g.Expect(securityConfigFalse.AutoMountServiceAccountToken).To(gomega.BeFalse())
+
+	// Test with invalid JSON
+	clientsetInvalidConfig := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			SecurityConfigName: `{invalid-json}`,
+		},
+	})
+	configMapInvalidConfig, err := GetInferenceServiceConfigMap(context.Background(), clientsetInvalidConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	_, err = NewSecurityConfig(configMapInvalidConfig)
+	g.Expect(err).Should(gomega.HaveOccurred())
+}
+
+func TestNewOtelCollectorConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test with no configuration
+	clientsetNoConfig := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+	})
+	configMapNoConfig, err := GetInferenceServiceConfigMap(context.Background(), clientsetNoConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	otelConfigEmpty, err := NewOtelCollectorConfig(configMapNoConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(otelConfigEmpty).ShouldNot(gomega.BeNil())
+	g.Expect(otelConfigEmpty.ScrapeInterval).To(gomega.BeEmpty())
+	g.Expect(otelConfigEmpty.MetricReceiverEndpoint).To(gomega.BeEmpty())
+	g.Expect(otelConfigEmpty.MetricScalerEndpoint).To(gomega.BeEmpty())
+
+	// Test with valid configuration
+	validConfig := `{
+		"scrapeInterval": "15s",
+		"metricReceiverEndpoint": "http://otel-collector:4318",
+		"metricScalerEndpoint": "http://metric-scaler:8080"
+	}`
+	clientsetValidConfig := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			OtelCollectorConfigName: validConfig,
+		},
+	})
+	configMapValidConfig, err := GetInferenceServiceConfigMap(context.Background(), clientsetValidConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	otelConfig, err := NewOtelCollectorConfig(configMapValidConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(otelConfig).ShouldNot(gomega.BeNil())
+	g.Expect(otelConfig.ScrapeInterval).To(gomega.Equal("15s"))
+	g.Expect(otelConfig.MetricReceiverEndpoint).To(gomega.Equal("http://otel-collector:4318"))
+	g.Expect(otelConfig.MetricScalerEndpoint).To(gomega.Equal("http://metric-scaler:8080"))
+
+	// Test with partial configuration
+	partialConfig := `{
+		"scrapeInterval": "30s"
+	}`
+	clientsetPartialConfig := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			OtelCollectorConfigName: partialConfig,
+		},
+	})
+	configMapPartialConfig, err := GetInferenceServiceConfigMap(context.Background(), clientsetPartialConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	otelPartialConfig, err := NewOtelCollectorConfig(configMapPartialConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(otelPartialConfig).ShouldNot(gomega.BeNil())
+	g.Expect(otelPartialConfig.ScrapeInterval).To(gomega.Equal("30s"))
+	g.Expect(otelPartialConfig.MetricReceiverEndpoint).To(gomega.BeEmpty())
+	g.Expect(otelPartialConfig.MetricScalerEndpoint).To(gomega.BeEmpty())
+
+	// Test with invalid JSON
+	invalidConfig := `{invalid-json}`
+	clientsetInvalidConfig := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			OtelCollectorConfigName: invalidConfig,
+		},
+	})
+	configMapInvalidConfig, err := GetInferenceServiceConfigMap(context.Background(), clientsetInvalidConfig)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	_, err = NewOtelCollectorConfig(configMapInvalidConfig)
+	g.Expect(err).Should(gomega.HaveOccurred())
+	g.Expect(err.Error()).Should(gomega.ContainSubstring("unable to parse otel config json"))
+}
+
+func TestNewDeployConfigWithNoData(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data:       map[string]string{},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	deployConfig, err := NewDeployConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(deployConfig).ShouldNot(gomega.BeNil())
+	g.Expect(deployConfig.DefaultDeploymentMode).To(gomega.Equal(""))
+}
+
+func TestNewDeployConfigWithValidDeploymentModes(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testCases := []struct {
+		name        string
+		mode        string
+		expectError bool
+	}{
+		{
+			name:        "Serverless mode",
+			mode:        string(constants.Serverless),
+			expectError: false,
+		},
+		{
+			name:        "RawDeployment mode",
+			mode:        string(constants.RawDeployment),
+			expectError: false,
+		},
+		{
+			name:        "ModelMesh mode",
+			mode:        string(constants.ModelMeshDeployment),
+			expectError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+				Data: map[string]string{
+					DeployConfigName: fmt.Sprintf(`{"defaultDeploymentMode": "%s"}`, tc.mode),
+				},
+			})
+
+			configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+			deployConfig, err := NewDeployConfig(configMap)
+			if tc.expectError {
+				g.Expect(err).Should(gomega.HaveOccurred())
+			} else {
+				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				g.Expect(deployConfig).ShouldNot(gomega.BeNil())
+				g.Expect(deployConfig.DefaultDeploymentMode).To(gomega.Equal(tc.mode))
+			}
+		})
+	}
+}
+
+func TestNewDeployConfigWithInvalidData(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	testCases := []struct {
+		name           string
+		configData     string
+		expectedErrMsg string
+	}{
+		{
+			name:           "Empty deployment mode",
+			configData:     `{"defaultDeploymentMode": ""}`,
+			expectedErrMsg: "defaultDeploymentMode is required",
+		},
+		{
+			name:           "Invalid deployment mode",
+			configData:     `{"defaultDeploymentMode": "InvalidMode"}`,
+			expectedErrMsg: "invalid deployment mode",
+		},
+		{
+			name:           "Invalid JSON",
+			configData:     `{invalid-json}`,
+			expectedErrMsg: "unable to parse deploy config json",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+				Data: map[string]string{
+					DeployConfigName: tc.configData,
+				},
+			})
+
+			configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+			_, err = NewDeployConfig(configMap)
+			g.Expect(err).Should(gomega.HaveOccurred())
+			g.Expect(err.Error()).Should(gomega.ContainSubstring(tc.expectedErrMsg))
+		})
+	}
+}
+
+func TestNewDeployConfigWithValidData(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			DeployConfigName: `{"defaultDeploymentMode": "Serverless"}`,
+		},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	deployConfig, err := NewDeployConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(deployConfig).ShouldNot(gomega.BeNil())
+	g.Expect(deployConfig.DefaultDeploymentMode).To(gomega.Equal("Serverless"))
+}
+
+func TestNewIngressConfigWithMinimumRequiredData(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			IngressConfigKeyName: `{"ingressGateway": "test-gateway"}`,
+		},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	ingressConfig, err := NewIngressConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(ingressConfig).ShouldNot(gomega.BeNil())
+	g.Expect(ingressConfig.IngressGateway).To(gomega.Equal("test-gateway"))
+	g.Expect(ingressConfig.DomainTemplate).To(gomega.Equal(DefaultDomainTemplate))
+	g.Expect(ingressConfig.IngressDomain).To(gomega.Equal(DefaultIngressDomain))
+	g.Expect(ingressConfig.UrlScheme).To(gomega.Equal(DefaultUrlScheme))
+}
+
+func TestNewIngressConfigWithGatewayAPI(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	tests := []struct {
+		name          string
+		ingressConfig string
+		expectError   bool
+		errorMessage  string
+	}{
+		{
+			name: "valid gateway API config",
+			ingressConfig: `{
+				"enableGatewayApi": true,
+				"kserveIngressGateway": "kserve/gateway",
+				"ingressGateway": "test-gateway"
+			}`,
+			expectError: false,
+		},
+		{
+			name: "missing kserveIngressGateway",
+			ingressConfig: `{
+				"enableGatewayApi": true,
+				"ingressGateway": "test-gateway"
+			}`,
+			expectError:  true,
+			errorMessage: "kserveIngressGateway is required",
+		},
+		{
+			name: "invalid kserveIngressGateway format",
+			ingressConfig: `{
+				"enableGatewayApi": true,
+				"kserveIngressGateway": "invalid-format",
+				"ingressGateway": "test-gateway"
+			}`,
+			expectError:  true,
+			errorMessage: ErrInvalidKserveIngressGatewayFormat,
+		},
+		{
+			name: "invalid kserveIngressGateway namespace",
+			ingressConfig: `{
+				"enableGatewayApi": true,
+				"kserveIngressGateway": "invalid_namespace/gateway",
+				"ingressGateway": "test-gateway"
+			}`,
+			expectError:  true,
+			errorMessage: ErrInvalidKserveIngressGatewayNamespace,
+		},
+		{
+			name: "invalid kserveIngressGateway name",
+			ingressConfig: `{
+				"enableGatewayApi": true,
+				"kserveIngressGateway": "kserve/invalid_name",
+				"ingressGateway": "test-gateway"
+			}`,
+			expectError:  true,
+			errorMessage: ErrInvalidKserveIngressGatewayName,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+				Data: map[string]string{
+					IngressConfigKeyName: tt.ingressConfig,
+				},
+			})
+
+			configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+			ingressConfig, err := NewIngressConfig(configMap)
+			if tt.expectError {
+				g.Expect(err).Should(gomega.HaveOccurred())
+				g.Expect(err.Error()).Should(gomega.ContainSubstring(tt.errorMessage))
+			} else {
+				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				g.Expect(ingressConfig).ShouldNot(gomega.BeNil())
+				g.Expect(ingressConfig.EnableGatewayAPI).To(gomega.BeTrue())
+			}
+		})
+	}
+}
+
+func TestNewIngressConfigWithPathTemplate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	tests := []struct {
+		name          string
+		ingressConfig string
+		expectError   bool
+		errorMessage  string
+	}{
+		{
+			name: "valid path template config",
+			ingressConfig: `{
+				"ingressGateway": "test-gateway",
+				"pathTemplate": "/v1/models/{{ .Name }}",
+				"ingressDomain": "example.com"
+			}`,
+			expectError: false,
+		},
+		{
+			name: "invalid path template",
+			ingressConfig: `{
+				"ingressGateway": "test-gateway",
+				"pathTemplate": "/v1/models/{{ .Name",
+				"ingressDomain": "example.com"
+			}`,
+			expectError:  true,
+			errorMessage: "unable to parse pathTemplate",
+		},
+		{
+			name: "missing ingressDomain with pathTemplate",
+			ingressConfig: `{
+				"ingressGateway": "test-gateway",
+				"pathTemplate": "/v1/models/{{ .Name }}"
+			}`,
+			expectError:  true,
+			errorMessage: "ingressDomain is required if pathTemplate is given",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+				Data: map[string]string{
+					IngressConfigKeyName: tt.ingressConfig,
+				},
+			})
+
+			configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+			ingressConfig, err := NewIngressConfig(configMap)
+			if tt.expectError {
+				g.Expect(err).Should(gomega.HaveOccurred())
+				g.Expect(err.Error()).Should(gomega.ContainSubstring(tt.errorMessage))
+			} else {
+				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				g.Expect(ingressConfig).ShouldNot(gomega.BeNil())
+			}
+		})
+	}
+}
+
+func TestNewIngressConfigWithFullConfiguration(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	fullConfig := `{
+		"enableGatewayApi": true,
+		"kserveIngressGateway": "kserve/gateway",
+		"ingressGateway": "test-gateway",
+		"knativeLocalGatewayService": "custom-local-gateway-service",
+		"localGateway": "custom-local-gateway",
+		"localGatewayService": "custom-local-gateway-service.local",
+		"ingressDomain": "custom.example.com",
+		"ingressClassName": "nginx",
+		"additionalIngressDomains": ["additional1.com", "additional2.com"],
+		"domainTemplate": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",
+		"urlScheme": "https",
+		"disableIstioVirtualHost": true,
+		"pathTemplate": "/v1/models/{{ .Name }}",
+		"disableIngressCreation": true
+	}`
+
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			IngressConfigKeyName: fullConfig,
+		},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	ingressConfig, err := NewIngressConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(ingressConfig).ShouldNot(gomega.BeNil())
+
+	// Verify all fields are properly populated
+	g.Expect(ingressConfig.EnableGatewayAPI).To(gomega.BeTrue())
+	g.Expect(ingressConfig.KserveIngressGateway).To(gomega.Equal("kserve/gateway"))
+	g.Expect(ingressConfig.IngressGateway).To(gomega.Equal("test-gateway"))
+	g.Expect(ingressConfig.KnativeLocalGatewayService).To(gomega.Equal("custom-local-gateway-service"))
+	g.Expect(ingressConfig.LocalGateway).To(gomega.Equal("custom-local-gateway"))
+	g.Expect(ingressConfig.LocalGatewayServiceName).To(gomega.Equal("custom-local-gateway-service.local"))
+	g.Expect(ingressConfig.IngressDomain).To(gomega.Equal("custom.example.com"))
+	g.Expect(*ingressConfig.IngressClassName).To(gomega.Equal("nginx"))
+	g.Expect(*ingressConfig.AdditionalIngressDomains).To(gomega.Equal([]string{"additional1.com", "additional2.com"}))
+	g.Expect(ingressConfig.DomainTemplate).To(gomega.Equal("{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"))
+	g.Expect(ingressConfig.UrlScheme).To(gomega.Equal("https"))
+	g.Expect(ingressConfig.DisableIstioVirtualHost).To(gomega.BeTrue())
+	g.Expect(ingressConfig.PathTemplate).To(gomega.Equal("/v1/models/{{ .Name }}"))
+	g.Expect(ingressConfig.DisableIngressCreation).To(gomega.BeTrue())
+}
+
+func TestNewIngressConfigWithKnativeLocalGatewayService(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test when KnativeLocalGatewayService is not set, it should use LocalGatewayServiceName
+	configWithoutKnative := `{
+		"ingressGateway": "test-gateway",
+		"localGatewayService": "local-gateway-service.local"
+	}`
+
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			IngressConfigKeyName: configWithoutKnative,
+		},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	ingressConfig, err := NewIngressConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(ingressConfig).ShouldNot(gomega.BeNil())
+	g.Expect(ingressConfig.KnativeLocalGatewayService).To(gomega.Equal("local-gateway-service.local"))
+
+	// Test when both are set, it should use KnativeLocalGatewayService value
+	configWithBoth := `{
+		"ingressGateway": "test-gateway",
+		"knativeLocalGatewayService": "knative-local-service",
+		"localGatewayService": "local-gateway-service.local"
+	}`
+
+	clientset = fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			IngressConfigKeyName: configWithBoth,
+		},
+	})
+
+	configMap, err = GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	ingressConfig, err = NewIngressConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(ingressConfig).ShouldNot(gomega.BeNil())
+	g.Expect(ingressConfig.KnativeLocalGatewayService).To(gomega.Equal("knative-local-service"))
+}
+
+func TestNewIngressConfigWithInvalidJSON(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			IngressConfigKeyName: `invalid json format`,
+		},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	_, err = NewIngressConfig(configMap)
+	g.Expect(err).Should(gomega.HaveOccurred())
+	g.Expect(err.Error()).Should(gomega.ContainSubstring("unable to parse ingress config json"))
+}
+
+func TestNewIngressConfigMissingIngressGateway(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			IngressConfigKeyName: `{}`,
+		},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	_, err = NewIngressConfig(configMap)
+	g.Expect(err).Should(gomega.HaveOccurred())
+	g.Expect(err.Error()).Should(gomega.ContainSubstring("ingressGateway is required"))
+}
+
+func TestNewDeployConfigWithValidDeploymentModesExtended(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	testCases := []struct {
+		name              string
+		deploymentMode    string
+		expectedMode      string
+		expectError       bool
+		expectedErrorText string
+	}{
+		{
+			name:           "valid Serverless mode",
+			deploymentMode: `{"defaultDeploymentMode": "Serverless"}`,
+			expectedMode:   "Serverless",
+			expectError:    false,
+		},
+		{
+			name:           "valid RawDeployment mode",
+			deploymentMode: `{"defaultDeploymentMode": "RawDeployment"}`,
+			expectedMode:   "RawDeployment",
+			expectError:    false,
+		},
+		{
+			name:           "valid ModelMesh mode",
+			deploymentMode: `{"defaultDeploymentMode": "ModelMesh"}`,
+			expectedMode:   "ModelMesh",
+			expectError:    false,
+		},
+		{
+			name:              "invalid deployment mode",
+			deploymentMode:    `{"defaultDeploymentMode": "InvalidMode"}`,
+			expectError:       true,
+			expectedErrorText: "invalid deployment mode",
+		},
+		{
+			name:              "empty deployment mode",
+			deploymentMode:    `{"defaultDeploymentMode": ""}`,
+			expectError:       true,
+			expectedErrorText: "defaultDeploymentMode is required",
+		},
+		{
+			name:              "invalid JSON",
+			deploymentMode:    `{invalid-json}`,
+			expectError:       true,
+			expectedErrorText: "unable to parse deploy config json",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+				Data: map[string]string{
+					DeployConfigName: tc.deploymentMode,
+				},
+			})
+
+			configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+			deployConfig, err := NewDeployConfig(configMap)
+
+			if tc.expectError {
+				g.Expect(err).Should(gomega.HaveOccurred())
+				g.Expect(err.Error()).Should(gomega.ContainSubstring(tc.expectedErrorText))
+			} else {
+				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				g.Expect(deployConfig).ShouldNot(gomega.BeNil())
+				g.Expect(deployConfig.DefaultDeploymentMode).To(gomega.Equal(tc.expectedMode))
+			}
+		})
+	}
+}
