@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: kserve-controller-manager
-  namespace: kserve
+  namespace: kubeflow
 spec:
   template:
     metadata:
