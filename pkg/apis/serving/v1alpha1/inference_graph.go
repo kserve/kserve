@@ -31,7 +31,7 @@ import (
 // +kubebuilder:printcolumn:name="URL",type="string",JSONPath=".status.url"
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:resource:path=inferencegraphs,shortName=ig,singular=inferencegraph
+// +kubebuilder:resource:path=inferencegraphs,shortName=ig,singular=inferencegraph,categories={all,kserve}
 type InferenceGraph struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
