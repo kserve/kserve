@@ -228,45 +228,6 @@ jobs:
           source paddleserver/.venv/bin/activate
           pytest --cov=paddleserver ./paddleserver
 
-      # ----------------------------------------Huggingface OpenVino Server Unit Tests------------------------------------------------
-      # load cached huggingface venv if cache exists
-      - name: Load cached huggingface venv
-        id: huggingface-dependencies
-        uses: actions/cache@v4
-        with:
-          path: /mnt/python/huggingfaceserver-venv
-          key: huggingface-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/huggingfaceserver/poetry.lock') }}
-      # install huggingface server dependencies if cache does not exist
-      - name: Configure poetry for huggingface server
-        run: |
-          poetry config virtualenvs.path /mnt/python/huggingfaceserver-venv
-          poetry config virtualenvs.in-project false
-      # make poetry visible for vllm openvino installation
-      - name: Install Poetry Plugins
-        run: |
-          poetry self add poetry-version-plugin
-      - name: Install huggingface dependencies
-        run: |
-          sudo mkdir -p /mnt/python/huggingfaceserver-venv
-          # change permission so that poetry can install without sudo
-          sudo chown -R $USER /mnt/python/huggingfaceserver-venv
-          cd python/huggingfaceserver
-          make install_dependencies
-      - name: Install huggingface server
-        run: |
-          cd python/huggingfaceserver
-          make dev_install
-      - name: Test huggingfaceserver
-        run: |
-          cd python/huggingfaceserver
-          bash tests/setup_vllm.sh
-          poetry run -- pytest --cov=huggingfaceserver -vv -m "not vllm_cpu"
-        env:
-          VLLM_TARGET_DEVICE: openvino
-
-      - name: Free space after tests
-        run: |
-          df -hT
       # ----------------------------------------Huggingface CPU Server Unit Tests------------------------------------------------
       # load cached huggingface cpu venv if cache exists
       - name: Load cached huggingface cpu venv

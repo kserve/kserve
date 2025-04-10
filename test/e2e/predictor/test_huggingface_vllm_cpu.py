@@ -31,7 +31,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, generate
 
 
 @pytest.mark.vllm
-def test_huggingface_vllm_openvino_openai_chat_completions():
+def test_huggingface_vllm_cpu_openai_chat_completions():
     service_name = "hf-opt-125m-chat"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -83,7 +83,7 @@ def test_huggingface_vllm_openvino_openai_chat_completions():
 
 
 @pytest.mark.vllm
-def test_huggingface_vllm_openvino_openai_completions():
+def test_huggingface_vllm_cpu_openai_completions():
     service_name = "hf-opt-125m-cmpl"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
