@@ -27,6 +27,8 @@ from kserve.protocol.rest.openai.types import (
     EmbeddingRequest,
     Embedding,
     ErrorResponse,
+    TranscriptionRequest,
+    TranscriptionResponse,
 )
 
 from ....model import BaseKServeModel
@@ -93,6 +95,26 @@ class OpenAIEncoderModel(OpenAIModel):
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
+        pass
+
+
+class OpenAITranscriptionModel(OpenAIModel):
+    """
+    An abstract model with methods for implementing OpenAI's transcripton (v1/audio/transcription) endpoint.
+
+    Users should extend this model and implement the abstract methods in order to expose
+    these endpoints.
+    """
+
+    @abstractmethod
+    async def create_transcription(
+        self,
+        audio_data: bytes,
+        request: TranscriptionRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], TranscriptionResponse, ErrorResponse]:
+        """Creates a transcription from audio."""
         pass
 
 

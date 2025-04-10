@@ -245,6 +245,20 @@ tests = ["cloudpickle", "hypothesis", "mypy (>=1.11.1)", "pympler", "pytest (>=4
 tests-mypy = ["mypy (>=1.11.1)", "pytest-mypy-plugins"]
 
 [[package]]
+name = "audioread"
+version = "3.0.1"
+description = "Multi-library, cross-platform audio decoding."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "audioread-3.0.1-py3-none-any.whl", hash = "sha256:4cdce70b8adc0da0a3c9e0d85fb10b3ace30fbdf8d1670fd443929b61d117c33"},
+    {file = "audioread-3.0.1.tar.gz", hash = "sha256:ac5460a5498c48bdf2e8e767402583a4dcd13f4414d286f42ce4379e8b35066d"},
+]
+
+[package.extras]
+test = ["tox"]
+
+[[package]]
 name = "azure-core"
 version = "1.33.0"
 description = "Microsoft Azure Core Library for Python"
@@ -937,6 +951,17 @@ numpy = ">=1.22,<2.3"
 [package.extras]
 all = ["Cython (>=3)", "optuna (>=2.0)", "scipy (>=1.7,<1.17)"]
 test = ["hypothesis (>=6.37.2,<6.55.0)", "mpmath", "packaging", "pytest (>=7.2)"]
+
+[[package]]
+name = "decorator"
+version = "5.2.1"
+description = "Decorators for Humans"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "decorator-5.2.1-py3-none-any.whl", hash = "sha256:d316bb415a2d9e2d2b3abcc4084c6502fc09240e292cd76a76afc106a1c8e04a"},
+    {file = "decorator-5.2.1.tar.gz", hash = "sha256:65f266143752f734b0a7cc83c46f4618af75b8c5911b00ccb61d0ac9b6da0360"},
+]
 
 [[package]]
 name = "deprecation"
@@ -2004,6 +2029,17 @@ files = [
 ]
 
 [[package]]
+name = "joblib"
+version = "1.4.2"
+description = "Lightweight pipelining with Python functions"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "joblib-1.4.2-py3-none-any.whl", hash = "sha256:06d478d5674cbc267e7496a410ee875abd68e4340feff4490bcb7afb88060ae6"},
+    {file = "joblib-1.4.2.tar.gz", hash = "sha256:2382c5816b2636fbd20a09e0f4e9dad4736765fdfb7dca582943b9c1366b3f0e"},
+]
+
+[[package]]
 name = "jsonschema"
 version = "4.23.0"
 description = "An implementation of JSON Schema validation for Python"
@@ -2053,7 +2089,7 @@ azure-storage-blob = {version = "^12.20.0", optional = true}
 azure-storage-file-share = {version = "^12.16.0", optional = true}
 boto3 = {version = "^1.29.0", optional = true}
 cloudevents = "^1.6.2"
-fastapi = ">=0.115.3"
+fastapi = {version = ">=0.115.3", extras = ["standard"]}
 google-cloud-storage = {version = "^2.14.0", optional = true}
 grpc-interceptor = ">=0.15.4,<1.0.0"
 grpcio = "^1.60.0"
@@ -2132,6 +2168,56 @@ atomic-cache = ["atomicwrites"]
 interegular = ["interegular (>=0.3.1,<0.4.0)"]
 nearley = ["js2py"]
 regex = ["regex"]
+
+[[package]]
+name = "lazy-loader"
+version = "0.4"
+description = "Makes it easy to load subpackages and functions on demand."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "lazy_loader-0.4-py3-none-any.whl", hash = "sha256:342aa8e14d543a154047afb4ba8ef17f5563baad3fc610d7b15b213b0f119efc"},
+    {file = "lazy_loader-0.4.tar.gz", hash = "sha256:47c75182589b91a4e1a85a136c074285a5ad4d9f39c63e0d7fb76391c4574cd1"},
+]
+
+[package.dependencies]
+packaging = "*"
+
+[package.extras]
+dev = ["changelist (==0.5)"]
+lint = ["pre-commit (==3.7.0)"]
+test = ["pytest (>=7.4)", "pytest-cov (>=4.1)"]
+
+[[package]]
+name = "librosa"
+version = "0.11.0"
+description = "Python module for audio and music processing"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "librosa-0.11.0-py3-none-any.whl", hash = "sha256:0b6415c4fd68bff4c29288abe67c6d80b587e0e1e2cfb0aad23e4559504a7fa1"},
+    {file = "librosa-0.11.0.tar.gz", hash = "sha256:f5ed951ca189b375bbe2e33b2abd7e040ceeee302b9bbaeeffdfddb8d0ace908"},
+]
+
+[package.dependencies]
+audioread = ">=2.1.9"
+decorator = ">=4.3.0"
+joblib = ">=1.0"
+lazy_loader = ">=0.1"
+msgpack = ">=1.0"
+numba = ">=0.51.0"
+numpy = ">=1.22.3"
+pooch = ">=1.1"
+scikit-learn = ">=1.1.0"
+scipy = ">=1.6.0"
+soundfile = ">=0.12.1"
+soxr = ">=0.3.2"
+typing_extensions = ">=4.1.1"
+
+[package.extras]
+display = ["matplotlib (>=3.5.0)"]
+docs = ["ipython (>=7.0)", "matplotlib (>=3.5.0)", "mir_eval (>=0.5)", "numba (>=0.51)", "numpydoc", "presets", "sphinx (!=1.3.1)", "sphinx-copybutton (>=0.5.2)", "sphinx-gallery (>=0.7)", "sphinx-multiversion (>=0.2.3)", "sphinx_rtd_theme (>=1.2.0)", "sphinxcontrib-googleanalytics (>=0.4)", "sphinxcontrib-svg2pdfconverter"]
+tests = ["matplotlib (>=3.5.0)", "packaging (>=20.0)", "pytest", "pytest-cov", "pytest-mpl", "resampy (>=0.2.2)", "samplerate", "types-decorator"]
 
 [[package]]
 name = "llguidance"
@@ -3439,6 +3525,27 @@ dev = ["pre-commit", "tox"]
 testing = ["pytest", "pytest-benchmark"]
 
 [[package]]
+name = "pooch"
+version = "1.8.2"
+description = "A friend to fetch your data files"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "pooch-1.8.2-py3-none-any.whl", hash = "sha256:3529a57096f7198778a5ceefd5ac3ef0e4d06a6ddaf9fc2d609b806f25302c47"},
+    {file = "pooch-1.8.2.tar.gz", hash = "sha256:76561f0de68a01da4df6af38e9955c4c9d1a5c90da73f7e40276a5728ec83d10"},
+]
+
+[package.dependencies]
+packaging = ">=20.0"
+platformdirs = ">=2.5.0"
+requests = ">=2.19.0"
+
+[package.extras]
+progress = ["tqdm (>=4.41.0,<5.0.0)"]
+sftp = ["paramiko (>=2.7.0)"]
+xxhash = ["xxhash (>=1.4.3)"]
+
+[[package]]
 name = "prometheus-client"
 version = "0.20.0"
 description = "Python client for the Prometheus monitoring system."
@@ -4618,6 +4725,60 @@ testing = ["h5py (>=3.7.0)", "huggingface-hub (>=0.12.1)", "hypothesis (>=6.70.2
 torch = ["safetensors[numpy]", "torch (>=1.10)"]
 
 [[package]]
+name = "scikit-learn"
+version = "1.6.1"
+description = "A set of python modules for machine learning and data mining"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "scikit_learn-1.6.1-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d056391530ccd1e501056160e3c9673b4da4805eb67eb2bdf4e983e1f9c9204e"},
+    {file = "scikit_learn-1.6.1-cp310-cp310-macosx_12_0_arm64.whl", hash = "sha256:0c8d036eb937dbb568c6242fa598d551d88fb4399c0344d95c001980ec1c7d36"},
+    {file = "scikit_learn-1.6.1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8634c4bd21a2a813e0a7e3900464e6d593162a29dd35d25bdf0103b3fce60ed5"},
+    {file = "scikit_learn-1.6.1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:775da975a471c4f6f467725dff0ced5c7ac7bda5e9316b260225b48475279a1b"},
+    {file = "scikit_learn-1.6.1-cp310-cp310-win_amd64.whl", hash = "sha256:8a600c31592bd7dab31e1c61b9bbd6dea1b3433e67d264d17ce1017dbdce8002"},
+    {file = "scikit_learn-1.6.1-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:72abc587c75234935e97d09aa4913a82f7b03ee0b74111dcc2881cba3c5a7b33"},
+    {file = "scikit_learn-1.6.1-cp311-cp311-macosx_12_0_arm64.whl", hash = "sha256:b3b00cdc8f1317b5f33191df1386c0befd16625f49d979fe77a8d44cae82410d"},
+    {file = "scikit_learn-1.6.1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:dc4765af3386811c3ca21638f63b9cf5ecf66261cc4815c1db3f1e7dc7b79db2"},
+    {file = "scikit_learn-1.6.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:25fc636bdaf1cc2f4a124a116312d837148b5e10872147bdaf4887926b8c03d8"},
+    {file = "scikit_learn-1.6.1-cp311-cp311-win_amd64.whl", hash = "sha256:fa909b1a36e000a03c382aade0bd2063fd5680ff8b8e501660c0f59f021a6415"},
+    {file = "scikit_learn-1.6.1-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:926f207c804104677af4857b2c609940b743d04c4c35ce0ddc8ff4f053cddc1b"},
+    {file = "scikit_learn-1.6.1-cp312-cp312-macosx_12_0_arm64.whl", hash = "sha256:2c2cae262064e6a9b77eee1c8e768fc46aa0b8338c6a8297b9b6759720ec0ff2"},
+    {file = "scikit_learn-1.6.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:1061b7c028a8663fb9a1a1baf9317b64a257fcb036dae5c8752b2abef31d136f"},
+    {file = "scikit_learn-1.6.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:2e69fab4ebfc9c9b580a7a80111b43d214ab06250f8a7ef590a4edf72464dd86"},
+    {file = "scikit_learn-1.6.1-cp312-cp312-win_amd64.whl", hash = "sha256:70b1d7e85b1c96383f872a519b3375f92f14731e279a7b4c6cfd650cf5dffc52"},
+    {file = "scikit_learn-1.6.1-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:2ffa1e9e25b3d93990e74a4be2c2fc61ee5af85811562f1288d5d055880c4322"},
+    {file = "scikit_learn-1.6.1-cp313-cp313-macosx_12_0_arm64.whl", hash = "sha256:dc5cf3d68c5a20ad6d571584c0750ec641cc46aeef1c1507be51300e6003a7e1"},
+    {file = "scikit_learn-1.6.1-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c06beb2e839ecc641366000ca84f3cf6fa9faa1777e29cf0c04be6e4d096a348"},
+    {file = "scikit_learn-1.6.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e8ca8cb270fee8f1f76fa9bfd5c3507d60c6438bbee5687f81042e2bb98e5a97"},
+    {file = "scikit_learn-1.6.1-cp313-cp313-win_amd64.whl", hash = "sha256:7a1c43c8ec9fde528d664d947dc4c0789be4077a3647f232869f41d9bf50e0fb"},
+    {file = "scikit_learn-1.6.1-cp313-cp313t-macosx_10_13_x86_64.whl", hash = "sha256:a17c1dea1d56dcda2fac315712f3651a1fea86565b64b48fa1bc090249cbf236"},
+    {file = "scikit_learn-1.6.1-cp313-cp313t-macosx_12_0_arm64.whl", hash = "sha256:6a7aa5f9908f0f28f4edaa6963c0a6183f1911e63a69aa03782f0d924c830a35"},
+    {file = "scikit_learn-1.6.1-cp313-cp313t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0650e730afb87402baa88afbf31c07b84c98272622aaba002559b614600ca691"},
+    {file = "scikit_learn-1.6.1-cp313-cp313t-win_amd64.whl", hash = "sha256:3f59fe08dc03ea158605170eb52b22a105f238a5d512c4470ddeca71feae8e5f"},
+    {file = "scikit_learn-1.6.1-cp39-cp39-macosx_10_9_x86_64.whl", hash = "sha256:6849dd3234e87f55dce1db34c89a810b489ead832aaf4d4550b7ea85628be6c1"},
+    {file = "scikit_learn-1.6.1-cp39-cp39-macosx_12_0_arm64.whl", hash = "sha256:e7be3fa5d2eb9be7d77c3734ff1d599151bb523674be9b834e8da6abe132f44e"},
+    {file = "scikit_learn-1.6.1-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:44a17798172df1d3c1065e8fcf9019183f06c87609b49a124ebdf57ae6cb0107"},
+    {file = "scikit_learn-1.6.1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:b8b7a3b86e411e4bce21186e1c180d792f3d99223dcfa3b4f597ecc92fa1a422"},
+    {file = "scikit_learn-1.6.1-cp39-cp39-win_amd64.whl", hash = "sha256:7a73d457070e3318e32bdb3aa79a8d990474f19035464dfd8bede2883ab5dc3b"},
+    {file = "scikit_learn-1.6.1.tar.gz", hash = "sha256:b4fc2525eca2c69a59260f583c56a7557c6ccdf8deafdba6e060f94c1c59738e"},
+]
+
+[package.dependencies]
+joblib = ">=1.2.0"
+numpy = ">=1.19.5"
+scipy = ">=1.6.0"
+threadpoolctl = ">=3.1.0"
+
+[package.extras]
+benchmark = ["matplotlib (>=3.3.4)", "memory_profiler (>=0.57.0)", "pandas (>=1.1.5)"]
+build = ["cython (>=3.0.10)", "meson-python (>=0.16.0)", "numpy (>=1.19.5)", "scipy (>=1.6.0)"]
+docs = ["Pillow (>=7.1.2)", "matplotlib (>=3.3.4)", "memory_profiler (>=0.57.0)", "numpydoc (>=1.2.0)", "pandas (>=1.1.5)", "plotly (>=5.14.0)", "polars (>=0.20.30)", "pooch (>=1.6.0)", "pydata-sphinx-theme (>=0.15.3)", "scikit-image (>=0.17.2)", "seaborn (>=0.9.0)", "sphinx (>=7.3.7)", "sphinx-copybutton (>=0.5.2)", "sphinx-design (>=0.5.0)", "sphinx-design (>=0.6.0)", "sphinx-gallery (>=0.17.1)", "sphinx-prompt (>=1.4.0)", "sphinx-remove-toctrees (>=1.0.0.post1)", "sphinxcontrib-sass (>=0.3.4)", "sphinxext-opengraph (>=0.9.1)", "towncrier (>=24.8.0)"]
+examples = ["matplotlib (>=3.3.4)", "pandas (>=1.1.5)", "plotly (>=5.14.0)", "pooch (>=1.6.0)", "scikit-image (>=0.17.2)", "seaborn (>=0.9.0)"]
+install = ["joblib (>=1.2.0)", "numpy (>=1.19.5)", "scipy (>=1.6.0)", "threadpoolctl (>=3.1.0)"]
+maintenance = ["conda-lock (==2.5.6)"]
+tests = ["black (>=24.3.0)", "matplotlib (>=3.3.4)", "mypy (>=1.9)", "numpydoc (>=1.2.0)", "pandas (>=1.1.5)", "polars (>=0.20.30)", "pooch (>=1.6.0)", "pyamg (>=4.0.0)", "pyarrow (>=12.0.0)", "pytest (>=7.1.2)", "pytest-cov (>=2.9.0)", "ruff (>=0.5.1)", "scikit-image (>=0.17.2)"]
+
+[[package]]
 name = "scipy"
 version = "1.13.1"
 description = "Fundamental algorithms for scientific computing in Python"
@@ -4775,6 +4936,64 @@ files = [
 ]
 
 [[package]]
+name = "soundfile"
+version = "0.13.1"
+description = "An audio library based on libsndfile, CFFI and NumPy"
+optional = false
+python-versions = "*"
+files = [
+    {file = "soundfile-0.13.1-py2.py3-none-any.whl", hash = "sha256:a23c717560da2cf4c7b5ae1142514e0fd82d6bbd9dfc93a50423447142f2c445"},
+    {file = "soundfile-0.13.1-py2.py3-none-macosx_10_9_x86_64.whl", hash = "sha256:82dc664d19831933fe59adad199bf3945ad06d84bc111a5b4c0d3089a5b9ec33"},
+    {file = "soundfile-0.13.1-py2.py3-none-macosx_11_0_arm64.whl", hash = "sha256:743f12c12c4054921e15736c6be09ac26b3b3d603aef6fd69f9dde68748f2593"},
+    {file = "soundfile-0.13.1-py2.py3-none-manylinux_2_28_aarch64.whl", hash = "sha256:9c9e855f5a4d06ce4213f31918653ab7de0c5a8d8107cd2427e44b42df547deb"},
+    {file = "soundfile-0.13.1-py2.py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:03267c4e493315294834a0870f31dbb3b28a95561b80b134f0bd3cf2d5f0e618"},
+    {file = "soundfile-0.13.1-py2.py3-none-win32.whl", hash = "sha256:c734564fab7c5ddf8e9be5bf70bab68042cd17e9c214c06e365e20d64f9a69d5"},
+    {file = "soundfile-0.13.1-py2.py3-none-win_amd64.whl", hash = "sha256:1e70a05a0626524a69e9f0f4dd2ec174b4e9567f4d8b6c11d38b5c289be36ee9"},
+    {file = "soundfile-0.13.1.tar.gz", hash = "sha256:b2c68dab1e30297317080a5b43df57e302584c49e2942defdde0acccc53f0e5b"},
+]
+
+[package.dependencies]
+cffi = ">=1.0"
+numpy = "*"
+
+[[package]]
+name = "soxr"
+version = "0.5.0.post1"
+description = "High quality, one-dimensional sample-rate conversion library"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "soxr-0.5.0.post1-cp310-cp310-macosx_10_14_x86_64.whl", hash = "sha256:7406d782d85f8cf64e66b65e6b7721973de8a1dc50b9e88bc2288c343a987484"},
+    {file = "soxr-0.5.0.post1-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:fa0a382fb8d8e2afed2c1642723b2d2d1b9a6728ff89f77f3524034c8885b8c9"},
+    {file = "soxr-0.5.0.post1-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8b01d3efb95a2851f78414bcd00738b0253eec3f5a1e5482838e965ffef84969"},
+    {file = "soxr-0.5.0.post1-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:fcc049b0a151a65aa75b92f0ac64bb2dba785d16b78c31c2b94e68c141751d6d"},
+    {file = "soxr-0.5.0.post1-cp310-cp310-win_amd64.whl", hash = "sha256:97f269bc26937c267a2ace43a77167d0c5c8bba5a2b45863bb6042b5b50c474e"},
+    {file = "soxr-0.5.0.post1-cp311-cp311-macosx_10_14_x86_64.whl", hash = "sha256:6fb77b626773a966e3d8f6cb24f6f74b5327fa5dc90f1ff492450e9cdc03a378"},
+    {file = "soxr-0.5.0.post1-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:39e0f791ba178d69cd676485dbee37e75a34f20daa478d90341ecb7f6d9d690f"},
+    {file = "soxr-0.5.0.post1-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4f0b558f445ba4b64dbcb37b5f803052eee7d93b1dbbbb97b3ec1787cb5a28eb"},
+    {file = "soxr-0.5.0.post1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ca6903671808e0a6078b0d146bb7a2952b118dfba44008b2aa60f221938ba829"},
+    {file = "soxr-0.5.0.post1-cp311-cp311-win_amd64.whl", hash = "sha256:c4d8d5283ed6f5efead0df2c05ae82c169cfdfcf5a82999c2d629c78b33775e8"},
+    {file = "soxr-0.5.0.post1-cp312-abi3-macosx_10_14_x86_64.whl", hash = "sha256:fef509466c9c25f65eae0ce1e4b9ac9705d22c6038c914160ddaf459589c6e31"},
+    {file = "soxr-0.5.0.post1-cp312-abi3-macosx_11_0_arm64.whl", hash = "sha256:4704ba6b13a3f1e41d12acf192878384c1c31f71ce606829c64abdf64a8d7d32"},
+    {file = "soxr-0.5.0.post1-cp312-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:bd052a66471a7335b22a6208601a9d0df7b46b8d087dce4ff6e13eed6a33a2a1"},
+    {file = "soxr-0.5.0.post1-cp312-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:a3f16810dd649ab1f433991d2a9661e9e6a116c2b4101039b53b3c3e90a094fc"},
+    {file = "soxr-0.5.0.post1-cp312-abi3-win_amd64.whl", hash = "sha256:b1be9fee90afb38546bdbd7bde714d1d9a8c5a45137f97478a83b65e7f3146f6"},
+    {file = "soxr-0.5.0.post1-cp39-cp39-macosx_10_14_x86_64.whl", hash = "sha256:c5af7b355959061beb90a1d73c4834ece4549f07b708f8c73c088153cec29935"},
+    {file = "soxr-0.5.0.post1-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:e1dda616fc797b1507b65486f3116ed2c929f13c722922963dd419d64ada6c07"},
+    {file = "soxr-0.5.0.post1-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:94de2812368e98cb42b4eaeddf8ee1657ecc19bd053f8e67b9b5aa12a3592012"},
+    {file = "soxr-0.5.0.post1-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9c8e9c980637e03d3f345a4fd81d56477a58c294fb26205fa121bc4eb23d9d01"},
+    {file = "soxr-0.5.0.post1-cp39-cp39-win_amd64.whl", hash = "sha256:7e71b0b0db450f36de70f1047505231db77a713f8c47df9342582ae8a4b828f2"},
+    {file = "soxr-0.5.0.post1.tar.gz", hash = "sha256:7092b9f3e8a416044e1fa138c8172520757179763b85dc53aa9504f4813cff73"},
+]
+
+[package.dependencies]
+numpy = "*"
+
+[package.extras]
+docs = ["linkify-it-py", "myst-parser", "sphinx", "sphinx-book-theme"]
+test = ["pytest"]
+
+[[package]]
 name = "starlette"
 version = "0.46.1"
 description = "The little ASGI library that shines."
@@ -4822,6 +5041,17 @@ files = [
 
 [package.extras]
 widechars = ["wcwidth"]
+
+[[package]]
+name = "threadpoolctl"
+version = "3.6.0"
+description = "threadpoolctl"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "threadpoolctl-3.6.0-py3-none-any.whl", hash = "sha256:43a0b8fd5a2928500110039e43a5eed8480b918967083ea48dc3ab9f13c4a7fb"},
+    {file = "threadpoolctl-3.6.0.tar.gz", hash = "sha256:8ab8b4aa3491d812b623328249fab5302a68d2d71745c8a4c719a2fcaba9f44e"},
+]
 
 [[package]]
 name = "tiktoken"
@@ -5384,6 +5614,7 @@ filelock = ">=3.16.1"
 gguf = "0.10.0"
 importlib_metadata = "*"
 lark = "1.2.2"
+librosa = {version = "*", optional = true, markers = "extra == \"audio\""}
 llguidance = {version = ">=0.7.9,<0.8.0", markers = "platform_machine == \"x86_64\" or platform_machine == \"arm64\" or platform_machine == \"aarch64\""}
 lm-format-enforcer = ">=0.10.11,<0.11"
 mistral_common = {version = ">=1.5.4", extras = ["opencv"]}
@@ -5410,6 +5641,7 @@ scipy = "*"
 sentencepiece = "*"
 setuptools = {version = ">=74.1.1", markers = "python_version > \"3.11\""}
 six = {version = ">=1.16.0", markers = "python_version > \"3.11\""}
+soundfile = {version = "*", optional = true, markers = "extra == \"audio\""}
 tiktoken = ">=0.6.0"
 tokenizers = ">=0.19.1"
 torch = "2.6.0"
@@ -5791,4 +6023,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.9,<3.13"
-content-hash = "92beb5e7d2488d256e0a5b690515d05ed12b7afd9b1c5f417ff88ff2fd783dee"
+content-hash = "f7555115908565bed7656da2ee63df4e4bd49f07ce6a07528d27c0fb47cb712b"

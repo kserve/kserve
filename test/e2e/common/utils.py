@@ -349,6 +349,85 @@ def embed(
     return _openai_request(service_name, input_json, version, "v1/embeddings")
 
 
+def _get_openai_endpoint_and_host(service_name, url_suffix):
+    """
+    Get the OpenAI endpoint for the given service name.
+
+    Args:
+        service_name: The name of the inference service
+        url_suffix: The suffix for the OpenAI endpoint (e.g., "v1/chat/completions")
+
+    Returns:
+        A tuple containing the OpenAI endpoint URL and the host name
+    """
+    kfs_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    isvc = kfs_client.get(
+        service_name,
+        namespace=KSERVE_TEST_NAMESPACE,
+        version=constants.KSERVE_V1BETA1_VERSION,
+    )
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+    return f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}", host
+
+
+def transcribe(service_name, audio_file_path, stream=False, model_name=None):
+    """
+    Send a transcription request to the inference service with an audio file.
+
+    Args:
+        service_name: The name of the inference service
+        audio_file_path: Path to the audio file to transcribe
+        stream: Whether to stream the response
+        model_name: The name of the model to use for transcription
+
+    Returns:
+        JSON response from the transcription service if stream is False
+        Otherwise, returns the transcript as a string
+    """
+    if model_name is None:
+        model_name = service_name
+    url, host = _get_openai_endpoint_and_host(service_name, "v1/audio/transcriptions")
+    with open(audio_file_path, "rb") as f:
+        file_content = f.read()
+    headers = {"Host": host}
+
+    logger.info("Sending Headers = %s", headers)
+    logger.info("Sending url = %s", url)
+    # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
+    time.sleep(10)
+
+    response = requests.post(
+        url,
+        files={"file": file_content},
+        data={"stream": stream, "model": model_name},
+        stream=stream,
+        headers=headers,
+    )
+    logger.info("Got response code %s", response.status_code)
+    if response.status_code == 200:
+        if stream:
+            transcript = ""
+            for line in response.iter_lines():
+                if line:
+                    decoded_line = line.decode("utf-8").strip()
+                    if decoded_line == "data: [DONE]":
+                        break  # end of stream
+                    json_str = decoded_line.replace("data: ", "", 1)
+                    payload = json.loads(json_str)
+                    for choice in payload.get("choices", []):
+                        content = choice.get("delta", {}).get("content")
+                        if content:
+                            transcript += content
+
+            return transcript
+        transcript = json.loads(response.content.decode("utf-8"))
+        return transcript
+    else:
+        response.raise_for_status()
+
+
 def _openai_request(
     service_name,
     input_json,
@@ -358,18 +437,9 @@ def _openai_request(
     with open(input_json) as json_file:
         data = json.load(json_file)
 
-        kfs_client = KServeClient(
-            config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-        )
-        isvc = kfs_client.get(
-            service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
-            version=version,
-        )
-        scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+        url, host = _get_openai_endpoint_and_host(service_name, url_suffix)
         headers = {"Host": host, "Content-Type": "application/json"}
 
-        url = f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}"
         logger.info("Sending Header = %s", headers)
         logger.info("Sending url = %s", url)
         logger.info("Sending request data: %s", data)

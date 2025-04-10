@@ -13,7 +13,7 @@ kserve = { path = "../kserve", extras = ["storage", "llm"], develop = true }
 transformers = ">=4.51.0"
 accelerate = "~0.32.0"
 torch = ">=2.5.0"
-vllm = "^0.8.1"
+vllm = { version = "^0.8.1", extras = ["audio"] }
 flashinfer-python = "~0.2.3"
 setuptools = ">=70.0.0"
 
