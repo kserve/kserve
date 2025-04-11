@@ -97,10 +97,12 @@ func (w *Worker) sendEvent(logReq LogRequest) error {
 			rawSchema, err := os.ReadFile(schemaPath)
 			if err != nil {
 				w.Log.Errorf("Failed to find user-supplied schema: %s", err.Error())
+				return err
 			}
 			schema, err := LoadSchema(rawSchema)
 			if err != nil {
 				w.Log.Errorf("Failed to load schema in-memory: %s", err.Error())
+				return err
 			}
 			PayloadSchema = schema
 		}

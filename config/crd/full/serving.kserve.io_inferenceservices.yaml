@@ -2796,6 +2796,8 @@ spec:
                       properties:
                         logSchema:
                           type: string
+                        logSchema:
+                          type: string
                         metadataAnnotations:
                           items:
                             type: string
@@ -7331,6 +7333,8 @@ spec:
                       type: object
                     logger:
                       properties:
+                        logSchema:
+                          type: string
                         logSchema:
                           type: string
                         metadataAnnotations:
@@ -20313,6 +20317,8 @@ spec:
                       type: object
                     logger:
                       properties:
+                        logSchema:
+                          type: string
                         logSchema:
                           type: string
                         metadataAnnotations:
