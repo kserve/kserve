@@ -17,6 +17,17 @@ limitations under the License.
 package utils
 
 import (
+	"context"
+	"fmt"
+	"strconv"
+
+	"github.com/go-logr/logr"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/pkg/errors"
+	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
+	"knative.dev/serving/pkg/apis/autoscaling"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	corev1 "k8s.io/api/core/v1"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 )
@@ -29,4 +40,105 @@ func CheckNodeAffinity(pvSpec *corev1.PersistentVolumeSpec, node corev1.Node) (b
 
 	terms := pvSpec.NodeAffinity.Required
 	return corev1helpers.MatchNodeSelectorTerms(&node, terms)
+}
+
+// SetAutoScalingAnnotations validates the requested autoscaling configuration against the
+// globally configured knative autoscaler configuration, then sets the resolved autoscaling annotations.
+func SetAutoScalingAnnotations(client client.Client,
+	annotations map[string]string,
+	scaleTarget *int32,
+	scaleMetric *string,
+	minReplicas *int32,
+	maxReplicas int32,
+	log logr.Logger) error {
+	// User can pass down scaling class annotation to overwrite the default scaling KPA
+	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
+		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	}
+
+	if scaleTarget != nil {
+		annotations[autoscaling.TargetAnnotationKey] = strconv.Itoa(int(*scaleTarget))
+	}
+
+	if scaleMetric != nil {
+		annotations[autoscaling.MetricAnnotationKey] = fmt.Sprint(*scaleMetric)
+	}
+
+	// If a min replicas value is not set, use the default min replicas value.
+	var revisionMinScale int32
+	if minReplicas == nil {
+		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
+		revisionMinScale = constants.DefaultMinReplicas
+	} else {
+		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(*minReplicas))
+		revisionMinScale = *minReplicas
+	}
+
+	annotations[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(int(maxReplicas))
+
+	log.Info("kserve will always set the lower and upper scale bounds for knative revisions equal to the min and max replicas requested",
+		"min-scale", annotations[autoscaling.MinScaleAnnotationKey],
+		"max-scale", annotations[autoscaling.MaxScaleAnnotationKey],
+	)
+
+	annotations[constants.InitialScaleAnnotationKey] = annotations[autoscaling.MinScaleAnnotationKey]
+
+	log.Info("kserve will always set the initial scale value for knative revisions equal to the min replicas requested",
+		"initial-scale", annotations[constants.InitialScaleAnnotationKey],
+	)
+
+	// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
+	allowZeroInitialScale, err := CheckZeroInitialScaleAllowed(client)
+	if err != nil {
+		return errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
+	}
+
+	// If knative is configured to not allow zero initial scale when 0 min replicas are requested,
+	// set the initial scale to 1 for the created knative revision. This represents the closest supported value
+	// to the requested min replicas. After initialization, the knative revision will be scaled to 0.
+	if !allowZeroInitialScale && revisionMinScale == 0 {
+		log.Info("The current knative autoscaler global configuration does not allow zero initial scale. The knative revision will be initialized with 1 replica then scaled down to 0",
+			"allow-zero-initial-scale", allowZeroInitialScale,
+			"initial-scale", 1)
+		annotations[constants.InitialScaleAnnotationKey] = "1"
+	}
+
+	return nil
+}
+
+// CheckZeroInitialScaleAllowed reads the global knative autoscaler configuration defined in the knativeserving
+// custom resource and returns a boolean value based on if knative is configured to allow zero initial scale.
+func CheckZeroInitialScaleAllowed(client client.Client) (bool, error) {
+	// Set allow-zero-initial-scale to the default values to start.
+	// If autoscaling values are not set in the configuration, then the defaults are used.
+	allowZeroInitialScale := "false"
+
+	// List all knativeserving custom resources.
+	// This allows for the handling of scenarios where the custom resource is not created
+	// in the default knative-serving namespace or without the default knative-serving name.
+	kservingList := &operatorv1beta1.KnativeServingList{}
+	err := client.List(context.TODO(), kservingList)
+	if err != nil {
+		return false, errors.Wrapf(
+			err,
+			"fails to retrieve the knativeserving custom resource.",
+		)
+	}
+
+	if len(kservingList.Items) == 0 {
+		return false, errors.New("no knativeserving resources found in cluster.")
+	}
+
+	// Always use the first knativeserving resource returned.
+	// We are operating under the assumption that there should be a single knativeserving custom resource created on the cluster.
+	kserving := kservingList.Items[0]
+	if kserving.Spec.Config != nil {
+		if kservingAutoscalerConfig, ok := kserving.Spec.Config[constants.AutoscalerKey]; ok {
+			if configuredAllowZeroInitialScale, ok := kservingAutoscalerConfig[constants.AutoscalerAllowZeroScaleKey]; ok {
+				allowZeroInitialScale = configuredAllowZeroInitialScale
+			}
+		}
+	}
+
+	return strconv.ParseBool(allowZeroInitialScale)
 }

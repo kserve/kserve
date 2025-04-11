@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -99,13 +100,28 @@ var _ = BeforeSuite(func() {
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
 
-	// Create namespace
+	// Create namespaces
 	kserveNamespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.KServeNamespace,
 		},
 	}
+	knativeServingNamespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.DefaultKnServingNamespace,
+		},
+	}
 	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(context.Background(), knativeServingNamespace)).Should(Succeed())
+
+	// Create knativeserving custom resource
+	knativeCr := &operatorv1beta1.KnativeServing{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.DefaultKnServingName,
+			Namespace: constants.DefaultKnServingNamespace,
+		},
+	}
+	Expect(k8sClient.Create(context.Background(), knativeCr)).Should(Succeed())
 
 	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Serverless"}
 

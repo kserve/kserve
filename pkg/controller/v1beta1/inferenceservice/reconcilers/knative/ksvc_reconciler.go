@@ -18,8 +18,6 @@ package knative
 
 import (
 	"context"
-	"fmt"
-	"strconv"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -31,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmp"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	knserving "knative.dev/serving/pkg/apis/serving"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,6 +36,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -65,45 +63,39 @@ func NewKsvcReconciler(client client.Client,
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
-) *KsvcReconciler {
+) (*KsvcReconciler, error) {
+	ksvc, err := createKnativeService(client, componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fails to create knative service for inference service %s", componentMeta.Name)
+	}
 	return &KsvcReconciler{
 		client:          client,
 		scheme:          scheme,
-		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList),
+		Service:         ksvc,
 		componentExt:    componentExt,
 		componentStatus: componentStatus,
-	}
+	}, nil
 }
 
-func createKnativeService(componentMeta metav1.ObjectMeta,
+func createKnativeService(client client.Client,
+	componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
-) *knservingv1.Service {
+) (*knservingv1.Service, error) {
 	annotations := componentMeta.GetAnnotations()
 
-	if componentExtension.MinReplicas == nil {
-		annotations[constants.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
-	} else {
-		annotations[constants.MinScaleAnnotationKey] = strconv.Itoa(int(*componentExtension.MinReplicas))
-	}
-
-	if componentExtension.MaxReplicas != 0 {
-		annotations[constants.MaxScaleAnnotationKey] = strconv.Itoa(int(componentExtension.MaxReplicas))
-	}
-
-	// User can pass down scaling class annotation to overwrite the default scaling KPA
-	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
-		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
-	}
-
-	if componentExtension.ScaleTarget != nil {
-		annotations[autoscaling.TargetAnnotationKey] = strconv.Itoa(int(*componentExtension.ScaleTarget))
-	}
-
-	if componentExtension.ScaleMetric != nil {
-		annotations[autoscaling.MetricAnnotationKey] = fmt.Sprint(*componentExtension.ScaleMetric)
+	err := knutils.SetAutoScalingAnnotations(client,
+		annotations,
+		componentExtension.ScaleTarget,
+		(*string)(componentExtension.ScaleMetric),
+		componentExtension.MinReplicas,
+		componentExtension.MaxReplicas,
+		log,
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fails to set autoscaling annotations for knative service")
 	}
 
 	// ksvc metadata.annotations
@@ -194,7 +186,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta,
 			},
 		},
 	}
-	return service
+	return service, nil
 }
 
 func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) error {

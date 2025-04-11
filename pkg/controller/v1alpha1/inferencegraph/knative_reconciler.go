@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -34,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmp"
-	"knative.dev/serving/pkg/apis/autoscaling"
 	knserving "knative.dev/serving/pkg/apis/serving"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,6 +40,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -137,22 +136,26 @@ func semanticEquals(desiredService, service *knservingv1.Service) bool {
 		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
 }
 
-func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.InferenceGraph, config *RouterConfig) *knservingv1.Service {
+func createKnativeService(client client.Client, componentMeta metav1.ObjectMeta, graph *v1alpha1.InferenceGraph, config *RouterConfig) (*knservingv1.Service, error) {
 	bytes, err := json.Marshal(graph.Spec)
 	if err != nil {
-		return nil
+		return nil, errors.Wrapf(err, "fails to marshal inference graph spec to json")
 	}
 	annotations := componentMeta.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
-	// User can pass down scaling class annotation to overwrite the default scaling KPA
-	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
-		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
-	}
 
-	if _, ok := annotations[autoscaling.MinScaleAnnotationKey]; !ok {
-		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
+	err = knutils.SetAutoScalingAnnotations(client,
+		annotations,
+		graph.Spec.ScaleTarget,
+		(*string)(graph.Spec.ScaleMetric),
+		graph.Spec.MinReplicas,
+		graph.Spec.MaxReplicas,
+		log,
+	)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fails to set autoscaling annotations for knative service")
 	}
 
 	// ksvc metadata.annotations
@@ -230,7 +233,7 @@ func createKnativeService(componentMeta metav1.ObjectMeta, graph *v1alpha1.Infer
 			},
 		}
 	}
-	return service
+	return service, nil
 }
 
 func constructResourceRequirements(graph v1alpha1.InferenceGraph, config RouterConfig) corev1.ResourceRequirements {

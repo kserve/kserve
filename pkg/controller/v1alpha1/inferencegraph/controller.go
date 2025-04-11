@@ -19,6 +19,7 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.knative.dev,resources=services/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=operator.knative.dev,resources=knativeservings,verbs=get;list;watch
 package inferencegraph
 
 import (
@@ -39,6 +40,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -218,10 +220,26 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if !ksvcAvailable {
 			r.Recorder.Event(graph, corev1.EventTypeWarning, "ServerlessModeRejected",
 				"It is not possible to use Serverless deployment mode when Knative Services are not available")
-			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative Serving is not available", graph.Name))
+			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative Services are not available", graph.Name))
 		}
 
-		desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
+		// Abort if Knative KnativeServings are not available
+		knServingFound, knServingCheckErr := utils.IsCrdAvailable(r.ClientConfig, operatorv1beta1.SchemeGroupVersion.String(), constants.KnativeServingKind)
+		if knServingCheckErr != nil {
+			return reconcile.Result{}, knServingCheckErr
+		}
+
+		if !knServingFound {
+			r.Recorder.Event(graph, corev1.EventTypeWarning, "ServerlessModeRejected",
+				"It is not possible to use Serverless deployment mode when Knative KnativeServings are not available")
+			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative KnativeServings are not available", graph.Name))
+		}
+
+		desired, err := createKnativeService(r.Client, graph.ObjectMeta, graph, routerConfig)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to create new knative service")
+		}
+
 		err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
 		if err != nil {
 			return reconcile.Result{}, err

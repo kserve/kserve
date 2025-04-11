@@ -166,6 +166,14 @@ rules:
   - patch
   - update
 - apiGroups:
+  - operator.knative.dev
+  resources:
+  - knativeservings
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - serving.knative.dev
   resources:
   - services
