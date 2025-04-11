@@ -83,13 +83,14 @@ type LoggerHandler struct {
 	endpoint         string
 	next             http.Handler
 	metadataHeaders  []string
+	annotations      map[string]string
 	certName         string
 	tlsSkipVerify    bool
 }
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 	inferenceService string, namespace string, endpoint string, component string, next http.Handler, metadataHeaders []string,
-	certName string, tlsSkipVerify bool,
+	certName string, annotations map[string]string, tlsSkipVerify bool,
 ) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
@@ -102,6 +103,7 @@ func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 		component:        component,
 		endpoint:         endpoint,
 		next:             next,
+		annotations:      annotations,
 		metadataHeaders:  metadataHeaders,
 		certName:         certName,
 		tlsSkipVerify:    tlsSkipVerify,
@@ -150,6 +152,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			Namespace:        eh.namespace,
 			Endpoint:         eh.endpoint,
 			Component:        eh.component,
+			Annotations:      eh.annotations,
 			Metadata:         metadata,
 			CertName:         eh.certName,
 			TlsSkipVerify:    eh.tlsSkipVerify,
@@ -183,6 +186,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				InferenceService: eh.inferenceService,
 				Namespace:        eh.namespace,
 				Endpoint:         eh.endpoint,
+				Annotations:      eh.annotations,
 				Component:        eh.component,
 				CertName:         eh.certName,
 				TlsSkipVerify:    eh.tlsSkipVerify,

@@ -68,6 +68,9 @@ func addLoggerAnnotations(logger *v1beta1.LoggerSpec, annotations map[string]str
 		if logger.MetadataHeaders != nil {
 			annotations[constants.LoggerMetadataHeadersInternalAnnotationKey] = strings.Join(logger.MetadataHeaders, ",")
 		}
+		if logger.MetadataAnnotations != nil {
+			annotations[constants.LoggerMetadataAnnotationsInternalAnnotationKey] = strings.Join(logger.MetadataAnnotations, ",")
+		}
 	}
 }
 
