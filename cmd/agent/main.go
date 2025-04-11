@@ -66,6 +66,7 @@ var (
 	namespace        = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint         = flag.String("endpoint", "", "The endpoint name to add as header to log events")
 	component        = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
+	customlogschema  = flag.String("custom-log-schema", "", "The custom log schema to be used for packaging logs")
 	metadataHeaders  = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
 	// batcher flags
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
@@ -118,6 +119,7 @@ type loggerArgs struct {
 	metadataHeaders  []string
 	certName         string
 	tlsSkipVerify    bool
+	customLogSchema  string
 }
 
 type batcherArgs struct {
@@ -151,6 +153,7 @@ func main() {
 	if *logUrl != "" {
 		logger.Info("Starting logger")
 		loggerArgs = startLogger(*workers, logger)
+		fmt.Println(*loggerArgs)
 	}
 
 	var batcherArgs *batcherArgs
@@ -286,6 +289,8 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		os.Exit(-1)
 	}
 
+	fmt.Printf("parsed metadata headers: %v", *metadataHeaders)
+	fmt.Printf("\n")
 	logger.Info("Starting the log dispatcher")
 	kfslogger.StartDispatcher(workers, logger)
 	return &loggerArgs{
@@ -299,6 +304,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		metadataHeaders:  *metadataHeaders,
 		certName:         *CaCertFile,
 		tlsSkipVerify:    *TlsSkipVerify,
+		customLogSchema:  *customlogschema,
 	}
 }
 
@@ -359,7 +365,7 @@ func buildServer(port string, userPort int, loggerArgs *loggerArgs, batcherArgs 
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
 			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler,
-			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.tlsSkipVerify)
+			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.tlsSkipVerify, loggerArgs.customLogSchema)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)

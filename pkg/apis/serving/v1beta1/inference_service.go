@@ -64,6 +64,11 @@ type LoggerSpec struct {
 	// Matched metadata HTTP headers for propagating to inference logger cloud events.
 	// +optional
 	MetadataHeaders []string `json:"metadataHeaders,omitempty"`
+	// Specifies the format for custom log generation.  The standard cloud events currently sent will not be compatible with a custom format
+	//Valid values are:
+	// - "JSON": logs are generated and sent as a JSON payload following the format specified in inference-logging-configmap
+	// +optional
+	Schema *string `json:"logSchema,omitempty"`
 }
 
 // MetricsBackend enum

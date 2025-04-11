@@ -34,4 +34,5 @@ type LogRequest struct {
 	Metadata         map[string][]string
 	CertName         string
 	TlsSkipVerify    bool
+	CustomSchema     string
 }

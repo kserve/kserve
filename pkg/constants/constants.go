@@ -79,8 +79,11 @@ const (
 
 // InferenceLogger Constants
 const (
-	LoggerCaBundleVolume  = "agent-ca-bundle"
-	LoggerCaCertMountPath = "/etc/tls/logger"
+	LoggerCaBundleVolume        = "agent-ca-bundle"
+	LoggerCaCertMountPath       = "/etc/tls/logger"
+	LoggerCustomSchemaVolume    = "logger-custom-schema"
+	LoggerCustomSchemaMountPath = "/etc/schema/logger"
+	LoggerCustomSchemaSubPath   = "logSchema"
 )
 
 // InferenceService Annotations
@@ -120,6 +123,7 @@ var (
 	LoggerSinkUrlInternalAnnotationKey               = InferenceServiceInternalAnnotationsPrefix + "/logger-sink-url"
 	LoggerModeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-mode"
 	LoggerMetadataHeadersInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/logger-metadata-headers"
+	LoggerCustomLogSchemaInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/logger-custom-log-schema"
 	BatcherInternalAnnotationKey                     = InferenceServiceInternalAnnotationsPrefix + "/batcher"
 	BatcherMaxBatchSizeInternalAnnotationKey         = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"
