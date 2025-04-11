@@ -348,6 +348,7 @@ def embed(
 ):
     return _openai_request(service_name, input_json, version, "v1/embeddings")
 
+
 def rerank(
     service_name,
     input_json,

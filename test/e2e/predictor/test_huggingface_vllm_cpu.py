@@ -179,11 +179,11 @@ def test_huggingface_vllm_cpu_rerank():
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
     res = rerank(service_name, "./data/bge-reranker-base.json")
-    assert res['results'][0]['index'] == 1
-    assert res['results'][0]['relevance_score'] == 1.0
-    assert res['results'][0]['document']['text'] == "The capital of France is Paris."
-    assert res['results'][1]['index'] == 0
-    assert res['results'][1]['relevance_score'] == 0.00057220458984375
-    assert res['results'][1]['document']['text'] == "The capital of Brazil is Brasilia."
+    assert res["results"][0]["index"] == 1
+    assert res["results"][0]["relevance_score"] == 1.0
+    assert res["results"][0]["document"]["text"] == "The capital of France is Paris."
+    assert res["results"][1]["index"] == 0
+    assert res["results"][1]["relevance_score"] == 0.00057220458984375
+    assert res["results"][1]["document"]["text"] == "The capital of Brazil is Brasilia."
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
