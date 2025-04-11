@@ -349,6 +349,14 @@ def embed(
     return _openai_request(service_name, input_json, version, "v1/embeddings")
 
 
+def rerank(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+):
+    return _openai_request(service_name, input_json, version, "v1/rerank")
+
+
 def _openai_request(
     service_name,
     input_json,
