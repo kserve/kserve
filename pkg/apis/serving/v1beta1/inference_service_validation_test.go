@@ -1438,6 +1438,7 @@ func TestValidateUpdate(t *testing.T) {
 		})
 	}
 }
+
 func TestValidateScalingKedaCompExtension(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
