@@ -25,7 +25,7 @@ set -o pipefail
 MY_PATH=$(dirname "$0")
 PROJECT_ROOT=$MY_PATH/../../../
 export CI_USE_ISVC_HOST="1"
-export GITHUB_SHA=$(git rev-parse HEAD)
+export GITHUB_SHA=stable # Need to use stable as this is what the CI tags the images to for success-200 and error-404
 : "${BUILD_GRAPH_IMAGES:=true}"
 : "${RUNNING_LOCAL:=false}"
 if $RUNNING_LOCAL; then
