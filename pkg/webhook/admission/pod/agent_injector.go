@@ -19,6 +19,7 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/kserve/kserve/pkg/logger"
 	"strconv"
 	"strings"
 
@@ -36,6 +37,7 @@ import (
 const (
 	LoggerConfigMapKeyName         = "logger"
 	LoggerArgumentLogUrl           = "--log-url"
+	LoggerArgumentCredentials      = "--log-credentials"
 	LoggerArgumentSourceUri        = "--source-uri"
 	LoggerArgumentMode             = "--log-mode"
 	LoggerArgumentInferenceService = "--inference-service"
@@ -191,6 +193,12 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
 		component := pod.ObjectMeta.Labels[constants.KServiceComponentLabel]
 
+		loggerCredentialsFile, err := ag.credentialBuilder.LoggerCredentialFile(pod)
+		if err != nil {
+			log.Error(err, "Failed to get logger credential location")
+			loggerCredentialsFile = ""
+		}
+
 		loggerArgs := []string{
 			LoggerArgumentLogUrl,
 			logUrl,
@@ -198,6 +206,8 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			pod.ObjectMeta.Name,
 			LoggerArgumentMode,
 			logMode,
+			LoggerArgumentCredentials,
+			loggerCredentialsFile,
 			LoggerArgumentInferenceService,
 			inferenceServiceName,
 			LoggerArgumentNamespace,
@@ -371,6 +381,14 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		&pod.Spec.Volumes,
 	); err != nil {
 		return err
+	}
+
+	//  Mount the logger credential if we are not using HTTP logging
+	if injectLogger {
+		logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
+		if ok && logger.GetStorageStrategy(logUrl) != logger.HttpStorage {
+			ag.credentialBuilder.MountLoggerCredential(pod, agentContainer)
+		}
 	}
 
 	// Add container to the spec
