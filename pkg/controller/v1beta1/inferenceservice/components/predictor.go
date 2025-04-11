@@ -115,6 +115,10 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if err := p.addStorageInitializerAnnotations(ctx, predictor, annotations); err != nil {
+		isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+			Reason:  v1beta1.InvalidPredictorSpec,
+			Message: err.Error(),
+		})
 		return ctrl.Result{}, err
 	}
 
