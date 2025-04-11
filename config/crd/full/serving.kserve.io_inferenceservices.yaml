@@ -2780,6 +2780,8 @@ spec:
                       type: object
                     logger:
                       properties:
+                        logSchema:
+                          type: string
                         metadataHeaders:
                           items:
                             type: string
@@ -7278,6 +7280,8 @@ spec:
                       type: object
                     logger:
                       properties:
+                        logSchema:
+                          type: string
                         metadataHeaders:
                           items:
                             type: string
@@ -20201,6 +20205,8 @@ spec:
                       type: object
                     logger:
                       properties:
+                        logSchema:
+                          type: string
                         metadataHeaders:
                           items:
                             type: string
