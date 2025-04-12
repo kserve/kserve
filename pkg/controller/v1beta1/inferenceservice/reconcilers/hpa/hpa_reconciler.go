@@ -212,10 +212,6 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) && !autoscalerClassChanged
 }
 
-func shouldDeleteHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
-	return false
-}
-
 func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler) bool {
 	// Check if the HPA is owned by an InferenceService
 	isOwnedByKServe := false
@@ -234,6 +230,11 @@ func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler) bool {
 	// Check if the autoscaler class is "external"
 	existingAutoscalerClass, hasExistingAutoscalerClass := existing.Annotations[constants.AutoscalerClass]
 	return hasExistingAutoscalerClass && constants.AutoscalerClassType(existingAutoscalerClass) == constants.AutoscalerClassExternal
+}
+
+func shouldCreateHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
+	desiredAutoscalerClass, hasDesiredAutoscalerClass := desired.Annotations[constants.AutoscalerClass]
+	return !hasDesiredAutoscalerClass || (constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassHPA)
 }
 
 // Reconcile Kubernetes HPA resource
