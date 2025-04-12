@@ -447,29 +447,20 @@ var _ = Describe("CachedModel controller", func() {
 				if len(cachedModel.Status.InferenceServices) != 2 {
 					return false
 				}
-				// Get both InferenceService entries
-				isvc1 := cachedModel.Status.InferenceServices[0]
-				isvc2 := cachedModel.Status.InferenceServices[1]
-
-				// Check if both services are present (in either order)
+				// Check for both services in any order
 				foundIsvc1 := false
 				foundIsvc2 := false
 
-				// Check first position
-				if isvc1.Name == isvcName1 && isvc1.Namespace == isvcNamespace {
-					foundIsvc1 = true
-				} else if isvc1.Name == isvcName2 && isvc1.Namespace == isvcNamespace {
-					foundIsvc2 = true
+				for _, isvc := range cachedModel.Status.InferenceServices {
+					if isvc.Name == isvcName1 && isvc.Namespace == isvcNamespace {
+						foundIsvc1 = true
+					} else if isvc.Name == isvcName2 && isvc.Namespace == isvcNamespace {
+						foundIsvc2 = true
+					}
 				}
 
-				// Check second position
-				if isvc2.Name == isvcName1 && isvc2.Namespace == isvcNamespace {
-					foundIsvc1 = true
-				} else if isvc2.Name == isvcName2 && isvc2.Namespace == isvcNamespace {
-					foundIsvc2 = true
-				}
 				return foundIsvc1 && foundIsvc2
-			}, timeout, interval).Should(BeTrue(), "Node status should have the isvc")
+			}, timeout, interval).Should(BeTrue(), "Node status should have both isvcs")
 
 			Expect(k8sClient.Delete(ctx, isvc1)).Should(Succeed())
 			Expect(k8sClient.Delete(ctx, isvc2)).Should(Succeed())
