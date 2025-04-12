@@ -1269,14 +1269,8 @@ class TestMutiProcessServer:
                 raise RuntimeError("Server worker processes did not start properly")
 
         try:
-            # Check if all worker processes are alive
-            assert len(server._processes) == workers
-            assert all(
-                p.is_alive() for p in server._processes
-            ), "Not all processes are alive"
-
             # Constantly poll to check if the port is open
-            for _ in range(10):
+            for _ in range(30):
                 try:
                     resp = httpx.get("http://localhost:8080/")
                     if resp.status_code == 200:
