@@ -194,7 +194,7 @@ func (r *HPAReconciler) checkHPAExist(ctx context.Context, client client.Client)
 	if semanticHPAEquals(r.HPA, existingHPA) {
 		return constants.CheckResultExisted, existingHPA, nil
 	}
-	if shouldDeleteHPA(existingHPA) {
+	if shouldDeleteHPA(existingHPA, r.HPA) {
 		return constants.CheckResultDelete, existingHPA, nil
 	}
 	return constants.CheckResultUpdate, existingHPA, nil
@@ -212,7 +212,7 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) && !autoscalerClassChanged
 }
 
-func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler) bool {
+func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler, desired *autoscalingv2.HorizontalPodAutoscaler) bool {
 	// Check if the HPA is owned by an InferenceService
 	isOwnedByKServe := false
 	for _, ownerRef := range existing.OwnerReferences {
@@ -223,13 +223,13 @@ func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler) bool {
 	}
 
 	// If not owned by an InferenceService, do not delete
-	if !isOwnedByInferenceService {
+	if !isOwnedByKServe {
 		return false
 	}
 
-	// Check if the autoscaler class is "external"
-	existingAutoscalerClass, hasExistingAutoscalerClass := existing.Annotations[constants.AutoscalerClass]
-	return hasExistingAutoscalerClass && constants.AutoscalerClassType(existingAutoscalerClass) == constants.AutoscalerClassExternal
+	// Check if the autoscaler class in the desired object is "external"
+	desiredAutoscalerClass, hasDesiredAutoscalerClass := desired.Annotations[constants.AutoscalerClass]
+	return hasDesiredAutoscalerClass && constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassExternal
 }
 
 func shouldCreateHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
