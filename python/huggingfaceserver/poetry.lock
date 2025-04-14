@@ -2,34 +2,34 @@
 
 [[package]]
 name = "accelerate"
-version = "0.32.1"
+version = "1.6.0"
 description = "Accelerate"
 optional = false
-python-versions = ">=3.8.0"
+python-versions = ">=3.9.0"
 files = [
-    {file = "accelerate-0.32.1-py3-none-any.whl", hash = "sha256:71fcf4be00872194071de561634268b71417d7f5b16b178e2fa76b6f117c52b0"},
-    {file = "accelerate-0.32.1.tar.gz", hash = "sha256:3999acff0237cd0d4f9fd98b42d5a3163544777b53fc4f1eec886b77e992d177"},
+    {file = "accelerate-1.6.0-py3-none-any.whl", hash = "sha256:1aee717d3d3735ad6d09710a7c26990ee4652b79b4e93df46551551b5227c2aa"},
+    {file = "accelerate-1.6.0.tar.gz", hash = "sha256:28c1ef1846e690944f98b68dc7b8bb6c51d032d45e85dcbb3adb0c8b99dffb32"},
 ]
 
 [package.dependencies]
-huggingface-hub = "*"
-numpy = ">=1.17,<2.0.0"
+huggingface-hub = ">=0.21.0"
+numpy = ">=1.17,<3.0.0"
 packaging = ">=20.0"
 psutil = "*"
 pyyaml = "*"
-safetensors = ">=0.3.1"
-torch = ">=1.10.0"
+safetensors = ">=0.4.3"
+torch = ">=2.0.0"
 
 [package.extras]
-deepspeed = ["deepspeed (<=0.14.0)"]
-dev = ["bitsandbytes", "black (>=23.1,<24.0)", "datasets", "diffusers", "evaluate", "hf-doc-builder (>=0.3.0)", "parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-subtests", "pytest-xdist", "rich", "ruff (>=0.2.1,<0.3.0)", "scikit-learn", "scipy", "timm", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
-quality = ["black (>=23.1,<24.0)", "hf-doc-builder (>=0.3.0)", "ruff (>=0.2.1,<0.3.0)"]
+deepspeed = ["deepspeed"]
+dev = ["bitsandbytes", "black (>=23.1,<24.0)", "datasets", "diffusers", "evaluate", "hf-doc-builder (>=0.3.0)", "parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-order", "pytest-subtests", "pytest-xdist", "rich", "ruff (>=0.11.2,<0.12.0)", "scikit-learn", "scipy", "timm", "torchdata (>=0.8.0)", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
+quality = ["black (>=23.1,<24.0)", "hf-doc-builder (>=0.3.0)", "ruff (>=0.11.2,<0.12.0)"]
 rich = ["rich"]
 sagemaker = ["sagemaker"]
-test-dev = ["bitsandbytes", "datasets", "diffusers", "evaluate", "scikit-learn", "scipy", "timm", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
-test-prod = ["parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-subtests", "pytest-xdist"]
-test-trackers = ["comet-ml", "dvclive", "tensorboard", "wandb"]
-testing = ["bitsandbytes", "datasets", "diffusers", "evaluate", "parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-subtests", "pytest-xdist", "scikit-learn", "scipy", "timm", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
+test-dev = ["bitsandbytes", "datasets", "diffusers", "evaluate", "scikit-learn", "scipy", "timm", "torchdata (>=0.8.0)", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
+test-prod = ["parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-order", "pytest-subtests", "pytest-xdist"]
+test-trackers = ["comet-ml", "dvclive", "matplotlib", "mlflow", "tensorboard", "wandb"]
+testing = ["bitsandbytes", "datasets", "diffusers", "evaluate", "parameterized", "pytest (>=7.2.0,<=8.0.0)", "pytest-order", "pytest-subtests", "pytest-xdist", "scikit-learn", "scipy", "timm", "torchdata (>=0.8.0)", "torchpippy (>=0.2.0)", "tqdm", "transformers"]
 
 [[package]]
 name = "aiohappyeyeballs"
@@ -2081,7 +2081,7 @@ grpcio = "^1.60.0"
 httpx = "^0.27.2"
 huggingface-hub = {version = "^0.30.0", extras = ["hf-transfer"], optional = true}
 kubernetes = ">=23.3.0"
-numpy = "^1.26.0"
+numpy = ">=1.26.0,<3.0.0"
 orjson = "^3.9.15"
 pandas = "^2.2.0"
 prometheus-client = "^0.20.0"
@@ -2153,23 +2153,6 @@ atomic-cache = ["atomicwrites"]
 interegular = ["interegular (>=0.3.1,<0.4.0)"]
 nearley = ["js2py"]
 regex = ["regex"]
-
-[[package]]
-name = "llguidance"
-version = "0.7.13"
-description = "Bindings for the Low-level Guidance (llguidance) Rust library for use within Guidance"
-optional = false
-python-versions = ">=3.9"
-files = [
-    {file = "llguidance-0.7.13-cp39-abi3-macosx_10_12_x86_64.whl", hash = "sha256:b712a1969c7b89002a75c59f31e064ae3836781ed9a326ae91c8396ba4219368"},
-    {file = "llguidance-0.7.13-cp39-abi3-macosx_11_0_arm64.whl", hash = "sha256:3b8b4f9763788679dc118878f7b7dc32f0fff57fe26e98becc8465b312fd5e11"},
-    {file = "llguidance-0.7.13-cp39-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3cc7559557e94df7a37da1be280fcc6f25cbc14830f6df23719c80c622e27aa8"},
-    {file = "llguidance-0.7.13-cp39-abi3-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:5799bf6ebf47812ac329ddafac2b1bb8edd36920f330be0e12ca6dff49f4bf52"},
-    {file = "llguidance-0.7.13-cp39-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0175ad66ede074f0932412747a9646acbd2aa4620b7b3b4ce4c3efa2ae62e255"},
-    {file = "llguidance-0.7.13-cp39-abi3-win32.whl", hash = "sha256:3a487ddb503d0c1b02c8cdc1ab2ccc1de437eece7ac156b09a9c1e4180c4868e"},
-    {file = "llguidance-0.7.13-cp39-abi3-win_amd64.whl", hash = "sha256:f75f1454e754d1e1fb0cb99d34449d893b521d636103a2581bb33a3cbaf1574d"},
-    {file = "llguidance-0.7.13.tar.gz", hash = "sha256:ba67ab6629fdb791c0ca9cda0d500abb02e0bda0cefe721167ae597dd4640884"},
-]
 
 [[package]]
 name = "llvmlite"
@@ -5493,7 +5476,6 @@ gguf = "0.10.0"
 huggingface-hub = {version = ">=0.30.0", extras = ["hf-xet"]}
 importlib_metadata = "*"
 lark = "1.2.2"
-llguidance = {version = ">=0.7.9,<0.8.0", markers = "platform_machine == \"x86_64\" or platform_machine == \"arm64\" or platform_machine == \"aarch64\""}
 lm-format-enforcer = ">=0.10.11,<0.11"
 mistral_common = {version = ">=1.5.4", extras = ["opencv"]}
 msgspec = "*"
@@ -5537,7 +5519,6 @@ xgrammar = {version = "0.1.17", markers = "platform_machine == \"x86_64\" or pla
 
 [package.extras]
 audio = ["librosa", "soundfile"]
-fastsafetensors = ["fastsafetensors (>=0.1.10)"]
 runai = ["boto3", "runai-model-streamer", "runai-model-streamer-s3"]
 tensorizer = ["tensorizer (>=2.9.0)"]
 

@@ -12,14 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Any, Dict, Optional, Union, AsyncGenerator
-import torch
 from argparse import Namespace
-from fastapi import Request
+from typing import Any, Dict, Optional, Union, AsyncGenerator
 from http import HTTPStatus
 
+import torch
+from fastapi import Request
+from vllm import AsyncEngineArgs
+import vllm.envs as envs
+from vllm.entrypoints.logger import RequestLogger
+from vllm.engine.protocol import EngineClient
+from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
+from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
+from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
+from vllm.entrypoints.openai.serving_score import ServingScores
+from vllm.entrypoints.openai.tool_parsers import ToolParserManager
+from vllm.entrypoints.openai.serving_models import BaseModelPath, OpenAIServingModels
+from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
+from vllm.entrypoints.chat_utils import load_chat_template
+from vllm.entrypoints.openai.protocol import ErrorResponse as engineError
+from vllm.entrypoints.openai.reasoning_parsers import ReasoningParserManager
+
 from kserve.protocol.rest.openai.errors import create_error_response
-from kserve.protocol.rest.openai import OpenAIEncoderModel, OpenAIGenerativeModel
+from kserve.protocol.rest.openai import (
+    OpenAIEncoderModel,
+    OpenAIGenerativeModel,
+)
 from kserve.protocol.rest.openai.types import (
     Completion,
     ChatCompletion,
@@ -28,21 +46,9 @@ from kserve.protocol.rest.openai.types import (
     EmbeddingRequest,
     Embedding,
     ErrorResponse,
+    RerankRequest,
+    Rerank,
 )
-
-import vllm.envs as envs
-from vllm import AsyncEngineArgs
-from vllm.entrypoints.logger import RequestLogger
-from vllm.engine.protocol import EngineClient
-from vllm.entrypoints.openai.serving_completion import OpenAIServingCompletion
-from vllm.entrypoints.openai.serving_chat import OpenAIServingChat
-from vllm.entrypoints.openai.serving_embedding import OpenAIServingEmbedding
-from vllm.entrypoints.openai.tool_parsers import ToolParserManager
-from vllm.entrypoints.openai.serving_models import BaseModelPath, OpenAIServingModels
-from vllm.entrypoints.openai.cli_args import validate_parsed_serve_args
-from vllm.entrypoints.chat_utils import load_chat_template
-from vllm.entrypoints.openai.protocol import ErrorResponse as engineError
-from vllm.reasoning import ReasoningParserManager
 from .utils import build_async_engine_client_from_engine_args, build_vllm_engine_args
 
 
@@ -53,7 +59,11 @@ class VLLMModel(
     vllm_engine_args: AsyncEngineArgs = None
     args: Namespace = None
     ready: bool = False
+    openai_serving_models: Optional[OpenAIServingModels] = None
     openai_serving_completion: Optional[OpenAIServingCompletion] = None
+    openai_serving_chat: Optional[OpenAIServingChat] = None
+    openai_serving_embedding: Optional[OpenAIServingEmbedding] = None
+    serving_reranking: Optional[ServingScores] = None
 
     def __init__(
         self,
@@ -68,6 +78,9 @@ class VLLMModel(
         self.vllm_engine_args = engine_args
         self.request_logger = request_logger
         self.model_name = model_name
+        self.base_model_paths = []
+        self.log_stats = True
+        self.model_config = None
 
     async def start_engine(self):
         if self.args.tool_parser_plugin and len(self.args.tool_parser_plugin) > 3:
@@ -169,6 +182,17 @@ class VLLMModel(
                 else None
             )
 
+            self.serving_reranking = (
+                ServingScores(
+                    self.engine_client,
+                    self.model_config,
+                    self.openai_serving_models,
+                    request_logger=self.request_logger,
+                )
+                if self.model_config.task == "score"
+                else None
+            )
+
         self.ready = True
         return self.ready
 
@@ -201,6 +225,11 @@ class VLLMModel(
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Completion, ErrorResponse]:
+        if self.openai_serving_completion is None:
+            return create_error_response(
+                message="The model does not support Completions API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
         response = await self.openai_serving_completion.create_completion(
             request, raw_request
         )
@@ -221,6 +250,11 @@ class VLLMModel(
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
+        if self.openai_serving_chat is None:
+            return create_error_response(
+                message="The model does not support Chat Completions API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
         response = await self.openai_serving_chat.create_chat_completion(
             request, raw_request
         )
@@ -241,9 +275,37 @@ class VLLMModel(
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
+        if self.openai_serving_embedding is None:
+            return create_error_response(
+                message="The model does not support Embeddings API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
         response = await self.openai_serving_embedding.create_embedding(
             request, raw_request
         )
+
+        if isinstance(response, engineError):
+            return create_error_response(
+                message=response.message,
+                err_type=response.type,
+                param=response.param,
+                status_code=HTTPStatus(response.code),
+            )
+
+        return response
+
+    async def create_rerank(
+        self,
+        request: RerankRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], Rerank, ErrorResponse]:
+        if self.serving_reranking is None:
+            return create_error_response(
+                message="The model does not support Rerank API",
+                status_code=HTTPStatus.BAD_REQUEST,
+            )
+        response = await self.serving_reranking.do_rerank(request, raw_request)
 
         if isinstance(response, engineError):
             return create_error_response(
