@@ -295,7 +295,8 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		if found {
 			annotationKVPair[k] = v
 		} else {
-			logger.Warnf("annotation does not adhere to desired format got key: %s value: %s", k, v)
+			logger.Errorf("annotation does not adhere to desired format got key: %s value: %s", k, v)
+			os.Exit(-1)
 		}
 	}
 
