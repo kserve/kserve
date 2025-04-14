@@ -71,6 +71,9 @@ type LoggerSpec struct {
 	// Matched inference service annotations for propagating to inference logger cloud events.
 	// +optional
 	MetadataAnnotations []string `json:"metadataAnnotations,omitempty"`
+	// Specifies the storage location for the logger events.
+	// +optional
+	Storage *StorageSpec `json:"storage"`
 }
 
 // MetricsBackend enum
