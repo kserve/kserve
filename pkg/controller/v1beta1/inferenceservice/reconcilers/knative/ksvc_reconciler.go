@@ -56,7 +56,8 @@ type KsvcReconciler struct {
 	componentStatus v1beta1.ComponentStatusSpec
 }
 
-func NewKsvcReconciler(client client.Client,
+func NewKsvcReconciler(ctx context.Context,
+	client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
@@ -64,7 +65,7 @@ func NewKsvcReconciler(client client.Client,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
 ) (*KsvcReconciler, error) {
-	ksvc, err := createKnativeService(client, componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList)
+	ksvc, err := createKnativeService(ctx, client, componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList)
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to create knative service for inference service %s", componentMeta.Name)
 	}
@@ -77,7 +78,8 @@ func NewKsvcReconciler(client client.Client,
 	}, nil
 }
 
-func createKnativeService(client client.Client,
+func createKnativeService(ctx context.Context,
+	client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
@@ -86,7 +88,8 @@ func createKnativeService(client client.Client,
 ) (*knservingv1.Service, error) {
 	annotations := componentMeta.GetAnnotations()
 
-	err := knutils.SetAutoScalingAnnotations(client,
+	err := knutils.SetAutoScalingAnnotations(ctx,
+		client,
 		annotations,
 		componentExtension.ScaleTarget,
 		(*string)(componentExtension.ScaleMetric),

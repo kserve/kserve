@@ -18,15 +18,15 @@ package utils
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	"github.com/go-logr/logr"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
 	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kserve/kserve/pkg/constants"
 
 	corev1 "k8s.io/api/core/v1"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
@@ -44,13 +44,15 @@ func CheckNodeAffinity(pvSpec *corev1.PersistentVolumeSpec, node corev1.Node) (b
 
 // SetAutoScalingAnnotations validates the requested autoscaling configuration against the
 // globally configured knative autoscaler configuration, then sets the resolved autoscaling annotations.
-func SetAutoScalingAnnotations(client client.Client,
+func SetAutoScalingAnnotations(ctx context.Context,
+	client client.Client,
 	annotations map[string]string,
 	scaleTarget *int32,
 	scaleMetric *string,
 	minReplicas *int32,
 	maxReplicas int32,
-	log logr.Logger) error {
+	log logr.Logger,
+) error {
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
@@ -61,7 +63,7 @@ func SetAutoScalingAnnotations(client client.Client,
 	}
 
 	if scaleMetric != nil {
-		annotations[autoscaling.MetricAnnotationKey] = fmt.Sprint(*scaleMetric)
+		annotations[autoscaling.MetricAnnotationKey] = *scaleMetric
 	}
 
 	// If a min replicas value is not set, use the default min replicas value.
@@ -88,7 +90,7 @@ func SetAutoScalingAnnotations(client client.Client,
 	)
 
 	// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
-	allowZeroInitialScale, err := CheckZeroInitialScaleAllowed(client)
+	allowZeroInitialScale, err := CheckZeroInitialScaleAllowed(ctx, client)
 	if err != nil {
 		return errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
 	}
@@ -108,7 +110,7 @@ func SetAutoScalingAnnotations(client client.Client,
 
 // CheckZeroInitialScaleAllowed reads the global knative autoscaler configuration defined in the knativeserving
 // custom resource and returns a boolean value based on if knative is configured to allow zero initial scale.
-func CheckZeroInitialScaleAllowed(client client.Client) (bool, error) {
+func CheckZeroInitialScaleAllowed(ctx context.Context, client client.Client) (bool, error) {
 	// Set allow-zero-initial-scale to the default values to start.
 	// If autoscaling values are not set in the configuration, then the defaults are used.
 	allowZeroInitialScale := "false"
@@ -117,7 +119,7 @@ func CheckZeroInitialScaleAllowed(client client.Client) (bool, error) {
 	// This allows for the handling of scenarios where the custom resource is not created
 	// in the default knative-serving namespace or without the default knative-serving name.
 	kservingList := &operatorv1beta1.KnativeServingList{}
-	err := client.List(context.TODO(), kservingList)
+	err := client.List(ctx, kservingList)
 	if err != nil {
 		return false, errors.Wrapf(
 			err,

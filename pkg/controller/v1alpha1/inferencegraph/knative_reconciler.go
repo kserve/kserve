@@ -136,7 +136,7 @@ func semanticEquals(desiredService, service *knservingv1.Service) bool {
 		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
 }
 
-func createKnativeService(client client.Client, componentMeta metav1.ObjectMeta, graph *v1alpha1.InferenceGraph, config *RouterConfig) (*knservingv1.Service, error) {
+func createKnativeService(ctx context.Context, client client.Client, componentMeta metav1.ObjectMeta, graph *v1alpha1.InferenceGraph, config *RouterConfig) (*knservingv1.Service, error) {
 	bytes, err := json.Marshal(graph.Spec)
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to marshal inference graph spec to json")
@@ -146,7 +146,8 @@ func createKnativeService(client client.Client, componentMeta metav1.ObjectMeta,
 		annotations = make(map[string]string)
 	}
 
-	err = knutils.SetAutoScalingAnnotations(client,
+	err = knutils.SetAutoScalingAnnotations(ctx,
+		client,
 		annotations,
 		graph.Spec.ScaleTarget,
 		(*string)(graph.Spec.ScaleMetric),
