@@ -8270,16 +8270,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Verify head deployments environment variables
 			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "2")
 			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "16")
-			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "16")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "32")
 
 			// Verify worker deployments environment variables
-			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "16")
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "32")
 
 			// Verify gpu resources for head/worker nodes
 			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "1", "1", constants.NvidiaGPUResourceType, constants.NvidiaGPUResourceType)
 
 			// Verify worker node replicas
-			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(15))))
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(31))))
 		})
 		It("Should use head container GPU resource value in isvc when it is set", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -8346,16 +8346,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Verify head deployments environment variables
 			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "2")
 			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "4")
-			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "3")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "7")
 
 			// Verify worker deployments environment variables
-			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "3")
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "7")
 
 			// Verify gpu resources for head/worker nodes
 			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "2", "1", constants.IntelGPUResourceType, constants.NvidiaGPUResourceType)
 
 			// Verify worker node replicas
-			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(2))))
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(6))))
 		})
 		It("Should use worker container GPU resource value in isvc when it is set", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -8426,16 +8426,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Verify head deployments environment variables
 			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "2")
 			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "4")
-			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "2")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "4")
 
 			// Verify worker deployments environment variables
-			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "2")
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "4")
 
 			// Verify gpu resources for head/worker nodes
 			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "2", "2", constants.NvidiaGPUResourceType, constants.IntelGPUResourceType)
 
 			// Verify worker node replicas
-			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(1))))
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(3))))
 		})
 		It("Should run head node only, worker node replicas should be set 0 when head node gpu count is equal to total required gpu", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -8469,10 +8469,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Image: "kserve/huggingfaceserver:latest-gpu",
 									Resources: corev1.ResourceRequirements{
 										Limits: corev1.ResourceList{
-											constants.IntelGPUResourceType: resource.MustParse("4"),
+											constants.IntelGPUResourceType: resource.MustParse("8"),
 										},
 										Requests: corev1.ResourceList{
-											constants.IntelGPUResourceType: resource.MustParse("4"),
+											constants.IntelGPUResourceType: resource.MustParse("8"),
 										},
 									},
 								},
@@ -8524,7 +8524,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "1")
 
 			// Verify gpu resources for head/worker nodes
-			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "4", "0", constants.IntelGPUResourceType, constants.IntelGPUResourceType)
+			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "8", "0", constants.IntelGPUResourceType, constants.IntelGPUResourceType)
 
 			// Verify worker node replicas
 			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(0))))
@@ -8579,10 +8579,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										Image: "kserve/huggingfaceserver:latest-gpu",
 										Resources: corev1.ResourceRequirements{
 											Limits: corev1.ResourceList{
-												constants.IntelGPUResourceType: resource.MustParse("4"),
+												constants.IntelGPUResourceType: resource.MustParse("8"),
 											},
 											Requests: corev1.ResourceList{
-												constants.IntelGPUResourceType: resource.MustParse("4"),
+												constants.IntelGPUResourceType: resource.MustParse("8"),
 											},
 										},
 									},
@@ -8616,7 +8616,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "1")
 
 			// Verify gpu resources for head/worker nodes
-			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "4", "0", constants.IntelGPUResourceType, constants.IntelGPUResourceType)
+			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "8", "0", constants.IntelGPUResourceType, constants.IntelGPUResourceType)
 
 			// Verify worker node replicas
 			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(0))))
@@ -8663,7 +8663,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						WorkerSpec: &v1beta1.WorkerSpec{
-							TensorParallelSize: ptr.To(7),
+							PipelineParallelSize: ptr.To(1),
+							TensorParallelSize:   ptr.To(7),
 							PodSpec: v1beta1.PodSpec{
 								Containers: []corev1.Container{
 									{
@@ -8743,10 +8744,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									Image: "kserve/huggingfaceserver:latest-gpu",
 									Resources: corev1.ResourceRequirements{
 										Limits: corev1.ResourceList{
-											constants.IntelGPUResourceType: resource.MustParse("2"),
+											constants.IntelGPUResourceType: resource.MustParse("4"),
 										},
 										Requests: corev1.ResourceList{
-											constants.IntelGPUResourceType: resource.MustParse("2"),
+											constants.IntelGPUResourceType: resource.MustParse("4"),
 										},
 									},
 								},
@@ -8792,16 +8793,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Verify head deployments environment variables
 			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "2")
 			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "16")
-			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "6")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "11")
 
 			// Verify worker deployments environment variables
-			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "6")
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "11")
 
 			// Verify gpu resources for head/worker nodes
-			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "2", "3", constants.IntelGPUResourceType, constants.IntelGPUResourceType)
+			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "4", "3", constants.IntelGPUResourceType, constants.IntelGPUResourceType)
 
 			// Verify worker node replicas
-			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(5))))
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(10))))
 		})
 		It("Should not set nil to replicas when multinode isvc(external autoscaler) is updated", func() {
 			ctx, cancel := context.WithCancel(context.Background())

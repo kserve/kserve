@@ -509,12 +509,11 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 		*workerContainer,
 	}
 
-	// The required GPU count should be the larger value between PipelineParallelSize and TensorParallelSize,
-	// as these variables represent the number of GPUs needed. Therefore, we should request the larger value as the GPU count.
-	totalRequestGPUCount := *sRuntime.WorkerSpec.PipelineParallelSize
-	if *sRuntime.WorkerSpec.TensorParallelSize > *sRuntime.WorkerSpec.PipelineParallelSize {
-		totalRequestGPUCount = *sRuntime.WorkerSpec.TensorParallelSize
-	}
+	// Calculate the total number of GPUs required for the request based on the tensor parallel size and pipeline parallel size specified in the worker spec.
+	// totalRequestGPUCount is the product of TensorParallelSize and PipelineParallelSize,
+	// which represents the total number of GPUs needed for distributed computation.
+
+	totalRequestGPUCount := *sRuntime.WorkerSpec.TensorParallelSize * *sRuntime.WorkerSpec.PipelineParallelSize
 
 	rayNodeCount, workerNodeGPUCount, headNodeGPUCount, err := computeRayNodeAndGPUs(mergedWorkerPodSpec, totalRequestGPUCount, podSpec)
 	if err != nil {
