@@ -2008,7 +2008,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				Expect(virtualService.Spec.DeepCopy()).To(Equal(expectedVirtualService.Spec.DeepCopy()))
 
-				// get inference servicecharts/kserve-resources/templates/clusterrole.yaml
+				// get inference service
 				time.Sleep(10 * time.Second)
 				actualIsvc := &v1beta1.InferenceService{}
 				Eventually(func() bool {
@@ -3257,6 +3257,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 
+			time.Sleep(5 * time.Second)
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
@@ -3277,10 +3278,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					errr := k8sClient.Get(ctx, serviceKey, inferenceService)
 					return errr == nil
 				}
-				return true
+				return *inferenceService.Status.ModelStatus.LastFailureInfo == lastFailureInfo
 			}, timeout, interval).Should(BeTrue())
-
-			Expect(*inferenceService.Status.ModelStatus.LastFailureInfo).To(Equal(lastFailureInfo))
 		})
 	})
 
