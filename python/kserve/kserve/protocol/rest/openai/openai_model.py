@@ -27,6 +27,8 @@ from kserve.protocol.rest.openai.types import (
     EmbeddingRequest,
     Embedding,
     ErrorResponse,
+    RerankRequest,
+    Rerank,
 )
 
 from ....model import BaseKServeModel
@@ -80,7 +82,7 @@ class OpenAIGenerativeModel(OpenAIModel):
 
 class OpenAIEncoderModel(OpenAIModel):
     """
-    An abstract model with methods for implementing OpenAI's completions (v1/embeddings) endpoint.
+    An abstract model with methods for implementing Embeddings (v1/embeddings) and Rerank (v1/rerank) endpoint.
 
     Users should extend this model and implement the abstract methods in order to expose
     these endpoints.
@@ -93,6 +95,15 @@ class OpenAIEncoderModel(OpenAIModel):
         raw_request: Optional[Request] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> Union[AsyncGenerator[str, None], Embedding, ErrorResponse]:
+        pass
+
+    @abstractmethod
+    async def create_rerank(
+        self,
+        request: RerankRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], Rerank, ErrorResponse]:
         pass
 
 
