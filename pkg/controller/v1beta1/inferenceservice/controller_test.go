@@ -92,6 +92,73 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}`,
 		}
 	)
+	Context("an annotation is applied to an InferenceService resource", func() {
+		When("the annotation is a member of the serviceAnnotationDisallowedList in the inferenceservice-config configmap", func() {
+			It("should not be propagated to any knative revisions", func() {
+				// Add the annotation to the inferenceservice-config inferenceService serviceAnnotationDisallowedList
+				sampleAnnotation := "test.dev/testing"
+				configs["inferenceService"] = fmt.Sprintf("{\"serviceAnnotationDisallowedList\": [\"%s\"]}", sampleAnnotation)
+				defer delete(configs, "inferenceService")
+
+				// Create configmap
+				var configMap = &v1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.InferenceServiceConfigMapName,
+						Namespace: constants.KServeNamespace,
+					},
+					Data: configs,
+				}
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), configMap)
+
+				// Create InferenceService
+				serviceName := "annotated"
+				var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+				var serviceKey = expectedRequest.NamespacedName
+				var storageUri = "s3://test/mnist/export"
+				ctx := context.Background()
+				isvc := &v1beta1.InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceKey.Name,
+						Namespace: serviceKey.Namespace,
+						Annotations: map[string]string{
+							sampleAnnotation: "test",
+						},
+					},
+					Spec: v1beta1.InferenceServiceSpec{
+						Predictor: v1beta1.PredictorSpec{
+							ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+								MinReplicas: v1beta1.GetIntReference(1),
+								MaxReplicas: 1,
+							},
+							Tensorflow: &v1beta1.TFServingSpec{
+								PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+									StorageURI:     &storageUri,
+									RuntimeVersion: proto.String("1.14.0"),
+									Container: v1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: defaultResource,
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+				defer k8sClient.Delete(ctx, isvc)
+
+				actualService := &knservingv1.Service{}
+				predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
+					Namespace: serviceKey.Namespace}
+				Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
+					Should(Succeed())
+
+				Expect(sampleAnnotation).ShouldNot(BeKeyOf(actualService.Annotations))
+				Expect(sampleAnnotation).ShouldNot(BeKeyOf(actualService.Spec.Template.Annotations))
+			})
+		})
+	})
+
 	Context("When creating inference service with predictor", func() {
 		It("Should have knative service created", func() {
 			By("By creating a new InferenceService")

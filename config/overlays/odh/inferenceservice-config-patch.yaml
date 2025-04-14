@@ -92,7 +92,8 @@ data:
         "autoscaling.knative.dev/max-scale",
         "internal.serving.kserve.io/storage-initializer-sourceuri",
         "kubectl.kubernetes.io/last-applied-configuration",
-        "security.opendatahub.io/enable-auth"
+        "security.opendatahub.io/enable-auth",
+        "networking.knative.dev/visibility"
       ]
      }
 
