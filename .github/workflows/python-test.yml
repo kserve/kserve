@@ -12,33 +12,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
-    name: Lint
-    steps:
-      - name: Check out source repository
-        uses: actions/checkout@v4
-      - name: Set up Python environment ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Lint with flake8
-        uses: py-actions/flake8@v2
-        with:
-          args: "--config .flake8"
-          path: "."
-      - name: Check formatting with black
-        uses: psf/black@stable
-        with:
-          options: "--check --diff --config python/pyproject.toml"
-          src: "."
-          version: "~= 24.3"
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
@@ -129,6 +106,40 @@ jobs:
           cd python
           source kserve-pydantic-v1/.venv/bin/activate
           pytest --cov=kserve ./kserve-pydantic-v1
+      
+      # ----------------------------------------Kserve Numpy 1.x Unit Tests--------------------------------------------
+      - name: Setup kserve numpy 1-x directory
+        run: |
+          mkdir -p python/kserve-numpy-1-x
+          cp -r python/kserve/* python/kserve-numpy-1-x
+          cd python/kserve-numpy-1-x
+          # update the lock file without installing dependencies
+          poetry update "numpy<2.0" --lock
+      - name: Load cached kserve numpy 1-x venv
+        id: cached-kserve-numpy-1-x-dependencies
+        uses: actions/cache@v3
+        with:
+          path: python/kserve-numpy-1-x/.venv
+          key: kserve-numpy-1-x-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve-numpy-1-x/poetry.lock') }}
+      # install kserve numpy 1-x dependencies if cache does not exist
+      - name: Install kserve numpy 1-x dependencies
+        if: ${{ steps.cached-kserve-numpy-1-x-dependencies.outputs.cache-hit != 'true' }}
+        run: |
+          cd python/kserve-numpy-1-x
+          make install_dependencies
+      - name: Install kserve numpy 1-x
+        run: |
+          cd python/kserve-numpy-1-x
+          make dev_install
+      - name: View numpy version
+        run: |
+          cd python/kserve-numpy-1-x
+          poetry show numpy
+      - name: Test kserve numpy 1-x
+        run: |
+          cd python
+          source kserve-numpy-1-x/.venv/bin/activate
+          pytest --cov=kserve ./kserve-numpy-1-x
 
       # ----------------------------------------Sklearn Server Unit Tests------------------------------------------------
       # load cached sklearn venv if cache exists
@@ -251,35 +262,49 @@ jobs:
           source paddleserver/.venv/bin/activate
           pytest --cov=paddleserver ./paddleserver
 
-      # ----------------------------------------Huggingface Server Unit Tests------------------------------------------------
-      # load cached huggingface venv if cache exists
-      - name: Load cached huggingface venv
-        id: huggingface-dependencies
+      # ----------------------------------------Huggingface CPU Server Unit Tests------------------------------------------------
+      # load cached huggingface cpu venv if cache exists
+      - name: Load cached huggingface cpu venv
+        id: huggingface-cpu-dependencies
         uses: actions/cache@v4
         with:
-          path: /mnt/python/huggingfaceserver-venv
-          key: huggingface-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/huggingfaceserver/poetry.lock') }}
-        # install huggingface server dependencies if cache does not exist
-      - name: Configure poetry for huggingface server
+          path: /mnt/python/huggingfaceserver-cpu-venv
+          key: huggingface-cpu-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/poetry.lock', '**/huggingfaceserver/poetry.lock') }}
+      # install huggingface cpu server dependencies if cache does not exist
+      - name: Configure poetry for huggingface cpu server
         run: |
-          poetry config virtualenvs.path /mnt/python/huggingfaceserver-venv
+          poetry config virtualenvs.path /mnt/python/huggingfaceserver-cpu-venv
           poetry config virtualenvs.in-project false
-      - name: Install huggingface dependencies
+      # make poetry visible for vllm cpu installation
+      - name: Install Poetry Plugins cpu
         run: |
-          sudo mkdir -p /mnt/python/huggingfaceserver-venv
+          poetry self add poetry-version-plugin
+      - name: Install huggingface cpu dependencies
+        run: |
+          sudo mkdir -p /mnt/python/huggingfaceserver-cpu-venv
           # change permission so that poetry can install without sudo
-          sudo chown -R $USER /mnt/python/huggingfaceserver-venv
+          sudo chown -R $USER /mnt/python/huggingfaceserver-cpu-venv
           cd python/huggingfaceserver
-          make install_dependencies
-      - name: Install huggingface server
+          make install_cpu_dependencies
+
+      - name: Install huggingface cpu server
         run: |
           cd python/huggingfaceserver
           make dev_install
-      - name: Test huggingfaceserver
+      - name: Test huggingfaceserver cpu
         run: |
+          sudo apt-get update
+          sudo apt-get install -y libnuma-dev
           cd python/huggingfaceserver
-          poetry run -- pytest --cov=huggingfaceserver -vv
+          bash tests/setup_vllm.sh
+          poetry run -- pytest --cov=huggingfaceserver -vv -k 'not test_vllm'
+          # TODO: The following tests need to be reworked since IPEX support is relatively new for both vLLM and KServe
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_reasoning.py
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_tools.py
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_generative.py
+        env:
+          VLLM_ENGINE_ITERATION_TIMEOUT_S: 3600
 
-      - name: Free space after tests
+      - name: Free space after cpu tests
         run: |
           df -hT

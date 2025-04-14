@@ -16,21 +16,21 @@ import pytest
 from kserve import ModelRepository, Model
 from kserve.protocol.rest.openai import (
     CompletionRequest,
-    OpenAICompletionModel,
-    EmbeddingRequest,
-    OpenAIEmbeddingModel,
+    OpenAIGenerativeModel,
+    OpenAIEncoderModel,
 )
 from unittest.mock import patch
-from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionResponse as ChatCompletion,
-    CreateChatCompletionStreamResponse as ChatCompletionChunk,
-    CreateCompletionResponse as Completion,
+from kserve.protocol.rest.openai.types import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    Completion,
     Embedding,
+    EmbeddingRequest,
 )
 from typing import AsyncIterator, Union
 
 
-class DummyOpenAICompletionModel(OpenAICompletionModel):
+class DummyOpenAIGenerativeModel(OpenAIGenerativeModel):
     async def create_completion(
         self, params: CompletionRequest
     ) -> Union[Completion, AsyncIterator[Completion]]:
@@ -42,14 +42,15 @@ class DummyOpenAICompletionModel(OpenAICompletionModel):
         pass
 
 
-class DummyOpenAIEmbeddingModel(OpenAIEmbeddingModel):
+class DummyOpenAIEmbeddingModel(OpenAIEncoderModel):
     async def create_embedding(self, params: EmbeddingRequest) -> Embedding:
         pass
 
 
 def test_adding_kserve_model():
     repo = ModelRepository()
-    repo.update(Model(name="kserve-model"))
+    model = Model(name="kserve-model")
+    repo.update(model)
 
     actual = repo.get_model("kserve-model")
 
@@ -57,15 +58,21 @@ def test_adding_kserve_model():
     assert isinstance(actual, Model)
     assert actual.name == "kserve-model"
 
+    repo.update(model, name="additional-model-name")
+    actual = repo.get_model("additional-model-name")
+    assert actual is not None
+    assert isinstance(actual, Model)
+    assert actual is model
+
 
 def test_adding_openai_completion_model():
     repo = ModelRepository()
-    repo.update(DummyOpenAICompletionModel(name="openai-completion-model"))
+    repo.update(DummyOpenAIGenerativeModel(name="openai-completion-model"))
 
     actual = repo.get_model("openai-completion-model")
 
     assert actual is not None
-    assert isinstance(actual, OpenAICompletionModel)
+    assert isinstance(actual, OpenAIGenerativeModel)
     assert actual.name == "openai-completion-model"
 
 
@@ -76,7 +83,7 @@ def test_adding_openai_embedding_model():
     actual = repo.get_model("openai-embedding-model")
 
     assert actual is not None
-    assert isinstance(actual, OpenAIEmbeddingModel)
+    assert isinstance(actual, OpenAIEncoderModel)
     assert actual.name == "openai-embedding-model"
 
 
@@ -105,7 +112,7 @@ async def test_is_model_ready_kserve_model():
 @pytest.mark.asyncio
 async def test_is_model_ready_openai_model():
     repo = ModelRepository()
-    model = DummyOpenAICompletionModel(name="openai-model")
+    model = DummyOpenAIGenerativeModel(name="openai-model")
     repo.update(model)
 
     actual = await repo.is_model_ready("openai-model")

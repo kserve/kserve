@@ -17,13 +17,17 @@ limitations under the License.
 package raw
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
 	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/otel"
 	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,7 +35,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	knapis "knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -39,28 +42,59 @@ var log = logf.Log.WithName("RawKubeReconciler")
 
 // RawKubeReconciler reconciles the Native K8S Resources
 type RawKubeReconciler struct {
-	client     client.Client
-	scheme     *runtime.Scheme
-	Deployment *deployment.DeploymentReconciler
-	Service    *service.ServiceReconciler
-	Scaler     *autoscaler.AutoscalerReconciler
-	URL        *knapis.URL
+	client        client.Client
+	scheme        *runtime.Scheme
+	Deployment    *deployment.DeploymentReconciler
+	Service       *service.ServiceReconciler
+	Scaler        *autoscaler.AutoscalerReconciler
+	OtelCollector *otel.OtelReconciler
+	URL           *knapis.URL
 }
 
 // NewRawKubeReconciler creates raw kubernetes resource reconciler.
-func NewRawKubeReconciler(client client.Client,
+func NewRawKubeReconciler(ctx context.Context,
+	client client.Client,
 	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) (*RawKubeReconciler, error) {
-	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt)
+	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+) (*RawKubeReconciler, error) {
+	var otelCollector *otel.OtelReconciler
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
+	if err != nil {
+		log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		return nil, err
+	}
+	// create OTel Collector if pod metrics is enabled for auto-scaling
+	if componentExt.AutoScaling != nil {
+		metrics := componentExt.AutoScaling.Metrics
+		for _, metric := range metrics {
+			if metric.Type == v1beta1.PodMetricSourceType {
+				if metric.PodMetric.Metric.Backend == v1beta1.PodsMetricsBackend(constants.OTelBackend) {
+					otelConfig, err := v1beta1.NewOtelCollectorConfig(isvcConfigMap)
+					if err != nil {
+						return nil, err
+					}
+					otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, metric, *otelConfig)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+
+	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, isvcConfigMap)
 	if err != nil {
 		return nil, err
 	}
-
-	url, err := createRawURL(clientset, componentMeta)
+	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
+	if err != nil {
+		return nil, err
+	}
+	url, err := createRawURL(ingressConfig, componentMeta)
 	if err != nil {
 		return nil, err
 	}
@@ -71,51 +105,55 @@ func NewRawKubeReconciler(client client.Client,
 	}
 
 	// do not return error as service config is optional
-	serviceConfig, err1 := v1beta1.NewServiceConfig(clientset)
+	serviceConfig, err1 := v1beta1.NewServiceConfig(isvcConfigMap)
 	if err1 != nil {
 		log.Error(err1, "failed to get service config")
 	}
 
 	return &RawKubeReconciler{
-		client:     client,
-		scheme:     scheme,
-		Deployment: deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec),
-		Service:    service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
-		Scaler:     as,
-		URL:        url,
+		client:        client,
+		scheme:        scheme,
+		Deployment:    deployment.NewDeploymentReconciler(client, scheme, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec),
+		Service:       service.NewServiceReconciler(client, scheme, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
+		Scaler:        as,
+		OtelCollector: otelCollector,
+		URL:           url,
 	}, nil
 }
 
-func createRawURL(clientset kubernetes.Interface, metadata metav1.ObjectMeta) (*knapis.URL, error) {
-	ingressConfig, err := v1beta1.NewIngressConfig(clientset)
-	if err != nil {
-		return nil, err
-	}
-
+func createRawURL(ingressConfig *v1beta1.IngressConfig, metadata metav1.ObjectMeta) (*knapis.URL, error) {
 	url := &knapis.URL{}
 	url.Scheme = "http"
-	url.Host, err = ingress.GenerateDomainName(metadata.Name, metadata, ingressConfig)
-	if err != nil {
+	var err error
+	if url.Host, err = ingress.GenerateDomainName(metadata.Name, metadata, ingressConfig); err != nil {
 		return nil, fmt.Errorf("failed creating host name: %w", err)
 	}
-
 	return url, nil
 }
 
 // Reconcile ...
-func (r *RawKubeReconciler) Reconcile() ([]*appsv1.Deployment, error) {
+func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
+	// reconcile OTel Collector
+	if r.OtelCollector != nil {
+		err := r.OtelCollector.Reconcile(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// reconcile Deployment
-	deploymentList, err := r.Deployment.Reconcile()
+	deploymentList, err := r.Deployment.Reconcile(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	// reconcile Service
-	_, err = r.Service.Reconcile()
+	_, err = r.Service.Reconcile(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	// reconcile HPA
-	err = r.Scaler.Reconcile()
+	err = r.Scaler.Reconcile(ctx)
 	if err != nil {
 		return nil, err
 	}

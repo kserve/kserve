@@ -17,7 +17,6 @@ limitations under the License.
 package pod
 
 import (
-	"context"
 	"reflect"
 	"strings"
 	"testing"
@@ -25,7 +24,8 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/stretchr/testify/assert"
-	v1 "k8s.io/api/core/v1"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/kmp"
@@ -59,42 +59,42 @@ var (
 		EnableDirectPvcVolumeMount: StorageInitializerDefaultEnableDirectPvcVolumeMount,
 	}
 
-	resourceRequirement = v1.ResourceRequirements{
-		Limits: map[v1.ResourceName]resource.Quantity{
-			v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
-			v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryLimit),
+	resourceRequirement = corev1.ResourceRequirements{
+		Limits: map[corev1.ResourceName]resource.Quantity{
+			corev1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
+			corev1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryLimit),
 		},
-		Requests: map[v1.ResourceName]resource.Quantity{
-			v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
-			v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
+		Requests: map[corev1.ResourceName]resource.Quantity{
+			corev1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
+			corev1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
 		},
 	}
 )
 
 func TestStorageInitializerInjector(t *testing.T) {
 	scenarios := map[string]struct {
-		original *v1.Pod
-		expected *v1.Pod
+		original *corev1.Pod
+		expected *corev1.Pod
 	}{
 		"MissingAnnotations": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
@@ -103,38 +103,38 @@ func TestStorageInitializerInjector(t *testing.T) {
 			},
 		},
 		"AlreadyInjected": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name: "storage-initializer",
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name: "storage-initializer",
 						},
@@ -143,31 +143,31 @@ func TestStorageInitializerInjector(t *testing.T) {
 			},
 		},
 		"StorageInitializerInjected": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -176,14 +176,14 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -191,11 +191,11 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -204,31 +204,31 @@ func TestStorageInitializerInjector(t *testing.T) {
 		},
 
 		"StorageInitializerInjectedReadOnlyUnset": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      StorageInitializerVolumeName,
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -237,14 +237,14 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      StorageInitializerVolumeName,
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -252,11 +252,11 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: StorageInitializerVolumeName,
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -265,32 +265,32 @@ func TestStorageInitializerInjector(t *testing.T) {
 		},
 
 		"StorageInitializerInjectedReadOnlyFalse": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 						constants.StorageReadonlyAnnotationKey:                     "false",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      StorageInitializerVolumeName,
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -299,14 +299,14 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      StorageInitializerVolumeName,
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -314,11 +314,11 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: StorageInitializerVolumeName,
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -327,32 +327,32 @@ func TestStorageInitializerInjector(t *testing.T) {
 		},
 
 		"StorageInitializerInjectedReadOnlyTrue": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 						constants.StorageReadonlyAnnotationKey:                     "true",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      StorageInitializerVolumeName,
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -361,14 +361,14 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      StorageInitializerVolumeName,
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -376,11 +376,11 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: StorageInitializerVolumeName,
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -389,31 +389,31 @@ func TestStorageInitializerInjector(t *testing.T) {
 		},
 
 		"StorageInitializerInjectedAndMountsPvc": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/pvc",
@@ -427,14 +427,14 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/pvc",
@@ -447,11 +447,11 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-pvc-source",
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "mypvcname",
 									ReadOnly:  false,
 								},
@@ -459,8 +459,8 @@ func TestStorageInitializerInjector(t *testing.T) {
 						},
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -468,7 +468,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 			},
 		},
 		"StorageSpecInjected": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Annotations: map[string]string{
@@ -477,15 +477,15 @@ func TestStorageInitializerInjector(t *testing.T) {
 						constants.StorageSpecParamAnnotationKey:                    `{"type": "s3", "bucket": "my-bucket"}`,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://foo/bar",
@@ -493,11 +493,11 @@ func TestStorageInitializerInjector(t *testing.T) {
 						constants.StorageSpecParamAnnotationKey:                    `{"type": "s3", "bucket": "my-bucket"}`,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -506,12 +506,12 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:  []string{"s3://my-bucket/foo/bar", constants.DefaultModelLocalMountPath},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  credentials.StorageOverrideConfigEnvKey,
 									Value: `{"bucket":"my-bucket","type":"s3"}`,
@@ -519,7 +519,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -527,11 +527,11 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -542,7 +542,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
@@ -559,18 +559,18 @@ func TestStorageInitializerInjector(t *testing.T) {
 
 func TestStorageInitializerFailureCases(t *testing.T) {
 	scenarios := map[string]struct {
-		original            *v1.Pod
+		original            *corev1.Pod
 		expectedErrorPrefix string
 	}{
 		"MissingUserContainer": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "random-container",
 						},
@@ -583,7 +583,7 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
@@ -601,21 +601,21 @@ func TestStorageInitializerFailureCases(t *testing.T) {
 
 func TestCustomSpecStorageUriInjection(t *testing.T) {
 	scenarios := map[string]struct {
-		original                      *v1.Pod
-		expectedStorageUriEnvVariable *v1.EnvVar
+		original                      *corev1.Pod
+		expectedStorageUriEnvVariable *corev1.EnvVar
 	}{
 		"CustomSpecStorageUriSet": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: "pvc://mypvcname/some/path/on/pvc",
@@ -625,23 +625,23 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 					},
 				},
 			},
-			expectedStorageUriEnvVariable: &v1.EnvVar{
+			expectedStorageUriEnvVariable: &corev1.EnvVar{
 				Name:  constants.CustomSpecStorageUriEnvVarKey,
 				Value: constants.DefaultModelLocalMountPath,
 			},
 		},
 		"CustomSpecStorageUriEmpty": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: "",
@@ -651,23 +651,23 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 					},
 				},
 			},
-			expectedStorageUriEnvVariable: &v1.EnvVar{
+			expectedStorageUriEnvVariable: &corev1.EnvVar{
 				Name:  constants.CustomSpecStorageUriEnvVarKey,
 				Value: "",
 			},
 		},
 		"CustomSpecStorageUriNotSet": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "TestRandom",
 									Value: "val",
@@ -683,7 +683,7 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
@@ -693,7 +693,7 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 
-		var originalEnvVar *v1.EnvVar
+		var originalEnvVar *corev1.EnvVar
 		for _, envVar := range scenario.original.Spec.Containers[0].Env {
 			if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
 				originalEnvVar = &envVar
@@ -705,8 +705,8 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 	}
 }
 
-func makePod() *v1.Pod {
-	return &v1.Pod{
+func makePod() *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
@@ -714,8 +714,8 @@ func makePod() *v1.Pod {
 				constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 			},
 		},
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
 				{
 					Name: constants.InferenceServiceContainerName,
 				},
@@ -727,25 +727,25 @@ func makePod() *v1.Pod {
 func TestCredentialInjection(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
-		sa       *v1.ServiceAccount
-		secret   *v1.Secret
-		original *v1.Pod
-		expected *v1.Pod
+		sa       *corev1.ServiceAccount
+		secret   *corev1.Secret
+		original *corev1.Pod
+		expected *corev1.Pod
 	}{
 		"Test s3 secrets injection": {
-			sa: &v1.ServiceAccount{
+			sa: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 				},
-				Secrets: []v1.ObjectReference{
+				Secrets: []corev1.ObjectReference{
 					{
 						Name:      "s3-secret",
 						Namespace: "default",
 					},
 				},
 			},
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "s3-secret",
 					Namespace: "default",
@@ -759,7 +759,7 @@ func TestCredentialInjection(t *testing.T) {
 				},
 			},
 			original: makePod(),
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test",
 					Namespace: "default",
@@ -767,11 +767,11 @@ func TestCredentialInjection(t *testing.T) {
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -780,25 +780,25 @@ func TestCredentialInjection(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsAccessKeyID",
@@ -807,9 +807,9 @@ func TestCredentialInjection(t *testing.T) {
 								},
 								{
 									Name: s3.AWSSecretAccessKey,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsSecretAccessKey",
@@ -827,11 +827,11 @@ func TestCredentialInjection(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -839,19 +839,19 @@ func TestCredentialInjection(t *testing.T) {
 			},
 		},
 		"Test GCS secrets injection": {
-			sa: &v1.ServiceAccount{
+			sa: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 				},
-				Secrets: []v1.ObjectReference{
+				Secrets: []corev1.ObjectReference{
 					{
 						Name:      "user-gcp-sa",
 						Namespace: "default",
 					},
 				},
 			},
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "user-gcp-sa",
 					Namespace: "default",
@@ -861,17 +861,17 @@ func TestCredentialInjection(t *testing.T) {
 				},
 			},
 			original: makePod(),
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -880,14 +880,14 @@ func TestCredentialInjection(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -898,7 +898,7 @@ func TestCredentialInjection(t *testing.T) {
 									MountPath: gcs.GCSCredentialVolumeMountPath,
 								},
 							},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  gcs.GCSCredentialEnvKey,
 									Value: gcs.GCSCredentialVolumeMountPath + "gcloud-application-credentials.json",
@@ -906,17 +906,17 @@ func TestCredentialInjection(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 						{
 							Name: gcs.GCSCredentialVolumeName,
-							VolumeSource: v1.VolumeSource{
-								Secret: &v1.SecretVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
 									SecretName: "user-gcp-sa",
 								},
 							},
@@ -926,13 +926,13 @@ func TestCredentialInjection(t *testing.T) {
 			},
 		},
 		"TestStorageSpecSecretInjection": {
-			sa: &v1.ServiceAccount{
+			sa: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{ // Service account not used
 					Name:      "default",
 					Namespace: "default",
 				},
 			},
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "storage-config",
 					Namespace: "default",
@@ -941,7 +941,7 @@ func TestCredentialInjection(t *testing.T) {
 					"my-storage": `{"type": "s3", "bucket": "my-bucket", "region": "na"}`,
 				},
 			},
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Annotations: map[string]string{
@@ -951,15 +951,15 @@ func TestCredentialInjection(t *testing.T) {
 						constants.StorageSpecKeyAnnotationKey:                      "my-storage",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://foo/bar",
@@ -968,11 +968,11 @@ func TestCredentialInjection(t *testing.T) {
 						constants.StorageSpecKeyAnnotationKey:                      "my-storage",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -981,17 +981,17 @@ func TestCredentialInjection(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:  []string{"s3://my-bucket/foo/bar", constants.DefaultModelLocalMountPath},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name: credentials.StorageConfigEnvKey,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{Name: "storage-config"},
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{Name: "storage-config"},
 											Key:                  "my-storage",
 										},
 									},
@@ -1003,7 +1003,7 @@ func TestCredentialInjection(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1011,11 +1011,11 @@ func TestCredentialInjection(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -1023,13 +1023,13 @@ func TestCredentialInjection(t *testing.T) {
 			},
 		},
 		"TestStorageSpecDefaultSecretInjection": {
-			sa: &v1.ServiceAccount{
+			sa: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{ // Service account not used
 					Name:      "default",
 					Namespace: "default",
 				},
 			},
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "storage-config",
 					Namespace: "default",
@@ -1038,7 +1038,7 @@ func TestCredentialInjection(t *testing.T) {
 					credentials.DefaultStorageSecretKey: `{"type": "s3", "bucket": "my-bucket", "region": "na"}`,
 				},
 			},
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: "default",
 					Annotations: map[string]string{
@@ -1047,15 +1047,15 @@ func TestCredentialInjection(t *testing.T) {
 						constants.StorageSpecParamAnnotationKey:                    `{"some-param": "some-val"}`,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "<scheme-placeholder>://foo/bar",
@@ -1063,11 +1063,11 @@ func TestCredentialInjection(t *testing.T) {
 						constants.StorageSpecParamAnnotationKey:                    `{"some-param":"some-val"}`,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1076,17 +1076,17 @@ func TestCredentialInjection(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:  []string{"s3://my-bucket/foo/bar", constants.DefaultModelLocalMountPath},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name: credentials.StorageConfigEnvKey,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{Name: "storage-config"},
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{Name: "storage-config"},
 											Key:                  credentials.DefaultStorageSecretKey,
 										},
 									},
@@ -1098,7 +1098,7 @@ func TestCredentialInjection(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1106,11 +1106,11 @@ func TestCredentialInjection(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -1119,7 +1119,7 @@ func TestCredentialInjection(t *testing.T) {
 		},
 	}
 
-	var configMap = &v1.ConfigMap{
+	configMap := &corev1.ConfigMap{
 		Data: map[string]string{
 			"credentials": `{
 				"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
@@ -1133,8 +1133,8 @@ func TestCredentialInjection(t *testing.T) {
 
 	builder := credentials.NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
 
 		injector := &StorageInitializerInjector{
 			credentialBuilder: builder,
@@ -1148,42 +1148,42 @@ func TestCredentialInjection(t *testing.T) {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 
-		g.Expect(c.Delete(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
 	}
 }
 
 func TestStorageInitializerConfigmap(t *testing.T) {
 	scenarios := map[string]struct {
-		original *v1.Pod
-		expected *v1.Pod
+		original *corev1.Pod
+		expected *corev1.Pod
 	}{
 		"StorageInitializerConfig": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1192,14 +1192,14 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    "kserve/storage-initializer@sha256:xxx",
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1207,11 +1207,11 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -1222,7 +1222,7 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: &StorageInitializerConfig{
@@ -1249,12 +1249,12 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cases := []struct {
 		name      string
-		configMap *v1.ConfigMap
+		configMap *corev1.ConfigMap
 		matchers  []types.GomegaMatcher
 	}{
 		{
 			name: "Valid Storage Initializer Config",
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string]string{
@@ -1285,7 +1285,7 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 		},
 		{
 			name: "Invalid Resource Value",
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string]string{
@@ -1357,13 +1357,12 @@ func TestParsePvcURI(t *testing.T) {
 			g.Expect(pvcPath).Should(tc.matchers[1])
 			g.Expect(err).Should(tc.matchers[2])
 		})
-
 	}
 }
 
 func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	var configMap = &v1.ConfigMap{
+	configMap := &corev1.ConfigMap{
 		Data: map[string]string{
 			"credentials": `{
 				"gcs" : {"gcsCredentialFileName": "gcloud-application-credentials.json"},
@@ -1376,14 +1375,14 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 	}
 	scenarios := map[string]struct {
 		storageConfig *StorageInitializerConfig
-		secret        *v1.Secret
-		sa            *v1.ServiceAccount
-		original      *v1.Pod
-		expected      *v1.Pod
+		secret        *corev1.Secret
+		sa            *corev1.ServiceAccount
+		original      *corev1.Pod
+		expected      *corev1.Pod
 	}{
 		"DoNotMountWithCaBundleConfigMapVolumeWhenCaBundleConfigMapNameNotSet": {
 			storageConfig: storageInitializerConfig,
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "s3-secret",
 					Namespace: "default",
@@ -1393,12 +1392,12 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					"awsSecretAccessKey": {},
 				},
 			},
-			sa: &v1.ServiceAccount{
+			sa: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 				},
-				Secrets: []v1.ObjectReference{
+				Secrets: []corev1.ObjectReference{
 					{
 						Name:      "s3-secret",
 						Namespace: "default",
@@ -1406,17 +1405,17 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 				},
 			},
 			original: makePod(),
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1425,17 +1424,17 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsAccessKeyID",
@@ -1444,9 +1443,9 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 								},
 								{
 									Name: s3.AWSSecretAccessKey,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsSecretAccessKey",
@@ -1456,7 +1455,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1464,11 +1463,11 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -1484,7 +1483,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 				MemoryLimit:           "1Gi",
 				CaBundleConfigMapName: "custom-certs", // enable CA bundle config volume mount
 			},
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "s3-secret",
 					Namespace: "default",
@@ -1494,12 +1493,12 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					"awsSecretAccessKey": {},
 				},
 			},
-			sa: &v1.ServiceAccount{
+			sa: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 				},
-				Secrets: []v1.ObjectReference{
+				Secrets: []corev1.ObjectReference{
 					{
 						Name:      "s3-secret",
 						Namespace: "default",
@@ -1507,17 +1506,17 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 				},
 			},
 			original: makePod(),
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1526,17 +1525,17 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsAccessKeyID",
@@ -1545,9 +1544,9 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 								},
 								{
 									Name: s3.AWSSecretAccessKey,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsSecretAccessKey",
@@ -1559,7 +1558,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1572,18 +1571,18 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 						{
 							Name: CaBundleVolumeName,
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
 										Name: constants.DefaultGlobalCaBundleConfigMapName,
 									},
 								},
@@ -1601,7 +1600,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 				MemoryRequest: "200Mi",
 				MemoryLimit:   "1Gi",
 			},
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "s3-secret",
 					Namespace: "default",
@@ -1614,12 +1613,12 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					"awsSecretAccessKey": {},
 				},
 			},
-			sa: &v1.ServiceAccount{
+			sa: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 				},
-				Secrets: []v1.ObjectReference{
+				Secrets: []corev1.ObjectReference{
 					{
 						Name:      "s3-secret",
 						Namespace: "default",
@@ -1627,17 +1626,17 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 				},
 			},
 			original: makePod(),
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1646,17 +1645,17 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsAccessKeyID",
@@ -1665,9 +1664,9 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 								},
 								{
 									Name: s3.AWSSecretAccessKey,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsSecretAccessKey",
@@ -1680,7 +1679,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1693,18 +1692,18 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 						{
 							Name: CaBundleVolumeName,
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "cabundle-annotation",
 									},
 								},
@@ -1723,7 +1722,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 				MemoryLimit:           "1Gi",
 				CaBundleConfigMapName: "custom-certs", // enable CA bundle configmap volume mount
 			},
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "s3-secret",
 					Namespace: "default",
@@ -1736,12 +1735,12 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					"awsSecretAccessKey": {},
 				},
 			},
-			sa: &v1.ServiceAccount{
+			sa: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 				},
-				Secrets: []v1.ObjectReference{
+				Secrets: []corev1.ObjectReference{
 					{
 						Name:      "s3-secret",
 						Namespace: "default",
@@ -1749,17 +1748,17 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 				},
 			},
 			original: makePod(),
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1768,17 +1767,17 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsAccessKeyID",
@@ -1787,9 +1786,9 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 								},
 								{
 									Name: s3.AWSSecretAccessKey,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsSecretAccessKey",
@@ -1802,7 +1801,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1815,18 +1814,18 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 						{
 							Name: CaBundleVolumeName,
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "cabundle-annotation",
 									},
 								},
@@ -1838,7 +1837,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 		},
 		"DoNotSetMountsCaBundleConfigMapVolumePathByAnnotationIfCaBundleConfigMapNameDidNotSet": {
 			storageConfig: storageInitializerConfig,
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "s3-secret",
 					Namespace: "default",
@@ -1851,12 +1850,12 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					"awsSecretAccessKey": {},
 				},
 			},
-			sa: &v1.ServiceAccount{
+			sa: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 				},
-				Secrets: []v1.ObjectReference{
+				Secrets: []corev1.ObjectReference{
 					{
 						Name:      "s3-secret",
 						Namespace: "default",
@@ -1864,17 +1863,17 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 				},
 			},
 			original: makePod(),
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1883,17 +1882,17 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsAccessKeyID",
@@ -1902,9 +1901,9 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 								},
 								{
 									Name: s3.AWSSecretAccessKey,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsSecretAccessKey",
@@ -1915,7 +1914,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1923,11 +1922,11 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -1944,7 +1943,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 				CaBundleConfigMapName:   "custom-certs", // enable CA bundle configmap volume mount
 				CaBundleVolumeMountPath: "/path/to",     // set CA bundle configmap volume mount path
 			},
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "s3-secret",
 					Namespace: "default",
@@ -1957,12 +1956,12 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 					"awsSecretAccessKey": {},
 				},
 			},
-			sa: &v1.ServiceAccount{
+			sa: &corev1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 				},
-				Secrets: []v1.ObjectReference{
+				Secrets: []corev1.ObjectReference{
 					{
 						Name:      "s3-secret",
 						Namespace: "default",
@@ -1970,17 +1969,17 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 				},
 			},
 			original: makePod(),
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -1989,17 +1988,17 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:  []string{"gs://foo", constants.DefaultModelLocalMountPath},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name: s3.AWSAccessKeyId,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsAccessKeyID",
@@ -2008,9 +2007,9 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 								},
 								{
 									Name: s3.AWSSecretAccessKey,
-									ValueFrom: &v1.EnvVarSource{
-										SecretKeyRef: &v1.SecretKeySelector{
-											LocalObjectReference: v1.LocalObjectReference{
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											LocalObjectReference: corev1.LocalObjectReference{
 												Name: "s3-secret",
 											},
 											Key: "awsSecretAccessKey",
@@ -2023,7 +2022,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -2036,18 +2035,18 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 						{
 							Name: CaBundleVolumeName,
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
 										Name: constants.DefaultGlobalCaBundleConfigMapName,
 									},
 								},
@@ -2061,8 +2060,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 
 	builder := credentials.NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
 
 		injector := &StorageInitializerInjector{
 			credentialBuilder: builder,
@@ -2076,43 +2075,42 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 
-		g.Expect(c.Delete(context.TODO(), scenario.secret)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.TODO(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), scenario.sa)).NotTo(gomega.HaveOccurred())
 	}
-
 }
 
 func TestDirectVolumeMountForPvc(t *testing.T) {
 	scenarios := map[string]struct {
-		original *v1.Pod
-		expected *v1.Pod
+		original *corev1.Pod
+		expected *corev1.Pod
 	}{
 		"StorageInitializerNotInjectedAndMountsPvcViaVolumeMount": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/models",
@@ -2122,11 +2120,11 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-pvc-source",
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "mypvcname",
 									ReadOnly:  false,
 								},
@@ -2137,31 +2135,31 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 			},
 		},
 		"StorageInitializerNotInjectedAndMountsPvcViaVolumeMountShortestPath": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/models",
@@ -2171,11 +2169,11 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-pvc-source",
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "mypvcname",
 									ReadOnly:  false,
 								},
@@ -2186,32 +2184,32 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 			},
 		},
 		"StorageInitializerNotInjectedAndMountsPvcViaVolumeMountReadOnlyFalse": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 						constants.StorageReadonlyAnnotationKey:                     "false",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/models",
@@ -2221,11 +2219,11 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-pvc-source",
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "mypvcname",
 									ReadOnly:  false,
 								},
@@ -2236,32 +2234,32 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 			},
 		},
 		"StorageInitializerNotInjectedAndMountsPvcViaVolumeMountReadOnlyTrue": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 						constants.StorageReadonlyAnnotationKey:                     "true",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/models",
@@ -2271,11 +2269,11 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-pvc-source",
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "mypvcname",
 									ReadOnly:  false,
 								},
@@ -2289,7 +2287,7 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: &StorageInitializerConfig{
@@ -2309,22 +2307,22 @@ func TestDirectVolumeMountForPvc(t *testing.T) {
 func TestTransformerCollocation(t *testing.T) {
 	scenarios := map[string]struct {
 		storageConfig *StorageInitializerConfig
-		original      *v1.Pod
-		expected      *v1.Pod
+		original      *corev1.Pod
+		expected      *corev1.Pod
 	}{
 		"Transformer collocation with pvc": {
 			storageConfig: storageInitializerConfig,
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: "pvc://mypvcname/some/path/on/pvc",
@@ -2338,21 +2336,21 @@ func TestTransformerCollocation(t *testing.T) {
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: constants.DefaultModelLocalMountPath,
 								},
 							},
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/pvc",
@@ -2368,7 +2366,7 @@ func TestTransformerCollocation(t *testing.T) {
 						{
 							Name:  constants.TransformerContainerName,
 							Image: "test/image:latest",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/pvc",
@@ -2382,14 +2380,14 @@ func TestTransformerCollocation(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/pvc",
@@ -2402,11 +2400,11 @@ func TestTransformerCollocation(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-pvc-source",
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "mypvcname",
 									ReadOnly:  false,
 								},
@@ -2414,8 +2412,8 @@ func TestTransformerCollocation(t *testing.T) {
 						},
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -2426,17 +2424,17 @@ func TestTransformerCollocation(t *testing.T) {
 			storageConfig: &StorageInitializerConfig{
 				EnableDirectPvcVolumeMount: true, // enable direct volume mount for PVC
 			},
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: "pvc://mypvcname/some/path/on/pvc",
@@ -2450,21 +2448,21 @@ func TestTransformerCollocation(t *testing.T) {
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: constants.DefaultModelLocalMountPath,
 								},
 							},
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/models",
@@ -2476,7 +2474,7 @@ func TestTransformerCollocation(t *testing.T) {
 						{
 							Name:  constants.TransformerContainerName,
 							Image: "test/image:latest",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/models",
@@ -2486,11 +2484,11 @@ func TestTransformerCollocation(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-pvc-source",
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "mypvcname",
 									ReadOnly:  false,
 								},
@@ -2502,17 +2500,17 @@ func TestTransformerCollocation(t *testing.T) {
 		},
 		"No collocation": {
 			storageConfig: storageInitializerConfig,
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: "pvc://mypvcname/some/path/on/pvc",
@@ -2522,21 +2520,21 @@ func TestTransformerCollocation(t *testing.T) {
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  constants.CustomSpecStorageUriEnvVarKey,
 									Value: constants.DefaultModelLocalMountPath,
 								},
 							},
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/pvc",
@@ -2550,14 +2548,14 @@ func TestTransformerCollocation(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"/mnt/pvc/some/path/on/pvc", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-pvc-source",
 									MountPath: "/mnt/pvc",
@@ -2570,11 +2568,11 @@ func TestTransformerCollocation(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-pvc-source",
-							VolumeSource: v1.VolumeSource{
-								PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "mypvcname",
 									ReadOnly:  false,
 								},
@@ -2582,8 +2580,8 @@ func TestTransformerCollocation(t *testing.T) {
 						},
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -2594,7 +2592,7 @@ func TestTransformerCollocation(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: scenario.storageConfig,
@@ -2616,14 +2614,14 @@ func TestGetStorageContainerSpec(t *testing.T) {
 			Name: "custom",
 		},
 		Spec: v1alpha1.StorageContainerSpec{
-			Container: v1.Container{
+			Container: corev1.Container{
 				Image: "kserve/custom:latest",
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceMemory: resource.MustParse("200Mi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("200Mi"),
 					},
 				},
-				SecurityContext: &v1.SecurityContext{
+				SecurityContext: &corev1.SecurityContext{
 					RunAsNonRoot: ptr.Bool(true),
 				},
 			},
@@ -2635,11 +2633,11 @@ func TestGetStorageContainerSpec(t *testing.T) {
 			Name: "s3-azure",
 		},
 		Spec: v1alpha1.StorageContainerSpec{
-			Container: v1.Container{
+			Container: corev1.Container{
 				Image: "kserve/storage-initializer:latest",
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceMemory: resource.MustParse("200Mi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("200Mi"),
 					},
 				},
 			},
@@ -2647,23 +2645,23 @@ func TestGetStorageContainerSpec(t *testing.T) {
 		},
 	}
 
-	if err := c.Create(context.TODO(), &s3AzureSpec); err != nil {
+	if err := c.Create(t.Context(), &s3AzureSpec); err != nil {
 		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
-	if err := c.Create(context.TODO(), &customSpec); err != nil {
+	if err := c.Create(t.Context(), &customSpec); err != nil {
 		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
 	defer func() {
-		if err := c.Delete(context.TODO(), &s3AzureSpec); err != nil {
+		if err := c.Delete(t.Context(), &s3AzureSpec); err != nil {
 			t.Errorf("unable to delete cluster storage container: %v", err)
 		}
-		if err := c.Delete(context.TODO(), &customSpec); err != nil {
+		if err := c.Delete(t.Context(), &customSpec); err != nil {
 			t.Errorf("unable to delete cluster storage container: %v", err)
 		}
 	}()
 	scenarios := map[string]struct {
 		storageUri   string
-		expectedSpec *v1.Container
+		expectedSpec *corev1.Container
 	}{
 		"s3": {
 			storageUri:   "s3://foo",
@@ -2679,10 +2677,10 @@ func TestGetStorageContainerSpec(t *testing.T) {
 		},
 	}
 	for name, scenario := range scenarios {
-		var container *v1.Container
+		var container *corev1.Container
 		var err error
 
-		if container, err = GetContainerSpecForStorageUri(scenario.storageUri, c); err != nil {
+		if container, err = GetContainerSpecForStorageUri(t.Context(), scenario.storageUri, c); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		g.Expect(container).To(gomega.Equal(scenario.expectedSpec))
@@ -2695,11 +2693,11 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 			Name: "custom",
 		},
 		Spec: v1alpha1.StorageContainerSpec{
-			Container: v1.Container{
+			Container: corev1.Container{
 				Image: "kserve/storage-initializer:latest",
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceMemory: resource.MustParse("200Mi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("200Mi"),
 					},
 				},
 			},
@@ -2711,65 +2709,65 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 			Name: "s3-azure",
 		},
 		Spec: v1alpha1.StorageContainerSpec{
-			Container: v1.Container{
+			Container: corev1.Container{
 				Image: "kserve/storage-initializer:latest",
-				Resources: v1.ResourceRequirements{
-					Limits: v1.ResourceList{
-						v1.ResourceMemory: resource.MustParse("500Mi"),
+				Resources: corev1.ResourceRequirements{
+					Limits: corev1.ResourceList{
+						corev1.ResourceMemory: resource.MustParse("500Mi"),
 					},
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{Name: "name", Value: "value"},
 				},
 			},
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}, {Regex: "https://(.+?).blob.core.windows.net/(.+)"}},
 		},
 	}
-	if err := c.Create(context.TODO(), &s3AzureSpec); err != nil {
+	if err := c.Create(t.Context(), &s3AzureSpec); err != nil {
 		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
-	if err := c.Create(context.TODO(), &customSpec); err != nil {
+	if err := c.Create(t.Context(), &customSpec); err != nil {
 		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
 	defer func() {
-		if err := c.Delete(context.TODO(), &s3AzureSpec); err != nil {
+		if err := c.Delete(t.Context(), &s3AzureSpec); err != nil {
 			t.Errorf("unable to delete cluster storage container: %v", err)
 		}
-		if err := c.Delete(context.TODO(), &customSpec); err != nil {
+		if err := c.Delete(t.Context(), &customSpec); err != nil {
 			t.Errorf("unable to delete cluster storage container: %v", err)
 		}
 	}()
 
 	scenarios := map[string]struct {
-		original *v1.Pod
-		expected *v1.Pod
+		original *corev1.Pod
+		expected *corev1.Pod
 	}{
 		"s3": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -2778,38 +2776,38 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:  "storage-initializer",
 							Image: StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:  []string{"s3://foo", constants.DefaultModelLocalMountPath},
-							Resources: v1.ResourceRequirements{
-								Limits: map[v1.ResourceName]resource.Quantity{
-									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
-									v1.ResourceMemory: resource.MustParse("500Mi"), // From CRD
+							Resources: corev1.ResourceRequirements{
+								Limits: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPULimit),
+									corev1.ResourceMemory: resource.MustParse("500Mi"), // From CRD
 								},
-								Requests: map[v1.ResourceName]resource.Quantity{
-									v1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
-									v1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
+								Requests: map[corev1.ResourceName]resource.Quantity{
+									corev1.ResourceCPU:    resource.MustParse(StorageInitializerDefaultCPURequest),
+									corev1.ResourceMemory: resource.MustParse(StorageInitializerDefaultMemoryRequest),
 								},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{Name: "name", Value: "value"},
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -2817,31 +2815,31 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 			},
 		},
 		"Default config if storage uri not matched in CRs": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "https://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "https://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -2850,14 +2848,14 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"https://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement, // from configMap instead of the CR
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -2865,11 +2863,11 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -2879,7 +2877,7 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 	}
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
@@ -2898,7 +2896,7 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 func TestAddOrReplaceEnv(t *testing.T) {
 	tests := []struct {
 		name       string
-		container  *v1.Container
+		container  *corev1.Container
 		envKey     string
 		envValue   string
 		wantEnvLen int
@@ -2906,7 +2904,7 @@ func TestAddOrReplaceEnv(t *testing.T) {
 	}{
 		{
 			name:       "nil env array",
-			container:  &v1.Container{},
+			container:  &corev1.Container{},
 			envKey:     "TEST_KEY",
 			envValue:   "test_value",
 			wantEnvLen: 1,
@@ -2914,8 +2912,8 @@ func TestAddOrReplaceEnv(t *testing.T) {
 		},
 		{
 			name: "env array without key",
-			container: &v1.Container{
-				Env: []v1.EnvVar{
+			container: &corev1.Container{
+				Env: []corev1.EnvVar{
 					{Name: "EXISTING_KEY", Value: "existing_value"},
 				},
 			},
@@ -2926,8 +2924,8 @@ func TestAddOrReplaceEnv(t *testing.T) {
 		},
 		{
 			name: "env array with existing key",
-			container: &v1.Container{
-				Env: []v1.EnvVar{
+			container: &corev1.Container{
+				Env: []corev1.EnvVar{
 					{Name: "TEST_KEY", Value: "old_value"},
 				},
 			},
@@ -2958,10 +2956,9 @@ func TestAddOrReplaceEnv(t *testing.T) {
 func TestInjectModelcar(t *testing.T) {
 	// Test when annotation key is not set
 	{
-		pod := &v1.Pod{}
+		pod := &corev1.Pod{}
 		mi := &StorageInitializerInjector{}
 		err := mi.InjectModelcar(pod)
-
 		if err != nil {
 			t.Errorf("Expected nil error but got %v", err)
 		}
@@ -2972,7 +2969,7 @@ func TestInjectModelcar(t *testing.T) {
 
 	// Test when srcURI does not start with OciURIPrefix
 	{
-		pod := &v1.Pod{
+		pod := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					constants.StorageInitializerSourceUriInternalAnnotationKey: "s3://bla/blub",
@@ -2981,7 +2978,6 @@ func TestInjectModelcar(t *testing.T) {
 		}
 		mi := &StorageInitializerInjector{}
 		err := mi.InjectModelcar(pod)
-
 		if err != nil {
 			t.Errorf("Expected nil error but got %v", err)
 		}
@@ -2997,7 +2993,6 @@ func TestInjectModelcar(t *testing.T) {
 			config: &StorageInitializerConfig{},
 		}
 		err := mi.InjectModelcar(pod)
-
 		if err != nil {
 			t.Errorf("Expected nil error but got %v", err)
 		}
@@ -3013,22 +3008,23 @@ func TestInjectModelcar(t *testing.T) {
 		}
 
 		// Check that an init container has been injected, and it is the model container
-		if len(pod.Spec.InitContainers) != 1 {
+		switch {
+		case len(pod.Spec.InitContainers) != 1:
 			t.Errorf("Expected one init container but got %d", len(pod.Spec.InitContainers))
-		} else if pod.Spec.InitContainers[0].Name != ModelcarInitContainerName {
+		case pod.Spec.InitContainers[0].Name != ModelcarInitContainerName:
 			t.Errorf("Expected the init container to be the model but got %s", pod.Spec.InitContainers[0].Name)
-		} else {
+		default:
 			// Check that resources are correctly set.
-			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[v1.ResourceCPU]; !ok {
+			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[corev1.ResourceCPU]; !ok {
 				t.Error("The model container does not have CPU limit set")
 			}
-			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[v1.ResourceMemory]; !ok {
+			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[corev1.ResourceMemory]; !ok {
 				t.Error("The model container does not have Memory limit set")
 			}
-			if _, ok := pod.Spec.InitContainers[0].Resources.Requests[v1.ResourceCPU]; !ok {
+			if _, ok := pod.Spec.InitContainers[0].Resources.Requests[corev1.ResourceCPU]; !ok {
 				t.Error("The model container does not have CPU request set")
 			}
-			if _, ok := pod.Spec.InitContainers[0].Resources.Requests[v1.ResourceMemory]; !ok {
+			if _, ok := pod.Spec.InitContainers[0].Resources.Requests[corev1.ResourceMemory]; !ok {
 				t.Error("The model container does not have Memory request set")
 			}
 
@@ -3066,15 +3062,15 @@ func TestInjectModelcar(t *testing.T) {
 	}
 }
 
-func createTestPodForModelcar() *v1.Pod {
-	pod := &v1.Pod{
+func createTestPodForModelcar() *corev1.Pod {
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
 				constants.StorageInitializerSourceUriInternalAnnotationKey: OciURIPrefix + "myrepo/mymodelimage",
 			},
 		},
-		Spec: v1.PodSpec{
-			Containers: []v1.Container{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
 				{Name: constants.InferenceServiceContainerName},
 			},
 		},
@@ -3082,9 +3078,9 @@ func createTestPodForModelcar() *v1.Pod {
 	return pod
 }
 
-func createTestPodForModelcarWithTransformer() *v1.Pod {
+func createTestPodForModelcarWithTransformer() *corev1.Pod {
 	pod := createTestPodForModelcar()
-	pod.Spec.Containers = append(pod.Spec.Containers, v1.Container{Name: constants.TransformerContainerName})
+	pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{Name: constants.TransformerContainerName})
 	return pod
 }
 
@@ -3101,10 +3097,10 @@ func TestModelcarVolumeMounts(t *testing.T) {
 	})
 }
 
-func checkVolumeMounts(t *testing.T, pod *v1.Pod, containerNames []string) {
+func checkVolumeMounts(t *testing.T, pod *corev1.Pod, containerNames []string) {
 	injector := &StorageInitializerInjector{config: &StorageInitializerConfig{}}
 	err := injector.InjectModelcar(pod)
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	for _, containerName := range containerNames {
 		container := getContainerWithName(pod, containerName)
@@ -3125,13 +3121,13 @@ func TestModelcarIdempotency(t *testing.T) {
 
 		// Inject modelcar twice
 		err := injector.InjectModelcar(pod)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 		err = injector.InjectModelcar(pod)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 
 		// Reference modelcar
 		err = injector.InjectModelcar(podReference)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 
 		// It should not make a difference if the modelcar is injected once or twice
 		assert.True(t, reflect.DeepEqual(podReference, pod))
@@ -3145,7 +3141,7 @@ func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {
 
 		pod := createTestPodForModelcar()
 		err := injector.InjectModelcar(pod)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 
 		// Assertions
 		modelcarContainer := getContainerWithName(pod, ModelcarContainerName)
@@ -3163,7 +3159,7 @@ func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {
 
 		pod := createTestPodForModelcar()
 		err := injector.InjectModelcar(pod)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 
 		// Assertions
 		modelcarContainer := getContainerWithName(pod, ModelcarContainerName)
@@ -3180,7 +3176,7 @@ func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {
 
 		pod := createTestPodForModelcar()
 		err := injector.InjectModelcar(pod)
-		assert.Nil(t, err)
+		require.NoError(t, err)
 
 		// Assertions
 		modelcarContainer := getContainerWithName(pod, ModelcarContainerName)
@@ -3195,9 +3191,9 @@ func TestStorageInitializerInjectorWithModelcarConfig(t *testing.T) {
 func TestGetContainerWithName(t *testing.T) {
 	// Test case: Container exists
 	{
-		pod := &v1.Pod{
-			Spec: v1.PodSpec{
-				Containers: []v1.Container{
+		pod := &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
 					{Name: "container-1"},
 					{Name: "container-2"},
 				},
@@ -3216,9 +3212,9 @@ func TestGetContainerWithName(t *testing.T) {
 
 	// Test case: Container does not exist
 	{
-		pod := &v1.Pod{
-			Spec: v1.PodSpec{
-				Containers: []v1.Container{
+		pod := &corev1.Pod{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
 					{Name: "container-1"},
 					{Name: "container-2"},
 				},
@@ -3236,11 +3232,11 @@ func TestGetContainerWithName(t *testing.T) {
 
 func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 	scenarios := map[string]struct {
-		original *v1.Pod
-		expected *v1.Pod
+		original *corev1.Pod
+		expected *corev1.Pod
 	}{
 		"StorageInitializerCniUidSet": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
@@ -3248,31 +3244,31 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						constants.IstioInterceptionModeAnnotation:                  constants.IstioInterceptModeRedirect,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3282,34 +3278,34 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -3317,7 +3313,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 			},
 		},
 		"StorageInitializerCniUidDefault": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
@@ -3325,8 +3321,8 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						constants.IstioInterceptionModeAnnotation:                  constants.IstioInterceptModeRedirect,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
@@ -3336,17 +3332,17 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3358,29 +3354,29 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							Name: "istio-sidecar",
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(1337),
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -3388,7 +3384,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 			},
 		},
 		"StorageInitializerUidNotSetIfIstioInitPresent": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
@@ -3396,36 +3392,36 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						constants.IstioInterceptionModeAnnotation:                  constants.IstioInterceptModeRedirect,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name: constants.IstioInitContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3435,12 +3431,12 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name: constants.IstioInitContainerName,
 						},
@@ -3450,7 +3446,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3458,11 +3454,11 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -3470,7 +3466,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 			},
 		},
 		"StorageInitializerUidNotSetIfProxyMissing": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
@@ -3478,25 +3474,25 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						constants.IstioInterceptionModeAnnotation:                  constants.IstioInterceptModeRedirect,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3505,14 +3501,14 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3520,11 +3516,11 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -3532,7 +3528,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 			},
 		},
 		"StorageInitializerUidNotSetIfProxyNameMissing": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
@@ -3540,31 +3536,31 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						constants.IstioInterceptionModeAnnotation:                  constants.IstioInterceptModeRedirect,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3574,19 +3570,19 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3594,11 +3590,11 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -3606,7 +3602,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 			},
 		},
 		"StorageInitializerUidNotSetIfIstioStatusBlank": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
@@ -3614,31 +3610,31 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						constants.IstioInterceptionModeAnnotation:                  constants.IstioInterceptModeRedirect,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3648,19 +3644,19 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3668,11 +3664,11 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -3680,7 +3676,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 			},
 		},
 		"StorageInitializerUidNotSetIfInterceptModeNotRedirect": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
@@ -3688,31 +3684,31 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						constants.IstioInterceptionModeAnnotation:                  "OTHER_REDIRECT",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3722,19 +3718,19 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3742,11 +3738,11 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -3754,38 +3750,38 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 			},
 		},
 		"StorageInitializerUidNotSetIfInterceptModeMissing": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 						constants.IstioSidecarStatusAnnotation:                     "{\"containers\": [\"istio-sidecar\"]}",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3795,19 +3791,19 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3815,11 +3811,11 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -3827,38 +3823,38 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 			},
 		},
 		"StorageInitializerUidNotSetIfIstioStatusMissing": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 						constants.IstioInterceptionModeAnnotation:                  constants.IstioInterceptModeRedirect,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3868,19 +3864,19 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3888,11 +3884,11 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -3900,7 +3896,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 			},
 		},
 		"StorageInitializerUidNotSetIfIstioStatusEmpty": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
@@ -3908,31 +3904,31 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						constants.IstioInterceptionModeAnnotation:                  constants.IstioInterceptModeRedirect,
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "gs://foo",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3942,19 +3938,19 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 						},
 						{
 							Name: "istio-sidecar",
-							SecurityContext: &v1.SecurityContext{
+							SecurityContext: &corev1.SecurityContext{
 								RunAsUser: ptr.Int64(501),
 							},
 						},
 					},
-					InitContainers: []v1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:                     "storage-initializer",
 							Image:                    StorageInitializerContainerImage + ":" + StorageInitializerContainerImageVersion,
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
 									MountPath: constants.DefaultModelLocalMountPath,
@@ -3962,11 +3958,11 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "kserve-provision-location",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -3977,7 +3973,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
@@ -4037,12 +4033,12 @@ func TestLocalModelPVC(t *testing.T) {
 	}
 
 	podScenarios := make(map[string]struct {
-		original *v1.Pod
-		expected *v1.Pod
+		original *corev1.Pod
+		expected *corev1.Pod
 	})
 
 	for name, scenario := range scenarios {
-		original := &v1.Pod{
+		original := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageUri,
@@ -4053,25 +4049,25 @@ func TestLocalModelPVC(t *testing.T) {
 					constants.LocalModelLabel: scenario.localModelLabel,
 				},
 			},
-			Spec: v1.PodSpec{
-				Containers: []v1.Container{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
 					{
 						Name: constants.InferenceServiceContainerName,
 					},
 				},
 			},
 		}
-		expected := &v1.Pod{
+		expected := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageUri,
 				},
 			},
-			Spec: v1.PodSpec{
-				Containers: []v1.Container{
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
 					{
 						Name: constants.InferenceServiceContainerName,
-						VolumeMounts: []v1.VolumeMount{
+						VolumeMounts: []corev1.VolumeMount{
 							{
 								Name:      "kserve-pvc-source",
 								MountPath: constants.DefaultModelLocalMountPath,
@@ -4081,11 +4077,11 @@ func TestLocalModelPVC(t *testing.T) {
 						},
 					},
 				},
-				Volumes: []v1.Volume{
+				Volumes: []corev1.Volume{
 					{
 						Name: "kserve-pvc-source",
-						VolumeSource: v1.VolumeSource{
-							PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{ClaimName: scenario.pvcName, ReadOnly: false},
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: scenario.pvcName, ReadOnly: false},
 						},
 					},
 				},
@@ -4093,13 +4089,13 @@ func TestLocalModelPVC(t *testing.T) {
 		}
 
 		podScenarios[name] = struct {
-			original *v1.Pod
-			expected *v1.Pod
+			original *corev1.Pod
+			expected *corev1.Pod
 		}{original: original, expected: expected}
 	}
 	for name, scenario := range podScenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: storageConfig,

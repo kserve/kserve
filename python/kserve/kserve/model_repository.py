@@ -54,8 +54,22 @@ class ModelRepository:
             return False
         return await model.healthy()
 
-    def update(self, model: BaseKServeModel):
-        self.models[model.name] = model
+    def update(self, model: BaseKServeModel, name: Optional[str] = None):
+        """
+        Update or add a model to the repository.
+        Args:
+            model (BaseKServeModel): The model to be added or updated in the repository.
+            name (Optional[str], optional): The name to use for the model.
+                If not provided, the model's own name attribute will be used. Defaults to None.
+                This can be used to provide additional names for the same model.
+        Returns:
+            None
+        """
+
+        if name:
+            self.models[name] = model
+        else:
+            self.models[model.name] = model
 
     def load(self, name: str) -> bool:
         pass
@@ -68,6 +82,8 @@ class ModelRepository:
             model = self.models[name]
             if callable(getattr(model, "stop", None)):
                 model.stop()
+            if model.engine:
+                model.stop_engine()
             del self.models[name]
         else:
             raise KeyError(f"model with name {name} does not exist")

@@ -17,26 +17,25 @@ limitations under the License.
 package pod
 
 import (
-	"k8s.io/utils/ptr"
+	"encoding/json"
 	"strconv"
 	"testing"
 
-	fakeclientset "k8s.io/client-go/kubernetes/fake"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
+	fakeclientset "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmp"
 
-	"encoding/json"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/credentials"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -48,7 +47,7 @@ const (
 
 var (
 	agentConfig = &AgentConfig{
-		Image:         "gcr.io/kfserving/agent:latest",
+		Image:         "gcr.io/kserve/agent:latest",
 		CpuRequest:    AgentDefaultCPURequest,
 		CpuLimit:      AgentDefaultCPULimit,
 		MemoryRequest: AgentDefaultMemoryRequest,
@@ -56,38 +55,38 @@ var (
 	}
 
 	loggerConfig = &LoggerConfig{
-		Image:      "gcr.io/kfserving/agent:latest",
+		Image:      "gcr.io/kserve/agent:latest",
 		DefaultUrl: "http://httpbin.org/",
 	}
 	loggerTLSConfig = &LoggerConfig{
-		Image:         "gcr.io/kfserving/agent:latest",
+		Image:         "gcr.io/kserve/agent:latest",
 		DefaultUrl:    "https://httpbin.org/",
 		CaBundle:      "kserve-tls-bundle",
 		CaCertFile:    "ca.crt",
 		TlsSkipVerify: true,
 	}
 	batcherTestConfig = &BatcherConfig{
-		Image: "gcr.io/kfserving/batcher:latest",
+		Image: "gcr.io/kserve/batcher:latest",
 	}
-	agentResourceRequirement = v1.ResourceRequirements{
-		Limits: map[v1.ResourceName]resource.Quantity{
-			v1.ResourceCPU:    resource.MustParse(AgentDefaultCPULimit),
-			v1.ResourceMemory: resource.MustParse(AgentDefaultMemoryLimit),
+	agentResourceRequirement = corev1.ResourceRequirements{
+		Limits: map[corev1.ResourceName]resource.Quantity{
+			corev1.ResourceCPU:    resource.MustParse(AgentDefaultCPULimit),
+			corev1.ResourceMemory: resource.MustParse(AgentDefaultMemoryLimit),
 		},
-		Requests: map[v1.ResourceName]resource.Quantity{
-			v1.ResourceCPU:    resource.MustParse(AgentDefaultCPURequest),
-			v1.ResourceMemory: resource.MustParse(AgentDefaultMemoryRequest),
+		Requests: map[corev1.ResourceName]resource.Quantity{
+			corev1.ResourceCPU:    resource.MustParse(AgentDefaultCPURequest),
+			corev1.ResourceMemory: resource.MustParse(AgentDefaultMemoryRequest),
 		},
 	}
 )
 
 func TestAgentInjector(t *testing.T) {
 	scenarios := map[string]struct {
-		original *v1.Pod
-		expected *v1.Pod
+		original *corev1.Pod
+		expected *corev1.Pod
 	}{
 		"AddAgent": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
@@ -104,14 +103,14 @@ func TestAgentInjector(t *testing.T) {
 						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
-				Spec: v1.PodSpec{
+				Spec: corev1.PodSpec{
 					ServiceAccountName: "sa",
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -127,21 +126,21 @@ func TestAgentInjector(t *testing.T) {
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
 						constants.AgentShouldInjectAnnotationKey: "true",
 					},
 				},
-				Spec: v1.PodSpec{
+				Spec: corev1.PodSpec{
 					ServiceAccountName: "sa",
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -158,7 +157,7 @@ func TestAgentInjector(t *testing.T) {
 							Name:      constants.AgentContainerName,
 							Image:     agentConfig.Image,
 							Resources: agentResourceRequirement,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      constants.ModelDirVolumeName,
 									ReadOnly:  false,
@@ -170,19 +169,22 @@ func TestAgentInjector(t *testing.T) {
 									MountPath: constants.ModelConfigDir,
 								},
 							},
-							Args: []string{"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models"},
-							Ports: []v1.ContainerPort{
+							Args: []string{
+								"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models", constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
+							},
+							Ports: []corev1.ContainerPort{
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
 							},
-							Env: []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									HTTPGet: &v1.HTTPGetAction{
-										HTTPHeaders: []v1.HTTPHeader{
+							Env: []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
 											{
 												Name:  "K-Network-Probe",
 												Value: "queue",
@@ -196,18 +198,18 @@ func TestAgentInjector(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "model-dir",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 						{
 							Name: "model-config",
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "modelconfig-deployment-0",
 									},
 								},
@@ -218,29 +220,29 @@ func TestAgentInjector(t *testing.T) {
 			},
 		},
 		"DoNotAddAgent": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
 						Name: "sklearn",
 					}},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
 						Name: "sklearn",
 					}},
 				},
 			},
 		},
 		"AddLogger": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
@@ -256,13 +258,13 @@ func TestAgentInjector(t *testing.T) {
 						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -277,12 +279,12 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
@@ -291,13 +293,13 @@ func TestAgentInjector(t *testing.T) {
 						constants.LoggerModeInternalAnnotationKey:    string(v1beta1.LogAll),
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -312,7 +314,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -334,20 +336,22 @@ func TestAgentInjector(t *testing.T) {
 								"predictor",
 								LoggerArgumentTlsSkipVerify,
 								"false",
+								constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
 							},
-							Ports: []v1.ContainerPort{
+							Ports: []corev1.ContainerPort{
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
 							},
-							Env:       []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:       []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							Resources: agentResourceRequirement,
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									HTTPGet: &v1.HTTPGetAction{
-										HTTPHeaders: []v1.HTTPHeader{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
 											{
 												Name:  "K-Network-Probe",
 												Value: "queue",
@@ -365,7 +369,7 @@ func TestAgentInjector(t *testing.T) {
 			},
 		},
 		"AddLoggerWithMetadata": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
@@ -382,13 +386,13 @@ func TestAgentInjector(t *testing.T) {
 						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -403,12 +407,12 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
@@ -417,13 +421,13 @@ func TestAgentInjector(t *testing.T) {
 						constants.LoggerModeInternalAnnotationKey:    string(v1beta1.LogAll),
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -438,7 +442,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -462,20 +466,22 @@ func TestAgentInjector(t *testing.T) {
 								"Foo,Bar",
 								LoggerArgumentTlsSkipVerify,
 								"false",
+								constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
 							},
-							Ports: []v1.ContainerPort{
+							Ports: []corev1.ContainerPort{
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
 							},
-							Env:       []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:       []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							Resources: agentResourceRequirement,
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									HTTPGet: &v1.HTTPGetAction{
-										HTTPHeaders: []v1.HTTPHeader{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
 											{
 												Name:  "K-Network-Probe",
 												Value: "queue",
@@ -493,29 +499,29 @@ func TestAgentInjector(t *testing.T) {
 			},
 		},
 		"DoNotAddLogger": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
 						Name: "sklearn",
 					}},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
 						Name: "sklearn",
 					}},
 				},
 			},
 		},
 		"AddBatcher": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
@@ -531,13 +537,13 @@ func TestAgentInjector(t *testing.T) {
 						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -552,12 +558,12 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
@@ -566,13 +572,13 @@ func TestAgentInjector(t *testing.T) {
 						constants.BatcherMaxBatchSizeInternalAnnotationKey: "30",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -587,7 +593,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -598,20 +604,22 @@ func TestAgentInjector(t *testing.T) {
 								"30",
 								BatcherArgumentMaxLatency,
 								"100",
+								constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
 							},
-							Ports: []v1.ContainerPort{
+							Ports: []corev1.ContainerPort{
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
 							},
-							Env:       []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:       []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							Resources: agentResourceRequirement,
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									HTTPGet: &v1.HTTPGetAction{
-										HTTPHeaders: []v1.HTTPHeader{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
 											{
 												Name:  "K-Network-Probe",
 												Value: "queue",
@@ -629,29 +637,29 @@ func TestAgentInjector(t *testing.T) {
 			},
 		},
 		"DoNotAddBatcher": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
 						Name: "sklearn",
 					}},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
 						Name: "sklearn",
 					}},
 				},
 			},
 		},
 		"AgentAlreadyInjected": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
@@ -668,14 +676,14 @@ func TestAgentInjector(t *testing.T) {
 						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
-				Spec: v1.PodSpec{
+				Spec: corev1.PodSpec{
 					ServiceAccountName: "sa",
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -692,7 +700,7 @@ func TestAgentInjector(t *testing.T) {
 							Name:      constants.AgentContainerName,
 							Image:     agentConfig.Image,
 							Resources: agentResourceRequirement,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      constants.ModelDirVolumeName,
 									ReadOnly:  false,
@@ -705,18 +713,18 @@ func TestAgentInjector(t *testing.T) {
 								},
 							},
 							Args: []string{"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models"},
-							Ports: []v1.ContainerPort{
+							Ports: []corev1.ContainerPort{
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
 							},
-							Env: []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									HTTPGet: &v1.HTTPGetAction{
-										HTTPHeaders: []v1.HTTPHeader{
+							Env: []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
 											{
 												Name:  "K-Network-Probe",
 												Value: "queue",
@@ -730,18 +738,18 @@ func TestAgentInjector(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "model-dir",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 						{
 							Name: "model-config",
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "modelconfig-deployment-0",
 									},
 								},
@@ -750,21 +758,21 @@ func TestAgentInjector(t *testing.T) {
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
 						constants.AgentShouldInjectAnnotationKey: "true",
 					},
 				},
-				Spec: v1.PodSpec{
+				Spec: corev1.PodSpec{
 					ServiceAccountName: "sa",
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -781,7 +789,7 @@ func TestAgentInjector(t *testing.T) {
 							Name:      constants.AgentContainerName,
 							Image:     agentConfig.Image,
 							Resources: agentResourceRequirement,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      constants.ModelDirVolumeName,
 									ReadOnly:  false,
@@ -794,19 +802,20 @@ func TestAgentInjector(t *testing.T) {
 								},
 							},
 							Args: []string{"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models"},
-							Ports: []v1.ContainerPort{
+							Ports: []corev1.ContainerPort{
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
 							},
-							Env: []v1.EnvVar{
-								{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									HTTPGet: &v1.HTTPGetAction{
-										HTTPHeaders: []v1.HTTPHeader{
+							Env: []corev1.EnvVar{
+								{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"},
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
 											{
 												Name:  "K-Network-Probe",
 												Value: "queue",
@@ -820,18 +829,18 @@ func TestAgentInjector(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "model-dir",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 						{
 							Name: "model-config",
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "modelconfig-deployment-0",
 									},
 								},
@@ -842,7 +851,7 @@ func TestAgentInjector(t *testing.T) {
 			},
 		},
 		"DefaultLoggerConfig": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
@@ -856,13 +865,13 @@ func TestAgentInjector(t *testing.T) {
 						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "kserve-container",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -877,12 +886,12 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
@@ -891,13 +900,13 @@ func TestAgentInjector(t *testing.T) {
 						constants.LoggerModeInternalAnnotationKey:    string(v1beta1.LogAll),
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "kserve-container",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -912,7 +921,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -934,22 +943,22 @@ func TestAgentInjector(t *testing.T) {
 								"predictor",
 								LoggerArgumentTlsSkipVerify,
 								"false",
-								"--component-port",
+								constants.AgentComponentPortArgName,
 								constants.InferenceServiceDefaultHttpPort,
 							},
-							Ports: []v1.ContainerPort{
+							Ports: []corev1.ContainerPort{
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
 							},
-							Env:       []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:       []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							Resources: agentResourceRequirement,
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									HTTPGet: &v1.HTTPGetAction{
-										HTTPHeaders: []v1.HTTPHeader{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
 											{
 												Name:  "K-Network-Probe",
 												Value: "queue",
@@ -967,7 +976,7 @@ func TestAgentInjector(t *testing.T) {
 			},
 		},
 		"QueueProxyUserPortProvided": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
@@ -981,13 +990,13 @@ func TestAgentInjector(t *testing.T) {
 						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "kserve-container",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -1002,7 +1011,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"},
 								{Name: "USER_PORT", Value: "8080"},
 							},
@@ -1010,7 +1019,7 @@ func TestAgentInjector(t *testing.T) {
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
@@ -1019,13 +1028,13 @@ func TestAgentInjector(t *testing.T) {
 						constants.LoggerModeInternalAnnotationKey:    string(v1beta1.LogAll),
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "kserve-container",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -1040,7 +1049,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"},
 								{Name: "USER_PORT", Value: constants.InferenceServiceDefaultAgentPortStr},
 							},
@@ -1065,25 +1074,25 @@ func TestAgentInjector(t *testing.T) {
 								"predictor",
 								LoggerArgumentTlsSkipVerify,
 								"false",
-								"--component-port",
+								constants.AgentComponentPortArgName,
 								constants.InferenceServiceDefaultHttpPort,
 							},
-							Ports: []v1.ContainerPort{
+							Ports: []corev1.ContainerPort{
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
 							},
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"},
 								{Name: "USER_PORT", Value: "8080"},
 							},
 							Resources: agentResourceRequirement,
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									HTTPGet: &v1.HTTPGetAction{
-										HTTPHeaders: []v1.HTTPHeader{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
 											{
 												Name:  "K-Network-Probe",
 												Value: "queue",
@@ -1101,7 +1110,7 @@ func TestAgentInjector(t *testing.T) {
 			},
 		},
 		"KserveContainer has port": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
@@ -1118,14 +1127,14 @@ func TestAgentInjector(t *testing.T) {
 						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
-				Spec: v1.PodSpec{
+				Spec: corev1.PodSpec{
 					ServiceAccountName: "sa",
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							Name: "kserve-container",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -1137,7 +1146,7 @@ func TestAgentInjector(t *testing.T) {
 								SuccessThreshold:    1,
 								FailureThreshold:    3,
 							},
-							Ports: []v1.ContainerPort{
+							Ports: []corev1.ContainerPort{
 								{
 									Name:          "serving-port",
 									ContainerPort: 80,
@@ -1147,21 +1156,21 @@ func TestAgentInjector(t *testing.T) {
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
 						constants.AgentShouldInjectAnnotationKey: "true",
 					},
 				},
-				Spec: v1.PodSpec{
+				Spec: corev1.PodSpec{
 					ServiceAccountName: "sa",
-					Containers: []v1.Container{
+					Containers: []corev1.Container{
 						{
 							Name: "kserve-container",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -1173,13 +1182,13 @@ func TestAgentInjector(t *testing.T) {
 								SuccessThreshold:    1,
 								FailureThreshold:    3,
 							},
-							Ports: []v1.ContainerPort{
+							Ports: []corev1.ContainerPort{
 								{
 									Name:          "serving-port",
 									ContainerPort: 80,
 								},
 							},
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{Name: "model-dir", MountPath: "/mnt/models"},
 							},
 						},
@@ -1187,7 +1196,7 @@ func TestAgentInjector(t *testing.T) {
 							Name:      constants.AgentContainerName,
 							Image:     agentConfig.Image,
 							Resources: agentResourceRequirement,
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      constants.ModelDirVolumeName,
 									ReadOnly:  false,
@@ -1199,19 +1208,22 @@ func TestAgentInjector(t *testing.T) {
 									MountPath: constants.ModelConfigDir,
 								},
 							},
-							Args: []string{"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models", "--component-port", "80"},
-							Ports: []v1.ContainerPort{
+							Args: []string{
+								"--enable-puller", "--config-dir", "/mnt/configs", "--model-dir", "/mnt/models",
+								constants.AgentComponentPortArgName, "80",
+							},
+							Ports: []corev1.ContainerPort{
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
 							},
-							Env: []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									HTTPGet: &v1.HTTPGetAction{
-										HTTPHeaders: []v1.HTTPHeader{
+							Env: []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
 											{
 												Name:  "K-Network-Probe",
 												Value: "queue",
@@ -1225,18 +1237,18 @@ func TestAgentInjector(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "model-dir",
-							VolumeSource: v1.VolumeSource{
-								EmptyDir: &v1.EmptyDirVolumeSource{},
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 						{
 							Name: "model-config",
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
 										Name: "modelconfig-deployment-0",
 									},
 								},
@@ -1248,11 +1260,11 @@ func TestAgentInjector(t *testing.T) {
 		},
 	}
 	scenariosTls := map[string]struct {
-		original *v1.Pod
-		expected *v1.Pod
+		original *corev1.Pod
+		expected *corev1.Pod
 	}{
 		"AddLogger": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
 					Namespace: "default",
@@ -1268,13 +1280,13 @@ func TestAgentInjector(t *testing.T) {
 						constants.KServiceComponentLabel:     "predictor",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -1289,12 +1301,12 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 					},
 				},
 			},
-			expected: &v1.Pod{
+			expected: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
@@ -1303,13 +1315,13 @@ func TestAgentInjector(t *testing.T) {
 						constants.LoggerModeInternalAnnotationKey:    string(v1beta1.LogAll),
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: "sklearn",
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									TCPSocket: &v1.TCPSocketAction{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
 										Port: intstr.IntOrString{
 											IntVal: 8080,
 										},
@@ -1324,7 +1336,7 @@ func TestAgentInjector(t *testing.T) {
 						},
 						{
 							Name: "queue-proxy",
-							Env:  []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 						},
 						{
 							Name:  constants.AgentContainerName,
@@ -1348,20 +1360,22 @@ func TestAgentInjector(t *testing.T) {
 								loggerTLSConfig.CaCertFile,
 								LoggerArgumentTlsSkipVerify,
 								strconv.FormatBool(loggerTLSConfig.TlsSkipVerify),
+								constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
 							},
-							Ports: []v1.ContainerPort{
+							Ports: []corev1.ContainerPort{
 								{
 									Name:          "agent-port",
 									ContainerPort: constants.InferenceServiceDefaultAgentPort,
 									Protocol:      "TCP",
 								},
 							},
-							Env:       []v1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Env:       []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
 							Resources: agentResourceRequirement,
-							ReadinessProbe: &v1.Probe{
-								ProbeHandler: v1.ProbeHandler{
-									HTTPGet: &v1.HTTPGetAction{
-										HTTPHeaders: []v1.HTTPHeader{
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
 											{
 												Name:  "K-Network-Probe",
 												Value: "queue",
@@ -1373,7 +1387,7 @@ func TestAgentInjector(t *testing.T) {
 									},
 								},
 							},
-							VolumeMounts: []v1.VolumeMount{
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      constants.LoggerCaBundleVolume,
 									ReadOnly:  true,
@@ -1382,12 +1396,12 @@ func TestAgentInjector(t *testing.T) {
 							},
 						},
 					},
-					Volumes: []v1.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: constants.LoggerCaBundleVolume,
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
+							VolumeSource: corev1.VolumeSource{
+								ConfigMap: &corev1.ConfigMapVolumeSource{
+									LocalObjectReference: corev1.LocalObjectReference{
 										Name: loggerTLSConfig.CaBundle,
 									},
 									Optional: ptr.To(true),
@@ -1400,7 +1414,7 @@ func TestAgentInjector(t *testing.T) {
 		},
 	}
 	clientset := fakeclientset.NewSimpleClientset()
-	credentialBuilder := credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+	credentialBuilder := credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 		Data: map[string]string{},
 	})
 
@@ -1448,12 +1462,12 @@ func TestGetLoggerConfigs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cases := []struct {
 		name      string
-		configMap *v1.ConfigMap
+		configMap *corev1.ConfigMap
 		matchers  []types.GomegaMatcher
 	}{
 		{
 			name: "Valid Logger Config",
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string]string{
@@ -1480,7 +1494,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 		},
 		{
 			name: "Invalid Resource Value",
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string]string{
@@ -1518,12 +1532,12 @@ func TestGetAgentConfigs(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	cases := []struct {
 		name      string
-		configMap *v1.ConfigMap
+		configMap *corev1.ConfigMap
 		matchers  []types.GomegaMatcher
 	}{
 		{
 			name: "Valid Agent Config",
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string]string{
@@ -1550,7 +1564,7 @@ func TestGetAgentConfigs(t *testing.T) {
 		},
 		{
 			name: "Invalid Resource Value",
-			configMap: &v1.ConfigMap{
+			configMap: &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{},
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string]string{
@@ -1587,16 +1601,16 @@ func TestGetAgentConfigs(t *testing.T) {
 func TestReadinessProbeInheritance(t *testing.T) {
 	tests := []struct {
 		name                string
-		readinessProbe      *v1.Probe
+		readinessProbe      *corev1.Probe
 		queueProxyAvailable bool
 		expectEnvVar        bool
 		expectedProbeJson   string
 	}{
 		{
 			name: "HTTPGet Readiness Probe",
-			readinessProbe: &v1.Probe{
-				ProbeHandler: v1.ProbeHandler{
-					HTTPGet: &v1.HTTPGetAction{
+			readinessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					HTTPGet: &corev1.HTTPGetAction{
 						Path:   "/ready",
 						Port:   intstr.FromInt(8080),
 						Scheme: "HTTP",
@@ -1613,9 +1627,9 @@ func TestReadinessProbeInheritance(t *testing.T) {
 		},
 		{
 			name: "TCPSocket Readiness Probe",
-			readinessProbe: &v1.Probe{
-				ProbeHandler: v1.ProbeHandler{
-					TCPSocket: &v1.TCPSocketAction{
+			readinessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					TCPSocket: &corev1.TCPSocketAction{
 						Port: intstr.FromInt(8080),
 					},
 				},
@@ -1630,9 +1644,9 @@ func TestReadinessProbeInheritance(t *testing.T) {
 		},
 		{
 			name: "Exec Readiness Probe",
-			readinessProbe: &v1.Probe{
-				ProbeHandler: v1.ProbeHandler{
-					Exec: &v1.ExecAction{
+			readinessProbe: &corev1.Probe{
+				ProbeHandler: corev1.ProbeHandler{
+					Exec: &corev1.ExecAction{
 						Command: []string{"echo", "hello"},
 					},
 				},
@@ -1645,13 +1659,13 @@ func TestReadinessProbeInheritance(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Prepare the pod with the given readiness probe
-			pod := &v1.Pod{
+			pod := &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-pod",
 					Namespace: "default",
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name:           "test-container",
 							ReadinessProbe: tt.readinessProbe,
@@ -1660,7 +1674,7 @@ func TestReadinessProbeInheritance(t *testing.T) {
 				},
 			}
 
-			var agentEnvs []v1.EnvVar
+			var agentEnvs []corev1.EnvVar
 			if !tt.queueProxyAvailable {
 				readinessProbe := pod.Spec.Containers[0].ReadinessProbe
 
@@ -1671,7 +1685,7 @@ func TestReadinessProbeInheritance(t *testing.T) {
 						if err != nil {
 							t.Errorf("failed to marshal readiness probe: %v", err)
 						} else {
-							agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: readinessProbeJson})
+							agentEnvs = append(agentEnvs, corev1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: readinessProbeJson})
 						}
 					} else if readinessProbe.Exec != nil {
 						// Exec probes are skipped; log the information
@@ -1702,19 +1716,19 @@ func TestReadinessProbeInheritance(t *testing.T) {
 	}
 }
 
-func marshalReadinessProbe(probe *v1.Probe) (string, error) {
+func marshalReadinessProbe(probe *corev1.Probe) (string, error) {
 	if probe == nil {
 		return "", nil
 	}
 
 	// Create a custom struct to ensure all fields are included
 	type ReadinessProbe struct {
-		HTTPGet          *v1.HTTPGetAction   `json:"httpGet,omitempty"`
-		TCPSocket        *v1.TCPSocketAction `json:"tcpSocket,omitempty"`
-		TimeoutSeconds   int32               `json:"timeoutSeconds"`
-		PeriodSeconds    int32               `json:"periodSeconds"`
-		SuccessThreshold int32               `json:"successThreshold"`
-		FailureThreshold int32               `json:"failureThreshold"`
+		HTTPGet          *corev1.HTTPGetAction   `json:"httpGet,omitempty"`
+		TCPSocket        *corev1.TCPSocketAction `json:"tcpSocket,omitempty"`
+		TimeoutSeconds   int32                   `json:"timeoutSeconds"`
+		PeriodSeconds    int32                   `json:"periodSeconds"`
+		SuccessThreshold int32                   `json:"successThreshold"`
+		FailureThreshold int32                   `json:"failureThreshold"`
 	}
 
 	readinessProbe := ReadinessProbe{

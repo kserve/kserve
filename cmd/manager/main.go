@@ -17,18 +17,16 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	"net/http"
 	"os"
 
-	"github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"github.com/kserve/kserve/pkg/utils"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	istio_networking "istio.io/api/networking/v1alpha3"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -41,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -50,14 +49,13 @@ import (
 	trainedmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
+	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 	"github.com/kserve/kserve/pkg/webhook/admission/servingruntime"
 )
 
-var (
-	scheme   = runtime.NewScheme() //nolint: unused
-	setupLog = ctrl.Log.WithName("setup")
-)
+var setupLog = ctrl.Log.WithName("setup")
 
 const (
 	LeaderLockName = "kserve-controller-manager-leader-lock"
@@ -126,9 +124,11 @@ func main() {
 	setupLog.Info("Setting up manager")
 	mgr, err := manager.New(cfg, manager.Options{
 		Metrics: metricsserver.Options{
-			BindAddress: options.metricsAddr},
+			BindAddress: options.metricsAddr,
+		},
 		WebhookServer: webhook.NewServer(webhook.Options{
-			Port: options.webhookPort}),
+			Port: options.webhookPort,
+		}),
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,
@@ -152,14 +152,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	deployConfig, err := v1beta1.NewDeployConfig(clientSet)
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(context.Background(), clientSet)
+	if err != nil {
+		setupLog.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
+		os.Exit(1)
+	}
+	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
 	if err != nil {
 		setupLog.Error(err, "unable to get deploy config.")
 		os.Exit(1)
 	}
-	ingressConfig, err := v1beta1.NewIngressConfig(clientSet)
+	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
 	if err != nil {
 		setupLog.Error(err, "unable to get ingress config.")
+		os.Exit(1)
+	}
+
+	// Update Global GPU Resource Type List when custom GPU resource types are provided
+	_, err = v1beta1.NewMultiNodeConfig(isvcConfigMap)
+	if err != nil {
+		setupLog.Error(err, "unable to get multiNode config.")
 		os.Exit(1)
 	}
 
@@ -190,6 +202,32 @@ func main() {
 		}
 	}
 
+	kedaFound, kedaCheckErr := utils.IsCrdAvailable(cfg, kedav1alpha1.SchemeGroupVersion.String(), constants.KedaScaledObjectKind)
+	if kedaCheckErr != nil {
+		setupLog.Error(ksvcCheckErr, "error when checking if KEDA ScaledObject kind is available")
+		os.Exit(1)
+	}
+	if kedaFound {
+		setupLog.Info("Setting up KEDA scheme")
+		if err := kedav1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+			setupLog.Error(err, "unable to add KEDA APIs to scheme")
+			os.Exit(1)
+		}
+	}
+
+	otelFound, otelCheckErr := utils.IsCrdAvailable(cfg, otelv1beta1.GroupVersion.String(), constants.OpenTelemetryCollector)
+	if otelCheckErr != nil {
+		setupLog.Error(ksvcCheckErr, "error when checking if OpentelemetryCollector kind is available")
+		os.Exit(1)
+	}
+	if otelFound {
+		setupLog.Info("Setting up OTEL scheme")
+		if err := otelv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
+			setupLog.Error(err, "unable to add OTEL APIs to scheme")
+			os.Exit(1)
+		}
+	}
+
 	setupLog.Info("Setting up gateway api scheme")
 	if err := gatewayapiv1.Install(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Gateway APIs to scheme")
@@ -197,7 +235,7 @@ func main() {
 	}
 
 	setupLog.Info("Setting up core scheme")
-	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := corev1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Core APIs to scheme")
 		os.Exit(1)
 	}
@@ -212,7 +250,7 @@ func main() {
 		Log:       ctrl.Log.WithName("v1beta1Controllers").WithName("InferenceService"),
 		Scheme:    mgr.GetScheme(),
 		Recorder: eventBroadcaster.NewRecorder(
-			mgr.GetScheme(), v1.EventSource{Component: "v1beta1Controllers"}),
+			mgr.GetScheme(), corev1.EventSource{Component: "v1beta1Controllers"}),
 	}).SetupWithManager(mgr, deployConfig, ingressConfig); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1beta1Controller", "InferenceService")
 		os.Exit(1)
@@ -226,7 +264,7 @@ func main() {
 		Client:                mgr.GetClient(),
 		Log:                   ctrl.Log.WithName("v1beta1Controllers").WithName("TrainedModel"),
 		Scheme:                mgr.GetScheme(),
-		Recorder:              eventBroadcaster.NewRecorder(mgr.GetScheme(), v1.EventSource{Component: "v1beta1Controllers"}),
+		Recorder:              eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "v1beta1Controllers"}),
 		ModelConfigReconciler: modelconfig.NewModelConfigReconciler(mgr.GetClient(), clientSet, mgr.GetScheme()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1beta1Controllers", "TrainedModel")
@@ -242,7 +280,7 @@ func main() {
 		Clientset: clientSet,
 		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("InferenceGraph"),
 		Scheme:    mgr.GetScheme(),
-		Recorder:  eventBroadcaster.NewRecorder(mgr.GetScheme(), v1.EventSource{Component: "InferenceGraphController"}),
+		Recorder:  eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "InferenceGraphController"}),
 	}).SetupWithManager(mgr, deployConfig); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "InferenceGraph")
 		os.Exit(1)

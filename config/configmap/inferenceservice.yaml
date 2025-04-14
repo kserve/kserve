@@ -42,17 +42,17 @@ data:
            }
        }
     # ====================================== ISVC CONFIGURATION ======================================
-    # Example   
+    # Example - setting custom annotation  
      inferenceService: |-
-      {
-        "serviceAnnotationDisallowedList": [
-          "my.custom.annotation/1"  
-        ],
-        "serviceLabelDisallowedList": [
-          "my.custom.label.1"  
-        ]
+       {
+         "serviceAnnotationDisallowedList": [
+            "my.custom.annotation/1"  
+         ],
+         "serviceLabelDisallowedList": [
+            "my.custom.label.1"  
+         ]
        }
-    # Example of isvc configuration
+    # Example - setting custom annotation
     inferenceService: |-
       {
         # ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative 
@@ -72,7 +72,68 @@ data:
         "serviceLabelDisallowedList": [
           "my.custom.label.1"  
         ]
+      } 
+    # Example - setting custom resource
+    inferenceService: |-
+      {
+        "resource": {
+          "cpuLimit": "1",
+          "memoryLimit": "2Gi",
+          "cpuRequest": "1",
+          "memoryRequest": "2Gi"
+        }
+      }
+    # Example - setting custom resource
+    inferenceService: |-
+      {
+        # resource contains the default resource configuration for the inference service.
+        # you can override this configuration by specifying the resources in the inference service yaml.
+        # If you want to unbound the resource (limits and requests), you can set the value to null or "" 
+        # or just remove the specific field from the config.
+        "resource": {
+           # cpuLimit is the limits.cpu to set for the inference service.
+           "cpuLimit": "1",
+    
+           # memoryLimit is the limits.memory to set for the inference service.
+           "memoryLimit": "2Gi",
+    
+           # cpuRequest is the requests.cpu to set for the inference service.
+           "cpuRequest": "1",
+    
+           # memoryRequest is the requests.memory to set for the inference service.
+           "memoryRequest": "2Gi"
+        }
+     }
+    # ====================================== MultiNode CONFIGURATION ======================================
+    # Example   
+    multiNode: |-
+      {
+        "customGPUResourceTypeList": [
+          "custom.com/gpu"
+        ]
+      }
+    # Example of multinode configuration
+    multiNode: |-
+      {      
+        # CustomGPUResourceTypeList is a list of custom GPU resource types intended to identify the GPU type of a resource,
+        # not to restrict the user from using a specific GPU type.
+        # The MultiNode runtime pod will dynamically add GPU resources based on the registered GPU types.
+        "customGPUResourceTypeList": [
+          "custom.com/gpu"
+        ]
       }  
+     # ====================================== OTelCollector CONFIGURATION ======================================
+     # Example
+     opentelemetryCollector: |-
+       {
+         # scrapeInterval is the interval at which the OpenTelemetry Collector will scrape the metrics.
+         "scrapeInterval": "5s",
+         # metricScalerEndpoint is the endpoint from which the KEDA's ScaledObject will scrape the metrics.
+         "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318",
+         # metricReceiverEndpoint is the endpoint from which the OpenTelemetry Collector will scrape the metrics.
+          "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317"
+       }
+      
      # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
      # Example
      storageInitializer: |-
@@ -116,7 +177,7 @@ data:
            # if pvc volume is provided in storageuri then the pvc volume is directly mounted to /mnt/models in the user container.
            # rather than symlink it to a shared volume. For more info see https://github.com/kserve/kserve/issues/2737
            "enableDirectPvcVolumeMount": true,
-    
+
            # enableModelcar enabled allows you to directly access an OCI container image by
            # using a source URL with an "oci://" schema.
            "enableModelcar": false,
@@ -425,7 +486,9 @@ data:
            "cpuLimit": "1",
            "headers": {
              "propagate": []
-           }
+           },
+           "imagePullPolicy": "IfNotPresent",
+           "imagePullSecrets": ["docker-secret"]
        }
      # router is the implementation of inference graph.
      router: |-
@@ -455,6 +518,13 @@ data:
                 "*Trace-Id*"
              ]
            }
+
+           # imagePullPolicy specifies when the router image should be pulled from registry.
+           "imagePullPolicy": "IfNotPresent",
+           
+           # # imagePullSecrets specifies the list of secrets to be used for pulling the router image from registry.
+           # https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+           "imagePullSecrets": ["docker-secret"]
        }
      
      # ====================================== DEPLOYMENT CONFIGURATION ======================================
@@ -473,7 +543,7 @@ data:
          # ModelMesh https://kserve.github.io/website/master/admin/modelmesh/
          "defaultDeploymentMode": "Serverless"
        }
-    
+
      # ====================================== SERVICE CONFIGURATION ======================================
      # Example
      service: |-
@@ -527,38 +597,6 @@ data:
          # This is to disable localmodel pv and pvc management for namespaces without isvcs
          "disableVolumeManagement": false
        }
-      
-     # ====================================== LOCALMODEL CONFIGURATION ======================================
-     # Example
-     inferenceservice: |-
-       {
-         "resource": {
-             "cpuLimit": "1",
-             "memoryLimit": "2Gi",
-             "cpuRequest": "1",
-             "memoryRequest": "2Gi"
-           }
-       }
-      inferenceservice: |-
-        {
-          # resource contains the default resource configuration for the inference service.
-          # you can override this configuration by specifying the resources in the inference service yaml.
-          # If you want to unbound the resource (limits and requests), you can set the value to null or "" 
-          # or just remove the specific field from the config.
-          "resource": {
-              # cpuLimit is the limits.cpu to set for the inference service.
-              "cpuLimit": "1",
-              
-              # memoryLimit is the limits.memory to set for the inference service.
-              "memoryLimit": "2Gi",
-              
-              # cpuRequest is the requests.cpu to set for the inference service.
-              "cpuRequest": "1",
-              
-              # memoryRequest is the requests.memory to set for the inference service.
-              "memoryRequest": "2Gi"
-            }
-        }
 
   explainers: |-
     {
@@ -655,7 +693,8 @@ data:
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
-        "cpuLimit": "1"
+        "cpuLimit": "1",
+        "imagePullPolicy": "IfNotPresent"
     }
 
   deploy: |-
@@ -676,12 +715,12 @@ data:
       "defaultJobImage" : "kserve/storage-initializer:latest",
       "fsGroup": 1000
     }
-  
+
   security: |-
     {
       "autoMountServiceAccountToken": true
     }
-    
+
   inferenceService: |-
     {
       "resource": {
@@ -690,4 +729,11 @@ data:
           "cpuRequest": "1",
           "memoryRequest": "2Gi"
         }
+    }
+
+  opentelemetryCollector: |-
+    {
+      "scrapeInterval": "5s",
+      "metricReceiverEndpoint": "keda-otel-scaler.keda.svc:4317",
+      "metricScalerEndpoint": "keda-otel-scaler.keda.svc:4318"
     }

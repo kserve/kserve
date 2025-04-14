@@ -45,15 +45,14 @@ Create a branch from the master and do the following:
     3. [Chart.yaml in kserve-crd](../charts/kserve-crd/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
     4. [Chart.yaml in kserve-crd-minimal](../charts/kserve-crd-minimal/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
     5. [Chart.yaml in kserve-resources](../charts/kserve-resources/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
-    6. [values.yaml in kserve-resources](../charts/kserve-resources/values.yaml#L2) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`. In addition, bump `modelmeshVersion` if it a newer version of ModelMesh is available.
-    7. Run `pre-commit run` to update the Helm chart documentation 
+    6. [values.yaml in kserve-resources](../charts/kserve-resources/values.yaml#L2) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`.
     8. The steps are automated in the script [prepare-for-release.sh](../hack/prepare-for-release.sh)
        9. To use it execute: `make bump-version NEW_VERSION=0.14.0-rc2 PRIOR_VERSION=0.14.0-rc1`
        10. Note the `-` in the version, keep it, the version will be updated accordingly and the dash removed when needed.
 2. Add a new version `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}` in the `RELEASES` array in [generate-install.sh](../hack/generate-install.sh). Example: Refer [this commit](https://github.com/rachitchauhan43/kserve/commit/6e9bd24ea137a3619da3297b4ff000379f7b2b38#diff-5f8f3e3a8ca601067664c7bf00c05aa2290a6ba625312754856ec873b840b6dbR42)
 3. Generate install manifest `./hack/generate-install.sh $VERSION`.
-4. Run `./hack/python-release.sh` to update pyproject.toml files for all packages.
-5. Run `make go-lint` from the Kserve root directory. Address any lint errors if found.
+4. Run `make poetry-lock` to update pyproject.toml files for all packages.
+5. Run `make precommit` from the Kserve root directory. Address any lint errors if found.
 6. Submit your PR and wait for it to merge.
 7. After it is merged,
     1. Create a release branch of the form release-X.Y.Z from the master 
@@ -96,11 +95,10 @@ This will be the last commit before the release and last one to be cherry-picked
    4. [Chart.yaml in kserve-crd-minimal](../charts/kserve-crd-minimal/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}`
    5. [Chart.yaml in kserve-resources](../charts/kserve-resources/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}`
    6. [values.yaml in kserve-resources](../charts/kserve-resources/values.yaml#L2) to `v${MAJOR}.${MINOR}.${PATCH}`
-   7. Run `pre-commit run` to update the Helm chart documentation
 2. Add a new version `v${MAJOR}.${MINOR}.${PATCH}` in the `RELEASES` array in [generate-install.sh](../hack/generate-install.sh). Example: Refer [this commit](https://github.com/rachitchauhan43/kserve/commit/6e9bd24ea137a3619da3297b4ff000379f7b2b38#diff-5f8f3e3a8ca601067664c7bf00c05aa2290a6ba625312754856ec873b840b6dbR42)
 3. Generate install manifest `./hack/generate-install.sh $VERSION`.
-4. Run `./hack/python-release.sh` to update pyproject.toml files for all packages.
-5. Run `make go-lint` from the Kserve root directory. Address any lint errors if found.
+4. Run `make poetry-lock` to update pyproject.toml files for all packages.
+5. Run `make precommit` from the Kserve root directory. Address any lint errors if found.
 6. Submit your PR and wait for it to merge.
 7. Once merged, cherry-pick the `merge commits` that have come out of PRs labeled with `cherrypick-approved` to the release branch (including the just created PR in step 1 in this section)
 8. Create a release tag X.Y.Z from the release branch and do git push for both the branch and tag

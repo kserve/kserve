@@ -3,26 +3,26 @@ on:
   workflow_dispatch:
     inputs:
       releaseBranch:
-        description: 'The existing branch name to release from, e.g. release-0.12'
+        description: "The existing branch name to release from, e.g. release-0.12"
         required: true
       releaseTag:
-        description: 'The release tag, e.g. v0.12.0-rc1'
+        description: "The release tag, e.g. v0.12.0-rc1"
         required: true
 
 jobs:
   prepare-release:
     runs-on: ubuntu-latest
     steps:
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.22
-
       - name: Checkout source code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ inputs.releaseBranch }}
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
 
       - name: Install dependencies
         run: |
@@ -39,12 +39,12 @@ jobs:
           cd $KSERVE_PATH
           export RELEASE_BRANCH=${{ inputs.releaseBranch }}
           export RELEASE_TAG=${{ inputs.releaseTag }}
-          
+
           # Bump Versions
           make bump-version
           ./hack/generate-install.sh $RELEASE_TAG
-          ./hack/python-release.sh
-          
+          make poetry-lock
+
           # Update Release Branch and Push Tag
           git diff
           git config --global user.email "terrytangyuan@gmail.com"

@@ -20,15 +20,16 @@ import (
 	"fmt"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CustomPredictor defines arguments for configuring a custom server.
 type CustomPredictor struct {
-	v1.PodSpec `json:",inline"`
+	corev1.PodSpec `json:",inline"`
 }
 
 var (
@@ -37,7 +38,7 @@ var (
 )
 
 func NewCustomPredictor(podSpec *PodSpec) *CustomPredictor {
-	return &CustomPredictor{PodSpec: v1.PodSpec(*podSpec)}
+	return &CustomPredictor{PodSpec: corev1.PodSpec(*podSpec)}
 }
 
 // Validate returns an error if invalid
@@ -63,9 +64,11 @@ func (c *CustomPredictor) validateCustomProtocol() error {
 // Default sets defaults on the resource
 func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
 	if len(c.Containers) == 0 {
-		c.Containers = append(c.Containers, v1.Container{})
+		c.Containers = append(c.Containers, corev1.Container{})
 	}
-	c.Containers[0].Name = constants.InferenceServiceContainerName
+	if len(c.Containers) == 1 || len(c.Containers[0].Name) == 0 {
+		c.Containers[0].Name = constants.InferenceServiceContainerName
+	}
 	setResourceRequirementDefaults(config, &c.Containers[0].Resources)
 }
 
@@ -90,7 +93,8 @@ func (c *CustomPredictor) GetStorageSpec() *StorageSpec {
 
 // GetContainer transforms the resource into a container spec
 func (c *CustomPredictor) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
-	predictorHost ...string) *v1.Container {
+	predictorHost ...string,
+) *corev1.Container {
 	for _, container := range c.Containers {
 		if container.Name == constants.InferenceServiceContainerName {
 			return &container

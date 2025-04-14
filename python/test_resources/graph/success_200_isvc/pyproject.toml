@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "success_200_isvc"
-version = "0.15.0rc0"
+version = "0.15.0"
 description = "Custom isvc that always returns 200 with a JSON SUCCESS message"
 authors = ["The KServe Authors"]
 license = "https://github.com/kserve/kserve/blob/master/LICENSE"

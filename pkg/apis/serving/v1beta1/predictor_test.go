@@ -19,51 +19,133 @@ package v1beta1
 import (
 	"testing"
 
-	"github.com/onsi/gomega"
-	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
-func makeTestPredictorSpec() *PredictorSpec {
-	return &PredictorSpec{
-		PyTorch: &TorchServeSpec{
-			PredictorExtensionSpec: PredictorExtensionSpec{
-				RuntimeVersion: proto.String("0.4.1"),
-			},
-		},
-	}
-}
-
-func TestGetPredictorImplementations(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	spec := makeTestPredictorSpec()
-	implementations := spec.GetPredictorImplementations()
-	g.Expect(len(implementations)).ShouldNot(gomega.BeZero())
-	g.Expect(implementations[0]).Should(gomega.Equal(spec.PyTorch))
-
-	spec.PyTorch = nil
-	implementations = spec.GetPredictorImplementations()
-	g.Expect(len(implementations)).Should(gomega.BeZero())
-
-	spec.PodSpec.Containers = []v1.Container{
+func TestGetImplementations(t *testing.T) {
+	tests := []struct {
+		name           string
+		predictorSpec  *PredictorSpec
+		expectedLength int
+	}{
 		{
-			Name:  "Test-Container",
-			Image: "test/predictor",
+			name: "Single implementation - PyTorch",
+			predictorSpec: &PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: ptr.To("0.4.1"),
+					},
+				},
+			},
+			expectedLength: 1,
+		},
+		{
+			name: "Pytorch with transformer container",
+			predictorSpec: &PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: ptr.To("0.4.1"),
+					},
+				},
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.TransformerContainerName,
+						},
+					},
+				},
+			},
+			expectedLength: 1,
+		},
+		{
+			name: "Multiple implementations - PyTorch and Tensorflow",
+			predictorSpec: &PredictorSpec{
+				PyTorch: &TorchServeSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: ptr.To("0.4.1"),
+					},
+				},
+				Tensorflow: &TFServingSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						RuntimeVersion: ptr.To("2.0.0"),
+					},
+				},
+			},
+			expectedLength: 2,
+		},
+		{
+			name: "Custom predictor with transformer container",
+			predictorSpec: &PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+						{
+							Name: constants.TransformerContainerName,
+						},
+					},
+				},
+			},
+			expectedLength: 1,
+		},
+		{
+			name: "Custom predictor with containers",
+			predictorSpec: &PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+						{
+							Name: "another-container",
+						},
+					},
+				},
+			},
+			expectedLength: 1,
+		},
+		{
+			name: "Custom predictor",
+			predictorSpec: &PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			},
+			expectedLength: 1,
+		},
+		{ // If only one container is specified, it is assumed to be the predictor container
+			name: "Custom predictor without container name",
+			predictorSpec: &PredictorSpec{
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Image: "image",
+						},
+					},
+				},
+			},
+			expectedLength: 1,
+		},
+		{
+			name:           "No implementations",
+			predictorSpec:  &PredictorSpec{},
+			expectedLength: 0,
 		},
 	}
-	implementations = spec.GetPredictorImplementations()
-	g.Expect(len(implementations)).ShouldNot(gomega.BeZero())
-	g.Expect(implementations[0]).Should(gomega.Equal(NewCustomPredictor(&spec.PodSpec)))
-}
 
-func TestGetPredictorImplementation(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	spec := makeTestPredictorSpec()
-	expected := spec.PyTorch
-	implementation := spec.GetPredictorImplementation()
-	g.Expect(*implementation).Should(gomega.Equal(expected))
-
-	spec.PyTorch = nil
-	implementation = spec.GetPredictorImplementation()
-	g.Expect(implementation).Should(gomega.BeNil())
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			implementations := tt.predictorSpec.GetImplementations()
+			assert.Len(t, implementations, tt.expectedLength)
+		})
+	}
 }

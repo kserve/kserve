@@ -16,24 +16,22 @@ limitations under the License.
 package localmodelcache
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
-var (
-	storageURI = "gs://testbucket/testmodel"
-)
+var storageURI = "gs://testbucket/testmodel"
 
 func makeTestInferenceService() v1beta1.InferenceService {
 	inferenceservice := v1beta1.InferenceService{
@@ -107,7 +105,7 @@ func TestUnableToDeleteLocalModelCacheWithActiveIsvc(t *testing.T) {
 	}
 	fakeClient := fake.NewClientBuilder().WithObjects(&isvc).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
-	warnings, err := validator.ValidateDelete(context.Background(), &lmc)
+	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
 	g.Expect(warnings).NotTo(gomega.BeNil())
 	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s is being used by InferenceService %s", lmc.Name, isvc.Name)))
 }
@@ -123,7 +121,7 @@ func TestUnableToCreateLocalModelCacheWithSameStorageURI(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithObjects(&lmc).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
 	newLmc := makeTestLocalModelCacheWithSameStorageURI()
-	warnings, err := validator.ValidateCreate(context.Background(), &newLmc)
+	warnings, err := validator.ValidateCreate(t.Context(), &newLmc)
 	g.Expect(warnings).NotTo(gomega.BeNil())
 	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s has the same StorageURI %s", lmc.Name, newLmc.Spec.SourceModelUri)))
 }

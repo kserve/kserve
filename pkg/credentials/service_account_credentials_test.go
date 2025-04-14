@@ -17,7 +17,6 @@ limitations under the License.
 package credentials
 
 import (
-	"context"
 	"testing"
 
 	"github.com/onsi/gomega/types"
@@ -29,12 +28,12 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 )
 
-var configMap = &v1.ConfigMap{
+var configMap = &corev1.ConfigMap{
 	Data: map[string]string{
 		"credentials": `{
             "storageSecretNameAnnotation": "serving.kserve.io/storageSecretName",
@@ -57,19 +56,19 @@ var configMap = &v1.ConfigMap{
 
 func TestS3CredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	existingServiceAccount := &v1.ServiceAccount{
+	existingServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
 			Namespace: "default",
 		},
-		Secrets: []v1.ObjectReference{
+		Secrets: []corev1.ObjectReference{
 			{
 				Name:      "s3-secret",
 				Namespace: "default",
 			},
 		},
 	}
-	existingS3Secret := &v1.Secret{
+	existingS3Secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "s3-secret",
 			Namespace: "default",
@@ -83,7 +82,7 @@ func TestS3CredentialBuilder(t *testing.T) {
 		},
 	}
 	scenarios := map[string]struct {
-		serviceAccount        *v1.ServiceAccount
+		serviceAccount        *corev1.ServiceAccount
 		inputConfiguration    *knservingv1.Configuration
 		expectedConfiguration *knservingv1.Configuration
 		shouldFail            bool
@@ -94,8 +93,8 @@ func TestS3CredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{},
 								},
 							},
@@ -107,15 +106,15 @@ func TestS3CredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{
-										Env: []v1.EnvVar{
+										Env: []corev1.EnvVar{
 											{
 												Name: s3.AWSAccessKeyId,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "s3-secret",
 														},
 														Key: "awsAccessKeyID",
@@ -124,9 +123,9 @@ func TestS3CredentialBuilder(t *testing.T) {
 											},
 											{
 												Name: s3.AWSSecretAccessKey,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "s3-secret",
 														},
 														Key: "awsSecretAccessKey",
@@ -167,8 +166,8 @@ func TestS3CredentialBuilder(t *testing.T) {
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil,
 			scenario.serviceAccount.Name,
@@ -187,21 +186,20 @@ func TestS3CredentialBuilder(t *testing.T) {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
-		g.Expect(c.Delete(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
-
+		g.Expect(c.Delete(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 	}
 }
 
 func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	existingServiceAccount := &v1.ServiceAccount{
+	existingServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
 			Namespace: "default",
 		},
 	}
-	existingS3Secret := &v1.Secret{
+	existingS3Secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "s3-secret",
 			Namespace: "default",
@@ -224,8 +222,8 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{},
 								},
 							},
@@ -237,15 +235,15 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{
-										Env: []v1.EnvVar{
+										Env: []corev1.EnvVar{
 											{
 												Name: s3.AWSAccessKeyId,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "s3-secret",
 														},
 														Key: "awsAccessKeyID",
@@ -254,9 +252,9 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 											},
 											{
 												Name: s3.AWSSecretAccessKey,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "s3-secret",
 														},
 														Key: "awsSecretAccessKey",
@@ -297,8 +295,8 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 		annotations := map[string]string{
 			"serving.kserve.io/storageSecretName": "s3-secret",
 		}
@@ -319,15 +317,14 @@ func TestS3CredentialBuilderWithStorageSecret(t *testing.T) {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
-		g.Expect(c.Delete(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.TODO(), existingS3Secret)).NotTo(gomega.HaveOccurred())
-
+		g.Expect(c.Delete(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), existingS3Secret)).NotTo(gomega.HaveOccurred())
 	}
 }
 
 func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	existingServiceAccount := &v1.ServiceAccount{
+	existingServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
 			Namespace: "default",
@@ -339,7 +336,7 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 		},
 	}
 	scenarios := map[string]struct {
-		serviceAccount        *v1.ServiceAccount
+		serviceAccount        *corev1.ServiceAccount
 		inputConfiguration    *knservingv1.Configuration
 		expectedConfiguration *knservingv1.Configuration
 		shouldFail            bool
@@ -350,8 +347,8 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{},
 								},
 							},
@@ -363,10 +360,10 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{
-										Env: []v1.EnvVar{
+										Env: []corev1.EnvVar{
 											{
 												Name:  s3.S3Endpoint,
 												Value: "s3.aws.com",
@@ -401,7 +398,7 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
@@ -419,26 +416,25 @@ func TestS3ServiceAccountCredentialBuilder(t *testing.T) {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
-		g.Expect(c.Delete(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-
+		g.Expect(c.Delete(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
 	}
 }
 
 func TestGCSCredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	existingServiceAccount := &v1.ServiceAccount{
+	existingServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "default",
 			Namespace: "default",
 		},
-		Secrets: []v1.ObjectReference{
+		Secrets: []corev1.ObjectReference{
 			{
 				Name:      "user-gcp-sa",
 				Namespace: "default",
 			},
 		},
 	}
-	existingGCSSecret := &v1.Secret{
+	existingGCSSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "user-gcp-sa",
 			Namespace: "default",
@@ -448,7 +444,7 @@ func TestGCSCredentialBuilder(t *testing.T) {
 		},
 	}
 	scenarios := map[string]struct {
-		serviceAccount        *v1.ServiceAccount
+		serviceAccount        *corev1.ServiceAccount
 		inputConfiguration    *knservingv1.Configuration
 		expectedConfiguration *knservingv1.Configuration
 		shouldFail            bool
@@ -459,8 +455,8 @@ func TestGCSCredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{},
 								},
 							},
@@ -472,17 +468,17 @@ func TestGCSCredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{
-										VolumeMounts: []v1.VolumeMount{
+										VolumeMounts: []corev1.VolumeMount{
 											{
 												Name:      gcs.GCSCredentialVolumeName,
 												ReadOnly:  true,
 												MountPath: gcs.GCSCredentialVolumeMountPath,
 											},
 										},
-										Env: []v1.EnvVar{
+										Env: []corev1.EnvVar{
 											{
 												Name:  gcs.GCSCredentialEnvKey,
 												Value: gcs.GCSCredentialVolumeMountPath + "gcloud-application-credentials.json",
@@ -490,11 +486,11 @@ func TestGCSCredentialBuilder(t *testing.T) {
 										},
 									},
 								},
-								Volumes: []v1.Volume{
+								Volumes: []corev1.Volume{
 									{
 										Name: gcs.GCSCredentialVolumeName,
-										VolumeSource: v1.VolumeSource{
-											Secret: &v1.SecretVolumeSource{
+										VolumeSource: corev1.VolumeSource{
+											Secret: &corev1.SecretVolumeSource{
 												SecretName: "user-gcp-sa",
 											},
 										},
@@ -511,8 +507,8 @@ func TestGCSCredentialBuilder(t *testing.T) {
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(context.TODO(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(t.Context(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
 
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
@@ -530,27 +526,26 @@ func TestGCSCredentialBuilder(t *testing.T) {
 				t.Errorf("Test %q unexpected configuration spec (-want +got): %v", name, diff)
 			}
 		}
-		g.Expect(c.Delete(context.TODO(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(context.TODO(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
-
+		g.Expect(c.Delete(t.Context(), existingServiceAccount)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(t.Context(), existingGCSSecret)).NotTo(gomega.HaveOccurred())
 	}
 }
 
 func TestLegacyAzureCredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	customOnlyServiceAccount := &v1.ServiceAccount{
+	customOnlyServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "custom-sa",
 			Namespace: "default",
 		},
-		Secrets: []v1.ObjectReference{
+		Secrets: []corev1.ObjectReference{
 			{
 				Name:      "az-custom-secret",
 				Namespace: "default",
 			},
 		},
 	}
-	customAzureSecret := &v1.Secret{
+	customAzureSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "az-custom-secret",
 			Namespace: "default",
@@ -564,7 +559,7 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 	}
 
 	scenarios := map[string]struct {
-		serviceAccount        *v1.ServiceAccount
+		serviceAccount        *corev1.ServiceAccount
 		inputConfiguration    *knservingv1.Configuration
 		expectedConfiguration *knservingv1.Configuration
 		shouldFail            bool
@@ -575,8 +570,8 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{},
 								},
 							},
@@ -588,15 +583,15 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{
-										Env: []v1.EnvVar{
+										Env: []corev1.EnvVar{
 											{
 												Name: azure.AzureSubscriptionId,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
 														Key: azure.LegacyAzureSubscriptionId,
@@ -605,9 +600,9 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 											},
 											{
 												Name: azure.AzureTenantId,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
 														Key: azure.LegacyAzureTenantId,
@@ -616,9 +611,9 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 											},
 											{
 												Name: azure.AzureClientId,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
 														Key: azure.LegacyAzureClientId,
@@ -627,9 +622,9 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 											},
 											{
 												Name: azure.AzureClientSecret,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
 														Key: azure.LegacyAzureClientSecret,
@@ -648,12 +643,11 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 		},
 	}
 
-	g.Expect(c.Create(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Create(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
@@ -672,25 +666,25 @@ func TestLegacyAzureCredentialBuilder(t *testing.T) {
 		}
 	}
 
-	g.Expect(c.Delete(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Delete(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 }
 
 func TestHdfsCredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	customOnlyServiceAccount := &v1.ServiceAccount{
+	customOnlyServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "custom-sa",
 			Namespace: "default",
 		},
-		Secrets: []v1.ObjectReference{
+		Secrets: []corev1.ObjectReference{
 			{
 				Name:      "hdfs-custom-secret",
 				Namespace: "default",
 			},
 		},
 	}
-	customHdfsSecret := &v1.Secret{
+	customHdfsSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hdfs-custom-secret",
 			Namespace: "default",
@@ -704,7 +698,7 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 	}
 
 	scenarios := map[string]struct {
-		serviceAccount        *v1.ServiceAccount
+		serviceAccount        *corev1.ServiceAccount
 		inputConfiguration    *knservingv1.Configuration
 		expectedConfiguration *knservingv1.Configuration
 		shouldFail            bool
@@ -715,8 +709,8 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{},
 								},
 							},
@@ -728,10 +722,10 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{
-										VolumeMounts: []v1.VolumeMount{
+										VolumeMounts: []corev1.VolumeMount{
 											{
 												Name:      hdfs.HdfsVolumeName,
 												ReadOnly:  true,
@@ -740,11 +734,11 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 										},
 									},
 								},
-								Volumes: []v1.Volume{
+								Volumes: []corev1.Volume{
 									{
 										Name: hdfs.HdfsVolumeName,
-										VolumeSource: v1.VolumeSource{
-											Secret: &v1.SecretVolumeSource{
+										VolumeSource: corev1.VolumeSource{
+											Secret: &corev1.SecretVolumeSource{
 												SecretName: "hdfs-custom-secret",
 											},
 										},
@@ -759,12 +753,11 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 		},
 	}
 
-	g.Expect(c.Create(context.TODO(), customHdfsSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Create(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customHdfsSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
@@ -783,25 +776,25 @@ func TestHdfsCredentialBuilder(t *testing.T) {
 		}
 	}
 
-	g.Expect(c.Delete(context.TODO(), customHdfsSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Delete(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customHdfsSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 }
 
 func TestAzureCredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	customOnlyServiceAccount := &v1.ServiceAccount{
+	customOnlyServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "custom-sa",
 			Namespace: "default",
 		},
-		Secrets: []v1.ObjectReference{
+		Secrets: []corev1.ObjectReference{
 			{
 				Name:      "az-custom-secret",
 				Namespace: "default",
 			},
 		},
 	}
-	customAzureSecret := &v1.Secret{
+	customAzureSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "az-custom-secret",
 			Namespace: "default",
@@ -816,7 +809,7 @@ func TestAzureCredentialBuilder(t *testing.T) {
 	}
 
 	scenarios := map[string]struct {
-		serviceAccount        *v1.ServiceAccount
+		serviceAccount        *corev1.ServiceAccount
 		inputConfiguration    *knservingv1.Configuration
 		expectedConfiguration *knservingv1.Configuration
 		shouldFail            bool
@@ -827,8 +820,8 @@ func TestAzureCredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{},
 								},
 							},
@@ -840,15 +833,15 @@ func TestAzureCredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{
-										Env: []v1.EnvVar{
+										Env: []corev1.EnvVar{
 											{
 												Name: azure.AzureSubscriptionId,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
 														Key: azure.AzureSubscriptionId,
@@ -857,9 +850,9 @@ func TestAzureCredentialBuilder(t *testing.T) {
 											},
 											{
 												Name: azure.AzureTenantId,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
 														Key: azure.AzureTenantId,
@@ -868,9 +861,9 @@ func TestAzureCredentialBuilder(t *testing.T) {
 											},
 											{
 												Name: azure.AzureClientId,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
 														Key: azure.AzureClientId,
@@ -879,9 +872,9 @@ func TestAzureCredentialBuilder(t *testing.T) {
 											},
 											{
 												Name: azure.AzureClientSecret,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
 														Key: azure.AzureClientSecret,
@@ -890,9 +883,9 @@ func TestAzureCredentialBuilder(t *testing.T) {
 											},
 											{
 												Name: azure.AzureStorageAccessKey,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
 														Key: azure.AzureStorageAccessKey,
@@ -911,12 +904,11 @@ func TestAzureCredentialBuilder(t *testing.T) {
 		},
 	}
 
-	g.Expect(c.Create(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Create(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
@@ -935,25 +927,25 @@ func TestAzureCredentialBuilder(t *testing.T) {
 		}
 	}
 
-	g.Expect(c.Delete(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Delete(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 }
 
 func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	customOnlyServiceAccount := &v1.ServiceAccount{
+	customOnlyServiceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "custom-sa",
 			Namespace: "default",
 		},
-		Secrets: []v1.ObjectReference{
+		Secrets: []corev1.ObjectReference{
 			{
 				Name:      "az-custom-secret",
 				Namespace: "default",
 			},
 		},
 	}
-	customAzureSecret := &v1.Secret{
+	customAzureSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "az-custom-secret",
 			Namespace: "default",
@@ -964,7 +956,7 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 	}
 
 	scenarios := map[string]struct {
-		serviceAccount        *v1.ServiceAccount
+		serviceAccount        *corev1.ServiceAccount
 		inputConfiguration    *knservingv1.Configuration
 		expectedConfiguration *knservingv1.Configuration
 		shouldFail            bool
@@ -975,8 +967,8 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{},
 								},
 							},
@@ -988,15 +980,15 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 				Spec: knservingv1.ConfigurationSpec{
 					Template: knservingv1.RevisionTemplateSpec{
 						Spec: knservingv1.RevisionSpec{
-							PodSpec: v1.PodSpec{
-								Containers: []v1.Container{
+							PodSpec: corev1.PodSpec{
+								Containers: []corev1.Container{
 									{
-										Env: []v1.EnvVar{
+										Env: []corev1.EnvVar{
 											{
 												Name: azure.AzureStorageAccessKey,
-												ValueFrom: &v1.EnvVarSource{
-													SecretKeyRef: &v1.SecretKeySelector{
-														LocalObjectReference: v1.LocalObjectReference{
+												ValueFrom: &corev1.EnvVarSource{
+													SecretKeyRef: &corev1.SecretKeySelector{
+														LocalObjectReference: corev1.LocalObjectReference{
 															Name: "az-custom-secret",
 														},
 														Key: azure.AzureStorageAccessKey,
@@ -1015,12 +1007,11 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 		},
 	}
 
-	g.Expect(c.Create(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Create(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 
 	builder := NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-
 		err := builder.CreateSecretVolumeAndEnv(scenario.serviceAccount.Namespace, nil, scenario.serviceAccount.Name,
 			&scenario.inputConfiguration.Spec.Template.Spec.Containers[0],
 			&scenario.inputConfiguration.Spec.Template.Spec.Volumes,
@@ -1039,8 +1030,8 @@ func TestAzureStorageAccessKeyCredentialBuilder(t *testing.T) {
 		}
 	}
 
-	g.Expect(c.Delete(context.TODO(), customAzureSecret)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Delete(context.TODO(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customAzureSecret)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Delete(t.Context(), customOnlyServiceAccount)).NotTo(gomega.HaveOccurred())
 }
 
 func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
@@ -1049,16 +1040,16 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 	builder := NewCredentialBuilder(c, clientset, configMap)
 
 	scenarios := map[string]struct {
-		secret            *v1.Secret
+		secret            *corev1.Secret
 		storageKey        string
 		storageSecretName string
 		overrideParams    map[string]string
-		container         *v1.Container
+		container         *corev1.Container
 		shouldFail        bool
 		matcher           types.GomegaMatcher
 	}{
 		"fail on storage secret name is empty": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					Kind: "Secret",
 				},
@@ -1071,12 +1062,12 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			storageKey:        "",
 			storageSecretName: "",
 			overrideParams:    make(map[string]string),
-			container:         &v1.Container{},
+			container:         &corev1.Container{},
 			shouldFail:        true,
 			matcher:           gomega.HaveOccurred(),
 		},
 		"storage spec with empty override params": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
@@ -1090,7 +1081,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			storageKey:        "minio",
 			storageSecretName: "storage-secret",
 			overrideParams:    map[string]string{"type": "", "bucket": ""},
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
@@ -1099,23 +1090,23 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 				},
 			},
 			shouldFail: false,
-			matcher: gomega.Equal(&v1.Container{
+			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_CONFIG",
 						Value: "",
-						ValueFrom: &v1.EnvVarSource{
+						ValueFrom: &corev1.EnvVarSource{
 							FieldRef:         nil,
 							ResourceFieldRef: nil,
 							ConfigMapKeyRef:  nil,
-							SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
 									Name: "storage-secret",
 								},
 								Key:      "minio",
@@ -1131,7 +1122,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			}),
 		},
 		"simple storage spec": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
@@ -1145,7 +1136,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			storageKey:        "minio",
 			storageSecretName: "storage-secret",
 			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
@@ -1154,23 +1145,23 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 				},
 			},
 			shouldFail: false,
-			matcher: gomega.Equal(&v1.Container{
+			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_CONFIG",
 						Value: "",
-						ValueFrom: &v1.EnvVarSource{
+						ValueFrom: &corev1.EnvVarSource{
 							FieldRef:         nil,
 							ResourceFieldRef: nil,
 							ConfigMapKeyRef:  nil,
-							SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
 									Name: "storage-secret",
 								},
 								Key:      "minio",
@@ -1186,7 +1177,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			}),
 		},
 		"wrong storage key": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
@@ -1200,7 +1191,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			storageKey:        "wrong-key",
 			storageSecretName: "storage-secret",
 			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
@@ -1212,7 +1203,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			matcher:    gomega.HaveOccurred(),
 		},
 		"default storage key": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
@@ -1226,7 +1217,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			storageKey:        "",
 			storageSecretName: "storage-secret",
 			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
@@ -1235,23 +1226,23 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 				},
 			},
 			shouldFail: false,
-			matcher: gomega.Equal(&v1.Container{
+			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_CONFIG",
 						Value: "",
-						ValueFrom: &v1.EnvVarSource{
+						ValueFrom: &corev1.EnvVarSource{
 							FieldRef:         nil,
 							ResourceFieldRef: nil,
 							ConfigMapKeyRef:  nil,
-							SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
 									Name: "storage-secret",
 								},
 								Key:      "default_s3",
@@ -1267,7 +1258,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			}),
 		},
 		"default storage key with empty storage type": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
@@ -1281,7 +1272,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			storageKey:        "",
 			storageSecretName: "storage-secret",
 			overrideParams:    map[string]string{"type": "", "bucket": "test-bucket"},
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
@@ -1290,23 +1281,23 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 				},
 			},
 			shouldFail: false,
-			matcher: gomega.Equal(&v1.Container{
+			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/",
 					"/mnt/models/",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_CONFIG",
 						Value: "",
-						ValueFrom: &v1.EnvVarSource{
+						ValueFrom: &corev1.EnvVarSource{
 							FieldRef:         nil,
 							ResourceFieldRef: nil,
 							ConfigMapKeyRef:  nil,
-							SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
 									Name: "storage-secret",
 								},
 								Key:      "default",
@@ -1322,7 +1313,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			}),
 		},
 		"storage spec with uri scheme placeholder": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
@@ -1336,7 +1327,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			storageKey:        "minio",
 			storageSecretName: "storage-secret",
 			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
@@ -1345,23 +1336,23 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 				},
 			},
 			shouldFail: false,
-			matcher: gomega.Equal(&v1.Container{
+			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
 					"s3://test-bucket/models/example-model/",
 					"/mnt/models/",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_CONFIG",
 						Value: "",
-						ValueFrom: &v1.EnvVarSource{
+						ValueFrom: &corev1.EnvVarSource{
 							FieldRef:         nil,
 							ResourceFieldRef: nil,
 							ConfigMapKeyRef:  nil,
-							SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
 									Name: "storage-secret",
 								},
 								Key:      "minio",
@@ -1377,7 +1368,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			}),
 		},
 		"hdfs with uri scheme placeholder": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
@@ -1391,7 +1382,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			storageKey:        "hdfs",
 			storageSecretName: "storage-secret",
 			overrideParams:    map[string]string{"type": "hdfs", "bucket": ""},
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
@@ -1400,23 +1391,23 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 				},
 			},
 			shouldFail: false,
-			matcher: gomega.Equal(&v1.Container{
+			matcher: gomega.Equal(&corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
 					"hdfs://models/example-model/",
 					"/mnt/models/",
 				},
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_CONFIG",
 						Value: "",
-						ValueFrom: &v1.EnvVarSource{
+						ValueFrom: &corev1.EnvVarSource{
 							FieldRef:         nil,
 							ResourceFieldRef: nil,
 							ConfigMapKeyRef:  nil,
-							SecretKeyRef: &v1.SecretKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
 									Name: "storage-secret",
 								},
 								Key:      "hdfs",
@@ -1432,7 +1423,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			}),
 		},
 		"unsupported storage type": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
@@ -1446,7 +1437,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			storageKey:        "minio",
 			storageSecretName: "storage-secret",
 			overrideParams:    map[string]string{"type": "", "bucket": "test-bucket"},
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
@@ -1458,7 +1449,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			matcher:    gomega.HaveOccurred(),
 		},
 		"secret data with syntax error": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
@@ -1472,7 +1463,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			storageKey:        "minio",
 			storageSecretName: "storage-secret",
 			overrideParams:    map[string]string{"type": "", "bucket": "test-bucket"},
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
@@ -1484,7 +1475,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			matcher:    gomega.HaveOccurred(),
 		},
 		"fail on storage type is empty": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
@@ -1498,7 +1489,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			storageKey:        "minio",
 			storageSecretName: "storage-secret",
 			overrideParams:    map[string]string{"type": "", "bucket": "test-bucket"},
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
@@ -1510,7 +1501,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			matcher:    gomega.HaveOccurred(),
 		},
 		"fail on bucket is empty on s3 storage": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Secret",
 					APIVersion: "v1",
@@ -1524,7 +1515,7 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			storageKey:        "minio",
 			storageSecretName: "storage-secret",
 			overrideParams:    map[string]string{"type": "s3", "bucket": ""},
-			container: &v1.Container{
+			container: &corev1.Container{
 				Name:  "init-container",
 				Image: "kserve/init-container:latest",
 				Args: []string{
@@ -1538,17 +1529,17 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 	}
 
 	for _, tc := range scenarios {
-		if err := c.Create(context.TODO(), tc.secret); err != nil {
+		if err := c.Create(t.Context(), tc.secret); err != nil {
 			t.Errorf("Failed to create secret %s: %v", "storage-secret", err)
 		}
 		err := builder.CreateStorageSpecSecretEnvs(namespace, nil, tc.storageKey, tc.overrideParams, tc.container)
 		if !tc.shouldFail {
-			g.Expect(err).Should(gomega.BeNil())
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			g.Expect(tc.container).Should(tc.matcher)
 		} else {
 			g.Expect(err).To(tc.matcher)
 		}
-		if err := c.Delete(context.TODO(), tc.secret); err != nil {
+		if err := c.Delete(t.Context(), tc.secret); err != nil {
 			t.Errorf("Failed to delete secret %s because of: %v", tc.secret.Name, err)
 		}
 	}

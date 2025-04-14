@@ -19,15 +19,17 @@ package v1beta1
 import (
 	"testing"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestGetSupportingRuntimes(t *testing.T) {
@@ -59,7 +61,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1, constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: tfRuntime + "-image:latest",
@@ -79,7 +81,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1, constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: sklearnRuntime + "-image:latest",
@@ -98,7 +100,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1, constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: pmmlRuntime + "-image:latest",
@@ -130,7 +132,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: pmmlRuntime + "-image:latest",
@@ -158,7 +160,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: mlserverRuntime + "-image:latest",
@@ -179,7 +181,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: sklearnRuntime + "-image:latest",
@@ -209,7 +211,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: mlserverRuntime + "-image:latest",
@@ -229,7 +231,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: mlserverRuntime + "-image:latest",
@@ -250,7 +252,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 			},
 			ProtocolVersions: []constants.InferenceServiceProtocol{constants.ProtocolV1, constants.ProtocolV2},
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-				Containers: []v1.Container{
+				Containers: []corev1.Container{
 					{
 						Name:  "kserve-container",
 						Image: huggingfaceMultinodeRuntime + "-image:latest",
@@ -340,7 +342,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 		},
 	}
 
-	var storageUri = "s3://test/model"
+	storageUri := "s3://test/model"
 	scenarios := map[string]struct {
 		spec        *ModelSpec
 		isMMS       bool
@@ -487,30 +489,29 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	mockClient := fake.NewClientBuilder().WithLists(runtimes, clusterRuntimes).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _ := scenario.spec.GetSupportingRuntimes(mockClient, namespace, scenario.isMMS, scenario.isMultinode)
+			res, _ := scenario.spec.GetSupportingRuntimes(t.Context(), mockClient, namespace, scenario.isMMS, scenario.isMultinode)
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", res, scenario.expected)
 			}
 		})
 	}
-
 }
 
 func TestModelPredictorGetContainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	var storageUri = "s3://test/model"
+	storageUri := "s3://test/model"
 	isvcConfig := &InferenceServicesConfig{}
 	objectMeta := metav1.ObjectMeta{
 		Name:      "foo",
 		Namespace: "default",
 	}
 	componentSpec := &ComponentExtensionSpec{
-		MinReplicas: GetIntReference(3),
+		MinReplicas: ptr.To(int32(3)),
 		MaxReplicas: 2,
 	}
 	scenarios := map[string]struct {
 		spec     *ModelSpec
-		expected v1.Container
+		expected corev1.Container
 	}{
 		"ContainerSpecified": {
 			spec: &ModelSpec{
@@ -519,9 +520,9 @@ func TestModelPredictorGetContainer(t *testing.T) {
 				},
 				PredictorExtensionSpec: PredictorExtensionSpec{
 					StorageURI: &storageUri,
-					Container: v1.Container{
+					Container: corev1.Container{
 						Name: "foo",
-						Env: []v1.EnvVar{
+						Env: []corev1.EnvVar{
 							{
 								Name:  "STORAGE_URI",
 								Value: storageUri,
@@ -530,9 +531,9 @@ func TestModelPredictorGetContainer(t *testing.T) {
 					},
 				},
 			},
-			expected: v1.Container{
+			expected: corev1.Container{
 				Name: "foo",
-				Env: []v1.EnvVar{
+				Env: []corev1.EnvVar{
 					{
 						Name:  "STORAGE_URI",
 						Value: storageUri,

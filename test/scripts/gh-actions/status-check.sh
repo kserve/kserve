@@ -26,6 +26,10 @@ echo "::group::K8s Events in kserve-ci-e2e-test namespace"
 kubectl get events -n kserve-ci-e2e-test
 echo "::endgroup::"
 
+echo "::group::K8s Events in kserve-localmodel-jobs namespace"
+kubectl get events -n kserve-localmodel-jobs
+echo "::endgroup::"
+
 echo "::group::Kserve Controller Logs"
 kubectl logs -l control-plane=kserve-controller-manager -n kserve -c manager --tail -1
 echo "::endgroup::"

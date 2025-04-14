@@ -1,12 +1,15 @@
 kserve:
-  version: &defaultVersion v0.15.0-rc0
-  modelmeshVersion: &defaultModelMeshVersion v0.12.0
+  version: &defaultVersion v0.15.0
   agent:
     image: kserve/agent
     tag: *defaultVersion
   router:
     image: kserve/router
     tag: *defaultVersion
+    # -- Specifies when to pull router image from registry.
+    imagePullPolicy: "IfNotPresent"
+    # -- specifies the list of secrets to be used for pulling the router image from registry.
+    imagePullSecrets: []
   service:
     serviceClusterIPNone: false
   storage:
@@ -264,35 +267,6 @@ kserve:
     # This ClusterRole grants the necessary permissions for the Knative's DomainMapping reconciler to resolve InferenceService addressables.
     knativeAddressableResolver:
       enabled: false
-  modelmesh:
-    enabled: true
-    controller:
-      nodeSelector: {}
-      tolerations: []
-      topologySpreadConstraints: []
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-              - weight: 100
-                podAffinityTerm:
-                  labelSelector:
-                    matchExpressions:
-                      - key: control-plane
-                        operator: In
-                        values:
-                          - modelmesh-controller
-                  topologyKey: topology.kubernetes.io/zone
-      image: kserve/modelmesh-controller
-      tag: *defaultModelMeshVersion
-    config:
-      modelmeshImage: kserve/modelmesh
-      modelmeshImageTag: *defaultModelMeshVersion
-      modelmeshRuntimeAdapterImage: kserve/modelmesh-runtime-adapter
-      modelmeshRuntimeAdapterImageTag: *defaultModelMeshVersion
-      restProxyImage: kserve/rest-proxy
-      restProxyImageTag: *defaultModelMeshVersion
-      podsPerRuntime: 2
-
   servingruntime:
     modelNamePlaceholder: "{{.Name}}"
     tensorflow:
@@ -357,6 +331,18 @@ kserve:
         sizeLimit: ""
       hostIPC:
         enabled: false
+    huggingfaceserver_multinode:
+      imagePullSecrets: []
+      securityContext:
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+      shm:
+        enabled: true
+        sizeLimit: "3Gi"
     tritonserver:
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3

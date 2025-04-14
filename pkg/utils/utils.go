@@ -18,14 +18,17 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
+	"strconv"
 	"strings"
 
-	"github.com/kserve/kserve/pkg/constants"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 /* NOTE TO AUTHORS:
@@ -35,6 +38,11 @@ import (
  */
 
 var gvResourcesCache map[string]*metav1.APIResourceList
+
+// Errors
+const (
+	ErrValueExceedsInt32Limit = "value exceeds int32 limit %d"
+)
 
 func Filter(origin map[string]string, predicate func(string) bool) map[string]string {
 	result := make(map[string]string)
@@ -74,7 +82,7 @@ func IncludesArg(slice []string, arg string) bool {
 	return false
 }
 
-func AppendVolumeIfNotExists(slice []v1.Volume, volume v1.Volume) []v1.Volume {
+func AppendVolumeIfNotExists(slice []corev1.Volume, volume corev1.Volume) []corev1.Volume {
 	for i := range slice {
 		if slice[i].Name == volume.Name {
 			return slice
@@ -83,7 +91,7 @@ func AppendVolumeIfNotExists(slice []v1.Volume, volume v1.Volume) []v1.Volume {
 	return append(slice, volume)
 }
 
-func IsGPUEnabled(requirements v1.ResourceRequirements) bool {
+func IsGPUEnabled(requirements corev1.ResourceRequirements) bool {
 	_, ok := requirements.Limits[constants.NvidiaGPUResourceType]
 	return ok
 }
@@ -123,8 +131,8 @@ func IsPrefixSupported(input string, prefixes []string) bool {
 // 1. If an EnvVar is present in B but not in O, value remains unchanged in the result
 // 2. If an EnvVar is present in `O` but not in `B`, appends to the result
 // 3. If an EnvVar is present in both O and B, uses the value from O in the result
-func MergeEnvs(baseEnvs []v1.EnvVar, overrideEnvs []v1.EnvVar) []v1.EnvVar {
-	var extra []v1.EnvVar
+func MergeEnvs(baseEnvs []corev1.EnvVar, overrideEnvs []corev1.EnvVar) []corev1.EnvVar {
+	var extra []corev1.EnvVar
 
 	for _, override := range overrideEnvs {
 		inBase := false
@@ -145,7 +153,7 @@ func MergeEnvs(baseEnvs []v1.EnvVar, overrideEnvs []v1.EnvVar) []v1.EnvVar {
 	return append(baseEnvs, extra...)
 }
 
-func AppendEnvVarIfNotExists(slice []v1.EnvVar, elems ...v1.EnvVar) []v1.EnvVar {
+func AppendEnvVarIfNotExists(slice []corev1.EnvVar, elems ...corev1.EnvVar) []corev1.EnvVar {
 	for _, elem := range elems {
 		isElemExists := false
 		for _, item := range slice {
@@ -161,7 +169,7 @@ func AppendEnvVarIfNotExists(slice []v1.EnvVar, elems ...v1.EnvVar) []v1.EnvVar 
 	return slice
 }
 
-func AppendPortIfNotExists(slice []v1.ContainerPort, elems ...v1.ContainerPort) []v1.ContainerPort {
+func AppendPortIfNotExists(slice []corev1.ContainerPort, elems ...corev1.ContainerPort) []corev1.ContainerPort {
 	for _, elem := range elems {
 		isElemExists := false
 		for _, item := range slice {
@@ -236,7 +244,7 @@ func SetAvailableResourcesForApi(groupVersion string, resources *metav1.APIResou
 	gvResourcesCache[groupVersion] = resources
 }
 
-func GetEnvVarValue(envVars []v1.EnvVar, key string) (string, bool) {
+func GetEnvVarValue(envVars []corev1.EnvVar, key string) (string, bool) {
 	for _, envVar := range envVars {
 		if envVar.Name == key {
 			return envVar.Value, true // if key exist, return value, true
@@ -246,18 +254,18 @@ func GetEnvVarValue(envVars []v1.EnvVar, key string) (string, bool) {
 }
 
 // IsUnknownGpuResourceType check if the provided gpu resource type is unknown one
-func IsUnknownGpuResourceType(resources v1.ResourceRequirements, customGpuResourceTypes string) bool {
-	basicResourceTypes := map[v1.ResourceName]struct{}{
-		v1.ResourceCPU:              {},
-		v1.ResourceMemory:           {},
-		v1.ResourceStorage:          {},
-		v1.ResourceEphemeralStorage: {},
+func IsUnknownGpuResourceType(resources corev1.ResourceRequirements, annotations map[string]string) (bool, error) {
+	basicResourceTypes := map[corev1.ResourceName]struct{}{
+		corev1.ResourceCPU:              {},
+		corev1.ResourceMemory:           {},
+		corev1.ResourceStorage:          {},
+		corev1.ResourceEphemeralStorage: {},
 	}
 
-	possibleGPUResourceType := map[v1.ResourceName]struct{}{}
+	possibleGPUResourceType := map[corev1.ResourceName]struct{}{}
 
 	// Helper function to add non-basic resources from the provided ResourceList
-	addNonBasicResources := func(resources v1.ResourceList) {
+	addNonBasicResources := func(resources corev1.ResourceList) {
 		for resourceType := range resources {
 			if _, exists := basicResourceTypes[resourceType]; !exists {
 				possibleGPUResourceType[resourceType] = struct{}{}
@@ -269,50 +277,104 @@ func IsUnknownGpuResourceType(resources v1.ResourceRequirements, customGpuResour
 	addNonBasicResources(resources.Limits)
 	addNonBasicResources(resources.Requests)
 
-	// Validate GPU resource types
-	// If CustomGPUResourceTypesAnnotationKey is set, the specified custom GPU resource will be added to the available GPUResourceTypeList.
-	if customGpuResourceTypes != "" {
-		constants.GPUResourceTypeList = append(constants.GPUResourceTypeList, strings.Split(customGpuResourceTypes, ",")...)
+	// Update GPU resource type list
+	newGPUResourceTypeList, err := UpdateGPUResourceTypeListByAnnotation(annotations)
+	if err != nil {
+		return false, err
 	}
 
-	for _, gpuType := range constants.GPUResourceTypeList {
-		allowedGPUResourceName := v1.ResourceName(gpuType)
+	// Validate GPU resource types
+	for _, gpuType := range newGPUResourceTypeList {
+		allowedGPUResourceName := corev1.ResourceName(gpuType)
 		delete(possibleGPUResourceType, allowedGPUResourceName) // Remove allowed GPU resource if exists
 	}
 
 	// Return true if there are unknown GPU resources
-	return len(possibleGPUResourceType) > 0
+	return len(possibleGPUResourceType) > 0, nil
 }
 
 // IsValidCustomGPUArray checks if the input string is a valid JSON array of strings.
 // It returns false if the array is empty, contains empty strings, or any non-string elements.
-func IsValidCustomGPUArray(s string) bool {
+// Otherwise, it returns true and the list of custom GPU types.
+func IsValidCustomGPUArray(s string) ([]string, bool) {
 	// Check if the input string is a valid JSON array
 	var arr []interface{}
 	if err := json.Unmarshal([]byte(s), &arr); err != nil {
-		return false // Not a valid JSON array
+		return nil, false // Not a valid JSON array
 	}
 
 	// Check if the array is empty
 	if len(arr) == 0 {
-		return false
+		return nil, false
 	}
-
+	customGPUTypes := []string{}
 	// Check each element to ensure they are all strings
 	for _, item := range arr {
 		if _, ok := item.(string); !ok {
-			return false // Found a non-string element
+			return nil, false // Found a non-string element
 		}
 		if item.(string) == "" {
-			return false // Found an empty string
+			return nil, false // Found an empty string
+		}
+		customGPUTypes = append(customGPUTypes, item.(string))
+	}
+
+	return customGPUTypes, true
+}
+
+// StringToInt32 converts a given integer to int32. If the number exceeds the int32 limit, it returns an error.
+func StringToInt32(number string) (int32, error) {
+	converted, err := strconv.ParseInt(number, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int32(converted), err
+}
+
+// UpdateGPUResourceTypeListByAnnotation updates the GPU resource type list
+// by combining the global GPU resource types from inferenceservice-config with custom GPU resource types specified in the annotations.
+func UpdateGPUResourceTypeListByAnnotation(isvcAnnotations map[string]string) ([]string, error) {
+	// Deep copy
+	updatedGPUResourceTypes := append([]string{}, constants.DefaultGPUResourceTypeList...)
+
+	if customGPUResourceTypes := isvcAnnotations[constants.CustomGPUResourceTypesAnnotationKey]; customGPUResourceTypes != "" {
+		newGPUResourceTypesFromAnnotation, isValid := IsValidCustomGPUArray(customGPUResourceTypes)
+		if !isValid {
+			return nil, fmt.Errorf("invalid GPU format(%s) for %s annotation: must be a valid JSON array", customGPUResourceTypes, constants.CustomGPUResourceTypesAnnotationKey)
+		}
+
+		// Use a map to avoid duplicates
+		existingTypes := make(map[string]struct{}, len(constants.DefaultGPUResourceTypeList))
+		for _, t := range constants.DefaultGPUResourceTypeList {
+			existingTypes[t] = struct{}{}
+		}
+
+		// Add only unique GPU resource types
+		for _, t := range newGPUResourceTypesFromAnnotation {
+			if _, exists := existingTypes[t]; !exists {
+				updatedGPUResourceTypes = append(updatedGPUResourceTypes, t)
+				existingTypes[t] = struct{}{}
+			}
+		}
+	}
+	return updatedGPUResourceTypes, nil
+}
+
+// UpdateGlobalGPUResourceTypeList adds new GPU resource types from inferenceservice-config to constants.GPUResourceTypeList.
+func UpdateGlobalGPUResourceTypeList(newGPUResourceTypes []string) error {
+	// Use a map to avoid duplicates
+	existingTypes := make(map[string]struct{}, len(constants.DefaultGPUResourceTypeList))
+	for _, t := range constants.DefaultGPUResourceTypeList {
+		existingTypes[t] = struct{}{}
+	}
+
+	// Add only unique GPU resource types
+	for _, t := range newGPUResourceTypes {
+		if _, exists := existingTypes[t]; !exists {
+			constants.DefaultGPUResourceTypeList = append(constants.DefaultGPUResourceTypeList, t)
+			existingTypes[t] = struct{}{}
 		}
 	}
 
-	return true
-}
-
-// ToPointer returns a pointer to the value passed in
-func ToPointer[T any](value T) *T {
-	tmp := value
-	return &tmp
+	return nil
 }
