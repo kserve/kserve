@@ -23,8 +23,8 @@ limitations under the License.
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;watch
-// +kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch
 package localmodel
 
 import (
@@ -75,7 +75,7 @@ var (
 func (c *LocalModelReconciler) deleteModelFromNodes(ctx context.Context, localModel *v1alpha1.LocalModelCache,
 	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
 ) (ctrl.Result, error) {
-	// finalizer does not exists, nothing to do here!
+	// finalizer does not exist, nothing to do here!
 	if !utils.Includes(localModel.ObjectMeta.Finalizers, finalizerName) {
 		return ctrl.Result{}, nil
 	}
@@ -161,7 +161,7 @@ func (c *LocalModelReconciler) createPVC(ctx context.Context, spec corev1.Persis
 	return nil
 }
 
-// ReconcileForIsvcs Get all isvcs with model cache enabled, create pvs and pvcs, remove pvs and pvcs in namespaces without isvcs.
+// ReconcileForIsvcs Get all isvcs with model cache enabled, create pvs and pvcs.
 func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel *v1alpha1.LocalModelCache,
 	localModelNodeGroups map[string]*v1alpha1.LocalModelNodeGroup, defaultNodeGroup *v1alpha1.LocalModelNodeGroup, jobNamespace string,
 ) error {
@@ -196,35 +196,6 @@ func (c *LocalModelReconciler) ReconcileForIsvcs(ctx context.Context, localModel
 	localModel.Status.InferenceServices = isvcNames
 	if err := c.Status().Update(ctx, localModel); err != nil {
 		c.Log.Error(err, "cannot update status", "name", localModel.Name)
-	}
-
-	/*
-		Remove PVs and PVCs if the namespace does not have isvcs
-		It only deletes the pvc and pvs with ownerReference as the localModel
-		And the pv must be of the format pvc.Name+"-"+pvc.Namespace
-	*/
-	pvcs := corev1.PersistentVolumeClaimList{}
-	if err := c.List(ctx, &pvcs, client.MatchingFields{ownerKey: localModel.Name}); err != nil {
-		c.Log.Error(err, "unable to list PVCs", "name", localModel.Name)
-		return err
-	}
-	for _, pvc := range pvcs.Items {
-		if _, ok := namespaceToNodeGroups[pvc.Namespace]; !ok {
-			if pvc.Namespace == jobNamespace {
-				// Keep PVCs in modelCacheNamespace as they don't have a corresponding inference service
-				continue
-			}
-			c.Log.Info("deleting pvc ", "name", pvc.Name, "namespace", pvc.Namespace)
-			persistentVolumeClaims := c.Clientset.CoreV1().PersistentVolumeClaims(pvc.Namespace)
-			if err := persistentVolumeClaims.Delete(ctx, pvc.Name, metav1.DeleteOptions{}); err != nil {
-				c.Log.Error(err, "deleting PVC ", "name", pvc.Name, "namespace", pvc.Namespace)
-			}
-			c.Log.Info("deleting pv", "name", pvc.Name+"-"+pvc.Namespace)
-			persistentVolumes := c.Clientset.CoreV1().PersistentVolumes()
-			if err := persistentVolumes.Delete(ctx, pvc.Name+"-"+pvc.Namespace, metav1.DeleteOptions{}); err != nil {
-				c.Log.Error(err, "deleting PV err")
-			}
-		}
 	}
 
 	for namespace, nodeGroups := range namespaceToNodeGroups {
