@@ -121,6 +121,7 @@ async def test_raw_tabular_explainer(rest_v1_client, network_layer):
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations={"serving.kserve.io/deploymentMode": "RawDeployment"},
+            labels={"networking.kserve.io/visibility": "exposed"},
         ),
         spec=V1beta1InferenceServiceSpec(
             predictor=V1beta1PredictorSpec(

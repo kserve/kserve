@@ -374,6 +374,7 @@ async def test_predictor_rest_with_transformer_rest(rest_v2_client):
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
+@pytest.mark.skip(reason="Not testable in ODH at the moment")
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
 async def test_predictor_grpc_with_transformer_grpc_raw(network_layer):

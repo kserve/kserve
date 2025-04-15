@@ -19,5 +19,9 @@ data:
         "domainTemplate": "{{ .Name }}-{{ .Namespace }}.{{ .IngressDomain }}",
         "urlScheme": "http",
         "disableIstioVirtualHost": false,
-        "disableIngressCreation": false
+        "disableIngressCreation": true
+    }
+    service: |-
+    {
+        "serviceClusterIPNone": false
     }
