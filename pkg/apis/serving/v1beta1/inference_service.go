@@ -39,6 +39,20 @@ type InferenceServiceSpec struct {
 	Transformer *TransformerSpec `json:"transformer,omitempty"`
 }
 
+// StorageSpec defines a spec for an object in an object store
+type StorageSpec struct {
+	// The path to the object in the storage. It cannot co-exist
+	// with the storageURI.
+	// +optional
+	Path *string `json:"path,omitempty"`
+	// Parameters to override the default storage credentials and config.
+	// +optional
+	Parameters *map[string]string `json:"parameters,omitempty"`
+	// The Storage Key in the secret for this object.
+	// +optional
+	StorageKey *string `json:"key,omitempty"`
+}
+
 // LoggerType controls the scope of log publishing
 // +kubebuilder:validation:Enum=all;request;response
 type LoggerType string
@@ -71,7 +85,7 @@ type LoggerSpec struct {
 	// Matched inference service annotations for propagating to inference logger cloud events.
 	// +optional
 	MetadataAnnotations []string `json:"metadataAnnotations,omitempty"`
-	// Specifies the storage location for the logger events.
+	// Specifies the storage location for the inference logger cloud events.
 	// +optional
 	Storage *StorageSpec `json:"storage"`
 }

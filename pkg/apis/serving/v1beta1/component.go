@@ -67,7 +67,7 @@ type ComponentImplementation interface {
 	Validate() error
 	GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container
 	GetStorageUri() *string
-	GetStorageSpec() *StorageSpec
+	GetStorageSpec() *ModelStorageSpec
 	GetProtocol() constants.InferenceServiceProtocol
 }
 
@@ -323,7 +323,7 @@ func (s *ComponentExtensionSpec) Validate() error {
 	})
 }
 
-func validateStorageSpec(storageSpec *StorageSpec, storageURI *string) error {
+func validateStorageSpec(storageSpec *ModelStorageSpec, storageURI *string) error {
 	if storageSpec == nil {
 		return nil
 	}

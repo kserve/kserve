@@ -63,12 +63,12 @@ func TestComponentExtensionSpec_Validate(t *testing.T) {
 func TestComponentExtensionSpec_validateStorageSpec(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
-		spec       *StorageSpec
+		spec       *ModelStorageSpec
 		storageUri *string
 		matcher    types.GomegaMatcher
 	}{
 		"ValidStoragespec": {
-			spec: &StorageSpec{
+			spec: &ModelStorageSpec{
 				Parameters: &map[string]string{
 					"type": "s3",
 				},
@@ -77,12 +77,12 @@ func TestComponentExtensionSpec_validateStorageSpec(t *testing.T) {
 			matcher:    gomega.BeNil(),
 		},
 		"ValidStoragespecWithoutParameters": {
-			spec:       &StorageSpec{},
+			spec:       &ModelStorageSpec{},
 			storageUri: nil,
 			matcher:    gomega.BeNil(),
 		},
 		"ValidStoragespecWithStorageURI": {
-			spec: &StorageSpec{
+			spec: &ModelStorageSpec{
 				Parameters: &map[string]string{
 					"type": "s3",
 				},
@@ -91,7 +91,7 @@ func TestComponentExtensionSpec_validateStorageSpec(t *testing.T) {
 			matcher:    gomega.BeNil(),
 		},
 		"StorageSpecWithInvalidStorageURI": {
-			spec: &StorageSpec{
+			spec: &ModelStorageSpec{
 				Parameters: &map[string]string{
 					"type": "gs",
 				},
@@ -100,7 +100,7 @@ func TestComponentExtensionSpec_validateStorageSpec(t *testing.T) {
 			matcher:    gomega.MatchError(fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageSpecURIPrefixList, ", "), "gs://test/model")),
 		},
 		"InvalidStoragespec": {
-			spec: &StorageSpec{
+			spec: &ModelStorageSpec{
 				Parameters: &map[string]string{
 					"type": "gs",
 				},
