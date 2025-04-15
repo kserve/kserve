@@ -468,22 +468,24 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	isvcStorageUri := *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
 	var localModel *v1alpha1.LocalModelCache
 	var localModelPVCName string
+	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
 	for i, model := range models.Items {
 		// both storage URI and node group have to match for the isvc to be considered cached
 		if model.Spec.MatchStorageURI(isvcStorageUri) {
-			isvcNodeGroup, ok := isvc.Annotations[constants.NodeGroupAnnotationKey]
-			if ok && slices.Contains(model.Spec.NodeGroups, isvcNodeGroup) {
-				// isvc has the nodegroup annotation and it's one of the node groups this model is cached in
-				localModelPVCName = model.Name + "-" + isvcNodeGroup
-			} else if !ok {
+			if isvcNodeGroupExists {
+				if slices.Contains(model.Spec.NodeGroups, isvcNodeGroup) {
+					// isvc has the nodegroup annotation and it's in the node groups this model is cached on
+					localModelPVCName = model.Name + "-" + isvcNodeGroup
+				} else {
+					// isvc has the nodegroup annotation, but it's not in node groups this model is cached on
+					// isvc is not considered cached in this case
+					continue
+				}
+			} else {
 				// isvc doesn't have the nodegroup annotation. Use the first node group from model cache
 				localModelPVCName = model.Name + "-" + model.Spec.NodeGroups[0]
-			} else {
-				// isvc has the nodegroup annotation, but it's not node groups this model is cached in
-				// isvc is not considered cached in this case
-				continue
 			}
-			// found matched local model for isvc
+			// found matched local model cache for isvc
 			localModel = &models.Items[i]
 			break
 		}
