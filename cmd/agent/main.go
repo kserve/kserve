@@ -63,7 +63,6 @@ var (
 	workers             = flag.Int("workers", 5, "Number of workers")
 	sourceUri           = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
 	logMode             = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
-	logCredentialsFile = flag.String("log-credentials", "", "The credentials file to use when logging")
 	logPath            = flag.String("log-path", "", "The path to the log output")
 	logParameters      = flag.StringSlice("log-parameters", nil, "Parameters to override the default storage credentials and config.")
 	logStorageKey      = flag.String("log-storage-key", "", "The storage key in the secret to use when logging")
