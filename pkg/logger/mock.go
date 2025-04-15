@@ -4,17 +4,18 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"net/url"
 )
 
 type MockStore struct {
-	StoreConfig  *StoreConfig
+	StorageSpec  *v1beta1.StorageSpec
 	ResponseChan chan *LogRequest
 }
 
-func NewMockStore(storeConfig *StoreConfig) *MockStore {
+func NewMockStore(storageSpec *v1beta1.StorageSpec) *MockStore {
 	return &MockStore{
-		StoreConfig:  storeConfig,
+		StorageSpec:  storageSpec,
 		ResponseChan: make(chan *LogRequest),
 	}
 }
@@ -26,8 +27,8 @@ func (m MockStore) Store(_ *url.URL, logRequest LogRequest) error {
 	return nil
 }
 
-func (m MockStore) GetConfig() *StoreConfig {
-	return m.StoreConfig
+func (m MockStore) GetStorageSpec() *v1beta1.StorageSpec {
+	return m.StorageSpec
 }
 
 var _ Store = &MockStore{}
