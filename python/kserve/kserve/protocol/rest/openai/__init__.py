@@ -31,7 +31,6 @@ __all__ = [
     "OpenAIGenerativeModel",
     "OpenAIModel",
     "OpenAIChatAdapterModel",
-    "OpenAIEncoderModel",
     "OpenAIProxyModel",
     "ChatPrompt",
     "CompletionRequest",
