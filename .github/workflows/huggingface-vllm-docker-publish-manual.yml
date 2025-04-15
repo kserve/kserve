@@ -21,7 +21,7 @@ jobs:
       matrix:
         image: 
           - version: ${{ inputs.version }}
-            path: 'python/huggingface_server_cpu_openvino.Dockerfile'
+            path: 'python/huggingface_server_cpu.Dockerfile'
           - version: ${{ inputs.version }}-gpu
             path: 'python/huggingface_server.Dockerfile'
     runs-on: ubuntu-latest

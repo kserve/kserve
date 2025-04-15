@@ -30,14 +30,12 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1beta1_pods_metric_source import (
-    V1beta1PodsMetricSource,
-)  # noqa: E501
+from kserve.models.v1beta1_pod_metrics import V1beta1PodMetrics  # noqa: E501
 from kserve.rest import ApiException
 
 
-class TestV1beta1PodsMetricSource(unittest.TestCase):
-    """V1beta1PodsMetricSource unit test stubs"""
+class TestV1beta1PodMetrics(unittest.TestCase):
+    """V1beta1PodMetrics unit test stubs"""
 
     def setUp(self):
         pass
@@ -46,20 +44,24 @@ class TestV1beta1PodsMetricSource(unittest.TestCase):
         pass
 
     def make_instance(self, include_optional):
-        """Test V1beta1PodsMetricSource
+        """Test V1beta1PodMetrics
         include_option is a boolean, when False only required
         params are included, when True both required and
         optional params are included"""
-        # model = kserve.models.v1beta1_pods_metric_source.V1beta1PodsMetricSource()  # noqa: E501
+        # model = kserve.models.v1beta1_pod_metrics.V1beta1PodMetrics()  # noqa: E501
         if include_optional:
-            return V1beta1PodsMetricSource(
-                backend="0", operation_over_time="0", query="0", server_address="0"
+            return V1beta1PodMetrics(
+                backend="0",
+                metric_names=["0"],
+                operation_over_time="0",
+                query="0",
+                server_address="0",
             )
         else:
-            return V1beta1PodsMetricSource()
+            return V1beta1PodMetrics()
 
-    def testV1beta1PodsMetricSource(self):
-        """Test V1beta1PodsMetricSource"""
+    def testV1beta1PodMetrics(self):
+        """Test V1beta1PodMetrics"""
         inst_req_only = self.make_instance(include_optional=False)
         inst_req_and_optional = self.make_instance(include_optional=True)
 

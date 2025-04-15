@@ -51,7 +51,7 @@ class TestV1beta1PodMetricSource(unittest.TestCase):
         # model = kserve.models.v1beta1_pod_metric_source.V1beta1PodMetricSource()  # noqa: E501
         if include_optional:
             return V1beta1PodMetricSource(
-                metric=kserve.models.v1beta1_pods_metric_source.V1beta1PodsMetricSource(
+                metric=kserve.models.v1beta1_pod_metrics.V1beta1PodMetrics(
                     backend="0",
                     operation_over_time="0",
                     query="0",
@@ -66,6 +66,9 @@ class TestV1beta1PodMetricSource(unittest.TestCase):
             )
         else:
             return V1beta1PodMetricSource(
+                metric=kserve.models.v1beta1_pod_metrics.V1beta1PodMetrics(
+                    backend="0",
+                ),
                 target=kserve.models.v1beta1_metric_target.V1beta1MetricTarget(
                     average_utilization=56,
                     average_value=None,

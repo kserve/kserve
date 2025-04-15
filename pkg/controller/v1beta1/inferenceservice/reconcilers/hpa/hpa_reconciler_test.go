@@ -18,6 +18,8 @@ package hpa
 import (
 	"testing"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -38,176 +40,12 @@ func TestCreateHPA(t *testing.T) {
 	cpuResource := v1beta1.MetricCPU
 	memoryResource := v1beta1.MetricMemory
 
-	testInput := map[string]args{
-		"igdefaulthpa": {
-			objectMeta: metav1.ObjectMeta{
-				Name:      "basic-ig",
-				Namespace: "basic-ig-namespace",
-				Annotations: map[string]string{
-					"annotation": "annotation-value",
-				},
-				Labels: map[string]string{
-					"label":                            "label-value",
-					"serving.kserve.io/inferencegraph": "basic-ig",
-				},
-			},
-			componentExt: &v1beta1.ComponentExtensionSpec{},
-		},
-		"igspecifiedhpa": {
-			objectMeta: metav1.ObjectMeta{
-				Name:      "basic-ig",
-				Namespace: "basic-ig-namespace",
-				Annotations: map[string]string{
-					"annotation": "annotation-value",
-				},
-				Labels: map[string]string{
-					"label":                            "label-value",
-					"serving.kserve.io/inferencegraph": "basic-ig",
-				},
-			},
-			componentExt: &v1beta1.ComponentExtensionSpec{
-				MinReplicas: ptr.To(int32(2)),
-				MaxReplicas: 5,
-				ScaleTarget: ptr.To(int32(30)),
-				ScaleMetric: &cpuResource,
-			},
-		},
-		"predictordefaulthpa": {
-			objectMeta: metav1.ObjectMeta{},
-			componentExt: &v1beta1.ComponentExtensionSpec{
-				MinReplicas: nil,
-				MaxReplicas: 0,
-				ScaleTarget: nil,
-				ScaleMetric: &memoryResource,
-			},
-		},
-		"predictorspecifiedhpa": {
-			objectMeta: metav1.ObjectMeta{},
-			componentExt: &v1beta1.ComponentExtensionSpec{
-				MinReplicas: ptr.To(int32(5)),
-				MaxReplicas: 10,
-				ScaleTarget: ptr.To(int32(50)),
-				ScaleMetric: &cpuResource,
-			},
-		},
-		"invalidinputhpa": {
-			objectMeta: metav1.ObjectMeta{},
-			componentExt: &v1beta1.ComponentExtensionSpec{
-				MinReplicas: ptr.To(int32(0)),
-				MaxReplicas: -10,
-				ScaleTarget: nil,
-				ScaleMetric: &memoryResource,
-			},
-		},
-	}
-
-	defaultminreplicas := int32(1)
-	defaultutilization := int32(80)
-	igminreplicas := int32(2)
-	igutilization := int32(30)
-	predictorminreplicas := int32(5)
-	predictorutilization := int32(50)
-
-	expectedHPASpecs := map[string]*autoscalingv2.HorizontalPodAutoscaler{
-		"igdefaulthpa": {
-			ObjectMeta: testInput["igdefaulthpa"].objectMeta,
-			Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-				ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       testInput["igdefaulthpa"].objectMeta.Name,
-				},
-				MinReplicas: &defaultminreplicas,
-				MaxReplicas: 1,
-				Metrics: []autoscalingv2.MetricSpec{
-					{
-						Type: autoscalingv2.ResourceMetricSourceType,
-						Resource: &autoscalingv2.ResourceMetricSource{
-							Name: corev1.ResourceName("cpu"),
-							Target: autoscalingv2.MetricTarget{
-								Type:               "Utilization",
-								AverageUtilization: &defaultutilization,
-							},
-						},
-					},
-				},
-				Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
-			},
-		},
-		"igspecifiedhpa": {
-			ObjectMeta: testInput["igspecifiedhpa"].objectMeta,
-			Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-				ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       testInput["igspecifiedhpa"].objectMeta.Name,
-				},
-				MinReplicas: &igminreplicas,
-				MaxReplicas: 5,
-				Metrics: []autoscalingv2.MetricSpec{
-					{
-						Type: autoscalingv2.ResourceMetricSourceType,
-						Resource: &autoscalingv2.ResourceMetricSource{
-							Name: corev1.ResourceName("cpu"),
-							Target: autoscalingv2.MetricTarget{
-								Type:               "Utilization",
-								AverageUtilization: &igutilization,
-							},
-						},
-					},
-				},
-				Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
-			},
-		},
-		"predictordefaulthpa": {
-			ObjectMeta: metav1.ObjectMeta{},
-			Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-				ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-				},
-				MinReplicas: &defaultminreplicas,
-				MaxReplicas: 1,
-				Metrics: []autoscalingv2.MetricSpec{
-					{
-						Type: autoscalingv2.ResourceMetricSourceType,
-						Resource: &autoscalingv2.ResourceMetricSource{
-							Name: corev1.ResourceName("memory"),
-							Target: autoscalingv2.MetricTarget{
-								Type:               "Utilization",
-								AverageUtilization: &defaultutilization,
-							},
-						},
-					},
-				},
-				Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
-			},
-		},
-		"predictorspecifiedhpa": {
-			ObjectMeta: metav1.ObjectMeta{},
-			Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-				ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-				},
-				MinReplicas: &predictorminreplicas,
-				MaxReplicas: 10,
-				Metrics: []autoscalingv2.MetricSpec{
-					{
-						Type: autoscalingv2.ResourceMetricSourceType,
-						Resource: &autoscalingv2.ResourceMetricSource{
-							Name: corev1.ResourceName("cpu"),
-							Target: autoscalingv2.MetricTarget{
-								Type:               "Utilization",
-								AverageUtilization: &predictorutilization,
-							},
-						},
-					},
-				},
-				Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
-			},
-		},
-	}
+	defaultMinReplicas := int32(1)
+	defaultUtilization := int32(80)
+	igMinReplicas := int32(2)
+	igUtilization := int32(30)
+	predictorMinReplicas := int32(5)
+	predictorUtilization := int32(50)
 
 	tests := []struct {
 		name     string
@@ -218,55 +56,321 @@ func TestCreateHPA(t *testing.T) {
 		{
 			name: "inference graph default hpa",
 			args: args{
-				objectMeta:   testInput["igdefaulthpa"].objectMeta,
-				componentExt: testInput["igdefaulthpa"].componentExt,
+				objectMeta: metav1.ObjectMeta{
+					Name:      "basic-ig",
+					Namespace: "basic-ig-namespace",
+					Annotations: map[string]string{
+						"annotation": "annotation-value",
+					},
+					Labels: map[string]string{
+						"label":                            "label-value",
+						"serving.kserve.io/inferencegraph": "basic-ig",
+					},
+				},
+				componentExt: &v1beta1.ComponentExtensionSpec{},
 			},
-			expected: expectedHPASpecs["igdefaulthpa"],
-			err:      nil,
+			expected: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "basic-ig",
+					Namespace: "basic-ig-namespace",
+					Annotations: map[string]string{
+						"annotation": "annotation-value",
+					},
+					Labels: map[string]string{
+						"label":                            "label-value",
+						"serving.kserve.io/inferencegraph": "basic-ig",
+					},
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "basic-ig",
+					},
+					MinReplicas: &defaultMinReplicas,
+					MaxReplicas: 1,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: corev1.ResourceName("cpu"),
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: &defaultUtilization,
+								},
+							},
+						},
+					},
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+				},
+			},
+			err: nil,
 		},
 		{
 			name: "inference graph specified hpa",
 			args: args{
-				objectMeta:   testInput["igspecifiedhpa"].objectMeta,
-				componentExt: testInput["igspecifiedhpa"].componentExt,
+				objectMeta: metav1.ObjectMeta{
+					Name:      "basic-ig",
+					Namespace: "basic-ig-namespace",
+					Annotations: map[string]string{
+						"annotation": "annotation-value",
+					},
+					Labels: map[string]string{
+						"label":                            "label-value",
+						"serving.kserve.io/inferencegraph": "basic-ig",
+					},
+				},
+				componentExt: &v1beta1.ComponentExtensionSpec{
+					MinReplicas: ptr.To(int32(2)),
+					MaxReplicas: 5,
+					ScaleTarget: ptr.To(int32(30)),
+					ScaleMetric: &cpuResource,
+				},
 			},
-			expected: expectedHPASpecs["igspecifiedhpa"],
+			expected: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "basic-ig",
+					Namespace: "basic-ig-namespace",
+					Annotations: map[string]string{
+						"annotation": "annotation-value",
+					},
+					Labels: map[string]string{
+						"label":                            "label-value",
+						"serving.kserve.io/inferencegraph": "basic-ig",
+					},
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "basic-ig",
+					},
+					MinReplicas: &igMinReplicas,
+					MaxReplicas: 5,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: corev1.ResourceName("cpu"),
+								Target: autoscalingv2.MetricTarget{
+									Type:               "Utilization",
+									AverageUtilization: &igUtilization,
+								},
+							},
+						},
+					},
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+				},
+			},
 		},
 		{
-			name: "predictor default hpa",
+			name: "predictor hpa cpu metric",
 			args: args{
-				objectMeta:   testInput["predictordefaulthpa"].objectMeta,
-				componentExt: testInput["predictordefaulthpa"].componentExt,
+				objectMeta: metav1.ObjectMeta{},
+				componentExt: &v1beta1.ComponentExtensionSpec{
+					MinReplicas: nil,
+					MaxReplicas: 0,
+					AutoScaling: &v1beta1.AutoScalingSpec{
+						Metrics: []v1beta1.MetricsSpec{
+							{
+								Type: v1beta1.ResourceMetricSourceType,
+								Resource: &v1beta1.ResourceMetricSource{
+									Name: v1beta1.ResourceMetricCPU,
+								},
+							},
+						},
+					},
+				},
 			},
-			expected: expectedHPASpecs["predictordefaulthpa"],
-			err:      nil,
+			expected: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+					},
+					MinReplicas: &defaultMinReplicas,
+					MaxReplicas: 1,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: corev1.ResourceName("cpu"),
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(80)),
+								},
+							},
+						},
+					},
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+				},
+			},
+			err: nil,
 		},
 		{
-			name: "predictor specified hpa",
+			name: "predictor hpa memory utilization metric",
 			args: args{
-				objectMeta:   testInput["predictorspecifiedhpa"].objectMeta,
-				componentExt: testInput["predictorspecifiedhpa"].componentExt,
+				objectMeta: metav1.ObjectMeta{},
+				componentExt: &v1beta1.ComponentExtensionSpec{
+					MinReplicas: nil,
+					MaxReplicas: 0,
+					AutoScaling: &v1beta1.AutoScalingSpec{
+						Metrics: []v1beta1.MetricsSpec{
+							{
+								Type: v1beta1.ResourceMetricSourceType,
+								Resource: &v1beta1.ResourceMetricSource{
+									Name: v1beta1.ResourceMetricMemory,
+									Target: v1beta1.MetricTarget{
+										Type:               v1beta1.UtilizationMetricType,
+										AverageUtilization: ptr.To(int32(80)),
+									},
+								},
+							},
+						},
+					},
+				},
 			},
-			expected: expectedHPASpecs["predictorspecifiedhpa"],
-			err:      nil,
+			expected: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+					},
+					MinReplicas: &defaultMinReplicas,
+					MaxReplicas: 1,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: corev1.ResourceName("memory"),
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(80)),
+								},
+							},
+						},
+					},
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+				},
+			},
+			err: nil,
 		},
 		{
-			name: "invalid input for hpa",
+			name: "predictor hpa memory metric",
 			args: args{
-				objectMeta:   testInput["invalidinputhpa"].objectMeta,
-				componentExt: testInput["invalidinputhpa"].componentExt,
+				objectMeta: metav1.ObjectMeta{},
+				componentExt: &v1beta1.ComponentExtensionSpec{
+					MinReplicas: nil,
+					MaxReplicas: 0,
+					AutoScaling: &v1beta1.AutoScalingSpec{
+						Metrics: []v1beta1.MetricsSpec{
+							{
+								Type: v1beta1.ResourceMetricSourceType,
+								Resource: &v1beta1.ResourceMetricSource{
+									Name: v1beta1.ResourceMetricMemory,
+									Target: v1beta1.MetricTarget{
+										Type:         v1beta1.AverageValueMetricType,
+										AverageValue: ptr.To(resource.MustParse("1Gi")),
+									},
+								},
+							},
+						},
+					},
+				},
 			},
-			expected: expectedHPASpecs["predictordefaulthpa"],
-			err:      nil,
+			expected: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+					},
+					MinReplicas: &defaultMinReplicas,
+					MaxReplicas: 1,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: corev1.ResourceName("memory"),
+								Target: autoscalingv2.MetricTarget{
+									Type:         autoscalingv2.AverageValueMetricType,
+									AverageValue: ptr.To(resource.MustParse("1Gi")),
+								},
+							},
+						},
+					},
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "predictor hpa with ScaleMetric",
+			args: args{
+				objectMeta: metav1.ObjectMeta{},
+				componentExt: &v1beta1.ComponentExtensionSpec{
+					MinReplicas: ptr.To(int32(5)),
+					MaxReplicas: 10,
+					ScaleTarget: ptr.To(int32(50)),
+					ScaleMetric: &cpuResource,
+				},
+			},
+			expected: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+					},
+					MinReplicas: &predictorMinReplicas,
+					MaxReplicas: 10,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: corev1.ResourceName("cpu"),
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: &predictorUtilization,
+								},
+							},
+						},
+					},
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+				},
+			},
+			err: nil,
+		},
+		{
+			name: "invalid memory scale target for hpa",
+			args: args{
+				objectMeta: metav1.ObjectMeta{},
+				componentExt: &v1beta1.ComponentExtensionSpec{
+					MinReplicas: ptr.To(int32(0)),
+					MaxReplicas: -10,
+					ScaleTarget: nil,
+					ScaleMetric: &memoryResource,
+				},
+			},
+			expected: &autoscalingv2.HorizontalPodAutoscaler{
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{Kind: "Deployment", APIVersion: "apps/v1"},
+					MinReplicas:    ptr.To(int32(1)),
+					MaxReplicas:    int32(1),
+					Behavior:       &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+				},
+			},
+			err: nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := createHPA(tt.args.objectMeta, tt.args.componentExt)
+			got := createHPA(tt.args.objectMeta, tt.args.componentExt)
 			if diff := cmp.Diff(tt.expected, got); diff != "" {
 				t.Errorf("Test %q unexpected hpa (-want +got): %v", tt.name, diff)
 			}
-			assert.Equal(t, tt.err, err)
 		})
 	}
 }

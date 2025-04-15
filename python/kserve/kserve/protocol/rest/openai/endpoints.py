@@ -30,6 +30,7 @@ from kserve.protocol.rest.openai.types import (
     ErrorResponse,
     Model,
     ModelList,
+    RerankRequest,
 )
 
 from ....errors import ModelNotReady
@@ -45,6 +46,7 @@ if len(OPENAI_ROUTE_PREFIX) > 0 and not OPENAI_ROUTE_PREFIX.startswith("/"):
 CreateCompletionRequestAdapter = TypeAdapter(CompletionRequest)
 ChatCompletionRequestAdapter = TypeAdapter(ChatCompletionRequest)
 EmbeddingRequestAdapter = TypeAdapter(EmbeddingRequest)
+RerankRequestAdapter = TypeAdapter(RerankRequest)
 
 
 class OpenAIEndpoints:
@@ -183,6 +185,47 @@ class OpenAIEndpoints:
         else:
             return embedding
 
+    async def create_rerank(
+        self,
+        raw_request: Request,
+        request_body: RerankRequest,
+        response: Response,
+    ) -> Response:
+        """Create rerank handler.
+        Args:
+            raw_request (Request): fastapi request object,
+            model_name (str): Model name.
+            request_body (RerankRequestAdapter): Rerank params body.
+        Returns:
+            InferenceResponse: Inference response object.
+        """
+        try:
+            params = RerankRequestAdapter.validate_python(request_body)
+        except ValidationError as e:
+            raise RequestValidationError(errors=e.errors())
+        params = request_body
+        model_name = params.model
+        model_ready = await self.dataplane.model_ready(model_name)
+
+        if not model_ready:
+            raise ModelNotReady(model_name)
+
+        rerank = await self.dataplane.create_rerank(
+            model_name=model_name,
+            request=params,
+            raw_request=raw_request,
+            headers=raw_request.headers,
+            response=response,
+        )
+        if isinstance(rerank, ErrorResponse):
+            return ORJSONResponse(
+                content=rerank.model_dump(), status_code=int(rerank.error.code)
+            )
+        elif isinstance(rerank, AsyncGenerator):
+            return StreamingResponse(rerank, media_type="text/event-stream")
+        else:
+            return rerank
+
     async def models(
         self,
     ) -> ModelList:
@@ -234,6 +277,13 @@ def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):
     openai_router.add_api_route(
         r"/v1/embeddings",
         endpoints.create_embedding,
+        methods=["POST"],
+        response_model_exclude_none=True,
+        response_model_exclude_unset=True,
+    )
+    openai_router.add_api_route(
+        r"/v1/rerank",
+        endpoints.create_rerank,
         methods=["POST"],
         response_model_exclude_none=True,
         response_model_exclude_unset=True,

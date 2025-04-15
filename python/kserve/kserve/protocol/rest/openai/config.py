@@ -12,23 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import List
-
 from fastapi import FastAPI
 
 from ....model import Model
 from ....model_repository import ModelRepository
 
 
-def get_open_ai_models(repository: ModelRepository) -> List[Model]:
+def get_open_ai_models(repository: ModelRepository) -> dict[str, Model]:
     """Retrieve all models in the repository that implement the OpenAI interface"""
     from .openai_model import OpenAIModel
 
-    return [
-        model
-        for _, model in repository.get_models().items()
+    return {
+        name: model
+        for name, model in repository.get_models().items()
         if isinstance(model, OpenAIModel)
-    ]
+    }
 
 
 def maybe_register_openai_endpoints(app: FastAPI, model_registry: ModelRepository):
@@ -41,8 +39,8 @@ def maybe_register_openai_endpoints(app: FastAPI, model_registry: ModelRepositor
 
     # Create a model repository with just the OpenAI models
     openai_model_registry = ModelRepository()
-    for model in open_ai_models:
-        openai_model_registry.update(model)
+    for name, model in open_ai_models.items():
+        openai_model_registry.update(model, name)
 
     # Add the OpenAI completion and chat completion endpoints.
     register_openai_endpoints(app, OpenAIDataPlane(openai_model_registry))

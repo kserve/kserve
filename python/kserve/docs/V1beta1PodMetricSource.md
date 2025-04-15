@@ -4,8 +4,8 @@ PodMetricSource indicates how to scale on a metric describing each pod in the cu
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**metric** | [**V1beta1PodsMetricSource**](V1beta1PodsMetricSource.md) |  | [optional] 
-**target** | [**V1beta1MetricTarget**](V1beta1MetricTarget.md) |  | [optional] 
+**metric** | [**V1beta1PodMetrics**](V1beta1PodMetrics.md) |  | 
+**target** | [**V1beta1MetricTarget**](V1beta1MetricTarget.md) |  | 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

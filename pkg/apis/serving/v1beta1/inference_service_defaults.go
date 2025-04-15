@@ -44,6 +44,7 @@ var mutatorLogger = logf.Log.WithName("inferenceservice-v1beta1-mutating-webhook
 
 // +kubebuilder:object:generate=false
 // +k8s:openapi-gen=false
+
 // InferenceServiceDefaulter is responsible for setting default values on the InferenceService
 // when created or updated.
 //

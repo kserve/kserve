@@ -72,7 +72,7 @@ type LoggerSpec struct {
 }
 
 // MetricsBackend enum
-// +kubebuilder:validation:Enum=prometheus;graphite;opentelemetry
+// +kubebuilder:validation:Enum=prometheus;graphite
 type MetricsBackend string
 
 const (
@@ -80,12 +80,12 @@ const (
 	GraphiteBackend   MetricsBackend = "graphite"
 )
 
-// MetricsBackend enum
+// PodsMetricsBackend enum
 // +kubebuilder:validation:Enum=opentelemetry
 type PodsMetricsBackend string
 
 const (
-	OpenTelemetryBackend MetricsBackend = "opentelemetry"
+	OpenTelemetryBackend PodsMetricsBackend = "opentelemetry"
 )
 
 // Batcher specifies optional payload batching available for all components
