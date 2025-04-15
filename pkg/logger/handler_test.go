@@ -244,9 +244,18 @@ func TestLoggerWithS3Store(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	store := NewMockStore(&StoreConfig{
-		Format: "json",
-	})
+	path := "path/"
+	params := map[string]string{
+		"format": "json",
+		"region": "us-west-2",
+	}
+	key := "/secrets/s3/credentials"
+	spec := &v1beta1.StorageSpec{
+		Path:       &path,
+		Parameters: &params,
+		StorageKey: &key,
+	}
+	store := NewMockStore(spec)
 
 	StartDispatcher(5, store, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
