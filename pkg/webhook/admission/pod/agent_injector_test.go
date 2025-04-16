@@ -18,6 +18,7 @@ package pod
 
 import (
 	"encoding/json"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -1598,6 +1599,7 @@ func TestAgentInjector(t *testing.T) {
 	for k, v := range storageParameters {
 		storageParamsKV = append(storageParamsKV, k+"="+v)
 	}
+	sort.Strings(storageParamsKV)
 	storageParamsSerialized := strings.Join(storageParamsKV, ",")
 	scenariosLoggerStorage := map[string]struct {
 		original *corev1.Pod
@@ -1813,13 +1815,13 @@ func TestGetLoggerConfigs(t *testing.T) {
 						"CpuRequest":    "100m",
 						"CpuLimit":      "1",
 						"MemoryRequest": "200Mi",
-						"MemoryLimit":   "1Gi"
+						"MemoryLimit":   "1Gi",
 						"Store": {
-							"Path": "/logging",
+							"Path": "/logger",
 							"Parameters": {
 								"type": "s3",
-								"region": "us-west-2"
-								"format": "json",
+								"region": "us-west-2",
+								"format": "json"
 							},
 							"StorageKey": "logger-credentials"
 						}

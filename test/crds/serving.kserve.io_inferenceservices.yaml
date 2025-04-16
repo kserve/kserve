@@ -8216,6 +8216,17 @@ spec:
                         - request
                         - response
                         type: string
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                        type: object
                       url:
                         type: string
                     type: object
@@ -12730,6 +12741,17 @@ spec:
                         - request
                         - response
                         type: string
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                        type: object
                       url:
                         type: string
                     type: object
@@ -25669,6 +25691,17 @@ spec:
                         - request
                         - response
                         type: string
+                      storage:
+                        properties:
+                          key:
+                            type: string
+                          parameters:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          path:
+                            type: string
+                        type: object
                       url:
                         type: string
                     type: object
