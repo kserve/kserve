@@ -61,6 +61,18 @@ func TestComponentExtensionSpec_Validate(t *testing.T) {
 }
 
 func TestComponentExtensionSpec_validateStorageSpec(t *testing.T) {
+	storagePath := "/logger"
+	storageParameters := map[string]string{
+		"type":   "s3",
+		"region": "us-west-2",
+		"format": "json",
+	}
+	invalidStorageParameters := map[string]string{
+		"type":   "gcs",
+		"region": "us-west-2",
+		"format": "json",
+	}
+	storageKey := "logger-credentials"
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		spec       *ModelStorageSpec
@@ -69,8 +81,10 @@ func TestComponentExtensionSpec_validateStorageSpec(t *testing.T) {
 	}{
 		"ValidStoragespec": {
 			spec: &ModelStorageSpec{
-				Parameters: &map[string]string{
-					"type": "s3",
+				StorageSpec: StorageSpec{
+					Path:       &storagePath,
+					Parameters: &storageParameters,
+					StorageKey: &storageKey,
 				},
 			},
 			storageUri: nil,
@@ -83,8 +97,10 @@ func TestComponentExtensionSpec_validateStorageSpec(t *testing.T) {
 		},
 		"ValidStoragespecWithStorageURI": {
 			spec: &ModelStorageSpec{
-				Parameters: &map[string]string{
-					"type": "s3",
+				StorageSpec: StorageSpec{
+					Path:       &storagePath,
+					Parameters: &storageParameters,
+					StorageKey: &storageKey,
 				},
 			},
 			storageUri: proto.String("s3://test/model"),
@@ -92,8 +108,10 @@ func TestComponentExtensionSpec_validateStorageSpec(t *testing.T) {
 		},
 		"StorageSpecWithInvalidStorageURI": {
 			spec: &ModelStorageSpec{
-				Parameters: &map[string]string{
-					"type": "gs",
+				StorageSpec: StorageSpec{
+					Path:       &storagePath,
+					Parameters: &invalidStorageParameters,
+					StorageKey: &storageKey,
 				},
 			},
 			storageUri: proto.String("gs://test/model"),
@@ -101,8 +119,10 @@ func TestComponentExtensionSpec_validateStorageSpec(t *testing.T) {
 		},
 		"InvalidStoragespec": {
 			spec: &ModelStorageSpec{
-				Parameters: &map[string]string{
-					"type": "gs",
+				StorageSpec: StorageSpec{
+					Path:       &storagePath,
+					Parameters: &invalidStorageParameters,
+					StorageKey: &storageKey,
 				},
 			},
 			storageUri: nil,
