@@ -25,11 +25,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/kserve/kserve/pkg/agent/storage"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"go.uber.org/zap"
 	"net/url"
-	"os"
 	"path"
-	"sigs.k8s.io/yaml"
+	"strconv"
 	"strings"
 )
 
@@ -56,48 +56,6 @@ func GetStorageStrategy(url string) StorageStrategy {
 	return DefaultStorage
 }
 
-func GetLoggerConfig(loggerConfigFilePath string, log *zap.SugaredLogger) (*StoreConfig, error) {
-	credFile, err := os.Open(loggerConfigFilePath)
-	if err != nil {
-		return nil, err
-	}
-	defer func(file *os.File) {
-		err := file.Close()
-		if err != nil {
-			log.Errorw("Error closing logger credentials file:", err)
-		}
-	}(credFile)
-
-	credFileStat, err := credFile.Stat()
-	if err != nil {
-		log.Errorw("Error getting logger credentials file stat:", err)
-	}
-	credBuf := make([]byte, credFileStat.Size())
-	_, err = credFile.Read(credBuf)
-
-	var storeConfig StoreConfig
-
-	if strings.HasSuffix(loggerConfigFilePath, ".yaml") || strings.HasSuffix(loggerConfigFilePath, ".yml") {
-		err = yaml.Unmarshal(credBuf, &storeConfig)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if strings.HasSuffix(loggerConfigFilePath, ".json") {
-		err = json.Unmarshal(credBuf, &storeConfig)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if storeConfig.Format == "" {
-		storeConfig.Format = DefaultStoreFormat
-	}
-	log.Infow("Loaded logger store config file", "loggerConfigFilePath", loggerConfigFilePath)
-	return &storeConfig, nil
-}
-
 type Marshaller interface {
 	Marshal(v interface{}) ([]byte, error)
 }
@@ -119,11 +77,11 @@ func getMarshaller(format string) (Marshaller, error) {
 
 type Store interface {
 	Store(logUrl *url.URL, logRequest LogRequest) error
-	GetConfig() *StoreConfig
+	GetStorageSpec() *v1beta1.StorageSpec
 }
 
 type S3Store struct {
-	config     *StoreConfig
+	storeSpec  *v1beta1.StorageSpec
 	log        *zap.SugaredLogger
 	marshaller Marshaller
 	uploader   *storage.S3ObjectUploader
@@ -131,21 +89,33 @@ type S3Store struct {
 
 var _ Store = &S3Store{}
 
-func NewS3Store(loggerConfig *StoreConfig, marshaller Marshaller, uploader *storage.S3ObjectUploader, log *zap.SugaredLogger) *S3Store {
+func NewS3Store(storeSpec *v1beta1.StorageSpec, marshaller Marshaller, uploader *storage.S3ObjectUploader, log *zap.SugaredLogger) *S3Store {
 	return &S3Store{
-		config:     loggerConfig,
+		storeSpec:  storeSpec,
 		marshaller: marshaller,
 		log:        log,
 		uploader:   uploader,
 	}
 }
 
-func NewStoreForScheme(scheme string, config *StoreConfig, log *zap.SugaredLogger) (Store, error) {
-	if config == nil {
-		return nil, fmt.Errorf("logger config is invalid")
+func NewStoreForScheme(scheme string, storeSpec *v1beta1.StorageSpec, log *zap.SugaredLogger) (Store, error) {
+	if storeSpec == nil {
+		return nil, fmt.Errorf("storage spec is invalid")
+	}
+	if storeSpec.StorageKey == nil {
+		return nil, fmt.Errorf("no storage key specified in storage spec")
 	}
 
-	marshaller, err := getMarshaller(config.Format)
+	if storeSpec.Parameters == nil {
+		return nil, fmt.Errorf("no parameters specified for store spec")
+	}
+	params := *storeSpec.Parameters
+	format := "json"
+	if f, ok := params["format"]; ok {
+		format = f
+	}
+
+	marshaller, err := getMarshaller(format)
 	if err != nil {
 		return nil, err
 	}
@@ -157,12 +127,24 @@ func NewStoreForScheme(scheme string, config *StoreConfig, log *zap.SugaredLogge
 	protocol := storage.Protocol(scheme)
 	switch protocol {
 	case storage.S3:
-		awsConfig := &aws.Config{
-			Region:           aws.String(config.Region),
-			S3ForcePathStyle: aws.Bool(config.S3ForcePathStyle),
+		region, ok := params["region"]
+		if !ok {
+			return nil, fmt.Errorf("region not specified in parameters")
 		}
-		awsConfig.WithCredentials(awsCreds.NewStaticCredentials(config.S3.S3AccessKeyIDName, config.S3.S3SecretAccessKeyName, ""))
-		awsConfig.Endpoint = aws.String(config.S3.S3Endpoint)
+		s3ForcePathStyle := false
+		if forcePathStyle, ok := params["s3ForcePathStyle"]; ok {
+			s3Force, err := strconv.ParseBool(forcePathStyle)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse s3ForcePathStyle: %w", err)
+			}
+			s3ForcePathStyle = s3Force
+		}
+		awsConfig := &aws.Config{
+			Region:           aws.String(region),
+			S3ForcePathStyle: aws.Bool(s3ForcePathStyle),
+		}
+		awsConfig.WithCredentials(awsCreds.NewSharedCredentials(*storeSpec.StorageKey, ""))
+		//awsConfig.Endpoint = aws.String(config.S3.S3Endpoint)
 
 		sess, err := session.NewSession(awsConfig)
 		if err != nil {
@@ -173,7 +155,7 @@ func NewStoreForScheme(scheme string, config *StoreConfig, log *zap.SugaredLogge
 		uploader := &storage.S3ObjectUploader{
 			Uploader: s3manager.NewUploaderWithClient(s3Client, func(u *s3manager.Uploader) {}),
 		}
-		return NewS3Store(config, marshaller, uploader, log), nil
+		return NewS3Store(storeSpec, marshaller, uploader, log), nil
 	default:
 		return nil, fmt.Errorf("unsupported logger store scheme %s", scheme)
 	}
@@ -215,8 +197,8 @@ func (s *S3Store) Store(logUrl *url.URL, logRequest LogRequest) error {
 	return nil
 }
 
-func (s *S3Store) GetConfig() *StoreConfig {
-	return s.config
+func (s *S3Store) GetStorageSpec() *v1beta1.StorageSpec {
+	return s.storeSpec
 }
 
 func (s *S3Store) getObjectPrefix(configPrefix string, request *LogRequest) (string, error) {
@@ -256,7 +238,9 @@ func (s *S3Store) getObjectKey(configPrefix string, request *LogRequest) (string
 	}
 
 	reqType := request.ReqType[typeEnd+1:]
-	return fmt.Sprintf("%s/%s-%s.%s", prefix, request.Id, reqType, s.config.Format), nil
+	params := *s.storeSpec.Parameters
+	format := params["format"]
+	return fmt.Sprintf("%s/%s-%s.%s", prefix, request.Id, reqType, format), nil
 }
 
 func parseS3URL(s3url string) (bucket, key string, err error) {

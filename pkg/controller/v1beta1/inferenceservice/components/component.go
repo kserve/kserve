@@ -37,7 +37,7 @@ type Component interface {
 	Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error)
 }
 
-func addStorageSpecAnnotations(storageSpec *v1beta1.StorageSpec, annotations map[string]string) bool {
+func addStorageSpecAnnotations(storageSpec *v1beta1.ModelStorageSpec, annotations map[string]string) bool {
 	if storageSpec == nil {
 		return false
 	}

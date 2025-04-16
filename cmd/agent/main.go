@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-logr/zapr"
@@ -58,16 +59,18 @@ var (
 	configDir    = flag.String("config-dir", "/mnt/configs", "directory for model config files")
 	modelDir     = flag.String("model-dir", "/mnt/models", "directory for model files")
 	// logger flags
-	logUrl             = flag.String("log-url", "", "The URL to send request/response logs to")
-	workers            = flag.Int("workers", 5, "Number of workers")
-	sourceUri          = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
-	logMode            = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
-	logCredentialsFile = flag.String("log-credentials", "", "The credentials file to use when logging")
-	inferenceService   = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
-	namespace          = flag.String("namespace", "", "The namespace to add as header to log events")
-	endpoint           = flag.String("endpoint", "", "The endpoint name to add as header to log events")
-	component          = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
-	metadataHeaders    = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
+	logUrl           = flag.String("log-url", "", "The URL to send request/response logs to")
+	workers          = flag.Int("workers", 5, "Number of workers")
+	sourceUri        = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
+	logMode          = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
+	logPath          = flag.String("log-path", "", "The path to the log output")
+	logParameters    = flag.StringSlice("log-parameters", nil, "Parameters to override the default storage credentials and config.")
+	logStorageKey    = flag.String("log-storage-key", "", "The storage key in the secret to use when logging")
+	inferenceService = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
+	namespace        = flag.String("namespace", "", "The namespace to add as header to log events")
+	endpoint         = flag.String("endpoint", "", "The endpoint name to add as header to log events")
+	component        = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
+	metadataHeaders  = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
 	// batcher flags
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
@@ -151,7 +154,22 @@ func main() {
 	var loggerArgs *loggerArgs
 	if *logUrl != "" {
 		logger.Info("Starting logger")
-		loggerArgs = startLogger(*workers, logCredentialsFile, logger)
+		params := make(map[string]string)
+		for _, param := range *logParameters {
+			kv := strings.Split(param, "=")
+			if len(kv) != 2 {
+				logger.Errorf("Malformed log-parameters %s", param)
+				os.Exit(-1)
+			}
+			params[kv[0]] = kv[1]
+		}
+
+		storageSpec := &v1beta1.StorageSpec{
+			Path:       logPath,
+			Parameters: &params,
+			StorageKey: logStorageKey,
+		}
+		loggerArgs = startLogger(*workers, storageSpec, logger)
 	}
 
 	var batcherArgs *batcherArgs
@@ -262,7 +280,7 @@ func startBatcher(logger *zap.SugaredLogger) *batcherArgs {
 	}
 }
 
-func startLogger(workers int, storeCredentials *string, log *zap.SugaredLogger) *loggerArgs {
+func startLogger(workers int, storageSpec *v1beta1.StorageSpec, log *zap.SugaredLogger) *loggerArgs {
 	loggingMode := v1beta1.LoggerType(*logMode)
 	switch loggingMode {
 	case v1beta1.LogAll, v1beta1.LogRequest, v1beta1.LogResponse:
@@ -289,19 +307,11 @@ func startLogger(workers int, storeCredentials *string, log *zap.SugaredLogger) 
 
 	var store kfslogger.Store
 	if kfslogger.GetStorageStrategy(*logUrl) != kfslogger.HttpStorage {
-		if *storeCredentials != "" {
-			storeConfig, err := kfslogger.GetLoggerConfig(*storeCredentials, log)
+		if *logPath != "" {
+			store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, storageSpec, log)
 			if err != nil {
-				log.Errorw("Error getting logger credentials file", zap.Error(err))
+				log.Errorw("Error creating logger store", zap.Error(err))
 				os.Exit(-1)
-			}
-
-			if storeConfig != nil {
-				store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, storeConfig, log)
-				if err != nil {
-					log.Errorw("Error creating logger store", zap.Error(err))
-					os.Exit(-1)
-				}
 			}
 		}
 	}
