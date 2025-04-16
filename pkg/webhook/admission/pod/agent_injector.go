@@ -208,7 +208,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		storageParameters := ""
 		if ag.loggerConfig.Store != nil {
 			if ag.loggerConfig.Store.Parameters != nil {
-				params := make([]string, 0, len(*ag.loggerConfig.Store.Parameters))
+				params := make([]string, 0)
 				for key, value := range *ag.loggerConfig.Store.Parameters {
 					params = append(params, fmt.Sprintf("%s=%s", key, value))
 				}
