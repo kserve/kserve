@@ -236,14 +236,21 @@ func validateMultiNodeSpec(newSpec *v1alpha1.ServingRuntimeSpec, existingSpec *v
 			}
 		}
 
-		// WorkerSpec.PipelineParallelSize should not be less than 2.
-		pipelineParallelSize := *newSpec.WorkerSpec.PipelineParallelSize
+		// Check PipelineParallelSize
+		pipelineParallelSize := constants.DefaultPipelineParallelSize
+		if newSpec.WorkerSpec.PipelineParallelSize != nil {
+			pipelineParallelSize = *newSpec.WorkerSpec.PipelineParallelSize
+		}
+
 		if pipelineParallelSize < constants.DefaultPipelineParallelSize {
 			return fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, strconv.Itoa(pipelineParallelSize))
 		}
 
-		// WorkerSpec.TensorParallelSize should not be less than 1
-		tensorParallelSize := *newSpec.WorkerSpec.TensorParallelSize
+		// Check TensorParallelSize
+		tensorParallelSize := constants.DefaultTensorParallelSize
+		if newSpec.WorkerSpec.TensorParallelSize != nil {
+			tensorParallelSize = *newSpec.WorkerSpec.TensorParallelSize
+		}
 		if tensorParallelSize < constants.DefaultTensorParallelSize {
 			return fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, strconv.Itoa(tensorParallelSize))
 		}

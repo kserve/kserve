@@ -608,7 +608,7 @@ func computeRayNodeAndGPUs(mergedWorkerPodSpec *corev1.PodSpec, totalRequestGPUC
 			if rayNodeCountByHeadGpuCount == 1 {
 				rayNodeCount = 1
 			}
-		} else if headNodeGPUCount == 0 || headNodeGPUCount == newHeadNodeGPUCount {
+		} else if headNodeGPUCount == 0 {
 			headNodeGPUCount = newHeadNodeGPUCount
 		}
 
@@ -631,7 +631,7 @@ func computeRayNodeAndGPUs(mergedWorkerPodSpec *corev1.PodSpec, totalRequestGPUC
 		workerNodeGPUCount = 1
 
 		if remainingGPUs > 0 {
-			rayNodeCount = computeRayNodes(remainingGPUs, 1) + 1 // Single GPU worker nodes
+			rayNodeCount = computeRayNodes(remainingGPUs, workerNodeGPUCount) + 1 // Single GPU worker nodes
 		}
 
 		if err := validateGPUAllocation(rayNodeCount, headNodeGPUCount, workerNodeGPUCount); err != nil {
