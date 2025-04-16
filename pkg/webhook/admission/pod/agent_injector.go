@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/kserve/kserve/pkg/logger"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -212,6 +213,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 				for key, value := range *ag.loggerConfig.Store.Parameters {
 					params = append(params, fmt.Sprintf("%s=%s", key, value))
 				}
+				sort.Strings(params)
 				storageParameters = strings.Join(params, ",")
 			} else {
 				log.Error(nil, "Logger storage is configured but parameters are not set")
