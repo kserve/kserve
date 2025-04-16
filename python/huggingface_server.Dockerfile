@@ -24,11 +24,11 @@ RUN apt-get update -y \
     && python3 --version && python3 -m pip --version \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.8.3
-RUN --mount=type=cache,target=/root/.cache/pip curl -sSL https://install.python-poetry.org | python3 - --version $POETRY_VERSION -y
-ENV PATH="$PATH:${POETRY_HOME}/bin"
+# Install uv
+RUN curl -Ls https://astral.sh/uv/install.sh | sh
+
+# Make uv available
+ENV PATH="$HOME/.cargo/bin:$PATH"
 
 # Workaround for https://github.com/openai/triton/issues/2507 and
 # https://github.com/pytorch/pytorch/issues/107960 -- hopefully
@@ -122,6 +122,7 @@ ARG VENV_PATH
 ENV VIRTUAL_ENV=${WORKSPACE_DIR}/${VENV_PATH}
 ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
+# Create non-root user
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/third_party third_party

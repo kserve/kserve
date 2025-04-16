@@ -4,30 +4,29 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
-# Install Poetry
-ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.8.3
+# Required for building packages and installing uv
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl build-essential python3-dev && \
+    curl -Ls https://astral.sh/uv/install.sh | sh && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Required for building packages for arm64 arch
-RUN apt-get update && apt-get install -y --no-install-recommends python3-dev build-essential && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Add uv to PATH
+ENV PATH="$HOME/.cargo/bin:$PATH"
 
-RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
-ENV PATH="$PATH:${POETRY_HOME}/bin"
-
-# Activate virtual env
+# Setup virtual environment
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache
+# ------------------ kserve deps ------------------
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN cd kserve && uv pip install -r uv.lock
 COPY kserve kserve
-RUN cd kserve && poetry install --no-interaction --no-cache
 
-COPY artexplainer/pyproject.toml artexplainer/poetry.lock artexplainer/
-RUN cd artexplainer && poetry install --no-root --no-interaction --no-cache
+# ------------------ artexplainer deps ------------------
+COPY artexplainer/pyproject.toml artexplainer/uv.lock artexplainer/
+RUN cd artexplainer && uv pip install -r uv.lock
 COPY artexplainer artexplainer
 RUN cd artexplainer && poetry install --no-interaction --no-cache
 
@@ -39,12 +38,15 @@ RUN pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 
+# ------------------ Production stage ------------------
 FROM ${BASE_IMAGE} AS prod
 
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+COPY third_party third_party
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
