@@ -3,10 +3,15 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
+# Install system dependencies and uv
+RUN apt-get update && apt-get upgrade -y && apt-get install gcc python3.10-venv python3-dev -y && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.8.3
+# Install uv
+RUN curl -Ls https://astral.sh/uv/install.sh | sh
+
+# Make uv available
+ENV PATH="$HOME/.cargo/bin:$PATH"
 
 # Install vllm
 ARG VLLM_VERSION=0.8.4
@@ -19,21 +24,20 @@ ENV PATH="$PATH:${POETRY_HOME}/bin"
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python3 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+RUN python3 -m venv ${VIRTUAL_ENV}
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
-COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache
+# Install kserve dependencies using uv
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN cd kserve && uv pip install -r uv.lock
 COPY kserve kserve
-RUN cd kserve && poetry install --no-interaction --no-cache
 
-COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/health_check.py huggingfaceserver/
-RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
+# Install huggingfaceserver dependencies using uv
+COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
+RUN cd huggingfaceserver && uv pip install -r uv.lock
 COPY huggingfaceserver huggingfaceserver
-RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
-RUN pip install --upgrade pip && pip install vllm==${VLLM_VERSION}
-
+# ---------- Production image ----------
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS prod
 
 RUN apt-get update && apt-get upgrade -y && apt-get install python3.10-venv build-essential gcc python3-dev -y && apt-get clean && \
@@ -44,11 +48,13 @@ COPY third_party third_party
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
+# Create non-root user
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
-COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
+# Copy venv and code from builder stage
+COPY --from=builder --chown=kserve:kserve ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 COPY --from=builder kserve kserve
 COPY --from=builder huggingfaceserver huggingfaceserver
 
