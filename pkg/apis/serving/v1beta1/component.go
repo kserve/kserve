@@ -42,6 +42,7 @@ const (
 	UnsupportedStorageURIFormatError                 = "storageUri, must be one of: [%s] or match https://{}.blob.core.windows.net/{}/{} or be an absolute or relative local path. StorageUri [%s] is not supported"
 	UnsupportedStorageSpecFormatError                = "storage.spec.type, must be one of: [%s]. storage.spec.type [%s] is not supported"
 	InvalidLoggerType                                = "invalid logger type"
+	InvalidLoggerStorageConfigError                  = "invalid logger storage configuration"
 	InvalidISVCNameFormatError                       = "the InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
 	InvalidProtocol                                  = "invalid protocol %s. Must be one of [%s]"
 	MissingStorageURI                                = "the InferenceService %q is invalid: StorageURI must be set for multinode enabled"
@@ -328,6 +329,11 @@ func validateLogger(logger *LoggerSpec) error {
 	if logger != nil {
 		if !(logger.Mode == LogAll || logger.Mode == LogRequest || logger.Mode == LogResponse) {
 			return errors.New(InvalidLoggerType)
+		}
+		if logger.Storage != nil {
+			if logger.Storage.Path == nil || logger.Storage.Parameters == nil || logger.Storage.StorageKey == nil {
+				return errors.New(InvalidLoggerStorageConfigError)
+			}
 		}
 	}
 	return nil
