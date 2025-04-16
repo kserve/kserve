@@ -1,43 +1,24 @@
-[tool.poetry]
+[project]
+authors = [
+    {name = "Dan Sun", email = "dsun20@bloomberg.net"},
+]
+license = {text = "https://github.com/kserve/kserve/blob/master/LICENSE"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+    "torchvision==0.18.0+cpu",
+    "torch==2.3.0+cpu",
+    "pillow<11.0.0,>=10.3.0",
+]
 name = "custom_transformer"
 version = "0.15.0"
 description = "Custom Transformer Examples. Not intended for use outside KServe Frameworks Images."
-authors = ["Dan Sun <dsun20@bloomberg.net>"]
-license = "https://github.com/kserve/kserve/blob/master/LICENSE"
-packages = [
-    { include = "*.py" }
+
+[dependency-groups]
+test = [
+    "pytest<8.0.0,>=7.4.4",
+    "mypy<1.0,>=0.991",
 ]
-
-[tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-kserve = {path = "../kserve", develop = true}
-torchvision = {version = "0.18.0+cpu", source = "pytorch"}
-torch = {version = "2.3.0+cpu", source = "pytorch"}
-pillow = "^10.3.0"
-
-
-[[tool.poetry.source]]
-name = "pytorch"
-url = "https://download.pytorch.org/whl/cpu"
-priority = "explicit"
-
-[tool.poetry.group.test]
-optional = true
-
-[tool.poetry.group.test.dependencies]
-pytest = "^7.4.4"
-mypy = "^0.991"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-black = { version = "~24.3.0", extras = ["colorama"] }
-
-[tool.poetry-version-plugin]
-source = "file"
-file_path = "../VERSION"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+dev = [
+    "black[colorama]~=24.3.0",
+]
