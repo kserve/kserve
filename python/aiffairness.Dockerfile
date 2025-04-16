@@ -4,30 +4,32 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
-# Install Poetry
-ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.8.3
+# Required for building wheels and installing uv
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl build-essential python3-dev && \
+    curl -Ls https://astral.sh/uv/install.sh | sh && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Required for building packages for arm64 arch
-RUN apt-get update && apt-get install -y --no-install-recommends python3-dev build-essential && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# Add uv to PATH
+ENV PATH="$HOME/.cargo/bin:$PATH"
 
-RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
-ENV PATH="$PATH:${POETRY_HOME}/bin"
-
-# Activate virtual env
+# Set up and activate virtual environment
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache
-COPY kserve kserve
-RUN cd kserve && poetry install --no-interaction --no-cache
+# ------------------ Install kserve dependencies ------------------
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN cd kserve && uv pip install -r uv.lock
 
-COPY aiffairness/pyproject.toml aiffairness/poetry.lock aiffairness/
-RUN cd aiffairness && poetry install --no-root --no-interaction --no-cache
+# Copy source code separately (better Docker caching)
+COPY kserve kserve
+
+# ------------------ Install aiffairness dependencies ------------------
+COPY aiffairness/pyproject.toml aiffairness/uv.lock aiffairness/
+RUN cd aiffairness && uv pip install -r uv.lock
+
 COPY aiffairness aiffairness
 RUN cd aiffairness && poetry install --no-interaction --no-cache
 
@@ -39,6 +41,7 @@ RUN pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 
+# ------------------ Final Stage ------------------
 FROM ${BASE_IMAGE} AS prod
 
 # Activate virtual env
