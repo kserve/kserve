@@ -4,36 +4,27 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
-# Install Poetry
-ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.8.3
-
-# Required for building packages for arm64 arch
-RUN apt-get update && apt-get install -y --no-install-recommends python3-dev build-essential && apt-get clean && \
+# Install necessary dependencies for building Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends python3-dev build-essential gcc libkrb5-dev krb5-config curl && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
-ENV PATH="$PATH:${POETRY_HOME}/bin"
+# Install uv (Astral) for dependency management
+RUN curl -Ls https://astral.sh/uv/install.sh | sh
+ENV PATH="$HOME/.cargo/bin:$PATH"
 
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python3 -m venv $VIRTUAL_ENV
+RUN python3 -m venv ${VIRTUAL_ENV}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache --extras "storage"
+# Copy and install dependencies for kserve
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN cd kserve && uv pip install -r uv.lock
 COPY kserve kserve
-RUN cd kserve && poetry install --no-interaction --no-cache --extras "storage"
+RUN cd kserve && uv pip install -r uv.lock
 
-ARG DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update && apt-get install -y \
-    gcc \
-    libkrb5-dev \
-    krb5-config \
-    && rm -rf /var/lib/apt/lists/*
-
+# Install dependencies for krbcontext, hdfs, and requests-kerberos
 RUN pip install --no-cache-dir krbcontext==0.10 hdfs~=2.6.0 requests-kerberos==0.14.0
 
 # Generate third-party licenses
@@ -50,18 +41,21 @@ ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
+# Create a non-root user for running the application
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
-COPY ./storage-initializer /storage-initializer
+COPY --from=builder ./storage-initializer /storage-initializer
 
+# Set permissions for entrypoint and working directories
 RUN chmod +x /storage-initializer/scripts/initializer-entrypoint
 RUN mkdir /work
 WORKDIR /work
 
-# Set a writable /mnt folder to avoid permission issue on Huggingface download. See https://huggingface.co/docs/hub/spaces-sdks-docker#permissions
+# Set a writable /mnt folder to avoid permission issue on Huggingface download.
 RUN chown -R kserve:kserve /mnt
+
 USER 1000
 ENTRYPOINT ["/storage-initializer/scripts/initializer-entrypoint"]

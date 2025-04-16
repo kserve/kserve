@@ -5,34 +5,33 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
-ARG PYTHON_VERSION
-# Install python
+# Install Python and build dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends "python${PYTHON_VERSION}" "python${PYTHON_VERSION}-dev" "python${PYTHON_VERSION}-venv" \
-    gcc build-essential && \
+    gcc build-essential curl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.8.3
+# Install uv (Astral)
+RUN curl -Ls https://astral.sh/uv/install.sh | sh
 
-RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
-ENV PATH="$PATH:${POETRY_HOME}/bin"
+# Make uv available
+ENV PATH="$HOME/.cargo/bin:$PATH"
 
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python${PYTHON_VERSION} -m venv $VIRTUAL_ENV
+RUN python${PYTHON_VERSION} -m venv ${VIRTUAL_ENV}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache
+# Install dependencies for kserve using uv
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN cd kserve && uv pip install -r uv.lock
 COPY kserve kserve
-RUN cd kserve && poetry install --no-interaction --no-cache
 
-COPY pmmlserver/pyproject.toml pmmlserver/poetry.lock pmmlserver/
-RUN cd pmmlserver && poetry install --no-root --no-interaction --no-cache
+# Install dependencies for pmmlserver using uv
+COPY pmmlserver/pyproject.toml pmmlserver/uv.lock pmmlserver/
+RUN cd pmmlserver && uv pip install -r uv.lock
 COPY pmmlserver pmmlserver
 RUN cd pmmlserver && poetry install --no-interaction --no-cache
 
@@ -43,6 +42,7 @@ COPY third_party/pip-licenses.py pip-licenses.py
 RUN pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 pip-licenses.py
 
+# ---------- Production image ----------
 FROM ${BASE_IMAGE} AS prod
 
 ARG PYTHON_VERSION
@@ -57,6 +57,7 @@ ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
+# Create non-root user
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
 COPY --from=builder --chown=kserve:kserve third_party third_party
