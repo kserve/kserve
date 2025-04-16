@@ -106,10 +106,10 @@ logging = [
     "asgi-logger<1.0.0,>=0.1.0",
 ]
 ray = [
-    "ray[serve]~=2.44.0",
+    "ray[serve]>=2.43.0",
 ]
 llm = [
-    "vllm<1.0.0,>=0.8.1",
+    "vllm<1.0.0,>=0.8.4",
 ]
 
 [dependency-groups]
