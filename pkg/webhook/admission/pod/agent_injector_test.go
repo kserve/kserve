@@ -1471,7 +1471,7 @@ func TestAgentInjector(t *testing.T) {
 		original *corev1.Pod
 		expected *corev1.Pod
 	}{
-		"AddLogger": {
+		"AddLoggerWithStorage": {
 			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "deployment",
