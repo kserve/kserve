@@ -27,6 +27,7 @@ pip install --upgrade pip
 case $VLLM_TARGET_DEVICE in
     cpu)
         pip uninstall -y torch torchvision torchaudio && \
+        pip install triton==3.1.0 && \
         pip install -r requirements/build.txt -r requirements/cpu.txt --extra-index-url ${TORCH_EXTRA_INDEX_URL}
         ;;
 esac
