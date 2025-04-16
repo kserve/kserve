@@ -1,4 +1,15 @@
-[tool.poetry]
+[project]
+authors = [
+    {name = "Dan Sun", email = "dsun20@bloomberg.net"},
+]
+license = {text = "https://github.com/kserve/kserve/blob/master/LICENSE"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+    "torchvision==0.18.0+cpu",
+    "torch==2.3.0+cpu",
+    "pillow<11.0.0,>=10.3.0",
+]
 name = "custom_transformer"
 version = "0.15.2"
 description = "Custom Transformer Examples. Not intended for use outside KServe Frameworks Images."

@@ -1,39 +1,28 @@
-[tool.poetry]
+[project]
+authors = [
+    {name = "Lin Yiming", email = "linyiming@ainnovation.com"},
+]
+license = {text = "https://github.com/kserve/kserve/blob/master/LICENSE"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve[storage] @ file:///${PROJECT_ROOT}/../kserve",
+    "lightgbm[scikit-learn]~=4.5.0",
+    "pandas<3.0.0,>=2.2.0",
+]
 name = "lgbserver"
 version = "0.15.2"
 description = "Model Server implementation for LightGBM. Not intended for use outside KServe Frameworks Images."
 authors = ["Lin Yiming <linyiming@ainnovation.com>"]
 license = "Apache-2.0"
 readme = "README.md"
-packages = [
-    { include = "lgbserver" },
+
+[dependency-groups]
+test = [
+    "pytest<8.0.0,>=7.4.4",
+    "pytest-asyncio<1.0.0,>=0.23.4",
+    "pytest-cov<6.0.0,>=5.0.0",
+    "mypy<1.0,>=0.991",
 ]
-
-[tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-kserve = { path = "../kserve", extras = ["storage"], develop = true }
-lightgbm = { version = "~4.5.0", extras = ["scikit-learn"] }
-pandas = "^2.2.0"
-
-[tool.poetry.group.test]
-optional = true
-
-[tool.poetry.group.test.dependencies]
-pytest = "^7.4.4"
-pytest-asyncio = ">=0.23.4, <1.0.0"
-pytest-cov = "^5.0.0"
-mypy = "^0.991"
-
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-black = { version = "~24.3.0", extras = ["colorama"] }
-
-[tool.poetry-version-plugin]
-source = "file"
-file_path = "../VERSION"
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+dev = [
+    "black[colorama]~=24.3.0",
+]
