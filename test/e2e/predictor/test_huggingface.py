@@ -466,6 +466,13 @@ async def test_huggingface_v2_sequence_classification_with_probabilities(
         "./data/bert_sequence_classification_v2.json",
     )
 
+    import numpy as np
+
+    result = res.outputs[0].data[0]
+    temp_dict = eval(result, {"np": np})
+    converted = {k: float(v) for k, v in temp_dict.items()}
+    res.outputs[0].data[0] = str(converted)
+
     parsed_output = [ast.literal_eval(res.outputs[0].data[0])]
     assert (
         parsed_output
