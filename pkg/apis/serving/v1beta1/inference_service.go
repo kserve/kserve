@@ -41,8 +41,7 @@ type InferenceServiceSpec struct {
 
 // StorageSpec defines a spec for an object in an object store
 type StorageSpec struct {
-	// The path to the object in the storage. It cannot co-exist
-	// with the storageURI.
+	// The path to the object in the storage. Note that this path is relative to the storage URI.
 	// +optional
 	Path *string `json:"path,omitempty"`
 	// Parameters to override the default storage credentials and config.
