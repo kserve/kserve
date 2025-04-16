@@ -6,11 +6,11 @@ license = {text = "https://github.com/kserve/kserve/blob/master/LICENSE"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
     "kserve[llm,storage] @ file:///${PROJECT_ROOT}/../kserve",
-    "transformers>=4.51.0",
+    "transformers>=4.51.2",
     "accelerate<2.0.0,>=1.6.0",
-    "torch>=2.5.0",
-    "vllm<1.0.0,>=0.8.1",
-    "flashinfer-python~=0.2.3",
+    "torch>=2.6.0",
+    "vllm<1.0.0,>=0.8.4",
+    "flashinfer-python~=0.2.5",
     "setuptools>=70.0.0",
 ]
 name = "huggingfaceserver"
