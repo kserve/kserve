@@ -1758,7 +1758,6 @@ func TestAgentInjector(t *testing.T) {
 	}
 	// Run logger storage scenarios
 	for name, scenario := range scenariosLoggerStorage {
-		t.Logf("logger config: %v", loggerConfig)
 		injector := &AgentInjector{
 			credentialBuilder,
 			agentConfig,
