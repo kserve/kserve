@@ -88,7 +88,7 @@ ARG VLLM_TARGET_DEVICE=cpu
 ENV VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE}
 RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git && \
     cd vllm && \
-    pip install triton==3.1.0 &&
+    pip install triton==3.1.0 && \
     pip install --no-cache-dir -v -r requirements/build.txt && \
     pip install --no-cache-dir -v -r requirements/cpu.txt && \
     python setup.py bdist_wheel && \
