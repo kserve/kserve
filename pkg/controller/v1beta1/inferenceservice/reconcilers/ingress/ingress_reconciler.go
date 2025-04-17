@@ -118,7 +118,6 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 	}
 
 	if serviceHost == "" || serviceUrl == "" {
-		log.Info("Service host or url is empty")
 		return nil
 	}
 
