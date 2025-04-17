@@ -1740,6 +1740,46 @@ func TestGetLoggerConfigs(t *testing.T) {
 				gomega.HaveOccurred(),
 			},
 		},
+		{
+			name: "Invalid logger config path nil",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/logger:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi",
+						"Store": {
+							"Path": "/logger",
+							"Parameters": {
+								"type": "s3",
+								"region": "us-west-2",
+								"format": "json"
+							}
+						}
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+					Store: &v1beta1.StorageSpec{
+						Path:       &storagePath,
+						Parameters: &storageParameters,
+					},
+				}),
+				gomega.MatchError("Logger storage is configured but storage key is not set"),
+				gomega.HaveOccurred(),
+			},
+		},
 	}
 
 	for _, tc := range cases {
