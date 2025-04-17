@@ -952,6 +952,30 @@ func TestLocalModelAnnotation(t *testing.T) {
 			labelMatcher:      gomega.Not(gomega.HaveKey(constants.LocalModelLabel)),
 			annotationMatcher: gomega.Not(gomega.HaveKey(constants.LocalModelPVCNameAnnotationKey)),
 		},
+		"isvc with node group annotation without LocalModelCache": {
+			config: &InferenceServicesConfig{},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.NodeGroupAnnotationKey: "some-random-gpu", // should not match any local model cache
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PyTorch: &TorchServeSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://bucket/model"),
+								ProtocolVersion: &protocolVersion,
+							},
+						},
+					},
+				},
+			},
+			labelMatcher:      gomega.Not(gomega.HaveKey(constants.LocalModelLabel)),
+			annotationMatcher: gomega.Not(gomega.HaveKey(constants.LocalModelPVCNameAnnotationKey)),
+		},
 	}
 
 	for _, scenario := range scenarios {
