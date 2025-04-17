@@ -452,6 +452,17 @@ func (isvc *InferenceService) SetTritonDefaults() {
 	}
 }
 
+// Helper function to remove local model cache internal labels and annotations
+func deleteLocalModelMetadata(isvc *InferenceService) {
+	if isvc.Labels != nil {
+		delete(isvc.Labels, constants.LocalModelLabel)
+	}
+	if isvc.Annotations != nil {
+		delete(isvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
+		delete(isvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+	}
+}
+
 // If there is a LocalModelCache resource, add the name of the LocalModelCache and sourceModelUri to the isvc,
 // which is used by the local model controller to manage PV/PVCs.
 func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList) {
@@ -491,6 +502,7 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 		}
 	}
 	if localModel == nil {
+		deleteLocalModelMetadata(isvc)
 		return
 	}
 	if isvc.Labels == nil {
