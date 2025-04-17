@@ -3,16 +3,13 @@
 set -e
 
 TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
-VLLM_VERSION=v0.8.1
+VLLM_VERSION=v0.8.4
 VLLM_DIR=vllm-clone
 VLLM_TARGET_DEVICE="${VLLM_TARGET_DEVICE:-cpu}"
 
 case $VLLM_TARGET_DEVICE in
   cpu)
     echo "Installing vllm for CPU"
-    ;;
-  openvino)
-    echo "Installing vllm for OpenVINO"
     ;;
   *)
     echo "Unknown target device: $VLLM_TARGET_DEVICE"
@@ -31,11 +28,6 @@ case $VLLM_TARGET_DEVICE in
     cpu)
         pip uninstall -y torch torchvision torchaudio && \
         pip install -r requirements/build.txt -r requirements/cpu.txt --extra-index-url ${TORCH_EXTRA_INDEX_URL}
-        ;;
-    openvino)
-        pip uninstall -y torch torchvision torchaudio && \
-        pip install triton==3.1.0 && \
-        pip install -r requirements/build.txt --extra-index-url ${TORCH_EXTRA_INDEX_URL}
         ;;
 esac
 

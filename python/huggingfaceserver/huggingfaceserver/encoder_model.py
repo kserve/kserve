@@ -60,6 +60,8 @@ from kserve.protocol.rest.openai.types import (
     EmbeddingRequest,
     EmbeddingResponseData,
     ErrorResponse,
+    Rerank,
+    RerankRequest,
     UsageInfo,
 )
 
@@ -439,3 +441,13 @@ class HuggingfaceEncoderModel(
 
         except Exception as e:
             raise OpenAIError(f"Error during embedding creation: {e}") from e
+
+    async def create_rerank(
+        self,
+        request: RerankRequest,
+        raw_request: Optional[Request] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> Union[AsyncGenerator[str, None], Rerank, ErrorResponse]:
+        raise OpenAIError(
+            "Rerank is not implemented for Encoder model with huggingface backend"
+        )
