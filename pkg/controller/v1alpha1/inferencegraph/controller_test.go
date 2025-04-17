@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
 	"knative.dev/pkg/kmp"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -171,22 +170,29 @@ var _ = Describe("Inference Graph controller test", func() {
 	})
 	Context("with knative configured to allow zero initial scale", func() {
 		BeforeEach(func() {
-			// Update the existing knativeserving custom resource to set allow-zero-initial-scale to true
-			knativeServing := &operatorv1beta1.KnativeServing{}
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultKnServingName, Namespace: constants.DefaultKnServingNamespace}, knativeServing)).ToNot(HaveOccurred())
-			knativeServing.Spec.CommonSpec.Config = make(map[string]map[string]string)
-			knativeServing.Spec.CommonSpec.Config[constants.AutoscalerKey] = map[string]string{constants.AutoscalerAllowZeroScaleKey: "true"}
+			// Patch the existing config-autoscaler configmap to set allow-zero-initial-scale to true
+			configAutoscaler := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.AutoscalerConfigmapName,
+					Namespace: constants.AutoscalerConfigmapNamespace,
+				},
+			}
+			configPatch := []byte(`{"data":{"allow-zero-initial-scale":"true"}}`)
 			Eventually(func() error {
-				return k8sClient.Update(context.TODO(), knativeServing)
+				return k8sClient.Patch(context.TODO(), configAutoscaler, client.RawPatch(types.StrategicMergePatchType, configPatch))
 			}, timeout).Should(Succeed())
 		})
 		AfterEach(func() {
-			// Restore the default knativeserving custom resource configuration
-			knativeServingRestored := &operatorv1beta1.KnativeServing{}
-			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultKnServingName, Namespace: constants.DefaultKnServingNamespace}, knativeServingRestored)).ToNot(HaveOccurred())
-			knativeServingRestored.Spec.CommonSpec.Config = nil
+			// Restore the default autoscaling configuration
+			configAutoscaler := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.AutoscalerConfigmapName,
+					Namespace: constants.AutoscalerConfigmapNamespace,
+				},
+			}
+			configPatch := []byte(`{"data":{}}`)
 			Eventually(func() error {
-				return k8sClient.Update(context.TODO(), knativeServingRestored)
+				return k8sClient.Patch(context.TODO(), configAutoscaler, client.RawPatch(types.StrategicMergePatchType, configPatch))
 			}, timeout).Should(Succeed())
 		})
 		When("an InferenceGraph with minReplicas:0 and maxReplicas:0 is created", func() {

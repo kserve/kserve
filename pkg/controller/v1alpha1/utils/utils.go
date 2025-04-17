@@ -22,7 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -108,38 +108,29 @@ func SetAutoScalingAnnotations(ctx context.Context,
 	return nil
 }
 
-// CheckZeroInitialScaleAllowed reads the global knative autoscaler configuration defined in the knativeserving
-// custom resource and returns a boolean value based on if knative is configured to allow zero initial scale.
+// CheckZeroInitialScaleAllowed reads the global knative autoscaler configuration defined in the autoscaler
+// configmap and returns a boolean value based on if knative is configured to allow zero initial scale.
+// This configmap will always be defined with the name 'config-autoscaler'.
+// The namespace the configmap exists within may vary. If the configmap is created in a namespace other than
+// 'knative-serving' this value must be set using the CONFIG_AUTOSCALER_NAMESPACE environmental variable.
 func CheckZeroInitialScaleAllowed(ctx context.Context, client client.Client) (bool, error) {
 	// Set allow-zero-initial-scale to the default values to start.
 	// If autoscaling values are not set in the configuration, then the defaults are used.
 	allowZeroInitialScale := "false"
 
-	// List all knativeserving custom resources.
-	// This allows for the handling of scenarios where the custom resource is not created
-	// in the default knative-serving namespace or without the default knative-serving name.
-	kservingList := &operatorv1beta1.KnativeServingList{}
-	err := client.List(ctx, kservingList)
+	configAutoscaler := &corev1.ConfigMap{}
+	err := client.Get(ctx, types.NamespacedName{Namespace: constants.AutoscalerConfigmapNamespace, Name: constants.AutoscalerConfigmapName}, configAutoscaler)
 	if err != nil {
 		return false, errors.Wrapf(
 			err,
-			"fails to retrieve the knativeserving custom resource.",
+			"fails to retrieve the %s configmap from the %s namespace.",
+			constants.AutoscalerConfigmapName,
+			constants.AutoscalerConfigmapNamespace,
 		)
 	}
 
-	if len(kservingList.Items) == 0 {
-		return false, errors.New("no knativeserving resources found in cluster.")
-	}
-
-	// Always use the first knativeserving resource returned.
-	// We are operating under the assumption that there should be a single knativeserving custom resource created on the cluster.
-	kserving := kservingList.Items[0]
-	if kserving.Spec.Config != nil {
-		if kservingAutoscalerConfig, ok := kserving.Spec.Config[constants.AutoscalerKey]; ok {
-			if configuredAllowZeroInitialScale, ok := kservingAutoscalerConfig[constants.AutoscalerAllowZeroScaleKey]; ok {
-				allowZeroInitialScale = configuredAllowZeroInitialScale
-			}
-		}
+	if configuredAllowZeroInitialScale, ok := configAutoscaler.Data[constants.AutoscalerAllowZeroScaleKey]; ok {
+		allowZeroInitialScale = configuredAllowZeroInitialScale
 	}
 
 	return strconv.ParseBool(allowZeroInitialScale)

@@ -28,7 +28,6 @@ import (
 	"github.com/onsi/gomega"
 	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	"k8s.io/client-go/kubernetes/scheme"
-	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -53,10 +52,6 @@ func SetupEnvTest(crdDirectoryPaths []string) *envtest.Environment {
 
 	if err := knservingv1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
 		log.Error(err, "Failed to add knative serving scheme")
-	}
-
-	if err := operatorv1beta1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
-		log.Error(err, "Failed to add knative operator scheme")
 	}
 
 	if err := istioclientv1beta1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {

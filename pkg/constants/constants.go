@@ -38,7 +38,10 @@ const (
 	KnativeServingAPIGroupName       = KnativeServingAPIGroupNamePrefix + ".dev"
 )
 
-var KServeNamespace = getEnvOrDefault("POD_NAMESPACE", "kserve")
+var (
+	KServeNamespace              = getEnvOrDefault("POD_NAMESPACE", "kserve")
+	AutoscalerConfigmapNamespace = getEnvOrDefault("CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
+)
 
 // InferenceService Constants
 var (
@@ -273,9 +276,8 @@ type InferenceServiceProtocol string
 
 // Knative constants
 const (
-	AutoscalerKey               = "autoscaler"
+	AutoscalerConfigmapName     = "config-autoscaler"
 	AutoscalerAllowZeroScaleKey = "allow-zero-initial-scale"
-	DefaultKnServingName        = "knative-serving"
 	DefaultKnServingNamespace   = "knative-serving"
 	KnativeLocalGateway         = "knative-serving/knative-local-gateway"
 	KnativeIngressGateway       = "knative-serving/knative-ingress-gateway"
@@ -505,7 +507,6 @@ const (
 const (
 	IstioVirtualServiceKind = "VirtualService"
 	KnativeServiceKind      = "Service"
-	KnativeServingKind      = "KnativeServing"
 	HTTPRouteKind           = "HTTPRoute"
 	GatewayKind             = "Gateway"
 	ServiceKind             = "Service"

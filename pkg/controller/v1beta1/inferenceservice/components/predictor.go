@@ -579,7 +579,7 @@ func (p *Predictor) reconcileKnativeDeployment(ctx context.Context, isvc *v1beta
 	r, err := knative.NewKsvcReconciler(ctx, p.client, p.scheme, *objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 		podSpec, isvc.Status.Components[v1beta1.PredictorComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList)
 	if err != nil {
-		return nil, errors.Wrapf(err, "fails to create new knative service reconciler")
+		return nil, errors.Wrapf(err, "fails to create new knative service reconciler for predictor")
 	}
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return nil, errors.Wrapf(err, "fails to set owner reference for predictor")

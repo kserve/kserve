@@ -31,7 +31,6 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/record"
-	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -188,20 +187,6 @@ func main() {
 			os.Exit(1)
 		}
 	}
-
-	knServingFound, knServingCheckErr := utils.IsCrdAvailable(cfg, operatorv1beta1.SchemeGroupVersion.String(), constants.KnativeServingKind)
-	if knServingCheckErr != nil {
-		setupLog.Error(knServingCheckErr, "error when checking if Knative KnativeServing kind is available")
-		os.Exit(1)
-	}
-	if knServingFound {
-		setupLog.Info("Setting up Knative Operator scheme")
-		if err := operatorv1beta1.AddToScheme(mgr.GetScheme()); err != nil {
-			setupLog.Error(err, "unable to add Knative Operator APIs to scheme")
-			os.Exit(1)
-		}
-	}
-
 	if !ingressConfig.DisableIstioVirtualHost {
 		vsFound, vsCheckErr := utils.IsCrdAvailable(cfg, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
 		if vsCheckErr != nil {
