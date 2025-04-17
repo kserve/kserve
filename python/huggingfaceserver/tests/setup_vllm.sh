@@ -17,7 +17,7 @@ case $VLLM_TARGET_DEVICE in
       ;;
 esac
 
-source $(poetry env info -p)/bin/activate
+source /mnt/python/huggingfaceserver-cpu-venv/bin/activate
 mkdir $VLLM_DIR
 cd $VLLM_DIR
 
