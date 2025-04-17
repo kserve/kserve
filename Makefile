@@ -19,7 +19,7 @@ CUSTOM_MODEL_GRPC_IMG ?= custom-model-grpc
 CUSTOM_TRANSFORMER_IMG ?= image-transformer
 CUSTOM_TRANSFORMER_GRPC_IMG ?= custom-image-transformer-grpc
 HUGGINGFACE_SERVER_IMG ?= huggingfaceserver
-HUGGINGFACE_SERVER_CPU_IMG ?= huggingfaceserver-cpu-openvino
+HUGGINGFACE_SERVER_CPU_IMG ?= huggingfaceserver-cpu
 AIF_IMG ?= aiffairness
 ART_IMG ?= art-explainer
 STORAGE_INIT_IMG ?= storage-initializer
@@ -143,6 +143,7 @@ poetry-lock: $(POETRY)
 # This runs all necessary steps to prepare for a commit.
 precommit: vet tidy go-lint py-fmt py-lint generate manifests poetry-lock
 
+# This is used by CI to ensure that the precommit checks are met.
 check: precommit
 	@if [ ! -z "`git status -s`" ]; then \
 		echo "The following differences will fail CI until committed:"; \
@@ -373,10 +374,10 @@ docker-build-huggingface:
 docker-push-huggingface: docker-build-huggingface
 	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_IMG}
 
-docker-build-huggingface-cpu-openvino:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG} -f huggingface_server_cpu_openvino.Dockerfile .
+docker-build-huggingface-cpu:
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG} -f huggingface_server_cpu.Dockerfile .
 
-docker-push-huggingface-cpu-openvino: docker-build-huggingface-cpu-openvino
+docker-push-huggingface-cpu: docker-build-huggingface-cpu
 	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG}
 
 apidocs:

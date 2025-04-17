@@ -308,8 +308,14 @@ if __name__ == "__main__":
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
     try:
+        model_server = kserve.ModelServer()
         model = load_model()
-        kserve.ModelServer().start([model])
+        if is_vllm_backend_enabled(args, model_id_or_path):
+            # Register lora modules with the model server
+            if args.lora_modules:
+                for lora_module in args.lora_modules:
+                    model_server.register_model(model, lora_module.name)
+        model_server.start([model])
     except Exception as e:
         import sys
 

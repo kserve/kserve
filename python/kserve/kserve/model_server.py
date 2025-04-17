@@ -383,16 +383,19 @@ class ModelServer:
         logger.error(f"message: {context.get('message')}")
         loop.default_exception_handler(context)
 
-    def register_model(self, model: BaseKServeModel):
+    def register_model(self, model: BaseKServeModel, name: Optional[str] = None):
         """Register a model to the model server.
 
         Args:
             model: The model object.
+            name: The name of the model. If not provided, the model's name will be used. This can be used to provide
+                additional names for the same model.
         """
         if not model.name:
-            raise Exception("Failed to register model, model.name must be provided.")
-        self.registered_models.update(model)
-        logger.info("Registering model: %s", model.name)
+            raise ValueError("Failed to register model, model.name must be provided.")
+        name = name or model.name
+        self.registered_models.update(model, name)
+        logger.info("Registering model: %s", name)
 
     def _register_and_check_atleast_one_model_is_ready(
         self, models: List[BaseKServeModel]
@@ -408,7 +411,8 @@ class ModelServer:
                         model.enable_latency_logging = self.enable_latency_logging
                     model.start()
                     if model.engine:
-                        self.servers.append(model.start_engine())
+                        loop = asyncio.get_event_loop()
+                        loop.run_until_complete(model.start_engine())
                 else:
                     raise RuntimeError("Model type should be 'BaseKServeModel'")
             if not at_least_one_model_ready and models:
