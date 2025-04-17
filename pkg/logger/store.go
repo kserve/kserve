@@ -219,6 +219,10 @@ func (s *S3Store) getObjectPrefix(configPrefix string, request *LogRequest) (str
 	if request.Component != "" {
 		parts = append(parts, request.Component)
 	}
+
+	if s.storeSpec != nil && s.storeSpec.Path != nil {
+		parts = append(parts, *s.storeSpec.Path)
+	}
 	return path.Join(parts...), nil
 }
 
@@ -240,6 +244,7 @@ func (s *S3Store) getObjectKey(configPrefix string, request *LogRequest) (string
 	reqType := request.ReqType[typeEnd+1:]
 	params := *s.storeSpec.Parameters
 	format := params["format"]
+
 	return fmt.Sprintf("%s/%s-%s.%s", prefix, request.Id, reqType, format), nil
 }
 
