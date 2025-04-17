@@ -59,6 +59,7 @@ data:
         # revisions, which prevents the reconciliation loop to be triggered if the annotations is 
         # configured here are used.
         # Default values are:
+        #  "autoscaling.knative.dev/initial-scale",
         #  "autoscaling.knative.dev/min-scale",
         #  "autoscaling.knative.dev/max-scale",
         #  "internal.serving.kserve.io/storage-initializer-sourceuri",
