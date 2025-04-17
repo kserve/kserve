@@ -430,11 +430,21 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		return err
 	}
 
-	//  Mount the logger credential if we are not using HTTP logging
+	//  Inject the logger credential if we are not using HTTP logging
 	if injectLogger {
 		logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
-		if ok && logger.GetStorageStrategy(logUrl) != logger.HttpStorage {
-			ag.credentialBuilder.MountLoggerCredential(pod, agentContainer)
+		if ok && logger.GetStorageStrategy(logUrl) != logger.HttpStorage && ag.loggerConfig.Store != nil {
+			if ag.loggerConfig.Store.StorageKey == nil {
+				return fmt.Errorf("logger storage is configured but storage key is not set")
+			}
+			if err := ag.credentialBuilder.CreateSecretAndVolume(
+				*ag.loggerConfig.Store.StorageKey,
+				pod.Namespace,
+				agentContainer,
+				&pod.Spec.Volumes,
+			); err != nil {
+				return err
+			}
 		}
 	}
 
