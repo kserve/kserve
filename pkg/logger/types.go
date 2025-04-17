@@ -17,8 +17,6 @@ limitations under the License.
 package logger
 
 import (
-	"github.com/kserve/kserve/pkg/credentials/gcs"
-	"github.com/kserve/kserve/pkg/credentials/s3"
 	"net/url"
 )
 
@@ -36,14 +34,6 @@ type LogRequest struct {
 	Metadata         map[string][]string
 	CertName         string
 	TlsSkipVerify    bool
-}
-
-type StoreConfig struct {
-	S3               *s3.S3Config   `json:"s3,omitempty" yaml:"s3,omitempty"`
-	GCS              *gcs.GCSConfig `json:"gcs,omitempty" yaml:"gcs,omitempty"`
-	Region           string         `json:"region,omitempty" yaml:"region,omitempty"`
-	S3ForcePathStyle bool           `json:"s3ForcePathStyle,omitempty" yaml:"s3ForcePathStyle,omitempty"`
-	Format           string         `json:"format,omitempty" yaml:"format,omitempty"`
 }
 
 const DefaultStoreFormat string = "json"
