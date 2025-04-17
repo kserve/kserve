@@ -1,11 +1,33 @@
 [project]
+name = "kserve"
+version = "0.15.0"
+description = "KServe Python SDK"
 authors = [
-    {name = "The KServe Authors", email = "dsun20@bloomberg.net"},
-    {name = "The KServe Authors", email = "ellisbigelow@google.com"},
-    {name = "The KServe Authors", email = "hejinchi@cn.ibm.com"},
+  { name = "The KServe Authors", email = "dsun20@bloomberg.net" },
+  { name = "The KServe Authors", email = "ellisbigelow@google.com" },
+  { name = "The KServe Authors", email = "hejinchi@cn.ibm.com" }
 ]
-license = {text = "Apache-2.0"}
-requires-python = "<3.13,>=3.9"
+license = { text = "Apache-2.0" }
+readme = "README.md"
+requires-python = ">=3.9,<3.13"
+keywords = ["kserve", "model-serving", "machine-learning"]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Intended Audience :: Education",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Python Modules"
+]
 dependencies = [
     "uvicorn[standard]<1.0.0,>=0.30.6",
     "fastapi>=0.115.3",
@@ -72,45 +94,19 @@ pandas =  "^2.2.0"
 pydantic = "^2.5.0"
 pyyaml = "^6.0.0"
 
-# Storage dependencies. They can be opted into by apps.
-requests = { version = "^2.32.2", optional = true }
-google-cloud-storage = { version = "^2.14.0", optional = true }
-azure-storage-blob = { version = "^12.20.0", optional = true }
-azure-storage-file-share = { version = "^12.16.0", optional = true }
-azure-identity = { version = "^1.15.0", optional = true }
-boto3 = { version = "^1.29.0", optional = true }
-huggingface-hub = { version = "^0.30.0", extras = [
-  "hf-transfer",
-], optional = true }
-
-# Logging dependencies. They can be opted into by apps.
-asgi-logger = { version = "^0.1.0", optional = true }
-
-# Ray dependency
-ray = { version = ">=2.43.0", extras = ["serve"], optional = true }
-
-# OpenAI Types dependency
-vllm = { version = "0.8.5", optional = true }
-
 [tool.poetry.extras]
 storage = [
-    "requests<3.0.0,>=2.32.2",
-    "google-cloud-storage<3.0.0,>=2.14.0",
-    "azure-storage-blob<13.0.0,>=12.20.0",
-    "azure-storage-file-share<13.0.0,>=12.16.0",
-    "azure-identity<2.0.0,>=1.15.0",
-    "boto3<2.0.0,>=1.29.0",
-    "huggingface-hub[hf-transfer]<1.0.0,>=0.30.0",
+  "requests<3.0.0,>=2.32.2",
+  "google-cloud-storage<3.0.0,>=2.14.0",
+  "azure-storage-blob<13.0.0,>=12.20.0",
+  "azure-storage-file-share<13.0.0,>=12.16.0",
+  "azure-identity<2.0.0,>=1.15.0",
+  "boto3<2.0.0,>=1.29.0",
+  "huggingface-hub[hf-transfer]<1.0.0,>=0.30.0",
 ]
-logging = [
-    "asgi-logger<1.0.0,>=0.1.0",
-]
-ray = [
-    "ray[serve]>=2.43.0",
-]
-llm = [
-    "vllm<1.0.0,>=0.8.4",
-]
+logging = ["asgi-logger<1.0.0,>=0.1.0"]
+ray = ["ray[serve]>=2.43.0"]
+llm = ["vllm<1.0.0,>=0.8.4"]
 
 [dependency-groups]
 test = [
@@ -129,3 +125,7 @@ test = [
 dev = [
     "black[colorama]~=24.3.0",
 ]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
