@@ -1,10 +1,10 @@
 .PHONY: test
 
 dev_install:
-	poetry install --with test --extras "storage ray llm"
+	uv sync --extra test --features "storage ray llm"
 
 install_dependencies:
-	poetry install --with=test --no-interaction --no-root --extras "storage ray llm"
+	uv sync --extra test --features "storage ray llm" --no-root
 
 test:
 	cd ../ && pytest -W ignore kserve/test
