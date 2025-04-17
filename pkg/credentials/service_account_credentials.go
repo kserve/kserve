@@ -57,8 +57,8 @@ var (
 )
 
 type CredentialConfig struct {
-	S3                          s3.S3Config   `json:"s3,omitempty"`
-	GCS                         gcs.GCSConfig `json:"gcs,omitempty"`
+	S3                          s3.S3Config   `json:"s3,omitempty" yaml:"s3,omitempty"`
+	GCS                         gcs.GCSConfig `json:"gcs,omitempty" yaml:"gcs,omitempty"`
 	StorageSpecSecretName       string        `json:"storageSpecSecretName,omitempty"`
 	StorageSecretNameAnnotation string        `json:"storageSecretNameAnnotation,omitempty"`
 }
@@ -88,19 +88,24 @@ func NewCredentialBuilder(client client.Client, clientset kubernetes.Interface, 
 }
 
 func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annotations map[string]string, storageKey string,
-	overrideParams map[string]string, container *corev1.Container,
+	secretName *string, storeConfigEnvVarName *string, overrideParams map[string]string, container *corev1.Container,
 ) error {
 	stype := overrideParams["type"]
 	bucket := overrideParams["bucket"]
 
 	storageSecretName := constants.DefaultStorageSpecSecret
-	if c.config.StorageSpecSecretName != "" {
-		storageSecretName = c.config.StorageSpecSecretName
-	}
-	// secret annotation takes precedence
-	if annotations != nil {
-		if secretName, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
-			storageSecretName = secretName
+	// if the secret name is provided use it
+	if secretName != nil {
+		storageSecretName = *secretName
+	} else {
+		if c.config.StorageSpecSecretName != "" {
+			storageSecretName = c.config.StorageSpecSecretName
+		}
+		// secret annotation takes precedence
+		if annotations != nil {
+			if name, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
+				storageSecretName = name
+			}
 		}
 	}
 	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(context.TODO(), storageSecretName, metav1.GetOptions{})
@@ -151,8 +156,12 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 		}
 
 		// Pass storage config json as SecretKeyRef env var
+		storageConfigEnvKey := StorageConfigEnvKey
+		if storeConfigEnvVarName != nil {
+			storageConfigEnvKey = *storeConfigEnvVarName
+		}
 		container.Env = append(container.Env, corev1.EnvVar{
-			Name: StorageConfigEnvKey,
+			Name: storageConfigEnvKey,
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -195,6 +204,18 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(namespace string, annota
 	return nil
 }
 
+func (c *CredentialBuilder) MountSecretAndVolume(secretName string, namespace string,
+	container *corev1.Container, volumes *[]corev1.Volume,
+) error {
+	err := c.mountSecretCredential(secretName, namespace, container, volumes)
+	if err != nil {
+		log.Error(err, "Failed to mount the secret credentials", "secretName", secretName)
+		return err
+	}
+
+	return nil
+}
+
 func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotations map[string]string, serviceAccountName string,
 	container *corev1.Container, volumes *[]corev1.Volume,
 ) error {
@@ -221,7 +242,7 @@ func (c *CredentialBuilder) CreateSecretVolumeAndEnv(namespace string, annotatio
 		if secretName, ok := annotations[c.config.StorageSecretNameAnnotation]; ok {
 			err := c.mountSecretCredential(secretName, namespace, container, volumes)
 			if err != nil {
-				log.Error(err, "Failed to amount the secret credentials", "secretName", secretName)
+				log.Error(err, "Failed to mount the secret credentials", "secretName", secretName)
 				return err
 			}
 			return nil

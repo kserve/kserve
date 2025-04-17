@@ -19,6 +19,8 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/kserve/kserve/pkg/logger"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -36,6 +38,9 @@ import (
 const (
 	LoggerConfigMapKeyName         = "logger"
 	LoggerArgumentLogUrl           = "--log-url"
+	LoggerArgumentStorePath        = "--log-store-path"
+	LoggerArgumentStoreParameters  = "--log-store-parameters"
+	LoggerArgumentStoreKey         = "--log-store-key"
 	LoggerArgumentSourceUri        = "--source-uri"
 	LoggerArgumentMode             = "--log-mode"
 	LoggerArgumentInferenceService = "--inference-service"
@@ -56,15 +61,16 @@ type AgentConfig struct {
 }
 
 type LoggerConfig struct {
-	Image         string `json:"image"`
-	CpuRequest    string `json:"cpuRequest"`
-	CpuLimit      string `json:"cpuLimit"`
-	MemoryRequest string `json:"memoryRequest"`
-	MemoryLimit   string `json:"memoryLimit"`
-	DefaultUrl    string `json:"defaultUrl"`
-	CaBundle      string `json:"caBundle"`
-	CaCertFile    string `json:"caCertFile"`
-	TlsSkipVerify bool   `json:"tlsSkipVerify"`
+	Image         string               `json:"image"`
+	CpuRequest    string               `json:"cpuRequest"`
+	CpuLimit      string               `json:"cpuLimit"`
+	MemoryRequest string               `json:"memoryRequest"`
+	MemoryLimit   string               `json:"memoryLimit"`
+	DefaultUrl    string               `json:"defaultUrl"`
+	CaBundle      string               `json:"caBundle"`
+	CaCertFile    string               `json:"caCertFile"`
+	TlsSkipVerify bool                 `json:"tlsSkipVerify"`
+	Store         *v1beta1.StorageSpec `json:"store"`
 }
 
 type AgentInjector struct {
@@ -122,6 +128,11 @@ func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {
 			return loggerConfig, fmt.Errorf("Failed to parse resource configuration for %q: %q", LoggerConfigMapKeyName, err.Error())
+		}
+	}
+	if loggerConfig.Store != nil {
+		if loggerConfig.Store.StorageKey == nil {
+			return loggerConfig, fmt.Errorf("Logger storage is configured but storage key is not set")
 		}
 	}
 	return loggerConfig, nil
@@ -191,6 +202,36 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
 		component := pod.ObjectMeta.Labels[constants.KServiceComponentLabel]
 
+		storagePath := ""
+		if ag.loggerConfig.Store != nil {
+			if ag.loggerConfig.Store.Path != nil {
+				storagePath = *ag.loggerConfig.Store.Path
+			} else {
+				log.Error(nil, "Logger storage is configured but path is not set")
+			}
+		}
+		storageParameters := ""
+		if ag.loggerConfig.Store != nil {
+			if ag.loggerConfig.Store.Parameters != nil {
+				params := make([]string, 0)
+				for key, value := range *ag.loggerConfig.Store.Parameters {
+					params = append(params, fmt.Sprintf("%s=%s", key, value))
+				}
+				sort.Strings(params)
+				storageParameters = strings.Join(params, ",")
+			} else {
+				log.Error(nil, "Logger storage is configured but parameters are not set")
+			}
+		}
+		storageKey := ""
+		if ag.loggerConfig.Store != nil {
+			if ag.loggerConfig.Store.StorageKey != nil {
+				storageKey = *ag.loggerConfig.Store.StorageKey
+			} else {
+				log.Error(nil, "Logger storage is configured but storage key is not set")
+			}
+		}
+
 		loggerArgs := []string{
 			LoggerArgumentLogUrl,
 			logUrl,
@@ -198,6 +239,12 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			pod.ObjectMeta.Name,
 			LoggerArgumentMode,
 			logMode,
+			LoggerArgumentStorePath,
+			storagePath,
+			LoggerArgumentStoreParameters,
+			storageParameters,
+			LoggerArgumentStoreKey,
+			storageKey,
 			LoggerArgumentInferenceService,
 			inferenceServiceName,
 			LoggerArgumentNamespace,
@@ -371,6 +418,35 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		&pod.Spec.Volumes,
 	); err != nil {
 		return err
+	}
+
+	//  Inject the logger credential if we are not using HTTP logging
+	if injectLogger {
+		logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
+		if ok && logger.GetStorageStrategy(logUrl) != logger.HttpStorage && ag.loggerConfig.Store != nil {
+			if ag.loggerConfig.Store.StorageKey == nil {
+				return fmt.Errorf("logger storage is configured but storage key is not set")
+			}
+			envVarName := "LOGGER_CONFIG"
+			params := map[string]string{}
+			if ag.loggerConfig.Store.Parameters != nil {
+				params = *ag.loggerConfig.Store.Parameters
+			}
+			secretName := agentContainer.Name + "-logger-secret"
+			err := ag.credentialBuilder.CreateStorageSpecSecretEnvs(pod.Namespace, params, *ag.loggerConfig.Store.StorageKey, &secretName, &envVarName, map[string]string{}, agentContainer)
+			if err != nil {
+				return err
+			}
+
+			if err := ag.credentialBuilder.MountSecretAndVolume(
+				*ag.loggerConfig.Store.StorageKey,
+				pod.Namespace,
+				agentContainer,
+				&pod.Spec.Volumes,
+			); err != nil {
+				return err
+			}
+		}
 	}
 
 	// Add container to the spec

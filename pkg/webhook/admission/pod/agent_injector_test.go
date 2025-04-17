@@ -18,7 +18,9 @@ package pod
 
 import (
 	"encoding/json"
+	"sort"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -46,6 +48,14 @@ const (
 )
 
 var (
+	storagePath       = "/logger"
+	storageParameters = map[string]string{
+		"type":   "s3",
+		"region": "us-west-2",
+		"format": "json",
+	}
+	storageKey = "logger-credentials"
+
 	agentConfig = &AgentConfig{
 		Image:         "gcr.io/kserve/agent:latest",
 		CpuRequest:    AgentDefaultCPURequest,
@@ -64,6 +74,15 @@ var (
 		CaBundle:      "kserve-tls-bundle",
 		CaCertFile:    "ca.crt",
 		TlsSkipVerify: true,
+	}
+	loggerConfigWithStorage = &LoggerConfig{
+		Image:      "gcr.io/kserve/agent:latest",
+		DefaultUrl: "http://httpbin.org/",
+		Store: &v1beta1.StorageSpec{
+			Path:       &storagePath,
+			Parameters: &storageParameters,
+			StorageKey: &storageKey,
+		},
 	}
 	batcherTestConfig = &BatcherConfig{
 		Image: "gcr.io/kserve/batcher:latest",
@@ -326,6 +345,12 @@ func TestAgentInjector(t *testing.T) {
 								"deployment",
 								LoggerArgumentMode,
 								"all",
+								LoggerArgumentStorePath,
+								"",
+								LoggerArgumentStoreParameters,
+								"",
+								LoggerArgumentStoreKey,
+								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
@@ -454,6 +479,12 @@ func TestAgentInjector(t *testing.T) {
 								"deployment",
 								LoggerArgumentMode,
 								"all",
+								LoggerArgumentStorePath,
+								"",
+								LoggerArgumentStoreParameters,
+								"",
+								LoggerArgumentStoreKey,
+								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
@@ -933,6 +964,12 @@ func TestAgentInjector(t *testing.T) {
 								"deployment",
 								LoggerArgumentMode,
 								"all",
+								LoggerArgumentStorePath,
+								"",
+								LoggerArgumentStoreParameters,
+								"",
+								LoggerArgumentStoreKey,
+								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
@@ -1064,6 +1101,12 @@ func TestAgentInjector(t *testing.T) {
 								"deployment",
 								LoggerArgumentMode,
 								"all",
+								LoggerArgumentStorePath,
+								"",
+								LoggerArgumentStoreParameters,
+								"",
+								LoggerArgumentStoreKey,
+								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
@@ -1348,6 +1391,12 @@ func TestAgentInjector(t *testing.T) {
 								"deployment",
 								LoggerArgumentMode,
 								"all",
+								LoggerArgumentStorePath,
+								"",
+								LoggerArgumentStoreParameters,
+								"",
+								LoggerArgumentStoreKey,
+								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
@@ -1413,6 +1462,151 @@ func TestAgentInjector(t *testing.T) {
 			},
 		},
 	}
+
+	storageParamsKV := make([]string, 0)
+	for k, v := range storageParameters {
+		storageParamsKV = append(storageParamsKV, k+"="+v)
+	}
+	sort.Strings(storageParamsKV)
+	storageParamsSerialized := strings.Join(storageParamsKV, ",")
+	scenariosLoggerStorage := map[string]struct {
+		original *corev1.Pod
+		expected *corev1.Pod
+	}{
+		"AddLoggerWithStorage": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.LoggerInternalAnnotationKey:        "true",
+						constants.LoggerSinkUrlInternalAnnotationKey: "http://httpbin.org/",
+						constants.LoggerModeInternalAnnotationKey:    string(v1beta1.LogAll),
+					},
+					Labels: map[string]string{
+						"serving.kserve.io/inferenceservice": "sklearn",
+						constants.KServiceModelLabel:         "sklearn",
+						constants.KServiceEndpointLabel:      "default",
+						constants.KServiceComponentLabel:     "predictor",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
+									},
+								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+						{
+							Name: "queue-proxy",
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+					Annotations: map[string]string{
+						constants.LoggerInternalAnnotationKey:        "true",
+						constants.LoggerSinkUrlInternalAnnotationKey: "http://httpbin.org/",
+						constants.LoggerModeInternalAnnotationKey:    string(v1beta1.LogAll),
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
+									},
+								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+						{
+							Name: "queue-proxy",
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+						{
+							Name:  constants.AgentContainerName,
+							Image: loggerConfig.Image,
+							Args: []string{
+								LoggerArgumentLogUrl,
+								"http://httpbin.org/",
+								LoggerArgumentSourceUri,
+								"deployment",
+								LoggerArgumentMode,
+								"all",
+								LoggerArgumentStorePath,
+								storagePath,
+								LoggerArgumentStoreParameters,
+								storageParamsSerialized,
+								LoggerArgumentStoreKey,
+								storageKey,
+								LoggerArgumentInferenceService,
+								"sklearn",
+								LoggerArgumentNamespace,
+								"default",
+								LoggerArgumentEndpoint,
+								"default",
+								LoggerArgumentComponent,
+								"predictor",
+								LoggerArgumentTlsSkipVerify,
+								"false",
+								constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
+							},
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "agent-port",
+									ContainerPort: constants.InferenceServiceDefaultAgentPort,
+									Protocol:      "TCP",
+								},
+							},
+							Env:       []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Resources: agentResourceRequirement,
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
+											{
+												Name:  "K-Network-Probe",
+												Value: "queue",
+											},
+										},
+										Port:   intstr.FromInt(9081),
+										Path:   "/",
+										Scheme: "HTTP",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 	clientset := fakeclientset.NewSimpleClientset()
 	credentialBuilder := credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 		Data: map[string]string{},
@@ -1456,6 +1650,19 @@ func TestAgentInjector(t *testing.T) {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 	}
+	// Run logger storage scenarios
+	for name, scenario := range scenariosLoggerStorage {
+		injector := &AgentInjector{
+			credentialBuilder,
+			agentConfig,
+			loggerConfigWithStorage,
+			batcherTestConfig,
+		}
+		injector.InjectAgent(scenario.original)
+		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
+			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
+		}
+	}
 }
 
 func TestGetLoggerConfigs(t *testing.T) {
@@ -1476,7 +1683,16 @@ func TestGetLoggerConfigs(t *testing.T) {
 						"CpuRequest":    "100m",
 						"CpuLimit":      "1",
 						"MemoryRequest": "200Mi",
-						"MemoryLimit":   "1Gi"
+						"MemoryLimit":   "1Gi",
+						"Store": {
+							"Path": "/logger",
+							"Parameters": {
+								"type": "s3",
+								"region": "us-west-2",
+								"format": "json"
+							},
+							"Key": "logger-credentials"
+						}
 					}`,
 				},
 				BinaryData: map[string][]byte{},
@@ -1488,6 +1704,11 @@ func TestGetLoggerConfigs(t *testing.T) {
 					CpuLimit:      "1",
 					MemoryRequest: "200Mi",
 					MemoryLimit:   "1Gi",
+					Store: &v1beta1.StorageSpec{
+						Path:       &storagePath,
+						Parameters: &storageParameters,
+						StorageKey: &storageKey,
+					},
 				}),
 				gomega.BeNil(),
 			},
@@ -1516,6 +1737,46 @@ func TestGetLoggerConfigs(t *testing.T) {
 					MemoryRequest: "200mc",
 					MemoryLimit:   "1Gi",
 				}),
+				gomega.HaveOccurred(),
+			},
+		},
+		{
+			name: "Invalid logger config path nil",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":         "gcr.io/kfserving/logger:latest",
+						"CpuRequest":    "100m",
+						"CpuLimit":      "1",
+						"MemoryRequest": "200Mi",
+						"MemoryLimit":   "1Gi",
+						"Store": {
+							"Path": "/logger",
+							"Parameters": {
+								"type": "s3",
+								"region": "us-west-2",
+								"format": "json"
+							}
+						}
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+					Store: &v1beta1.StorageSpec{
+						Path:       &storagePath,
+						Parameters: &storageParameters,
+					},
+				}),
+				gomega.MatchError("Logger storage is configured but storage key is not set"),
 				gomega.HaveOccurred(),
 			},
 		},
