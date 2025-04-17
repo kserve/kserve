@@ -110,7 +110,7 @@ func NewStoreForScheme(scheme string, storeSpec *v1beta1.StorageSpec, log *zap.S
 		return nil, fmt.Errorf("no parameters specified for store spec")
 	}
 	params := *storeSpec.Parameters
-	format := "json"
+	format := DefaultStoreFormat
 	if f, ok := params["format"]; ok {
 		format = f
 	}
