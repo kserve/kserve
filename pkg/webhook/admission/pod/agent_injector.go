@@ -131,6 +131,11 @@ func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
 			return loggerConfig, fmt.Errorf("Failed to parse resource configuration for %q: %q", LoggerConfigMapKeyName, err.Error())
 		}
 	}
+	if loggerConfig.Store != nil {
+		if loggerConfig.Store.StorageKey == nil {
+			return loggerConfig, fmt.Errorf("Logger storage is configured but storage key is not set")
+		}
+	}
 	return loggerConfig, nil
 }
 
