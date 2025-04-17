@@ -143,7 +143,7 @@ func NewStoreForScheme(scheme string, storeSpec *v1beta1.StorageSpec, log *zap.S
 			Region:           aws.String(region),
 			S3ForcePathStyle: aws.Bool(s3ForcePathStyle),
 		}
-		awsConfig.WithCredentials(awsCreds.NewSharedCredentials(*storeSpec.StorageKey, ""))
+		awsConfig.WithCredentials(awsCreds.NewEnvCredentials())
 		//awsConfig.Endpoint = aws.String(config.S3.S3Endpoint)
 
 		sess, err := session.NewSession(awsConfig)
