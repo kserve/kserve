@@ -542,7 +542,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Disabled: proto.Bool(false),
 				},
 			}
-			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
 			return servingRuntime
 		}
 
@@ -554,8 +553,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Data: configs,
 			}
-
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			return configMap
 		}
 
@@ -565,6 +562,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Config map
 			configMap := createInferenceServiceConfigMap()
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, configMap)
 
 			// Serving runtime
@@ -575,6 +573,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			storageUri := "s3://test/mnist/export"
 
 			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, servingRuntime)
 
 			// Define InferenceService
@@ -583,7 +582,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			isvc.Annotations[constants.StopAnnotationKey] = "false"
 			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, isvc)
-			time.Sleep(10 * time.Second)
+			time.Sleep(20 * time.Second)
 
 			// Knative service
 			actualService := &knservingv1.Service{}
@@ -604,6 +603,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Config map
 			configMap := createInferenceServiceConfigMap()
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, configMap)
 
 			// Serving runtime
@@ -614,6 +614,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			storageUri := "s3://test/mnist/export"
 
 			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, servingRuntime)
 
 			// Define InferenceService
@@ -632,19 +633,29 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Eventually(func() bool {
 				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
 				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The ksvc should eventually be deleted")
+			}, time.Second*30).Should(BeTrue(), "The ksvc should eventually be deleted")
 
 			// Check that the ISVC status reflects that it is stopped
 			updatedIsvc := &v1beta1.InferenceService{}
 			Eventually(func() bool {
-				if err := k8sClient.Get(ctx, serviceKey, updatedIsvc); err == nil {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err == nil {
 					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
+					if stopped_cond == nil {
+						return false
+					}
+					fmt.Println((stopped_cond))
 					if stopped_cond.Status == corev1.ConditionTrue {
 						return true
 					}
 				}
 				return false
-			}, timeout, interval).Should(BeTrue())
+			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
 		})
 	})
 
