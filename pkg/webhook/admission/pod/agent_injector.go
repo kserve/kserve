@@ -442,7 +442,18 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			if ag.loggerConfig.Store.StorageKey == nil {
 				return fmt.Errorf("logger storage is configured but storage key is not set")
 			}
-			if err := ag.credentialBuilder.CreateSecretAndVolume(
+			envVarName := "LOGGER_CONFIG"
+			params := map[string]string{}
+			if ag.loggerConfig.Store.Parameters != nil {
+				params = *ag.loggerConfig.Store.Parameters
+			}
+			secretName := agentContainer.Name + "-logger-secret"
+			err := ag.credentialBuilder.CreateStorageSpecSecretEnvs(pod.Namespace, params, *ag.loggerConfig.Store.StorageKey, &secretName, &envVarName, map[string]string{}, agentContainer)
+			if err != nil {
+				return err
+			}
+
+			if err := ag.credentialBuilder.MountSecretAndVolume(
 				*ag.loggerConfig.Store.StorageKey,
 				pod.Namespace,
 				agentContainer,
