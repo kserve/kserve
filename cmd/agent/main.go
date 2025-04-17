@@ -65,7 +65,7 @@ var (
 	logMode            = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
 	logStorePath       = flag.String("log-store-path", "", "The path to the log output")
 	logStoreParameters = flag.StringSlice("log-store-parameters", nil, "Parameters to override the default storage credentials and config.")
-	logStorageKey      = flag.String("log-storage-key", "", "The storage key in the secret to use when logging")
+	logStoreKey        = flag.String("log-store-key", "", "The storage key in the secret to use when logging")
 	inferenceService   = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
 	namespace          = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint           = flag.String("endpoint", "", "The endpoint name to add as header to log events")
@@ -167,7 +167,7 @@ func main() {
 		storageSpec := &v1beta1.StorageSpec{
 			Path:       logStorePath,
 			Parameters: &params,
-			StorageKey: logStorageKey,
+			StorageKey: logStoreKey,
 		}
 		loggerArgs = startLogger(*workers, storageSpec, logger)
 	}
@@ -308,6 +308,7 @@ func startLogger(workers int, storageSpec *v1beta1.StorageSpec, log *zap.Sugared
 	var store kfslogger.Store
 	if kfslogger.GetStorageStrategy(*logUrl) != kfslogger.HttpStorage {
 		if *logStorePath != "" {
+			log.Infow("Logger storage is enabled for path %s and key %s", *storageSpec.Path, *storageSpec.StorageKey)
 			store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, storageSpec, log)
 			if err != nil {
 				log.Errorw("Error creating logger store", zap.Error(err))
