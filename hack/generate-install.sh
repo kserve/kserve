@@ -103,7 +103,7 @@ done
 
 # Copy CRD files to charts crds directory
 cp ${temp_dir}/serving.kserve.io_clusterservingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_clusterservingruntimes.yaml
-cp ${temp_dir}/serving.kserve.io_inferenceservices.yaml charts/kserve-crd/templates/serving.kserve.io_inferenceservices.yaml
+cp ${temp_dir}/serving.kserve.io_crds.yaml charts/kserve-crd/templates/serving.kserve.io_crds.yaml
 cp ${temp_dir}/serving.kserve.io_trainedmodels.yaml charts/kserve-crd/templates/serving.kserve.io_trainedmodels.yaml
 cp ${temp_dir}/serving.kserve.io_inferencegraphs.yaml charts/kserve-crd/templates/serving.kserve.io_inferencegraphs.yaml
 cp ${temp_dir}/serving.kserve.io_servingruntimes.yaml charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
