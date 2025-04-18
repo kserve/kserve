@@ -265,6 +265,50 @@ func TestCreateServiceRawTrueAndConfigNil(t *testing.T) {
 	runTestServiceCreate(emptyServiceConfig, "", t)
 }
 
+func TestCreateServiceWithNodePort(t *testing.T) {
+	// Test with NodePort annotation
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-nodeport-service",
+		Namespace: "default",
+		Annotations: map[string]string{
+			v1beta1.EnableNodePortAnnotation: "true",
+		},
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{}
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name: "test-container",
+				Ports: []corev1.ContainerPort{
+					{
+						Name:          "http",
+						ContainerPort: 8080,
+						Protocol:      corev1.ProtocolTCP,
+					},
+				},
+			},
+		},
+	}
+
+	service := createService(componentMeta, componentExt, podSpec, false, emptyServiceConfig)
+
+	// Verify service type is NodePort
+	assert.Equal(t, corev1.ServiceTypeNodePort, service[0].Spec.Type, "Expected service type to be NodePort")
+	assert.Equal(t, int32(constants.CommonDefaultHttpPort), service[0].Spec.Ports[0].Port, "Expected port to be 80")
+	assert.Equal(t, intstr.FromInt(8080), service[0].Spec.Ports[0].TargetPort, "Expected target port to be 8080")
+
+	// Test without NodePort annotation
+	componentMeta = metav1.ObjectMeta{
+		Name:      "test-regular-service",
+		Namespace: "default",
+	}
+
+	service = createService(componentMeta, componentExt, podSpec, false, emptyServiceConfig)
+
+	// Verify service type is not NodePort
+	assert.NotEqual(t, corev1.ServiceTypeNodePort, service[0].Spec.Type, "Expected service type not to be NodePort")
+}
+
 func runTestServiceCreate(serviceConfig *v1beta1.ServiceConfig, expectedClusterIP string, t *testing.T) {
 	componentMeta := metav1.ObjectMeta{
 		Name:      "test-service",

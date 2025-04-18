@@ -357,11 +357,20 @@ func createRawIngress(ctx context.Context, scheme *runtime.Scheme, isvc *v1beta1
 	}
 	rules = append(rules, generateRule(predictorHost, predictorName, "/", constants.CommonDefaultHttpPort))
 	// Get and process annotations
-	// Preserve all Nginx Ingress controller related annotations
-	ingressAnnotations := filterByPrefix(isvc.Annotations, NginxIngressAnnotationPrefix)
+	// Copy all original annotations
+	ingressAnnotations := make(map[string]string)
+	for k, v := range isvc.Annotations {
+		ingressAnnotations[k] = v
+	}
 
-	// Process CORS related annotations, add default values
-	ingressAnnotations = processCorsAnnotations(ingressAnnotations)
+	// Extract and process CORS related annotations
+	corsAnnotations := filterByPrefix(isvc.Annotations, NginxIngressAnnotationPrefix)
+	corsAnnotations = processCorsAnnotations(corsAnnotations)
+
+	// Merge processed CORS annotations back into all annotations
+	for k, v := range corsAnnotations {
+		ingressAnnotations[k] = v
+	}
 
 	ingress := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -387,6 +396,27 @@ func semanticIngressEquals(desired, existing *netv1.Ingress) bool {
 		return false
 	}
 
+	// First, compare non-Nginx annotations
+	desiredOtherAnnotations := make(map[string]string)
+	existingOtherAnnotations := make(map[string]string)
+
+	for k, v := range desired.Annotations {
+		if !strings.HasPrefix(k, NginxIngressAnnotationPrefix) {
+			desiredOtherAnnotations[k] = v
+		}
+	}
+
+	for k, v := range existing.Annotations {
+		if !strings.HasPrefix(k, NginxIngressAnnotationPrefix) {
+			existingOtherAnnotations[k] = v
+		}
+	}
+
+	// Compare non-Nginx annotations
+	if !equality.Semantic.DeepEqual(desiredOtherAnnotations, existingOtherAnnotations) {
+		return false
+	}
+
 	// Extract Nginx related annotations
 	desiredNginxAnnotations := filterByPrefix(desired.Annotations, NginxIngressAnnotationPrefix)
 	existingNginxAnnotations := filterByPrefix(existing.Annotations, NginxIngressAnnotationPrefix)
@@ -394,12 +424,12 @@ func semanticIngressEquals(desired, existing *netv1.Ingress) bool {
 	// Process CORS related annotations, add default values for desired
 	desiredNginxAnnotations = processCorsAnnotations(desiredNginxAnnotations)
 
-	// If annotation count differs, they are definitely not equal
+	// If Nginx annotation count differs, they are definitely not equal
 	if len(desiredNginxAnnotations) != len(existingNginxAnnotations) {
 		return false
 	}
 
-	// Check if each annotation is the same
+	// Check if each Nginx annotation is the same
 	for k, v := range desiredNginxAnnotations {
 		existingValue, exists := existingNginxAnnotations[k]
 		if !exists || existingValue != v {
