@@ -88,7 +88,9 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec,
 							averageUtil = &constants.DefaultCPUUtilization
 						}
 					}
-					targetValue = strconv.Itoa(int(*averageUtil))
+					if averageUtil != nil {
+						targetValue = strconv.Itoa(int(*averageUtil))
+					}
 				case v1beta1.AverageValueMetricType:
 					if metric.Resource.Target.AverageValue != nil {
 						targetValue = metric.Resource.Target.AverageValue.String()
