@@ -88,25 +88,6 @@ kserve:
     # -- KServe deployment mode: "Serverless", "RawDeployment".
     deploymentMode: "Serverless"
 
-    # -- KServe controller manager rbac proxy contrainer image
-    rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
-    rbacProxy:
-      resources:
-        limits:
-          cpu: 100m
-          memory: 300Mi
-        requests:
-          cpu: 100m
-          memory: 300Mi
-      securityContext:
-        allowPrivilegeEscalation: false
-        privileged: false
-        capabilities:
-          drop:
-          - ALL
-        readOnlyRootFilesystem: true
-        runAsNonRoot: true
-
     # -- Optional additional labels to add to the controller deployment.
     labels: {}
 
@@ -145,7 +126,7 @@ kserve:
     metricsBindAddress: "127.0.0.1"
 
     # -- Metrics bind port
-    metricsBindPort: "8080"
+    metricsBindPort: "8443"
 
     gateway:
       # -- Ingress domain for RawDeployment mode, for Serverless it is configured in Knative.
