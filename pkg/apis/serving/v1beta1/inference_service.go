@@ -96,6 +96,16 @@ type Batcher struct {
 	Timeout *int `json:"timeout,omitempty"`
 }
 
+const (
+	// EnableNodePortAnnotation controls whether to enable NodePort, value is true or false
+	EnableNodePortAnnotation = "serving.kserve.io/enable-nodeport"
+
+	// NodePortAnnotation specifies the NodePort port number, default value is randomly generated
+	// serving.kserve.io/nodeport: "8080:30000,9000:30001"
+
+	NodePortAnnotation = "serving.kserve.io/nodeports"
+)
+
 // InferenceService is the Schema for the InferenceServices API
 // +k8s:openapi-gen=true
 // +genclient

@@ -191,6 +191,10 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 		service.Spec.ClusterIP = corev1.ClusterIPNone
 	}
 
+	if enableNodePort, exists := componentMeta.Annotations[v1beta1.EnableNodePortAnnotation]; exists && enableNodePort == "true" {
+		service.Spec.Type = corev1.ServiceTypeNodePort
+	}
+
 	return service
 }
 
@@ -260,6 +264,19 @@ func (r *ServiceReconciler) checkServiceExist(ctx context.Context, client client
 		}
 		return constants.CheckResultUnknown, nil, err
 	}
+	// If need to update to NodePort type
+	if existingService.Spec.Type == corev1.ServiceTypeNodePort {
+		// Preserve existing NodePort values
+		for i := range existingService.Spec.Ports {
+			for j := range existingService.Spec.Ports {
+				if existingService.Spec.Ports[i].Port == existingService.Spec.Ports[j].Port {
+					if existingService.Spec.Ports[j].NodePort != 0 {
+						existingService.Spec.Ports[i].NodePort = existingService.Spec.Ports[j].NodePort
+					}
+				}
+			}
+		}
+	}
 
 	// existed, check equivalent
 	if semanticServiceEquals(svc, existingService) {
@@ -270,7 +287,8 @@ func (r *ServiceReconciler) checkServiceExist(ctx context.Context, client client
 
 func semanticServiceEquals(desired, existing *corev1.Service) bool {
 	return equality.Semantic.DeepEqual(desired.Spec.Ports, existing.Spec.Ports) &&
-		equality.Semantic.DeepEqual(desired.Spec.Selector, existing.Spec.Selector)
+		equality.Semantic.DeepEqual(desired.Spec.Selector, existing.Spec.Selector) &&
+		equality.Semantic.DeepEqual(desired.Spec.Type, existing.Spec.Type)
 }
 
 // Reconcile ...
