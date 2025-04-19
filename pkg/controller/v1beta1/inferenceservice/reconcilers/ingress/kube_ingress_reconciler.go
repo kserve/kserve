@@ -19,6 +19,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
@@ -36,6 +37,24 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
+
+// Define Ingress controller related constants
+const (
+	// NginxIngressAnnotationPrefix is the annotation prefix for Nginx Ingress controller
+	NginxIngressAnnotationPrefix = "nginx.ingress.kubernetes.io"
+	// CORS related annotations
+	NginxIngressEnableCors           = "nginx.ingress.kubernetes.io/enable-cors"
+	NginxIngressCorsAllowOrigin      = "nginx.ingress.kubernetes.io/cors-allow-origin"
+	NginxIngressCorsAllowHeaders     = "nginx.ingress.kubernetes.io/cors-allow-headers"
+	NginxIngressCorsAllowCredentials = "nginx.ingress.kubernetes.io/cors-allow-credentials"
+)
+
+// Default CORS configuration
+var defaultCorsConfig = map[string]string{
+	NginxIngressCorsAllowOrigin:      "*",
+	NginxIngressCorsAllowHeaders:     "DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Authorization",
+	NginxIngressCorsAllowCredentials: "true",
+}
 
 // RawIngressReconciler reconciles the kubernetes ingress
 type RawIngressReconciler struct {
@@ -56,6 +75,70 @@ func NewRawIngressReconciler(client client.Client,
 		ingressConfig: ingressConfig,
 		isvcConfig:    isvcConfig,
 	}, nil
+}
+
+// filterByPrefix returns a new map containing only key-value pairs with matching prefix
+func filterByPrefix(m map[string]string, prefix string) map[string]string {
+	result := make(map[string]string)
+	for k, v := range m {
+		if strings.HasPrefix(k, prefix) {
+			result[k] = v
+		}
+	}
+	return result
+}
+
+// processCorsAnnotations processes CORS related annotations
+// If CORS is enabled (enable-cors=true), preserve user configuration or add default values
+// If CORS is disabled (enable-cors!=true), remove all CORS related configurations
+func processCorsAnnotations(annotations map[string]string) map[string]string {
+	// Create a new map to store processed annotations
+	processedAnnotations := make(map[string]string)
+
+	// Check if CORS is enabled
+	enableCors := annotations[NginxIngressEnableCors] == "true"
+
+	// If CORS is enabled, copy all annotations and add defaults for missing ones
+	if enableCors {
+		// Copy all annotations
+		for k, v := range annotations {
+			processedAnnotations[k] = v
+		}
+
+		// Add default values for missing CORS configurations
+		for k, defaultValue := range defaultCorsConfig {
+			if _, exists := processedAnnotations[k]; !exists {
+				processedAnnotations[k] = defaultValue
+			}
+		}
+	} else {
+		// If CORS is disabled, only copy non-CORS related annotations
+		corsKeys := []string{
+			NginxIngressEnableCors,
+			NginxIngressCorsAllowOrigin,
+			NginxIngressCorsAllowHeaders,
+			NginxIngressCorsAllowCredentials,
+			// Can add other CORS related keys here
+		}
+
+		for k, v := range annotations {
+			// Check if current key is CORS related
+			isCorsKey := false
+			for _, corsKey := range corsKeys {
+				if k == corsKey {
+					isCorsKey = true
+					break
+				}
+			}
+
+			// Only copy to result if not CORS related
+			if !isCorsKey {
+				processedAnnotations[k] = v
+			}
+		}
+	}
+
+	return processedAnnotations
 }
 
 func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
@@ -273,12 +356,27 @@ func createRawIngress(ctx context.Context, scheme *runtime.Scheme, isvc *v1beta1
 		return nil, fmt.Errorf("failed creating predictor ingress host: %w", err)
 	}
 	rules = append(rules, generateRule(predictorHost, predictorName, "/", constants.CommonDefaultHttpPort))
+	// Get and process annotations
+	// Copy all original annotations
+	ingressAnnotations := make(map[string]string)
+	for k, v := range isvc.Annotations {
+		ingressAnnotations[k] = v
+	}
+
+	// Extract and process CORS related annotations
+	corsAnnotations := filterByPrefix(isvc.Annotations, NginxIngressAnnotationPrefix)
+	corsAnnotations = processCorsAnnotations(corsAnnotations)
+
+	// Merge processed CORS annotations back into all annotations
+	for k, v := range corsAnnotations {
+		ingressAnnotations[k] = v
+	}
 
 	ingress := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        isvc.ObjectMeta.Name,
 			Namespace:   isvc.ObjectMeta.Namespace,
-			Annotations: isvc.Annotations,
+			Annotations: ingressAnnotations,
 		},
 		Spec: netv1.IngressSpec{
 			IngressClassName: ingressConfig.IngressClassName,
@@ -292,5 +390,52 @@ func createRawIngress(ctx context.Context, scheme *runtime.Scheme, isvc *v1beta1
 }
 
 func semanticIngressEquals(desired, existing *netv1.Ingress) bool {
-	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
+	// Compare Spec
+	specsEqual := equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
+	if !specsEqual {
+		return false
+	}
+
+	// First, compare non-Nginx annotations
+	desiredOtherAnnotations := make(map[string]string)
+	existingOtherAnnotations := make(map[string]string)
+
+	for k, v := range desired.Annotations {
+		if !strings.HasPrefix(k, NginxIngressAnnotationPrefix) {
+			desiredOtherAnnotations[k] = v
+		}
+	}
+
+	for k, v := range existing.Annotations {
+		if !strings.HasPrefix(k, NginxIngressAnnotationPrefix) {
+			existingOtherAnnotations[k] = v
+		}
+	}
+
+	// Compare non-Nginx annotations
+	if !equality.Semantic.DeepEqual(desiredOtherAnnotations, existingOtherAnnotations) {
+		return false
+	}
+
+	// Extract Nginx related annotations
+	desiredNginxAnnotations := filterByPrefix(desired.Annotations, NginxIngressAnnotationPrefix)
+	existingNginxAnnotations := filterByPrefix(existing.Annotations, NginxIngressAnnotationPrefix)
+
+	// Process CORS related annotations, add default values for desired
+	desiredNginxAnnotations = processCorsAnnotations(desiredNginxAnnotations)
+
+	// If Nginx annotation count differs, they are definitely not equal
+	if len(desiredNginxAnnotations) != len(existingNginxAnnotations) {
+		return false
+	}
+
+	// Check if each Nginx annotation is the same
+	for k, v := range desiredNginxAnnotations {
+		existingValue, exists := existingNginxAnnotations[k]
+		if !exists || existingValue != v {
+			return false
+		}
+	}
+
+	return true
 }
