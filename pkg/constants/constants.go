@@ -186,6 +186,7 @@ const (
 	AutoscalerClassKPA      AutoscalerClassType = "kpa"
 	AutoscalerClassExternal AutoscalerClassType = "external"
 	AutoscalerClassKeda     AutoscalerClassType = "keda"
+	AutoscalerClassNone     AutoscalerClassType = "none"
 )
 
 // HPA Metrics Types
@@ -212,6 +213,7 @@ var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
 	AutoscalerClassExternal,
 	AutoscalerClassKeda,
+	AutoscalerClassNone,
 }
 
 // AutoscalerAllowedHPAMetricsList allowed resource metrics List.

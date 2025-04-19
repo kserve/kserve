@@ -83,7 +83,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				},
 				Labels: map[string]string{
 					constants.DeploymentMode:  string(constants.RawDeployment),
-					constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 				},
 			},
 			workerObjectMeta: metav1.ObjectMeta{
@@ -94,7 +94,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				},
 				Labels: map[string]string{
 					constants.DeploymentMode:  string(constants.RawDeployment),
-					constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 				},
 			},
 			componentExt: &v1beta1.ComponentExtensionSpec{},
@@ -237,7 +237,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					},
 					Labels: map[string]string{
 						"app":                               "isvc.default-predictor",
-						"serving.kserve.io/autoscalerClass": "external",
+						"serving.kserve.io/autoscalerClass": "none",
 						"serving.kserve.io/deploymentMode":  "RawDeployment",
 					},
 				},
@@ -263,7 +263,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							},
 							Labels: map[string]string{
 								"app":                               "isvc.default-predictor",
-								"serving.kserve.io/autoscalerClass": "external",
+								"serving.kserve.io/autoscalerClass": "none",
 								"serving.kserve.io/deploymentMode":  "RawDeployment",
 							},
 						},
@@ -317,7 +317,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					},
 					Labels: map[string]string{
 						constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
-						constants.AutoscalerClass:       string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass:       string(constants.AutoscalerClassNone),
 						constants.DeploymentMode:        string(constants.RawDeployment),
 					},
 				},
@@ -344,7 +344,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							},
 							Labels: map[string]string{
 								constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
-								constants.AutoscalerClass:       string(constants.AutoscalerClassExternal),
+								constants.AutoscalerClass:       string(constants.AutoscalerClassNone),
 								constants.DeploymentMode:        string(constants.RawDeployment),
 							},
 						},

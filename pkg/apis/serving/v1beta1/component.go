@@ -44,7 +44,7 @@ const (
 	InvalidISVCNameFormatError                       = "the InferenceService \"%s\" is invalid: a InferenceService name must consist of lower case alphanumeric characters or '-', and must start with alphabetical character. (e.g. \"my-name\" or \"abc-123\", regex used for validation is '%s')"
 	InvalidProtocol                                  = "invalid protocol %s. Must be one of [%s]"
 	MissingStorageURI                                = "the InferenceService %q is invalid: StorageURI must be set for multinode enabled"
-	InvalidAutoScalerError                           = "the InferenceService %q is invalid: Multinode only supports 'external' autoscaler(%s)"
+	InvalidAutoScalerError                           = "the InferenceService %q is invalid: Multinode only supports 'none' autoscaler(%s)"
 	InvalidNotSupportedStorageURIProtocolError       = "the InferenceService %q is invalid: Multinode only supports 'pvc' Storage Protocol(%s)"
 	InvalidCustomGPUTypesAnnotationFormatError       = "the InferenceService %q is invalid: invalid format for %s annotation: must be a valid JSON array"
 	InvalidUnknownGPUTypeError                       = "the InferenceService %q is invalid: Unknown GPU resource type. Set 'serving.kserve.io/gpu-resource-types' annotation to use custom gpu resource type"

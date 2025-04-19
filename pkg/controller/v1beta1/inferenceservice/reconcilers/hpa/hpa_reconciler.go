@@ -227,9 +227,9 @@ func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler, desired *a
 		return false
 	}
 
-	// Check if the autoscaler class in the desired object is "external"
+	// Check if the autoscaler class in the desired object is "external" or "none"
 	desiredAutoscalerClass, hasDesiredAutoscalerClass := desired.Annotations[constants.AutoscalerClass]
-	return hasDesiredAutoscalerClass && constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassExternal
+	return hasDesiredAutoscalerClass && (constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassExternal || constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassNone)
 }
 
 func shouldCreateHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
