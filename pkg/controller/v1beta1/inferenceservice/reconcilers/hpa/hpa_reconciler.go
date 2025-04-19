@@ -15,6 +15,7 @@ package hpa
 
 import (
 	"context"
+	"strings"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -193,7 +194,7 @@ func (r *HPAReconciler) checkHPAExist(ctx context.Context, client client.Client)
 	if semanticHPAEquals(r.HPA, existingHPA) {
 		return constants.CheckResultExisted, existingHPA, nil
 	}
-	if shouldDeleteHPA(r.HPA) {
+	if shouldDeleteHPA(existingHPA, r.HPA) {
 		return constants.CheckResultDelete, existingHPA, nil
 	}
 	return constants.CheckResultUpdate, existingHPA, nil
@@ -211,9 +212,24 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) && !autoscalerClassChanged
 }
 
-func shouldDeleteHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
+func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler, desired *autoscalingv2.HorizontalPodAutoscaler) bool {
+	// Check if the HPA is owned by an InferenceService
+	isOwnedByKServe := false
+	for _, ownerRef := range existing.OwnerReferences {
+		if strings.HasPrefix(ownerRef.APIVersion, "serving.kserve.io") && ownerRef.Kind == "InferenceService" {
+			isOwnedByKServe = true
+			break
+		}
+	}
+
+	// If not owned by an InferenceService, do not delete
+	if !isOwnedByKServe {
+		return false
+	}
+
+	// Check if the autoscaler class in the desired object is "external" or "none"
 	desiredAutoscalerClass, hasDesiredAutoscalerClass := desired.Annotations[constants.AutoscalerClass]
-	return hasDesiredAutoscalerClass && constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassExternal
+	return hasDesiredAutoscalerClass && (constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassExternal || constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassNone)
 }
 
 func shouldCreateHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {

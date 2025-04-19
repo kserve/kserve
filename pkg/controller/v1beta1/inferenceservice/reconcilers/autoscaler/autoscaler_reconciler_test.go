@@ -62,6 +62,15 @@ func TestGetAutoscalerClass(t *testing.T) {
 			},
 			expectedAutoScalerType: constants.AutoscalerClassExternal,
 		},
+		{
+			name: "Return none AutoScaler,if the autoscalerClass annotation set none",
+			isvcMetaData: &metav1.ObjectMeta{
+				Name:        serviceName,
+				Namespace:   namespace,
+				Annotations: map[string]string{"serving.kserve.io/autoscalerClass": "none"},
+			},
+			expectedAutoScalerType: constants.AutoscalerClassNone,
+		},
 	}
 
 	for _, tt := range testCases {
