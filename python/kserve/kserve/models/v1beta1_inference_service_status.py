@@ -51,6 +51,7 @@ class V1beta1InferenceServiceStatus(object):
         'annotations': 'dict(str, str)',
         'components': 'dict(str, V1beta1ComponentStatusSpec)',
         'conditions': 'list[KnativeCondition]',
+        'deployment_mode': 'str',
         'model_status': 'V1beta1ModelStatus',
         'observed_generation': 'int',
         'url': 'KnativeURL'
@@ -61,12 +62,13 @@ class V1beta1InferenceServiceStatus(object):
         'annotations': 'annotations',
         'components': 'components',
         'conditions': 'conditions',
+        'deployment_mode': 'deploymentMode',
         'model_status': 'modelStatus',
         'observed_generation': 'observedGeneration',
         'url': 'url'
     }
 
-    def __init__(self, address=None, annotations=None, components=None, conditions=None, model_status=None, observed_generation=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, address=None, annotations=None, components=None, conditions=None, deployment_mode=None, model_status=None, observed_generation=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServiceStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -76,6 +78,7 @@ class V1beta1InferenceServiceStatus(object):
         self._annotations = None
         self._components = None
         self._conditions = None
+        self._deployment_mode = None
         self._model_status = None
         self._observed_generation = None
         self._url = None
@@ -89,6 +92,8 @@ class V1beta1InferenceServiceStatus(object):
             self.components = components
         if conditions is not None:
             self.conditions = conditions
+        if deployment_mode is not None:
+            self.deployment_mode = deployment_mode
         if model_status is not None:
             self.model_status = model_status
         if observed_generation is not None:
@@ -185,6 +190,29 @@ class V1beta1InferenceServiceStatus(object):
         """
 
         self._conditions = conditions
+
+    @property
+    def deployment_mode(self):
+        """Gets the deployment_mode of this V1beta1InferenceServiceStatus.  # noqa: E501
+
+        InferenceService DeploymentMode  # noqa: E501
+
+        :return: The deployment_mode of this V1beta1InferenceServiceStatus.  # noqa: E501
+        :rtype: str
+        """
+        return self._deployment_mode
+
+    @deployment_mode.setter
+    def deployment_mode(self, deployment_mode):
+        """Sets the deployment_mode of this V1beta1InferenceServiceStatus.
+
+        InferenceService DeploymentMode  # noqa: E501
+
+        :param deployment_mode: The deployment_mode of this V1beta1InferenceServiceStatus.  # noqa: E501
+        :type: str
+        """
+
+        self._deployment_mode = deployment_mode
 
     @property
     def model_status(self):

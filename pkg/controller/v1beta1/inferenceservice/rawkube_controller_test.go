@@ -26,9 +26,10 @@ import (
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/kserve/kserve/pkg/utils"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
@@ -576,7 +577,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}), cmpopts.IgnoreFields(v1beta1.InferenceServiceStatus{}, "DeploymentMode"))
 			}, timeout).Should(BeEmpty())
 
 			// check HPA
@@ -1126,7 +1127,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}), cmpopts.IgnoreFields(v1beta1.InferenceServiceStatus{}, "DeploymentMode"))
 			}, timeout).Should(BeEmpty())
 
 			// check HPA
@@ -1654,7 +1655,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}), cmpopts.IgnoreFields(v1beta1.InferenceServiceStatus{}, "DeploymentMode"))
 			}, timeout).Should(BeEmpty())
 
 			// check HPA is not created
@@ -2030,7 +2031,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}), cmpopts.IgnoreFields(v1beta1.InferenceServiceStatus{}, "DeploymentMode"))
 			}, timeout).Should(BeEmpty())
 
 			// check HPA
@@ -2599,7 +2600,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}), cmpopts.IgnoreFields(v1beta1.InferenceServiceStatus{}, "DeploymentMode"))
 			}, timeout).Should(BeEmpty())
 
 			// check HPA
@@ -3434,7 +3435,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}), cmpopts.IgnoreFields(v1beta1.InferenceServiceStatus{}, "DeploymentMode"))
 			}, timeout).Should(BeEmpty())
 
 			// check predictor HPA
@@ -4378,7 +4379,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}), cmpopts.IgnoreFields(v1beta1.InferenceServiceStatus{}, "DeploymentMode"))
 			}, timeout).Should(BeEmpty())
 
 			// check predictor HPA
@@ -5062,7 +5063,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}), cmpopts.IgnoreFields(v1beta1.InferenceServiceStatus{}, "DeploymentMode"))
 			}, timeout).Should(BeEmpty())
 
 			// check HPA
@@ -5947,7 +5948,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}), cmpopts.IgnoreFields(v1beta1.InferenceServiceStatus{}, "DeploymentMode"))
 			}, timeout).Should(BeEmpty())
 
 			// check predictor HPA
@@ -6983,7 +6984,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}), cmpopts.IgnoreFields(v1beta1.InferenceServiceStatus{}, "DeploymentMode"))
 			}, timeout).Should(BeEmpty())
 
 			// check predictor HPA
@@ -7867,7 +7868,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}), cmpopts.IgnoreFields(v1beta1.InferenceServiceStatus{}, "DeploymentMode"))
 			}, timeout).Should(BeEmpty())
 
 			// check HPA
