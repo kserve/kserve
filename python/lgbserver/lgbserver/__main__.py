@@ -31,7 +31,10 @@ parser.add_argument(
     "--model_dir", required=True, help="A local path to the model directory"
 )
 parser.add_argument(
-    "--nthread", default=DEFAULT_NTHREAD, help="Number of threads to use by LightGBM."
+    "--nthread",
+    default=DEFAULT_NTHREAD,
+    type=int,
+    help="Number of threads to use by LightGBM.",
 )
 args, _ = parser.parse_known_args()
 
