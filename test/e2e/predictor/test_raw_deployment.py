@@ -47,6 +47,8 @@ async def test_raw_deployment_kserve(rest_v1_client, network_layer):
     service_name = "raw-sklearn-" + suffix
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    labels = dict()
+    labels["networking.kserve.io/visibility"] = "exposed"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -66,6 +68,7 @@ async def test_raw_deployment_kserve(rest_v1_client, network_layer):
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
@@ -92,6 +95,8 @@ async def test_raw_deployment_runtime_kserve(rest_v1_client, network_layer):
     service_name = "raw-sklearn-runtime-" + suffix
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    labels = dict()
+    labels["networking.kserve.io/visibility"] = "exposed"
 
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -114,6 +119,7 @@ async def test_raw_deployment_runtime_kserve(rest_v1_client, network_layer):
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )

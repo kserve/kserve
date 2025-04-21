@@ -39,6 +39,9 @@ async def test_batcher_raw(rest_v1_client, network_layer):
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
 
+    labels = dict()
+    labels["networking.kserve.io/visibility"] = "exposed"
+
     predictor = V1beta1PredictorSpec(
         batcher=V1beta1Batcher(
             max_batch_size=32,
@@ -61,6 +64,7 @@ async def test_batcher_raw(rest_v1_client, network_layer):
             name=service_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )

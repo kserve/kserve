@@ -939,6 +939,8 @@ async def test_inference_graph_raw_mode(rest_v1_client, network_layer):
 
     annotations = dict()
     annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    labels = dict()
+    labels["networking.kserve.io/visibility"] = "exposed"
 
     sklearn_predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -957,6 +959,7 @@ async def test_inference_graph_raw_mode(rest_v1_client, network_layer):
             name=sklearn_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=sklearn_predictor),
     )
@@ -978,6 +981,7 @@ async def test_inference_graph_raw_mode(rest_v1_client, network_layer):
             name=xgb_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
     )
@@ -1099,6 +1103,8 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer):
     # annotations["serving.kserve.io/metric"] = 'rps'
     # annotations["serving.kserve.io/min-scale"] = '2'
     # annotations["serving.kserve.io/target"] = '30'
+    labels = dict()
+    labels["networking.kserve.io/visibility"] = "exposed"
 
     sklearn_predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -1117,6 +1123,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer):
             name=sklearn_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=sklearn_predictor),
     )
@@ -1138,6 +1145,7 @@ async def test_inference_graph_raw_mode_with_hpa(rest_v1_client, network_layer):
             name=xgb_name,
             namespace=KSERVE_TEST_NAMESPACE,
             annotations=annotations,
+            labels=labels,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=xgb_predictor),
     )
