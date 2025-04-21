@@ -36,6 +36,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -83,6 +84,7 @@ import (
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=operator.knative.dev,resources=knativeservings,verbs=get;list;watch
 
 // InferenceServiceState describes the Readiness of the InferenceService
 type InferenceServiceState string
@@ -183,7 +185,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	// Abort early if the resolved deployment mode is Serverless, but Knative Services are not available
+	// Abort early if the resolved deployment mode is Serverless, but Knative Services or KnativeServings are not available
 	if deploymentMode == constants.Serverless {
 		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 		if checkKsvcErr != nil {
@@ -193,7 +195,19 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if !ksvcAvailable {
 			r.Recorder.Event(isvc, v1.EventTypeWarning, "ServerlessModeRejected",
 				"It is not possible to use Serverless deployment mode when Knative Services are not available")
-			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Serverless, but Knative Serving is not available", isvc.Name))
+			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Serverless, but Knative Services are not available", isvc.Name))
+		}
+
+		// Abort if Knative KnativeServings are not available
+		knServingFound, knServingCheckErr := utils.IsCrdAvailable(r.ClientConfig, operatorv1beta1.SchemeGroupVersion.String(), constants.KnativeServingKind)
+		if knServingCheckErr != nil {
+			return reconcile.Result{}, knServingCheckErr
+		}
+
+		if !knServingFound {
+			r.Recorder.Event(isvc, v1.EventTypeWarning, "ServerlessModeRejected",
+				"It is not possible to use Serverless deployment mode when Knative KnativeServings are not available")
+			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Serverless, but Knative KnativeServings are not available", isvc.Name))
 		}
 	}
 
