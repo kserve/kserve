@@ -22,13 +22,13 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/constants"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 )
 
@@ -45,7 +45,7 @@ func CheckNodeAffinity(pvSpec *corev1.PersistentVolumeSpec, node corev1.Node) (b
 // SetAutoScalingAnnotations validates the requested autoscaling configuration against the
 // globally configured knative autoscaler configuration, then sets the resolved autoscaling annotations.
 func SetAutoScalingAnnotations(ctx context.Context,
-	client client.Client,
+	clientset kubernetes.Interface,
 	annotations map[string]string,
 	scaleTarget *int32,
 	scaleMetric *string,
@@ -90,7 +90,7 @@ func SetAutoScalingAnnotations(ctx context.Context,
 	)
 
 	// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
-	allowZeroInitialScale, err := CheckZeroInitialScaleAllowed(ctx, client)
+	allowZeroInitialScale, err := CheckZeroInitialScaleAllowed(ctx, clientset)
 	if err != nil {
 		return errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
 	}
@@ -113,13 +113,12 @@ func SetAutoScalingAnnotations(ctx context.Context,
 // This configmap will always be defined with the name 'config-autoscaler'.
 // The namespace the configmap exists within may vary. If the configmap is created in a namespace other than
 // 'knative-serving' this value must be set using the CONFIG_AUTOSCALER_NAMESPACE environmental variable.
-func CheckZeroInitialScaleAllowed(ctx context.Context, client client.Client) (bool, error) {
+func CheckZeroInitialScaleAllowed(ctx context.Context, clientset kubernetes.Interface) (bool, error) {
 	// Set allow-zero-initial-scale to the default values to start.
 	// If autoscaling values are not set in the configuration, then the defaults are used.
 	allowZeroInitialScale := "false"
 
-	configAutoscaler := &corev1.ConfigMap{}
-	err := client.Get(ctx, types.NamespacedName{Namespace: constants.AutoscalerConfigmapNamespace, Name: constants.AutoscalerConfigmapName}, configAutoscaler)
+	configAutoscaler, err := clientset.CoreV1().ConfigMaps(constants.AutoscalerConfigmapNamespace).Get(ctx, constants.AutoscalerConfigmapName, metav1.GetOptions{})
 	if err != nil {
 		return false, errors.Wrapf(
 			err,

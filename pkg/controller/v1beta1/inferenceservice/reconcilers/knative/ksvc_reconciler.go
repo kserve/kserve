@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmp"
 	knserving "knative.dev/serving/pkg/apis/serving"
@@ -58,6 +59,7 @@ type KsvcReconciler struct {
 
 func NewKsvcReconciler(ctx context.Context,
 	client client.Client,
+	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
@@ -65,7 +67,7 @@ func NewKsvcReconciler(ctx context.Context,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
 ) (*KsvcReconciler, error) {
-	ksvc, err := createKnativeService(ctx, client, componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList)
+	ksvc, err := createKnativeService(ctx, clientset, componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList)
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to create knative service for inference service %s", componentMeta.Name)
 	}
@@ -79,7 +81,7 @@ func NewKsvcReconciler(ctx context.Context,
 }
 
 func createKnativeService(ctx context.Context,
-	client client.Client,
+	clientset kubernetes.Interface,
 	componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
@@ -89,7 +91,7 @@ func createKnativeService(ctx context.Context,
 	annotations := componentMeta.GetAnnotations()
 
 	err := knutils.SetAutoScalingAnnotations(ctx,
-		client,
+		clientset,
 		annotations,
 		componentExtension.ScaleTarget,
 		(*string)(componentExtension.ScaleMetric),
