@@ -54,7 +54,7 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.8.2
+ARG VLLM_VERSION=0.8.4
 
 ################### LMCache WHEEL BUILD ###################
 # max jobs used by Ninja to build extensions
@@ -112,20 +112,10 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install ${WORKSPACE_DIR}/LMCa
 # https://docs.vllm.ai/en/latest/models/extensions/fastsafetensor.html
 RUN --mount=type=cache,target=/root/.cache/pip pip install --upgrade pip && pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
 
-# Install FlashInfer Attention backend
-RUN --mount=type=cache,target=/root/.cache/pip pip install https://github.com/flashinfer-ai/flashinfer/releases/download/v0.2.1.post2/flashinfer_python-0.2.1.post2+cu124torch2.6-cp38-abi3-linux_x86_64.whl
-
-# Although we build Flashinfer with AOT mode, there's still
-# some issues w.r.t. JIT compilation. Therefore we need to
-# install build dependencies for JIT compilation.
-# TODO: Remove this once FlashInfer AOT wheel is fixed
-RUN --mount=type=cache,target=/root/.cache/pip curl -sSLo requirements-build.txt https://github.com/vllm-project/vllm/raw/refs/tags/v${VLLM_VERSION}/requirements/build.txt \
-    && pip install -r requirements-build.txt
 #################### WHEEL BUILD IMAGE ####################
 
 #################### PROD IMAGE ####################
-# TODO: Restore to base image after FlashInfer AOT wheel fixed
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS prod
+FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04 AS prod
 
 ARG WORKSPACE_DIR
 ARG CUDA_VERSION=12.4.1
@@ -150,7 +140,6 @@ RUN apt-get update -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY third_party third_party
-
 
 ARG VENV_PATH
 # Activate virtual env by setting VIRTUAL_ENV
