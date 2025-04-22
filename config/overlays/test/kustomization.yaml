@@ -10,3 +10,5 @@ patches:
 - path: configmap/inferenceservice.yaml
 - path: manager_image_patch.yaml
 # - path: localmodel_manager_image_patch.yaml
+# - path: localmodelnode_agent_image_patch.yaml
+
