@@ -93,6 +93,17 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(clientset).ToNot(BeNil())
 
+	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	k8sClient = k8sManager.GetClient()
+	Expect(k8sClient).ToNot(BeNil())
+
 	// Create namespaces
 	kfservingNamespaceObj := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
@@ -124,25 +135,6 @@ var _ = BeforeSuite(func() {
 		},
 	}
 	Expect(k8sClient.Create(context.Background(), knativeCr)).Should(Succeed())
-
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
-	})
-	Expect(err).ToNot(HaveOccurred())
-
-	k8sClient = k8sManager.GetClient()
-	Expect(k8sClient).ToNot(BeNil())
-
-	//Create namespace
-	kserveNamespaceObj := &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: constants.KServeNamespace,
-		},
-	}
-	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
 
 	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Serverless"}
 	ingressConfig := &v1beta1.IngressConfig{
