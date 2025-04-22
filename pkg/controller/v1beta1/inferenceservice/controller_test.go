@@ -593,8 +593,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Consistently(func() error {
 				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
 				return err
-			}, timeout).
-				Should(Succeed())
+			}, timeout).Should(Succeed())
 		})
 
 		It("Should delete the knative service when the annotation is set to true", func() {
@@ -633,7 +632,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Eventually(func() bool {
 				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
 				return apierr.IsNotFound(err)
-			}, time.Second*30).Should(BeTrue(), "The ksvc should eventually be deleted")
+			}, time.Second*30).Should(BeTrue(), "The ksvc should not be created")
 
 			// Check that the ISVC status reflects that it is stopped
 			updatedIsvc := &v1beta1.InferenceService{}
@@ -646,11 +645,84 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
 				if err == nil {
 					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
-					if stopped_cond == nil {
-						return false
+					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
+						return true
 					}
-					fmt.Println((stopped_cond))
-					if stopped_cond.Status == corev1.ConditionTrue {
+				}
+				return false
+			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+		})
+
+		It("Should delete the knative service when the annotation is updated to true on an existing ISVC", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			// Config map
+			configMap := createInferenceServiceConfigMap()
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			// Serving runtime
+			serviceName := "stop-edit-isvc"
+			serviceNamespace := "default"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
+
+			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving")
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, servingRuntime)
+
+			// Define InferenceService
+			isvc := defaultIsvc(serviceKey.Namespace, serviceKey.Name, storageUri)
+			isvc.Annotations = map[string]string{}
+			isvc.Annotations[constants.StopAnnotationKey] = "false"
+			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, isvc)
+			time.Sleep(20 * time.Second)
+
+			// Knative service
+			actualService := &knservingv1.Service{}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			Consistently(func() error {
+				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
+				return err
+			}, timeout).
+				Should(Succeed())
+
+			actualIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, expectedRequest.NamespacedName, actualIsvc)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Stop the inference service
+			updatedIsvc := actualIsvc.DeepCopy()
+			updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
+			Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
+			time.Sleep(10 * time.Second)
+
+			// Check that the KSVC was deleted
+			Eventually(func() bool {
+				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
+				return apierr.IsNotFound(err)
+			}, time.Second*30).Should(BeTrue(), "The ksvc should eventually be deleted")
+
+			// Check that the ISVC status reflects that it is stopped
+			updatedStoppedIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedStoppedIsvc)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedStoppedIsvc)
+				if err == nil {
+					stopped_cond := updatedStoppedIsvc.Status.GetCondition(v1beta1.Stopped)
+					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
 						return true
 					}
 				}
