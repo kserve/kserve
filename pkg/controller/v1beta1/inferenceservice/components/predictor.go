@@ -64,10 +64,11 @@ type Predictor struct {
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
 	deploymentMode         constants.DeploymentModeType
 	Log                    logr.Logger
+	forceStopRuntime       bool
 }
 
 func NewPredictor(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType,
+	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType, forceStopRuntime bool,
 ) Component {
 	return &Predictor{
 		client:                 client,
@@ -76,6 +77,7 @@ func NewPredictor(client client.Client, clientset kubernetes.Interface, scheme *
 		inferenceServiceConfig: inferenceServiceConfig,
 		deploymentMode:         deploymentMode,
 		Log:                    ctrl.Log.WithName("PredictorReconciler"),
+		forceStopRuntime:       forceStopRuntime,
 	}
 }
 
@@ -190,16 +192,11 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	} else {
 		var err error
 		podLabelKey = constants.RevisionLabel
+
 		if kstatus, err = p.reconcileKnativeDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
 			return ctrl.Result{}, err
 		}
-
-		forceStopRuntime := "false"
-		if val, exist := isvc.Annotations[constants.StopAnnotationKey]; exist {
-			forceStopRuntime = val
-		}
-
-		if strings.EqualFold(forceStopRuntime, "true") {
+		if p.forceStopRuntime {
 			// Exit early if we have already set the status to stopped
 			existing_stopped_condition := isvc.Status.GetCondition(v1beta1.Stopped)
 			if existing_stopped_condition != nil && existing_stopped_condition.Status == corev1.ConditionTrue {
@@ -209,6 +206,19 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 			// Clear all statuses
 			p.Log.Info("Clearing ISVC status")
 			isvc.Status = v1beta1.InferenceServiceStatus{}
+
+			// Set the ready conditions to false
+			predictor_ready_condition := &apis.Condition{
+				Type:   v1beta1.PredictorReady,
+				Status: corev1.ConditionFalse,
+			}
+			isvc.Status.SetCondition(v1beta1.PredictorReady, predictor_ready_condition)
+
+			ingress_ready_condition := &apis.Condition{
+				Type:   v1beta1.IngressReady,
+				Status: corev1.ConditionFalse,
+			}
+			isvc.Status.SetCondition(v1beta1.IngressReady, ingress_ready_condition)
 
 			// Add the stopped condition
 			stopped_condition := &apis.Condition{
@@ -727,6 +737,8 @@ func (p *Predictor) reconcileKnativeDeployment(ctx context.Context, isvc *v1beta
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to reconcile predictor")
 	}
-	isvc.Status.PropagateStatus(v1beta1.PredictorComponent, kstatus)
+	if !p.forceStopRuntime {
+		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, kstatus)
+	}
 	return kstatus, nil
 }
