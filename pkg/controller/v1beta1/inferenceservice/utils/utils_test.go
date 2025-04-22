@@ -1022,7 +1022,7 @@ func TestReplacePlaceholders(t *testing.T) {
 		expected            *corev1.Container
 		expectErrorContains string
 	}{
-		"invalid-template": {
+		"invalid-template-in-args": {
 			container: &corev1.Container{
 				Name:  "kserve-container",
 				Image: "default-image",
@@ -1032,7 +1032,22 @@ func TestReplacePlaceholders(t *testing.T) {
 					"--foo={{.Name invalid - invalid}}",
 				},
 			},
-			expectErrorContains: "failed to replace container template at \".args.2\"",
+			expectErrorContains: `failed to replace container template at ".args[2]"`,
+		},
+		"invalid-template-in-env": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--test=dummy",
+					"--new-arg=baz",
+				},
+				Env: []corev1.EnvVar{
+					{Name: "MODELS_DIR", Value: "{{.Labels.modelDir}}"},
+					{Name: "MODEL_NAME", Value: "{{index .Annotations model-name}}"},
+				},
+			},
+			expectErrorContains: `failed to replace container template at ".env[1].value"`,
 		},
 		"ReplaceArgsAndEnvPlaceholders": {
 			container: &corev1.Container{

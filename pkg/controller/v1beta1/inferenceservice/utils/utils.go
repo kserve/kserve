@@ -287,8 +287,8 @@ func ReplacePlaceholders(container *corev1.Container, meta metav1.ObjectMeta) er
 }
 
 type PlaceHolderReplacer struct {
-	meta  metav1.ObjectMeta
-	paths []string
+	meta       metav1.ObjectMeta
+	parentPath []string
 }
 
 func (r *PlaceHolderReplacer) replace(v any) any {
@@ -301,33 +301,43 @@ func (r *PlaceHolderReplacer) replace(v any) any {
 
 		tmpl, err := template.New("container-tmpl").Parse(val)
 		if err != nil {
-			panic(fmt.Errorf("failed to parse container template: %w", err))
+			panic(fmt.Errorf("failed to parse: %w", err))
 		}
 
 		sb := strings.Builder{}
 		if err = tmpl.Execute(&sb, r.meta); err != nil {
-			panic(fmt.Errorf("failed to execute container template: %w", err))
+			panic(fmt.Errorf("failed to execute: %w", err))
 		}
 
 		return sb.String()
 	case map[string]any:
-		for k, sub := range val {
-			r.paths = append(r.paths, k)
-			val[k] = r.replace(sub)
-			r.paths = r.paths[:len(r.paths)-1]
-		}
-		return val
+		return r.replaceMap(val)
 	case []any:
-		for i, sub := range val {
-			r.paths = append(r.paths, strconv.Itoa(i))
-			val[i] = r.replace(sub)
-			r.paths = r.paths[:len(r.paths)-1]
-		}
-		return val
+		return r.replaceSlice(val)
 	default:
 		// Other types remain unchanged
 		return val
 	}
+}
+
+func (r *PlaceHolderReplacer) replaceMap(val map[string]any) any {
+	pathLen := len(r.parentPath)
+	for k, sub := range val {
+		r.parentPath = append(r.parentPath, ".", k)
+		val[k] = r.replace(sub)
+		r.parentPath = r.parentPath[:pathLen]
+	}
+	return val
+}
+
+func (r *PlaceHolderReplacer) replaceSlice(val []any) any {
+	pathLen := len(r.parentPath)
+	for i, sub := range val {
+		r.parentPath = append(r.parentPath, "[", strconv.Itoa(i), "]")
+		val[i] = r.replace(sub)
+		r.parentPath = r.parentPath[:pathLen]
+	}
+	return val
 }
 
 func (r *PlaceHolderReplacer) Replace(obj any, meta metav1.ObjectMeta) (result map[string]any, err error) {
@@ -335,7 +345,7 @@ func (r *PlaceHolderReplacer) Replace(obj any, meta metav1.ObjectMeta) (result m
 		e := recover()
 		if e != nil {
 			if e, ok := e.(error); ok {
-				err = fmt.Errorf("failed to replace container template at %q: %w", "."+strings.Join(r.paths, "."), e)
+				err = fmt.Errorf("failed to replace container template at %q: %w", strings.Join(r.parentPath, ""), e)
 			}
 		}
 	}()
