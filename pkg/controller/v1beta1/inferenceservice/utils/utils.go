@@ -17,13 +17,13 @@ limitations under the License.
 package utils
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -32,6 +32,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -276,17 +277,78 @@ func GetServingRuntime(ctx context.Context, cl client.Client, name string, names
 
 // ReplacePlaceholders Replace placeholders in runtime container by values from inferenceservice metadata
 func ReplacePlaceholders(container *corev1.Container, meta metav1.ObjectMeta) error {
-	data, _ := json.Marshal(container)
-	tmpl, err := template.New("container-tmpl").Parse(string(data))
+	repl := &PlaceHolderReplacer{}
+	unObj, err := repl.Replace(container, meta)
 	if err != nil {
 		return err
 	}
-	buf := &bytes.Buffer{}
-	err = tmpl.Execute(buf, meta)
-	if err != nil {
-		return err
+
+	return runtime.DefaultUnstructuredConverter.FromUnstructured(unObj, container)
+}
+
+type PlaceHolderReplacer struct {
+	meta  metav1.ObjectMeta
+	paths []string
+}
+
+func (r *PlaceHolderReplacer) replace(v any) any {
+	switch val := v.(type) {
+	case string:
+		hasTemplate := strings.Contains(val, "{{") && strings.Contains(val, "}}")
+		if !hasTemplate {
+			return val
+		}
+
+		tmpl, err := template.New("container-tmpl").Parse(val)
+		if err != nil {
+			panic(fmt.Errorf("failed to parse container template: %w", err))
+		}
+
+		sb := strings.Builder{}
+		if err = tmpl.Execute(&sb, r.meta); err != nil {
+			panic(fmt.Errorf("failed to execute container template: %w", err))
+		}
+
+		return sb.String()
+	case map[string]any:
+		for k, sub := range val {
+			r.paths = append(r.paths, k)
+			val[k] = r.replace(sub)
+			r.paths = r.paths[:len(r.paths)-1]
+		}
+		return val
+	case []any:
+		for i, sub := range val {
+			r.paths = append(r.paths, strconv.Itoa(i))
+			val[i] = r.replace(sub)
+			r.paths = r.paths[:len(r.paths)-1]
+		}
+		return val
+	default:
+		// Other types remain unchanged
+		return val
 	}
-	return json.Unmarshal(buf.Bytes(), container)
+}
+
+func (r *PlaceHolderReplacer) Replace(obj any, meta metav1.ObjectMeta) (result map[string]any, err error) {
+	defer func() {
+		e := recover()
+		if e != nil {
+			if e, ok := e.(error); ok {
+				err = fmt.Errorf("failed to replace container template at %q: %w", "."+strings.Join(r.paths, "."), e)
+			}
+		}
+	}()
+
+	// First we normalize this object to unstructured map
+	result, err = runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	r.meta = meta
+	r.replace(result)
+	return result, nil
 }
 
 // UpdateImageTag Update image tag if GPU is enabled or runtime version is provided

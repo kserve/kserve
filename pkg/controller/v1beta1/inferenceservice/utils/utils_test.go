@@ -22,6 +22,8 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"knative.dev/pkg/apis"
 	knativeV1 "knative.dev/pkg/apis/duck/v1"
 
@@ -1015,10 +1017,23 @@ func TestReplacePlaceholders(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	scenarios := map[string]struct {
-		container *corev1.Container
-		meta      metav1.ObjectMeta
-		expected  *corev1.Container
+		container           *corev1.Container
+		meta                metav1.ObjectMeta
+		expected            *corev1.Container
+		expectErrorContains string
 	}{
+		"invalid-template": {
+			container: &corev1.Container{
+				Name:  "kserve-container",
+				Image: "default-image",
+				Args: []string{
+					"--test=dummy",
+					"--new-arg=baz",
+					"--foo={{.Name invalid - invalid}}",
+				},
+			},
+			expectErrorContains: "failed to replace container template at \".args.2\"",
+		},
 		"ReplaceArgsAndEnvPlaceholders": {
 			container: &corev1.Container{
 				Name:  "kserve-container",
@@ -1031,6 +1046,7 @@ func TestReplacePlaceholders(t *testing.T) {
 				Env: []corev1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "MODELS_DIR", Value: "{{.Labels.modelDir}}"},
+					{Name: "MODEL_NAME", Value: "{{index .Annotations \"model-name\"}}"},
 				},
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
@@ -1048,6 +1064,9 @@ func TestReplacePlaceholders(t *testing.T) {
 				Labels: map[string]string{
 					"modelDir": "/mnt/models",
 				},
+				Annotations: map[string]string{
+					"model-name": "a-useful-model",
+				},
 			},
 			expected: &corev1.Container{
 				Name:  "kserve-container",
@@ -1060,6 +1079,7 @@ func TestReplacePlaceholders(t *testing.T) {
 				Env: []corev1.EnvVar{
 					{Name: "PORT", Value: "8080"},
 					{Name: "MODELS_DIR", Value: "/mnt/models"},
+					{Name: "MODEL_NAME", Value: "a-useful-model"},
 				},
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
@@ -1076,7 +1096,14 @@ func TestReplacePlaceholders(t *testing.T) {
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			_ = ReplacePlaceholders(scenario.container, scenario.meta)
+			err := ReplacePlaceholders(scenario.container, scenario.meta)
+			if scenario.expectErrorContains != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, scenario.expectErrorContains)
+				return
+			}
+
+			require.NoError(t, err)
 			if !g.Expect(scenario.container).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", scenario.container, scenario.expected)
 			}
