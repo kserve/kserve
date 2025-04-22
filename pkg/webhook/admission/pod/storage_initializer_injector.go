@@ -412,12 +412,9 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 	
 	// Add an init container to run provisioning logic to the PodSpec
 	initContainer := &corev1.Container{
-		Name:  StorageInitializerContainerName,
-		Image: storageInitializerImage,
-		Args: []string{
-			srcURI,
-			ModelMountPath,
-		},
+		Name:                     StorageInitializerContainerName,
+		Image:                    storageInitializerImage,
+		Args:                     args,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 		VolumeMounts:             storageInitializerMounts,
 		Resources: corev1.ResourceRequirements{
