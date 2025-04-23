@@ -29,6 +29,7 @@ from kserve import (
     V1beta1AutoScalingSpec,
     V1beta1ResourceMetricSource,
     V1beta1MetricTarget,
+    V1beta1ExtMetricAuth,
     V1beta1ExternalMetricSource,
     V1beta1ExternalMetrics,
     V1beta1MetricsSpec,
@@ -490,8 +491,12 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
                             backend="prometheus",
                             server_address="http://prometheus:9090",
                             query="http_requests_per_second",
+                            auth_modes="basic",
                         ),
                         target=V1beta1MetricTarget(type="Value", value=50),
+                        authentication_ref=V1beta1ExtMetricAuth(
+                            name="prometheus-auth",
+                        ),
                     ),
                 )
             ]
@@ -535,11 +540,16 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     )
 
     trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
+    authentication_ref = scaledobject_resp["items"][0]["spec"]["triggers"][0][
+        "authenticationRef"
+    ]
     trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
     assert trigger_type == "prometheus"
     assert trigger_metadata["query"] == "http_requests_per_second"
     assert trigger_metadata["serverAddress"] == "http://prometheus:9090"
     assert trigger_metadata["threshold"] == "50.000000"
+    assert trigger_metadata["authModes"] == "basic"
+    assert authentication_ref["name"] == "prometheus-auth"
     res = await predict_isvc(
         rest_v1_client, service_name, INPUT, network_layer=network_layer
     )

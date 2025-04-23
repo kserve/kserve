@@ -121,7 +121,7 @@ func getKedaMetrics(componentExt *v1beta1.ComponentExtensionSpec, configMap *cor
 					},
 				}
 				if authModes != "" {
-					trigger.Metadata["authMode"] = authModes
+					trigger.Metadata["authModes"] = authModes
 				}
 				if triggerType == string(constants.AutoScalerMetricsSourcePrometheus) && metric.External.Metric.Namespace != "" {
 					trigger.Metadata["namespace"] = metric.External.Metric.Namespace

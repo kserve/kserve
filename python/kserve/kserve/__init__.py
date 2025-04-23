@@ -115,3 +115,4 @@ from .models.v1beta1_metric_target import V1beta1MetricTarget
 from .models.v1beta1_metrics_spec import V1beta1MetricsSpec
 from .models.v1beta1_pod_metric_source import V1beta1PodMetricSource
 from .models.v1beta1_pod_metrics import V1beta1PodMetrics
+from .models.v1beta1_ext_metric_auth import V1beta1ExtMetricAuth
