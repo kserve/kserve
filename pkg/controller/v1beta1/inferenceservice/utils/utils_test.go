@@ -22,8 +22,6 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"knative.dev/pkg/apis"
 	knativeV1 "knative.dev/pkg/apis/duck/v1"
 
@@ -1011,119 +1009,6 @@ func TestGetServingRuntime(t *testing.T) {
 		}
 		g.Expect(err.Error()).To(gomega.ContainSubstring("No ServingRuntimes or ClusterServingRuntimes with the name"))
 	})
-}
-
-func TestReplacePlaceholders(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	scenarios := map[string]struct {
-		container           *corev1.Container
-		meta                metav1.ObjectMeta
-		expected            *corev1.Container
-		expectErrorContains string
-	}{
-		"invalid-template-in-args": {
-			container: &corev1.Container{
-				Name:  "kserve-container",
-				Image: "default-image",
-				Args: []string{
-					"--test=dummy",
-					"--new-arg=baz",
-					"--foo={{.Name invalid - invalid}}",
-				},
-			},
-			expectErrorContains: `failed to replace container template at ".args[2]"`,
-		},
-		"invalid-template-in-env": {
-			container: &corev1.Container{
-				Name:  "kserve-container",
-				Image: "default-image",
-				Args: []string{
-					"--test=dummy",
-					"--new-arg=baz",
-				},
-				Env: []corev1.EnvVar{
-					{Name: "MODELS_DIR", Value: "{{.Labels.modelDir}}"},
-					{Name: "MODEL_NAME", Value: "{{index .Annotations model-name}}"},
-				},
-			},
-			expectErrorContains: `failed to replace container template at ".env[1].value"`,
-		},
-		"ReplaceArgsAndEnvPlaceholders": {
-			container: &corev1.Container{
-				Name:  "kserve-container",
-				Image: "default-image",
-				Args: []string{
-					"--foo={{.Name}}",
-					"--test=dummy",
-					"--new-arg=baz",
-				},
-				Env: []corev1.EnvVar{
-					{Name: "PORT", Value: "8080"},
-					{Name: "MODELS_DIR", Value: "{{.Labels.modelDir}}"},
-					{Name: "MODEL_NAME", Value: "{{index .Annotations \"model-name\"}}"},
-				},
-				Resources: corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("2"),
-						corev1.ResourceMemory: resource.MustParse("4Gi"),
-					},
-					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("1"),
-						corev1.ResourceMemory: resource.MustParse("2Gi"),
-					},
-				},
-			},
-			meta: metav1.ObjectMeta{
-				Name: "bar",
-				Labels: map[string]string{
-					"modelDir": "/mnt/models",
-				},
-				Annotations: map[string]string{
-					"model-name": "a-useful-model",
-				},
-			},
-			expected: &corev1.Container{
-				Name:  "kserve-container",
-				Image: "default-image",
-				Args: []string{
-					"--foo=bar",
-					"--test=dummy",
-					"--new-arg=baz",
-				},
-				Env: []corev1.EnvVar{
-					{Name: "PORT", Value: "8080"},
-					{Name: "MODELS_DIR", Value: "/mnt/models"},
-					{Name: "MODEL_NAME", Value: "a-useful-model"},
-				},
-				Resources: corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("2"),
-						corev1.ResourceMemory: resource.MustParse("4Gi"),
-					},
-					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("1"),
-						corev1.ResourceMemory: resource.MustParse("2Gi"),
-					},
-				},
-			},
-		},
-	}
-	for name, scenario := range scenarios {
-		t.Run(name, func(t *testing.T) {
-			err := ReplacePlaceholders(scenario.container, scenario.meta)
-			if scenario.expectErrorContains != "" {
-				require.Error(t, err)
-				assert.ErrorContains(t, err, scenario.expectErrorContains)
-				return
-			}
-
-			require.NoError(t, err)
-			if !g.Expect(scenario.container).To(gomega.Equal(scenario.expected)) {
-				t.Errorf("got %v, want %v", scenario.container, scenario.expected)
-			}
-		})
-	}
 }
 
 func TestUpdateImageTag(t *testing.T) {
