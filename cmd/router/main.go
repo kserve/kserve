@@ -611,14 +611,15 @@ func main() {
 		}
 	}
 
+	http.Handle("/", entrypointHandler)
 	http.HandleFunc(constants.RouterReadinessEndpoint, readyHandler)
 
 	server := &http.Server{
-		Addr:         ":8080",           // specify the address and port
-		Handler:      entrypointHandler, // specify your HTTP handler
-		ReadTimeout:  time.Minute,       // set the maximum duration for reading the entire request, including the body
-		WriteTimeout: time.Minute,       // set the maximum duration before timing out writes of the response
-		IdleTimeout:  3 * time.Minute,   // set the maximum amount of time to wait for the next request when keep-alives are enabled
+		Addr:         ":8080",         // specify the address and port
+		Handler:      nil,             // default server mux
+		ReadTimeout:  time.Minute,     // set the maximum duration for reading the entire request, including the body
+		WriteTimeout: time.Minute,     // set the maximum duration before timing out writes of the response
+		IdleTimeout:  3 * time.Minute, // set the maximum amount of time to wait for the next request when keep-alives are enabled
 	}
 
 	go func() {
