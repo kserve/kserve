@@ -278,6 +278,9 @@ type ExternalMetrics struct {
 	// For namespaced query
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
+	// authModes defines the authentication modes for the metrics backend
+	// +optional
+	AuthModes string `json:"authModes,omitempty"`
 }
 
 type PodMetrics struct {
