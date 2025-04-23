@@ -2959,6 +2959,10 @@
     "v1beta1.ExternalMetrics": {
       "type": "object",
       "properties": {
+        "authModes": {
+          "description": "authModes defines the authentication modes for the metrics backend",
+          "type": "string"
+        },
         "backend": {
           "description": "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
           "type": "string",

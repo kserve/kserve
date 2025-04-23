@@ -5378,6 +5378,13 @@ func schema_pkg_apis_serving_v1beta1_ExternalMetrics(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"authModes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "authModes defines the authentication modes for the metrics backend",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

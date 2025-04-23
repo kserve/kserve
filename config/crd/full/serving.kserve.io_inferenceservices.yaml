@@ -1207,6 +1207,8 @@ spec:
                                     type: object
                                   metric:
                                     properties:
+                                      authModes:
+                                        type: string
                                       backend:
                                         enum:
                                           - prometheus
@@ -4371,6 +4373,8 @@ spec:
                                     type: object
                                   metric:
                                     properties:
+                                      authModes:
+                                        type: string
                                       backend:
                                         enum:
                                           - prometheus
@@ -18736,6 +18740,8 @@ spec:
                                     type: object
                                   metric:
                                     properties:
+                                      authModes:
+                                        type: string
                                       backend:
                                         enum:
                                           - prometheus
