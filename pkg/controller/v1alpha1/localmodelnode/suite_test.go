@@ -82,13 +82,20 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	// +kubebuilder:scaffold:scheme
 
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
-	Expect(err).ToNot(HaveOccurred())
-	Expect(k8sClient).ToNot(BeNil())
-
 	clientset, err := kubernetes.NewForConfig(cfg)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(clientset).ToNot(BeNil())
+
+	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	k8sClient = k8sManager.GetClient()
+	Expect(k8sClient).ToNot(BeNil())
 
 	// Creates namespace
 	kserveNamespaceObj := &v1.Namespace{
@@ -107,14 +114,6 @@ var _ = BeforeSuite(func() {
 	fsMock = newMockFileSystem()
 	fsHelper = fsMock
 
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-		Metrics: metricsserver.Options{
-			BindAddress: "0",
-		},
-	})
-
-	Expect(err).ToNot(HaveOccurred())
 	err = (&LocalModelNodeReconciler{
 		Client:    k8sManager.GetClient(),
 		Clientset: clientset,
