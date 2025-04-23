@@ -51,7 +51,7 @@ var _ = Describe("CachedModel controller", func() {
 		localModelSpec = v1alpha1.LocalModelCacheSpec{
 			SourceModelUri: sourceModelUri,
 			ModelSize:      resource.MustParse("123Gi"),
-			NodeGroups:     []string{"gpu"},
+			NodeGroups:     []string{"gpu1", "gpu2"},
 		}
 		clusterStorageContainerSpec = v1alpha1.StorageContainerSpec{
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}},
@@ -66,7 +66,7 @@ var _ = Describe("CachedModel controller", func() {
 				VolumeMounts:             []v1.VolumeMount{},
 			},
 		}
-		localModelNodeGroupSpec = v1alpha1.LocalModelNodeGroupSpec{
+		localModelNodeGroupSpec1 = v1alpha1.LocalModelNodeGroupSpec{
 			PersistentVolumeSpec: v1.PersistentVolumeSpec{
 				AccessModes:                   []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
 				VolumeMode:                    ptr.To(v1.PersistentVolumeFilesystem),
@@ -87,7 +87,41 @@ var _ = Describe("CachedModel controller", func() {
 									{
 										Key:      "node.kubernetes.io/instance-type",
 										Operator: v1.NodeSelectorOpIn,
-										Values:   []string{"gpu"},
+										Values:   []string{"gpu1"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			PersistentVolumeClaimSpec: v1.PersistentVolumeClaimSpec{
+				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+				Resources:   v1.VolumeResourceRequirements{Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse("2Gi")}},
+			},
+		}
+		localModelNodeGroupSpec2 = v1alpha1.LocalModelNodeGroupSpec{
+			PersistentVolumeSpec: v1.PersistentVolumeSpec{
+				AccessModes:                   []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
+				VolumeMode:                    ptr.To(v1.PersistentVolumeFilesystem),
+				Capacity:                      v1.ResourceList{v1.ResourceStorage: resource.MustParse("2Gi")},
+				StorageClassName:              "standard",
+				PersistentVolumeReclaimPolicy: v1.PersistentVolumeReclaimDelete,
+				PersistentVolumeSource: v1.PersistentVolumeSource{
+					HostPath: &v1.HostPathVolumeSource{
+						Path: "/models",
+						Type: ptr.To(v1.HostPathDirectory),
+					},
+				},
+				NodeAffinity: &v1.VolumeNodeAffinity{
+					Required: &v1.NodeSelector{
+						NodeSelectorTerms: []v1.NodeSelectorTerm{
+							{
+								MatchExpressions: []v1.NodeSelectorRequirement{
+									{
+										Key:      "node.kubernetes.io/instance-type",
+										Operator: v1.NodeSelectorOpIn,
+										Values:   []string{"gpu2"},
 									},
 								},
 							},
@@ -112,17 +146,15 @@ var _ = Describe("CachedModel controller", func() {
 		var (
 			configMap               *v1.ConfigMap
 			clusterStorageContainer *v1alpha1.ClusterStorageContainer
-			nodeGroup               *v1alpha1.LocalModelNodeGroup
 		)
 		BeforeEach(func() {
-			configMap, clusterStorageContainer, nodeGroup = genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
+			configMap, clusterStorageContainer = genericSetup(configs, clusterStorageContainerSpec)
 			initializeManager(ctx, cfg)
 		})
 
 		AfterEach(func() {
 			defer k8sClient.Delete(ctx, configMap)
 			defer k8sClient.Delete(ctx, clusterStorageContainer)
-			defer k8sClient.Delete(ctx, nodeGroup)
 		})
 
 		It("Should create pv, pvc, localmodelnode, and update status from localmodelnode", func() {
@@ -130,6 +162,23 @@ var _ = Describe("CachedModel controller", func() {
 			configMap := &v1.ConfigMap{}
 			err := k8sClient.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, configMap)
 			Expect(err).ToNot(HaveOccurred(), "InferenceService ConfigMap should exist")
+
+			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu1",
+				},
+				Spec: localModelNodeGroupSpec1,
+			}
+			nodeGroup2 := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu2",
+				},
+				Spec: localModelNodeGroupSpec2,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup1)
+			Expect(k8sClient.Create(ctx, nodeGroup2)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup2)
 
 			cachedModel := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
@@ -140,8 +189,10 @@ var _ = Describe("CachedModel controller", func() {
 			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
 
 			modelLookupKey := types.NamespacedName{Name: "iris"}
-			pvLookupKey := types.NamespacedName{Name: "iris-download"}
-			pvcLookupKey := types.NamespacedName{Name: "iris", Namespace: modelCacheNamespace}
+			pvLookupKey1 := types.NamespacedName{Name: "iris-gpu1-download"}
+			pvcLookupKey1 := types.NamespacedName{Name: "iris-gpu1", Namespace: modelCacheNamespace}
+			pvLookupKey2 := types.NamespacedName{Name: "iris-gpu2-download"}
+			pvcLookupKey2 := types.NamespacedName{Name: "iris-gpu2", Namespace: modelCacheNamespace}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
 				return err == nil
@@ -151,24 +202,51 @@ var _ = Describe("CachedModel controller", func() {
 				return err == nil && cachedModel.Status.ModelCopies != nil
 			}, timeout, interval).Should(BeTrue())
 
-			persistentVolume := &v1.PersistentVolume{}
+			persistentVolume1 := &v1.PersistentVolume{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pvLookupKey, persistentVolume)
-				return err == nil && persistentVolume != nil
+				err := k8sClient.Get(ctx, pvLookupKey1, persistentVolume1)
+				return err == nil && persistentVolume1 != nil
+			}, timeout, interval).Should(BeTrue())
+			persistentVolume2 := &v1.PersistentVolume{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, pvLookupKey2, persistentVolume2)
+				return err == nil && persistentVolume2 != nil
 			}, timeout, interval).Should(BeTrue())
 
-			persistentVolumeClaim := &v1.PersistentVolumeClaim{}
+			persistentVolumeClaim1 := &v1.PersistentVolumeClaim{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pvcLookupKey, persistentVolumeClaim)
-				return err == nil && persistentVolumeClaim != nil
+				err := k8sClient.Get(ctx, pvcLookupKey1, persistentVolumeClaim1)
+				return err == nil && persistentVolumeClaim1 != nil
+			}, timeout, interval).Should(BeTrue())
+			persistentVolumeClaim2 := &v1.PersistentVolumeClaim{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, pvcLookupKey2, persistentVolumeClaim2)
+				return err == nil && persistentVolumeClaim2 != nil
 			}, timeout, interval).Should(BeTrue())
 
-			nodeName := "node-1"
+			nodeName1 := "node-1"
+			nodeName2 := "node-2"
 			node1 := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: nodeName,
+					Name: nodeName1,
 					Labels: map[string]string{
-						"node.kubernetes.io/instance-type": "gpu",
+						"node.kubernetes.io/instance-type": "gpu1",
+					},
+				},
+				Status: v1.NodeStatus{
+					Conditions: []v1.NodeCondition{
+						{
+							Type:   v1.NodeReady,
+							Status: v1.ConditionTrue,
+						},
+					},
+				},
+			}
+			node2 := &v1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName2,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu2",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -182,28 +260,41 @@ var _ = Describe("CachedModel controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, node1)).Should(Succeed())
 			defer k8sClient.Delete(ctx, node1)
+			Expect(k8sClient.Create(ctx, node2)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node2)
 
-			localModelNode := &v1alpha1.LocalModelNode{}
+			localModelNode1 := &v1alpha1.LocalModelNode{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode)
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName1}, localModelNode1)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
-			Expect(localModelNode.Spec.LocalModels).Should(ContainElement(v1alpha1.LocalModelInfo{ModelName: cachedModel.Name, SourceModelUri: sourceModelUri}))
+			Expect(localModelNode1.Spec.LocalModels).Should(ContainElement(v1alpha1.LocalModelInfo{ModelName: cachedModel.Name, SourceModelUri: sourceModelUri}))
+			localModelNode2 := &v1alpha1.LocalModelNode{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName2}, localModelNode2)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+			Expect(localModelNode2.Spec.LocalModels).Should(ContainElement(v1alpha1.LocalModelInfo{ModelName: cachedModel.Name, SourceModelUri: sourceModelUri}))
 
 			// Todo: Test agent download
 			// Update the LocalModelNode status to be successful
-			localModelNode.Status.ModelStatus = map[string]v1alpha1.ModelStatus{cachedModel.Name: v1alpha1.ModelDownloaded}
-			Expect(k8sClient.Status().Update(ctx, localModelNode)).Should(Succeed())
+			localModelNode1.Status.ModelStatus = map[string]v1alpha1.ModelStatus{cachedModel.Name: v1alpha1.ModelDownloaded}
+			Expect(k8sClient.Status().Update(ctx, localModelNode1)).Should(Succeed())
+			localModelNode2.Status.ModelStatus = map[string]v1alpha1.ModelStatus{cachedModel.Name: v1alpha1.ModelDownloaded}
+			Expect(k8sClient.Status().Update(ctx, localModelNode2)).Should(Succeed())
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, modelLookupKey, cachedModel)
 				if err != nil {
 					return false
 				}
-				if !(cachedModel.Status.ModelCopies.Available == 1 && cachedModel.Status.ModelCopies.Total == 1 && cachedModel.Status.ModelCopies.Failed == 0) {
+				if !(cachedModel.Status.ModelCopies.Available == 2 && cachedModel.Status.ModelCopies.Total == 2 && cachedModel.Status.ModelCopies.Failed == 0) {
 					return false
 				}
-				if cachedModel.Status.NodeStatus[nodeName] != v1alpha1.NodeDownloaded {
+				if cachedModel.Status.NodeStatus[nodeName1] != v1alpha1.NodeDownloaded {
+					return false
+				}
+				if cachedModel.Status.NodeStatus[nodeName2] != v1alpha1.NodeDownloaded {
 					return false
 				}
 				return true
@@ -221,9 +312,27 @@ var _ = Describe("CachedModel controller", func() {
 
 		It("Should create pvs and pvcs for inference services", func() {
 			defer GinkgoRecover()
+			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu1",
+				},
+				Spec: localModelNodeGroupSpec1,
+			}
+			nodeGroup2 := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu2",
+				},
+				Spec: localModelNodeGroupSpec1,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
+			Expect(k8sClient.Create(ctx, nodeGroup2)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup1)
+			defer k8sClient.Delete(ctx, nodeGroup2)
+
 			modelName := "iris2"
 			isvcNamespace := "default"
-			isvcName := "foo"
+			isvcName1 := "foo"
+			isvcName2 := "bar"
 			cachedModel := &v1alpha1.LocalModelCache{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: modelName,
@@ -232,11 +341,30 @@ var _ = Describe("CachedModel controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
 			defer k8sClient.Delete(ctx, cachedModel)
-
-			isvc := &v1beta1.InferenceService{
+			// No nodegroup annotation, should pick the default nodegroup,
+			// which is the first one in the model cache nodegroup list
+			isvc1 := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo",
+					Name:      isvcName1,
 					Namespace: isvcNamespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: ptr.To(sourceModelUri),
+							},
+							ModelFormat: v1beta1.ModelFormat{Name: "sklearn"},
+						},
+					},
+				},
+			}
+			// Has nodegroup annotation, should pick the specified nodegroup
+			isvc2 := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        isvcName2,
+					Namespace:   isvcNamespace,
+					Annotations: map[string]string{constants.NodeGroupAnnotationKey: "gpu2"},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
@@ -253,12 +381,22 @@ var _ = Describe("CachedModel controller", func() {
 			// Mutating webhook adds a local model label
 			cachedModelList := &v1alpha1.LocalModelCacheList{}
 			cachedModelList.Items = []v1alpha1.LocalModelCache{*cachedModel}
-			isvc.DefaultInferenceService(nil, nil, nil, cachedModelList)
+			isvc1.DefaultInferenceService(nil, nil, nil, cachedModelList)
+			isvc2.DefaultInferenceService(nil, nil, nil, cachedModelList)
 
-			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
-			inferenceService := &v1beta1.InferenceService{}
+			Expect(k8sClient.Create(ctx, isvc1)).Should(Succeed())
+			inferenceService1 := &v1beta1.InferenceService{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}, inferenceService)
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: isvcName1, Namespace: isvcNamespace}, inferenceService1)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+			Expect(k8sClient.Create(ctx, isvc2)).Should(Succeed())
+			inferenceService2 := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: isvcName2, Namespace: isvcNamespace}, inferenceService2)
 				if err != nil {
 					return false
 				}
@@ -266,19 +404,31 @@ var _ = Describe("CachedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// Expects a pv and a pvc are created in the isvcNamespace
-			pvLookupKey := types.NamespacedName{Name: modelName + "-" + nodeGroup.Name + "-" + isvcNamespace}
-			pvcLookupKey := types.NamespacedName{Name: modelName + "-" + nodeGroup.Name, Namespace: isvcNamespace}
+			pvLookupKey1 := types.NamespacedName{Name: modelName + "-" + nodeGroup1.Name + "-" + isvcNamespace}
+			pvLookupKey2 := types.NamespacedName{Name: modelName + "-" + nodeGroup2.Name + "-" + isvcNamespace}
+			pvcLookupKey1 := types.NamespacedName{Name: modelName + "-" + nodeGroup1.Name, Namespace: isvcNamespace}
+			pvcLookupKey2 := types.NamespacedName{Name: modelName + "-" + nodeGroup2.Name, Namespace: isvcNamespace}
 
-			persistentVolume := &v1.PersistentVolume{}
+			persistentVolume1 := &v1.PersistentVolume{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pvLookupKey, persistentVolume)
-				return err == nil && persistentVolume != nil
+				err := k8sClient.Get(ctx, pvLookupKey1, persistentVolume1)
+				return err == nil && persistentVolume1 != nil
+			}, timeout, interval).Should(BeTrue())
+			persistentVolume2 := &v1.PersistentVolume{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, pvLookupKey2, persistentVolume2)
+				return err == nil && persistentVolume2 != nil
 			}, timeout, interval).Should(BeTrue())
 
-			persistentVolumeClaim := &v1.PersistentVolumeClaim{}
+			persistentVolumeClaim1 := &v1.PersistentVolumeClaim{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pvcLookupKey, persistentVolumeClaim)
-				return err == nil && persistentVolumeClaim != nil
+				err := k8sClient.Get(ctx, pvcLookupKey1, persistentVolumeClaim1)
+				return err == nil && persistentVolumeClaim1 != nil
+			}, timeout, interval).Should(BeTrue())
+			persistentVolumeClaim2 := &v1.PersistentVolumeClaim{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, pvcLookupKey2, persistentVolumeClaim2)
+				return err == nil && persistentVolumeClaim2 != nil
 			}, timeout, interval).Should(BeTrue())
 
 			Eventually(func() bool {
@@ -286,38 +436,65 @@ var _ = Describe("CachedModel controller", func() {
 				if err != nil {
 					return false
 				}
-				if len(cachedModel.Status.InferenceServices) != 1 {
+				if len(cachedModel.Status.InferenceServices) != 2 {
 					return false
 				}
-				isvcNamespacedName := cachedModel.Status.InferenceServices[0]
-				if isvcNamespacedName.Name == isvcName && isvcNamespacedName.Namespace == isvcNamespace {
+				isvcNamespacedName1 := cachedModel.Status.InferenceServices[0]
+				isvcNamespacedName2 := cachedModel.Status.InferenceServices[0]
+				if isvcNamespacedName1.Name == isvcName1 && isvcNamespacedName1.Namespace == isvcNamespace {
+					return true
+				}
+				if isvcNamespacedName2.Name == isvcName2 && isvcNamespacedName2.Namespace == isvcNamespace {
 					return true
 				}
 				return false
 			}, timeout, interval).Should(BeTrue(), "Node status should have the isvc")
 
 			// Next we delete the isvc and make sure the pv and pvc are deleted
-			Expect(k8sClient.Delete(ctx, isvc)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, isvc1)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, isvc2)).Should(Succeed())
 
-			newPersistentVolume := &v1.PersistentVolume{}
-			newPersistentVolumeClaim := &v1.PersistentVolumeClaim{}
+			newPersistentVolume1 := &v1.PersistentVolume{}
+			newPersistentVolume2 := &v1.PersistentVolume{}
+			newPersistentVolumeClaim1 := &v1.PersistentVolumeClaim{}
+			newPersistentVolumeClaim2 := &v1.PersistentVolumeClaim{}
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pvLookupKey, newPersistentVolume)
+				err := k8sClient.Get(ctx, pvLookupKey1, newPersistentVolume1)
 				if err != nil {
 					return false
 				}
-				if newPersistentVolume.DeletionTimestamp != nil {
+				if newPersistentVolume1.DeletionTimestamp != nil {
+					return true
+				}
+				return false
+			}, timeout, interval).Should(BeTrue())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, pvLookupKey2, newPersistentVolume2)
+				if err != nil {
+					return false
+				}
+				if newPersistentVolume2.DeletionTimestamp != nil {
 					return true
 				}
 				return false
 			}, timeout, interval).Should(BeTrue())
 
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, pvcLookupKey, newPersistentVolumeClaim)
+				err := k8sClient.Get(ctx, pvcLookupKey1, newPersistentVolumeClaim1)
 				if err != nil {
 					return false
 				}
-				if newPersistentVolumeClaim.DeletionTimestamp != nil {
+				if newPersistentVolumeClaim1.DeletionTimestamp != nil {
+					return true
+				}
+				return false
+			}, timeout, interval).Should(BeTrue())
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, pvcLookupKey2, newPersistentVolumeClaim2)
+				if err != nil {
+					return false
+				}
+				if newPersistentVolumeClaim2.DeletionTimestamp != nil {
 					return true
 				}
 				return false
@@ -329,7 +506,6 @@ var _ = Describe("CachedModel controller", func() {
 		var (
 			configMap               *v1.ConfigMap
 			clusterStorageContainer *v1alpha1.ClusterStorageContainer
-			nodeGroup               *v1alpha1.LocalModelNodeGroup
 		)
 		BeforeEach(func() {
 			configs = map[string]string{
@@ -339,14 +515,13 @@ var _ = Describe("CachedModel controller", func() {
 					"disableVolumeManagement": true
 				}`,
 			}
-			configMap, clusterStorageContainer, nodeGroup = genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
+			configMap, clusterStorageContainer = genericSetup(configs, clusterStorageContainerSpec)
 			initializeManager(ctx, cfg)
 		})
 
 		AfterEach(func() {
 			defer k8sClient.Delete(ctx, configMap)
 			defer k8sClient.Delete(ctx, clusterStorageContainer)
-			defer k8sClient.Delete(ctx, nodeGroup)
 		})
 
 		It("Should NOT create/delete pvs and pvcs if localmodel config value DisableVolumeManagement is true", func() {
@@ -396,7 +571,6 @@ var _ = Describe("CachedModel controller", func() {
 		var (
 			configMap               *v1.ConfigMap
 			clusterStorageContainer *v1alpha1.ClusterStorageContainer
-			nodeGroup               *v1alpha1.LocalModelNodeGroup
 
 			configs = map[string]string{
 				"localModel": `{
@@ -406,7 +580,7 @@ var _ = Describe("CachedModel controller", func() {
 			}
 		)
 		BeforeEach(func() {
-			configMap, clusterStorageContainer, nodeGroup = genericSetup(configs, clusterStorageContainerSpec, localModelNodeGroupSpec)
+			configMap, clusterStorageContainer = genericSetup(configs, clusterStorageContainerSpec)
 
 			initializeManager(ctx, cfg)
 		})
@@ -414,18 +588,33 @@ var _ = Describe("CachedModel controller", func() {
 		AfterEach(func() {
 			defer k8sClient.Delete(ctx, configMap)
 			defer k8sClient.Delete(ctx, clusterStorageContainer)
-			defer k8sClient.Delete(ctx, nodeGroup)
 		})
 
 		// With two nodes and two local models, each node should have both local models
 		It("Should create localModelNode correctly", func() {
 			defer GinkgoRecover()
+			nodeGroup1 := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu1",
+				},
+				Spec: localModelNodeGroupSpec1,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup1)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup1)
+			nodeGroup2 := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "gpu2",
+				},
+				Spec: localModelNodeGroupSpec2,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup2)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup2)
 
 			node1 := &v1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "node1",
 					Labels: map[string]string{
-						"node.kubernetes.io/instance-type": "gpu",
+						"node.kubernetes.io/instance-type": "gpu1",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -442,7 +631,7 @@ var _ = Describe("CachedModel controller", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "node2",
 					Labels: map[string]string{
-						"node.kubernetes.io/instance-type": "gpu",
+						"node.kubernetes.io/instance-type": "gpu2",
 					},
 				},
 				Status: v1.NodeStatus{
@@ -582,7 +771,8 @@ func createTestPVC(ctx context.Context, pvcName, namespace, pvName string, cache
 	return pvc
 }
 
-func genericSetup(configs map[string]string, clusterStorageContainerSpec v1alpha1.StorageContainerSpec, localModelNodeGroupSpec v1alpha1.LocalModelNodeGroupSpec) (*v1.ConfigMap, *v1alpha1.ClusterStorageContainer, *v1alpha1.LocalModelNodeGroup) {
+func genericSetup(configs map[string]string, clusterStorageContainerSpec v1alpha1.StorageContainerSpec) (*v1.ConfigMap,
+	*v1alpha1.ClusterStorageContainer) {
 	var configMap = &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      constants.InferenceServiceConfigMapName,
@@ -600,15 +790,7 @@ func genericSetup(configs map[string]string, clusterStorageContainerSpec v1alpha
 	}
 	Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
 
-	nodeGroup := &v1alpha1.LocalModelNodeGroup{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "gpu",
-		},
-		Spec: localModelNodeGroupSpec,
-	}
-	Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
-
-	return configMap, clusterStorageContainer, nodeGroup
+	return configMap, clusterStorageContainer
 }
 
 func initializeManager(ctx context.Context, cfg *rest.Config) {
@@ -625,17 +807,23 @@ func initializeManager(ctx context.Context, cfg *rest.Config) {
 		},
 	})
 	Expect(err).ToNot(HaveOccurred())
+	k8sClient = k8sManager.GetClient()
+	Expect(k8sClient).ToNot(BeNil())
 	err = (&LocalModelReconciler{
-		Client:    k8sManager.GetClient(),
+		Client:    k8sClient,
 		Clientset: clientset,
 		Scheme:    scheme.Scheme,
 		Log:       ctrl.Log.WithName("v1alpha1LocalModelController"),
 	}).SetupWithManager(k8sManager)
-
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred())
 	}()
+	// Wait for cache to start
+	// Ping the ConfigMap to ensure the cache is started
+	Eventually(func() bool {
+		return k8sClient.Get(ctx, types.NamespacedName{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, &v1.ConfigMap{}) == nil
+	}).Should(BeTrue())
 }

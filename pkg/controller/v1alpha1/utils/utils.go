@@ -21,6 +21,8 @@ import (
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/component-helpers/scheduling/corev1"
 	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -65,4 +67,18 @@ func GetAutoscalerConfiguration(client client.Client) (string, string, error) {
 	}
 
 	return allowZeroInitialScale, globalInitialScale, nil
+}
+
+// CheckNodeAffinity returns true if the node matches the node affinity specified in the PV Spec
+func CheckNodeAffinity(pvSpec *v1.PersistentVolumeSpec, node v1.Node) (bool, error) {
+	if pvSpec.NodeAffinity == nil || pvSpec.NodeAffinity.Required == nil {
+		return false, nil
+	}
+
+	terms := pvSpec.NodeAffinity.Required
+	if matches, err := corev1.MatchNodeSelectorTerms(&node, terms); err != nil {
+		return matches, nil
+	} else {
+		return matches, err
+	}
 }

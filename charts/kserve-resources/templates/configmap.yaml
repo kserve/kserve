@@ -609,7 +609,7 @@ data:
       "autoMountServiceAccountToken": {{ .Values.kserve.security.autoMountServiceAccountToken }}
     }
 
-  inferenceservice: |-
+  inferenceService: |-
     {
       "resource": {
         "cpuLimit": "{{ .Values.kserve.inferenceservice.resources.limits.cpu }}",
