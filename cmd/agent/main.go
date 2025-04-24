@@ -59,18 +59,19 @@ var (
 	configDir    = flag.String("config-dir", "/mnt/configs", "directory for model config files")
 	modelDir     = flag.String("model-dir", "/mnt/models", "directory for model files")
 	// logger flags
-	logUrl             = flag.String("log-url", "", "The URL to send request/response logs to")
-	workers            = flag.Int("workers", 5, "Number of workers")
-	sourceUri          = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
-	logMode            = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
-	logStorePath       = flag.String("log-store-path", "", "The path to the log output")
-	logStoreParameters = flag.StringSlice("log-store-parameters", nil, "Parameters to override the default storage credentials and config.")
-	logStoreKey        = flag.String("log-store-key", "", "The storage key in the secret to use when logging")
-	inferenceService   = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
-	namespace          = flag.String("namespace", "", "The namespace to add as header to log events")
-	endpoint           = flag.String("endpoint", "", "The endpoint name to add as header to log events")
-	component          = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
-	metadataHeaders    = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
+	logUrl              = flag.String("log-url", "", "The URL to send request/response logs to")
+	workers             = flag.Int("workers", 5, "Number of workers")
+	sourceUri           = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
+	logMode             = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
+	logStorePath        = flag.String("log-store-path", "", "The path to the log output")
+	logStoreParameters  = flag.StringSlice("log-store-parameters", nil, "Parameters to override the default storage credentials and config.")
+	logStoreKey         = flag.String("log-store-key", "", "The storage key in the secret to use when logging")
+	inferenceService    = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
+	namespace           = flag.String("namespace", "", "The namespace to add as header to log events")
+	endpoint            = flag.String("endpoint", "", "The endpoint name to add as header to log events")
+	component           = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
+	metadataHeaders     = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
+	metadataAnnotations = flag.StringSlice("metadata-annotations", nil, "Allow list of metadata annotation to be passed with payload logging")
 	// batcher flags
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
@@ -120,6 +121,7 @@ type loggerArgs struct {
 	endpoint         string
 	component        string
 	metadataHeaders  []string
+	annotations      map[string]string
 	certName         string
 	tlsSkipVerify    bool
 }
@@ -307,6 +309,17 @@ func startLogger(workers int, storageSpec *v1beta1.StorageSpec, log *zap.Sugared
 		os.Exit(-1)
 	}
 
+	var annotationKVPair map[string]string = map[string]string{}
+	for _, annotations := range *metadataAnnotations {
+		k, v, found := strings.Cut(annotations, "=")
+		if found {
+			annotationKVPair[k] = v
+		} else {
+			log.Errorf("annotation does not adhere to desired format got key: %s value: %s", k, v)
+			os.Exit(-1)
+		}
+	}
+
 	var store kfslogger.Store
 	if kfslogger.GetStorageStrategy(*logUrl) != kfslogger.HttpStorage {
 		if *logStorePath != "" {
@@ -330,6 +343,7 @@ func startLogger(workers int, storageSpec *v1beta1.StorageSpec, log *zap.Sugared
 		namespace:        *namespace,
 		component:        *component,
 		metadataHeaders:  *metadataHeaders,
+		annotations:      annotationKVPair,
 		certName:         *CaCertFile,
 		tlsSkipVerify:    *TlsSkipVerify,
 	}
@@ -392,7 +406,7 @@ func buildServer(port string, userPort int, loggerArgs *loggerArgs, batcherArgs 
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
 			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler,
-			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.tlsSkipVerify)
+			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.annotations, loggerArgs.tlsSkipVerify)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)

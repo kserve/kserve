@@ -77,6 +77,9 @@ type LoggerSpec struct {
 	// Matched metadata HTTP headers for propagating to inference logger cloud events.
 	// +optional
 	MetadataHeaders []string `json:"metadataHeaders,omitempty"`
+	// Matched inference service annotations for propagating to inference logger cloud events.
+	// +optional
+	MetadataAnnotations []string `json:"metadataAnnotations,omitempty"`
 	// Specifies the storage location for the inference logger cloud events.
 	// +optional
 	Storage *StorageSpec `json:"storage"`

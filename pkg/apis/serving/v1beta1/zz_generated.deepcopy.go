@@ -542,6 +542,11 @@ func (in *LoggerSpec) DeepCopyInto(out *LoggerSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.MetadataAnnotations != nil {
+		in, out := &in.MetadataAnnotations, &out.MetadataAnnotations
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Storage != nil {
 		in, out := &in.Storage, &out.Storage
 		*out = new(StorageSpec)

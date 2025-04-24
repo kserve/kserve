@@ -35,20 +35,21 @@ import (
 )
 
 const (
-	LoggerConfigMapKeyName         = "logger"
-	LoggerArgumentLogUrl           = "--log-url"
-	LoggerArgumentStorePath        = "--log-store-path"
-	LoggerArgumentStoreParameters  = "--log-store-parameters"
-	LoggerArgumentStoreKey         = "--log-store-key"
-	LoggerArgumentSourceUri        = "--source-uri"
-	LoggerArgumentMode             = "--log-mode"
-	LoggerArgumentInferenceService = "--inference-service"
-	LoggerArgumentNamespace        = "--namespace"
-	LoggerArgumentEndpoint         = "--endpoint"
-	LoggerArgumentComponent        = "--component"
-	LoggerArgumentCaCertFile       = "--logger-ca-cert-file"
-	LoggerArgumentTlsSkipVerify    = "--logger-tls-skip-verify"
-	LoggerArgumentMetadataHeaders  = "--metadata-headers"
+	LoggerConfigMapKeyName            = "logger"
+	LoggerArgumentLogUrl              = "--log-url"
+	LoggerArgumentStorePath           = "--log-store-path"
+	LoggerArgumentStoreParameters     = "--log-store-parameters"
+	LoggerArgumentStoreKey            = "--log-store-key"
+	LoggerArgumentSourceUri           = "--source-uri"
+	LoggerArgumentMode                = "--log-mode"
+	LoggerArgumentInferenceService    = "--inference-service"
+	LoggerArgumentNamespace           = "--namespace"
+	LoggerArgumentEndpoint            = "--endpoint"
+	LoggerArgumentComponent           = "--component"
+	LoggerArgumentCaCertFile          = "--logger-ca-cert-file"
+	LoggerArgumentTlsSkipVerify       = "--logger-tls-skip-verify"
+	LoggerArgumentMetadataHeaders     = "--metadata-headers"
+	LoggerArgumentMetadataAnnotations = "--metadata-annotations"
 )
 
 type AgentConfig struct {
@@ -263,6 +264,20 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		if ok {
 			loggerArgs = append(loggerArgs, LoggerArgumentMetadataHeaders)
 			loggerArgs = append(loggerArgs, logHeaderMetadata)
+		}
+		logMetadataAnnotations, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataAnnotationsInternalAnnotationKey]
+		if ok {
+			annotationKeys := strings.Split(logMetadataAnnotations, ",")
+			kvPairs := []string{}
+			for _, metadataAnnotation := range annotationKeys {
+				val, exists := pod.ObjectMeta.Annotations[metadataAnnotation]
+				if exists {
+					kvPairs = append(kvPairs, fmt.Sprintf("%s=%s", metadataAnnotation, val))
+				} else {
+					klog.Warningf("failed to find matching annotation %s on inference service", metadataAnnotation)
+				}
+			}
+			loggerArgs = append(loggerArgs, LoggerArgumentMetadataAnnotations, strings.Join(kvPairs, ","))
 		}
 		args = append(args, loggerArgs...)
 
