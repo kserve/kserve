@@ -25,13 +25,13 @@ import (
 	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
@@ -7281,7 +7281,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					MaxReplicaCount: proto.Int32(3),
 				},
 			}
-			Expect(actualScaledObject.Spec).To(gomega.Equal(expectedScaledobject.Spec))
+			Expect(actualScaledObject.Spec).To(Equal(expectedScaledobject.Spec))
 
 			// check service
 			actualService := &corev1.Service{}
@@ -7318,7 +7318,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.IPFamilies = nil
 			actualService.Spec.IPFamilyPolicy = nil
 			actualService.Spec.InternalTrafficPolicy = nil
-			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
+			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
 			// check isvc status
 			updatedScaledObject := actualScaledObject.DeepCopy()
@@ -7328,7 +7328,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Status: kedav1alpha1.GetInitializedConditions().GetActiveCondition().Status,
 				},
 			}
-			Expect(k8sClient.Status().Update(context.TODO(), updatedScaledObject)).NotTo(gomega.HaveOccurred())
+			Expect(k8sClient.Status().Update(context.TODO(), updatedScaledObject)).NotTo(HaveOccurred())
 		})
 
 		It("Should have OpenTelemetry Collector created", func() {
@@ -7506,7 +7506,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					},
 				},
 			}
-			Expect(actualOTelCollector.Spec.Config).To(gomega.BeComparableTo(expectedOTelCollector.Spec.Config))
+			Expect(actualOTelCollector.Spec.Config).To(BeComparableTo(expectedOTelCollector.Spec.Config))
 		})
 
 		It("Should have ingress/service/deployment/hpa created", func() {
@@ -8001,11 +8001,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 						Containers: []corev1.Container{
 							{
-								Name:    constants.InferenceServiceContainerName,
-								Image:   "kserve/huggingfaceserver:latest",
-								Command: []string{"bash", "-c"},
-								Args: []string{
+								Name:  constants.InferenceServiceContainerName,
+								Image: "kserve/huggingfaceserver:latest-gpu",
+								Command: []string{
+									"bash",
+									"-c",
 									"python3 -m huggingfaceserver --model_name=${MODEL_NAME} --model_dir=${MODEL} --tensor-parallel-size=${TENSOR_PARALLEL_SIZE} --pipeline-parallel-size=${PIPELINE_PARALLEL_SIZE}",
+								},
+								Args: []string{
+									"--model_name={{.Name}}",
 								},
 								Resources: defaultResource,
 							},
@@ -8017,10 +8021,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 							Containers: []corev1.Container{
 								{
-									Name:    constants.WorkerContainerName,
-									Image:   "kserve/huggingfaceserver:latest",
-									Command: []string{"bash", "-c"},
-									Args: []string{
+									Name:  constants.WorkerContainerName,
+									Image: "kserve/huggingfaceserver:latest-gpu",
+									Command: []string{
+										"bash",
+										"-c",
 										"ray start --address=$RAY_HEAD_ADDRESS --block",
 									},
 									Resources: defaultResource,
@@ -8073,7 +8078,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				k8sClient.Delete(ctx, isvc)
 			})
 
-			// Verify inferenceService is createdi
+			// Verify inferenceService is created
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				return k8sClient.Get(ctx, serviceKey, inferenceService) == nil
@@ -8089,12 +8094,23 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
 			}, timeout, interval).Should(BeTrue())
 
-			// Verify deployments details
-			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "2", ptr.To(int32(1)))
+			// Verify head deployments environment variables
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "2")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "1")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "2")
+
+			// Verify worker deployments environment variables
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "2")
+
+			// Verify gpu resources for head/worker nodes
+			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "1", "1", constants.NvidiaGPUResourceType, constants.NvidiaGPUResourceType)
+
+			// Verify worker node replicas
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(1))))
 
 			// Check Services
 			actualService := &corev1.Service{}
-			headServiceName := constants.GeHeadServiceName(isvcName+"-predictor", "1")
+			headServiceName := constants.GetHeadServiceName(isvcName+"-predictor", "1")
 			defaultServiceName := isvcName + "-predictor"
 			expectedHeadServiceName := types.NamespacedName{Name: headServiceName, Namespace: isvcNamespace}
 			expectedDefaultServiceName := types.NamespacedName{Name: defaultServiceName, Namespace: isvcNamespace}
@@ -8162,7 +8178,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						WorkerSpec: &v1beta1.WorkerSpec{
-							PipelineParallelSize: ptr.To(3),
+							PipelineParallelSize: ptr.To(5),
 						},
 					},
 				},
@@ -8188,8 +8204,19 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
 			}, timeout, interval).Should(BeTrue())
 
-			// Verify deployments details
-			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", ptr.To(int32(2)))
+			// Verify head deployments details
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "5")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "1")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "5")
+
+			// Verify worker deployments details
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "5")
+
+			// Verify gpu resources for head/worker nodes
+			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "1", "1", constants.NvidiaGPUResourceType, constants.NvidiaGPUResourceType)
+
+			// Verify worker node replicas
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(4))))
 		})
 		It("Should use WorkerSpec.TensorParallelSize value in isvc when it is set", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -8221,7 +8248,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						WorkerSpec: &v1beta1.WorkerSpec{
-							TensorParallelSize: ptr.To(3),
+							TensorParallelSize: ptr.To(16),
 						},
 					},
 				},
@@ -8241,8 +8268,542 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
 			}, timeout, interval).Should(BeTrue())
 
-			// Verify deployments details
-			verifyTensorParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", constants.NvidiaGPUResourceType)
+			// Verify head deployments environment variables
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "2")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "16")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "32")
+
+			// Verify worker deployments environment variables
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "32")
+
+			// Verify gpu resources for head/worker nodes
+			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "1", "1", constants.NvidiaGPUResourceType, constants.NvidiaGPUResourceType)
+
+			// Verify worker node replicas
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(31))))
+		})
+		It("Should use head container GPU resource value in isvc when it is set", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-5-1"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+
+			// Create a infereceService
+			isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      isvcName,
+					Namespace: isvcNamespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: &storageUri,
+								Container: corev1.Container{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "kserve/huggingfaceserver:latest-gpu",
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											constants.IntelGPUResourceType: resource.MustParse("2"),
+										},
+										Requests: corev1.ResourceList{
+											constants.IntelGPUResourceType: resource.MustParse("2"),
+										},
+									},
+								},
+							},
+						},
+						WorkerSpec: &v1beta1.WorkerSpec{
+							TensorParallelSize: ptr.To(4),
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, isvc)
+			})
+
+			// Verify if predictor deployment (default deployment) is created
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}, actualDefaultDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if worker node deployment is created.
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify head deployments environment variables
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "2")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "4")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "7")
+
+			// Verify worker deployments environment variables
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "7")
+
+			// Verify gpu resources for head/worker nodes
+			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "2", "1", constants.IntelGPUResourceType, constants.NvidiaGPUResourceType)
+
+			// Verify worker node replicas
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(6))))
+		})
+		It("Should use worker container GPU resource value in isvc when it is set", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-5-2"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+
+			// Create a infereceService
+			isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      isvcName,
+					Namespace: isvcNamespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: &storageUri,
+							},
+						},
+						WorkerSpec: &v1beta1.WorkerSpec{
+							TensorParallelSize: ptr.To(4),
+							PodSpec: v1beta1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Name:  constants.WorkerContainerName,
+										Image: "kserve/huggingfaceserver:latest-gpu",
+										Resources: corev1.ResourceRequirements{
+											Limits: corev1.ResourceList{
+												constants.IntelGPUResourceType: resource.MustParse("2"),
+											},
+											Requests: corev1.ResourceList{
+												constants.IntelGPUResourceType: resource.MustParse("2"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, isvc)
+			})
+
+			// Verify if predictor deployment (default deployment) is created
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}, actualDefaultDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if worker node deployment is created.
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify head deployments environment variables
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "2")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "4")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "4")
+
+			// Verify worker deployments environment variables
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "4")
+
+			// Verify gpu resources for head/worker nodes
+			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "2", "2", constants.NvidiaGPUResourceType, constants.IntelGPUResourceType)
+
+			// Verify worker node replicas
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(3))))
+		})
+		It("Should run head node only, worker node replicas should be set 0 when head node gpu count is equal to total required gpu", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-5-3"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+
+			// Create a infereceService
+			isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      isvcName,
+					Namespace: isvcNamespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: &storageUri,
+								Container: corev1.Container{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "kserve/huggingfaceserver:latest-gpu",
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											constants.IntelGPUResourceType: resource.MustParse("8"),
+										},
+										Requests: corev1.ResourceList{
+											constants.IntelGPUResourceType: resource.MustParse("8"),
+										},
+									},
+								},
+							},
+						},
+						WorkerSpec: &v1beta1.WorkerSpec{
+							TensorParallelSize: ptr.To(4),
+							PodSpec: v1beta1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Name:  constants.WorkerContainerName,
+										Image: "kserve/huggingfaceserver:latest-gpu",
+										Resources: corev1.ResourceRequirements{
+											Limits: corev1.ResourceList{
+												constants.IntelGPUResourceType: resource.MustParse("2"),
+											},
+											Requests: corev1.ResourceList{
+												constants.IntelGPUResourceType: resource.MustParse("2"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, isvc)
+			})
+
+			// Verify if predictor deployment (default deployment) is created
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}, actualDefaultDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if worker node deployment is created.
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify head deployments environment variables
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "2")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "4")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "1")
+
+			// Verify worker deployments environment variables
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "1")
+
+			// Verify gpu resources for head/worker nodes
+			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "8", "0", constants.IntelGPUResourceType, constants.IntelGPUResourceType)
+
+			// Verify worker node replicas
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(0))))
+		})
+		It("Should run head node only, worker node replicas should be set 0 when worker node gpu count is equal to total required gpu", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-5-4"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+
+			// Create a infereceService
+			isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      isvcName,
+					Namespace: isvcNamespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: &storageUri,
+								Container: corev1.Container{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "kserve/huggingfaceserver:latest-gpu",
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											constants.IntelGPUResourceType: resource.MustParse("2"),
+										},
+										Requests: corev1.ResourceList{
+											constants.IntelGPUResourceType: resource.MustParse("2"),
+										},
+									},
+								},
+							},
+						},
+						WorkerSpec: &v1beta1.WorkerSpec{
+							TensorParallelSize: ptr.To(4),
+							PodSpec: v1beta1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Name:  constants.WorkerContainerName,
+										Image: "kserve/huggingfaceserver:latest-gpu",
+										Resources: corev1.ResourceRequirements{
+											Limits: corev1.ResourceList{
+												constants.IntelGPUResourceType: resource.MustParse("8"),
+											},
+											Requests: corev1.ResourceList{
+												constants.IntelGPUResourceType: resource.MustParse("8"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, isvc)
+			})
+
+			// Verify if predictor deployment (default deployment) is created
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}, actualDefaultDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if worker node deployment is created.
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify head deployments environment variables
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "2")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "4")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "1")
+
+			// Verify worker deployments environment variables
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "1")
+
+			// Verify gpu resources for head/worker nodes
+			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "8", "0", constants.IntelGPUResourceType, constants.IntelGPUResourceType)
+
+			// Verify worker node replicas
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(0))))
+		})
+		It("Should return error if total required gpu count is less than what it should be assigned with head/worker", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-5-5"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+
+			// Create a infereceService
+			isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      isvcName,
+					Namespace: isvcNamespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: &storageUri,
+								Container: corev1.Container{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "kserve/huggingfaceserver:latest-gpu",
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											constants.IntelGPUResourceType: resource.MustParse("2"),
+										},
+										Requests: corev1.ResourceList{
+											constants.IntelGPUResourceType: resource.MustParse("2"),
+										},
+									},
+								},
+							},
+						},
+						WorkerSpec: &v1beta1.WorkerSpec{
+							PipelineParallelSize: ptr.To(1),
+							TensorParallelSize:   ptr.To(7),
+							PodSpec: v1beta1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Name:  constants.WorkerContainerName,
+										Image: "kserve/huggingfaceserver:latest-gpu",
+										Resources: corev1.ResourceRequirements{
+											Limits: corev1.ResourceList{
+												constants.IntelGPUResourceType: resource.MustParse("4"),
+											},
+											Requests: corev1.ResourceList{
+												constants.IntelGPUResourceType: resource.MustParse("4"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, isvc)
+			})
+
+			updatedIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, serviceKey, updatedIsvc); err == nil {
+					for _, condition := range updatedIsvc.Status.Status.Conditions {
+						if condition.Type == v1beta1.PredictorReady && condition.Reason == v1beta1.InvalidGPUAllocation && condition.Message == fmt.Sprintf(components.ErrRayClusterInsufficientGPUs, 7, 2, 4) {
+							return true
+						}
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if predictor deployment (default deployment) is not created
+			Consistently(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}, actualDefaultDeployment)
+			}, time.Second*10, interval).ShouldNot(Succeed())
+
+			// Verify if worker node deployment is not created.
+			Consistently(func() error {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment)
+			}, time.Second*10, interval).ShouldNot(Succeed())
+		})
+		It("Should deploy even if it assigns more GPUs than the total required GPU resource count.", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			By("creating a new InferenceService")
+			isvcName := "raw-huggingface-multinode-5-6"
+			predictorDeploymentName := constants.PredictorServiceName(isvcName)
+			workerDeploymentName := constants.PredictorWorkerServiceName(isvcName)
+			serviceKey = types.NamespacedName{Name: isvcName, Namespace: isvcNamespace}
+
+			// Create a infereceService
+			isvc = &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      isvcName,
+					Namespace: isvcNamespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "external",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: &storageUri,
+								Container: corev1.Container{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "kserve/huggingfaceserver:latest-gpu",
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											constants.IntelGPUResourceType: resource.MustParse("4"),
+										},
+										Requests: corev1.ResourceList{
+											constants.IntelGPUResourceType: resource.MustParse("4"),
+										},
+									},
+								},
+							},
+						},
+						WorkerSpec: &v1beta1.WorkerSpec{
+							TensorParallelSize: ptr.To(16),
+							PodSpec: v1beta1.PodSpec{
+								Containers: []corev1.Container{
+									{
+										Name:  constants.WorkerContainerName,
+										Image: "kserve/huggingfaceserver:latest-gpu",
+										Resources: corev1.ResourceRequirements{
+											Limits: corev1.ResourceList{
+												constants.IntelGPUResourceType: resource.MustParse("3"),
+											},
+											Requests: corev1.ResourceList{
+												constants.IntelGPUResourceType: resource.MustParse("3"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			DeferCleanup(func() {
+				k8sClient.Delete(ctx, isvc)
+			})
+
+			// Verify if predictor deployment (default deployment) is created
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: predictorDeploymentName, Namespace: isvcNamespace}, actualDefaultDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify if worker node deployment is created.
+			Eventually(func() bool {
+				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Verify head deployments environment variables
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "2")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "16")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "11")
+
+			// Verify worker deployments environment variables
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "11")
+
+			// Verify gpu resources for head/worker nodes
+			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "4", "3", constants.IntelGPUResourceType, constants.IntelGPUResourceType)
+
+			// Verify worker node replicas
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(10))))
 		})
 		It("Should not set nil to replicas when multinode isvc(external autoscaler) is updated", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -8294,8 +8855,19 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: workerDeploymentName, Namespace: isvcNamespace}, actualWorkerDeployment) == nil
 			}, timeout, interval).Should(BeTrue())
 
-			// Verify deployments details
-			verifyPipelineParallelSizeDeployments(actualDefaultDeployment, actualWorkerDeployment, "3", ptr.To(int32(2)))
+			// Verify head deployments environment variables
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.PipelineParallelSizeEnvName, "3")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.TensorParallelSizeEnvName, "1")
+			verifyEnvKeyValueDeployments(actualDefaultDeployment, constants.RayNodeCountEnvName, "3")
+
+			// Verify worker deployments environment variables
+			verifyEnvKeyValueDeployments(actualWorkerDeployment, constants.RayNodeCountEnvName, "3")
+
+			// Verify gpu resources for head/worker nodes
+			verifyGPUResourceSizeDeployment(actualDefaultDeployment, actualWorkerDeployment, "1", "1", constants.NvidiaGPUResourceType, constants.NvidiaGPUResourceType)
+
+			// Verify worker Node replicas
+			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(2))))
 
 			// Update a infereceService
 			By("updating the InferenceService")
@@ -8329,35 +8901,24 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	})
 })
 
-func verifyPipelineParallelSizeDeployments(actualDefaultDeployment *appsv1.Deployment, actualWorkerDeployment *appsv1.Deployment, pipelineParallelSize string, replicas *int32) {
+func verifyEnvKeyValueDeployments(actualDefaultDeployment *appsv1.Deployment, envKey string, expectedEnvValue string) {
 	// default deployment
-	if pipelineParallelSizeEnvValue, exists := utils.GetEnvVarValue(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Env, constants.PipelineParallelSizeEnvName); exists {
-		Expect(pipelineParallelSizeEnvValue).Should(Equal(pipelineParallelSize))
+	if envValue, exists := utils.GetEnvVarValue(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Env, envKey); exists {
+		Expect(envValue).Should(Equal(expectedEnvValue))
 	} else {
-		Fail("PIPELINE_PARALLEL_SIZE environment variable is not set")
+		Fail(envKey + " environment variable is not set")
 	}
-	// worker node deployment
-	if pipelineParallelSizeEnvValue, exists := utils.GetEnvVarValue(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Env, constants.PipelineParallelSizeEnvName); exists {
-		Expect(pipelineParallelSizeEnvValue).Should(Equal(pipelineParallelSize))
-	} else {
-		Fail("PIPELINE_PARALLEL_SIZE environment variable is not set")
-	}
-
-	Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(replicas))
 }
 
-func verifyTensorParallelSizeDeployments(actualDefaultDeployment *appsv1.Deployment, actualWorkerDeployment *appsv1.Deployment, tensorParallelSize string, gpuResourceType corev1.ResourceName) {
-	gpuResourceQuantity := resource.MustParse(tensorParallelSize)
-	// default deployment
-	if tensorParallelSizeEnvValue, exists := utils.GetEnvVarValue(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Env, constants.TensorParallelSizeEnvName); exists {
-		Expect(tensorParallelSizeEnvValue).Should(Equal(tensorParallelSize))
-	} else {
-		Fail("TENSOR_PARALLEL_SIZE environment variable is not set")
-	}
-	Expect(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[gpuResourceType]).Should(Equal(gpuResourceQuantity))
-	Expect(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[gpuResourceType]).Should(Equal(gpuResourceQuantity))
+func verifyGPUResourceSizeDeployment(actualDefaultDeployment *appsv1.Deployment, actualWorkerDeployment *appsv1.Deployment, targetHeadGPUResourceSize, targetWorkerGPUResourceSize string, headGpuResourceType corev1.ResourceName, workerGpuResourceType corev1.ResourceName) {
+	headGpuResourceQuantity := resource.MustParse(targetHeadGPUResourceSize)
+	workerGpuResourceQuantity := resource.MustParse(targetWorkerGPUResourceSize)
+
+	// head node deployment
+	Expect(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[headGpuResourceType]).Should(Equal(headGpuResourceQuantity))
+	Expect(actualDefaultDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[headGpuResourceType]).Should(Equal(headGpuResourceQuantity))
 
 	// worker node deployment
-	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[gpuResourceType]).Should(Equal(gpuResourceQuantity))
-	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[gpuResourceType]).Should(Equal(gpuResourceQuantity))
+	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[workerGpuResourceType]).Should(Equal(workerGpuResourceQuantity))
+	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[workerGpuResourceType]).Should(Equal(workerGpuResourceQuantity))
 }

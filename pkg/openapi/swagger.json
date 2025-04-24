@@ -3487,6 +3487,14 @@
       "description": "LoggerSpec specifies optional payload logging available for all components",
       "type": "object",
       "properties": {
+        "metadataAnnotations": {
+          "description": "Matched inference service annotations for propagating to inference logger cloud events.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
         "metadataHeaders": {
           "description": "Matched metadata HTTP headers for propagating to inference logger cloud events.",
           "type": "array",
