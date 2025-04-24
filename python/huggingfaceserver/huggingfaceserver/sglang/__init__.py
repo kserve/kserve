@@ -1,4 +1,4 @@
-# Copyright 2023 The KServe Authors.
+# Copyright 2024 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,23 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum, auto as auto_value
-from .encoder_model import HuggingfaceEncoderModel
-from .generative_model import HuggingfaceGenerativeModel
-
-
-class Backend(str, Enum):
-    """
-    Backend defines the framework used to load a model
-    """
-
-    auto = auto_value()
-    huggingface = auto_value()
-    vllm = auto_value()
-    sglang = auto_value()
-
+from .utils import (
+    sglang_available,
+    infer_sglang_supported_from_model_architecture,
+    maybe_add_sglang_cli_parser,
+    build_sglang_server_args,
+)
 
 __all__ = [
-    "HuggingfaceGenerativeModel",
-    "HuggingfaceEncoderModel",
+    "sglang_available",
+    "infer_sglang_supported_from_model_architecture",
+    "maybe_add_sglang_cli_parser",
+    "build_sglang_server_args",
 ]

@@ -43,6 +43,12 @@ from .vllm.utils import (
     maybe_add_vllm_cli_parser,
     vllm_available,
 )
+from .sglang.utils import (
+    infer_sglang_supported_from_model_architecture,
+    maybe_add_sglang_cli_parser,
+    sglang_available,
+    validate_sglang_args,
+)
 
 
 def list_of_strings(arg):
@@ -63,6 +69,19 @@ def is_vllm_backend_enabled(
         (args.backend == Backend.vllm or args.backend == Backend.auto)
         and vllm_available()
         and infer_vllm_supported_from_model_architecture(
+            model_id_or_path,
+            trust_remote_code=args.trust_remote_code,
+        )
+    )
+
+
+def is_sglang_backend_enabled(
+    args: argparse.Namespace, model_id_or_path: Union[str, Path]
+) -> bool:
+    return (
+        (args.backend == Backend.sglang or args.backend == Backend.auto)
+        and sglang_available()
+        and infer_sglang_supported_from_model_architecture(
             model_id_or_path,
             trust_remote_code=args.trust_remote_code,
         )
@@ -148,14 +167,18 @@ parser.add_argument(
     "--disable_log_requests", action="store_true", help="Disable logging requests"
 )
 
-# The initial_args are required to determine whether the vLLM backend is enabled.
+# The initial_args are required to determine whether the vLLM or SGLang backend is enabled.
 initial_args, _ = parser.parse_known_args()
 model_id_or_path = get_model_id_or_path(initial_args)
+
 if is_vllm_backend_enabled(initial_args, model_id_or_path):
     # If vLLM backend is enabled, add the vLLM specific CLI arguments to the parser
     parser = maybe_add_vllm_cli_parser(parser)
+elif is_sglang_backend_enabled(initial_args, model_id_or_path):
+    # If SGLang backend is enabled, add the SGLang specific CLI arguments to the parser
+    parser = maybe_add_sglang_cli_parser(parser)
 else:
-    # If vLLM backend is not enabled, add the task argument for Huggingface backend
+    # If neither vLLM nor SGLang backend is enabled, add the task argument for Huggingface backend
     parser.add_argument(
         "--task", required=False, help="The ML task name for huggingface backend"
     )
@@ -196,6 +219,10 @@ else:
 
 args, _ = parser.parse_known_args()
 
+# Validate SGLang arguments if SGLang is available
+if sglang_available():
+    validate_sglang_args(args)
+
 
 def load_model():
     model_id_or_path = get_model_id_or_path(args)
@@ -208,8 +235,7 @@ def load_model():
     if model_id_or_path is None:
         raise ValueError("You must provide a model_id or model_dir")
 
-    if args.backend == Backend.vllm and not vllm_available():
-        raise RuntimeError("Backend is set to 'vllm' but vLLM is not available")
+    # Validation for vLLM and SGLang is done earlier
 
     if is_vllm_backend_enabled(args, model_id_or_path):
         from .vllm.vllm_model import VLLMModel
@@ -219,6 +245,14 @@ def load_model():
         if args.served_model_name is not None:
             args.model_name = args.served_model_name[0]
         model = VLLMModel(args.model_name, args, request_logger=request_logger)
+    elif is_sglang_backend_enabled(args, model_id_or_path):
+        from .sglang.sglang_model import SGLangModel
+
+        args.model = args.model_id or args.model_dir
+        args.revision = args.model_revision
+        if args.served_model_name is not None:
+            args.model_name = args.served_model_name[0]
+        model = SGLangModel(args.model_name, args, request_logger=request_logger)
 
     else:
         kwargs = vars(args)
@@ -315,6 +349,9 @@ if __name__ == "__main__":
             if args.lora_modules:
                 for lora_module in args.lora_modules:
                     model_server.register_model(model, lora_module.name)
+        elif is_sglang_backend_enabled(args, model_id_or_path):
+            # SGLang doesn't need any special registration
+            pass
         model_server.start([model])
     except Exception as e:
         import sys
