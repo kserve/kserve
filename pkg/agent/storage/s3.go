@@ -53,8 +53,11 @@ type S3ObjectUploader struct {
 	Uploader s3manageriface.UploadWithIterator
 }
 
-func (s *S3ObjectUploader) UploadObject(bucket string, key string, object []byte) error {
-	return s.Upload([]s3manager.BatchUploadObject{
+func (m *S3Provider) UploadObject(bucket string, key string, object []byte) error {
+	uploader := &S3ObjectUploader{
+		Uploader: m.Uploader,
+	}
+	return uploader.Upload([]s3manager.BatchUploadObject{
 		{
 			Object: &s3manager.UploadInput{
 				Bucket: aws.String(bucket),

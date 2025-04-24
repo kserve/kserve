@@ -664,7 +664,16 @@ data:
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
         "cpuLimit": "1",
-        "defaultUrl": "http://default-broker"
+        "defaultUrl": "http://default-broker",
+        "storage": {
+            "path": "/logger",
+            "parameters": {
+              "type": "s3",
+              "format": "json" 
+            },
+            "key": "credentials"
+            "serviceAccountName": "logger-sa",
+        }
     }
 
   batcher: |-

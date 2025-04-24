@@ -157,13 +157,15 @@ func main() {
 	if *logUrl != "" {
 		logger.Info("Starting logger")
 		params := make(map[string]string)
-		for _, param := range *logStoreParameters {
-			kv := strings.Split(param, "=")
-			if len(kv) != 2 {
-				logger.Errorf("Malformed log-parameters %s", param)
-				os.Exit(-1)
+		if logStoreParameters != nil && len(*logStoreParameters) > 0 {
+			for _, param := range *logStoreParameters {
+				kv := strings.Split(param, "=")
+				if len(kv) != 2 {
+					logger.Errorf("Malformed log-parameters %s", param)
+					os.Exit(-1)
+				}
+				params[kv[0]] = kv[1]
 			}
-			params[kv[0]] = kv[1]
 		}
 
 		storageSpec := &v1beta1.StorageSpec{
@@ -310,7 +312,7 @@ func startLogger(workers int, storageSpec *v1beta1.StorageSpec, log *zap.Sugared
 	var store kfslogger.Store
 	if kfslogger.GetStorageStrategy(*logUrl) != kfslogger.HttpStorage {
 		if *logStorePath != "" {
-			log.Infow("Logger storage is enabled for path %s and key %s", *storageSpec.Path, *storageSpec.StorageKey)
+			log.Infow("Logger storage is enabled", "path", *storageSpec.Path, "key", *storageSpec.StorageKey)
 			store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, storageSpec, log)
 			if err != nil {
 				log.Errorw("Error creating logger store", zap.Error(err))
