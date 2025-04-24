@@ -396,7 +396,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
                             backend="prometheus",
                             server_address="http://prometheus:9090",
                             query="http_requests_per_second",
-                            auth_modes="basic"
+                            auth_modes="basic",
                         ),
                         target=V1beta1MetricTarget(type="Value", value=50),
                         authentication_ref=V1beta1ExtMetricAuth(
