@@ -82,7 +82,7 @@ type LoggerSpec struct {
 	MetadataAnnotations []string `json:"metadataAnnotations,omitempty"`
 	// Specifies the storage location for the inference logger cloud events.
 	// +optional
-	Storage *StorageSpec `json:"storage"`
+	Storage *StorageSpec `json:"storage,omitempty"`
 }
 
 // MetricsBackend enum
