@@ -28,10 +28,16 @@ export CI_USE_ISVC_HOST="1"
 export GITHUB_SHA=stable # Need to use stable as this is what the CI tags the images to for success-200 and error-404
 : "${BUILD_GRAPH_IMAGES:=true}"
 : "${RUNNING_LOCAL:=false}"
+cp ./test/e2e/conftest.py ./test/e2e/conftest.py.bak
 if $RUNNING_LOCAL; then
   export CUSTOM_MODEL_GRPC_IMG_TAG=kserve/custom-model-grpc:latest
   export IMAGE_TRANSFORMER_IMG_TAG=kserve/image-transformer:latest
   export GITHUB_SHA=master
+  sed -i -E '
+  /^[[:space:]]*verify=False,$/d
+  s|^([[:space:]]*)timeout=60,|\1verify=False,\n\1timeout=60,|g
+' ./test/e2e/conftest.py
+
   if [ "$1" = "graph" ] && [ "$BUILD_GRAPH_IMAGES" = "true" ]; then
     pushd $PROJECT_ROOT >/dev/null
     ./test/scripts/gh-actions/build-graph-tests-images.sh | tee 2>&1 ./test/scripts/openshift-ci/build-graph-tests-images.log
@@ -50,4 +56,5 @@ fi
 echo "Run E2E tests: $1"
 pushd $PROJECT_ROOT >/dev/null
 ./test/scripts/gh-actions/run-e2e-tests.sh "$1" | tee 2>&1 ./test/scripts/openshift-ci/run-e2e-tests-$1.log
+cp ./test/e2e/conftest.py.bak ./test/e2e/conftest.py
 popd

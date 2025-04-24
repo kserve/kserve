@@ -38,6 +38,8 @@ cat <<EOF | oc apply -f -
 apiVersion: operators.coreos.com/v1alpha1
 kind: Subscription
 metadata:
+  labels:
+    operators.coreos.com/servicemeshoperator.openshift-operators: ""
   name: servicemeshoperator
   namespace: openshift-operators
 spec:
@@ -50,37 +52,52 @@ EOF
 
 waitpodready "openshift-operators" "name=istio-operator"
 
+# Create new namespace
+oc new-project istio-system
 # Install OSSM
 cat <<EOF | oc apply -f -
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: istio-system
----
 apiVersion: maistra.io/v2
 kind: ServiceMeshControlPlane
 metadata:
   name: basic
   namespace: istio-system
 spec:
+  tracing:
+    type: None
   addons:
     grafana:
       enabled: false
     kiali:
-      enabled: false
       name: kiali
+      enabled: false
     prometheus:
       enabled: false
     jaeger:
       name: jaeger
+  security:
+    dataPlane:
+      mtls: true # otherwise inference-graph will not work. We use PeerAuthentication resources to force mTLS
+    identity:
+      type: ThirdParty
+  techPreview:
+    meshConfig:
+      defaultConfig:
+        terminationDrainDuration: 35s
   gateways:
     openshiftRoute:
       enabled: false
-  security:
-    identity:
-      type: ThirdParty
-  tracing:
-    type: None
+    ingress:
+      service:
+        metadata:
+          labels:
+            knative: ingressgateway
+  proxy:
+    networking:
+      trafficControl:
+        inbound:
+          excludedPorts:
+            - 8444 # metrics
+            - 8022 # serving: wait-for-drain k8s pre-stop hook
 EOF
 
 # Waiting for OSSM minimum start
