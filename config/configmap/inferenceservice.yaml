@@ -666,13 +666,13 @@ data:
         "cpuLimit": "1",
         "defaultUrl": "http://default-broker",
         "storage": {
-            "path": "/logger",
+            "path": "",
             "parameters": {
               "type": "s3",
               "format": "json" 
             },
             "key": "credentials"
-            "serviceAccountName": "logger-sa",
+            "serviceAccountName": "",
         }
     }
 
