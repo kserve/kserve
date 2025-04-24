@@ -19,7 +19,6 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -35,20 +34,19 @@ import (
 )
 
 const (
-	LoggerConfigMapKeyName         = "logger"
-	LoggerArgumentLogUrl           = "--log-url"
-	LoggerArgumentStorePath        = "--log-store-path"
-	LoggerArgumentStoreParameters  = "--log-store-parameters"
-	LoggerArgumentStoreKey         = "--log-store-key"
-	LoggerArgumentSourceUri        = "--source-uri"
-	LoggerArgumentMode             = "--log-mode"
-	LoggerArgumentInferenceService = "--inference-service"
-	LoggerArgumentNamespace        = "--namespace"
-	LoggerArgumentEndpoint         = "--endpoint"
-	LoggerArgumentComponent        = "--component"
-	LoggerArgumentCaCertFile       = "--logger-ca-cert-file"
-	LoggerArgumentTlsSkipVerify    = "--logger-tls-skip-verify"
-	LoggerArgumentMetadataHeaders  = "--metadata-headers"
+	LoggerConfigMapKeyName            = "logger"
+	LoggerArgumentLogUrl              = "--log-url"
+	LoggerArgumentStorePath           = "--log-store-path"
+	LoggerArgumentStoreFormat         = "--log-store-format"
+	LoggerArgumentSourceUri           = "--source-uri"
+	LoggerArgumentMode                = "--log-mode"
+	LoggerArgumentInferenceService    = "--inference-service"
+	LoggerArgumentNamespace           = "--namespace"
+	LoggerArgumentEndpoint            = "--endpoint"
+	LoggerArgumentComponent           = "--component"
+	LoggerArgumentCaCertFile          = "--logger-ca-cert-file"
+	LoggerArgumentTlsSkipVerify       = "--logger-tls-skip-verify"
+	LoggerArgumentMetadataHeaders     = "--metadata-headers"
 	LoggerArgumentMetadataAnnotations = "--metadata-annotations"
 )
 
@@ -216,25 +214,15 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 				log.Error(nil, "Logger storage is configured but path is not set")
 			}
 		}
-		storageParameters := ""
+		storageFormat := constants.LoggerDefaultFormat
 		if ag.loggerConfig.Store != nil {
 			if ag.loggerConfig.Store.Parameters != nil {
-				params := make([]string, 0)
-				for key, value := range *ag.loggerConfig.Store.Parameters {
-					params = append(params, fmt.Sprintf("%s=%s", key, value))
+				format, ok := (*ag.loggerConfig.Store.Parameters)[constants.LoggerFormatKey]
+				if ok {
+					storageFormat = format
 				}
-				sort.Strings(params)
-				storageParameters = strings.Join(params, ",")
 			} else {
 				log.Error(nil, "Logger storage is configured but parameters are not set")
-			}
-		}
-		storageKey := ""
-		if ag.loggerConfig.Store != nil {
-			if ag.loggerConfig.Store.StorageKey != nil {
-				storageKey = *ag.loggerConfig.Store.StorageKey
-			} else {
-				log.Error(nil, "Logger storage is configured but storage key is not set")
 			}
 		}
 
@@ -247,10 +235,8 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			logMode,
 			LoggerArgumentStorePath,
 			storagePath,
-			LoggerArgumentStoreParameters,
-			storageParameters,
-			LoggerArgumentStoreKey,
-			storageKey,
+			LoggerArgumentStoreFormat,
+			storageFormat,
 			LoggerArgumentInferenceService,
 			inferenceServiceName,
 			LoggerArgumentNamespace,

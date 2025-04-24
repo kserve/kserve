@@ -59,18 +59,17 @@ var (
 	configDir    = flag.String("config-dir", "/mnt/configs", "directory for model config files")
 	modelDir     = flag.String("model-dir", "/mnt/models", "directory for model files")
 	// logger flags
-	logUrl             = flag.String("log-url", "", "The URL to send request/response logs to")
-	workers            = flag.Int("workers", 5, "Number of workers")
-	sourceUri          = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
-	logMode            = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
-	logStorePath       = flag.String("log-store-path", "", "The path to the log output")
-	logStoreParameters = flag.StringSlice("log-store-parameters", nil, "Parameters to override the default storage credentials and config.")
-	logStoreKey        = flag.String("log-store-key", "", "The storage key in the secret to use when logging")
-	inferenceService   = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
-	namespace          = flag.String("namespace", "", "The namespace to add as header to log events")
-	endpoint           = flag.String("endpoint", "", "The endpoint name to add as header to log events")
-	component          = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
-	metadataHeaders    = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
+	logUrl              = flag.String("log-url", "", "The URL to send request/response logs to")
+	workers             = flag.Int("workers", 5, "Number of workers")
+	sourceUri           = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
+	logMode             = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
+	logStorePath        = flag.String("log-store-path", "", "The path to the log output")
+	logStoreFormat      = flag.String("log-store-format", "", "Format for log output, 'json' or 'yaml'")
+	inferenceService    = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
+	namespace           = flag.String("namespace", "", "The namespace to add as header to log events")
+	endpoint            = flag.String("endpoint", "", "The endpoint name to add as header to log events")
+	component           = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
+	metadataHeaders     = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
 	metadataAnnotations = flag.StringSlice("metadata-annotations", nil, "Allow list of metadata annotation to be passed with payload logging")
 	// batcher flags
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
@@ -156,24 +155,8 @@ func main() {
 	var loggerArgs *loggerArgs
 	if *logUrl != "" {
 		logger.Info("Starting logger")
-		params := make(map[string]string)
-		if logStoreParameters != nil && len(*logStoreParameters) > 0 {
-			for _, param := range *logStoreParameters {
-				kv := strings.Split(param, "=")
-				if len(kv) != 2 {
-					logger.Errorf("Malformed log-parameters %s", param)
-					os.Exit(-1)
-				}
-				params[kv[0]] = kv[1]
-			}
-		}
 
-		storageSpec := &v1beta1.StorageSpec{
-			Path:       logStorePath,
-			Parameters: &params,
-			StorageKey: logStoreKey,
-		}
-		loggerArgs = startLogger(*workers, storageSpec, logger)
+		loggerArgs = startLogger(*workers, logStorePath, logStoreFormat, logger)
 	}
 
 	var batcherArgs *batcherArgs
@@ -284,7 +267,7 @@ func startBatcher(logger *zap.SugaredLogger) *batcherArgs {
 	}
 }
 
-func startLogger(workers int, storageSpec *v1beta1.StorageSpec, log *zap.SugaredLogger) *loggerArgs {
+func startLogger(workers int, logStorePath *string, logStoreFormat *string, log *zap.SugaredLogger) *loggerArgs {
 	loggingMode := v1beta1.LoggerType(*logMode)
 	switch loggingMode {
 	case v1beta1.LogAll, v1beta1.LogRequest, v1beta1.LogResponse:
@@ -311,9 +294,9 @@ func startLogger(workers int, storageSpec *v1beta1.StorageSpec, log *zap.Sugared
 
 	var store kfslogger.Store
 	if kfslogger.GetStorageStrategy(*logUrl) != kfslogger.HttpStorage {
-		if *logStorePath != "" {
-			log.Infow("Logger storage is enabled", "path", *storageSpec.Path, "key", *storageSpec.StorageKey)
-			store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, storageSpec, log)
+		if logStoreFormat != nil && *logStoreFormat != "" {
+			log.Infow("Logger storage is enabled", "path", logStorePath, "logStoreFormat", logStoreFormat)
+			store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, *logStorePath, *logStoreFormat, log)
 			if err != nil {
 				log.Errorw("Error creating logger store", zap.Error(err))
 				os.Exit(-1)

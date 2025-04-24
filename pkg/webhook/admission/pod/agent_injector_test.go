@@ -18,9 +18,7 @@ package pod
 
 import (
 	"encoding/json"
-	"sort"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -78,10 +76,13 @@ var (
 	loggerConfigWithStorage = &LoggerConfig{
 		Image:      "gcr.io/kserve/agent:latest",
 		DefaultUrl: "http://httpbin.org/",
-		Store: &v1beta1.StorageSpec{
-			Path:       &storagePath,
-			Parameters: &storageParameters,
-			StorageKey: &storageKey,
+		Store: &LoggerStorageSpec{
+			StorageSpec: &v1beta1.StorageSpec{
+				Path:       &storagePath,
+				Parameters: &storageParameters,
+				StorageKey: &storageKey,
+			},
+			ServiceAccountName: "logger-sa",
 		},
 	}
 	batcherTestConfig = &BatcherConfig{
@@ -347,9 +348,7 @@ func TestAgentInjector(t *testing.T) {
 								"all",
 								LoggerArgumentStorePath,
 								"",
-								LoggerArgumentStoreParameters,
-								"",
-								LoggerArgumentStoreKey,
+								LoggerArgumentStoreFormat,
 								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
@@ -481,9 +480,7 @@ func TestAgentInjector(t *testing.T) {
 								"all",
 								LoggerArgumentStorePath,
 								"",
-								LoggerArgumentStoreParameters,
-								"",
-								LoggerArgumentStoreKey,
+								LoggerArgumentStoreFormat,
 								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
@@ -1098,9 +1095,7 @@ func TestAgentInjector(t *testing.T) {
 								"all",
 								LoggerArgumentStorePath,
 								"",
-								LoggerArgumentStoreParameters,
-								"",
-								LoggerArgumentStoreKey,
+								LoggerArgumentStoreFormat,
 								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
@@ -1235,9 +1230,7 @@ func TestAgentInjector(t *testing.T) {
 								"all",
 								LoggerArgumentStorePath,
 								"",
-								LoggerArgumentStoreParameters,
-								"",
-								LoggerArgumentStoreKey,
+								LoggerArgumentStoreFormat,
 								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
@@ -1525,9 +1518,7 @@ func TestAgentInjector(t *testing.T) {
 								"all",
 								LoggerArgumentStorePath,
 								"",
-								LoggerArgumentStoreParameters,
-								"",
-								LoggerArgumentStoreKey,
+								LoggerArgumentStoreFormat,
 								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
@@ -1595,12 +1586,6 @@ func TestAgentInjector(t *testing.T) {
 		},
 	}
 
-	storageParamsKV := make([]string, 0)
-	for k, v := range storageParameters {
-		storageParamsKV = append(storageParamsKV, k+"="+v)
-	}
-	sort.Strings(storageParamsKV)
-	storageParamsSerialized := strings.Join(storageParamsKV, ",")
 	scenariosLoggerStorage := map[string]struct {
 		original *corev1.Pod
 		expected *corev1.Pod
@@ -1692,10 +1677,8 @@ func TestAgentInjector(t *testing.T) {
 								"all",
 								LoggerArgumentStorePath,
 								storagePath,
-								LoggerArgumentStoreParameters,
-								storageParamsSerialized,
-								LoggerArgumentStoreKey,
-								storageKey,
+								LoggerArgumentStoreFormat,
+								"json",
 								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
@@ -1836,10 +1819,13 @@ func TestGetLoggerConfigs(t *testing.T) {
 					CpuLimit:      "1",
 					MemoryRequest: "200Mi",
 					MemoryLimit:   "1Gi",
-					Store: &v1beta1.StorageSpec{
-						Path:       &storagePath,
-						Parameters: &storageParameters,
-						StorageKey: &storageKey,
+					Store: &LoggerStorageSpec{
+						StorageSpec: &v1beta1.StorageSpec{
+							Path:       &storagePath,
+							Parameters: &storageParameters,
+							StorageKey: &storageKey,
+						},
+						ServiceAccountName: "logger-sa",
 					},
 				}),
 				gomega.BeNil(),
@@ -1903,9 +1889,12 @@ func TestGetLoggerConfigs(t *testing.T) {
 					CpuLimit:      "1",
 					MemoryRequest: "200Mi",
 					MemoryLimit:   "1Gi",
-					Store: &v1beta1.StorageSpec{
-						Path:       &storagePath,
-						Parameters: &storageParameters,
+					Store: &LoggerStorageSpec{
+						StorageSpec: &v1beta1.StorageSpec{
+							Path:       &storagePath,
+							Parameters: &storageParameters,
+						},
+						ServiceAccountName: "logger-sa",
 					},
 				}),
 				gomega.MatchError("Logger storage is configured but storage key is not set"),
