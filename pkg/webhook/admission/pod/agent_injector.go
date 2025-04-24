@@ -19,7 +19,6 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/kserve/kserve/pkg/logger"
 	"sort"
 	"strconv"
 	"strings"
@@ -60,17 +59,22 @@ type AgentConfig struct {
 	MemoryLimit   string `json:"memoryLimit"`
 }
 
+type LoggerStorageSpec struct {
+	*v1beta1.StorageSpec
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+}
+
 type LoggerConfig struct {
-	Image         string               `json:"image"`
-	CpuRequest    string               `json:"cpuRequest"`
-	CpuLimit      string               `json:"cpuLimit"`
-	MemoryRequest string               `json:"memoryRequest"`
-	MemoryLimit   string               `json:"memoryLimit"`
-	DefaultUrl    string               `json:"defaultUrl"`
-	CaBundle      string               `json:"caBundle"`
-	CaCertFile    string               `json:"caCertFile"`
-	TlsSkipVerify bool                 `json:"tlsSkipVerify"`
-	Store         *v1beta1.StorageSpec `json:"store"`
+	Image         string             `json:"image"`
+	CpuRequest    string             `json:"cpuRequest"`
+	CpuLimit      string             `json:"cpuLimit"`
+	MemoryRequest string             `json:"memoryRequest"`
+	MemoryLimit   string             `json:"memoryLimit"`
+	DefaultUrl    string             `json:"defaultUrl"`
+	CaBundle      string             `json:"caBundle"`
+	CaCertFile    string             `json:"caCertFile"`
+	TlsSkipVerify bool               `json:"tlsSkipVerify"`
+	Store         *LoggerStorageSpec `json:"storage"`
 }
 
 type AgentInjector struct {
@@ -187,6 +191,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	}
 	// Only inject if the logger required annotations are set
 	if injectLogger {
+		log.Info("Injecting logger configuration")
 		logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
 		if !ok {
 			logUrl = ag.loggerConfig.DefaultUrl
@@ -271,6 +276,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 
 	var queueProxyEnvs []corev1.EnvVar
 	var agentEnvs []corev1.EnvVar
+
 	queueProxyAvailable := false
 	transformerContainerIdx := -1
 	componentPort := constants.InferenceServiceDefaultHttpPort
@@ -420,32 +426,19 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		return err
 	}
 
-	//  Inject the logger credential if we are not using HTTP logging
-	if injectLogger {
-		logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
-		if ok && logger.GetStorageStrategy(logUrl) != logger.HttpStorage && ag.loggerConfig.Store != nil {
-			if ag.loggerConfig.Store.StorageKey == nil {
-				return fmt.Errorf("logger storage is configured but storage key is not set")
-			}
-			envVarName := "LOGGER_CONFIG"
-			params := map[string]string{}
-			if ag.loggerConfig.Store.Parameters != nil {
-				params = *ag.loggerConfig.Store.Parameters
-			}
-			secretName := agentContainer.Name + "-logger-secret"
-			err := ag.credentialBuilder.CreateStorageSpecSecretEnvs(pod.Namespace, params, *ag.loggerConfig.Store.StorageKey, &secretName, &envVarName, map[string]string{}, agentContainer)
-			if err != nil {
-				return err
-			}
-
-			if err := ag.credentialBuilder.MountSecretAndVolume(
-				*ag.loggerConfig.Store.StorageKey,
-				pod.Namespace,
-				agentContainer,
-				&pod.Spec.Volumes,
-			); err != nil {
-				return err
-			}
+	if injectLogger && ag.loggerConfig.Store != nil {
+		saName := "logger-sa"
+		if ag.loggerConfig.Store.ServiceAccountName != "" {
+			saName = ag.loggerConfig.Store.ServiceAccountName
+		}
+		if err := ag.credentialBuilder.CreateSecretVolumeAndEnv(
+			pod.Namespace,
+			pod.Annotations,
+			saName,
+			agentContainer,
+			&pod.Spec.Volumes,
+		); err != nil {
+			return err
 		}
 	}
 

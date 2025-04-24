@@ -19,17 +19,11 @@ package logger
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	awsCreds "github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/kserve/kserve/pkg/agent/storage"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"go.uber.org/zap"
 	"net/url"
 	"path"
-	"strconv"
 	"strings"
 )
 
@@ -84,17 +78,17 @@ type S3Store struct {
 	storeSpec  *v1beta1.StorageSpec
 	log        *zap.SugaredLogger
 	marshaller Marshaller
-	uploader   *storage.S3ObjectUploader
+	provider   storage.Provider
 }
 
 var _ Store = &S3Store{}
 
-func NewS3Store(storeSpec *v1beta1.StorageSpec, marshaller Marshaller, uploader *storage.S3ObjectUploader, log *zap.SugaredLogger) *S3Store {
+func NewS3Store(storeSpec *v1beta1.StorageSpec, marshaller Marshaller, provider storage.Provider, log *zap.SugaredLogger) *S3Store {
 	return &S3Store{
 		storeSpec:  storeSpec,
 		marshaller: marshaller,
 		log:        log,
-		uploader:   uploader,
+		provider:   provider,
 	}
 }
 
@@ -125,40 +119,14 @@ func NewStoreForScheme(scheme string, storeSpec *v1beta1.StorageSpec, log *zap.S
 		scheme = scheme + "://"
 	}
 	protocol := storage.Protocol(scheme)
-	switch protocol {
-	case storage.S3:
-		region, ok := params["region"]
-		if !ok {
-			return nil, fmt.Errorf("region not specified in parameters")
-		}
-		s3ForcePathStyle := false
-		if forcePathStyle, ok := params["s3ForcePathStyle"]; ok {
-			s3Force, err := strconv.ParseBool(forcePathStyle)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse s3ForcePathStyle: %w", err)
-			}
-			s3ForcePathStyle = s3Force
-		}
-		awsConfig := &aws.Config{
-			Region:           aws.String(region),
-			S3ForcePathStyle: aws.Bool(s3ForcePathStyle),
-		}
-		awsConfig.WithCredentials(awsCreds.NewEnvCredentials())
-		//awsConfig.Endpoint = aws.String(config.S3.S3Endpoint)
-
-		sess, err := session.NewSession(awsConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create AWS session: %w", err)
-		}
-
-		s3Client := s3.New(sess)
-		uploader := &storage.S3ObjectUploader{
-			Uploader: s3manager.NewUploaderWithClient(s3Client, func(u *s3manager.Uploader) {}),
-		}
-		return NewS3Store(storeSpec, marshaller, uploader, log), nil
-	default:
-		return nil, fmt.Errorf("unsupported logger store scheme %s", scheme)
+	provider, err := storage.GetProvider(map[storage.Protocol]storage.Provider{}, protocol)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create S3 provider: %w", err)
 	}
+	if protocol == storage.S3 {
+		return NewS3Store(storeSpec, marshaller, provider, log), nil
+	}
+	return nil, fmt.Errorf("unsupported protocol %s", protocol)
 }
 
 func (s *S3Store) Store(logUrl *url.URL, logRequest LogRequest) error {
@@ -188,7 +156,7 @@ func (s *S3Store) Store(logUrl *url.URL, logRequest LogRequest) error {
 		return err
 	}
 
-	err = s.uploader.UploadObject(bucket, objectKey, value)
+	err = s.provider.UploadObject(bucket, objectKey, value)
 	if err != nil {
 		s.log.Error(err)
 		return err
