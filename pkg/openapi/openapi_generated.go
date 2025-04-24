@@ -1758,12 +1758,18 @@ func schema_pkg_apis_serving_v1alpha1_StorageContainerSpec(ref common.ReferenceC
 							Format: "",
 						},
 					},
+					"objectSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObjectSelector decides whether to inject the storage container based on whether the inference service object has matching labels.\n\nDefault to the empty LabelSelector, which matches everything.",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"),
+						},
+					},
 				},
 				Required: []string{"container", "supportedUriFormats"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedUriFormat", "k8s.io/api/core/v1.Container"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedUriFormat", "k8s.io/api/core/v1.Container", "k8s.io/apimachinery/pkg/apis/meta/v1.LabelSelector"},
 	}
 }
 

@@ -78,7 +78,7 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
 	if sourceURI := transformer.GetStorageUri(); sourceURI != nil {
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
-		err := isvcutils.ValidateStorageURI(ctx, sourceURI, p.client)
+		err := isvcutils.ValidateStorageURI(ctx, sourceURI, isvc.ObjectMeta, p.client)
 		if err != nil {
 			return ctrl.Result{}, fmt.Errorf("StorageURI not supported: %w", err)
 		}

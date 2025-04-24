@@ -26,6 +26,7 @@ import (
 
 // StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.
 // +k8s:openapi-gen=true
+// +kubebuilder:validation:XValidation:rule=`self.workloadType != "initContainer" || !has(self.objectSelector)`,message="`objectSelector` is only supported for the 'initContainer' workload type"
 type StorageContainerSpec struct {
 	// Container spec for the storage initializer init container
 	Container corev1.Container `json:"container" validate:"required"`
@@ -34,6 +35,12 @@ type StorageContainerSpec struct {
 	SupportedUriFormats []SupportedUriFormat `json:"supportedUriFormats" validate:"required"`
 	// +kubebuilder:default="initContainer"
 	WorkloadType WorkloadType `json:"workloadType,omitempty"`
+	// ObjectSelector decides whether to inject the storage container based on
+	// whether the inference service object has matching labels.
+	//
+	// Default to the empty LabelSelector, which matches everything.
+	// +optional
+	ObjectSelector *metav1.LabelSelector `json:"objectSelector,omitempty"`
 }
 
 // SupportedUriFormat can be either prefix or regex. Todo: Add validation that only one of them is set.

@@ -23,6 +23,7 @@ package v1alpha1
 import (
 	"github.com/kserve/kserve/pkg/constants"
 	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -962,6 +963,11 @@ func (in *StorageContainerSpec) DeepCopyInto(out *StorageContainerSpec) {
 		in, out := &in.SupportedUriFormats, &out.SupportedUriFormats
 		*out = make([]SupportedUriFormat, len(*in))
 		copy(*out, *in)
+	}
+	if in.ObjectSelector != nil {
+		in, out := &in.ObjectSelector, &out.ObjectSelector
+		*out = new(metav1.LabelSelector)
+		(*in).DeepCopyInto(*out)
 	}
 }
 
