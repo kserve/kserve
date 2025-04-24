@@ -79,11 +79,10 @@ const (
 
 // InferenceLogger Constants
 const (
-	LoggerCaBundleVolume        = "agent-ca-bundle"
-	LoggerCaCertMountPath       = "/etc/tls/logger"
-	LoggerDefaultSecretName     = "logger-credentials"
-	LoggerDefaultCredentialPath = "/etc/secrets"
-	LoggerDefaultCredentialFile = "credentials.yaml"
+	LoggerCaBundleVolume  = "agent-ca-bundle"
+	LoggerCaCertMountPath = "/etc/tls/logger"
+	LoggerDefaultFormat   = "json"
+	LoggerFormatKey       = "format"
 )
 
 // InferenceService Annotations
