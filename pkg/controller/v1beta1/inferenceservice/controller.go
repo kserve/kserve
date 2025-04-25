@@ -306,7 +306,7 @@ func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredSe
 	// set the DeploymentMode used for the InferenceService in the status
 	desiredService.Status.DeploymentMode = string(deploymentMode)
 
-	existingService := &v1beta1api.InferenceService{}
+	existingService := &v1beta1.InferenceService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
 	if err := r.Get(ctx, namespacedName, existingService); err != nil {
 		return err
