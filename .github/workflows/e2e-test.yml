@@ -761,8 +761,8 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+      # - name: Install Poetry and version plugin
+      #   run: ./test/scripts/gh-actions/setup-poetry.sh
 
       - name: Install KServe
         run: |
