@@ -4,14 +4,18 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
-# Install dependencies required for building Python packages and uv
+# Install system dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl build-essential python3-dev && \
-    curl -Ls https://astral.sh/uv/install.sh | sh && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+    curl \
+    build-essential \
+    python3-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Add uv to PATH (installed in ~/.cargo/bin by default)
-ENV PATH="$HOME/.cargo/bin:$PATH"
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Set up and activate virtual environment
 ARG VENV_PATH
@@ -21,12 +25,12 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ------------------ kserve deps ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv pip install -r uv.lock
+RUN cd kserve && uv sync
 COPY kserve kserve
 
 # ------------------ custom_model deps ------------------
 COPY custom_model/pyproject.toml custom_model/uv.lock custom_model/
-RUN cd custom_model && uv pip install -r uv.lock
+RUN cd custom_model && uv sync
 COPY custom_model custom_model
 RUN cd custom_model && poetry install --no-interaction --no-cache
 
