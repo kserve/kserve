@@ -21,12 +21,12 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ------------------ kserve deps ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv pip install -r uv.lock
+RUN cd kserve && uv sync
 COPY kserve kserve
 
 # ------------------ artexplainer deps ------------------
 COPY artexplainer/pyproject.toml artexplainer/uv.lock artexplainer/
-RUN cd artexplainer && uv pip install -r uv.lock
+RUN cd artexplainer && uv sync
 COPY artexplainer artexplainer
 RUN cd artexplainer && poetry install --no-interaction --no-cache
 
