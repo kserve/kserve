@@ -213,6 +213,8 @@ const (
 	InvalidPredictorSpec FailureReason = "InvalidPredictorSpec"
 	// When WorkerSpec is set in InferenceService with a ServingRuntime that does not have a WorkerSpec.
 	InvalidWorkerSpecNotSet = "InvalidWorkerSpecNotSet"
+	// InvalidGPUAllocation indicates an incorrect GPU allocation for the Ray cluster.
+	InvalidGPUAllocation = "InvalidGPUAllocation"
 )
 
 type FailureInfo struct {
