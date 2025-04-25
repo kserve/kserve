@@ -24,11 +24,9 @@ RUN apt-get update -y \
     && python3 --version && python3 -m pip --version \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN curl -Ls https://astral.sh/uv/install.sh | sh
-
-# Make uv available
-ENV PATH="$HOME/.cargo/bin:$PATH"
+# Install uv and ensure it's in PATH
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Workaround for https://github.com/openai/triton/issues/2507 and
 # https://github.com/pytorch/pytorch/issues/107960 -- hopefully

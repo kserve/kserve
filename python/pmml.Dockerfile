@@ -5,33 +5,33 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
-# Install Python and build dependencies
+ARG PYTHON_VERSION
+# Install python
 RUN apt-get update && \
     apt-get install -y --no-install-recommends "python${PYTHON_VERSION}" "python${PYTHON_VERSION}-dev" "python${PYTHON_VERSION}-venv" \
-    gcc build-essential curl && \
+    curl \
+    gcc build-essential && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install uv (Astral)
-RUN curl -Ls https://astral.sh/uv/install.sh | sh
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
-# Make uv available
-ENV PATH="$HOME/.cargo/bin:$PATH"
-
-# Activate virtual env
+# Setup virtual environment
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python${PYTHON_VERSION} -m venv ${VIRTUAL_ENV}
+RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install dependencies for kserve using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv pip install -r uv.lock
+RUN cd kserve && uv sync
 COPY kserve kserve
 
 # Install dependencies for pmmlserver using uv
 COPY pmmlserver/pyproject.toml pmmlserver/uv.lock pmmlserver/
-RUN cd pmmlserver && uv pip install -r uv.lock
+RUN cd pmmlserver && uv sync
 COPY pmmlserver pmmlserver
 RUN cd pmmlserver && poetry install --no-interaction --no-cache
 

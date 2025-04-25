@@ -4,14 +4,13 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
-# Required for building wheels and installing uv
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl build-essential python3-dev && \
-    curl -Ls https://astral.sh/uv/install.sh | sh && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Required for building packages for arm64 arch
+RUN apt-get update && apt-get install -y --no-install-recommends curl python3-dev build-essential && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Add uv to PATH
-ENV PATH="$HOME/.cargo/bin:$PATH"
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Set up and activate virtual environment
 ARG VENV_PATH
@@ -21,14 +20,14 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ------------------ Install kserve dependencies ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv pip install -r uv.lock
+RUN cd kserve && uv sync
 
 # Copy source code separately (better Docker caching)
 COPY kserve kserve
 
 # ------------------ Install aiffairness dependencies ------------------
 COPY aiffairness/pyproject.toml aiffairness/uv.lock aiffairness/
-RUN cd aiffairness && uv pip install -r uv.lock
+RUN cd aiffairness && uv sync
 
 COPY aiffairness aiffairness
 RUN cd aiffairness && poetry install --no-interaction --no-cache

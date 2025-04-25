@@ -7,14 +7,12 @@ ARG VENV_PATH=/prod_venv
 FROM ${BASE_IMAGE} AS builder
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends python3-dev build-essential curl && apt-get clean && \
+RUN apt-get update && apt-get install -y --no-install-recommends python3-dev curl build-essential && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN curl -Ls https://astral.sh/uv/install.sh | sh
-
-# Make uv available
-ENV PATH="$HOME/.cargo/bin:$PATH"
+# Install uv and ensure it's in PATH
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Activate virtual env
 ARG VENV_PATH
@@ -24,12 +22,12 @@ ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
 # Install kserve dependencies using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv pip install -r uv.lock
+RUN cd kserve && uv sync
 COPY kserve kserve
 
 # Install paddleserver dependencies using uv
 COPY paddleserver/pyproject.toml paddleserver/uv.lock paddleserver/
-RUN cd paddleserver && uv pip install -r uv.lock
+RUN cd paddleserver && uv sync
 COPY paddleserver paddleserver
 RUN cd paddleserver && poetry install --no-interaction --no-cache
 

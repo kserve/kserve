@@ -18,7 +18,8 @@ RUN apt-get update && \
         numactl \
         python3.10-dev \
         python3.10-venv \
-        python3-pip && \
+        python3-pip \
+        curl && \
     apt-get clean && \
     apt-get autoclean && \
     apt-get autoremove -y && \
@@ -30,10 +31,11 @@ RUN ln -sf "$(which ${PYTHON})" /usr/bin/python
 
 FROM base AS builder
 
-# Install Poetry
-ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.8.3
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+ln -s /root/.local/bin/uv /usr/local/bin/uv
 
+# Install build dependencies
 RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update && \
     apt-get install --no-install-recommends --fix-missing -y \
@@ -42,11 +44,6 @@ RUN --mount=type=cache,target=/var/cache/apt \
         libnuma-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-RUN python -m venv ${POETRY_HOME} && \
-    ${POETRY_HOME}/bin/pip install --no-cache-dir --upgrade pip && \
-    ${POETRY_HOME}/bin/pip install --no-cache-dir poetry==${POETRY_VERSION}
-ENV PATH="$PATH:${POETRY_HOME}/bin"
 
 # Activate virtual env
 ARG VENV_PATH
@@ -58,21 +55,23 @@ ARG IPEX_EXTRA_INDEX_URL="https://pytorch-extension.intel.com/release-whl/stable
 ARG TORCH_VERSION=2.7.0
 ARG TORCHVISION_VERSION=0.22.0
 
-# Install kserve
+# Install kserve using UV
 COPY kserve kserve
 RUN cd kserve && \
-    poetry install --no-interaction --no-cache && rm -rf ~/.cache/pypoetry
+    uv sync && \
+    rm -rf ~/.cache/uv
 
-# Install huggingfaceserver
+# Install huggingfaceserver using UV
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && \
-    poetry source add --priority=supplemental pytorch-cpu ${TORCH_EXTRA_INDEX_URL} && \
-    poetry add --source pytorch-cpu \
+    uv pip install --extra-index-url ${TORCH_EXTRA_INDEX_URL} \
         'torch~='${TORCH_VERSION} \
         'torchaudio~='${TORCH_VERSION} \
         'torchvision~='${TORCHVISION_VERSION} && \
     poetry lock --no-update && \
     poetry install --no-interaction --no-cache && rm -rf ~/.cache/pypoetry
+    # uv sync && \
+    # rm -rf ~/.cache/uv
 
 RUN pip install --no-cache-dir --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
     'intel_extension_for_pytorch~='${TORCH_VERSION} \
@@ -88,10 +87,11 @@ ARG VLLM_TARGET_DEVICE=cpu
 ENV VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE}
 RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git && \
     cd vllm && \
-    pip install --no-cache-dir -v -r requirements/build.txt && \
-    pip install --no-cache-dir -v -r requirements/cpu.txt && \
+    uv pip install -r requirements/build.txt && \
+    uv pip install -r requirements/cpu.txt && \
     python setup.py bdist_wheel && \
-    pip install --no-cache-dir dist/vllm-${VLLM_VERSION}*.whl
+    pip install --no-cache-dir dist/vllm-${VLLM_VERSION}*.whl && \
+    rm -rf ~/.cache/uv
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
