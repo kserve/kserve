@@ -12,6 +12,7 @@ dependencies = [
     "vllm<1.0.0,>=0.8.4",
     "flashinfer-python~=0.2.5",
     "setuptools>=70.0.0",
+    "bitsandbytes>=0.45.3",
 ]
 name = "huggingfaceserver"
 version = "0.15.2"
