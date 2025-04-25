@@ -17,8 +17,9 @@ limitations under the License.
 package s3
 
 import (
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/kserve/kserve/pkg/constants"
-	v1 "k8s.io/api/core/v1"
 )
 
 /*
@@ -69,7 +70,7 @@ var (
 	InferenceServiceS3CABundleAnnotation          = constants.KServeAPIGroupName + "/" + "s3-cabundle"
 )
 
-func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
+func BuildSecretEnvs(secret *corev1.Secret, s3Config *S3Config) []corev1.EnvVar {
 	s3SecretAccessKeyName := AWSSecretAccessKeyName
 	s3AccessKeyIdName := AWSAccessKeyIdName
 	if s3Config.S3AccessKeyIDName != "" {
@@ -79,12 +80,12 @@ func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
 	if s3Config.S3SecretAccessKeyName != "" {
 		s3SecretAccessKeyName = s3Config.S3SecretAccessKeyName
 	}
-	envs := []v1.EnvVar{
+	envs := []corev1.EnvVar{
 		{
 			Name: AWSAccessKeyId,
-			ValueFrom: &v1.EnvVarSource{
-				SecretKeyRef: &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
 						Name: secret.Name,
 					},
 					Key: s3AccessKeyIdName,
@@ -93,9 +94,9 @@ func BuildSecretEnvs(secret *v1.Secret, s3Config *S3Config) []v1.EnvVar {
 		},
 		{
 			Name: AWSSecretAccessKey,
-			ValueFrom: &v1.EnvVarSource{
-				SecretKeyRef: &v1.SecretKeySelector{
-					LocalObjectReference: v1.LocalObjectReference{
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
 						Name: secret.Name,
 					},
 					Key: s3SecretAccessKeyName,

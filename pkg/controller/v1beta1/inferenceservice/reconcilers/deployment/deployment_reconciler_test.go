@@ -21,20 +21,20 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
-	"github.com/kserve/kserve/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestCreateDefaultDeployment(t *testing.T) {
-
 	type args struct {
 		clientset        kubernetes.Interface
 		objectMeta       metav1.ObjectMeta
@@ -431,7 +431,6 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					cmpopts.IgnoreFields(appsv1.Deployment{}, "Spec.ProgressDeadlineSeconds")); diff != "" {
 					t.Errorf("Test %q unexpected deployment (-want +got): %v", tt.name, diff)
 				}
-
 			}
 		})
 	}
@@ -469,7 +468,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				return updatedArgs
 			},
 			modifyExpected: func(updatedExpected []*appsv1.Deployment) []*appsv1.Deployment {
-				//e[0] is default deployment, e[1] is worker node deployment
+				// e[0] is default deployment, e[1] is worker node deployment
 				addEnvVarToDeploymentSpec(&updatedExpected[0].Spec, constants.InferenceServiceContainerName, "PIPELINE_PARALLEL_SIZE", "3")
 				addEnvVarToDeploymentSpec(&updatedExpected[1].Spec, constants.WorkerContainerName, "PIPELINE_PARALLEL_SIZE", "3")
 				updatedExpected[1].Spec.Replicas = int32Ptr(2)
@@ -828,6 +827,7 @@ func int32Ptr(i int32) *int32 {
 	val := i
 	return &val
 }
+
 func BoolPtr(b bool) *bool {
 	val := b
 	return &val

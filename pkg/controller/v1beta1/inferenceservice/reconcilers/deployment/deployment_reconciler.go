@@ -47,7 +47,9 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -78,6 +80,7 @@ func NewDeploymentReconciler(client kclient.Client,
 	if err != nil {
 		return nil, err
 	}
+
 	return &DeploymentReconciler{
 		client:         client,
 		scheme:         scheme,
@@ -114,7 +117,8 @@ func createRawDeploymentODH(clientset kubernetes.Interface, resourceType constan
 
 func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) ([]*appsv1.Deployment, error) {
+	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+) ([]*appsv1.Deployment, error) {
 	var deploymentList []*appsv1.Deployment
 	var workerNodeReplicas int32
 	var tensorParallelSize string
@@ -126,9 +130,9 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 		for _, container := range podSpec.Containers {
 			if container.Name == constants.InferenceServiceContainerName {
 				if value, exists := utils.GetEnvVarValue(container.Env, constants.PipelineParallelSizeEnvName); exists {
-					if parsedValue, err := strconv.Atoi(value); err == nil {
+					if parsedValue, err := utils.StringToInt32(value); err == nil {
 						// Set pipelineParallelSize to workerNodeSize + 1 (head)
-						workerNodeReplicas = int32(parsedValue - 1) // nolint  #nosec G109
+						workerNodeReplicas = parsedValue - 1
 					} else {
 						log.Error(err, "Failed to convert pipelineParallelSize to int")
 					}
@@ -175,7 +179,8 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 
 func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec) (*appsv1.Deployment, error) {
+	podSpec *corev1.PodSpec,
+) (*appsv1.Deployment, error) {
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
 	setDefaultPodSpec(podSpec)
@@ -199,7 +204,7 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
 	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassExternal) {
-		deployment.Spec.Replicas = ptr.To(int32(*componentExt.MinReplicas))
+		deployment.Spec.Replicas = ptr.To(*componentExt.MinReplicas)
 	}
 
 	return deployment, nil
@@ -280,7 +285,8 @@ func addOauthContainerToDeployment(clientset kubernetes.Interface, deployment *a
 
 func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, predictorName string, replicas int32) *appsv1.Deployment {
+	podSpec *corev1.PodSpec, predictorName string, replicas int32,
+) *appsv1.Deployment {
 	podMetadata := componentMeta
 	workerPredictorName := constants.GetRawWorkerServiceLabel(predictorName)
 	podMetadata.Labels["app"] = workerPredictorName
@@ -438,10 +444,10 @@ func generateCookieSecret() (string, error) {
 }
 
 // checkDeploymentExist checks if the deployment exists?
-func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client, deployment *appsv1.Deployment) (constants.CheckResultType, *appsv1.Deployment, error) {
+func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client kclient.Client, deployment *appsv1.Deployment) (constants.CheckResultType, *appsv1.Deployment, error) {
 	// get deployment
 	existingDeployment := &appsv1.Deployment{}
-	err := client.Get(context.TODO(), types.NamespacedName{
+	err := client.Get(ctx, types.NamespacedName{
 		Namespace: deployment.ObjectMeta.Namespace,
 		Name:      deployment.ObjectMeta.Name,
 	}, existingDeployment)
@@ -463,7 +469,7 @@ func (r *DeploymentReconciler) checkDeploymentExist(client kclient.Client, deplo
 
 	// Do a dry-run update. This will populate our local deployment object with any default values
 	// that are present on the remote version.
-	if err := client.Update(context.TODO(), deployment, kclient.DryRunAll); err != nil {
+	if err := client.Update(ctx, deployment, kclient.DryRunAll); err != nil {
 		log.Error(err, "Failed to perform dry-run update of deployment", "Deployment", deployment.Name)
 		return constants.CheckResultUnknown, nil, err
 	}
@@ -608,11 +614,12 @@ func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerNa
 }
 
 // Reconcile ...
-func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
+func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
 	for _, deployment := range r.DeploymentList {
 		// Reconcile Deployment
 		originalDeployment := &appsv1.Deployment{}
-		checkResult, _, err := r.checkDeploymentExist(r.client, deployment)
+		checkResult, _, err := r.checkDeploymentExist(ctx, r.client, deployment)
+
 		if err != nil {
 			return nil, err
 		}
@@ -621,7 +628,7 @@ func (r *DeploymentReconciler) Reconcile() ([]*appsv1.Deployment, error) {
 		var opErr error
 		switch checkResult {
 		case constants.CheckResultCreate:
-			opErr = r.client.Create(context.TODO(), deployment)
+			opErr = r.client.Create(ctx, deployment)
 		case constants.CheckResultUpdate:
 			// get the current deployment
 			_ = r.client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, originalDeployment)

@@ -27,14 +27,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestCreateRawURL(t *testing.T) {
@@ -82,9 +82,9 @@ func TestCreateRawURL(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			url, err := createRawURL(tc.isvc, tc.ingressConfig)
 			if tc.isErrorExpected {
-				g.Expect(err).ToNot(BeNil())
+				g.Expect(err).To(HaveOccurred())
 			} else {
-				g.Expect(err).To(BeNil())
+				g.Expect(err).ToNot(HaveOccurred())
 			}
 			g.Expect(tc.expectedURL).To(BeComparableTo(url.String()))
 		})
@@ -162,7 +162,7 @@ func TestGetRawServiceHost(t *testing.T) {
 	})
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			host := getRawServiceHost(tc.isvc, client)
+			host := getRawServiceHost(context.Background(), tc.isvc, client)
 			g.Expect(tc.expectedHost).To(BeComparableTo(host))
 		})
 	}
@@ -178,8 +178,8 @@ func TestCreateHTTPRouteMatch(t *testing.T) {
 			prefix: "^.*$",
 			expectedHTTPRoutes: gatewayapiv1.HTTPRouteMatch{
 				Path: &gatewayapiv1.HTTPPathMatch{
-					Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-					Value: utils.ToPointer("^.*$"),
+					Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+					Value: ptr.To("^.*$"),
 				},
 			},
 		},
@@ -231,8 +231,8 @@ func TestCreateHTTPRouteRule(t *testing.T) {
 			matches: []gatewayapiv1.HTTPRouteMatch{
 				{
 					Path: &gatewayapiv1.HTTPPathMatch{
-						Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-						Value: utils.ToPointer("/predict"),
+						Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+						Value: ptr.To("/predict"),
 					},
 				},
 			},
@@ -351,8 +351,8 @@ func TestIsHTTPRouteReady(t *testing.T) {
 				},
 			},
 			expectedReady:   false,
-			expectedReason:  utils.ToPointer("Route not accepted"),
-			expectedMessage: utils.ToPointer("Route not accepted"),
+			expectedReason:  ptr.To("Route not accepted"),
+			expectedMessage: ptr.To("Route not accepted"),
 		},
 		"no parent status": {
 			httpRouteStatus: gatewayapiv1.HTTPRouteStatus{
@@ -361,8 +361,8 @@ func TestIsHTTPRouteReady(t *testing.T) {
 				},
 			},
 			expectedReady:   false,
-			expectedReason:  utils.ToPointer(HTTPRouteParentStatusNotAvailable),
-			expectedMessage: utils.ToPointer(HTTPRouteNotReady),
+			expectedReason:  ptr.To(HTTPRouteParentStatusNotAvailable),
+			expectedMessage: ptr.To(HTTPRouteNotReady),
 		},
 	}
 
@@ -426,8 +426,8 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
 									},
 								},
 							},
@@ -452,16 +452,16 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-predictor",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -469,9 +469,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      "kserve-gateway",
-								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: utils.ToPointer(gatewayapiv1.Namespace("kserve")),
+								Namespace: ptr.To(gatewayapiv1.Namespace("kserve")),
 							},
 						},
 					},
@@ -555,8 +555,8 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
 									},
 								},
 							},
@@ -581,16 +581,16 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-transformer",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -598,9 +598,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      "kserve-gateway",
-								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: utils.ToPointer(gatewayapiv1.Namespace("kserve")),
+								Namespace: ptr.To(gatewayapiv1.Namespace("kserve")),
 							},
 						},
 					},
@@ -689,8 +689,8 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.ExplainPrefix()),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To(constants.ExplainPrefix()),
 									},
 								},
 							},
@@ -715,24 +715,24 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-explainer",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
 									},
 								},
 							},
@@ -757,16 +757,16 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-predictor",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -774,9 +774,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      "kserve-gateway",
-								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: utils.ToPointer(gatewayapiv1.Namespace("kserve")),
+								Namespace: ptr.To(gatewayapiv1.Namespace("kserve")),
 							},
 						},
 					},
@@ -866,8 +866,8 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer(constants.ExplainPrefix()),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To(constants.ExplainPrefix()),
 									},
 								},
 							},
@@ -892,24 +892,24 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-explainer",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
 									},
 								},
 							},
@@ -934,24 +934,24 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-predictor",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("/serving/default/test-isvc" + constants.PathBasedExplainPrefix()),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("/serving/default/test-isvc" + constants.PathBasedExplainPrefix()),
 									},
 								},
 							},
@@ -976,24 +976,24 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-explainer",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("/serving/default/test-isvc/"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("/serving/default/test-isvc/"),
 									},
 								},
 							},
@@ -1018,16 +1018,16 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-predictor",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1035,9 +1035,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      "kserve-gateway",
-								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: utils.ToPointer(gatewayapiv1.Namespace("kserve")),
+								Namespace: ptr.To(gatewayapiv1.Namespace("kserve")),
 							},
 						},
 					},
@@ -1092,8 +1092,8 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
 									},
 								},
 							},
@@ -1118,24 +1118,24 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-transformer",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("/serving/default/test-isvc/"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("/serving/default/test-isvc/"),
 									},
 								},
 							},
@@ -1160,16 +1160,16 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-transformer",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1177,9 +1177,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      "kserve-gateway",
-								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: utils.ToPointer(gatewayapiv1.Namespace("kserve")),
+								Namespace: ptr.To(gatewayapiv1.Namespace("kserve")),
 							},
 						},
 					},
@@ -1228,8 +1228,8 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
 									},
 								},
 							},
@@ -1254,16 +1254,16 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-default-predictor-default",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1271,9 +1271,9 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Name:      "kserve-gateway",
-								Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.GatewayKind)),
+								Kind:      ptr.To(gatewayapiv1.Kind(constants.GatewayKind)),
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Namespace: utils.ToPointer(gatewayapiv1.Namespace("kserve")),
+								Namespace: ptr.To(gatewayapiv1.Namespace("kserve")),
 							},
 						},
 					},
@@ -1295,14 +1295,15 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Name:      "test-isvc-default-predictor-default",
 					Namespace: "default",
 				},
-				Spec: corev1.ServiceSpec{}})
+				Spec: corev1.ServiceSpec{},
+			})
 			isvcConfig := &v1beta1.InferenceServicesConfig{
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawTopLevelHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawTopLevelHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
 
-			g.Expect(err).To(BeNil())
+			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
 				g.Expect(httpRoute.Spec).To(BeComparableTo(tc.expected.Spec))
 				g.Expect(httpRoute.ObjectMeta).To(BeComparableTo(tc.expected.ObjectMeta, cmpopts.IgnoreFields(httpRoute.ObjectMeta, "CreationTimestamp")))
@@ -1362,8 +1363,8 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
 									},
 								},
 							},
@@ -1388,16 +1389,16 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-predictor",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1405,8 +1406,8 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Kind:      (*gatewayapiv1.Kind)(utils.ToPointer(constants.GatewayKind)),
-								Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("kserve")),
+								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+								Namespace: (*gatewayapiv1.Namespace)(ptr.To("kserve")),
 								Name:      gatewayapiv1.ObjectName("kserve-gateway"),
 							},
 						},
@@ -1484,8 +1485,8 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
 									},
 								},
 							},
@@ -1510,16 +1511,16 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-default-predictor-default",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1527,8 +1528,8 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Kind:      (*gatewayapiv1.Kind)(utils.ToPointer(constants.GatewayKind)),
-								Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("kserve")),
+								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+								Namespace: (*gatewayapiv1.Namespace)(ptr.To("kserve")),
 								Name:      gatewayapiv1.ObjectName("kserve-gateway"),
 							},
 						},
@@ -1551,14 +1552,15 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 					Name:      "test-isvc-default-predictor-default",
 					Namespace: "default",
 				},
-				Spec: corev1.ServiceSpec{}})
+				Spec: corev1.ServiceSpec{},
+			})
 			isvcConfig := &v1beta1.InferenceServicesConfig{
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawPredictorHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawPredictorHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
 
-			g.Expect(err).To(BeNil())
+			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
 				g.Expect(httpRoute.Spec).To(BeComparableTo(tc.expected.Spec))
 				g.Expect(httpRoute.ObjectMeta).To(BeComparableTo(tc.expected.ObjectMeta, cmpopts.IgnoreFields(httpRoute.ObjectMeta, "CreationTimestamp")))
@@ -1619,8 +1621,8 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
 									},
 								},
 							},
@@ -1645,16 +1647,16 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-transformer",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1662,8 +1664,8 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Kind:      (*gatewayapiv1.Kind)(utils.ToPointer(constants.GatewayKind)),
-								Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("kserve")),
+								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+								Namespace: (*gatewayapiv1.Namespace)(ptr.To("kserve")),
 								Name:      gatewayapiv1.ObjectName("kserve-gateway"),
 							},
 						},
@@ -1743,8 +1745,8 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
 									},
 								},
 							},
@@ -1769,16 +1771,16 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-default-transformer-default",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1786,8 +1788,8 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Kind:      (*gatewayapiv1.Kind)(utils.ToPointer(constants.GatewayKind)),
-								Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("kserve")),
+								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+								Namespace: (*gatewayapiv1.Namespace)(ptr.To("kserve")),
 								Name:      gatewayapiv1.ObjectName("kserve-gateway"),
 							},
 						},
@@ -1810,14 +1812,15 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 					Name:      "test-isvc-default-transformer-default",
 					Namespace: "default",
 				},
-				Spec: corev1.ServiceSpec{}})
+				Spec: corev1.ServiceSpec{},
+			})
 			isvcConfig := &v1beta1.InferenceServicesConfig{
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawTransformerHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawTransformerHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
 
-			g.Expect(err).To(BeNil())
+			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
 				g.Expect(httpRoute.Spec).To(BeComparableTo(tc.expected.Spec))
 				g.Expect(httpRoute.ObjectMeta).To(BeComparableTo(tc.expected.ObjectMeta, cmpopts.IgnoreFields(httpRoute.ObjectMeta, "CreationTimestamp")))
@@ -1878,8 +1881,8 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
 									},
 								},
 							},
@@ -1904,16 +1907,16 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-explainer",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -1921,8 +1924,8 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Kind:      (*gatewayapiv1.Kind)(utils.ToPointer(constants.GatewayKind)),
-								Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("kserve")),
+								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+								Namespace: (*gatewayapiv1.Namespace)(ptr.To("kserve")),
 								Name:      gatewayapiv1.ObjectName("kserve-gateway"),
 							},
 						},
@@ -2002,8 +2005,8 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 							Matches: []gatewayapiv1.HTTPRouteMatch{
 								{
 									Path: &gatewayapiv1.HTTPPathMatch{
-										Type:  utils.ToPointer(gatewayapiv1.PathMatchRegularExpression),
-										Value: utils.ToPointer("^/.*$"),
+										Type:  ptr.To(gatewayapiv1.PathMatchRegularExpression),
+										Value: ptr.To("^/.*$"),
 									},
 								},
 							},
@@ -2028,16 +2031,16 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 								{
 									BackendRef: gatewayapiv1.BackendRef{
 										BackendObjectReference: gatewayapiv1.BackendObjectReference{
-											Kind:      utils.ToPointer(gatewayapiv1.Kind(constants.ServiceKind)),
+											Kind:      ptr.To(gatewayapiv1.Kind(constants.ServiceKind)),
 											Name:      "test-isvc-default-explainer-default",
-											Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("default")),
-											Port:      (*gatewayapiv1.PortNumber)(utils.ToPointer(int32(constants.CommonDefaultHttpPort))),
+											Namespace: (*gatewayapiv1.Namespace)(ptr.To("default")),
+											Port:      (*gatewayapiv1.PortNumber)(ptr.To(int32(constants.CommonDefaultHttpPort))),
 										},
 									},
 								},
 							},
 							Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
-								Request: utils.ToPointer(gatewayapiv1.Duration("60s")),
+								Request: ptr.To(gatewayapiv1.Duration("60s")),
 							},
 						},
 					},
@@ -2045,8 +2048,8 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 						ParentRefs: []gatewayapiv1.ParentReference{
 							{
 								Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
-								Kind:      (*gatewayapiv1.Kind)(utils.ToPointer(constants.GatewayKind)),
-								Namespace: (*gatewayapiv1.Namespace)(utils.ToPointer("kserve")),
+								Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.GatewayKind)),
+								Namespace: (*gatewayapiv1.Namespace)(ptr.To("kserve")),
 								Name:      gatewayapiv1.ObjectName("kserve-gateway"),
 							},
 						},
@@ -2069,14 +2072,15 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 					Name:      "test-isvc-default-explainer-default",
 					Namespace: "default",
 				},
-				Spec: corev1.ServiceSpec{}})
+				Spec: corev1.ServiceSpec{},
+			})
 			isvcConfig := &v1beta1.InferenceServicesConfig{
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawExplainerHTTPRoute(tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawExplainerHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
 
-			g.Expect(err).To(BeNil())
+			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
 				g.Expect(httpRoute.Spec).To(BeComparableTo(tc.expected.Spec))
 				g.Expect(httpRoute.ObjectMeta).To(BeComparableTo(tc.expected.ObjectMeta, cmpopts.IgnoreFields(httpRoute.ObjectMeta, "CreationTimestamp")))

@@ -23,18 +23,19 @@ import (
 	"os"
 	"time"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/mock"
 	batchv1 "k8s.io/api/batch/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 type MockFileInfo struct {
@@ -121,38 +122,38 @@ var _ = Describe("LocalModelNode controller", func() {
 		}
 		clusterStorageContainerSpec = v1alpha1.StorageContainerSpec{
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}},
-			Container: v1.Container{
+			Container: corev1.Container{
 				Name:  "name",
 				Image: "image",
 				Args: []string{
 					"srcURI",
 					constants.DefaultModelLocalMountPath,
 				},
-				TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
-				VolumeMounts:             []v1.VolumeMount{},
+				TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+				VolumeMounts:             []corev1.VolumeMount{},
 			},
 		}
 		localModelNodeGroupSpec = v1alpha1.LocalModelNodeGroupSpec{
-			PersistentVolumeSpec: v1.PersistentVolumeSpec{
-				AccessModes:                   []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-				VolumeMode:                    ptr.To(v1.PersistentVolumeFilesystem),
-				Capacity:                      v1.ResourceList{v1.ResourceStorage: resource.MustParse("2Gi")},
+			PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+				AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				VolumeMode:                    ptr.To(corev1.PersistentVolumeFilesystem),
+				Capacity:                      corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")},
 				StorageClassName:              "standard",
-				PersistentVolumeReclaimPolicy: v1.PersistentVolumeReclaimDelete,
-				PersistentVolumeSource: v1.PersistentVolumeSource{
-					HostPath: &v1.HostPathVolumeSource{
+				PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
+				PersistentVolumeSource: corev1.PersistentVolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
 						Path: "/models",
-						Type: ptr.To(v1.HostPathDirectory),
+						Type: ptr.To(corev1.HostPathDirectory),
 					},
 				},
-				NodeAffinity: &v1.VolumeNodeAffinity{
-					Required: &v1.NodeSelector{
-						NodeSelectorTerms: []v1.NodeSelectorTerm{
+				NodeAffinity: &corev1.VolumeNodeAffinity{
+					Required: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{
 							{
-								MatchExpressions: []v1.NodeSelectorRequirement{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
 									{
 										Key:      "node.kubernetes.io/instance-type",
-										Operator: v1.NodeSelectorOpIn,
+										Operator: corev1.NodeSelectorOpIn,
 										Values:   []string{"gpu"},
 									},
 								},
@@ -161,9 +162,9 @@ var _ = Describe("LocalModelNode controller", func() {
 					},
 				},
 			},
-			PersistentVolumeClaimSpec: v1.PersistentVolumeClaimSpec{
-				AccessModes: []v1.PersistentVolumeAccessMode{v1.ReadWriteOnce},
-				Resources:   v1.VolumeResourceRequirements{Requests: v1.ResourceList{v1.ResourceStorage: resource.MustParse("2Gi")}},
+			PersistentVolumeClaimSpec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+				Resources:   corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("2Gi")}},
 			},
 		}
 		configs = map[string]string{
@@ -179,7 +180,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			ctx := context.Background()
 			fsMock.clear()
 			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -208,18 +209,18 @@ var _ = Describe("LocalModelNode controller", func() {
 			defer k8sClient.Delete(ctx, nodeGroup)
 
 			nodeName = "worker"
-			node := &v1.Node{
+			node := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nodeName,
 					Labels: map[string]string{
 						"node.kubernetes.io/instance-type": "gpu",
 					},
 				},
-				Status: v1.NodeStatus{
-					Conditions: []v1.NodeCondition{
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
 						{
-							Type:   v1.NodeReady,
-							Status: v1.ConditionTrue,
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
@@ -285,16 +286,17 @@ var _ = Describe("LocalModelNode controller", func() {
 		})
 		It("Should recreate download jobs if the model is missing from local disk", func() {
 			fsMock.clear()
-
-			var configMap = &v1.ConfigMap{
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
 				},
 				Data: configs,
 			}
-			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
-			defer k8sClient.Delete(context.TODO(), configMap)
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
 
 			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
 				ObjectMeta: metav1.ObjectMeta{
@@ -315,18 +317,18 @@ var _ = Describe("LocalModelNode controller", func() {
 			defer k8sClient.Delete(ctx, nodeGroup)
 
 			nodeName = "worker2"
-			node := &v1.Node{
+			node := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nodeName,
 					Labels: map[string]string{
 						"node.kubernetes.io/instance-type": "gpu",
 					},
 				},
-				Status: v1.NodeStatus{
-					Conditions: []v1.NodeCondition{
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
 						{
-							Type:   v1.NodeReady,
-							Status: v1.ConditionTrue,
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
@@ -379,7 +381,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			// Delete the model folder
 			fsMock.clear()
 
-			// Manually trigger reconcillation
+			// Manually trigger reconciliation
 			patch := client.MergeFrom(localModelNode.DeepCopy())
 			localModelNode.Annotations = map[string]string{"foo": "bar"}
 			Expect(k8sClient.Patch(ctx, localModelNode, patch)).Should(Succeed())
@@ -390,8 +392,10 @@ var _ = Describe("LocalModelNode controller", func() {
 			}, timeout, interval).Should(BeTrue(), "New job should be created")
 		})
 		It("Should delete models from local disk if the model is not in the spec", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			fsMock.clear()
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -404,19 +408,19 @@ var _ = Describe("LocalModelNode controller", func() {
 			// Mock readDir to return a fake model folder
 			fsMock.mockModel(&MockFileInfo{name: modelName, isDir: true})
 
-			nodeName = "worker" // Definied in controller.go, representing the name of the curent node
-			node := &v1.Node{
+			nodeName = "worker" // Definied in controller.go, representing the name of the current node
+			node := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nodeName,
 					Labels: map[string]string{
 						"node.kubernetes.io/instance-type": "gpu",
 					},
 				},
-				Status: v1.NodeStatus{
-					Conditions: []v1.NodeCondition{
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
 						{
-							Type:   v1.NodeReady,
-							Status: v1.ConditionTrue,
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},
@@ -450,8 +454,10 @@ var _ = Describe("LocalModelNode controller", func() {
 		})
 		// This test creates a LocalModelNode with a model, then deletes the model from the spec and checks if the job is deleted
 		It("Should delete jobs if the model is not present", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
 			fsMock.clear()
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -473,19 +479,19 @@ var _ = Describe("LocalModelNode controller", func() {
 			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
 			defer k8sClient.Delete(ctx, nodeGroup)
 
-			nodeName = "test3" // Definied in controller.go, representing the name of the curent node
-			node := &v1.Node{
+			nodeName = "test3" // Definied in controller.go, representing the name of the current node
+			node := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nodeName,
 					Labels: map[string]string{
 						"node.kubernetes.io/instance-type": "gpu",
 					},
 				},
-				Status: v1.NodeStatus{
-					Conditions: []v1.NodeCondition{
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{
 						{
-							Type:   v1.NodeReady,
-							Status: v1.ConditionTrue,
+							Type:   corev1.NodeReady,
+							Status: corev1.ConditionTrue,
 						},
 					},
 				},

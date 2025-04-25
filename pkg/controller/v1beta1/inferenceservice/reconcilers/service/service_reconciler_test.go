@@ -19,18 +19,18 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var emptyServiceConfig = &v1beta1.ServiceConfig{}
 
 func TestCreateDefaultDeployment(t *testing.T) {
-
 	type args struct {
 		componentMeta    metav1.ObjectMeta
 		componentExt     *v1beta1.ComponentExtensionSpec
@@ -229,7 +229,6 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				if diff := cmp.Diff(tt.expected[i], service); diff != "" {
 					t.Errorf("Test %q unexpected service (-want +got): %v", tt.name, diff)
 				}
-
 			}
 		})
 	}
@@ -241,8 +240,7 @@ func TestCreateServiceRawServiceConfigEmpty(t *testing.T) {
 }
 
 func TestCreateServiceRawServiceAndConfigNil(t *testing.T) {
-	serviceConfig := &v1beta1.ServiceConfig{}
-	serviceConfig = nil
+	var serviceConfig *v1beta1.ServiceConfig
 	// no service means empty
 	runTestServiceCreate(serviceConfig, "", t)
 }

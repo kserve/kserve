@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,14 +34,14 @@ import (
 	"knative.dev/operator/pkg/apis/operator/base"
 	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	kfservingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
@@ -52,30 +53,36 @@ import (
 var (
 	cfg       *rest.Config
 	k8sClient client.Client
-	testEnv   *envtest.Environment
-	cancel    context.CancelFunc
-	ctx       context.Context
-	clientset kubernetes.Interface
 )
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "inferencegraph Controller Suite")
+	RunSpecs(t, "InferenceGraph Controller Suite")
 }
 
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-	ctx, cancel = context.WithCancel(context.TODO())
+	ctx, cancel := context.WithCancel(context.Background())
 	By("bootstrapping test environment")
 	crdDirectoryPaths := []string{
 		filepath.Join("..", "..", "..", "..", "test", "crds"),
 	}
-	testEnv = pkgtest.SetupEnvTest(crdDirectoryPaths)
-	cfg, err := testEnv.Start()
+	testEnv := pkgtest.SetupEnvTest(crdDirectoryPaths)
+	var err error
+	cfg, err = testEnv.Start()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cfg).ToNot(BeNil())
 
-	err = kfservingv1alpha1.AddToScheme(scheme.Scheme)
+	DeferCleanup(func() {
+		By("canceling the context")
+		cancel()
+
+		By("tearing down the test environment")
+		err := testEnv.Stop()
+		Expect(err).ToNot(HaveOccurred())
+	})
+
+	err = v1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = v1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -86,7 +93,7 @@ var _ = BeforeSuite(func() {
 	err = routev1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	clientset, err = kubernetes.NewForConfig(cfg)
+	clientset, err := kubernetes.NewForConfig(cfg)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(clientset).ToNot(BeNil())
 
@@ -101,8 +108,8 @@ var _ = BeforeSuite(func() {
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
 
-	// Create namespaces
-	kfservingNamespaceObj := &v1.Namespace{
+	// Create namespaces ate namespace
+	kserveNamespaceObj := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.KServeNamespace,
 		},
@@ -112,7 +119,7 @@ var _ = BeforeSuite(func() {
 			Name: constants.DefaultKnServingNamespace,
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), kfservingNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
 	Expect(k8sClient.Create(context.Background(), knativeServingNamespace)).Should(Succeed())
 
 	// Create knativeserving custom resource
@@ -144,16 +151,10 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager, deployConfig)
 	Expect(err).ToNot(HaveOccurred())
 
+	// Start the manager in a separate goroutine
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
 		Expect(err).ToNot(HaveOccurred())
 	}()
-})
-
-var _ = AfterSuite(func() {
-	cancel()
-	By("tearing down the test environment")
-	err := testEnv.Stop()
-	Expect(err).ToNot(HaveOccurred())
 })

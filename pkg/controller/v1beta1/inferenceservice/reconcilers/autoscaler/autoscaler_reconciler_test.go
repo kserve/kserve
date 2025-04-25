@@ -17,11 +17,12 @@ limitations under the License.
 package autoscaler
 
 import (
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
-	"github.com/kserve/kserve/pkg/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"testing"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestGetAutoscalerClass(t *testing.T) {

@@ -20,13 +20,14 @@ import (
 	logger "log"
 	"os"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"go.uber.org/zap"
+
 	"github.com/kserve/kserve/pkg/agent/mocks"
 	"github.com/kserve/kserve/pkg/agent/storage"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/modelconfig"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"go.uber.org/zap"
 )
 
 var _ = Describe("Downloader", func() {
@@ -67,7 +68,7 @@ var _ = Describe("Downloader", func() {
 				},
 			}
 			err := downloader.DownloadModel(modelConfig.Name, &modelConfig.Spec)
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).Should(HaveOccurred())
 		})
 	})
 
@@ -81,7 +82,7 @@ var _ = Describe("Downloader", func() {
 				},
 			}
 			err := downloader.DownloadModel(modelConfig.Name, &modelConfig.Spec)
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).Should(HaveOccurred())
 		})
 	})
 
@@ -95,7 +96,7 @@ var _ = Describe("Downloader", func() {
 				},
 			}
 			err := downloader.DownloadModel(modelConfig.Name, &modelConfig.Spec)
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).Should(HaveOccurred())
 		})
 	})
 })
