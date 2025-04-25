@@ -5,12 +5,12 @@ ARG VENV_PATH=/prod_venv
 FROM ${BASE_IMAGE} AS builder
 
 # Install necessary dependencies for building Python packages
-RUN apt-get update && apt-get install -y --no-install-recommends python3-dev build-essential gcc libgomp1 && apt-get clean && \
+RUN apt-get update && apt-get install -y --no-install-recommends python3-dev curl build-essential && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install uv (Astral) for dependency management
-RUN curl -Ls https://astral.sh/uv/install.sh | sh
-ENV PATH="$HOME/.cargo/bin:$PATH"
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Activate virtual env
 ARG VENV_PATH
@@ -20,13 +20,13 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Copy and install dependencies for kserve using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv pip install -r uv.lock
+RUN cd kserve && uv sync
 COPY kserve kserve
-RUN cd kserve && uv pip install -r uv.lock
+RUN cd kserve && uv sync
 
 # Copy and install dependencies for xgbserver using uv
 COPY xgbserver/pyproject.toml xgbserver/uv.lock xgbserver/
-RUN cd xgbserver && uv pip install -r uv.lock
+RUN cd xgbserver && uv sync
 COPY xgbserver xgbserver
 RUN cd xgbserver && poetry install --no-interaction --no-cache
 

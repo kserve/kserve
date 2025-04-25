@@ -4,14 +4,18 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
-# Install system deps and uv
+# Install system dependencies
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl build-essential python3-dev && \
-    curl -Ls https://astral.sh/uv/install.sh | sh && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+    curl \
+    build-essential \
+    python3-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Add uv to PATH (uv installs to ~/.cargo/bin)
-ENV PATH="$HOME/.cargo/bin:$PATH"
+# Install uv and ensure it's in PATH
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Create Python virtual environment
 ARG VENV_PATH
@@ -21,12 +25,12 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ------------------ Install kserve ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv pip install -r uv.lock
+RUN cd kserve && uv sync
 COPY kserve kserve
 
 # ------------------ Install custom_tokenizer ------------------
 COPY custom_tokenizer/pyproject.toml custom_tokenizer/uv.lock custom_tokenizer/
-RUN cd custom_tokenizer && uv pip install -r uv.lock
+RUN cd custom_tokenizer && uv sync
 COPY custom_tokenizer custom_tokenizer
 RUN cd custom_tokenizer && poetry install --no-interaction --no-cache
 
