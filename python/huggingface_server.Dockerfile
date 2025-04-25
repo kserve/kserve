@@ -3,23 +3,16 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
-# Install system dependencies and uv
-RUN apt-get update && apt-get upgrade -y && apt-get install gcc python3.10-venv python3-dev -y && apt-get clean && \
+# Install system dependencies
+RUN apt-get update && apt-get upgrade -y && apt-get install gcc curl python3.10-venv python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN curl -Ls https://astral.sh/uv/install.sh | sh
-
-# Make uv available
-ENV PATH="$HOME/.cargo/bin:$PATH"
+# Install uv and ensure it's in PATH
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Install vllm
 ARG VLLM_VERSION=0.8.5
-
-RUN apt-get update && apt-get upgrade -y && apt-get install gcc python3.10-venv python3-dev -y && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip3 install poetry==${POETRY_VERSION}
-ENV PATH="$PATH:${POETRY_HOME}/bin"
 
 # Activate virtual env
 ARG VENV_PATH
@@ -29,12 +22,12 @@ ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
 # Install kserve dependencies using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv pip install -r uv.lock
+RUN cd kserve && uv sync
 COPY kserve kserve
 
 # Install huggingfaceserver dependencies using uv
 COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
-RUN cd huggingfaceserver && uv pip install -r uv.lock
+RUN cd huggingfaceserver && uv sync
 COPY huggingfaceserver huggingfaceserver
 
 # ---------- Production image ----------

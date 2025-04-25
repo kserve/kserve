@@ -4,14 +4,13 @@ ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
-# Required for building packages and installing uv
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl build-essential python3-dev && \
-    curl -Ls https://astral.sh/uv/install.sh | sh && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Required for building packages for arm64 arch
+RUN apt-get update && apt-get install -y --no-install-recommends curl python3-dev build-essential && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Add uv to PATH
-ENV PATH="$HOME/.cargo/bin:$PATH"
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 # Setup virtual environment
 ARG VENV_PATH
