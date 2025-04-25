@@ -204,10 +204,9 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 			}
 
 			// Clear all statuses
-			p.Log.Info("Clearing ISVC status")
 			isvc.Status = v1beta1.InferenceServiceStatus{}
 
-			// Set the ready conditions to false
+			// Set the ready condition to false via the ready condition's dependencies PredictorReady and IngressReady
 			predictor_ready_condition := &apis.Condition{
 				Type:   v1beta1.PredictorReady,
 				Status: corev1.ConditionFalse,

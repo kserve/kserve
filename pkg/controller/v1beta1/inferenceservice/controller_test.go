@@ -629,10 +629,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Name:      constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace,
 			}
-			Eventually(func() bool {
+			Consistently(func() bool {
 				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
 				return apierr.IsNotFound(err)
-			}, time.Second*30).Should(BeTrue(), "The ksvc should not be created")
+			}, timeout).Should(BeTrue(), "The ksvc should not be created")
 
 			// Check that the ISVC status reflects that it is stopped
 			updatedIsvc := &v1beta1.InferenceService{}
@@ -679,7 +679,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			isvc.Annotations[constants.StopAnnotationKey] = "false"
 			Expect(k8sClient.Create(context.TODO(), isvc)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(ctx, isvc)
-			time.Sleep(20 * time.Second)
 
 			// Knative service
 			actualService := &knservingv1.Service{}
@@ -687,7 +686,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Name:      constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace,
 			}
-			Consistently(func() error {
+			Eventually(func() error {
 				err := k8sClient.Get(context.TODO(), predictorServiceKey, actualService)
 				return err
 			}, timeout).
@@ -703,7 +702,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			updatedIsvc := actualIsvc.DeepCopy()
 			updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
 			Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
-			time.Sleep(10 * time.Second)
 
 			// Check that the KSVC was deleted
 			Eventually(func() bool {

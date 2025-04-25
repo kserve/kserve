@@ -79,7 +79,7 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 	serviceUrl := getServiceUrl(isvc, ir.ingressConfig)
 	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
 
-	// Check if the isvc is stopped
+	// If the "serving.kserve.io/stop" annotation is present in isvc, follow the force stop logic
 	forceStopRuntime := "false"
 	if val, exist := isvc.Annotations[constants.StopAnnotationKey]; exist {
 		forceStopRuntime = val
@@ -89,7 +89,7 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 		// Delete the service
 		existingService := &corev1.Service{}
 		if err := ir.client.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, existingService); err == nil {
-			log.Info("Delete services")
+			log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated Service")
 			if err := ir.client.Delete(ctx, existingService); err != nil {
 				return err
 			}
@@ -100,7 +100,7 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 		// Delete the virtualservice
 		existingVService := &istioclientv1beta1.VirtualService{}
 		if err := ir.client.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, existingVService); err == nil {
-			log.Info("Delete vservices")
+			log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated VirtualService")
 			if err := ir.client.Delete(ctx, existingVService); err != nil {
 				return err
 			}
