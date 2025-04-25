@@ -182,8 +182,13 @@ waitpodready "knative-serving" "app=autoscaler"
 
 export secret_name=$(oc get IngressController default -n openshift-ingress-operator -o yaml -o=jsonpath='{ .spec.defaultCertificate.name}')
 if [ -z "$secret_name" ]; then
-  # Fallback to the default secret name
-  export secret_name=router-certs-default
+  # Fallback to the default secret name for crpkg/controller/v1beta1/inferenceservice/rawkube_controller_test.goc
+  if $RUNNING_LOCAL; then
+    export secret_name=router-certs-default
+  else
+    # In OpenShift 4.12, the default secret name is changed to default-ingress-cert
+    export secret_name=default-ingress-cert
+  fi
 fi
 oc get secret -n openshift-ingress
 oc get IngressController -n openshift-ingress-operator default -o yaml
