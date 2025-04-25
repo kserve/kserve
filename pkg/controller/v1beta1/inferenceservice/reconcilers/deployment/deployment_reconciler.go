@@ -154,7 +154,7 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
-	if componentExt.MinReplicas != nil && (deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassExternal) || deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassNone)) {
+	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassNone) {
 		deployment.Spec.Replicas = ptr.To(*componentExt.MinReplicas)
 	}
 
@@ -216,11 +216,11 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 	}
 	// existed, check equivalence
 	// for HPA scaling, we should ignore Replicas of Deployment
-	// for external or none scaler, we should not ignore Replicas.
+	// for none scaler, we should not ignore Replicas.
 	var ignoreFields cmp.Option = nil // Initialize to nil by default
 
 	// Set ignoreFields if the condition is met
-	if existingDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) && existingDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
+	if existingDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 		ignoreFields = cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
 	}
 
@@ -388,9 +388,9 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 
 			// To avoid the conflict between HPA and Deployment,
 			// we need to remove the Replicas field from the deployment spec
-			// For external or none autoscaler, it should not remove replicas
+			// For none autoscaler, it should not remove replicas
 			modDeployment := deployment.DeepCopy()
-			if modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) && modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
+			if modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 				modDeployment.Spec.Replicas = nil
 			}
 
