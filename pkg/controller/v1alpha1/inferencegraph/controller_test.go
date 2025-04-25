@@ -826,6 +826,7 @@ var _ = Describe("Inference Graph controller test", func() {
 	Context("When creating an IG in Raw deployment mode with auth", func() {
 		var configMap *corev1.ConfigMap
 		var inferenceGraph *v1alpha1.InferenceGraph
+		ctx := context.Background()
 
 		BeforeEach(func() {
 			configMap = &corev1.ConfigMap{

@@ -232,7 +232,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 					Name:  "basic-ig",
 					Args: []string{
 						"--graph-json",
-						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{},\"serviceAccountName\":\"default\"}",
+						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{}}",
 					},
 					Env: []corev1.EnvVar{
 						{

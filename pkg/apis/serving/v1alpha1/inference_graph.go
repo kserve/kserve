@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
@@ -356,7 +354,7 @@ func (ig *InferenceGraph) ResolveServiceAccountName() string {
 	}
 
 	if ig.HasAuthEnabled() {
-		return fmt.Sprintf("%s-auth-verifier", ig.GetName())
+		return ig.GetName() + "-auth-verifier"
 	}
 
 	return "default"
