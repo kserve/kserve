@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/kmp"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -113,9 +114,9 @@ var _ = Describe("Inference Graph controller test", func() {
 				}, timeout).
 					Should(Succeed())
 
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.InitialScaleAnnotationKey]).To(Equal("1"))
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal("0"))
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MaxScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("1"))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
 		When("an InferenceGraph with nil minReplicas and 0 maxReplicas is created", func() {
@@ -162,9 +163,9 @@ var _ = Describe("Inference Graph controller test", func() {
 				}, timeout).
 					Should(Succeed())
 
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.InitialScaleAnnotationKey]).To(Equal(strconv.Itoa(int(constants.DefaultMinReplicas))))
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal(strconv.Itoa(int(constants.DefaultMinReplicas))))
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MaxScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal(strconv.Itoa(int(constants.DefaultMinReplicas))))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]).To(Equal(strconv.Itoa(int(constants.DefaultMinReplicas))))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
 	})
@@ -241,9 +242,9 @@ var _ = Describe("Inference Graph controller test", func() {
 				}, timeout).
 					Should(Succeed())
 
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.InitialScaleAnnotationKey]).To(Equal("0"))
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal("0"))
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MaxScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
 		When("an InferenceGraph with nil minReplicas and 0 maxReplicas is created", func() {
@@ -290,9 +291,9 @@ var _ = Describe("Inference Graph controller test", func() {
 				}, timeout).
 					Should(Succeed())
 
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.InitialScaleAnnotationKey]).To(Equal(strconv.Itoa(int(constants.DefaultMinReplicas))))
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal(strconv.Itoa(int(constants.DefaultMinReplicas))))
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MaxScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal(strconv.Itoa(int(constants.DefaultMinReplicas))))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]).To(Equal(strconv.Itoa(int(constants.DefaultMinReplicas))))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
 	})

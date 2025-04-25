@@ -40,6 +40,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -150,9 +151,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 					Should(Succeed())
 
-				Expect(actualService.Spec.Template.Annotations[constants.InitialScaleAnnotationKey]).To(Equal("1"))
-				Expect(actualService.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal("0"))
-				Expect(actualService.Spec.Template.Annotations[constants.MaxScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("1"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
 		When("an InferenceService with nil minReplicas and maxReplicas:0 is created", func() {
@@ -205,9 +206,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 					Should(Succeed())
 
-				Expect(actualService.Spec.Template.Annotations[constants.InitialScaleAnnotationKey]).To(Equal("1"))
-				Expect(actualService.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal("1"))
-				Expect(actualService.Spec.Template.Annotations[constants.MaxScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("1"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]).To(Equal("1"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
 	})
@@ -292,9 +293,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 					Should(Succeed())
 
-				Expect(actualService.Spec.Template.Annotations[constants.InitialScaleAnnotationKey]).To(Equal("0"))
-				Expect(actualService.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal("0"))
-				Expect(actualService.Spec.Template.Annotations[constants.MaxScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
 		When("an InferenceService with nil minReplicas and maxReplicas:0 is created", func() {
@@ -347,9 +348,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 					Should(Succeed())
 
-				Expect(actualService.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal("1"))
-				Expect(actualService.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal("1"))
-				Expect(actualService.Spec.Template.Annotations[constants.MaxScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]).To(Equal("1"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]).To(Equal("1"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
 	})

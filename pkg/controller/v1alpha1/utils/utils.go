@@ -83,10 +83,10 @@ func SetAutoScalingAnnotations(ctx context.Context,
 		"max-scale", annotations[autoscaling.MaxScaleAnnotationKey],
 	)
 
-	annotations[constants.InitialScaleAnnotationKey] = annotations[autoscaling.MinScaleAnnotationKey]
+	annotations[autoscaling.InitialScaleAnnotationKey] = annotations[autoscaling.MinScaleAnnotationKey]
 
 	log.Info("kserve will always set the initial scale value for knative revisions equal to the min replicas requested",
-		"initial-scale", annotations[constants.InitialScaleAnnotationKey],
+		"initial-scale", annotations[autoscaling.InitialScaleAnnotationKey],
 	)
 
 	// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
@@ -102,7 +102,7 @@ func SetAutoScalingAnnotations(ctx context.Context,
 		log.Info("The current knative autoscaler global configuration does not allow zero initial scale. The knative revision will be initialized with 1 replica then scaled down to 0",
 			"allow-zero-initial-scale", allowZeroInitialScale,
 			"initial-scale", 1)
-		annotations[constants.InitialScaleAnnotationKey] = "1"
+		annotations[autoscaling.InitialScaleAnnotationKey] = "1"
 	}
 
 	return nil
