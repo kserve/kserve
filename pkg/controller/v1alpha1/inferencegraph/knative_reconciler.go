@@ -152,14 +152,6 @@ func createKnativeService(ctx context.Context, client client.Client, componentMe
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to set autoscaling annotations for knative service")
 	}
-	// User can pass down scaling class annotation to overwrite the default scaling KPA
-	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
-		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
-	}
-
-	if _, ok := annotations[autoscaling.MinScaleAnnotationKey]; !ok {
-		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
-	}
 
 	// ksvc metadata.annotations
 	ksvcAnnotations := make(map[string]string)

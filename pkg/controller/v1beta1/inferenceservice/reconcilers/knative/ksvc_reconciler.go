@@ -96,29 +96,6 @@ func createKnativeService(ctx context.Context,
 		return nil, errors.Wrapf(err, "fails to set autoscaling annotations for knative service")
 	}
 
-	if componentExtension.MinReplicas == nil {
-		annotations[constants.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
-	} else {
-		annotations[constants.MinScaleAnnotationKey] = strconv.Itoa(int(*componentExtension.MinReplicas))
-	}
-
-	if componentExtension.MaxReplicas != 0 {
-		annotations[constants.MaxScaleAnnotationKey] = strconv.Itoa(int(componentExtension.MaxReplicas))
-	}
-
-	// User can pass down scaling class annotation to overwrite the default scaling KPA
-	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
-		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
-	}
-
-	if componentExtension.ScaleTarget != nil {
-		annotations[autoscaling.TargetAnnotationKey] = strconv.Itoa(int(*componentExtension.ScaleTarget))
-	}
-
-	if componentExtension.ScaleMetric != nil {
-		annotations[autoscaling.MetricAnnotationKey] = fmt.Sprint(*componentExtension.ScaleMetric)
-	}
-
 	// ksvc metadata.annotations
 	// rollout-duration must be put under metadata.annotations
 	ksvcAnnotations := make(map[string]string)
