@@ -394,7 +394,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
 	} else {
 		podLabelKey = constants.RevisionLabel
-		r, err := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
+		r, err := knative.NewKsvcReconciler(ctx, p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 			&podSpec, isvc.Status.Components[v1beta1.PredictorComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create new knative service reconciler for predictor")

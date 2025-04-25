@@ -462,11 +462,11 @@ func findBearerToken(w http.ResponseWriter, r *http.Request) string {
 // valid and flagged as authenticated. If the token is usable, the result of the TokenReview
 // is returned. Otherwise, the HTTP response is sent rejecting the request and setting
 // a meaningful status code along with a reason (if available).
-func validateTokenIsAuthenticated(w http.ResponseWriter, token string, clientset *kubernetes.Clientset) *authnv1.TokenReview {
+func validateTokenIsAuthenticated(ctx context.Context, w http.ResponseWriter, token string, clientset *kubernetes.Clientset) *authnv1.TokenReview {
 	// Check the token is valid
 	tokenReview := authnv1.TokenReview{}
 	tokenReview.Spec.Token = token
-	tokenReviewResult, err := clientset.AuthenticationV1().TokenReviews().Create(context.Background(), &tokenReview, metav1.CreateOptions{})
+	tokenReviewResult, err := clientset.AuthenticationV1().TokenReviews().Create(ctx, &tokenReview, metav1.CreateOptions{})
 	if err != nil {
 		log.Error(err, "failed to create TokenReview when verifying credentials")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -489,7 +489,7 @@ func validateTokenIsAuthenticated(w http.ResponseWriter, token string, clientset
 // Kubernetes API and get the InferenceGraph resource that belongs to this pod. If so, the request is considered
 // as allowed and `true` is returned. Otherwise, the HTTP response is sent rejecting the request and setting
 // a meaningful status code along with a reason (if available).
-func checkRequestIsAuthorized(w http.ResponseWriter, _ *http.Request, tokenReviewResult *authnv1.TokenReview, clientset *kubernetes.Clientset) bool {
+func checkRequestIsAuthorized(ctx context.Context, w http.ResponseWriter, _ *http.Request, tokenReviewResult *authnv1.TokenReview, clientset *kubernetes.Clientset) bool {
 	// Read pod namespace
 	const namespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 	namespaceBytes, err := os.ReadFile(namespaceFile)
@@ -520,7 +520,10 @@ func checkRequestIsAuthorized(w http.ResponseWriter, _ *http.Request, tokenRevie
 		},
 	}
 
-	accessReviewResult, err := clientset.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), &accessReview, metav1.CreateOptions{})
+	accessReviewResult, err := clientset.AuthorizationV1().SubjectAccessReviews().Create(
+		ctx,
+		&accessReview,
+		metav1.CreateOptions{})
 	if err != nil {
 		log.Error(err, "failed to create LocalSubjectAccessReview when verifying credentials")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -548,7 +551,7 @@ func checkRequestIsAuthorized(w http.ResponseWriter, _ *http.Request, tokenRevie
 // header. The token is verified against Kubernetes using the TokenReview and SubjectAccessReview APIs.
 // If the token is valid and has enough privileges, the handler provided in the `next` argument is run.
 // Otherwise, `next` is not invoked and the reason for the rejection is sent in response headers.
-func authMiddleware(next http.Handler) (http.Handler, error) {
+func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		k8sConfig, k8sConfigErr := rest.InClusterConfig()
 		if k8sConfigErr != nil {
@@ -568,16 +571,16 @@ func authMiddleware(next http.Handler) (http.Handler, error) {
 			return
 		}
 
-		tokenReviewResult := validateTokenIsAuthenticated(w, token, clientset)
+		tokenReviewResult := validateTokenIsAuthenticated(r.Context(), w, token, clientset)
 		if tokenReviewResult == nil {
 			return
 		}
 
-		isAuthorized := checkRequestIsAuthorized(w, r, tokenReviewResult, clientset)
+		isAuthorized := checkRequestIsAuthorized(r.Context(), w, r, tokenReviewResult, clientset)
 		if isAuthorized {
 			next.ServeHTTP(w, r)
 		}
-	}), nil
+	})
 }
 
 func main() {
@@ -602,12 +605,8 @@ func main() {
 	var entrypointHandler http.Handler
 	entrypointHandler = http.HandlerFunc(graphHandler)
 	if *enableAuthFlag {
-		entrypointHandler, err = authMiddleware(entrypointHandler)
+		entrypointHandler = authMiddleware(entrypointHandler)
 		log.Info("This Router has authorization enabled")
-		if err != nil {
-			log.Error(err, "failed to create entrypoint handler")
-			os.Exit(1)
-		}
 	}
 
 	http.Handle("/", entrypointHandler)

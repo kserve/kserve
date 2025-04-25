@@ -116,8 +116,8 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 // 		return admission.Errored(http.StatusBadRequest, err)
 // 	}
 
-//ExistingRuntimes := &v1alpha1.ClusterServingRuntimeList{}
-//if err := csr.Client.List(ctx, ExistingRuntimes); err != nil {
+// ExistingRuntimes := &v1alpha1.ClusterServingRuntimeList{}
+// if err := csr.Client.List(ctx, ExistingRuntimes); err != nil {
 //	log.Error(err, "Failed to get cluster serving runtime list")
 //	return admission.Errored(http.StatusInternalServerError, err)
 //}

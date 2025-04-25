@@ -222,7 +222,11 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 		}
 	}
+
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "fails to get InferenceService config map")
+	}
 	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
@@ -295,7 +299,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative KnativeServings are not available", graph.Name))
 		}
 
-		desired, err := createKnativeService(r.Client, graph.ObjectMeta, graph, routerConfig)
+		desired, err := createKnativeService(ctx, r.Client, graph.ObjectMeta, graph, routerConfig)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create new knative service")
 		}

@@ -412,10 +412,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := createRawDeployment(tt.args.objectMeta, tt.args.workerObjectMeta, tt.args.componentExt, tt.args.podSpec, tt.args.workerPodSpec)
-			if err != nil {
-				t.Error(err)
-			}
+			got := createRawDeployment(tt.args.objectMeta, tt.args.workerObjectMeta, tt.args.componentExt, tt.args.podSpec, tt.args.workerPodSpec)
 			if len(got) == 0 {
 				t.Errorf("Got empty deployment")
 			}
@@ -484,10 +481,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			ttExpected := getDefaultExpectedDeployment()
 
 			// update objectMeta using modify func
-			got, err := createRawDeployment(ttArgs.objectMeta, ttArgs.workerObjectMeta, ttArgs.componentExt, tt.modifyArgs(ttArgs).podSpec, tt.modifyArgs(ttArgs).workerPodSpec)
-			if err != nil {
-				t.Error(err)
-			}
+			got := createRawDeployment(ttArgs.objectMeta, ttArgs.workerObjectMeta, ttArgs.componentExt, tt.modifyArgs(ttArgs).podSpec, tt.modifyArgs(ttArgs).workerPodSpec)
 			if len(got) == 0 {
 				t.Errorf("Got empty deployment")
 			}
@@ -791,10 +785,8 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			ttExpected := getDefaultExpectedDeployment()
 
 			// update objectMeta using modify func
-			got, err := createRawDeployment(tt.modifyObjectMetaArgs(ttArgs).objectMeta, tt.modifyWorkerObjectMetaArgs(ttArgs).workerObjectMeta, ttArgs.componentExt, tt.modifyPodSpecArgs(ttArgs).podSpec, tt.modifyWorkerPodSpecArgs(ttArgs).workerPodSpec)
-			if err != nil {
-				t.Error(err)
-			}
+			got := createRawDeployment(tt.modifyObjectMetaArgs(ttArgs).objectMeta, tt.modifyWorkerObjectMetaArgs(ttArgs).workerObjectMeta, ttArgs.componentExt, tt.modifyPodSpecArgs(ttArgs).podSpec, tt.modifyWorkerPodSpecArgs(ttArgs).workerPodSpec)
+
 			if len(got) == 0 {
 				t.Errorf("Got empty deployment")
 			}

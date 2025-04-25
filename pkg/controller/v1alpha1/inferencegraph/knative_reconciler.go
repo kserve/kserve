@@ -19,15 +19,10 @@ package inferencegraph
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
 
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
-	"github.com/kserve/kserve/pkg/utils"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
@@ -46,6 +41,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var log = logf.Log.WithName("GraphKsvcReconciler")
@@ -140,7 +138,7 @@ func semanticEquals(desiredService, service *knservingv1.Service) bool {
 		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
 }
 
-func createKnativeService(client client.Client, componentMeta metav1.ObjectMeta, graph *v1alpha1api.InferenceGraph, config *RouterConfig) (*knservingv1.Service, error) {
+func createKnativeService(ctx context.Context, client client.Client, componentMeta metav1.ObjectMeta, graph *v1alpha1.InferenceGraph, config *RouterConfig) (*knservingv1.Service, error) {
 	bytes, err := json.Marshal(graph.Spec)
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to marshal inference graph spec to json")
@@ -150,7 +148,7 @@ func createKnativeService(client client.Client, componentMeta metav1.ObjectMeta,
 		annotations = make(map[string]string)
 	}
 
-	err = setAutoScalingAnnotations(client, annotations)
+	err = setAutoScalingAnnotations(ctx, client, annotations)
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to set autoscaling annotations for knative service")
 	}
@@ -290,8 +288,9 @@ func constructResourceRequirements(graph v1alpha1.InferenceGraph, config RouterC
 // setAutoScalingAnnotations checks the knative autoscaler configuration defined in the knativeserving custom resource
 // and compares the values to the autoscaling configuration requested for the inference service.
 // It then sets the necessary annotations for the desired autoscaling configuration.
-func setAutoScalingAnnotations(client client.Client,
-	annotations map[string]string) error {
+func setAutoScalingAnnotations(ctx context.Context, client client.Client,
+	annotations map[string]string,
+) error {
 	// User can pass down scaling class annotation to overwrite the default scaling KPA
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
@@ -300,7 +299,7 @@ func setAutoScalingAnnotations(client client.Client,
 	// If a min-scale annotation is not set for the inference graph, then use the default min-scale value of 1.
 	var revisionMinScale int
 	if _, ok := annotations[autoscaling.MinScaleAnnotationKey]; !ok {
-		annotations[autoscaling.MinScaleAnnotationKey] = fmt.Sprint(constants.DefaultMinReplicas)
+		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
 		revisionMinScale = int(constants.DefaultMinReplicas)
 	} else {
 		minScaleInt, err := strconv.Atoi(annotations[autoscaling.MinScaleAnnotationKey])
@@ -311,14 +310,14 @@ func setAutoScalingAnnotations(client client.Client,
 	}
 
 	// Retrieve the allow-zero-initial-scale and initial-scale values from the knative autoscaler configuration.
-	allowZeroInitialScale, globalInitialScale, err := knutils.GetAutoscalerConfiguration(client)
+	allowZeroInitialScale, globalInitialScale, err := knutils.GetAutoscalerConfiguration(ctx, client)
 	if err != nil {
 		return errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
 	}
 
 	initialScaleInt, err := strconv.Atoi(globalInitialScale)
 	if err != nil {
-		return errors.Wrapf(err, fmt.Sprintf("fails to convert configured knative serving global initial-scale value to an integer. initial-scale: %s", globalInitialScale))
+		return errors.Wrapf(err, "%s", "fails to convert configured knative serving global initial-scale value to an integer. initial-scale: "+globalInitialScale)
 	}
 
 	// Provide transparency to users while aligning with knative serving's expected behavior, log a warning when the

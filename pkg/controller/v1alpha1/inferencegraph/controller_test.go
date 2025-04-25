@@ -19,6 +19,7 @@ package inferencegraph
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,11 +28,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-
-	corev1 "k8s.io/api/core/v1"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,7 +84,7 @@ var _ = Describe("Inference Graph controller test", func() {
 	Context("with knative configured to allow zero initial scale", func() {
 		When("an InferenceGraph with min-scale:0 annotation is created", func() {
 			It("should create a knative service with initial-scale:0 and min-scale:0 annotations", func() {
-				var configMap = &v1.ConfigMap{
+				configMap := &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      constants.InferenceServiceConfigMapName,
 						Namespace: constants.KServeNamespace,
@@ -95,8 +94,8 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(context.TODO(), configMap)
 				graphName := "initialscale1"
-				var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-				var serviceKey = expectedRequest.NamespacedName
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+				serviceKey := expectedRequest.NamespacedName
 				ctx := context.Background()
 				minScale := int32(1)
 				ig := &v1alpha1.InferenceGraph{
@@ -138,7 +137,7 @@ var _ = Describe("Inference Graph controller test", func() {
 		})
 		When("an InferenceGraph without min-scale annotation is created", func() {
 			It("should create a knative service with no initial-scale annotation and min-scale annotation equal to the default min replicas value", func() {
-				var configMap = &v1.ConfigMap{
+				configMap := &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      constants.InferenceServiceConfigMapName,
 						Namespace: constants.KServeNamespace,
@@ -148,8 +147,8 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(context.TODO(), configMap)
 				graphName := "initialscale2"
-				var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-				var serviceKey = expectedRequest.NamespacedName
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+				serviceKey := expectedRequest.NamespacedName
 				ctx := context.Background()
 				minScale := int32(1)
 				ig := &v1alpha1.InferenceGraph{
@@ -182,14 +181,14 @@ var _ = Describe("Inference Graph controller test", func() {
 				}, timeout).
 					Should(Succeed())
 
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal(fmt.Sprint(constants.DefaultMinReplicas)))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal(strconv.Itoa(int(constants.DefaultMinReplicas))))
 				Expect(constants.InitialScaleAnnotationKey).ShouldNot(BeKeyOf(actualKnServiceCreated.Spec.Template.Annotations))
 			})
 		})
 	})
 	Context("with knative configured to not allow zero initial scale", func() {
 		BeforeEach(func() {
-			// Update the existing knativeserving custom resource to set allow-zero-intial-scale to false
+			// Update the existing knativeserving custom resource to set allow-zero-initial-scale to false
 			knativeService := &operatorv1beta1.KnativeServing{}
 			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultKnServingName, Namespace: constants.DefaultKnServingNamespace}, knativeService)).ToNot(HaveOccurred())
 			knativeService.Spec.CommonSpec.Config["autoscaler"]["allow-zero-initial-scale"] = "false"
@@ -208,7 +207,7 @@ var _ = Describe("Inference Graph controller test", func() {
 		})
 		When("an InferenceGraph with min-scale:0 annotation is created", func() {
 			It("should create a knative service with min-scale:0 annotation and no initial-scale annotation", func() {
-				var configMap = &v1.ConfigMap{
+				configMap := &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      constants.InferenceServiceConfigMapName,
 						Namespace: constants.KServeNamespace,
@@ -218,8 +217,8 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(context.TODO(), configMap)
 				graphName := "initialscale3"
-				var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-				var serviceKey = expectedRequest.NamespacedName
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+				serviceKey := expectedRequest.NamespacedName
 				ctx := context.Background()
 				minScale := int32(1)
 				ig := &v1alpha1.InferenceGraph{
@@ -261,7 +260,7 @@ var _ = Describe("Inference Graph controller test", func() {
 		})
 		When("an InferenceGraph without min-scale annotation is created", func() {
 			It("should create a knative service with no initial-scale annotation and min-scale annotation equal to the default minReplicas value", func() {
-				var configMap = &v1.ConfigMap{
+				configMap := &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      constants.InferenceServiceConfigMapName,
 						Namespace: constants.KServeNamespace,
@@ -271,8 +270,8 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 				defer k8sClient.Delete(context.TODO(), configMap)
 				graphName := "initialscale4"
-				var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-				var serviceKey = expectedRequest.NamespacedName
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+				serviceKey := expectedRequest.NamespacedName
 				ctx := context.Background()
 				minScale := int32(1)
 				ig := &v1alpha1.InferenceGraph{
@@ -305,7 +304,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				}, timeout).
 					Should(Succeed())
 
-				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal(fmt.Sprint(constants.DefaultMinReplicas)))
+				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal(strconv.Itoa(int(constants.DefaultMinReplicas))))
 				Expect(constants.InitialScaleAnnotationKey).ShouldNot(BeKeyOf(actualKnServiceCreated.Spec.Template.Annotations))
 			})
 		})
@@ -423,7 +422,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													Drop: []corev1.Capability{corev1.Capability("ALL")},
 												},
 											},
-											VolumeMounts: []v1.VolumeMount{
+											VolumeMounts: []corev1.VolumeMount{
 												{
 													Name:      "openshift-service-ca-bundle",
 													MountPath: "/etc/odh/openshift-service-ca-bundle",
@@ -432,12 +431,12 @@ var _ = Describe("Inference Graph controller test", func() {
 										},
 									},
 									AutomountServiceAccountToken: proto.Bool(false),
-									Volumes: []v1.Volume{
+									Volumes: []corev1.Volume{
 										{
 											Name: "openshift-service-ca-bundle",
-											VolumeSource: v1.VolumeSource{
-												ConfigMap: &v1.ConfigMapVolumeSource{
-													LocalObjectReference: v1.LocalObjectReference{
+											VolumeSource: corev1.VolumeSource{
+												ConfigMap: &corev1.ConfigMapVolumeSource{
+													LocalObjectReference: corev1.LocalObjectReference{
 														Name: constants.OpenShiftServiceCaConfigMapName,
 													},
 												},
@@ -582,7 +581,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													Drop: []corev1.Capability{corev1.Capability("ALL")},
 												},
 											},
-											VolumeMounts: []v1.VolumeMount{
+											VolumeMounts: []corev1.VolumeMount{
 												{
 													Name:      "openshift-service-ca-bundle",
 													MountPath: "/etc/odh/openshift-service-ca-bundle",
@@ -591,12 +590,12 @@ var _ = Describe("Inference Graph controller test", func() {
 										},
 									},
 									AutomountServiceAccountToken: proto.Bool(false),
-									Volumes: []v1.Volume{
+									Volumes: []corev1.Volume{
 										{
 											Name: "openshift-service-ca-bundle",
-											VolumeSource: v1.VolumeSource{
-												ConfigMap: &v1.ConfigMapVolumeSource{
-													LocalObjectReference: v1.LocalObjectReference{
+											VolumeSource: corev1.VolumeSource{
+												ConfigMap: &corev1.ConfigMapVolumeSource{
+													LocalObjectReference: corev1.LocalObjectReference{
 														Name: constants.OpenShiftServiceCaConfigMapName,
 													},
 												},
@@ -754,7 +753,7 @@ var _ = Describe("Inference Graph controller test", func() {
 													Drop: []corev1.Capability{corev1.Capability("ALL")},
 												},
 											},
-											VolumeMounts: []v1.VolumeMount{
+											VolumeMounts: []corev1.VolumeMount{
 												{
 													Name:      "openshift-service-ca-bundle",
 													MountPath: "/etc/odh/openshift-service-ca-bundle",
@@ -787,12 +786,12 @@ var _ = Describe("Inference Graph controller test", func() {
 										},
 									},
 									AutomountServiceAccountToken: proto.Bool(false),
-									Volumes: []v1.Volume{
+									Volumes: []corev1.Volume{
 										{
 											Name: "openshift-service-ca-bundle",
-											VolumeSource: v1.VolumeSource{
-												ConfigMap: &v1.ConfigMapVolumeSource{
-													LocalObjectReference: v1.LocalObjectReference{
+											VolumeSource: corev1.VolumeSource{
+												ConfigMap: &corev1.ConfigMapVolumeSource{
+													LocalObjectReference: corev1.LocalObjectReference{
 														Name: constants.OpenShiftServiceCaConfigMapName,
 													},
 												},
@@ -944,7 +943,7 @@ var _ = Describe("Inference Graph controller test", func() {
 
 		It("Should not create ingress when cluster-local visibility is configured", func() {
 			By("By creating a new InferenceGraph")
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -954,8 +953,8 @@ var _ = Describe("Inference Graph controller test", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer func() { _ = k8sClient.Delete(context.TODO(), configMap) }()
 			graphName := "igraw-private"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			ig := &v1alpha1.InferenceGraph{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1011,7 +1010,7 @@ var _ = Describe("Inference Graph controller test", func() {
 
 		It("Should reconfigure InferenceGraph as private when cluster-local visibility is configured", func() {
 			By("By creating a new InferenceGraph")
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -1021,8 +1020,8 @@ var _ = Describe("Inference Graph controller test", func() {
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer func() { _ = k8sClient.Delete(context.TODO(), configMap) }()
 			graphName := "igraw-exposed-to-private"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
 			ctx := context.Background()
 			ig := &v1alpha1.InferenceGraph{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1157,12 +1156,12 @@ var _ = Describe("Inference Graph controller test", func() {
 	})
 
 	Context("When creating an IG in Raw deployment mode with auth", func() {
-		var configMap *v1.ConfigMap
+		var configMap *corev1.ConfigMap
 		var inferenceGraph *v1alpha1.InferenceGraph
 		ctx := context.Background()
 
 		BeforeEach(func() {
-			configMap = &v1.ConfigMap{
+			configMap = &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -1234,7 +1233,7 @@ var _ = Describe("Inference Graph controller test", func() {
 		It("Should create a ServiceAccount for querying the Kubernetes API to check tokens", func() {
 			Eventually(func(g Gomega) {
 				saKey := types.NamespacedName{Namespace: inferenceGraph.GetNamespace(), Name: getServiceAccountNameForGraph(inferenceGraph)}
-				serviceAccount := v1.ServiceAccount{}
+				serviceAccount := corev1.ServiceAccount{}
 				g.Expect(k8sClient.Get(ctx, saKey, &serviceAccount)).To(Succeed())
 				g.Expect(serviceAccount.OwnerReferences).ToNot(BeEmpty())
 			}, timeout, interval).Should(Succeed())
@@ -1252,7 +1251,7 @@ var _ = Describe("Inference Graph controller test", func() {
 		})
 
 		It("Should delete the ServiceAccount when the InferenceGraph is deleted", func() {
-			serviceAccount := v1.ServiceAccount{}
+			serviceAccount := corev1.ServiceAccount{}
 			saKey := types.NamespacedName{Namespace: inferenceGraph.GetNamespace(), Name: getServiceAccountNameForGraph(inferenceGraph)}
 
 			Eventually(func() error {
@@ -1426,5 +1425,4 @@ var _ = Describe("Inference Graph controller test", func() {
 			Expect(actualKnServiceCreated.Spec).To(BeComparableTo(expectedKnService.Spec))
 		})
 	})
-
 })

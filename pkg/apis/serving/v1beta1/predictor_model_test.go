@@ -43,7 +43,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	mlserverRuntimeMMS := "mlserver-runtime-mms"
 	mlserverRuntime := "mlserver-runtime"
 	xgboostRuntime := "xgboost-runtime"
-	//clusterServingRuntimePrefix := "cluster-"
+	// clusterServingRuntimePrefix := "cluster-"
 	tritonRuntime := "triton-runtime"
 	testRuntime := "test-runtime"
 	huggingfaceMultinodeRuntime := "huggingface-multinode-runtime"
@@ -321,7 +321,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	}
 
 	// ODH does not support ClusterServingRuntimeList
-	//clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{
+	// clusterRuntimes := &v1alpha1.ClusterServingRuntimeList{
 	//	Items: []v1alpha1.ClusterServingRuntime{
 	//		{
 	//			ObjectMeta: metav1.ObjectMeta{
@@ -341,8 +341,8 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	//			},
 	//			Spec: servingRuntimeSpecs[xgboostRuntime],
 	//		},
-	//	},
-	//}
+	//	 },
+	// }
 
 	storageUri := "s3://test/model"
 	scenarios := map[string]struct {

@@ -41,11 +41,12 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	routev1 "github.com/openshift/api/route/v1"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
-	routev1 "github.com/openshift/api/route/v1"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -93,6 +94,7 @@ var _ = BeforeSuite(func() {
 	err = netv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 	err = routev1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
 	err = gatewayapiv1.Install(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 

@@ -79,8 +79,8 @@ func getAppProtocol(port corev1.ContainerPort) *string {
 }
 
 func createService(resourceType constants.ResourceType, componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, multiNodeEnabled bool, serviceConfig *v1beta1.ServiceConfig) []*corev1.Service {
-
+	podSpec *corev1.PodSpec, multiNodeEnabled bool, serviceConfig *v1beta1.ServiceConfig,
+) []*corev1.Service {
 	var svcList []*corev1.Service
 	var isWorkerContainer bool
 
@@ -109,8 +109,8 @@ func createService(resourceType constants.ResourceType, componentMeta metav1.Obj
 }
 
 func createDefaultSvc(resourceType constants.ResourceType, componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, serviceConfig *v1beta1.ServiceConfig) *corev1.Service {
-
+	podSpec *corev1.PodSpec, serviceConfig *v1beta1.ServiceConfig,
+) *corev1.Service {
 	var servicePorts []corev1.ServicePort
 
 	if len(podSpec.Containers) != 0 {

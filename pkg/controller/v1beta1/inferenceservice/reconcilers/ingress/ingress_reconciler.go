@@ -26,7 +26,6 @@ import (
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	"github.com/google/go-cmp/cmp"
-	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/testing/protocmp"
 	istiov1beta1 "istio.io/api/networking/v1beta1"
@@ -47,6 +46,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"

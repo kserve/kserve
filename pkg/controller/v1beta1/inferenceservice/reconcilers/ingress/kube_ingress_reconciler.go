@@ -22,10 +22,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
-	"github.com/kserve/kserve/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -38,6 +34,11 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // RawIngressReconciler reconciles the kubernetes ingress
@@ -153,10 +154,10 @@ func createRawURLODH(ctx context.Context, client client.Client, isvc *v1beta1.In
 	// return url, nil
 
 	// ODH changes
-	url := &knapis.URL{}
+	var url *knapis.URL
 	if val, ok := isvc.Labels[constants.NetworkVisibility]; ok && val == constants.ODHRouteEnabled {
 		var err error
-		url, err = v1beta1utils.GetRouteURLIfExists(client, isvc.ObjectMeta, isvc.Name)
+		url, err = v1beta1utils.GetRouteURLIfExists(ctx, client, isvc.ObjectMeta, isvc.Name)
 		if err != nil {
 			return nil, err
 		}

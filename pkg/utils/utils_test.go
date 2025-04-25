@@ -28,9 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials/gcs"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestFilterUtil(t *testing.T) {
@@ -728,7 +729,9 @@ func TestCheckEnvsToRemove(t *testing.T) {
 	assert.Equal(t, desired, keep)
 
 	// resultant list should contain both envs with the delete marker and the envs that needs to be kept as it is
-	finalList := append(desired, needsToBeRemoved...)
+	finalList := []corev1.EnvVar{}
+	finalList = append(finalList, desired...)
+	finalList = append(finalList, needsToBeRemoved...)
 	expected := []corev1.EnvVar{
 		{Name: "env2", Value: "value2"},
 		// the original value is "delete", so, it should be in the needs to  be removed list

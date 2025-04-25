@@ -50,7 +50,8 @@ type RawKubeReconciler struct {
 }
 
 // NewRawKubeReconciler creates raw kubernetes resource reconciler.
-func NewRawKubeReconciler(ctx context.Context, client client.Client,
+func NewRawKubeReconciler(ctx context.Context,
+	client client.Client,
 	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	resourceType constants.ResourceType,
@@ -87,7 +88,7 @@ func NewRawKubeReconciler(ctx context.Context, client client.Client,
 		log.Error(err1, "failed to get service config")
 	}
 
-	depl, err := deployment.NewDeploymentReconciler(client, clientset, scheme, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	depl, err := deployment.NewDeploymentReconciler(ctx, client, clientset, scheme, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
 	if err != nil {
 		return nil, err
 	}

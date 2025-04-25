@@ -42,7 +42,6 @@ import (
 
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -54,8 +53,9 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 )
 
 var _ = Describe("v1beta1 inference service controller", func() {
@@ -7091,9 +7091,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			// Create InferenceService
 			serviceName := "model"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "s3://test/mnist/export"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
 
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
@@ -7311,7 +7311,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-predictor", serviceName),
+													Name: serviceName + "-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -7332,7 +7332,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-predictor", serviceName),
+													Name: serviceName + "-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -7378,10 +7378,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						//URL: &apis.URL{
+						// URL: &apis.URL{
 						//	Scheme: "http",
 						//	Host:   fmt.Sprintf("%s-predictor.%s.%s", serviceName, serviceKey.Namespace, domain),
-						//},
+						// },
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
@@ -7468,7 +7468,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("Should have ingress/service/deployment created", func() {
 			By("By creating a new InferenceService with AutoscalerClassExternal")
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -7492,7 +7492,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    "kserve-container",
 								Image:   "tensorflow/serving:1.14.0",
@@ -7513,9 +7513,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-foo-external"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "s3://test/mnist/export"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -7536,7 +7536,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -7552,15 +7552,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
 				Should(Succeed())
 			var replicas int32 = 1
@@ -7579,7 +7578,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"app": "isvc." + predictorDeploymentKey.Name,
 						},
 					},
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
@@ -7595,8 +7594,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.OpenshiftServingCertAnnotation:                   predictorDeploymentKey.Name + constants.ServingCertSecretSuffix,
 							},
 						},
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
 								{
 									Image: "tensorflow/serving:" +
 										*isvc.Spec.Predictor.Model.RuntimeVersion,
@@ -7609,9 +7608,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_timeout_in_ms=60000",
 									},
 									Resources: defaultResource,
-									ReadinessProbe: &v1.Probe{
-										ProbeHandler: v1.ProbeHandler{
-											TCPSocket: &v1.TCPSocketAction{
+									ReadinessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											TCPSocket: &corev1.TCPSocketAction{
 												Port: intstr.IntOrString{
 													IntVal: 8080,
 												},
@@ -7632,7 +7631,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							RestartPolicy:                 "Always",
 							TerminationGracePeriodSeconds: &gracePeriod,
 							DNSPolicy:                     "ClusterFirst",
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								SELinuxOptions:      nil,
 								WindowsOptions:      nil,
 								RunAsUser:           nil,
@@ -7660,20 +7659,22 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
-			//check service
-			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			// check service
+			actualService := &corev1.Service{}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
 
-			expectedService := &v1.Service{
+			expectedService := &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      predictorServiceKey.Name,
 					Namespace: predictorServiceKey.Namespace,
 				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
 						{
 							Name:       "raw-foo-external-predictor",
 							Protocol:   "TCP",
@@ -7695,21 +7696,23 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.InternalTrafficPolicy = nil
 			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
-			//check isvc status
+			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
 			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
 					Type:   appsv1.DeploymentAvailable,
-					Status: v1.ConditionTrue,
+					Status: corev1.ConditionTrue,
 				},
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
+			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
+			predictorIngressKey := types.NamespacedName{
+				Name:      serviceKey.Name,
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
 				Should(Succeed())
 			expectedIngress := netv1.Ingress{
@@ -7792,10 +7795,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						//URL: &apis.URL{
+						// URL: &apis.URL{
 						//	Scheme: "http",
 						//	Host:   "raw-foo-external-predictor-default.example.com",
-						//},
+						// },
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
@@ -7812,10 +7815,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 			}, timeout).Should(BeEmpty())
 
-			//check HPA is not created
+			// check HPA is not created
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			predictorHPAKey := types.NamespacedName{Name: constants.DefaultPredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorHPAKey := types.NamespacedName{
+				Name:      constants.DefaultPredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(HaveOccurred())
 
@@ -7845,7 +7850,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("Should have ingress/service/deployment/hpa created with DeploymentStrategy", func() {
 			By("By creating a new InferenceService with DeploymentStrategy in PredictorSpec")
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -7869,7 +7874,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    "kserve-container",
 								Image:   "tensorflow/serving:1.14.0",
@@ -7890,11 +7895,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-foo-customized"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "s3://test/mnist/export"
-			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			var replicas int32 = 1
 			var revisionHistory int32 = 10
 			var progressDeadlineSeconds int32 = 600
@@ -7918,12 +7925,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							MaxReplicas: 3,
 							DeploymentStrategy: &appsv1.DeploymentStrategy{
 								Type: appsv1.RecreateDeploymentStrategyType,
-							}},
+							},
+						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -7939,10 +7947,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
@@ -7962,7 +7967,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"app": "isvc." + predictorDeploymentKey.Name,
 						},
 					},
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
@@ -7980,8 +7985,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.OpenshiftServingCertAnnotation:                   "raw-foo-customized-predictor-serving-cert",
 							},
 						},
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
 								{
 									Image: "tensorflow/serving:" +
 										*isvc.Spec.Predictor.Model.RuntimeVersion,
@@ -7994,9 +7999,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_timeout_in_ms=60000",
 									},
 									Resources: defaultResource,
-									ReadinessProbe: &v1.Probe{
-										ProbeHandler: v1.ProbeHandler{
-											TCPSocket: &v1.TCPSocketAction{
+									ReadinessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											TCPSocket: &corev1.TCPSocketAction{
 												Port: intstr.IntOrString{
 													IntVal: 8080,
 												},
@@ -8017,7 +8022,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							RestartPolicy:                 "Always",
 							TerminationGracePeriodSeconds: &gracePeriod,
 							DNSPolicy:                     "ClusterFirst",
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								SELinuxOptions:      nil,
 								WindowsOptions:      nil,
 								RunAsUser:           nil,
@@ -8042,20 +8047,22 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
-			//check service
-			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			// check service
+			actualService := &corev1.Service{}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
 
-			expectedService := &v1.Service{
+			expectedService := &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      predictorServiceKey.Name,
 					Namespace: predictorServiceKey.Namespace,
 				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
 						{
 							Name:       constants.PredictorServiceName(serviceName),
 							Protocol:   "TCP",
@@ -8066,7 +8073,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": fmt.Sprintf("isvc.%s", constants.PredictorServiceName(serviceName)),
+						"app": "isvc." + constants.PredictorServiceName(serviceName),
 					},
 				},
 			}
@@ -8077,21 +8084,23 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.InternalTrafficPolicy = nil
 			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
-			//check isvc status
+			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
 			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
 					Type:   appsv1.DeploymentAvailable,
-					Status: v1.ConditionTrue,
+					Status: corev1.ConditionTrue,
 				},
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
+			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
+			predictorIngressKey := types.NamespacedName{
+				Name:      serviceKey.Name,
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
 				Should(Succeed())
 			expectedIngress := netv1.Ingress{
@@ -8174,10 +8183,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						//URL: &apis.URL{
+						// URL: &apis.URL{
 						//	Scheme: "http",
 						//	Host:   "raw-foo-customized-predictor-default.example.com",
-						//},
+						// },
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
@@ -8194,15 +8203,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 			}, timeout).Should(BeEmpty())
 
-			//check HPA
+			// check HPA
 			var minReplicas int32 = 1
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
 			var stabilizationWindowSeconds int32 = 0
 			selectPolicy := autoscalingv2.MaxChangePolicySelect
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorHPAKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(Succeed())
 			expectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
@@ -8218,7 +8229,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							Type: autoscalingv2.ResourceMetricSourceType,
 							Resource: &autoscalingv2.ResourceMetricSource{
-								Name: v1.ResourceCPU,
+								Name: corev1.ResourceCPU,
 								Target: autoscalingv2.MetricTarget{
 									Type:               "Utilization",
 									AverageUtilization: &cpuUtilization,
@@ -8262,7 +8273,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("Should have no ingress created if labeled as cluster-local", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -8286,7 +8297,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    "kserve-container",
 								Image:   "tensorflow/serving:1.14.0",
@@ -8307,9 +8318,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-cluster-local"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "s3://test/mnist/export"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -8335,7 +8346,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -8351,14 +8362,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 			actualIngress := &netv1.Ingress{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
+			predictorIngressKey := types.NamespacedName{
+				Name:      serviceKey.Name,
+				Namespace: serviceKey.Namespace,
+			}
 			Consistently(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
 				ShouldNot(Succeed())
 		})
@@ -8367,7 +8377,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	Context("When updating ISVC envs", func() {
 		It("Should reconcile the deployment if isvc envs are updated", func() {
 			ctx := context.Background()
-			defaultEnvs := []v1.EnvVar{
+			defaultEnvs := []corev1.EnvVar{
 				{
 					Name:  "env1",
 					Value: "val1",
@@ -8383,7 +8393,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -8407,7 +8417,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    "kserve-container",
 								Image:   "tensorflow/serving:1.14.0",
@@ -8428,10 +8438,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-test-env"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
 			// create isvc
-			var storageUri = "s3://test/mnist/export"
+			storageUri := "s3://test/mnist/export"
 			isvcOriginal := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      serviceKey.Name,
@@ -8451,10 +8461,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
-
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 									Env:       defaultEnvs,
@@ -8471,22 +8480,21 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			inferenceService := &v1beta1.InferenceService{}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			deployed1 := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), predictorDeploymentKey, deployed1)
 			}, timeout, interval).Should(Succeed())
 			Expect(deployed1.Spec.Template.Spec.Containers[0].Env).To(ContainElements(defaultEnvs))
 
 			// Now, update the isvc with new env
-			newEnvs := []v1.EnvVar{
+			newEnvs := []corev1.EnvVar{
 				{
 					Name:  "newEnv1",
 					Value: "newValue1",
@@ -8510,16 +8518,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				isvcUpdated1 = inferenceService.DeepCopy()
 				isvcUpdated1.Spec.Predictor.Model.Env = append(isvcUpdated1.Spec.Predictor.Model.Env, newEnvs...)
 				err = k8sClient.Update(ctx, isvcUpdated1)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			// The deployment should be reconciled
 			deployed2 := &appsv1.Deployment{}
 			appendedEnvs := append(defaultEnvs, newEnvs...)
-			Eventually(func() []v1.EnvVar {
+			Eventually(func() []corev1.EnvVar {
 				_ = k8sClient.Get(context.TODO(), predictorDeploymentKey, deployed2)
 				return deployed2.Spec.Template.Spec.Containers[0].Env
 			}, timeout, interval).Should(ContainElements(appendedEnvs))
@@ -8540,14 +8545,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(isvcUpdated2.Spec.Predictor.Model.Env).ToNot(ContainElements(defaultEnvs))
 
 				err = k8sClient.Update(ctx, isvcUpdated2)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			deployed3 := &appsv1.Deployment{}
-			Eventually(func() []v1.EnvVar {
+			Eventually(func() []corev1.EnvVar {
 				_ = k8sClient.Get(context.TODO(), predictorDeploymentKey, deployed3)
 				return deployed3.Spec.Template.Spec.Containers[0].Env
 			}, timeout, interval).Should(Not(ContainElements(defaultEnvs)))
@@ -8576,7 +8578,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("Should have ingress/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -8600,7 +8602,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    "kserve-container",
 								Image:   "tensorflow/serving:1.14.0",
@@ -8622,9 +8624,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			// Create InferenceService
 			serviceName := "raw-foo-no-ingress-class"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "s3://test/mnist/export"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -8647,7 +8649,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -8663,15 +8665,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
 				Should(Succeed())
 			var replicas int32 = 1
@@ -8690,7 +8691,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"app": "isvc." + predictorDeploymentKey.Name,
 						},
 					},
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
@@ -8708,8 +8709,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.OpenshiftServingCertAnnotation:                   predictorDeploymentKey.Name + constants.ServingCertSecretSuffix,
 							},
 						},
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
 								{
 									Image: "tensorflow/serving:" +
 										*isvc.Spec.Predictor.Model.RuntimeVersion,
@@ -8722,9 +8723,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--rest_api_timeout_in_ms=60000",
 									},
 									Resources: defaultResource,
-									ReadinessProbe: &v1.Probe{
-										ProbeHandler: v1.ProbeHandler{
-											TCPSocket: &v1.TCPSocketAction{
+									ReadinessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											TCPSocket: &corev1.TCPSocketAction{
 												Port: intstr.IntOrString{
 													IntVal: 8080,
 												},
@@ -8745,7 +8746,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							RestartPolicy:                 "Always",
 							TerminationGracePeriodSeconds: &gracePeriod,
 							DNSPolicy:                     "ClusterFirst",
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								SELinuxOptions:      nil,
 								WindowsOptions:      nil,
 								RunAsUser:           nil,
@@ -8773,20 +8774,22 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualDeployment.Spec).To(Equal(expectedDeployment.Spec))
 
-			//check service
-			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			// check service
+			actualService := &corev1.Service{}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
 
-			expectedService := &v1.Service{
+			expectedService := &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      predictorServiceKey.Name,
 					Namespace: predictorServiceKey.Namespace,
 				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
 						{
 							Name:       constants.PredictorServiceName(serviceName),
 							Protocol:   "TCP",
@@ -8797,7 +8800,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": fmt.Sprintf("isvc.%s", constants.PredictorServiceName(serviceName)),
+						"app": "isvc." + constants.PredictorServiceName(serviceName),
 					},
 				},
 			}
@@ -8808,28 +8811,30 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualService.Spec.InternalTrafficPolicy = nil
 			Expect(actualService.Spec).To(Equal(expectedService.Spec))
 
-			//check isvc status
+			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
 			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
 					Type:   appsv1.DeploymentAvailable,
-					Status: v1.ConditionTrue,
+					Status: corev1.ConditionTrue,
 				},
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			//check ingress
+			// check ingress
 			pathType := netv1.PathTypePrefix
 			actualIngress := &netv1.Ingress{}
-			predictorIngressKey := types.NamespacedName{Name: serviceKey.Name,
-				Namespace: serviceKey.Namespace}
+			predictorIngressKey := types.NamespacedName{
+				Name:      serviceKey.Name,
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorIngressKey, actualIngress) }, timeout).
 				Should(Succeed())
 			expectedIngress := netv1.Ingress{
 				Spec: netv1.IngressSpec{
 					Rules: []netv1.IngressRule{
 						{
-							Host: fmt.Sprintf("%s-default.example.com", serviceName),
+							Host: serviceName + "-default.example.com",
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -8838,7 +8843,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-predictor", serviceName),
+													Name: serviceName + "-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -8850,7 +8855,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							},
 						},
 						{
-							Host: fmt.Sprintf("%s-predictor-default.example.com", serviceName),
+							Host: serviceName + "-predictor-default.example.com",
 							IngressRuleValue: netv1.IngressRuleValue{
 								HTTP: &netv1.HTTPIngressRuleValue{
 									Paths: []netv1.HTTPIngressPath{
@@ -8859,7 +8864,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-predictor", serviceName),
+													Name: serviceName + "-predictor",
 													Port: netv1.ServiceBackendPort{
 														Number: 80,
 													},
@@ -8905,10 +8910,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						//URL: &apis.URL{
+						// URL: &apis.URL{
 						//	Scheme: "http",
 						//	Host:   fmt.Sprintf("%s-predictor-default.example.com", serviceName),
-						//},
+						// },
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
@@ -8925,15 +8930,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 			}, timeout).Should(BeEmpty())
 
-			//check HPA
+			// check HPA
 			var minReplicas int32 = 1
 			var maxReplicas int32 = 3
 			var cpuUtilization int32 = 75
 			var stabilizationWindowSeconds int32 = 0
 			selectPolicy := autoscalingv2.MaxChangePolicySelect
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			predictorHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorHPAKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(Succeed())
 			expectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
@@ -8949,7 +8956,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							Type: autoscalingv2.ResourceMetricSourceType,
 							Resource: &autoscalingv2.ResourceMetricSource{
-								Name: v1.ResourceCPU,
+								Name: corev1.ResourceCPU,
 								Target: autoscalingv2.MetricTarget{
 									Type:               "Utilization",
 									AverageUtilization: &cpuUtilization,
@@ -9001,7 +9008,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		It("Should have ingress/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -9025,7 +9032,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    "kserve-container",
 								Image:   "tensorflow/serving:1.14.0",
@@ -9046,9 +9053,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "raw-auth"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "s3://test/mnist/export"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -9072,7 +9079,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("1.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name:      constants.InferenceServiceContainerName,
 									Resources: defaultResource,
 								},
@@ -9088,17 +9095,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, serviceKey, inferenceService)
-				if err != nil {
-					return false
-				}
-				return true
+				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
-			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout).
-				Should(Succeed())
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment)
+			}, timeout).Should(Succeed())
 			var replicas int32 = 1
 			var revisionHistory int32 = 10
 			var progressDeadlineSeconds int32 = 600
@@ -9115,7 +9122,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							"app": "isvc." + predictorDeploymentKey.Name,
 						},
 					},
-					Template: v1.PodTemplateSpec{
+					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
@@ -9133,8 +9140,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								"service.beta.openshift.io/serving-cert-secret-name":       predictorDeploymentKey.Name + constants.ServingCertSecretSuffix,
 							},
 						},
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
 								{
 									Image: "tensorflow/serving:" +
 										*isvc.Spec.Predictor.Model.RuntimeVersion,
@@ -9146,16 +9153,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										"--model_base_path=" + constants.DefaultModelLocalMountPath,
 										"--rest_api_timeout_in_ms=60000",
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:      "proxy-tls",
 											MountPath: "/etc/tls/private",
 										},
 									},
 									Resources: defaultResource,
-									ReadinessProbe: &v1.Probe{
-										ProbeHandler: v1.ProbeHandler{
-											TCPSocket: &v1.TCPSocketAction{
+									ReadinessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											TCPSocket: &corev1.TCPSocketAction{
 												Port: intstr.IntOrString{
 													IntVal: 8080,
 												},
@@ -9183,23 +9190,23 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										`--tls-cert=/etc/tls/private/tls.crt`,
 										`--tls-key=/etc/tls/private/tls.key`,
 										// omit cookie secret arg in unit test as it is generated randomly
-										//`--cookie-secret=SECRET`,
+										// `--cookie-secret=SECRET`,
 										`--openshift-delegate-urls={"/": {"namespace": "` + serviceKey.Namespace + `", "resource": "inferenceservices", "group": "serving.kserve.io", "name": "` + serviceName + `", "verb": "get"}}`,
 										`--openshift-sar={"namespace": "` + serviceKey.Namespace + `", "resource": "inferenceservices", "group": "serving.kserve.io", "name": "` + serviceName + `", "verb": "get"}`,
 									},
-									Ports: []v1.ContainerPort{
+									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: constants.OauthProxyPort,
 											Name:          "https",
-											Protocol:      v1.ProtocolTCP,
+											Protocol:      corev1.ProtocolTCP,
 										},
 									},
-									LivenessProbe: &v1.Probe{
-										ProbeHandler: v1.ProbeHandler{
-											HTTPGet: &v1.HTTPGetAction{
+									LivenessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/oauth/healthz",
 												Port:   intstr.FromInt(constants.OauthProxyPort),
-												Scheme: v1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTPS,
 											},
 										},
 										InitialDelaySeconds: 30,
@@ -9208,12 +9215,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										SuccessThreshold:    1,
 										FailureThreshold:    3,
 									},
-									ReadinessProbe: &v1.Probe{
-										ProbeHandler: v1.ProbeHandler{
-											HTTPGet: &v1.HTTPGetAction{
+									ReadinessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/oauth/healthz",
 												Port:   intstr.FromInt(constants.OauthProxyPort),
-												Scheme: v1.URISchemeHTTPS,
+												Scheme: corev1.URISchemeHTTPS,
 											},
 										},
 										InitialDelaySeconds: 5,
@@ -9222,17 +9229,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 										SuccessThreshold:    1,
 										FailureThreshold:    3,
 									},
-									Resources: v1.ResourceRequirements{
-										Limits: v1.ResourceList{
-											v1.ResourceCPU:    resource.MustParse(constants.OauthProxyResourceCPULimit),
-											v1.ResourceMemory: resource.MustParse(constants.OauthProxyResourceMemoryLimit),
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse(constants.OauthProxyResourceCPULimit),
+											corev1.ResourceMemory: resource.MustParse(constants.OauthProxyResourceMemoryLimit),
 										},
-										Requests: v1.ResourceList{
-											v1.ResourceCPU:    resource.MustParse(constants.OauthProxyResourceCPURequest),
-											v1.ResourceMemory: resource.MustParse(constants.OauthProxyResourceMemoryRequest),
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse(constants.OauthProxyResourceCPURequest),
+											corev1.ResourceMemory: resource.MustParse(constants.OauthProxyResourceMemoryRequest),
 										},
 									},
-									VolumeMounts: []v1.VolumeMount{
+									VolumeMounts: []corev1.VolumeMount{
 										{
 											Name:      "proxy-tls",
 											MountPath: "/etc/tls/private",
@@ -9243,11 +9250,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 									ImagePullPolicy:          "IfNotPresent",
 								},
 							},
-							Volumes: []v1.Volume{
+							Volumes: []corev1.Volume{
 								{
 									Name: "proxy-tls",
-									VolumeSource: v1.VolumeSource{
-										Secret: &v1.SecretVolumeSource{
+									VolumeSource: corev1.VolumeSource{
+										Secret: &corev1.SecretVolumeSource{
 											SecretName:  predictorDeploymentKey.Name + constants.ServingCertSecretSuffix,
 											DefaultMode: func(i int32) *int32 { return &i }(420),
 										},
@@ -9258,7 +9265,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							RestartPolicy:                 "Always",
 							TerminationGracePeriodSeconds: &gracePeriod,
 							DNSPolicy:                     "ClusterFirst",
-							SecurityContext: &v1.PodSecurityContext{
+							SecurityContext: &corev1.PodSecurityContext{
 								SELinuxOptions:      nil,
 								WindowsOptions:      nil,
 								RunAsUser:           nil,
@@ -9290,20 +9297,22 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualDep := v1beta1utils.RemoveCookieSecretArg(*cleanedDep)
 			Expect(actualDep.Spec).To(Equal(expectedDeployment.Spec))
 
-			//check service
-			actualService := &v1.Service{}
-			predictorServiceKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			// check service
+			actualService := &corev1.Service{}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
 				Should(Succeed())
 
-			expectedService := &v1.Service{
+			expectedService := &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      predictorServiceKey.Name,
 					Namespace: predictorServiceKey.Namespace,
 				},
-				Spec: v1.ServiceSpec{
-					Ports: []v1.ServicePort{
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
 						{
 							Name:       "https",
 							Protocol:   "TCP",
@@ -9314,7 +9323,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Type:            "ClusterIP",
 					SessionAffinity: "None",
 					Selector: map[string]string{
-						"app": fmt.Sprintf("isvc.%s", constants.PredictorServiceName(serviceName)),
+						"app": "isvc." + constants.PredictorServiceName(serviceName),
 					},
 				},
 			}
@@ -9368,7 +9377,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Conditions: []routev1.RouteIngressCondition{
 							{
 								Type:   routev1.RouteAdmitted,
-								Status: v1.ConditionTrue,
+								Status: corev1.ConditionTrue,
 							},
 						},
 					},
@@ -9376,12 +9385,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(ctx, route)).Should(Succeed())
 
-			//check isvc status
+			// check isvc status
 			updatedDeployment := actualDeployment.DeepCopy()
 			updatedDeployment.Status.Conditions = []appsv1.DeploymentCondition{
 				{
 					Type:   appsv1.DeploymentAvailable,
-					Status: v1.ConditionTrue,
+					Status: corev1.ConditionTrue,
 				},
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
@@ -9417,10 +9426,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						//URL: &apis.URL{
+						// URL: &apis.URL{
 						//	Scheme: "http",
 						//	Host:   "raw-auth-predictor-default.example.com",
-						//},
+						// },
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
@@ -9436,7 +9445,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
 			}, timeout).Should(BeEmpty())
-
 		})
 	})
 	Context("When creating inference service with raw kube predictor with workerSpec", func() {
@@ -9830,7 +9838,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	Context("When creating an inference service with modelcar and raw deployment", func() {
 		It("Should only have the ImagePullSecrets that are specified in the InferenceService", func() {
 			By("Updating an InferenceService with a new ImagePullSecret and checking the deployment")
-			var configMap = &v1.ConfigMap{
+			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      constants.InferenceServiceConfigMapName,
 					Namespace: constants.KServeNamespace,
@@ -9853,7 +9861,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						},
 					},
 					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []v1.Container{
+						Containers: []corev1.Container{
 							{
 								Name:    constants.InferenceServiceContainerName,
 								Image:   "kserve/vllm:latest",
@@ -9872,9 +9880,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			k8sClient.Create(context.TODO(), servingRuntime)
 			defer k8sClient.Delete(context.TODO(), servingRuntime)
 			serviceName := "modelcar-raw-deployment"
-			var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: constants.KServeNamespace}}
-			var serviceKey = expectedRequest.NamespacedName
-			var storageUri = "oci://test/mnist/export"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: constants.KServeNamespace}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "oci://test/mnist/export"
 			ctx := context.Background()
 			isvc := &v1beta1.InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -9894,7 +9902,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							MaxReplicas: 2,
 						},
 						PodSpec: v1beta1.PodSpec{
-							ImagePullSecrets: []v1.LocalObjectReference{
+							ImagePullSecrets: []corev1.LocalObjectReference{
 								{Name: "isvc-image-pull-secret"},
 							},
 						},
@@ -9905,13 +9913,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
 								StorageURI:     &storageUri,
 								RuntimeVersion: proto.String("0.14.0"),
-								Container: v1.Container{
+								Container: corev1.Container{
 									Name: constants.InferenceServiceContainerName,
-									Resources: v1.ResourceRequirements{
-										Limits: v1.ResourceList{
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
 											constants.NvidiaGPUResourceType: resource.MustParse("1"),
 										},
-										Requests: v1.ResourceList{
+										Requests: corev1.ResourceList{
 											constants.NvidiaGPUResourceType: resource.MustParse("1"),
 										},
 									},
@@ -9933,8 +9941,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace}
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorDeploymentKey, actualDeployment) }, timeout, interval).
 				Should(Succeed())
 
@@ -9943,7 +9953,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			Expect(k8sClient.Get(ctx, serviceKey, inferenceService)).Should(Succeed())
 			updateForInferenceService := inferenceService.DeepCopy()
-			updateForInferenceService.Spec.Predictor.PodSpec.ImagePullSecrets = []v1.LocalObjectReference{
+			updateForInferenceService.Spec.Predictor.PodSpec.ImagePullSecrets = []corev1.LocalObjectReference{
 				{Name: "new-image-pull-secret"},
 			}
 			expectedImagePullSecrets := updateForInferenceService.Spec.Predictor.PodSpec.ImagePullSecrets
@@ -9961,7 +9971,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				return reflect.DeepEqual(updatedDeployment.Spec.Template.Spec.ImagePullSecrets, expectedImagePullSecrets), nil
 			}, timeout, interval).Should(BeTrue())
-
 		})
 	})
 })
@@ -9998,6 +10007,7 @@ func verifyTensorParallelSizeDeployments(actualDefaultDeployment *appsv1.Deploym
 	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Limits[gpuResourceType]).Should(Equal(gpuResourceQuantity))
 	Expect(actualWorkerDeployment.Spec.Template.Spec.Containers[0].Resources.Requests[gpuResourceType]).Should(Equal(gpuResourceQuantity))
 }
+
 func int32Ptr(i int32) *int32 {
 	return &i
 }

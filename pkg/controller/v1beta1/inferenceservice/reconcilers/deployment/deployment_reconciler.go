@@ -68,15 +68,17 @@ const (
 	oauthProxy    = "oauthProxy"
 )
 
-func NewDeploymentReconciler(client kclient.Client,
+func NewDeploymentReconciler(ctx context.Context,
+	client kclient.Client,
 	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	resourceType constants.ResourceType,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) (*DeploymentReconciler, error) {
-	deploymentList, err := createRawDeploymentODH(clientset, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+) (*DeploymentReconciler, error) {
+	deploymentList, err := createRawDeploymentODH(ctx, clientset, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -89,13 +91,16 @@ func NewDeploymentReconciler(client kclient.Client,
 	}, nil
 }
 
-func createRawDeploymentODH(clientset kubernetes.Interface, resourceType constants.ResourceType, componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
+func createRawDeploymentODH(ctx context.Context,
+	clientset kubernetes.Interface,
+	resourceType constants.ResourceType,
+	componentMeta metav1.ObjectMeta,
+	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) ([]*appsv1.Deployment, error) {
-	deploymentList, err := createRawDeployment(componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
-	if err != nil {
-		return nil, err
-	}
+	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
+) ([]*appsv1.Deployment, error) {
+	deploymentList := createRawDeployment(componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+
 	enableAuth := false
 	// Deployment list is for multi-node, we only need to add oauth proxy and serving sercret certs to the head deployment
 	headDeployment := deploymentList[0]
@@ -103,7 +108,7 @@ func createRawDeploymentODH(clientset kubernetes.Interface, resourceType constan
 		enableAuth = true
 
 		if resourceType != constants.InferenceGraphResource { // InferenceGraphs don't use oauth-proxy
-			err := addOauthContainerToDeployment(clientset, headDeployment, componentMeta, componentExt, podSpec)
+			err := addOauthContainerToDeployment(ctx, clientset, headDeployment, componentMeta, componentExt, podSpec)
 			if err != nil {
 				return nil, err
 			}
@@ -118,7 +123,7 @@ func createRawDeploymentODH(clientset kubernetes.Interface, resourceType constan
 func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
-) ([]*appsv1.Deployment, error) {
+) []*appsv1.Deployment {
 	var deploymentList []*appsv1.Deployment
 	var workerNodeReplicas int32
 	var tensorParallelSize string
@@ -144,10 +149,8 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 		}
 	}
 
-	defaultDeployment, err := createRawDefaultDeployment(componentMeta, componentExt, podSpec)
-	if err != nil {
-		return nil, err
-	}
+	defaultDeployment := createRawDefaultDeployment(componentMeta, componentExt, podSpec)
+
 	if multiNodeEnabled {
 		// Use defaut value(1) if tensor-parallel-size is not set (gpu count)
 		tensorParallelSize = constants.DefaultTensorParallelSize
@@ -174,13 +177,13 @@ func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta me
 		addGPUResourceToDeployment(workerDeployment, constants.WorkerContainerName, tensorParallelSize)
 		deploymentList = append(deploymentList, workerDeployment)
 	}
-	return deploymentList, nil
+	return deploymentList
 }
 
 func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
-) (*appsv1.Deployment, error) {
+) *appsv1.Deployment {
 	podMetadata := componentMeta
 	podMetadata.Labels["app"] = constants.GetRawServiceLabel(componentMeta.Name)
 	setDefaultPodSpec(podSpec)
@@ -207,7 +210,7 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 		deployment.Spec.Replicas = ptr.To(*componentExt.MinReplicas)
 	}
 
-	return deployment, nil
+	return deployment
 }
 
 func mountServingSecretVolumeToDeployment(deployment *appsv1.Deployment, componentMeta metav1.ObjectMeta, resourceType constants.ResourceType) {
@@ -240,8 +243,13 @@ func mountServingSecretVolumeToDeployment(deployment *appsv1.Deployment, compone
 	deployment.Spec.Template.Spec = *updatedPodSpec
 }
 
-func addOauthContainerToDeployment(clientset kubernetes.Interface, deployment *appsv1.Deployment, componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec) error {
+func addOauthContainerToDeployment(ctx context.Context,
+	clientset kubernetes.Interface,
+	deployment *appsv1.Deployment,
+	componentMeta metav1.ObjectMeta,
+	componentExt *v1beta1.ComponentExtensionSpec,
+	podSpec *corev1.PodSpec,
+) error {
 	var isvcname string
 	var upstreamPort string
 	var sa string
@@ -267,7 +275,7 @@ func addOauthContainerToDeployment(clientset kubernetes.Interface, deployment *a
 		} else {
 			sa = podSpec.ServiceAccountName
 		}
-		oauthProxyContainer, err := generateOauthProxyContainer(clientset, isvcname, componentMeta.Namespace, upstreamPort, sa)
+		oauthProxyContainer, err := generateOauthProxyContainer(ctx, clientset, isvcname, componentMeta.Namespace, upstreamPort, sa)
 		if err != nil {
 			// return the deployment without the oauth proxy container if there was an error
 			// This is required for the deployment_reconciler_tests
@@ -341,8 +349,8 @@ func GetKServeContainerPort(podSpec *corev1.PodSpec) string {
 	return kserveContainerPort
 }
 
-func generateOauthProxyContainer(clientset kubernetes.Interface, isvc string, namespace string, upstreamPort string, sa string) (*corev1.Container, error) {
-	isvcConfigMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+func generateOauthProxyContainer(ctx context.Context, clientset kubernetes.Interface, isvc string, namespace string, upstreamPort string, sa string) (*corev1.Container, error) {
+	isvcConfigMap, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +361,7 @@ func generateOauthProxyContainer(clientset kubernetes.Interface, isvc string, na
 	}
 	if oauthProxyConfig.Image == "" || oauthProxyConfig.MemoryRequest == "" || oauthProxyConfig.MemoryLimit == "" ||
 		oauthProxyConfig.CpuRequest == "" || oauthProxyConfig.CpuLimit == "" {
-		return nil, fmt.Errorf("one or more oauthProxyConfig fields are empty")
+		return nil, errors.New("one or more oauthProxyConfig fields are empty")
 	}
 	oauthImage := oauthProxyConfig.Image
 	oauthMemoryRequest := oauthProxyConfig.MemoryRequest
@@ -619,7 +627,6 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 		// Reconcile Deployment
 		originalDeployment := &appsv1.Deployment{}
 		checkResult, _, err := r.checkDeploymentExist(ctx, r.client, deployment)
-
 		if err != nil {
 			return nil, err
 		}
@@ -631,7 +638,7 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 			opErr = r.client.Create(ctx, deployment)
 		case constants.CheckResultUpdate:
 			// get the current deployment
-			_ = r.client.Get(context.TODO(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, originalDeployment)
+			_ = r.client.Get(ctx, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, originalDeployment)
 			// we need to remove the Replicas field from the deployment spec
 
 			// Check if there are any envs to remove
@@ -752,7 +759,7 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 					return nil, err
 				}
 			}
-			opErr = r.client.Patch(context.TODO(), deployment, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
+			opErr = r.client.Patch(ctx, deployment, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
 		}
 
 		if opErr != nil {

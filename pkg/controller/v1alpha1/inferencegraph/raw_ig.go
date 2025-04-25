@@ -19,7 +19,6 @@ package inferencegraph
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -126,7 +125,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 		// In KServe v0.14 there is no way for users to set the ServiceAccount for an
 		// InferenceGraph. In ODH this is used at our advantage to set a non-default SA
 		// and bind needed privileges for the auth verification.
-		podSpec.ServiceAccountName = fmt.Sprintf("%s-auth-verifier", graph.GetName())
+		podSpec.ServiceAccountName = graph.GetName() + "-auth-verifier"
 	}
 
 	return podSpec
@@ -186,7 +185,6 @@ func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, cl
 
 	// create the reconciler
 	reconciler, err := raw.NewRawKubeReconciler(ctx, cl, clientset, scheme, constants.InferenceGraphResource, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
-
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
 	}
@@ -356,7 +354,7 @@ func deleteGraphServiceAccount(ctx context.Context, clientset kubernetes.Interfa
 }
 
 func getServiceAccountNameForGraph(graph *v1alpha1.InferenceGraph) string {
-	return fmt.Sprintf("%s-auth-verifier", graph.GetName())
+	return graph.GetName() + "-auth-verifier"
 }
 
 /*

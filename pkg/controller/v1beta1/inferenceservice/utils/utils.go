@@ -278,11 +278,11 @@ func GetServingRuntime(ctx context.Context, cl client.Client, name string, names
 	}
 
 	// ODH does not support ClusterServingRuntimes
-	//clusterRuntime := &v1alpha1.ClusterServingRuntime{}
-	//err = cl.Get(ctx, client.ObjectKey{Name: name}, clusterRuntime)
-	//if err == nil {
+	// clusterRuntime := &v1alpha1.ClusterServingRuntime{}
+	// err = cl.Get(ctx, client.ObjectKey{Name: name}, clusterRuntime)
+	// if err == nil {
 	//	return &clusterRuntime.Spec, nil
-	//} else if !apierrors.IsNotFound(err) {
+	// } else if !apierrors.IsNotFound(err) {
 	//	return nil, err
 	//}
 	return nil, goerrors.New("No ServingRuntimes with the name: " + name)
@@ -473,11 +473,11 @@ func RemoveCookieSecretArg(deployment appsv1.Deployment) *appsv1.Deployment {
 }
 
 // Check for route created by odh-model-controller. If the route is found, use it as the isvc URL
-func GetRouteURLIfExists(cli client.Client, metadata metav1.ObjectMeta, isvcName string) (*apis.URL, error) {
+func GetRouteURLIfExists(ctx context.Context, cli client.Client, metadata metav1.ObjectMeta, isvcName string) (*apis.URL, error) {
 	foundRoute := false
 	routeReady := false
 	route := &routev1.Route{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: isvcName, Namespace: metadata.Namespace}, route)
+	err := cli.Get(ctx, types.NamespacedName{Name: isvcName, Namespace: metadata.Namespace}, route)
 	if err != nil {
 		return nil, err
 	}
