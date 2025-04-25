@@ -30,7 +30,19 @@ POETRY_VERSION ?= 1.8.3
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT): $(LOCALBIN)
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,$(GOLANGCI_LINT_VERSION))
+	@if [ -x "$(GOLANGCI_LINT)" ]; then \
+    		echo "golangci-lint already installed at $(GOLANGCI_LINT)"; \
+    	else \
+    		version=$$(curl -s https://api.github.com/repos/golangci/golangci-lint/tags \
+    			| grep 'name' \
+    			| cut -d '"' -f 4 \
+    			| grep -E "^$(GOLANGCI_LINT_VERSION)\.[0-9]+$$" \
+    			| sort -Vr \
+    			| head -n 1); \
+    		echo "Installing golangci-lint $$version..."; \
+    		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s $$version; \
+    		mv ./bin/golangci-lint $(GOLANGCI_LINT); \
+    	fi
 
 ## Download controller-gen locally if necessary.
 .PHONY: controller-gen
