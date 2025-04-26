@@ -646,6 +646,13 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphStatus(ref common.ReferenceC
 							Ref:         ref("knative.dev/pkg/apis.URL"),
 						},
 					},
+					"deploymentMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InferenceGraph DeploymentMode",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -5722,6 +5729,13 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref common.Reference
 							Description: "Model related statuses",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus"),
+						},
+					},
+					"deploymentMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InferenceService DeploymentMode",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
