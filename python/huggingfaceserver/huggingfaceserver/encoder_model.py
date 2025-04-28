@@ -302,7 +302,11 @@ class HuggingfaceEncoderModel(
             for i in range(num_rows):
                 out = outputs[i].unsqueeze(0)
                 if self.return_probabilities:
-                    inferences.append(dict(enumerate(out.numpy().flatten())))
+                    # Handle both CPU and GPU tensors
+                    probs = torch.softmax(out, dim=-1)
+                    if probs.is_cuda:
+                        probs = probs.cpu()  # Move to CPU for numpy conversion
+                    inferences.append({i: float(prob) for i, prob in enumerate(probs[0])})
                 else:
                     predicted_idx = out.argmax().item()
                     inferences.append(predicted_idx)
@@ -313,13 +317,16 @@ class HuggingfaceEncoderModel(
                 mask_pos = (input_ids == self._tokenizer.mask_token_id)[i]
                 mask_token_index = mask_pos.nonzero(as_tuple=True)[0]
                 if self.return_probabilities:
+                    # Handle both CPU and GPU tensors
                     probabilities = torch.softmax(outputs[i, mask_token_index], dim=-1)
+                    if probabilities.is_cuda:
+                        probabilities = probabilities.cpu()  # Move to CPU for numpy conversion
                     decoded_probabilities = []
                     for idx, probs in enumerate(probabilities):
                         token_probs = []
                         for token_id, prob in enumerate(probs):
                             token = self._tokenizer.decode([token_id])
-                            token_probs.append({f"{token}": f"{prob.item():.4f}"})
+                            token_probs.append({f"{token}": float(prob)})
                         decoded_probabilities.append(token_probs)
                     inferences.append(decoded_probabilities)
                 else:
@@ -331,8 +338,12 @@ class HuggingfaceEncoderModel(
             for i in range(num_rows):
                 output = outputs[i].unsqueeze(0)
                 if self.return_probabilities:
-                    for values in output.tolist():
-                        res = [{k: v for k, v in enumerate(value)} for value in values]
+                    # Handle both CPU and GPU tensors
+                    probs = torch.softmax(output, dim=-1)
+                    if probs.is_cuda:
+                        probs = probs.cpu()  # Move to CPU for numpy conversion
+                    for values in probs:
+                        res = [{k: float(v) for k, v in enumerate(value)} for value in values]
                         inferences.append([res])
                 else:
                     predictions = torch.argmax(output, dim=2)
@@ -343,6 +354,8 @@ class HuggingfaceEncoderModel(
             outputs = _mean_pooling(outputs, context["attention_mask"])
             # Normalize embeddings
             outputs = F.normalize(outputs, p=2, dim=1)
+            if outputs.is_cuda:
+                outputs = outputs.cpu()  # Move to CPU for numpy conversion
             num_rows, _ = outputs.shape
             for i in range(num_rows):
                 inferences.append(outputs[i].tolist())
