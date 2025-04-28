@@ -43,9 +43,14 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
-COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
-COPY --from=builder kserve kserve
-COPY --from=builder sklearnserver sklearnserver
+# Make all files also owned by the root group
+COPY --from=builder --chown=1000:0 $VIRTUAL_ENV $VIRTUAL_ENV
+COPY --from=builder --chown=1000:0 kserve kserve/
+COPY --from=builder --chown=1000:0 sklearnserver sklearnserver/
+
+# Give users in the root group the same permissions as the users
+# to allow running the image with arbitrary UIDs
+RUN chmod -R g=u "$VIRTUAL_ENV" kserve sklearnserver
 
 USER 1000
 ENTRYPOINT ["python", "-m", "sklearnserver"]
