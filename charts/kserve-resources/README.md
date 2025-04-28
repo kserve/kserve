@@ -67,11 +67,12 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.inferenceservice.resources.limits.memory | string | `"2Gi"` |  |
 | kserve.inferenceservice.resources.requests.cpu | string | `"1"` |  |
 | kserve.inferenceservice.resources.requests.memory | string | `"2Gi"` |  |
-| kserve.localmodel.agent.affinity | object | `{}` |  |
-| kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
-| kserve.localmodel.agent.nodeSelector | object | `{}` |  |
 | kserve.localmodel.agent.reconcilationFrequencyInSecs | int | `60` |  |
+| kserve.localmodel.agent.resources.limits.cpu | string | `"100m"` |  |
+| kserve.localmodel.agent.resources.limits.memory | string | `"300Mi"` |  |
+| kserve.localmodel.agent.resources.requests.cpu | string | `"100m"` |  |
+| kserve.localmodel.agent.resources.requests.memory | string | `"200Mi"` |  |
 | kserve.localmodel.agent.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.localmodel.agent.securityContext.runAsUser | int | `1000` |  |
 | kserve.localmodel.agent.tag | string | `"v0.15.2"` |  |

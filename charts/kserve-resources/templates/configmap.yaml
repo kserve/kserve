@@ -676,6 +676,11 @@ data:
       "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }},
       "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }},
       "disableVolumeManagement": {{ .Values.kserve.localmodel.disableVolumeManagement }}
+      "localModelAgentImage": "{{ .Values.kserve.localmodel.agent.image }}:{{ .Values.kserve.localmodel.agent.tag }}",
+      "localModelAgentCpuRequest": "{{ .Values.kserve.localmodel.agent.resources.requests.cpu }}",
+      "localModelAgentMemoryRequest": "{{ .Values.kserve.localmodel.agent.resources.requests.memory }}",
+      "localModelAgentCpuLimit": "{{ .Values.kserve.localmodel.agent.resources.limits.cpu }}",
+      "localModelAgentMemoryLimit": "{{ .Values.kserve.localmodel.agent.resources.limits.memory }}"
     }
   security: |-
     {

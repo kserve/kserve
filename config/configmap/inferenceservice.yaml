@@ -711,10 +711,15 @@ data:
 
   localModel: |-
     {
-      "enabled": false,
+      "enabled": true,
       "jobNamespace": "kserve-localmodel-jobs",
       "defaultJobImage" : "kserve/storage-initializer:latest",
-      "fsGroup": 1000
+      "fsGroup": 1000,
+      "localModelAgentImage": "kserve/kserve-localmodelnode-agent:latest",
+      "localModelAgentCpuRequest": "100m",
+      "localModelAgentMemoryRequest": "200Mi",
+      "localModelAgentCpuLimit": "100m",
+      "localModelAgentMemoryLimit": "300Mi"
     }
 
   security: |-

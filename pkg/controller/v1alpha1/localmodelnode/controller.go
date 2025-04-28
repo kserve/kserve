@@ -351,7 +351,6 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalMod
 			c.Log.Info("Removing model", "model", modelName)
 			if err := fsHelper.removeModel(modelName); err != nil {
 				c.Log.Error(err, "Failed to remove model directory", "model", modelName)
-				// TODO Reviewer: Is the err ignored intentionally?
 				return err
 			}
 		}

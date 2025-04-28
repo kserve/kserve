@@ -36,6 +36,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/localmodelnodegroup"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
@@ -143,6 +144,18 @@ func main() {
 		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "LocalModel")
+		os.Exit(1)
+	}
+
+	// Setup LocalModelNodeGroup controller
+	setupLog.Info("Setting up v1alpha1 LocalModelNodeGroup controller")
+	if err = (&localmodelnodegroup.LocalModelNodeGroupReconciler{
+		Client:    mgr.GetClient(),
+		Clientset: clientSet,
+		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("LocalModelNodeGroup"),
+		Scheme:    mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "LocalModelNodeGroup")
 		os.Exit(1)
 	}
 
