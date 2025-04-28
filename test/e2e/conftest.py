@@ -40,7 +40,6 @@ def event_loop():
 async def rest_v1_client():
     v1_client = InferenceRESTClient(
         config=RESTConfig(
-            verify=False,
             timeout=60,
             verbose=True,
             protocol=PredictorProtocol.REST_V1,
@@ -54,7 +53,6 @@ async def rest_v1_client():
 async def rest_v2_client():
     v2_client = InferenceRESTClient(
         config=RESTConfig(
-            verify=False,
             timeout=60,
             verbose=True,
             protocol=PredictorProtocol.REST_V2,
