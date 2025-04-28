@@ -58,7 +58,8 @@ ARG TORCHVISION_VERSION=0.21.0
 # Install kserve using UV
 COPY kserve kserve
 RUN cd kserve && \
-    uv sync && \
+    uv sync --no-cache && \
+    uv cache clean && \
     rm -rf ~/.cache/uv
 
 # Install huggingfaceserver using UV
@@ -68,10 +69,11 @@ RUN cd huggingfaceserver && \
         'torch~='${TORCH_VERSION} \
         'torchaudio~='${TORCH_VERSION} \
         'torchvision~='${TORCHVISION_VERSION} && \
-    uv sync && \
+    uv sync --no-cache && \
+    uv cache clean && \
     rm -rf ~/.cache/uv
 
-RUN pip install --no-cache-dir --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
+RUN uv pip install --no-cache --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
     'intel_extension_for_pytorch~='${TORCH_VERSION} \
     intel-openmp
 
@@ -83,13 +85,30 @@ ARG VLLM_CPU_AVX512BF16=1
 ENV VLLM_CPU_AVX512BF16=${VLLM_CPU_AVX512BF16}
 ARG VLLM_TARGET_DEVICE=cpu
 ENV VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE}
-RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git && \
-    cd vllm && \
-    uv pip install -r requirements/build.txt && \
-    uv pip install -r requirements/cpu.txt && \
-    python setup.py bdist_wheel && \
-    pip install --no-cache-dir dist/vllm-${VLLM_VERSION}*.whl && \
-    rm -rf ~/.cache/uv
+# Clone vLLM repo
+RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git
+
+# Install vLLM build requirements
+RUN cd vllm && \
+    uv pip install --no-cache -v -r requirements/build.txt && \
+    uv cache clean
+
+# Install vLLM cpu requirements
+RUN cd vllm && \
+    uv pip install --no-cache -v -r requirements/cpu.txt && \
+    uv cache clean
+
+# Build vLLM wheel
+RUN cd vllm && \
+    python setup.py bdist_wheel
+
+# Install built vLLM wheel
+RUN uv pip install --no-cache vllm/dist/vllm-${VLLM_VERSION}*.whl
+
+# Cleanup vllm source code and caches
+RUN rm -rf /vllm /root/.cache/uv /root/.cache/pip /tmp/*
+
+RUN df -hT
 
 # Build the final image
 FROM base AS prod
@@ -108,6 +127,8 @@ RUN useradd kserve -m -u 1000 -d /home/kserve
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder --chown=kserve:kserve huggingfaceserver huggingfaceserver
 COPY --from=builder --chown=kserve:kserve kserve kserve
+
+RUN df -hT
 
 # Set a writable Hugging Face home folder to avoid permission issue. See https://github.com/kserve/kserve/issues/3562
 ENV HF_HOME="/tmp/huggingface"

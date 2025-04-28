@@ -22,12 +22,12 @@ ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
 # Install kserve dependencies using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync
+RUN cd kserve && uv sync --no-cache
 COPY kserve kserve
 
 # Install huggingfaceserver dependencies using uv
 COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
-RUN cd huggingfaceserver && uv sync
+RUN cd huggingfaceserver && uv sync --no-cache
 COPY huggingfaceserver huggingfaceserver
 
 # ---------- Production image ----------
