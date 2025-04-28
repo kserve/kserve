@@ -25,12 +25,12 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ------------------ Install kserve ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync
+RUN cd kserve && uv sync --no-cache
 COPY kserve kserve
 
 # ------------------ Install custom_tokenizer ------------------
 COPY custom_tokenizer/pyproject.toml custom_tokenizer/uv.lock custom_tokenizer/
-RUN cd custom_tokenizer && uv sync
+RUN cd custom_tokenizer && uv sync --no-cache
 COPY custom_tokenizer custom_tokenizer
 RUN cd custom_tokenizer && poetry install --no-interaction --no-cache
 
