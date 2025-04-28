@@ -96,7 +96,11 @@ if [ "$1" == "raw" ]; then
   oc patch DataScienceCluster test-dsc --type='json' -p='[{"op": "replace", "path": "/spec/components/kserve/defaultDeploymentMode", "value": "RawDeployment"}]'
 else
   export OPENSHIFT_INGRESS_DOMAIN=$(oc get ingresses.config cluster -o jsonpath='{.spec.domain}')
-  oc patch configmap inferenceservice-config -n kserve --patch-file <(cat config/overlays/test/configmap/inferenceservice-openshift-ci-serverless.yaml | envsubst)
+  if [ "$1" == "graph" ]; then
+    oc patch configmap inferenceservice-config -n kserve --patch-file <(cat config/overlays/test/configmap/inferenceservice-openshift-ci-serverless.yaml | envsubst)
+  else 
+    oc patch configmap inferenceservice-config -n kserve --patch-file <(cat config/overlays/test/configmap/inferenceservice-openshift-ci-serverless-predictor.yaml | envsubst)
+  fi
 fi
 
 # Wait until KServe starts

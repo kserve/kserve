@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: inferenceservice-config
+  namespace: kserve
+data:
+  explainers: "{}"
+  oauthProxy: |-
+    {
+      "image" : "registry.redhat.io/openshift4/ose-oauth-proxy@sha256:bd49cfc8452b3d96467cc222db9487e120abc6cc5ba81349c6b3703706f36a08",
+      "memoryRequest": "64Mi",
+      "memoryLimit": "128Mi",
+      "cpuRequest": "100m",
+      "cpuLimit": "200m"
+    }
+  storageInitializer: |-
+    {
+        "image" : "quay.io/opendatahub/kserve-storage-initializer",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "enableDirectPvcVolumeMount": true,
+        "enableModelcar": true
+    }
+  ingress: |-
+    {
+        "ingressGateway" : "knative-serving/knative-ingress-gateway",
+        "knativeLocalGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
+        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+        "localGateway" : "istio-system/kserve-local-gateway",
+        "localGatewayService" : "kserve-local-gateway.istio-system.svc.cluster.local",
+        "ingressDomain"  : "example.com",
+        "ingressClassName" : "istio",
+        "domainTemplate": "example.com",
+        "urlScheme": "https",
+        "disableIstioVirtualHost": false, 
+        "disableIngressCreation": true
+    }
+  logger: |-
+    {
+        "image" : "quay.io/opendatahub/kserve-agent",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "defaultUrl": "http://default-broker"
+    }
+  batcher: |-
+    {
+        "image" : "quay.io/opendatahub/kserve-agent",
+        "memoryRequest": "1Gi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "1",
+        "cpuLimit": "1"
+    }
+  agent: |-
+    {
+        "image" : "quay.io/opendatahub/kserve-agent",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
+  router: |-
+    {
+        "image" : "quay.io/opendatahub/kserve-router",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "headers": {
+          "propagate": [
+            "Authorization"
+          ]
+        }
+    }
+  deploy: |-
+    {
+      "defaultDeploymentMode": "Serverless"
+    }
+  metricsAggregator: |-
+    {
+      "enableMetricAggregation": "false",
+      "enablePrometheusScraping" : "false"
+    }
+
+  inferenceService: |-
+    {
+      "serviceAnnotationDisallowedList": [
+        "autoscaling.knative.dev/initial-scale",
+        "autoscaling.knative.dev/min-scale",
+        "autoscaling.knative.dev/max-scale",
+        "internal.serving.kserve.io/storage-initializer-sourceuri",
+        "kubectl.kubernetes.io/last-applied-configuration",
+        "security.opendatahub.io/enable-auth",
+        "networking.knative.dev/visibility"
+      ]
+     }
+
+  security: |-
+    {
+      "autoMountServiceAccountToken": false
+    }
