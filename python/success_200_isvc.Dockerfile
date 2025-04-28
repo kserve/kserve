@@ -18,13 +18,13 @@ RUN python3 -m venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync
+RUN cd kserve && uv sync --no-cache
 COPY kserve kserve
 
 RUN echo $(pwd)
 RUN echo $(ls)
 COPY test_resources/graph/success_200_isvc/pyproject.toml test_resources/graph/success_200_isvc/uv.lock success_200_isvc/
-RUN cd success_200_isvc && uv sync
+RUN cd success_200_isvc && uv sync --no-cache
 COPY test_resources/graph/success_200_isvc success_200_isvc
 RUN cd success_200_isvc && poetry install --no-interaction --no-cache
 

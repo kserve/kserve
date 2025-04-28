@@ -26,12 +26,12 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install dependencies for kserve using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync
+RUN cd kserve && uv sync --no-cache
 COPY kserve kserve
 
 # Install dependencies for pmmlserver using uv
 COPY pmmlserver/pyproject.toml pmmlserver/uv.lock pmmlserver/
-RUN cd pmmlserver && uv sync
+RUN cd pmmlserver && uv sync --no-cache
 COPY pmmlserver pmmlserver
 RUN cd pmmlserver && poetry install --no-interaction --no-cache
 

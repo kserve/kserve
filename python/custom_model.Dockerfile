@@ -25,12 +25,12 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ------------------ Install kserve ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync
+RUN cd kserve && uv sync --no-cache
 COPY kserve kserve
 
 # ------------------ Install custom_model ------------------
 COPY custom_model/pyproject.toml custom_model/uv.lock custom_model/
-RUN cd custom_model && uv sync
+RUN cd custom_model && uv sync --no-cache
 COPY custom_model custom_model
 RUN cd custom_model && poetry install --no-interaction --no-cache
 

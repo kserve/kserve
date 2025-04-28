@@ -20,14 +20,14 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ========== Install kserve dependencies ==========
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync
+RUN cd kserve && uv sync --no-cache
 
 # Copy kserve source code after installing deps (for layer caching)
 COPY kserve kserve
 
 # ========== Install sklearnserver dependencies ==========
 COPY sklearnserver/pyproject.toml sklearnserver/uv.lock sklearnserver/
-RUN cd sklearnserver && uv sync
+RUN cd sklearnserver && uv sync --no-cache
 
 # Copy sklearnserver source code after installing deps (for layer caching)
 COPY sklearnserver sklearnserver

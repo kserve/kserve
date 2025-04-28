@@ -25,12 +25,12 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ------------------ Install kserve ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync
+RUN cd kserve && uv sync --no-cache
 COPY kserve kserve
 
 # ------------------ Install custom_transformer ------------------
 COPY custom_transformer/pyproject.toml custom_transformer/uv.lock custom_transformer/
-RUN cd custom_transformer && uv sync
+RUN cd custom_transformer && uv sync --no-cache
 COPY custom_transformer custom_transformer
 RUN cd custom_transformer && poetry install --no-interaction --no-cache
 

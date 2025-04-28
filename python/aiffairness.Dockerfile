@@ -20,14 +20,14 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ------------------ Install kserve dependencies ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync
+RUN cd kserve && uv sync --no-cache
 
 # Copy source code separately (better Docker caching)
 COPY kserve kserve
 
 # ------------------ Install aiffairness dependencies ------------------
 COPY aiffairness/pyproject.toml aiffairness/uv.lock aiffairness/
-RUN cd aiffairness && uv sync
+RUN cd aiffairness && uv sync --no-cache
 
 COPY aiffairness aiffairness
 RUN cd aiffairness && poetry install --no-interaction --no-cache
