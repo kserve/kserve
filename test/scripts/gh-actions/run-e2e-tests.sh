@@ -38,7 +38,6 @@ pushd test/e2e >/dev/null
     echo "Skipping explainer tests for raw deployment with ingress"
     pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER --ignore=explainer/
   else
-    pytest predictor/test_sklearn.py::test_sklearn_runtime_kserve --ignore=qpext --log-cli-level=DEBUG -n $PARALLELISM --dist worksteal 
-    # pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER
+    pytest -m "$MARKER" --ignore=qpext --log-cli-level=INFO -n $PARALLELISM --dist worksteal --network-layer $NETWORK_LAYER
   fi
 popd
