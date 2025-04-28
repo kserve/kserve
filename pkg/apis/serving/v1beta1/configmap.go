@@ -131,6 +131,11 @@ type LocalModelConfig struct {
 	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
 	DisableVolumeManagement      bool   `json:"disableVolumeManagement,omitempty"`
+	LocalModelAgentImage         string `json:"localModelAgentImage,omitempty"`
+	LocalModelAgentCpuLimit      string `json:"localModelAgentCpuLimit,omitempty"`
+	LocalModelAgentMemoryLimit   string `json:"localModelAgentMemoryLimit,omitempty"`
+	LocalModelAgentCpuRequest    string `json:"localModelAgentCpuRequest,omitempty"`
+	LocalModelAgentMemoryRequest string `json:"localModelAgentMemoryRequest,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

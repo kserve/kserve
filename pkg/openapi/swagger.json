@@ -3477,6 +3477,21 @@
           "type": "integer",
           "format": "int32"
         },
+        "localModelAgentCpuLimit": {
+          "type": "string"
+        },
+        "localModelAgentCpuRequest": {
+          "type": "string"
+        },
+        "localModelAgentImage": {
+          "type": "string"
+        },
+        "localModelAgentMemoryLimit": {
+          "type": "string"
+        },
+        "localModelAgentMemoryRequest": {
+          "type": "string"
+        },
         "reconcilationFrequencyInSecs": {
           "type": "integer",
           "format": "int64"
