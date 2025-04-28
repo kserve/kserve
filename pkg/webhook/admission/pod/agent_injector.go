@@ -137,6 +137,9 @@ func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
 		if loggerConfig.Store.StorageKey == nil {
 			return loggerConfig, fmt.Errorf("Logger storage is configured but storage key is not set")
 		}
+		if loggerConfig.Store.ServiceAccountName == "" {
+			return loggerConfig, fmt.Errorf("Logger storage is configured but storage service accout name is not set")
+		}
 	}
 	return loggerConfig, nil
 }
