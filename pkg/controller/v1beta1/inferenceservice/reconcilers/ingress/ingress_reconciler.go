@@ -80,12 +80,7 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
 
 	// If the "serving.kserve.io/stop" annotation is present in isvc, follow the force stop logic
-	forceStopRuntime := "false"
-	if val, exist := isvc.Annotations[constants.StopAnnotationKey]; exist {
-		forceStopRuntime = val
-	}
-
-	if strings.EqualFold(forceStopRuntime, "true") {
+	if isvc.GetForceStopRuntime() {
 		// Delete the service
 		existingService := &corev1.Service{}
 		if err := ir.client.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, existingService); err == nil {
