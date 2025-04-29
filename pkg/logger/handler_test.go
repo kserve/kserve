@@ -220,7 +220,7 @@ func TestLoggerWithAnnotation(t *testing.T) {
 	targetUri, err := url.Parse(predictor.URL)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
-	StartDispatcher(5, logger)
+	StartDispatcher(5, MockStore{}, logger)
 	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
 		"default", httpProxy, nil, "", map[string]string{"Foo": "Bar", "Fizz": "Buzz"}, true)
@@ -336,7 +336,7 @@ func TestLoggerWithS3Store(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
-		"default", httpProxy, nil, "", true)
+		"default", httpProxy, nil, "", map[string]string{}, true)
 
 	oh.ServeHTTP(w, r)
 
