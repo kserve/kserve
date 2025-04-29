@@ -21,7 +21,8 @@ package externalversions
 import (
 	fmt "fmt"
 
-	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	v1alpha1 "github.com/kserve/kserve/pkg/apis/distributed/v1alpha1"
+	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
@@ -53,22 +54,26 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=serving.kserve.io, Version=v1alpha1
-	case v1alpha1.SchemeGroupVersion.WithResource("clusterservingruntimes"):
+	// Group=distributed, Version=v1alpha1
+	case v1alpha1.SchemeGroupVersion.WithResource("distributedinferenceservices"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Distributed().V1alpha1().DistributedInferenceServices().Informer()}, nil
+
+		// Group=serving.kserve.io, Version=v1alpha1
+	case servingv1alpha1.SchemeGroupVersion.WithResource("clusterservingruntimes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ClusterServingRuntimes().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("clusterstoragecontainers"):
+	case servingv1alpha1.SchemeGroupVersion.WithResource("clusterstoragecontainers"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ClusterStorageContainers().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("inferencegraphs"):
+	case servingv1alpha1.SchemeGroupVersion.WithResource("inferencegraphs"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().InferenceGraphs().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("localmodelcaches"):
+	case servingv1alpha1.SchemeGroupVersion.WithResource("localmodelcaches"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().LocalModelCaches().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("localmodelnodes"):
+	case servingv1alpha1.SchemeGroupVersion.WithResource("localmodelnodes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().LocalModelNodes().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("localmodelnodegroups"):
+	case servingv1alpha1.SchemeGroupVersion.WithResource("localmodelnodegroups"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().LocalModelNodeGroups().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("servingruntimes"):
+	case servingv1alpha1.SchemeGroupVersion.WithResource("servingruntimes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().ServingRuntimes().Informer()}, nil
-	case v1alpha1.SchemeGroupVersion.WithResource("trainedmodels"):
+	case servingv1alpha1.SchemeGroupVersion.WithResource("trainedmodels"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Serving().V1alpha1().TrainedModels().Informer()}, nil
 
 		// Group=serving.kserve.io, Version=v1beta1

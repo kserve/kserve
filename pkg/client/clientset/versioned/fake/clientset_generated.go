@@ -20,6 +20,8 @@ package fake
 
 import (
 	clientset "github.com/kserve/kserve/pkg/client/clientset/versioned"
+	distributedv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/distributed/v1alpha1"
+	fakedistributedv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/distributed/v1alpha1/fake"
 	servingv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	fakeservingv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha1/fake"
 	servingv1beta1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1beta1"
@@ -84,6 +86,11 @@ var (
 	_ clientset.Interface = &Clientset{}
 	_ testing.FakeClient  = &Clientset{}
 )
+
+// DistributedV1alpha1 retrieves the DistributedV1alpha1Client
+func (c *Clientset) DistributedV1alpha1() distributedv1alpha1.DistributedV1alpha1Interface {
+	return &fakedistributedv1alpha1.FakeDistributedV1alpha1{Fake: &c.Fake}
+}
 
 // ServingV1alpha1 retrieves the ServingV1alpha1Client
 func (c *Clientset) ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface {

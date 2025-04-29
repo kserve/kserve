@@ -42,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	v1alpha1dsivc "github.com/kserve/kserve/pkg/apis/distributed/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -140,15 +141,20 @@ func main() {
 
 	setupLog.Info("Registering Components.")
 
-	setupLog.Info("Setting up KServe v1alpha1 scheme")
+	setupLog.Info("Setting up KServe serving v1alpha1 scheme")
 	if err := v1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add KServe v1alpha1 to scheme")
+		setupLog.Error(err, "unable to add KServe serving v1alpha1 to scheme")
 		os.Exit(1)
 	}
 
-	setupLog.Info("Setting up KServe v1beta1 scheme")
+	setupLog.Info("Setting up KServe distributed inferenceservice v1alpha1 scheme")
+	if err := v1alpha1dsivc.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add KServe distributed inferenceservice v1alpha1 to scheme")
+		os.Exit(1)
+	}
+	setupLog.Info("Setting up KServe serving v1beta1 scheme")
 	if err := v1beta1.AddToScheme(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add KServe v1beta1 to scheme")
+		setupLog.Error(err, "unable to add KServe serving v1beta1 to scheme")
 		os.Exit(1)
 	}
 

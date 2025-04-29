@@ -19,6 +19,7 @@ limitations under the License.
 package fake
 
 import (
+	distributedv1alpha1 "github.com/kserve/kserve/pkg/apis/distributed/v1alpha1"
 	servingv1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	servingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,7 @@ var scheme = runtime.NewScheme()
 var codecs = serializer.NewCodecFactory(scheme)
 
 var localSchemeBuilder = runtime.SchemeBuilder{
+	distributedv1alpha1.AddToScheme,
 	servingv1alpha1.AddToScheme,
 	servingv1beta1.AddToScheme,
 }

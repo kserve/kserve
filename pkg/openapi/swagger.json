@@ -7,6 +7,60 @@
   },
   "paths": {},
   "definitions": {
+    "github.com.kserve.kserve.pkg.apis.distributed.v1alpha1.DistributedInferenceService": {
+      "description": "DistributedInferenceService is the Schema for the distributedinferenceservices API.",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/github.com.kserve.kserve.pkg.apis.distributed.v1alpha1.DistributedInferenceServiceSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/github.com.kserve.kserve.pkg.apis.distributed.v1alpha1.DistributedInferenceServiceStatus"
+        }
+      }
+    },
+    "github.com.kserve.kserve.pkg.apis.distributed.v1alpha1.DistributedInferenceServiceList": {
+      "description": "DistributedInferenceServiceList contains a list of DistributedInferenceService.",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/github.com.kserve.kserve.pkg.apis.distributed.v1alpha1.DistributedInferenceService"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
     "v1alpha1.BuiltInAdapter": {
       "type": "object",
       "properties": {

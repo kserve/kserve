@@ -30,11 +30,11 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.v1beta1_multi_node_config import V1beta1MultiNodeConfig  # noqa: E501
+from kserve.models.github_com_kserve_kserve_pkg_apis_distributed_v1alpha1_distributed_inference_service import GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService  # noqa: E501
 from kserve.rest import ApiException
 
-class TestV1beta1MultiNodeConfig(unittest.TestCase):
-    """V1beta1MultiNodeConfig unit test stubs"""
+class TestGithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService(unittest.TestCase):
+    """GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService unit test stubs"""
 
     def setUp(self):
         pass
@@ -43,23 +43,25 @@ class TestV1beta1MultiNodeConfig(unittest.TestCase):
         pass
 
     def make_instance(self, include_optional):
-        """Test V1beta1MultiNodeConfig
+        """Test GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService
             include_option is a boolean, when False only required
             params are included, when True both required and
             optional params are included """
-        # model = kserve.models.v1beta1_multi_node_config.V1beta1MultiNodeConfig()  # noqa: E501
+        # model = kserve.models.github_com_kserve_kserve_pkg_apis_distributed_v1alpha1_distributed_inference_service.GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService()  # noqa: E501
         if include_optional :
-            return V1beta1MultiNodeConfig(
-                custom_gpu_resource_type_list = [
-                    '0'
-                    ]
+            return GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService(
+                api_version = '0', 
+                kind = '0', 
+                metadata = None, 
+                spec = None, 
+                status = None
             )
         else :
-            return V1beta1MultiNodeConfig(
+            return GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService(
         )
 
-    def testV1beta1MultiNodeConfig(self):
-        """Test V1beta1MultiNodeConfig"""
+    def testGithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService(self):
+        """Test GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService"""
         inst_req_only = self.make_instance(include_optional=False)
         inst_req_and_optional = self.make_instance(include_optional=True)
 
