@@ -3,7 +3,6 @@ package logger
 import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/kserve/kserve/pkg/agent/storage"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/onsi/gomega"
 	pkglogging "knative.dev/pkg/logging"
 	"net/url"
@@ -16,18 +15,7 @@ func mockStore() (*S3Store, *MockS3Uploader) {
 	}
 
 	log, _ := pkglogging.NewLogger("", "INFO")
-	path := "path/"
-	params := map[string]string{
-		"format": "json",
-		"region": "us-west-2",
-	}
-	key := "/secrets/s3/credentials"
-	spec := &v1beta1.StorageSpec{
-		Path:       &path,
-		Parameters: &params,
-		StorageKey: &key,
-	}
-	store := NewS3Store(spec, &JSONMarshaller{}, &storage.S3ObjectUploader{Uploader: uploader}, log)
+	store := NewS3Store("/logger", "json", &JSONMarshaller{}, &storage.S3Provider{Uploader: uploader}, log)
 	return store, uploader
 }
 
