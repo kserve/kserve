@@ -84,6 +84,7 @@ class HuggingfaceEncoderModel(
     _tokenizer: PreTrainedTokenizerBase
     _model: Optional[PreTrainedModel] = None
     _device: torch.device
+    use_id2label: bool
 
     def __init__(
         self,
@@ -101,6 +102,7 @@ class HuggingfaceEncoderModel(
         tokenizer_revision: Optional[str] = None,
         trust_remote_code: bool = False,
         return_probabilities: bool = False,
+        use_id2label: bool = False,
         predictor_config: Optional[PredictorConfig] = None,
         request_logger: Optional[RequestLogger] = None,
     ):
@@ -117,6 +119,7 @@ class HuggingfaceEncoderModel(
         self.tokenizer_revision = tokenizer_revision
         self.trust_remote_code = trust_remote_code
         self.return_probabilities = return_probabilities
+        self.use_id2label = use_id2label
         self.request_logger = request_logger
 
         if model_config:
@@ -305,11 +308,17 @@ class HuggingfaceEncoderModel(
                     # Handle both CPU and GPU tensors
                     probs = torch.softmax(out, dim=-1)
                     if probs.is_cuda:
-                        probs = probs.cpu()  # Move to CPU for numpy conversion
-                    inferences.append({i: float(prob) for i, prob in enumerate(probs[0])})
+                        probs = probs.cpu()  # Move to CPU for dict conversion which only works on CPU
+                    if self.use_id2label and hasattr(self.model_config, 'id2label'):
+                        inferences.append({self.model_config.id2label[i]: float(prob) for i, prob in enumerate(probs[0])})
+                    else:
+                        inferences.append({i: float(prob) for i, prob in enumerate(probs[0])})
                 else:
                     predicted_idx = out.argmax().item()
-                    inferences.append(predicted_idx)
+                    if self.use_id2label and hasattr(self.model_config, 'id2label'):
+                        inferences.append(self.model_config.id2label[predicted_idx])
+                    else:
+                        inferences.append(predicted_idx)
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.fill_mask:
             num_rows = outputs.shape[0]
