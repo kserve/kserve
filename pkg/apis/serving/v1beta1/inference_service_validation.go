@@ -176,7 +176,7 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 					return fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, isvc.Name, storageProtocol)
 				}
 			}
-			if isvc.GetAnnotations()[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+			if isvc.GetAnnotations()[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 				return fmt.Errorf(InvalidAutoScalerError, isvc.Name, isvc.GetAnnotations()[constants.AutoscalerClass])
 			}
 		}
