@@ -15,12 +15,9 @@
 import argparse
 import base64
 import io
-import json
-import os
-from typing import Dict, Union, List
+from typing import Dict, Union
 
 import numpy
-import torch
 
 from PIL import Image
 from torchvision import transforms
@@ -126,104 +123,13 @@ class ImageTransformer(Model):
             return infer_response
 
 
-class LabelTransformer(Model):
-    def __init__(
-        self,
-        name: str,
-        predictor_config: PredictorConfig,
-    ):
-        super().__init__(
-            name,
-            predictor_config,
-            return_response_headers=True,
-        )
-        self.ready = True
-        self.id2label = self._load_id2label()
-
-    def _load_id2label(self) -> Dict[int, str]:
-        """Load id2label mapping from model's config.json"""
-        config_path = os.path.join(self.model_dir, "config.json")
-        if not os.path.exists(config_path):
-            logging.warning(f"config.json not found at {config_path}")
-            return {}
-        
-        with open(config_path, "r") as f:
-            config = json.load(f)
-        
-        id2label = config.get("id2label", {})
-        # Convert string keys to integers
-        return {int(k): v for k, v in id2label.items()}
-
-    def preprocess(
-        self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
-    ) -> Union[Dict, InferRequest]:
-        # Pass through the input without modification
-        return payload
-
-    def postprocess(
-        self,
-        infer_response: Union[Dict, InferResponse],
-        headers: Dict[str, str] = None,
-        response_headers: Dict[str, str] = None,
-    ) -> Union[Dict, InferResponse]:
-        if isinstance(infer_response, InferResponse):
-            # Convert raw predictions to labels
-            predictions = infer_response.outputs[0].as_numpy()
-            if len(predictions.shape) == 1:
-                # Single prediction per input
-                if isinstance(predictions, torch.Tensor):
-                    predictions = predictions.cpu().numpy()
-                labels = [self.id2label.get(int(pred), str(pred)) for pred in predictions]
-            else:
-                # Multiple predictions per input (e.g., sequence classification)
-                labels = []
-                for preds in predictions:
-                    if isinstance(preds, torch.Tensor):
-                        preds = preds.cpu().numpy()
-                    if len(preds.shape) == 0:
-                        # Single class prediction
-                        labels.append(self.id2label.get(int(preds), str(preds)))
-                    else:
-                        # Multiple class predictions
-                        class_labels = [self.id2label.get(int(pred), str(pred)) for pred in preds]
-                        labels.append(class_labels)
-            
-            # Create new response with labels
-            return {"predictions": labels}
-        else:
-            # Handle v1 protocol
-            predictions = infer_response.get("predictions", [])
-            if isinstance(predictions, list):
-                if len(predictions) > 0 and isinstance(predictions[0], (int, float, torch.Tensor)):
-                    # Single prediction per input
-                    if isinstance(predictions[0], torch.Tensor):
-                        predictions = [p.cpu().numpy() for p in predictions]
-                    labels = [self.id2label.get(int(pred), str(pred)) for pred in predictions]
-                else:
-                    # Multiple predictions per input
-                    labels = []
-                    for preds in predictions:
-                        if isinstance(preds, (int, float)):
-                            labels.append(self.id2label.get(int(preds), str(preds)))
-                        elif isinstance(preds, torch.Tensor):
-                            preds = preds.cpu().numpy()
-                            labels.append(self.id2label.get(int(preds), str(preds)))
-                        else:
-                            if isinstance(preds[0], torch.Tensor):
-                                preds = [p.cpu().numpy() for p in preds]
-                            class_labels = [self.id2label.get(int(pred), str(pred)) for pred in preds]
-                            labels.append(class_labels)
-                return {"predictions": labels}
-            return infer_response
-
-
 parser = argparse.ArgumentParser(parents=[model_server.parser])
 args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     if args.configure_logging:
         logging.configure_logging(args.log_config_file)
-    model = LabelTransformer(
+    model = ImageTransformer(
         args.model_name,
         PredictorConfig(
             args.predictor_host,
