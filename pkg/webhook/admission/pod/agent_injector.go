@@ -213,19 +213,15 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		if ag.loggerConfig.Store != nil {
 			if ag.loggerConfig.Store.Path != nil {
 				storagePath = *ag.loggerConfig.Store.Path
-			} else {
-				log.Error(nil, "Logger storage is configured but path is not set")
 			}
 		}
-		storageFormat := constants.LoggerDefaultFormat
+		storageFormat := ""
 		if ag.loggerConfig.Store != nil {
 			if ag.loggerConfig.Store.Parameters != nil {
 				format, ok := (*ag.loggerConfig.Store.Parameters)[constants.LoggerFormatKey]
 				if ok {
 					storageFormat = format
 				}
-			} else {
-				log.Error(nil, "Logger storage is configured but parameters are not set")
 			}
 		}
 
@@ -236,10 +232,6 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			pod.ObjectMeta.Name,
 			LoggerArgumentMode,
 			logMode,
-			LoggerArgumentStorePath,
-			storagePath,
-			LoggerArgumentStoreFormat,
-			storageFormat,
 			LoggerArgumentInferenceService,
 			inferenceServiceName,
 			LoggerArgumentNamespace,
@@ -248,6 +240,14 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			endpoint,
 			LoggerArgumentComponent,
 			component,
+		}
+		if storagePath != "" {
+			loggerArgs = append(loggerArgs, LoggerArgumentStorePath)
+			loggerArgs = append(loggerArgs, storagePath)
+		}
+		if storageFormat != "" {
+			loggerArgs = append(loggerArgs, LoggerArgumentStoreFormat)
+			loggerArgs = append(loggerArgs, storageFormat)
 		}
 		logHeaderMetadata, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataHeadersInternalAnnotationKey]
 		if ok {

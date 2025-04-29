@@ -346,10 +346,6 @@ func TestAgentInjector(t *testing.T) {
 								"deployment",
 								LoggerArgumentMode,
 								"all",
-								LoggerArgumentStorePath,
-								"",
-								LoggerArgumentStoreFormat,
-								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
@@ -478,10 +474,6 @@ func TestAgentInjector(t *testing.T) {
 								"deployment",
 								LoggerArgumentMode,
 								"all",
-								LoggerArgumentStorePath,
-								"",
-								LoggerArgumentStoreFormat,
-								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
@@ -1093,10 +1085,6 @@ func TestAgentInjector(t *testing.T) {
 								"deployment",
 								LoggerArgumentMode,
 								"all",
-								LoggerArgumentStorePath,
-								"",
-								LoggerArgumentStoreFormat,
-								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
@@ -1228,10 +1216,6 @@ func TestAgentInjector(t *testing.T) {
 								"deployment",
 								LoggerArgumentMode,
 								"all",
-								LoggerArgumentStorePath,
-								"",
-								LoggerArgumentStoreFormat,
-								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
@@ -1516,10 +1500,6 @@ func TestAgentInjector(t *testing.T) {
 								"deployment",
 								LoggerArgumentMode,
 								"all",
-								LoggerArgumentStorePath,
-								"",
-								LoggerArgumentStoreFormat,
-								"",
 								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
@@ -1675,10 +1655,6 @@ func TestAgentInjector(t *testing.T) {
 								"deployment",
 								LoggerArgumentMode,
 								"all",
-								LoggerArgumentStorePath,
-								storagePath,
-								LoggerArgumentStoreFormat,
-								"json",
 								LoggerArgumentInferenceService,
 								"sklearn",
 								LoggerArgumentNamespace,
@@ -1687,6 +1663,10 @@ func TestAgentInjector(t *testing.T) {
 								"default",
 								LoggerArgumentComponent,
 								"predictor",
+								LoggerArgumentStorePath,
+								storagePath,
+								LoggerArgumentStoreFormat,
+								"json",
 								LoggerArgumentTlsSkipVerify,
 								"false",
 								constants.AgentComponentPortArgName,
@@ -1799,14 +1779,15 @@ func TestGetLoggerConfigs(t *testing.T) {
 						"CpuLimit":      "1",
 						"MemoryRequest": "200Mi",
 						"MemoryLimit":   "1Gi",
-						"Store": {
+						"Storage": {
 							"Path": "/logger",
 							"Parameters": {
 								"type": "s3",
 								"region": "us-west-2",
 								"format": "json"
 							},
-							"Key": "logger-credentials"
+							"Key": "logger-credentials",
+							"ServiceAccountName": "logger-sa"
 						}
 					}`,
 				},
@@ -1855,49 +1836,6 @@ func TestGetLoggerConfigs(t *testing.T) {
 					MemoryRequest: "200mc",
 					MemoryLimit:   "1Gi",
 				}),
-				gomega.HaveOccurred(),
-			},
-		},
-		{
-			name: "Invalid logger config path nil",
-			configMap: &corev1.ConfigMap{
-				TypeMeta:   metav1.TypeMeta{},
-				ObjectMeta: metav1.ObjectMeta{},
-				Data: map[string]string{
-					LoggerConfigMapKeyName: `{
-						"Image":         "gcr.io/kfserving/logger:latest",
-						"CpuRequest":    "100m",
-						"CpuLimit":      "1",
-						"MemoryRequest": "200Mi",
-						"MemoryLimit":   "1Gi",
-						"Store": {
-							"Path": "/logger",
-							"Parameters": {
-								"type": "s3",
-								"region": "us-west-2",
-								"format": "json"
-							}
-						}
-					}`,
-				},
-				BinaryData: map[string][]byte{},
-			},
-			matchers: []types.GomegaMatcher{
-				gomega.Equal(&LoggerConfig{
-					Image:         "gcr.io/kfserving/logger:latest",
-					CpuRequest:    "100m",
-					CpuLimit:      "1",
-					MemoryRequest: "200Mi",
-					MemoryLimit:   "1Gi",
-					Store: &LoggerStorageSpec{
-						StorageSpec: &v1beta1.StorageSpec{
-							Path:       &storagePath,
-							Parameters: &storageParameters,
-						},
-						ServiceAccountName: "logger-sa",
-					},
-				}),
-				gomega.MatchError("Logger storage is configured but storage key is not set"),
 				gomega.HaveOccurred(),
 			},
 		},
