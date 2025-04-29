@@ -8064,7 +8064,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
 						constants.DeploymentMode:  string(constants.RawDeployment),
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8172,7 +8172,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
 						constants.DeploymentMode:  string(constants.RawDeployment),
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8242,7 +8242,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
 						constants.DeploymentMode:  string(constants.RawDeployment),
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8813,7 +8813,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Verify worker node replicas
 			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(10))))
 		})
-		It("Should not set nil to replicas when multinode isvc(external autoscaler) is updated", func() {
+		It("Should not set nil to replicas when multinode isvc(none autoscaler) is updated", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			By("creating a new InferenceService")
@@ -8829,7 +8829,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
 						constants.DeploymentMode:  string(constants.RawDeployment),
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
