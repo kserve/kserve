@@ -668,10 +668,10 @@ data:
         "storage": {
             "path": "",
             "parameters": {
-              "type": "s3",
-              "format": "json" 
+              "type": "",
+              "format": "" 
             },
-            "key": "credentials"
+            "key": ""
             "serviceAccountName": "",
         }
     }
