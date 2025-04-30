@@ -389,7 +389,7 @@ func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerNa
 func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
 	for _, desiredDep := range r.DeploymentList {
 		// Reconcile Deployment
-		checkResult, existingDeployment, err := r.checkDeploymentExist(ctx, r.client, desiredDep)
+		checkResult, existingDep, err := r.checkDeploymentExist(ctx, r.client, desiredDep)
 		if err != nil {
 			return nil, err
 		}
@@ -400,10 +400,8 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 		case constants.CheckResultCreate:
 			opErr = r.client.Create(ctx, desiredDep)
 		case constants.CheckResultUpdate:
-			curJson, err := json.Marshal(existingDeployment)
-			if err != nil {
-				return nil, err
-			}
+			curDeployment := existingDep.DeepCopy()
+			modDeployment := desiredDep.DeepCopy()
 
 			// To avoid the conflict between HPA and Deployment,
 			// we need to remove the Replicas field from the deployment spec
@@ -411,6 +409,12 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 			modDeployment := deployment.DeepCopy()
 			if modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 				modDeployment.Spec.Replicas = nil
+				curDeployment.Spec.Replicas = nil
+			}
+
+			curJson, err := json.Marshal(curDeployment)
+			if err != nil {
+				return nil, err
 			}
 
 			modJson, err := json.Marshal(modDeployment)
@@ -418,13 +422,13 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 				return nil, err
 			}
 			// Generate the strategic merge patch between the current and modified JSON
-			patchByte, err := strategicpatch.StrategicMergePatch(curJson, modJson, appsv1.Deployment{})
+			patchByte, err := strategicpatch.CreateTwoWayMergePatch(curJson, modJson, appsv1.Deployment{})
 			if err != nil {
 				return nil, err
 			}
 
 			// Patch the deployment object with the strategic merge patch
-			opErr = r.client.Patch(ctx, existingDeployment, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
+			opErr = r.client.Patch(ctx, existingDep, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
 		}
 
 		if opErr != nil {
@@ -433,5 +437,3 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 	}
 	return r.DeploymentList, nil
 }
-
-// /fix  any changes in the environment variable of the inference service not restarting the deployment. for example if you remove env variable from isvc the deployment is not updated
