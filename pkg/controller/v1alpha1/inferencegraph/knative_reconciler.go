@@ -244,12 +244,13 @@ func createKnativeService(ctx context.Context, client client.Client, componentMe
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
 	value, exists := config.Headers["propagate"]
 	if exists {
-		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env = []corev1.EnvVar{
-			{
-				Name:  constants.RouterHeadersPropagateEnvVar,
-				Value: strings.Join(value, ","),
-			},
+		propagateEnv := corev1.EnvVar{
+			Name:  constants.RouterHeadersPropagateEnvVar,
+			Value: strings.Join(value, ","),
 		}
+		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env = append(
+			service.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Env,
+			propagateEnv)
 	}
 	return service, nil
 }

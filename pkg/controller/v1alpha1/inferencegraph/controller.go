@@ -308,6 +308,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		knativeReconciler := NewGraphKnativeServiceReconciler(r.Client, r.Scheme, desired)
 		ksvcStatus, err := knativeReconciler.Reconcile(ctx)
 		if err != nil {

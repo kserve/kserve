@@ -310,6 +310,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 					Image: "kserve/router:v0.10.0",
 					Name:  "resource-ig",
 					Args: []string{
+						"--enable-tls",
 						"--graph-json",
 						"{\"nodes\":{\"root\":{\"routerType\":\"Sequence\",\"steps\":[{\"serviceUrl\":\"http://someservice.exmaple.com\"}]}},\"resources\":{\"limits\":{\"cpu\":\"100m\",\"memory\":\"500Mi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"100Mi\"}},\"tolerations\":[{\"key\":\"key1\",\"operator\":\"Equal\",\"value\":\"value1\",\"effect\":\"NoSchedule\"}]}",
 					},
@@ -336,6 +337,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 				},
 			},
 			AutomountServiceAccountToken: proto.Bool(false),
+			ServiceAccountName:           "default",
 			ImagePullSecrets:             []corev1.LocalObjectReference{},
 			Tolerations: []corev1.Toleration{
 				{

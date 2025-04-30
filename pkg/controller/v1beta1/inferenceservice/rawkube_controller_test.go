@@ -232,6 +232,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
+								constants.OpenshiftServingCertAnnotation:                   "raw-foo-predictor" + constants.ServingCertSecretSuffix,
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 								"serving.kserve.io/deploymentMode":                         "RawDeployment",
 								"serving.kserve.io/autoscalerClass":                        "hpa",
@@ -555,24 +556,31 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						URL: &apis.URL{
-							Scheme: "http",
-							Host:   "raw-foo-predictor-default.example.com",
-						},
+						// mocking it, see pkg/apis/serving/v1beta1/inference_service_status.go#344
+						// uncomment when it gets supported by ODH
+						// URL: &apis.URL{
+						//	Scheme: "http",
+						//
+						//	 Host:   "raw-foo-predictor-default.example.com",
+						// },
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
+
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
+				fmt.Printf("actual status: %+v\n", isvc.Status.Components)
+				fmt.Printf("expected status: %+v\n", expectedIsvcStatus.Components)
 				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, timeout).Should(BeEmpty())
+			}, timeout, interval).Should(BeEmpty())
 
 			// check HPA
 			var minReplicas int32 = 1
@@ -772,6 +780,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
+								constants.OpenshiftServingCertAnnotation:                   "raw-foo-customized-predictor" + constants.ServingCertSecretSuffix,
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 								"serving.kserve.io/deploymentMode":                         "RawDeployment",
 								"serving.kserve.io/autoscalerClass":                        "hpa",
@@ -1094,16 +1103,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						URL: &apis.URL{
-							Scheme: "http",
-							Host:   "raw-foo-customized-predictor-default.example.com",
-						},
+						// mocking it, see pkg/apis/serving/v1beta1/inference_service_status.go#344
+						// uncomment when it gets supported by ODH
+						// URL: &apis.URL{
+						//	Scheme: "http",
+						//
+						//	 Host:   "raw-foo-predictor-default.example.com",
+						// },
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -1300,6 +1313,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								constants.InferenceServicePodLabelKey: serviceName,
 							},
 							Annotations: map[string]string{
+								constants.OpenshiftServingCertAnnotation:                   "raw-foo-2-predictor" + constants.ServingCertSecretSuffix,
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 								"serving.kserve.io/deploymentMode":                         "RawDeployment",
 								"serving.kserve.io/autoscalerClass":                        "external",
@@ -1623,16 +1637,20 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						URL: &apis.URL{
-							Scheme: "http",
-							Host:   "raw-foo-2-predictor-default.example.com",
-						},
+						// mocking it, see pkg/apis/serving/v1beta1/inference_service_status.go#344
+						// uncomment when it gets supported by ODH
+						// URL: &apis.URL{
+						//	Scheme: "http",
+						//
+						//	 Host:   "raw-foo-predictor-default.example.com",
+						// },
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -1991,10 +2009,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
 					v1beta1.PredictorComponent: {
 						LatestCreatedRevision: "",
-						URL: &apis.URL{
-							Scheme: "http",
-							Host:   serviceName + "-predictor-default.example.com",
-						},
+						// mocking it, see pkg/apis/serving/v1beta1/inference_service_status.go#344
+						// uncomment when it gets supported by ODH
+						// URL: &apis.URL{
+						//	Scheme: "http",
+						//
+						//	 Host:   "raw-foo-predictor-default.example.com",
+						// },
 					},
 				},
 				ModelStatus: v1beta1.ModelStatus{

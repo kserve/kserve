@@ -27,7 +27,6 @@ import (
 	osv1 "github.com/openshift/api/route/v1"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
-
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -194,7 +193,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			knativeService.Spec.CommonSpec.Config["autoscaler"]["allow-zero-initial-scale"] = "false"
 			Eventually(func() error {
 				return k8sClient.Update(context.TODO(), knativeService)
-			}, timeout).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
 		})
 		AfterEach(func() {
 			// Restore the original knativeserving custom resource configuration
@@ -251,8 +250,7 @@ var _ = Describe("Inference Graph controller test", func() {
 				actualKnServiceCreated := &knservingv1.Service{}
 				Eventually(func() error {
 					return k8sClient.Get(context.TODO(), serviceKey, actualKnServiceCreated)
-				}, timeout).
-					Should(Succeed())
+				}, timeout).Should(Succeed())
 
 				Expect(actualKnServiceCreated.Spec.Template.Annotations[constants.MinScaleAnnotationKey]).To(Equal("0"))
 				Expect(constants.InitialScaleAnnotationKey).ShouldNot(BeKeyOf(actualKnServiceCreated.Spec.Template.Annotations))
@@ -360,8 +358,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			actualKnServiceCreated := &knservingv1.Service{}
 			Eventually(func() error {
 				return k8sClient.Get(context.TODO(), serviceKey, actualKnServiceCreated)
-			}, timeout).
-				Should(Succeed())
+			}, timeout, interval).Should(Succeed())
 
 			expectedKnService := &knservingv1.Service{
 				ObjectMeta: metav1.ObjectMeta{
@@ -456,6 +453,7 @@ var _ = Describe("Inference Graph controller test", func() {
 			// that are present on the remote version.
 			err := k8sClient.Update(context.TODO(), expectedKnService, client.DryRunAll)
 			Expect(err).ShouldNot(HaveOccurred())
+
 			Expect(kmp.SafeDiff(actualKnServiceCreated.Spec, expectedKnService.Spec)).To(Equal(""))
 		})
 	})
@@ -1370,6 +1368,10 @@ var _ = Describe("Inference Graph controller test", func() {
 											Image: "kserve/router:v0.10.0",
 											Env: []corev1.EnvVar{
 												{
+													Name:  "SSL_CERT_FILE",
+													Value: "/etc/odh/openshift-service-ca-bundle/service-ca.crt",
+												},
+												{
 													Name:  "PROPAGATE_HEADERS",
 													Value: "Authorization,Intuit_tid",
 												},
@@ -1398,6 +1400,12 @@ var _ = Describe("Inference Graph controller test", func() {
 													Drop: []corev1.Capability{corev1.Capability("ALL")},
 												},
 											},
+											VolumeMounts: []corev1.VolumeMount{
+												{
+													Name:      "openshift-service-ca-bundle",
+													MountPath: "/etc/odh/openshift-service-ca-bundle",
+												},
+											},
 										},
 									},
 									Tolerations: []corev1.Toleration{
@@ -1409,6 +1417,18 @@ var _ = Describe("Inference Graph controller test", func() {
 										},
 									},
 									AutomountServiceAccountToken: proto.Bool(false),
+									Volumes: []corev1.Volume{
+										{
+											Name: "openshift-service-ca-bundle",
+											VolumeSource: corev1.VolumeSource{
+												ConfigMap: &corev1.ConfigMapVolumeSource{
+													LocalObjectReference: corev1.LocalObjectReference{
+														Name: constants.OpenShiftServiceCaConfigMapName,
+													},
+												},
+											},
+										},
+									},
 								},
 							},
 						},
