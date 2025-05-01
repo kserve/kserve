@@ -665,15 +665,6 @@ data:
         "cpuRequest": "100m",
         "cpuLimit": "1",
         "defaultUrl": "http://default-broker",
-        "storage": {
-            "path": "",
-            "parameters": {
-              "type": "",
-              "format": "" 
-            },
-            "key": ""
-            "serviceAccountName": "",
-        }
     }
 
   batcher: |-

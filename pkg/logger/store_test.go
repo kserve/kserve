@@ -59,5 +59,5 @@ func TestConfiguredPrefix(t *testing.T) {
 
 	req := <-uploader.ReceivedUploadObjectsChan
 	g.Expect(*req.Object.Bucket).To(gomega.Equal("bucket"))
-	g.Expect(*req.Object.Key).To(gomega.MatchRegexp("prefix/ns/inference/predictor/0123-request"))
+	g.Expect(*req.Object.Key).To(gomega.MatchRegexp("prefix/ns/inference/predictor/logger/0123-request.json"))
 }
