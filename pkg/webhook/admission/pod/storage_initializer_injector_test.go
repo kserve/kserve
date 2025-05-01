@@ -559,22 +559,22 @@ func TestStorageInitializerInjector(t *testing.T) {
 
 func TestCustomSpecStorageMountPathInjection(t *testing.T) {
 	scenarios := map[string]struct {
-		original                       *v1.Pod
-		expectedStorageMountPathEnvVar *v1.EnvVar
+		original                       *corev1.Pod
+		expectedStorageMountPathEnvVar *corev1.EnvVar
 		expectedMountPath              string
 	}{
 		"CustomSpecStorageMountPathSet": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  constants.CustomSpecStorageMountPathKey,
 									Value: "/custom/models",
@@ -584,24 +584,24 @@ func TestCustomSpecStorageMountPathInjection(t *testing.T) {
 					},
 				},
 			},
-			expectedStorageMountPathEnvVar: &v1.EnvVar{
+			expectedStorageMountPathEnvVar: &corev1.EnvVar{
 				Name:  constants.CustomSpecStorageMountPathKey,
 				Value: "/custom/models",
 			},
 			expectedMountPath: "/custom/models",
 		},
 		"CustomSpecStorageMountPathNotSet": {
-			original: &v1.Pod{
+			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
 						constants.StorageInitializerSourceUriInternalAnnotationKey: "pvc://mypvcname/some/path/on/pvc",
 					},
 				},
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []v1.EnvVar{
+							Env: []corev1.EnvVar{
 								{
 									Name:  "SomeOtherEnv",
 									Value: "someValue",
@@ -618,7 +618,7 @@ func TestCustomSpecStorageMountPathInjection(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		injector := &StorageInitializerInjector{
-			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &v1.ConfigMap{
+			credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
 				Data: map[string]string{},
 			}),
 			config: storageInitializerConfig,
@@ -628,7 +628,7 @@ func TestCustomSpecStorageMountPathInjection(t *testing.T) {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 
-		var originalEnvVar *v1.EnvVar
+		var originalEnvVar *corev1.EnvVar
 		for _, envVar := range scenario.original.Spec.Containers[0].Env {
 			if envVar.Name == constants.CustomSpecStorageMountPathKey {
 				originalEnvVar = &envVar
