@@ -1180,7 +1180,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-3-3",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass:                     string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass:                     string(constants.AutoscalerClassNone),
 						constants.CustomGPUResourceTypesAnnotationKey: "[\"unknownGPU.com/gpu\"]",
 					},
 				},
@@ -1216,7 +1216,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-3-4",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass:                     string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass:                     string(constants.AutoscalerClassNone),
 						constants.CustomGPUResourceTypesAnnotationKey: "[\"unknownGPU.com/gpu\"]",
 					},
 				},
