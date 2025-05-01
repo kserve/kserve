@@ -48,6 +48,8 @@ const (
 	LoggerArgumentTlsSkipVerify       = "--logger-tls-skip-verify"
 	LoggerArgumentMetadataHeaders     = "--metadata-headers"
 	LoggerArgumentMetadataAnnotations = "--metadata-annotations"
+
+	LoggerDefaultServiceAccountName = "logger-sa"
 )
 
 type AgentConfig struct {
@@ -60,7 +62,7 @@ type AgentConfig struct {
 
 type LoggerStorageSpec struct {
 	*v1beta1.StorageSpec
-	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	ServiceAccountName *string `json:"serviceAccountName,omitempty"`
 }
 
 type LoggerConfig struct {
@@ -134,11 +136,14 @@ func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
 		}
 	}
 	if loggerConfig.Store != nil {
-		if loggerConfig.Store.StorageKey == nil {
-			return loggerConfig, fmt.Errorf("Logger storage is configured but storage key is not set")
+		log.Info("Using inference-service logger store configuration", "Store", loggerConfig.Store)
+		if loggerConfig.Store.StorageKey == nil || *loggerConfig.Store.StorageKey == "" {
+			storageKey := constants.LoggerDefaultStorageKey
+			loggerConfig.Store.StorageKey = &storageKey
 		}
-		if loggerConfig.Store.ServiceAccountName == "" {
-			return loggerConfig, fmt.Errorf("Logger storage is configured but storage service accout name is not set")
+		if loggerConfig.Store.ServiceAccountName == nil || *loggerConfig.Store.ServiceAccountName == "" {
+			saName := constants.LoggerDefaultServiceAccountName
+			loggerConfig.Store.ServiceAccountName = &saName
 		}
 	}
 	return loggerConfig, nil
@@ -431,9 +436,9 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	}
 
 	if injectLogger && ag.loggerConfig.Store != nil {
-		saName := "logger-sa"
-		if ag.loggerConfig.Store.ServiceAccountName != "" {
-			saName = ag.loggerConfig.Store.ServiceAccountName
+		saName := LoggerDefaultServiceAccountName
+		if ag.loggerConfig.Store.ServiceAccountName != nil {
+			saName = *ag.loggerConfig.Store.ServiceAccountName
 		}
 		if err := ag.credentialBuilder.CreateSecretVolumeAndEnv(
 			pod.Namespace,

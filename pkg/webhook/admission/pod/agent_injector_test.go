@@ -73,6 +73,7 @@ var (
 		CaCertFile:    "ca.crt",
 		TlsSkipVerify: true,
 	}
+	saName                  = constants.LoggerDefaultServiceAccountName
 	loggerConfigWithStorage = &LoggerConfig{
 		Image:      "gcr.io/kserve/agent:latest",
 		DefaultUrl: "http://httpbin.org/",
@@ -82,7 +83,7 @@ var (
 				Parameters: &storageParameters,
 				StorageKey: &storageKey,
 			},
-			ServiceAccountName: "logger-sa",
+			ServiceAccountName: &saName,
 		},
 	}
 	batcherTestConfig = &BatcherConfig{
@@ -1806,7 +1807,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 							Parameters: &storageParameters,
 							StorageKey: &storageKey,
 						},
-						ServiceAccountName: "logger-sa",
+						ServiceAccountName: &saName,
 					},
 				}),
 				gomega.BeNil(),

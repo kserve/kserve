@@ -2812,6 +2812,8 @@ spec:
                               type: object
                             path:
                               type: string
+                            serviceAccountName:
+                              type: string
                           type: object
                         url:
                           type: string
@@ -7336,6 +7338,8 @@ spec:
                                 type: string
                               type: object
                             path:
+                              type: string
+                            serviceAccountName:
                               type: string
                           type: object
                         url:
@@ -20286,6 +20290,8 @@ spec:
                                 type: string
                               type: object
                             path:
+                              type: string
+                            serviceAccountName:
                               type: string
                           type: object
                         url:
