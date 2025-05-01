@@ -47,18 +47,24 @@ class V1alpha1LocalModelCacheSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'model_size': 'ResourceQuantity',
-        'node_groups': 'list[str]',
-        'source_model_uri': 'str'
+        "model_size": "ResourceQuantity",
+        "node_groups": "list[str]",
+        "source_model_uri": "str",
     }
 
     attribute_map = {
-        'model_size': 'modelSize',
-        'node_groups': 'nodeGroups',
-        'source_model_uri': 'sourceModelUri'
+        "model_size": "modelSize",
+        "node_groups": "nodeGroups",
+        "source_model_uri": "sourceModelUri",
     }
 
-    def __init__(self, model_size=None, node_groups=None, source_model_uri='', local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        model_size=None,
+        node_groups=None,
+        source_model_uri="",
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1alpha1LocalModelCacheSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -91,8 +97,12 @@ class V1alpha1LocalModelCacheSpec(object):
         :param model_size: The model_size of this V1alpha1LocalModelCacheSpec.  # noqa: E501
         :type: ResourceQuantity
         """
-        if self.local_vars_configuration.client_side_validation and model_size is None:  # noqa: E501
-            raise ValueError("Invalid value for `model_size`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and model_size is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `model_size`, must not be `None`"
+            )  # noqa: E501
 
         self._model_size = model_size
 
@@ -116,8 +126,12 @@ class V1alpha1LocalModelCacheSpec(object):
         :param node_groups: The node_groups of this V1alpha1LocalModelCacheSpec.  # noqa: E501
         :type: list[str]
         """
-        if self.local_vars_configuration.client_side_validation and node_groups is None:  # noqa: E501
-            raise ValueError("Invalid value for `node_groups`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and node_groups is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `node_groups`, must not be `None`"
+            )  # noqa: E501
 
         self._node_groups = node_groups
 
@@ -141,8 +155,13 @@ class V1alpha1LocalModelCacheSpec(object):
         :param source_model_uri: The source_model_uri of this V1alpha1LocalModelCacheSpec.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and source_model_uri is None:  # noqa: E501
-            raise ValueError("Invalid value for `source_model_uri`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation
+            and source_model_uri is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `source_model_uri`, must not be `None`"
+            )  # noqa: E501
 
         self._source_model_uri = source_model_uri
 
@@ -153,18 +172,22 @@ class V1alpha1LocalModelCacheSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

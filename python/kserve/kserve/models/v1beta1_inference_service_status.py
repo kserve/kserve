@@ -47,28 +47,39 @@ class V1beta1InferenceServiceStatus(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'address': 'KnativeAddressable',
-        'annotations': 'dict(str, str)',
-        'components': 'dict(str, V1beta1ComponentStatusSpec)',
-        'conditions': 'list[KnativeCondition]',
-        'deployment_mode': 'str',
-        'model_status': 'V1beta1ModelStatus',
-        'observed_generation': 'int',
-        'url': 'KnativeURL'
+        "address": "KnativeAddressable",
+        "annotations": "dict(str, str)",
+        "components": "dict(str, V1beta1ComponentStatusSpec)",
+        "conditions": "list[KnativeCondition]",
+        "deployment_mode": "str",
+        "model_status": "V1beta1ModelStatus",
+        "observed_generation": "int",
+        "url": "KnativeURL",
     }
 
     attribute_map = {
-        'address': 'address',
-        'annotations': 'annotations',
-        'components': 'components',
-        'conditions': 'conditions',
-        'deployment_mode': 'deploymentMode',
-        'model_status': 'modelStatus',
-        'observed_generation': 'observedGeneration',
-        'url': 'url'
+        "address": "address",
+        "annotations": "annotations",
+        "components": "components",
+        "conditions": "conditions",
+        "deployment_mode": "deploymentMode",
+        "model_status": "modelStatus",
+        "observed_generation": "observedGeneration",
+        "url": "url",
     }
 
-    def __init__(self, address=None, annotations=None, components=None, conditions=None, deployment_mode=None, model_status=None, observed_generation=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        address=None,
+        annotations=None,
+        components=None,
+        conditions=None,
+        deployment_mode=None,
+        model_status=None,
+        observed_generation=None,
+        url=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1InferenceServiceStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -286,18 +297,22 @@ class V1beta1InferenceServiceStatus(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 

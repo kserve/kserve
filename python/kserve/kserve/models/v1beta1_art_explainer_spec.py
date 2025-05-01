@@ -47,70 +47,102 @@ class V1beta1ARTExplainerSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'args': 'list[str]',
-        'command': 'list[str]',
-        'config': 'dict(str, str)',
-        'env': 'list[V1EnvVar]',
-        'env_from': 'list[V1EnvFromSource]',
-        'image': 'str',
-        'image_pull_policy': 'str',
-        'lifecycle': 'V1Lifecycle',
-        'liveness_probe': 'V1Probe',
-        'name': 'str',
-        'ports': 'list[V1ContainerPort]',
-        'readiness_probe': 'V1Probe',
-        'resize_policy': 'list[V1ContainerResizePolicy]',
-        'resources': 'V1ResourceRequirements',
-        'restart_policy': 'str',
-        'runtime_version': 'str',
-        'security_context': 'V1SecurityContext',
-        'startup_probe': 'V1Probe',
-        'stdin': 'bool',
-        'stdin_once': 'bool',
-        'storage': 'V1beta1StorageSpec',
-        'storage_uri': 'str',
-        'termination_message_path': 'str',
-        'termination_message_policy': 'str',
-        'tty': 'bool',
-        'type': 'str',
-        'volume_devices': 'list[V1VolumeDevice]',
-        'volume_mounts': 'list[V1VolumeMount]',
-        'working_dir': 'str'
+        "args": "list[str]",
+        "command": "list[str]",
+        "config": "dict(str, str)",
+        "env": "list[V1EnvVar]",
+        "env_from": "list[V1EnvFromSource]",
+        "image": "str",
+        "image_pull_policy": "str",
+        "lifecycle": "V1Lifecycle",
+        "liveness_probe": "V1Probe",
+        "name": "str",
+        "ports": "list[V1ContainerPort]",
+        "readiness_probe": "V1Probe",
+        "resize_policy": "list[V1ContainerResizePolicy]",
+        "resources": "V1ResourceRequirements",
+        "restart_policy": "str",
+        "runtime_version": "str",
+        "security_context": "V1SecurityContext",
+        "startup_probe": "V1Probe",
+        "stdin": "bool",
+        "stdin_once": "bool",
+        "storage": "V1beta1StorageSpec",
+        "storage_uri": "str",
+        "termination_message_path": "str",
+        "termination_message_policy": "str",
+        "tty": "bool",
+        "type": "str",
+        "volume_devices": "list[V1VolumeDevice]",
+        "volume_mounts": "list[V1VolumeMount]",
+        "working_dir": "str",
     }
 
     attribute_map = {
-        'args': 'args',
-        'command': 'command',
-        'config': 'config',
-        'env': 'env',
-        'env_from': 'envFrom',
-        'image': 'image',
-        'image_pull_policy': 'imagePullPolicy',
-        'lifecycle': 'lifecycle',
-        'liveness_probe': 'livenessProbe',
-        'name': 'name',
-        'ports': 'ports',
-        'readiness_probe': 'readinessProbe',
-        'resize_policy': 'resizePolicy',
-        'resources': 'resources',
-        'restart_policy': 'restartPolicy',
-        'runtime_version': 'runtimeVersion',
-        'security_context': 'securityContext',
-        'startup_probe': 'startupProbe',
-        'stdin': 'stdin',
-        'stdin_once': 'stdinOnce',
-        'storage': 'storage',
-        'storage_uri': 'storageUri',
-        'termination_message_path': 'terminationMessagePath',
-        'termination_message_policy': 'terminationMessagePolicy',
-        'tty': 'tty',
-        'type': 'type',
-        'volume_devices': 'volumeDevices',
-        'volume_mounts': 'volumeMounts',
-        'working_dir': 'workingDir'
+        "args": "args",
+        "command": "command",
+        "config": "config",
+        "env": "env",
+        "env_from": "envFrom",
+        "image": "image",
+        "image_pull_policy": "imagePullPolicy",
+        "lifecycle": "lifecycle",
+        "liveness_probe": "livenessProbe",
+        "name": "name",
+        "ports": "ports",
+        "readiness_probe": "readinessProbe",
+        "resize_policy": "resizePolicy",
+        "resources": "resources",
+        "restart_policy": "restartPolicy",
+        "runtime_version": "runtimeVersion",
+        "security_context": "securityContext",
+        "startup_probe": "startupProbe",
+        "stdin": "stdin",
+        "stdin_once": "stdinOnce",
+        "storage": "storage",
+        "storage_uri": "storageUri",
+        "termination_message_path": "terminationMessagePath",
+        "termination_message_policy": "terminationMessagePolicy",
+        "tty": "tty",
+        "type": "type",
+        "volume_devices": "volumeDevices",
+        "volume_mounts": "volumeMounts",
+        "working_dir": "workingDir",
     }
 
-    def __init__(self, args=None, command=None, config=None, env=None, env_from=None, image=None, image_pull_policy=None, lifecycle=None, liveness_probe=None, name='', ports=None, readiness_probe=None, resize_policy=None, resources=None, restart_policy=None, runtime_version=None, security_context=None, startup_probe=None, stdin=None, stdin_once=None, storage=None, storage_uri=None, termination_message_path=None, termination_message_policy=None, tty=None, type='', volume_devices=None, volume_mounts=None, working_dir=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(
+        self,
+        args=None,
+        command=None,
+        config=None,
+        env=None,
+        env_from=None,
+        image=None,
+        image_pull_policy=None,
+        lifecycle=None,
+        liveness_probe=None,
+        name="",
+        ports=None,
+        readiness_probe=None,
+        resize_policy=None,
+        resources=None,
+        restart_policy=None,
+        runtime_version=None,
+        security_context=None,
+        startup_probe=None,
+        stdin=None,
+        stdin_once=None,
+        storage=None,
+        storage_uri=None,
+        termination_message_path=None,
+        termination_message_policy=None,
+        tty=None,
+        type="",
+        volume_devices=None,
+        volume_mounts=None,
+        working_dir=None,
+        local_vars_configuration=None,
+    ):  # noqa: E501
         """V1beta1ARTExplainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -427,8 +459,12 @@ class V1beta1ARTExplainerSpec(object):
         :param name: The name of this V1beta1ARTExplainerSpec.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and name is None:  # noqa: E501
-            raise ValueError("Invalid value for `name`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and name is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `name`, must not be `None`"
+            )  # noqa: E501
 
         self._name = name
 
@@ -787,8 +823,12 @@ class V1beta1ARTExplainerSpec(object):
         :param type: The type of this V1beta1ARTExplainerSpec.  # noqa: E501
         :type: str
         """
-        if self.local_vars_configuration.client_side_validation and type is None:  # noqa: E501
-            raise ValueError("Invalid value for `type`, must not be `None`")  # noqa: E501
+        if (
+            self.local_vars_configuration.client_side_validation and type is None
+        ):  # noqa: E501
+            raise ValueError(
+                "Invalid value for `type`, must not be `None`"
+            )  # noqa: E501
 
         self._type = type
 
@@ -868,18 +908,22 @@ class V1beta1ARTExplainerSpec(object):
         for attr, _ in six.iteritems(self.openapi_types):
             value = getattr(self, attr)
             if isinstance(value, list):
-                result[attr] = list(map(
-                    lambda x: x.to_dict() if hasattr(x, "to_dict") else x,
-                    value
-                ))
+                result[attr] = list(
+                    map(lambda x: x.to_dict() if hasattr(x, "to_dict") else x, value)
+                )
             elif hasattr(value, "to_dict"):
                 result[attr] = value.to_dict()
             elif isinstance(value, dict):
-                result[attr] = dict(map(
-                    lambda item: (item[0], item[1].to_dict())
-                    if hasattr(item[1], "to_dict") else item,
-                    value.items()
-                ))
+                result[attr] = dict(
+                    map(
+                        lambda item: (
+                            (item[0], item[1].to_dict())
+                            if hasattr(item[1], "to_dict")
+                            else item
+                        ),
+                        value.items(),
+                    )
+                )
             else:
                 result[attr] = value
 
