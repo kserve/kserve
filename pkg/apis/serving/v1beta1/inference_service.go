@@ -48,6 +48,11 @@ type StorageSpec struct {
 	StorageKey *string `json:"key,omitempty"`
 }
 
+type LoggerStorageSpec struct {
+	StorageSpec        `json:",inline"`
+	ServiceAccountName *string `json:"serviceAccountName,omitempty"`
+}
+
 // LoggerType controls the scope of log publishing
 // +kubebuilder:validation:Enum=all;request;response
 type LoggerType string
@@ -82,7 +87,7 @@ type LoggerSpec struct {
 	MetadataAnnotations []string `json:"metadataAnnotations,omitempty"`
 	// Specifies the storage location for the inference logger cloud events.
 	// +optional
-	Storage *StorageSpec `json:"storage,omitempty"`
+	Storage *LoggerStorageSpec `json:"storage,omitempty"`
 }
 
 // MetricsBackend enum

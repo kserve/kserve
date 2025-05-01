@@ -158,10 +158,13 @@ func TestComponentExtensionSpec_validateLogger(t *testing.T) {
 		"StorageConfigNilValues": {
 			logger: &LoggerSpec{
 				Mode: LogAll,
-				Storage: &StorageSpec{
-					Path:       nil,
-					Parameters: nil,
-					StorageKey: nil,
+				Storage: &LoggerStorageSpec{
+					StorageSpec: StorageSpec{
+						Path:       nil,
+						Parameters: nil,
+						StorageKey: nil,
+					},
+					ServiceAccountName: nil,
 				},
 			},
 			matcher: gomega.MatchError(errors.New(InvalidLoggerStorageConfigError)),
