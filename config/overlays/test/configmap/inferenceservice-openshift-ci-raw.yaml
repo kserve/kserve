@@ -21,7 +21,7 @@ data:
         "disableIstioVirtualHost": false,
         "disableIngressCreation": true
     }
-    service: |-
+  service: |-
     {
         "serviceClusterIPNone": false
     }
