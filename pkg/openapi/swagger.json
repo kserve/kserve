@@ -293,6 +293,10 @@
           "x-kubernetes-patch-merge-key": "type",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "deploymentMode": {
+          "description": "InferenceGraph DeploymentMode",
+          "type": "string"
+        },
         "observedGeneration": {
           "description": "ObservedGeneration is the 'Generation' of the Service that was last processed by the controller.",
           "type": "integer",
@@ -3153,6 +3157,10 @@
           },
           "x-kubernetes-patch-merge-key": "type",
           "x-kubernetes-patch-strategy": "merge"
+        },
+        "deploymentMode": {
+          "description": "InferenceService DeploymentMode",
+          "type": "string"
         },
         "modelStatus": {
           "description": "Model related statuses",

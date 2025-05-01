@@ -25,9 +25,6 @@ import (
 	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
-	"github.com/kserve/kserve/pkg/utils"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
@@ -50,6 +47,8 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var _ = Describe("v1beta1 inference service controller", func() {
@@ -570,6 +569,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -1120,6 +1120,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -1196,7 +1197,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualHPA.Spec).To(BeComparableTo(expectedHPA.Spec))
 		})
 		It("Should have httproute/service/deployment created", func() {
-			By("By creating a new InferenceService with AutoscalerClass External")
+			By("By creating a new InferenceService with AutoscalerClass None")
 			// Create configmap
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1253,7 +1254,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
 						constants.DeploymentMode:  string(constants.RawDeployment),
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -1317,7 +1318,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 								constants.DeploymentMode:                                   string(constants.RawDeployment),
-								constants.AutoscalerClass:                                  string(constants.AutoscalerClassExternal),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassNone),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1654,7 +1655,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
 					return err.Error()
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}), cmpopts.IgnoreFields(v1beta1.InferenceServiceStatus{}, "DeploymentMode"))
 			}, timeout).Should(BeEmpty())
 
 			// check HPA is not created
@@ -2024,6 +2025,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -2593,6 +2595,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -3428,6 +3431,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -4372,6 +4376,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -5056,6 +5061,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -5941,6 +5947,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -6977,6 +6984,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -7861,6 +7869,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					TransitionStatus:    "InProgress",
 					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
 				},
+				DeploymentMode: string(constants.RawDeployment),
 			}
 			Eventually(func() string {
 				isvc := &v1beta1.InferenceService{}
@@ -8055,7 +8064,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
 						constants.DeploymentMode:  string(constants.RawDeployment),
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8163,7 +8172,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
 						constants.DeploymentMode:  string(constants.RawDeployment),
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8233,7 +8242,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
 						constants.DeploymentMode:  string(constants.RawDeployment),
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8296,8 +8305,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8372,8 +8381,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8452,8 +8461,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8544,8 +8553,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8636,8 +8645,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8727,8 +8736,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8804,7 +8813,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// Verify worker node replicas
 			Expect(actualWorkerDeployment.Spec.Replicas).Should(Equal(ptr.To(int32(10))))
 		})
-		It("Should not set nil to replicas when multinode isvc(external autoscaler) is updated", func() {
+		It("Should not set nil to replicas when multinode isvc(none autoscaler) is updated", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 			By("creating a new InferenceService")
@@ -8820,7 +8829,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
 						constants.DeploymentMode:  string(constants.RawDeployment),
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
