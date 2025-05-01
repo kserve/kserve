@@ -983,13 +983,13 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 		isvc     *InferenceService
 		expected gomega.OmegaMatcher
 	}{
-		"When TENSOR_PARALLEL_SIZE set in the environment, then it should return error": {
+		"When TENSOR_PARALLEL_SIZE set as an environment variable, it should return an error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-1",
+					Name:      "foo-1-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1011,15 +1011,15 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, "foo-1")),
+			expected: gomega.Equal(fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, "foo-1-1")),
 		},
-		"When PIPELINE_PARALLEL_SIZE set in the environment, then it should return error": {
+		"When PIPELINE_PARALLEL_SIZE set as an environment variable, it should return an error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-2",
+					Name:      "foo-1-2",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1041,15 +1041,15 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(DisallowedWorkerSpecPipelineParallelSizeEnvError, "foo-2")),
+			expected: gomega.Equal(fmt.Errorf(DisallowedWorkerSpecPipelineParallelSizeEnvError, "foo-1-2")),
 		},
-		"When workerSpec.TensorParallelSize set less than 1, then it should return error": {
+		"When workerSpec.TensorParallelSize set less than 1, it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-3",
+					Name:      "foo-2-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1069,15 +1069,15 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, "foo-3", "0")),
+			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, "foo-2-1", "0")),
 		},
-		"When WorkerSpec.PipelineParallelSize set less than 2, then it should return error": {
+		"When WorkerSpec.PipelineParallelSize set less than 1, it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-4",
+					Name:      "foo-2-2",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1092,20 +1092,20 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 						},
 						WorkerSpec: &WorkerSpec{
 							PodSpec:              PodSpec{},
-							PipelineParallelSize: intPtr(1),
+							PipelineParallelSize: intPtr(0),
 						},
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, "foo-4", "1")),
+			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, "foo-2-2", "0")),
 		},
-		"When unknownGPUResource set in Predictor.Model, then it should return error": {
+		"When unknownGPUResource set in Predictor.Model, it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-5",
+					Name:      "foo-3-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1132,15 +1132,15 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidUnknownGPUTypeError, "foo-5")),
+			expected: gomega.Equal(fmt.Errorf(InvalidUnknownGPUTypeError, "foo-3-1")),
 		},
-		"When unknownGPUResource set in Predictor.WorkerSpec, then it should return error": {
+		"When unknownGPUResource set in Predictor.WorkerSpec, it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-6",
+					Name:      "foo-3-2",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1172,15 +1172,92 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidUnknownGPUTypeError, "foo-6")),
+			expected: gomega.Equal(fmt.Errorf(InvalidUnknownGPUTypeError, "foo-3-2")),
 		},
-		"When unsupported storageURI set, then it should return error": {
+		"When customGPUResourceTypes set to annotations, unknownGPUResource in Predictor.Model do not return an error and function correctly": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-7",
+					Name:      "foo-3-3",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass:                     string(constants.AutoscalerClassExternal),
+						constants.CustomGPUResourceTypesAnnotationKey: "[\"unknownGPU.com/gpu\"]",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+								Container: corev1.Container{
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											"unknownGPU.com/gpu": resource.MustParse("1"),
+										},
+										Requests: corev1.ResourceList{
+											"unknownGPU.com/gpu": resource.MustParse("1"),
+										},
+									},
+								},
+							},
+						},
+						WorkerSpec: &WorkerSpec{},
+					},
+				},
+			},
+			expected: gomega.BeNil(),
+		},
+		"When customGPUResourceTypes set to annotations, unknownGPUResource in Predictor.WorkerSpec do not return an error and function correctly": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-3-4",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass:                     string(constants.AutoscalerClassExternal),
+						constants.CustomGPUResourceTypesAnnotationKey: "[\"unknownGPU.com/gpu\"]",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+							},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec: PodSpec{
+								Containers: []corev1.Container{
+									{
+										Resources: corev1.ResourceRequirements{
+											Limits: corev1.ResourceList{
+												"unknownGPU.com/gpu": resource.MustParse("1"),
+											},
+											Requests: corev1.ResourceList{
+												"unknownGPU.com/gpu": resource.MustParse("1"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.BeNil(),
+		},
+		"When unsupported storageURI set, it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-4-1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1197,12 +1274,12 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, "foo-7", "s3")),
+			expected: gomega.Equal(fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, "foo-4-1", "s3")),
 		},
-		"When external autoscaler is not set, then it should return error": {
+		"When none autoscaler is not set, then it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-8",
+					Name:      "foo-4-2",
 					Namespace: "default",
 					Annotations: map[string]string{
 						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
@@ -1222,15 +1299,15 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidAutoScalerError, "foo-8", constants.AutoscalerClassHPA)),
+			expected: gomega.Equal(fmt.Errorf(InvalidAutoScalerError, "foo-4-2", constants.AutoscalerClassHPA)),
 		},
-		"When multiple containers set in WorkerSpec, then it should return error": {
+		"When multiple containers set in WorkerSpec, it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo-9",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1264,6 +1341,32 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			g.Expect(err).To(scenario.expected)
 		})
 	}
+}
+
+func TestDeploymentModeUpdate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	oldIsvc := makeTestInferenceService()
+	oldIsvc.Status = InferenceServiceStatus{
+		DeploymentMode: "Serverless",
+	}
+	updatedIsvc := oldIsvc.DeepCopy()
+	updatedIsvc.Annotations = map[string]string{
+		constants.DeploymentMode: "RawDeployment",
+	}
+	validator := InferenceServiceValidator{}
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc)
+	// Annotation does not match status, update should be rejected
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
+
+	updatedIsvc1 := oldIsvc.DeepCopy()
+	updatedIsvc1.Annotations = map[string]string{
+		constants.DeploymentMode: "Serverless",
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc1)
+	// Annotation matches status, update is accepted
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
 }
 
 func intPtr(i int) *int {

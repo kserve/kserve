@@ -54,13 +54,11 @@ def verify_status(result, probe_type):
 
 # Function for startup check using Ray API
 def check_registered_node_and_runtime_health(
-    pipeline_parallel_size, health_check_url, ray_address="auto"
+    ray_node_count, health_check_url, ray_address="auto"
 ):
     initialize_ray_cluster(ray_address)
-    # Check if the registered nodes count matches PIPELINE_PARALLEL_SIZE
-    check_registered_nodes_status = check_registered_nodes(
-        pipeline_parallel_size, ray_address
-    )
+    # Check if the registered nodes count matches RAY_NODE_COUNT
+    check_registered_nodes_status = check_registered_nodes(ray_node_count, ray_address)
 
     # Check if server health return 200
     check_runtime_health_status = check_runtime_health(health_check_url)
@@ -78,9 +76,9 @@ def check_registered_node_and_runtime_health(
 
 
 def check_registered_node_and_runtime_models(
-    pipeline_parallel_size, runtime_url, ray_address, isvc_name
+    ray_node_count, runtime_url, ray_address, isvc_name
 ):
-    result1 = check_registered_nodes(pipeline_parallel_size, ray_address)
+    result1 = check_registered_nodes(ray_node_count, ray_address)
     result2 = check_runtime_models(runtime_url, isvc_name)
     logger.debug(f"check_registered_nodes: {result1}, check_runtime_models: {result2}")
     # Check both results
@@ -116,13 +114,11 @@ def check_gpu_usage(ray_address="auto"):
         return "Unhealthy"
 
 
-def check_registered_nodes(
-    pipeline_parallel_size, ray_address="auto", retries=0, interval=2
-):
+def check_registered_nodes(ray_node_count, ray_address="auto", retries=0, interval=2):
     try:
-        pipeline_parallel_size = int(pipeline_parallel_size)  # Ensure it's an integer
+        ray_node_count = int(ray_node_count)  # Ensure it's an integer
     except ValueError:
-        logger.error(f"Invalid pipeline_parallel_size: {pipeline_parallel_size}")
+        logger.error(f"Invalid ray_node_count: {ray_node_count}")
         return "Unhealthy"
 
     for attempt in range(1, retries + 2):
@@ -132,16 +128,16 @@ def check_registered_nodes(
             nodes = ray.nodes()
             registered_node_count = len([node for node in nodes if node["Alive"]])
             logger.debug(
-                f"registered_node_count: {registered_node_count}, pipeline_parallel_size: {pipeline_parallel_size}"
+                f"registered_node_count: {registered_node_count}, ray_node_count: {ray_node_count}"
             )
-            # Check if the registered nodes count matches PIPELINE_PARALLEL_SIZE
-            if not registered_node_count >= pipeline_parallel_size:
+            # Check if the registered nodes count matches RAY_NODE_COUNT
+            if not registered_node_count >= ray_node_count:
                 logger.error(
-                    f"Waiting - Registered nodes count ({registered_node_count}) does not match PIPELINE_PARALLEL_SIZE ({pipeline_parallel_size})."
+                    f"Waiting - Registered nodes count ({registered_node_count}) does not match RAY_NODE_COUNT ({ray_node_count})."
                 )
             else:
                 logger.info(
-                    f"Success - Registered nodes count ({registered_node_count}) matches PIPELINE_PARALLEL_SIZE ({pipeline_parallel_size})."
+                    f"Success - Registered nodes count ({registered_node_count}) matches RAY_NODE_COUNT ({ray_node_count})."
                 )
                 return "Healthy"
 
@@ -151,7 +147,7 @@ def check_registered_nodes(
         if attempt < retries:
             time.sleep(interval)
     logger.error(
-        "Max retries reached. Node count did not match the expected pipeline parallel size."
+        "Max retries reached. Node count did not match the expected Ray node count."
     )
     return "Unhealthy"
 
@@ -199,8 +195,8 @@ def main():
     # Get default values from environment variables if available
     default_ray_address = os.getenv("RAY_ADDRESS", "auto")
     default_isvc_name = os.getenv("ISVC_NAME", "")
-    default_pipeline_parallel_size = int(
-        os.getenv("PIPELINE_PARALLEL_SIZE", 2)
+    default_ray_node_count = int(
+        os.getenv("RAY_NODE_COUNT", 2)
     )  # Default to 2 if not set
 
     # Create the top-level parser
@@ -222,32 +218,32 @@ def main():
     runtime_health_parser.add_argument("--health_check_url", help="Health check URL")
     runtime_health_parser.add_argument("--probe_name", help="Probe name")
 
-    # Check if registered node is the same as pipelineParalleSize
+    # Check if registered node is the same as rayNodeCount
     reigstered_node_parser = subparsers.add_parser(
         "registered_nodes",
-        help="Check if registered nodes are the same as pipeline parallel size",
+        help="Check if registered nodes are the same as Ray node count",
     )
     reigstered_node_parser.add_argument(
-        "--pipeline_parallel_size",
+        "--ray_node_count",
         type=int,
-        default=default_pipeline_parallel_size,
-        help="Pipeline parallel size",
+        default=default_ray_node_count,
+        help="Ray node count",
     )
     reigstered_node_parser.add_argument(
-        "--retries", type=int, default=0, help="Pipeline parallel size"
+        "--retries", type=int, default=0, help="Ray node count"
     )
     reigstered_node_parser.add_argument("--probe_name", help="Probe name")
 
-    # Check if registered node is the same as pipelineParalleSize/ runtime health subcommand
+    # Check if registered node is the same as rayNodeCount/ runtime health subcommand
     registered_node_and_runtime_health_parser = subparsers.add_parser(
         "registered_node_and_runtime_health",
         help="Check node counts and runtime health",
     )
     registered_node_and_runtime_health_parser.add_argument(
-        "--pipeline_parallel_size",
+        "--ray_node_count",
         type=int,
-        default=default_pipeline_parallel_size,
-        help="Pipeline parallel size",
+        default=default_ray_node_count,
+        help="Ray node count",
     )
     registered_node_and_runtime_health_parser.add_argument(
         "--health_check_url", help="Health check URL"
@@ -256,16 +252,16 @@ def main():
         "--probe_name", help="Probe name"
     )
 
-    # Check if registered node is the same as pipelineParalleSize/ model loaded on runtime subcommand
+    # Check if registered node is the same as rayNodeCount/ model loaded on runtime subcommand
     registered_node_and_runtime_models_parser = subparsers.add_parser(
         "registered_node_and_runtime_models",
         help="Check node counts and loaded model on runtime",
     )
     registered_node_and_runtime_models_parser.add_argument(
-        "--pipeline_parallel_size",
+        "--ray_node_count",
         type=int,
-        default=default_pipeline_parallel_size,
-        help="Pipeline parallel size",
+        default=default_ray_node_count,
+        help="Ray node count",
     )
     registered_node_and_runtime_models_parser.add_argument(
         "--runtime_url", help="Health check URL"
@@ -283,12 +279,12 @@ def main():
         verify_status(result, args.probe_name)
     elif args.command == "registered_node_and_runtime_health":
         result = check_registered_node_and_runtime_health(
-            args.pipeline_parallel_size, args.health_check_url, args.ray_address
+            args.ray_node_count, args.health_check_url, args.ray_address
         )
         verify_status(result, args.probe_name)
     elif args.command == "registered_node_and_runtime_models":
         result = check_registered_node_and_runtime_models(
-            args.pipeline_parallel_size,
+            args.ray_node_count,
             args.runtime_url,
             args.ray_address,
             args.isvc_name,
@@ -296,7 +292,7 @@ def main():
         verify_status(result, args.probe_name)
     elif args.command == "registered_nodes":
         result = check_registered_nodes(
-            args.pipeline_parallel_size, args.ray_address, args.retries
+            args.ray_node_count, args.ray_address, args.retries
         )
         verify_status(result, args.probe_name)
     else:

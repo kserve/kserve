@@ -82,8 +82,15 @@ func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, 
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
 		return nil, err
 	}
+	oldIsvc, err := convertToInferenceService(oldObj)
+	if err != nil {
+		validatorLogger.Error(err, "Unable to convert object to InferenceService")
+	}
 	validatorLogger.Info("validate update", "name", isvc.Name)
-
+	err = validateDeploymentMode(isvc, oldIsvc)
+	if err != nil {
+		return nil, err
+	}
 	return validateInferenceService(isvc)
 }
 
@@ -153,9 +160,11 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 				return fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, isvc.Name)
 			}
 
-			if isUnknownGPUType, err := utils.IsUnknownGpuResourceType(isvc.Spec.Predictor.Model.Resources, isvc.Annotations); err != nil {
+			hadUnknownGpuType, err := utils.HasUnknownGpuResourceType(isvc.Spec.Predictor.Model.Resources, isvc.Annotations)
+			if err != nil {
 				return err
-			} else if isUnknownGPUType {
+			}
+			if hadUnknownGpuType {
 				return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
 			}
 
@@ -167,26 +176,28 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 					return fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, isvc.Name, storageProtocol)
 				}
 			}
-			if isvc.GetAnnotations()[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+			if isvc.GetAnnotations()[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 				return fmt.Errorf(InvalidAutoScalerError, isvc.Name, isvc.GetAnnotations()[constants.AutoscalerClass])
 			}
 		}
 
-		// WorkerSpec.PipelineParallelSize should not be less than 2 (head + worker)
-		if pps := isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize; pps != nil && *pps < 2 {
+		// WorkerSpec.PipelineParallelSize should not be less than 1
+		if pps := isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize; pps != nil && *pps < constants.DefaultPipelineParallelSize {
 			return fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, isvc.Name, strconv.Itoa(*pps))
 		}
 
 		// WorkerSpec.TensorParallelSize should not be less than 1.
-		if tps := isvc.Spec.Predictor.WorkerSpec.TensorParallelSize; tps != nil && *tps < 1 {
+		if tps := isvc.Spec.Predictor.WorkerSpec.TensorParallelSize; tps != nil && *tps < constants.DefaultTensorParallelSize {
 			return fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, isvc.Name, strconv.Itoa(*tps))
 		}
 
 		if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
 			for _, container := range isvc.Spec.Predictor.WorkerSpec.Containers {
-				if isUnknownGPUType, err := utils.IsUnknownGpuResourceType(container.Resources, isvc.Annotations); err != nil {
+				hadUnknownGpuType, err := utils.HasUnknownGpuResourceType(container.Resources, isvc.Annotations)
+				if err != nil {
 					return err
-				} else if isUnknownGPUType {
+				}
+				if hadUnknownGpuType {
 					return fmt.Errorf(InvalidUnknownGPUTypeError, isvc.Name)
 				}
 			}
@@ -427,6 +438,19 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 				}
 			}
 			break
+		}
+	}
+	return nil
+}
+
+// validates if the deploymentMode specified in the annotation is not different from the one recorded in the status
+func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService) error {
+	statusDeploymentMode := oldIsvc.Status.DeploymentMode
+	if len(statusDeploymentMode) != 0 {
+		annotations := newIsvc.Annotations
+		annotationDeploymentMode, ok := annotations[constants.DeploymentMode]
+		if ok && annotationDeploymentMode != statusDeploymentMode {
+			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
 		}
 	}
 	return nil
