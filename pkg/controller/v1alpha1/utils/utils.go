@@ -18,6 +18,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/go-logr/logr"
@@ -53,7 +54,7 @@ func SetAutoScalingAnnotations(ctx context.Context,
 	maxReplicas int32,
 	log logr.Logger,
 ) error {
-	// User can pass down scaling class annotation to overwrite the default scaling KPA
+	// User can pass down scaling class annotation to overwrite the default scaling KPA.
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
 	}
@@ -67,13 +68,10 @@ func SetAutoScalingAnnotations(ctx context.Context,
 	}
 
 	// If a min replicas value is not set, use the default min replicas value.
-	var revisionMinScale int32
 	if minReplicas == nil {
 		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
-		revisionMinScale = constants.DefaultMinReplicas
 	} else {
 		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(*minReplicas))
-		revisionMinScale = *minReplicas
 	}
 
 	annotations[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(int(maxReplicas))
@@ -83,11 +81,35 @@ func SetAutoScalingAnnotations(ctx context.Context,
 		"max-scale", annotations[autoscaling.MaxScaleAnnotationKey],
 	)
 
-	annotations[autoscaling.InitialScaleAnnotationKey] = annotations[autoscaling.MinScaleAnnotationKey]
-
-	log.Info("kserve will always set the initial scale value for knative revisions equal to the min replicas requested",
-		"initial-scale", annotations[autoscaling.InitialScaleAnnotationKey],
-	)
+	// By default the initial scale value for knative revisions will be set equal to the min replicas requested.
+	// This functionality can be overridden by explicitly setting the knative initial-scale annotation.
+	if _, ok := annotations[autoscaling.InitialScaleAnnotationKey]; !ok {
+		log.Info(
+			fmt.Sprintf(
+				"The %s annotation is not explicitly set. kserve will default the initial scale value for knative revisions to equal the min replicas requested",
+				autoscaling.InitialScaleAnnotationKey,
+			),
+			"initial-scale", annotations[autoscaling.MinScaleAnnotationKey],
+		)
+		annotations[autoscaling.InitialScaleAnnotationKey] = annotations[autoscaling.MinScaleAnnotationKey]
+	} else {
+		log.Info(
+			fmt.Sprintf(
+				"The %s annotation is explicitly set. kserve will override the default initial scale value for knative revisions with the value of this annotation",
+				autoscaling.InitialScaleAnnotationKey,
+			),
+			"initial-scale", annotations[autoscaling.InitialScaleAnnotationKey],
+		)
+	}
+	initialScale, err := strconv.Atoi(annotations[autoscaling.InitialScaleAnnotationKey])
+	if err != nil {
+		return errors.Wrapf(
+			err,
+			"failed to convert %s annotation value of %s to an integer",
+			autoscaling.InitialScaleAnnotationKey,
+			annotations[autoscaling.InitialScaleAnnotationKey],
+		)
+	}
 
 	// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
 	allowZeroInitialScale, err := CheckZeroInitialScaleAllowed(ctx, clientset)
@@ -98,7 +120,7 @@ func SetAutoScalingAnnotations(ctx context.Context,
 	// If knative is configured to not allow zero initial scale when 0 min replicas are requested,
 	// set the initial scale to 1 for the created knative revision. This represents the closest supported value
 	// to the requested min replicas. After initialization, the knative revision will be scaled to 0.
-	if !allowZeroInitialScale && revisionMinScale == 0 {
+	if !allowZeroInitialScale && initialScale == 0 {
 		log.Info("The current knative autoscaler global configuration does not allow zero initial scale. The knative revision will be initialized with 1 replica then scaled down to 0",
 			"allow-zero-initial-scale", allowZeroInitialScale,
 			"initial-scale", 1)
@@ -112,7 +134,7 @@ func SetAutoScalingAnnotations(ctx context.Context,
 // configmap and returns a boolean value based on if knative is configured to allow zero initial scale.
 // This configmap will always be defined with the name 'config-autoscaler'.
 // The namespace the configmap exists within may vary. If the configmap is created in a namespace other than
-// 'knative-serving' this value must be set using the CONFIG_AUTOSCALER_NAMESPACE environmental variable.
+// 'knative-serving' this value must be set using the KNATIVE_CONFIG_AUTOSCALER_NAMESPACE environmental variable.
 func CheckZeroInitialScaleAllowed(ctx context.Context, clientset kubernetes.Interface) (bool, error) {
 	// Set allow-zero-initial-scale to the default values to start.
 	// If autoscaling values are not set in the configuration, then the defaults are used.

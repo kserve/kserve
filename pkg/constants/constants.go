@@ -40,7 +40,7 @@ const (
 
 var (
 	KServeNamespace              = getEnvOrDefault("POD_NAMESPACE", "kserve")
-	AutoscalerConfigmapNamespace = getEnvOrDefault("CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
+	AutoscalerConfigmapNamespace = getEnvOrDefault("KNATIVE_CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
 )
 
 // InferenceService Constants
@@ -392,7 +392,6 @@ const (
 
 var (
 	ServiceAnnotationDisallowedList = []string{
-		autoscaling.InitialScaleAnnotationKey,
 		autoscaling.MinScaleAnnotationKey,
 		autoscaling.MaxScaleAnnotationKey,
 		StorageInitializerSourceUriInternalAnnotationKey,
