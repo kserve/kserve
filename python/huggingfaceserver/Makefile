@@ -4,10 +4,10 @@ TORCH_VERSION ?= 2.6.0
 TORCHVISION_VERSION ?= 0.21.0
 
 dev_install:
-	uv sync --group test
+	uv sync --active --group test
 
 install_dependencies:
-	uv sync --group test
+	uv sync --active --group test
 	
 # TODO: remove
 # install_cpu_dependencies:
@@ -18,19 +18,19 @@ install_dependencies:
 # 	poetry install --with=test --no-interaction --no-root
 
 install_cpu_dependencies:
-	uv add \
+	uv add --active \
 		"torch~=${TORCH_VERSION}" \
 		"torchaudio~=${TORCH_VERSION}" \
 		"torchvision~=${TORCHVISION_VERSION}" \
 		--index ${TORCH_EXTRA_INDEX_URL} \
 		--index-strategy unsafe-best-match
 
-	uv add \
+	uv add --active \
 		"intel_extension_for_pytorch~=${TORCH_VERSION}" \
 		--index ${IPEX_EXTRA_INDEX_URL} \
 		--index-strategy unsafe-best-match
 
-	uv sync --no-cache-dir --dev --group test
+	uv sync --active --no-cache --dev --group test
 
 
 test: type_check
