@@ -101,6 +101,10 @@ model_dir = Storage.download("hf://org-name/model-name:revision")
 
 ## Environment Variables
 
+### Hugging Face Hub Configuration
+
+These are all handled by the `huggingface_hub` package, you can see all the available environment variables [here](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables).
+
 ### AWS/S3 Configuration / Environments variables
 
 - `AWS_ENDPOINT_URL`: Custom endpoint URL for S3-compatible storage
