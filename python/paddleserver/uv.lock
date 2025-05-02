@@ -918,7 +918,7 @@ requires-dist = [
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
     { name = "timing-asgi", specifier = ">=0.3.0,<1.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.6,<1.0.0" },
-    { name = "vllm", marker = "extra == 'llm'", specifier = ">=0.8.4,<1.0.0" },
+    { name = "vllm", marker = "extra == 'llm'", specifier = "==0.8.5" },
 ]
 provides-extras = ["storage", "logging", "ray", "llm"]
 
@@ -1348,7 +1348,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "kserve", extras = ["storage"], directory = "../kserve" },
-    { name = "paddlepaddle", marker = "sys_platform != 'win32'", specifier = "==3.0.0" },
+    { name = "paddlepaddle", marker = "sys_platform != 'win32'", specifier = ">=2.6.1" },
     { name = "setuptools", specifier = ">=70.0.0" },
 ]
 

@@ -14,12 +14,12 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python3 -m venv ${VIRTUAL_ENV}
+RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install Python dependencies
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync --extra storage --no-cache 
+RUN cd kserve && uv sync --extra storage --active --no-cache 
 COPY kserve kserve
 
 ARG DEBIAN_FRONTEND=noninteractive
