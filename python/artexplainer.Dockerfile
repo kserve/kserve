@@ -15,17 +15,17 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 # Setup virtual environment
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python3 -m venv $VIRTUAL_ENV
+RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ------------------ kserve deps ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync --no-cache
+RUN cd kserve && uv sync --active --no-cache
 COPY kserve kserve
 
 # ------------------ artexplainer deps ------------------
 COPY artexplainer/pyproject.toml artexplainer/uv.lock artexplainer/
-RUN cd artexplainer && uv sync --no-cache
+RUN cd artexplainer && uv sync --active --no-cache
 COPY artexplainer artexplainer
 RUN cd artexplainer && poetry install --no-interaction --no-cache
 
