@@ -15,19 +15,22 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 # Create virtual environment
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python3 -m venv $VIRTUAL_ENV
+RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ========== Install kserve dependencies ==========
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync --no-cache
+RUN cd kserve && uv sync --active --no-cache
 
 # Copy kserve source code after installing deps (for layer caching)
 COPY kserve kserve
 
 # ========== Install sklearnserver dependencies ==========
 COPY sklearnserver/pyproject.toml sklearnserver/uv.lock sklearnserver/
-RUN cd sklearnserver && uv sync --no-cache
+RUN cd sklearnserver && uv sync --active --no-cache
+
+RUN rm -rf ~/.cache/uv
+RUN uv cache clean
 
 # Copy sklearnserver source code after installing deps (for layer caching)
 COPY sklearnserver sklearnserver

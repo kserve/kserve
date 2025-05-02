@@ -14,17 +14,17 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python3 -m venv $VIRTUAL_ENV
+RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync --no-cache
+RUN cd kserve && uv sync --active --no-cache
 COPY kserve kserve
 
 RUN echo $(pwd)
 RUN echo $(ls)
 COPY test_resources/graph/success_200_isvc/pyproject.toml test_resources/graph/success_200_isvc/uv.lock success_200_isvc/
-RUN cd success_200_isvc && uv sync --no-cache
+RUN cd success_200_isvc && uv sync --active --no-cache  
 COPY test_resources/graph/success_200_isvc success_200_isvc
 RUN cd success_200_isvc && poetry install --no-interaction --no-cache
 

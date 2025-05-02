@@ -20,17 +20,17 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 # Create virtual environment
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python3 -m venv ${VIRTUAL_ENV}
-ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+RUN uv venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install kserve dependencies
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync --no-cache
+RUN cd kserve && uv sync --active --no-cache
 COPY kserve kserve
 
 # Install custom_transformer dependencies
 COPY custom_transformer/pyproject.toml custom_transformer/uv.lock custom_transformer/
-RUN cd custom_transformer && uv sync --no-cache
+RUN cd custom_transformer && uv sync --active --no-cache
 COPY custom_transformer custom_transformer
 RUN cd custom_transformer && poetry install --no-interaction --no-cache
 

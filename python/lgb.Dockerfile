@@ -15,17 +15,17 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python3 -m venv ${VIRTUAL_ENV}
-ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
+RUN uv venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Install dependencies for kserve using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync --no-cache
+RUN cd kserve && uv sync --active --no-cache
 COPY kserve kserve
 
 # Install dependencies for lgbserver using uv
 COPY lgbserver/pyproject.toml lgbserver/uv.lock lgbserver/
-RUN cd lgbserver && uv sync --no-cache
+RUN cd lgbserver && uv sync --active --no-cache
 COPY lgbserver lgbserver
 RUN cd lgbserver && poetry install --no-interaction --no-cache
 

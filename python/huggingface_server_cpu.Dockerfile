@@ -48,8 +48,9 @@ RUN --mount=type=cache,target=/var/cache/apt \
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python -m venv $VIRTUAL_ENV
+RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 ARG IPEX_EXTRA_INDEX_URL="https://pytorch-extension.intel.com/release-whl/stable/cpu/us/"
 ARG TORCH_VERSION=2.7.0
@@ -58,7 +59,7 @@ ARG TORCHVISION_VERSION=0.22.0
 # Install kserve using UV
 COPY kserve kserve
 RUN cd kserve && \
-    uv sync --no-cache && \
+    uv sync --active --no-cache && \
     uv cache clean && \
     rm -rf ~/.cache/uv
 
@@ -71,11 +72,12 @@ RUN cd huggingfaceserver && \
         'torchvision~='${TORCHVISION_VERSION} && \
     poetry lock --no-update && \
     poetry install --no-interaction --no-cache && rm -rf ~/.cache/pypoetry
-    # uv sync --no-cache && \
+
+    # uv sync --active --no-cache && \
     # uv cache clean && \
     # rm -rf ~/.cache/uv
 
-RUN uv pip install --no-cache --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
+RUN pip install --no-cache --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
     'intel_extension_for_pytorch~='${TORCH_VERSION} \
     intel-openmp
 

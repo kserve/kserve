@@ -20,17 +20,17 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 # Set up and activate virtual environment
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python3 -m venv $VIRTUAL_ENV
+RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ------------------ kserve deps ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync --no-cache
+RUN cd kserve && uv sync --active --no-cache
 COPY kserve kserve
 
 # ------------------ custom_model deps ------------------
 COPY custom_model/pyproject.toml custom_model/uv.lock custom_model/
-RUN cd custom_model && uv sync --no-cache
+RUN cd custom_model && uv sync --active --no-cache
 COPY custom_model custom_model
 RUN cd custom_model && poetry install --no-interaction --no-cache
 

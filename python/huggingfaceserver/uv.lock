@@ -259,6 +259,20 @@ wheels = [
 ]
 
 [[package]]
+name = "bitsandbytes"
+version = "0.45.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "numpy", version = "2.2.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "torch" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/b7/cb5ce4d1a382cf53c19ef06c5fc29e85f5e129b4da6527dd207d90a5b8ad/bitsandbytes-0.45.5-py3-none-manylinux_2_24_x86_64.whl", hash = "sha256:a5453f30cc6aab6ccaac364e6bf51a7808d3da5f71763dffeb6d9694c59136e4", size = 76059261 },
+    { url = "https://files.pythonhosted.org/packages/a6/4c/77b535e025ce780d2ada8271c1e481fb7337c1df2588a52fe1c9bd87d2e8/bitsandbytes-0.45.5-py3-none-win_amd64.whl", hash = "sha256:ed1c61b91d989d6a33fd05737d6edbf5086d8ebc89235ee632c7a19144085da2", size = 75430204 },
+]
+
+[[package]]
 name = "black"
 version = "24.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1326,11 +1340,13 @@ version = "0.15.0"
 source = { virtual = "." }
 dependencies = [
     { name = "accelerate" },
+    { name = "bitsandbytes" },
     { name = "flashinfer-python" },
     { name = "kserve", extra = ["llm", "storage"] },
     { name = "setuptools" },
     { name = "torch" },
     { name = "transformers" },
+    { name = "triton" },
     { name = "vllm" },
 ]
 
@@ -1351,12 +1367,14 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "accelerate", specifier = ">=1.6.0,<2.0.0" },
+    { name = "bitsandbytes", specifier = ">=0.45.3" },
     { name = "flashinfer-python", specifier = "~=0.2.5" },
     { name = "kserve", extras = ["llm", "storage"], directory = "../kserve" },
     { name = "setuptools", specifier = ">=70.0.0" },
     { name = "torch", specifier = ">=2.6.0" },
     { name = "transformers", specifier = ">=4.51.2" },
-    { name = "vllm", specifier = ">=0.8.4,<1.0.0" },
+    { name = "triton", specifier = "==3.2.0" },
+    { name = "vllm", specifier = "==0.8.5" },
 ]
 
 [package.metadata.requires-dev]
@@ -1595,7 +1613,7 @@ requires-dist = [
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
     { name = "timing-asgi", specifier = ">=0.3.0,<1.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.6,<1.0.0" },
-    { name = "vllm", marker = "extra == 'llm'", specifier = ">=0.8.4,<1.0.0" },
+    { name = "vllm", marker = "extra == 'llm'", specifier = "==0.8.5" },
 ]
 provides-extras = ["storage", "logging", "ray", "llm"]
 
@@ -4346,7 +4364,7 @@ wheels = [
 
 [[package]]
 name = "vllm"
-version = "0.8.4"
+version = "0.8.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -4408,9 +4426,9 @@ dependencies = [
     { name = "xformers", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
     { name = "xgrammar", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e6/d6/9d412cdaa92c3ab6250cef51217d37395b2aa372c6c14f90b1668adbbf63/vllm-0.8.4.tar.gz", hash = "sha256:522b13dd16c6c773dec0cb4c42ea591623d03ef94d16db8128ece2600017e6ac", size = 6667631 }
+sdist = { url = "https://files.pythonhosted.org/packages/5c/37/7846c244e6637c15f6d5ed6d3f572eedd02ed8ab80aec8c3eb228f35b23c/vllm-0.8.5.tar.gz", hash = "sha256:c7e04d1046304397b4580334038b558fe491af155fdea508224f140172cf9a82", size = 7340498 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8e/cb/03dc1299e0456ff3d58a11f63682ef29aaf5b1bd7f21bfe0690d7ce6fc40/vllm-0.8.4-cp38-abi3-manylinux1_x86_64.whl", hash = "sha256:e346749ee8df48cdcd935d00a7fc123a1e17d9904b064401e74fc6ad73b8104a", size = 294098962 },
+    { url = "https://files.pythonhosted.org/packages/26/7e/08d7a75c47792fd07d02b2be6fe6adbb29dfcbd31e94784844d7f730d0bc/vllm-0.8.5-cp38-abi3-manylinux1_x86_64.whl", hash = "sha256:74bfe92953bee1269c1e1c27827bc156777751cdd6a3457ee8e27dd8ebf1e247", size = 326421025 },
 ]
 
 [[package]]

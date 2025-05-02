@@ -1,10 +1,10 @@
 .PHONY: test
 
 dev_install:
-	uv sync --group test --extra storage --extra ray --extra llm
+	uv sync --active --group test --extra storage --extra ray --extra llm
 
 install_dependencies:
-	uv sync --group test --extra storage --extra ray --extra llm
+	uv sync --active --group test --extra storage --extra ray --extra llm
 
 test:
 	cd ../ && pytest -W ignore kserve/test

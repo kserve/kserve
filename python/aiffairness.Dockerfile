@@ -15,19 +15,19 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
 # Set up and activate virtual environment
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python3 -m venv $VIRTUAL_ENV
+RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # ------------------ Install kserve dependencies ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync --no-cache
+RUN cd kserve && uv sync --active --no-cache
 
 # Copy source code separately (better Docker caching)
 COPY kserve kserve
 
 # ------------------ Install aiffairness dependencies ------------------
 COPY aiffairness/pyproject.toml aiffairness/uv.lock aiffairness/
-RUN cd aiffairness && uv sync --no-cache
+RUN cd aiffairness && uv sync --active --no-cache
 
 COPY aiffairness aiffairness
 RUN cd aiffairness && poetry install --no-interaction --no-cache

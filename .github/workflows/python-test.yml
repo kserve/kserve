@@ -209,66 +209,72 @@ jobs:
         with:
           path: python/paddleserver/.venv
           key: paddle-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/paddleserver/uv.lock') }}
-        # install paddle server dependencies if cache does not exist
+
       - name: Install paddle dependencies
         if: steps.cached-paddle-dependencies.outputs.cache-hit != 'true'
         run: |
           echo "python version ${{ steps.setup-python.outputs.python-version }}"
+          export VIRTUAL_ENV=$GITHUB_WORKSPACE/python/paddleserver/.venv
           cd python/paddleserver
           make install_dependencies
       - name: Install paddleserver
         run: |
+          export VIRTUAL_ENV=$GITHUB_WORKSPACE/python/paddleserver/.venv
           cd python/paddleserver
           make dev_install
-      # - name: Test paddleserver # TODO
-      #   run: |
-      #     cd python
-      #     source paddleserver/.venv/bin/activate
-      #     pytest --cov=paddleserver ./paddleserver
+      - name: Test paddleserver
+        run: |
+          export VIRTUAL_ENV=$GITHUB_WORKSPACE/python/paddleserver/.venv
+          source $VIRTUAL_ENV/bin/activate
+          cd python
+          pytest --cov=paddleserver ./paddleserver
 
       # ----------------------------------------Huggingface CPU Server Unit Tests------------------------------------------------
       # load cached huggingface cpu venv if cache exists
-      # - name: Load cached huggingface cpu venv
-      #   id: huggingface-cpu-dependencies
-      #   uses: actions/cache@v4
-      #   with:
-      #     path: /mnt/python/huggingfaceserver-cpu-venv
-      #     key: huggingface-cpu-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/huggingfaceserver/uv.lock') }}
+      - name: Load cached huggingface cpu venv
+        id: huggingface-cpu-dependencies
+        uses: actions/cache@v4
+        with:
+          path: /mnt/python/huggingfaceserver-cpu-venv
+          key: huggingface-cpu-venv-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/kserve/uv.lock', '**/huggingfaceserver/uv.lock') }}
       
-      # - name: Setup Python environment
-      #   run: |
-      #     sudo mkdir -p /mnt/python/huggingfaceserver-cpu-venv
-      #     sudo chown -R $USER /mnt/python/huggingfaceserver-cpu-venv
-      #     uv venv --seed /mnt/python/huggingfaceserver-cpu-venv
-      #     echo "/mnt/python/huggingfaceserver-cpu-venv/bin" >> $GITHUB_PATH
-      #     python -m pip install --upgrade pip uv
-      #     # python -m pip install pytest pytest-cov
+      - name: Setup Python environment
+        run: |
+          sudo mkdir -p /mnt/python/huggingfaceserver-cpu-venv
+          sudo chown -R $USER /mnt/python/huggingfaceserver-cpu-venv
+          uv venv /mnt/python/huggingfaceserver-cpu-venv
+          echo "/mnt/python/huggingfaceserver-cpu-venv/bin" >> $GITHUB_PATH
 
-      # - name: Install dependencies
-      #   run: |
-          
-      #     cd python/huggingfaceserver
-      #     make install_cpu_dependencies
+      - name: Install dependencies
+        run: |
+          export VIRTUAL_ENV=/mnt/python/huggingfaceserver-cpu-venv
+          cd python/huggingfaceserver
+          make install_cpu_dependencies
 
-      # - name: Install huggingface cpu server
-      #   run: |
-      #     cd python/huggingfaceserver
-      #     make dev_install
+      - name: Install huggingface cpu server
+        run: |
+          export VIRTUAL_ENV=/mnt/python/huggingfaceserver-cpu-venv
+          cd python/huggingfaceserver
+          make dev_install
           
-      # - name: Run tests
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y libnuma-dev
-      #     cd python/huggingfaceserver
-      #     bash tests/setup_vllm.sh
-      #     source /mnt/python/huggingfaceserver-cpu-venv/bin/activate
-      #     /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pytest --cov=huggingfaceserver -vv -k 'not test_vllm'
-      #     # TODO: The following tests need to be reworked since IPEX support is relatively new for both vLLM and KServe
-      #     # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_reasoning.py
-      #     # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_tools.py
-      #     # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_generative.py
-      #   env:
-      #     VLLM_ENGINE_ITERATION_TIMEOUT_S: 3600
+      - name: Run tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnuma-dev
+          cd python/huggingfaceserver
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m ensurepip --upgrade
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pip install --upgrade pip
+
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pip install pytest pytest-cov
+          bash tests/setup_vllm.sh
+          source /mnt/python/huggingfaceserver-cpu-venv/bin/activate
+          /mnt/python/huggingfaceserver-cpu-venv/bin/python -m pytest --cov=huggingfaceserver -vv -k 'not test_vllm'
+          # TODO: The following tests need to be reworked since IPEX support is relatively new for both vLLM and KServe
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_reasoning.py
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_chat_with_tools.py
+          # poetry run -- pytest --cov=huggingfaceserver -vv tests/test_vllm_generative.py
+        env:
+          VLLM_ENGINE_ITERATION_TIMEOUT_S: 3600
 
       - name: Free space after cpu tests
         run: |

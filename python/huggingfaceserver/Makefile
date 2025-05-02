@@ -4,10 +4,10 @@ TORCH_VERSION ?= 2.7.0
 TORCHVISION_VERSION ?= 0.22.0
 
 dev_install:
-	uv sync --group test
+	uv sync --active --group test
 
 install_dependencies:
-	uv sync --group test
+	uv sync --active --group test
 	
 # TODO: remove
 # install_cpu_dependencies:
