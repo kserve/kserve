@@ -19,8 +19,9 @@ package v1beta1
 import (
 	"strings"
 
-	"github.com/kserve/kserve/pkg/constants"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // InferenceServiceSpec is the top level type for this resource
