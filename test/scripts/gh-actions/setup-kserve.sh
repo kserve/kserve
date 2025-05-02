@@ -65,5 +65,5 @@ kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-
 
 echo "Installing KServe Python SDK ..."
 pushd python/kserve >/dev/null
-    poetry install --with=test --no-interaction
+    uv sync --group test
 popd

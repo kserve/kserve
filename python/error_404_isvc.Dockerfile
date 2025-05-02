@@ -14,19 +14,19 @@ ln -s /root/.local/bin/uv /usr/local/bin/uv
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python3 -m venv $VIRTUAL_ENV
+RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync --no-cache
+RUN cd kserve && uv sync --active --no-cache
 COPY kserve kserve
 
 RUN echo $(pwd)
 RUN echo $(ls)
 COPY test_resources/graph/error_404_isvc/pyproject.toml test_resources/graph/error_404_isvc/uv.lock error_404_isvc/
-RUN cd error_404_isvc && uv sync --no-cache
+RUN cd error_404_isvc && uv sync --active --no-cache
 COPY test_resources/graph/error_404_isvc error_404_isvc
-RUN cd error_404_isvc && uv sync --no-cache
+RUN cd error_404_isvc && uv sync --active --no-cache
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
