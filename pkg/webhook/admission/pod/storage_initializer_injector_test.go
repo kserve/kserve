@@ -2988,76 +2988,79 @@ func TestInjectModelcar(t *testing.T) {
 
 	// Test when srcURI starts with OciURIPrefix
 	{
-		pod := createTestPodForModelcar()
+		testingPods := []*corev1.Pod{createTestPodForModelcar(), createTestWorkerPodForModelcar()}
 		mi := &StorageInitializerInjector{
 			config: &StorageInitializerConfig{},
 		}
-		err := mi.InjectModelcar(pod)
-		if err != nil {
-			t.Errorf("Expected nil error but got %v", err)
-		}
 
-		// Check that an emptyDir volume has been attached
-		if len(pod.Spec.Volumes) != 1 || pod.Spec.Volumes[0].Name != StorageInitializerVolumeName {
-			t.Errorf("Expected one volume with name %s, but got %v", StorageInitializerVolumeName, pod.Spec.Volumes)
-		}
-
-		// Check that a sidecar container has been injected
-		if len(pod.Spec.Containers) != 2 {
-			t.Errorf("Expected two containers but got %d", len(pod.Spec.Containers))
-		}
-
-		// Check that an init container has been injected, and it is the model container
-		switch {
-		case len(pod.Spec.InitContainers) != 1:
-			t.Errorf("Expected one init container but got %d", len(pod.Spec.InitContainers))
-		case pod.Spec.InitContainers[0].Name != ModelcarInitContainerName:
-			t.Errorf("Expected the init container to be the model but got %s", pod.Spec.InitContainers[0].Name)
-		default:
-			// Check that resources are correctly set.
-			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[corev1.ResourceCPU]; !ok {
-				t.Error("The model container does not have CPU limit set")
-			}
-			if _, ok := pod.Spec.InitContainers[0].Resources.Limits[corev1.ResourceMemory]; !ok {
-				t.Error("The model container does not have Memory limit set")
-			}
-			if _, ok := pod.Spec.InitContainers[0].Resources.Requests[corev1.ResourceCPU]; !ok {
-				t.Error("The model container does not have CPU request set")
-			}
-			if _, ok := pod.Spec.InitContainers[0].Resources.Requests[corev1.ResourceMemory]; !ok {
-				t.Error("The model container does not have Memory request set")
+		for _, pod := range testingPods {
+			err := mi.InjectModelcar(pod)
+			if err != nil {
+				t.Errorf("Expected nil error but got %v", err)
 			}
 
-			// Check args
-			joinedArgs := strings.Join(pod.Spec.InitContainers[0].Args, " ")
-			if !strings.Contains(joinedArgs, "Prefetched") {
-				t.Errorf("The model container args are not correctly setup. Got: %s", joinedArgs)
+			// Check that an emptyDir volume has been attached
+			if len(pod.Spec.Volumes) != 1 || pod.Spec.Volumes[0].Name != StorageInitializerVolumeName {
+				t.Errorf("Expected one volume with name %s, but got %v", StorageInitializerVolumeName, pod.Spec.Volumes)
 			}
-		}
 
-		// Check that the user-container has an env var set
-		found := false
-		if pod.Spec.Containers[0].Env != nil {
-			for _, env := range pod.Spec.Containers[0].Env {
-				if env.Name == ModelInitModeEnv && env.Value == "async" {
-					found = true
-					break
+			// Check that a sidecar container has been injected
+			if len(pod.Spec.Containers) != 2 {
+				t.Errorf("Expected two containers but got %d", len(pod.Spec.Containers))
+			}
+
+			// Check that an init container has been injected, and it is the model container
+			switch {
+			case len(pod.Spec.InitContainers) != 1:
+				t.Errorf("Expected one init container but got %d", len(pod.Spec.InitContainers))
+			case pod.Spec.InitContainers[0].Name != ModelcarInitContainerName:
+				t.Errorf("Expected the init container to be the model but got %s", pod.Spec.InitContainers[0].Name)
+			default:
+				// Check that resources are correctly set.
+				if _, ok := pod.Spec.InitContainers[0].Resources.Limits[corev1.ResourceCPU]; !ok {
+					t.Error("The model container does not have CPU limit set")
+				}
+				if _, ok := pod.Spec.InitContainers[0].Resources.Limits[corev1.ResourceMemory]; !ok {
+					t.Error("The model container does not have Memory limit set")
+				}
+				if _, ok := pod.Spec.InitContainers[0].Resources.Requests[corev1.ResourceCPU]; !ok {
+					t.Error("The model container does not have CPU request set")
+				}
+				if _, ok := pod.Spec.InitContainers[0].Resources.Requests[corev1.ResourceMemory]; !ok {
+					t.Error("The model container does not have Memory request set")
+				}
+
+				// Check args
+				joinedArgs := strings.Join(pod.Spec.InitContainers[0].Args, " ")
+				if !strings.Contains(joinedArgs, "Prefetched") {
+					t.Errorf("The model container args are not correctly setup. Got: %s", joinedArgs)
 				}
 			}
-		}
-		if !found {
-			t.Errorf("Expected env var %s=async but did not find it", ModelInitModeEnv)
-		}
 
-		// Check volume mounts in both containers
-		if len(pod.Spec.Containers[0].VolumeMounts) != 1 || len(pod.Spec.Containers[1].VolumeMounts) != 1 {
-			t.Errorf("Expected one volume mount in each container but got user-container: %d, sidecar-container: %d",
-				len(pod.Spec.Containers[0].VolumeMounts), len(pod.Spec.Containers[1].VolumeMounts))
-		}
+			// Check that the user-container has an env var set
+			found := false
+			if pod.Spec.Containers[0].Env != nil {
+				for _, env := range pod.Spec.Containers[0].Env {
+					if env.Name == ModelInitModeEnv && env.Value == "async" {
+						found = true
+						break
+					}
+				}
+			}
+			if !found {
+				t.Errorf("Expected env var %s=async but did not find it", ModelInitModeEnv)
+			}
 
-		// Check ShareProcessNamespace
-		if pod.Spec.ShareProcessNamespace == nil || *pod.Spec.ShareProcessNamespace != true {
-			t.Errorf("Expected ShareProcessNamespace to be true but got %v", pod.Spec.ShareProcessNamespace)
+			// Check volume mounts in both containers
+			if len(pod.Spec.Containers[0].VolumeMounts) != 1 || len(pod.Spec.Containers[1].VolumeMounts) != 1 {
+				t.Errorf("Expected one volume mount in each container but got user-container: %d, sidecar-container: %d",
+					len(pod.Spec.Containers[0].VolumeMounts), len(pod.Spec.Containers[1].VolumeMounts))
+			}
+
+			// Check ShareProcessNamespace
+			if pod.Spec.ShareProcessNamespace == nil || *pod.Spec.ShareProcessNamespace != true {
+				t.Errorf("Expected ShareProcessNamespace to be true but got %v", pod.Spec.ShareProcessNamespace)
+			}
 		}
 	}
 }
@@ -3072,6 +3075,22 @@ func createTestPodForModelcar() *corev1.Pod {
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{Name: constants.InferenceServiceContainerName},
+			},
+		},
+	}
+	return pod
+}
+
+func createTestWorkerPodForModelcar() *corev1.Pod {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				constants.StorageInitializerSourceUriInternalAnnotationKey: OciURIPrefix + "myrepo/mymodelimage",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.WorkerContainerName},
 			},
 		},
 	}
