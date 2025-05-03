@@ -172,7 +172,7 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 				return fmt.Errorf(MissingStorageURI, isvc.Name)
 			} else {
 				storageProtocol := strings.Split(*isvc.Spec.Predictor.Model.StorageURI, "://")[0]
-				if storageProtocol != "pvc" {
+				if storageProtocol != "pvc" && storageProtocol != "oci" {
 					return fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, isvc.Name, storageProtocol)
 				}
 			}
