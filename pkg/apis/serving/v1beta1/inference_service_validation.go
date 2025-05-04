@@ -82,8 +82,15 @@ func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, 
 		validatorLogger.Error(err, "Unable to convert object to InferenceService")
 		return nil, err
 	}
+	oldIsvc, err := convertToInferenceService(oldObj)
+	if err != nil {
+		validatorLogger.Error(err, "Unable to convert object to InferenceService")
+	}
 	validatorLogger.Info("validate update", "name", isvc.Name)
-
+	err = validateDeploymentMode(isvc, oldIsvc)
+	if err != nil {
+		return nil, err
+	}
 	return validateInferenceService(isvc)
 }
 
@@ -169,7 +176,7 @@ func validateMultiNodeVariables(isvc *InferenceService) error {
 					return fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, isvc.Name, storageProtocol)
 				}
 			}
-			if isvc.GetAnnotations()[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+			if isvc.GetAnnotations()[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 				return fmt.Errorf(InvalidAutoScalerError, isvc.Name, isvc.GetAnnotations()[constants.AutoscalerClass])
 			}
 		}
@@ -431,6 +438,19 @@ func validateCollocationStorageURI(predictorSpec PredictorSpec) error {
 				}
 			}
 			break
+		}
+	}
+	return nil
+}
+
+// validates if the deploymentMode specified in the annotation is not different from the one recorded in the status
+func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService) error {
+	statusDeploymentMode := oldIsvc.Status.DeploymentMode
+	if len(statusDeploymentMode) != 0 {
+		annotations := newIsvc.Annotations
+		annotationDeploymentMode, ok := annotations[constants.DeploymentMode]
+		if ok && annotationDeploymentMode != statusDeploymentMode {
+			return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
 		}
 	}
 	return nil
