@@ -989,7 +989,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-1-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1019,7 +1019,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-1-2",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1049,7 +1049,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-2-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1077,7 +1077,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-2-2",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1105,7 +1105,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-3-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1140,7 +1140,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-3-2",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1180,7 +1180,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-3-3",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass:                     string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass:                     string(constants.AutoscalerClassNone),
 						constants.CustomGPUResourceTypesAnnotationKey: "[\"unknownGPU.com/gpu\"]",
 					},
 				},
@@ -1216,7 +1216,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-3-4",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass:                     string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass:                     string(constants.AutoscalerClassNone),
 						constants.CustomGPUResourceTypesAnnotationKey: "[\"unknownGPU.com/gpu\"]",
 					},
 				},
@@ -1257,7 +1257,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-4-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1276,7 +1276,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			},
 			expected: gomega.Equal(fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, "foo-4-1", "s3")),
 		},
-		"When external autoscaler is not set, it should return error": {
+		"When none autoscaler is not set, then it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo-4-2",
@@ -1307,7 +1307,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-9",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
