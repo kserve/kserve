@@ -1297,7 +1297,7 @@ func TestGetDeploymentMode(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			deploymentMode := GetDeploymentMode(scenario.annotations, scenario.deployConfig)
+			deploymentMode := GetDeploymentMode("", scenario.annotations, scenario.deployConfig)
 			if !g.Expect(deploymentMode).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", deploymentMode, scenario.expected)
 			}

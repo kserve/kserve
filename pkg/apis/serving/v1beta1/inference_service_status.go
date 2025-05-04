@@ -51,6 +51,8 @@ type InferenceServiceStatus struct {
 	Components map[ComponentType]ComponentStatusSpec `json:"components,omitempty"`
 	// Model related statuses
 	ModelStatus ModelStatus `json:"modelStatus,omitempty"`
+	// InferenceService DeploymentMode
+	DeploymentMode string `json:"deploymentMode,omitempty"`
 }
 
 // ComponentStatusSpec describes the state of the component
@@ -213,6 +215,8 @@ const (
 	InvalidPredictorSpec FailureReason = "InvalidPredictorSpec"
 	// When WorkerSpec is set in InferenceService with a ServingRuntime that does not have a WorkerSpec.
 	InvalidWorkerSpecNotSet = "InvalidWorkerSpecNotSet"
+	// InvalidGPUAllocation indicates an incorrect GPU allocation for the Ray cluster.
+	InvalidGPUAllocation = "InvalidGPUAllocation"
 )
 
 type FailureInfo struct {
