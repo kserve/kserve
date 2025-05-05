@@ -47,6 +47,7 @@ For regular development you usually run `devspace use context`, then `devspace u
 - `devspace use namespace` change what namepsace you want to deploy your container into e.g. `devspace use namespace opendatahub` for this project
 - `devspace dev` main command used to start up the devspace container
 - `devspace run-pipeline ${pipeline_name}` to run a specific pipeline e.g. `debug` pipeline that was configured for this project
+**NOTE:** The default image uses go1.24. If you need to use go1.22, you can run with the flag `--profile go1.22` ex: `$ devspace run-pipeline debug --profile go1.22` 
 
 [More Cleanup Commands](https://www.devspace.sh/docs/getting-started/cleanup)
 
