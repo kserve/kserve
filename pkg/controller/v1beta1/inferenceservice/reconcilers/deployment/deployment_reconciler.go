@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -35,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmp"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -60,73 +58,80 @@ func NewDeploymentReconciler(client kclient.Client,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
-) *DeploymentReconciler {
+) (*DeploymentReconciler, error) {
+	deploymentList, err := createRawDeployment(componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create raw deployment: %w", err)
+	}
+
 	return &DeploymentReconciler{
 		client:         client,
 		scheme:         scheme,
-		DeploymentList: createRawDeployment(componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec),
+		DeploymentList: deploymentList,
 		componentExt:   componentExt,
-	}
+	}, nil
 }
 
 func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
-) []*appsv1.Deployment {
+) ([]*appsv1.Deployment, error) {
 	var deploymentList []*appsv1.Deployment
 	var workerNodeReplicas int32
-	var tensorParallelSize string
+	var headNodeGpuCount string
+	var workerNodeGpuCount string
 	multiNodeEnabled := false
 
+	defaultDeployment := createRawDefaultDeployment(componentMeta, componentExt, podSpec)
 	if workerPodSpec != nil {
 		multiNodeEnabled = true
 
+		// Use the "RAY_NODE_COUNT" environment variable to define the number of worker node replicas.
+		// Set the head node GPU count using the requestGPUCount environment variable in the head container
 		for _, container := range podSpec.Containers {
 			if container.Name == constants.InferenceServiceContainerName {
-				if value, exists := utils.GetEnvVarValue(container.Env, constants.PipelineParallelSizeEnvName); exists {
-					if parsedValue, err := utils.StringToInt32(value); err == nil {
-						// Set pipelineParallelSize to workerNodeSize + 1 (head)
-						workerNodeReplicas = parsedValue - 1
-					} else {
-						log.Error(err, "Failed to convert pipelineParallelSize to int")
+				if value, exists := utils.GetEnvVarValue(container.Env, constants.RayNodeCountEnvName); exists {
+					rayNodeCountFromEnv, err := utils.StringToInt32(value)
+					if err != nil {
+						log.Error(err, "Failed to convert rayNodeCount to int. Use default")
 					}
-				} else {
-					log.Info(fmt.Sprintf("PIPELINE_PARALLEL_SIZE is not set in the container's environment(%s)", constants.InferenceServiceContainerName))
+					workerNodeReplicas = rayNodeCountFromEnv - 1
+				}
+				if value, exists := utils.GetEnvVarValue(container.Env, constants.RequestGPUCountEnvName); exists {
+					headNodeGpuCount = value
 				}
 				break
 			}
 		}
-	}
-
-	defaultDeployment := createRawDefaultDeployment(componentMeta, componentExt, podSpec)
-	if multiNodeEnabled {
-		// Use defaut value(1) if tensor-parallel-size is not set (gpu count)
-		tensorParallelSize = constants.DefaultTensorParallelSize
-
-		for _, container := range podSpec.Containers {
-			if container.Name == constants.InferenceServiceContainerName {
-				if value, exists := utils.GetEnvVarValue(container.Env, constants.TensorParallelSizeEnvName); exists {
-					// Use the environment variable value
-					tensorParallelSize = value
+		// Set the worker node GPU count using the requestGPUCount environment variable in the worker container
+		for _, container := range workerPodSpec.Containers {
+			if container.Name == constants.WorkerContainerName {
+				if value, exists := utils.GetEnvVarValue(container.Env, constants.RequestGPUCountEnvName); exists {
+					workerNodeGpuCount = value
 				}
 				break
 			}
 		}
+
 		// Update GPU resource of default podSpec
-		addGPUResourceToDeployment(defaultDeployment, constants.InferenceServiceContainerName, tensorParallelSize)
+		if err := addGPUResourceToDeployment(defaultDeployment, constants.InferenceServiceContainerName, headNodeGpuCount); err != nil {
+			return nil, err
+		}
 	}
 	deploymentList = append(deploymentList, defaultDeployment)
 
-	// Adds workerNode deployment
+	// workerNode deployment
 	if multiNodeEnabled {
 		workerDeployment := createRawWorkerDeployment(workerComponentMeta, componentExt, workerPodSpec, componentMeta.Name, workerNodeReplicas)
 
 		// Update GPU resource of workerPodSpec
-		addGPUResourceToDeployment(workerDeployment, constants.WorkerContainerName, tensorParallelSize)
+		if err := addGPUResourceToDeployment(workerDeployment, constants.WorkerContainerName, workerNodeGpuCount); err != nil {
+			return nil, err
+		}
 		deploymentList = append(deploymentList, workerDeployment)
 	}
 
-	return deploymentList
+	return deploymentList, nil
 }
 
 func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
@@ -154,7 +159,7 @@ func createRawDefaultDeployment(componentMeta metav1.ObjectMeta,
 		deployment.Spec.Strategy = *componentExt.DeploymentStrategy
 	}
 	setDefaultDeploymentSpec(&deployment.Spec)
-	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassExternal) {
+	if componentExt.MinReplicas != nil && deployment.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassNone) {
 		deployment.Spec.Replicas = ptr.To(*componentExt.MinReplicas)
 	}
 
@@ -216,11 +221,11 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 	}
 	// existed, check equivalence
 	// for HPA scaling, we should ignore Replicas of Deployment
-	// for external scaler, we should not ignore Replicas.
+	// for none scaler, we should not ignore Replicas.
 	var ignoreFields cmp.Option = nil // Initialize to nil by default
 
 	// Set ignoreFields if the condition is met
-	if existingDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+	if existingDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 		ignoreFields = cmpopts.IgnoreFields(appsv1.DeploymentSpec{}, "Replicas")
 	}
 
@@ -324,17 +329,30 @@ func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
 	}
 }
 
-func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerName string, tensorParallelSize string) {
+// addGPUResourceToDeployment assigns GPU resources to a specific container in a Deployment.
+//
+// Parameters:
+// - deployment: Pointer to the Deployment where GPU resources should be added.
+// - targetContainerName: Name of the container within the Deployment to which the GPU resources should be assigned.
+// - gpuCount: String representation of the number of GPUs to allocate.
+//
+// Functionality:
+// - Retrieves the list of GPU resource types, updating it based on annotations if available.
+// - Identifies the correct GPU resource type by checking existing Limits and Requests values in the container.
+// - If no GPU resource is explicitly set, it defaults to "nvidia.com/gpu".
+// - Ensures that the container's Limits and Requests maps are initialized before assigning values.
+// - Sets both the Limits and Requests for the selected GPU resource type using the provided gpuCount.
+func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerName string, gpuCount string) error {
 	// Default GPU type is "nvidia.com/gpu"
 	gpuResourceType := corev1.ResourceName(constants.NvidiaGPUResourceType)
-	// If CustomGPUResourceTypeAnnotationKey is set, the specified custom GPU resource will be added to the available GPUResourceTypeList.
-	customGPUResourceTypes := deployment.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey]
-	if customGPUResourceTypes != "" {
-		constants.DefaultGPUResourceTypeList = append(constants.DefaultGPUResourceTypeList, strings.Split(customGPUResourceTypes, ",")...)
+	updatedGPUResourceTypeList, err := utils.UpdateGPUResourceTypeListByAnnotation(deployment.Spec.Template.Annotations)
+	if err != nil {
+		return err
 	}
+
 	for i, container := range deployment.Spec.Template.Spec.Containers {
 		if container.Name == targetContainerName {
-			for _, gpuType := range constants.DefaultGPUResourceTypeList {
+			for _, gpuType := range updatedGPUResourceTypeList {
 				resourceName := corev1.ResourceName(gpuType)
 				if qty, exists := deployment.Spec.Template.Spec.Containers[i].Resources.Limits[resourceName]; exists && !qty.IsZero() {
 					gpuResourceType = resourceName
@@ -351,19 +369,20 @@ func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerNa
 				deployment.Spec.Template.Spec.Containers[i].Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
 			}
 
-			// Assign the tensorParallelSize value to the GPU resource limits
-			deployment.Spec.Template.Spec.Containers[i].Resources.Limits[gpuResourceType] = resource.MustParse(tensorParallelSize)
+			// Assign the gpuCount value to the GPU resource limits
+			deployment.Spec.Template.Spec.Containers[i].Resources.Limits[gpuResourceType] = resource.MustParse(gpuCount)
 
 			// Initialize Requests map if it's nil
 			if container.Resources.Requests == nil {
 				deployment.Spec.Template.Spec.Containers[i].Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
 			}
 
-			// Assign the tensorParallelSize value to the GPU resource requests
-			deployment.Spec.Template.Spec.Containers[i].Resources.Requests[gpuResourceType] = resource.MustParse(tensorParallelSize)
+			// Assign the gpuCount value to the GPU resource requests
+			deployment.Spec.Template.Spec.Containers[i].Resources.Requests[gpuResourceType] = resource.MustParse(gpuCount)
 			break
 		}
 	}
+	return nil
 }
 
 // Reconcile ...
@@ -388,9 +407,9 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 
 			// To avoid the conflict between HPA and Deployment,
 			// we need to remove the Replicas field from the deployment spec
-			// For external autoscaler, it should not remove replicas
+			// For none autoscaler, it should not remove replicas
 			modDeployment := deployment.DeepCopy()
-			if modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+			if modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 				modDeployment.Spec.Replicas = nil
 			}
 
@@ -405,7 +424,7 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 			}
 
 			// Patch the deployment object with the strategic merge patch
-			opErr = r.client.Patch(ctx, deployment, client.RawPatch(types.StrategicMergePatchType, patchByte))
+			opErr = r.client.Patch(ctx, deployment, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
 		}
 
 		if opErr != nil {
