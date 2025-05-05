@@ -79,7 +79,7 @@ RUN pip install --no-cache-dir --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extr
     intel-openmp
 
 # install vllm
-ARG VLLM_VERSION=0.8.4
+ARG VLLM_VERSION=0.8.5
 ARG VLLM_CPU_DISABLE_AVX512=true
 ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
 ARG VLLM_CPU_AVX512BF16=1
