@@ -78,7 +78,7 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
 
 	if err := ir.reconcileVirtualService(ctx, isvc); err != nil {
-		return errors.Wrapf(err, "fails to reconcile external name service")
+		return errors.Wrapf(err, "fails to reconcile virtual service")
 	}
 	// Create external service which points to local gateway
 	if err := ir.reconcileExternalService(ctx, isvc, ir.ingressConfig); err != nil {
@@ -97,7 +97,7 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 	serviceHost := getServiceHost(isvc)
 	serviceUrl := getServiceUrl(isvc, ir.ingressConfig)
 	if serviceHost == "" || serviceUrl == "" {
-		log.Info("service host and serviceurl are empty..... returning")
+		log.Info("service host and serviceurl are empty, skipping updating the inference service")
 		return nil
 	}
 

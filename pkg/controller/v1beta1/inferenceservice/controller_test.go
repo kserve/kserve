@@ -808,6 +808,15 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).
 				Should(BeTrue())
 
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, actualIsvc)
+				if err != nil {
+					return false
+				}
+				readyCond := actualIsvc.Status.GetCondition(v1beta1.PredictorReady)
+				return readyCond != nil && readyCond.Status == corev1.ConditionTrue
+			}, timeout, interval).Should(BeTrue(), "InferenceService should be ready before updating the annotation")
+
 			// Stop the inference service
 			updatedIsvc := actualIsvc.DeepCopy()
 			updatedIsvc.Annotations[constants.StopAnnotationKey] = "true"
