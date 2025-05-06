@@ -26,11 +26,14 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # ------------------ Install kserve ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
+
 COPY kserve kserve
+RUN cd kserve && uv sync --active --no-cache
 
 # ------------------ Install custom_transformer ------------------
 COPY custom_transformer/pyproject.toml custom_transformer/uv.lock custom_transformer/
 RUN cd custom_transformer && uv sync --active --no-cache
+
 COPY custom_transformer custom_transformer
 RUN cd custom_transformer && poetry install --no-interaction --no-cache
 
@@ -60,4 +63,5 @@ COPY --from=builder kserve kserve
 COPY --from=builder custom_transformer custom_transformer
 
 USER 1000
+ENV PYTHONPATH=/custom_transformer
 ENTRYPOINT ["python", "-m", "custom_transformer.model_grpc"]

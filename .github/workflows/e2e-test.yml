@@ -468,11 +468,18 @@ jobs:
         with:
           directory: ./tmp
 
-      - name: Install Poetry and version plugin
-        run: ./test/scripts/gh-actions/setup-poetry.sh
+      # - name: Install Poetry and version plugin
+      #   run: ./test/scripts/gh-actions/setup-poetry.sh
+
+      - name: Install uv and create virtual environment
+        run: |
+          pip install uv
+          uv venv python/kserve/.venv
 
       - name: Install KServe
         run: |
+          export VIRTUAL_ENV=python/kserve/.venv
+          source $VIRTUAL_ENV/bin/activate
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve

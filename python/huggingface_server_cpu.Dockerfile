@@ -149,4 +149,5 @@ ENV HF_HUB_DISABLE_TELEMETRY="1"
 ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libtcmalloc.so.4:/usr/lib/x86_64-linux-gnu/libjemalloc.so.2:${LD_PRELOAD}
 
 USER 1000
+ENV PYTHONPATH=/huggingfaceserver
 ENTRYPOINT ["python", "-m", "huggingfaceserver"]

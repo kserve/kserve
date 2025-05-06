@@ -22,17 +22,13 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
 
-# Copy kserve source code after installing deps (for layer caching)
 COPY kserve kserve
+RUN cd kserve && uv sync --active --no-cache
 
 # ========== Install sklearnserver dependencies ==========
 COPY sklearnserver/pyproject.toml sklearnserver/uv.lock sklearnserver/
 RUN cd sklearnserver && uv sync --active --no-cache
 
-RUN rm -rf ~/.cache/uv
-RUN uv cache clean
-
-# Copy sklearnserver source code after installing deps (for layer caching)
 COPY sklearnserver sklearnserver
 RUN cd sklearnserver && poetry install --no-interaction --no-cache
 
@@ -47,6 +43,8 @@ RUN mkdir -p third_party/library && python3 pip-licenses.py
 # =================== Final stage ===================
 FROM ${BASE_IMAGE} AS prod
 
+COPY third_party third_party
+
 # Activate virtual env
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
@@ -58,7 +56,7 @@ COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
 COPY --from=builder sklearnserver sklearnserver
-COPY third_party third_party
 
 USER 1000
+ENV PYTHONPATH=/sklearnserver
 ENTRYPOINT ["python", "-m", "sklearnserver"]
