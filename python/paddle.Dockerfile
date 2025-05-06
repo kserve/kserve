@@ -23,11 +23,14 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # Install kserve dependencies using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
+
 COPY kserve kserve
+RUN cd kserve && uv sync --active --no-cache
 
 # Install paddleserver dependencies using uv
 COPY paddleserver/pyproject.toml paddleserver/uv.lock paddleserver/
 RUN cd paddleserver && uv sync --active --no-cache
+
 COPY paddleserver paddleserver
 RUN cd paddleserver && poetry install --no-interaction --no-cache
 
@@ -60,4 +63,5 @@ COPY --from=builder kserve kserve
 COPY --from=builder paddleserver paddleserver
 
 USER 1000
+ENV PYTHONPATH=/paddleserver
 ENTRYPOINT ["python", "-m", "paddleserver"]
