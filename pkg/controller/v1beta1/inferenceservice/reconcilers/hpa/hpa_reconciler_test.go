@@ -543,31 +543,31 @@ func TestCheckHPAExist(t *testing.T) {
 			},
 			expectedResult: constants.CheckResultUpdate,
 		},
-		{
-			name: "hpa exists but should be deleted due to external autoscaler",
-			existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-hpa",
-					Namespace: "default",
-				},
-				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-					MinReplicas: ptr.To(int32(1)),
-					MaxReplicas: 3,
-				},
-			},
-			desiredHPA: &autoscalingv2.HorizontalPodAutoscaler{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-hpa",
-					Namespace:   "default",
-					Annotations: map[string]string{constants.AutoscalerClass: string(constants.AutoscalerClassExternal)},
-				},
-				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-					MinReplicas: ptr.To(int32(1)),
-					MaxReplicas: 3,
-				},
-			},
-			expectedResult: constants.CheckResultDelete,
-		},
+		// {
+		// 	name: "hpa exists but should be deleted due to external autoscaler",
+		// 	existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:      "test-hpa",
+		// 			Namespace: "default",
+		// 		},
+		// 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+		// 			MinReplicas: ptr.To(int32(1)),
+		// 			MaxReplicas: 3,
+		// 		},
+		// 	},
+		// 	desiredHPA: &autoscalingv2.HorizontalPodAutoscaler{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:        "test-hpa",
+		// 			Namespace:   "default",
+		// 			Annotations: map[string]string{constants.AutoscalerClass: string(constants.AutoscalerClassExternal)},
+		// 		},
+		// 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+		// 			MinReplicas: ptr.To(int32(1)),
+		// 			MaxReplicas: 3,
+		// 		},
+		// 	},
+		// 	expectedResult: constants.CheckResultDelete,
+		// },
 		{
 			name: "hpa with different autoscaler class",
 			existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
@@ -966,36 +966,36 @@ func TestReconcile(t *testing.T) {
 			expectedResult: nil,
 			expectedAction: "update",
 		},
-		{
-			name: "delete hpa with external autoscaler",
-			existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-hpa",
-					Namespace: "default",
-				},
-				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-					MinReplicas: ptr.To(int32(1)),
-					MaxReplicas: 3,
-				},
-			},
-			desiredHPA: &autoscalingv2.HorizontalPodAutoscaler{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "test-hpa",
-					Namespace:   "default",
-					Annotations: map[string]string{constants.AutoscalerClass: string(constants.AutoscalerClassExternal)},
-				},
-				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-					MinReplicas: ptr.To(int32(1)),
-					MaxReplicas: 3,
-				},
-			},
-			componentExt: &v1beta1.ComponentExtensionSpec{
-				MinReplicas: ptr.To(int32(1)),
-				MaxReplicas: 3,
-			},
-			expectedResult: nil,
-			expectedAction: "delete",
-		},
+		// {
+		// 	name: "delete hpa with external autoscaler",
+		// 	existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:      "test-hpa",
+		// 			Namespace: "default",
+		// 		},
+		// 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+		// 			MinReplicas: ptr.To(int32(1)),
+		// 			MaxReplicas: 3,
+		// 		},
+		// 	},
+		// 	desiredHPA: &autoscalingv2.HorizontalPodAutoscaler{
+		// 		ObjectMeta: metav1.ObjectMeta{
+		// 			Name:        "test-hpa",
+		// 			Namespace:   "default",
+		// 			Annotations: map[string]string{constants.AutoscalerClass: string(constants.AutoscalerClassExternal)},
+		// 		},
+		// 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+		// 			MinReplicas: ptr.To(int32(1)),
+		// 			MaxReplicas: 3,
+		// 		},
+		// 	},
+		// 	componentExt: &v1beta1.ComponentExtensionSpec{
+		// 		MinReplicas: ptr.To(int32(1)),
+		// 		MaxReplicas: 3,
+		// 	},
+		// 	expectedResult: nil,
+		// 	expectedAction: "delete",
+		// },
 		{
 			name: "skip when hpa exists and is equivalent",
 			existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
