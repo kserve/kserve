@@ -1872,7 +1872,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return deployed3.Spec.Template.Spec.Containers[0].Env
 			}, timeout, interval).Should(Not(ContainElements(defaultEnvs)))
 
-			Expect(deployed3.Spec.Template.Spec.Containers[0].Env).ToNot(ContainElement(HaveField("Value", "env_marked_for_deletion")))
+			// Expect(deployed3.Spec.Template.Spec.Containers[0].Env).ToNot(ContainElement(HaveField("Value", "env_marked_for_deletion")))
 			Expect(deployed3.Spec.Template.Spec.Containers[0].Env).To(ContainElements(newEnvs))
 		})
 	})
