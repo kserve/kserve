@@ -73,8 +73,8 @@ spec:
           {{- toYaml . | nindent 10 }}
           {{- end }}
         resources:
-          {{- with .Values.kserve.controller.rbacProxy.resources }}
-          {{- toYaml . | nindent 10 }}
+          {{- if .Values.kserve.controller.rbacProxy.resources }}
+          {{- toYaml .Values.kserve.controller.rbacProxy.resources | indent 10 }}
           {{- end }}
       - command:
         - /manager
@@ -113,7 +113,7 @@ spec:
         resources:
 {{- if .Values.kserve.controller.resources }}
 {{ toYaml .Values.kserve.controller.resources | trim | indent 12 }}
-{{- end }}
+{{- end }}  
         ports:
         - containerPort: 9443
           name: webhook-server
