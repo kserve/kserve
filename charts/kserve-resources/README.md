@@ -46,27 +46,21 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.2
 | kserve.controller.nodeSelector | object | `{}` | The nodeSelector on Pods tells Kubernetes to schedule Pods on the nodes with matching labels. For more information, see [Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).  |
 | kserve.controller.podAnnotations | object | `{}` | Optional additional annotations to add to the controller Pods. |
 | kserve.controller.podLabels | object | `{}` | Optional additional labels to add to the controller Pods. |
-| kserve.controller.rbacProxy.resources.limits.cpu | string | `"100m"` |  |
-| kserve.controller.rbacProxy.resources.limits.memory | string | `"300Mi"` |  |
-| kserve.controller.rbacProxy.resources.requests.cpu | string | `"100m"` |  |
-| kserve.controller.rbacProxy.resources.requests.memory | string | `"300Mi"` |  |
+| kserve.controller.rbacProxy.resources | object | `{}` |  |
 | kserve.controller.rbacProxy.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.controller.rbacProxy.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.controller.rbacProxy.securityContext.privileged | bool | `false` |  |
 | kserve.controller.rbacProxy.securityContext.readOnlyRootFilesystem | bool | `true` |  |
 | kserve.controller.rbacProxy.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.18.0"` | KServe controller manager rbac proxy contrainer image |
-| kserve.controller.resources | object | `{"limits":{"cpu":"100m","memory":"300Mi"},"requests":{"cpu":"100m","memory":"300Mi"}}` | Resources to provide to the kserve controller pod.  For example:  requests:    cpu: 10m    memory: 32Mi  For more information, see [Resource Management for Pods and Containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/). |
+| kserve.controller.resources | object | `{}` | Resources to provide to the kserve controller pod.  For example:  requests:    cpu: 10m    memory: 32Mi  For more information, see [Resource Management for Pods and Containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/). |
 | kserve.controller.securityContext | object | `{"runAsNonRoot":true}` | Pod Security Context. For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/). |
 | kserve.controller.serviceAnnotations | object | `{}` | Optional additional annotations to add to the controller service. |
 | kserve.controller.tag | string | `"v0.15.2"` | KServe controller contrainer image tag. |
 | kserve.controller.tolerations | list | `[]` | A list of Kubernetes Tolerations, if required. For more information, see [Toleration v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#toleration-v1-core).  For example:   tolerations:   - key: foo.bar.com/role     operator: Equal     value: master     effect: NoSchedule |
 | kserve.controller.topologySpreadConstraints | list | `[]` | A list of Kubernetes TopologySpreadConstraints, if required. For more information, see [Topology spread constraint v1 core](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#topologyspreadconstraint-v1-core  For example:   topologySpreadConstraints:   - maxSkew: 2     topologyKey: topology.kubernetes.io/zone     whenUnsatisfiable: ScheduleAnyway     labelSelector:       matchLabels:         app.kubernetes.io/instance: kserve-controller-manager         app.kubernetes.io/component: controller |
 | kserve.controller.webhookServiceAnnotations | object | `{}` | Optional additional annotations to add to the webhook service. |
-| kserve.inferenceservice.resources.limits.cpu | string | `"1"` |  |
-| kserve.inferenceservice.resources.limits.memory | string | `"2Gi"` |  |
-| kserve.inferenceservice.resources.requests.cpu | string | `"1"` |  |
-| kserve.inferenceservice.resources.requests.memory | string | `"2Gi"` |  |
+| kserve.inferenceservice.resources | object | `{}` | The default InferenceService resources limit. |
 | kserve.localmodel.agent.affinity | object | `{}` |  |
 | kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
