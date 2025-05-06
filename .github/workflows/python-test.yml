@@ -214,19 +214,17 @@ jobs:
         if: steps.cached-paddle-dependencies.outputs.cache-hit != 'true'
         run: |
           echo "python version ${{ steps.setup-python.outputs.python-version }}"
-          export VIRTUAL_ENV=$GITHUB_WORKSPACE/python/paddleserver/.venv
           cd python/paddleserver
           make install_dependencies
       - name: Install paddleserver
         run: |
-          export VIRTUAL_ENV=$GITHUB_WORKSPACE/python/paddleserver/.venv
           cd python/paddleserver
           make dev_install
-      - name: Test paddleserver
+      # TODO: FIXME: AILED paddleserver/paddleserver/test_model.py::test_model - RuntimeError: (NotFound) Operator (density_prior_box) is not registered.
+      - name: Test paddleserver 
         run: |
-          export VIRTUAL_ENV=$GITHUB_WORKSPACE/python/paddleserver/.venv
-          source $VIRTUAL_ENV/bin/activate
           cd python
+          source paddleserver/.venv/bin/activate
           pytest --cov=paddleserver ./paddleserver
 
       # ----------------------------------------Huggingface CPU Server Unit Tests------------------------------------------------

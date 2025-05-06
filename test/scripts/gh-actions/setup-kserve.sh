@@ -65,5 +65,5 @@ kubectl apply -f config/overlays/test/minio/minio-user-secret.yaml -n kserve-ci-
 
 echo "Installing KServe Python SDK ..."
 pushd python/kserve >/dev/null
-    uv sync --group test
+    uv sync --active --group test
 popd
