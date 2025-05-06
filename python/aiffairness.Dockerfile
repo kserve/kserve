@@ -24,6 +24,7 @@ RUN cd kserve && uv sync --active --no-cache
 
 # Copy source code separately (better Docker caching)
 COPY kserve kserve
+RUN cd kserve && uv sync --active --no-cache
 
 # ------------------ Install aiffairness dependencies ------------------
 COPY aiffairness/pyproject.toml aiffairness/uv.lock aiffairness/
@@ -56,4 +57,5 @@ COPY --from=builder kserve kserve
 COPY --from=builder aiffairness aiffairness
 
 USER 1000
+ENV PYTHONPATH=/aiffairness
 ENTRYPOINT ["python", "-m", "aifserver"]
