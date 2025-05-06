@@ -29,14 +29,13 @@ export GITHUB_SHA=stable # Need to use stable as this is what the CI tags the im
 : "${BUILD_GRAPH_IMAGES:=true}"
 : "${RUNNING_LOCAL:=false}"
 cp ./test/e2e/conftest.py ./test/e2e/conftest.py.bak
+sed -i -E '
+/^[[:space:]]*verify=False,$/d
+s|^([[:space:]]*)timeout=60,|\1verify=False,\n\1timeout=60,|g' ./test/e2e/conftest.py
 if $RUNNING_LOCAL; then
   export CUSTOM_MODEL_GRPC_IMG_TAG=kserve/custom-model-grpc:latest
   export IMAGE_TRANSFORMER_IMG_TAG=kserve/image-transformer:latest
   export GITHUB_SHA=master
-  sed -i -E '
-  /^[[:space:]]*verify=False,$/d
-  s|^([[:space:]]*)timeout=60,|\1verify=False,\n\1timeout=60,|g
-' ./test/e2e/conftest.py
 
   if [ "$1" = "graph" ] && [ "$BUILD_GRAPH_IMAGES" = "true" ]; then
     pushd $PROJECT_ROOT >/dev/null
