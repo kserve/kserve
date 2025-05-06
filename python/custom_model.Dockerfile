@@ -26,11 +26,14 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # ------------------ Install kserve ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
+
 COPY kserve kserve
+RUN cd kserve && uv sync --active --no-cache
 
 # ------------------ Install custom_model ------------------
 COPY custom_model/pyproject.toml custom_model/uv.lock custom_model/
 RUN cd custom_model && uv sync --active --no-cache
+
 COPY custom_model custom_model
 RUN cd custom_model && poetry install --no-interaction --no-cache
 
@@ -61,4 +64,5 @@ COPY --from=builder kserve kserve
 COPY --from=builder custom_model custom_model
 
 USER 1000
+ENV PYTHONPATH=/custom_model
 ENTRYPOINT ["python", "-m", "custom_model.model"]

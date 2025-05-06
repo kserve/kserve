@@ -141,5 +141,6 @@ ENV VLLM_NCCL_SO_PATH="/lib/x86_64-linux-gnu/libnccl.so.2"
 ENV VLLM_WORKER_MULTIPROC_METHOD="spawn"
 
 USER 1000
+ENV PYTHONPATH=/huggingfaceserver
 ENTRYPOINT ["python3", "-m", "huggingfaceserver"]
 #################### PROD IMAGE ####################

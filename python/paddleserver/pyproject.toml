@@ -12,7 +12,7 @@ authors = [
 requires-python = ">=3.9,<3.13"
 dependencies = [
   "kserve[storage] @ file:///${PROJECT_ROOT}/../kserve",
-  "paddlepaddle>=2.6.1; platform_system != 'Windows'",
+  "paddlepaddle>=2.6.1",
   "setuptools>=70.0.0"
 ]
 

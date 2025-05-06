@@ -20,13 +20,13 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 # Copy and install dependencies for kserve using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
-RUN cd kserve && uv sync
+RUN cd kserve && uv sync --active --no-cache
 COPY kserve kserve
-RUN cd kserve && uv sync
+RUN cd kserve && uv sync --active --no-cache
 
 # Copy and install dependencies for xgbserver using uv
 COPY xgbserver/pyproject.toml xgbserver/uv.lock xgbserver/
-RUN cd xgbserver && uv sync
+RUN cd xgbserver && uv sync --active --no-cache
 COPY xgbserver xgbserver
 RUN cd xgbserver && poetry install --no-interaction --no-cache
 
@@ -59,4 +59,5 @@ COPY --from=builder kserve kserve
 COPY --from=builder xgbserver xgbserver
 
 USER 1000
+ENV PYTHONPATH=/xgbserver
 ENTRYPOINT ["python", "-m", "xgbserver"]
