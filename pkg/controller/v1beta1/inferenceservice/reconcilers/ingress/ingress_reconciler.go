@@ -294,10 +294,14 @@ func (ir *IngressReconciler) reconcileVirtualService(ctx context.Context, isvc *
 	} else {
 		// Delete the virtualservice
 		if getExistingErr == nil {
-			log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated VirtualService")
-			if err := ir.client.Delete(ctx, existing); err != nil {
-				return err
+			// Make sure that we only delete virtual services owned by the isvc
+			if existing.OwnerReferences[0].UID == isvc.UID {
+				log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated VirtualService")
+				if err := ir.client.Delete(ctx, existing); err != nil {
+					return err
+				}
 			}
+
 		} else if !apierr.IsNotFound(getExistingErr) {
 			return getExistingErr
 		}
@@ -364,9 +368,12 @@ func (ir *IngressReconciler) reconcileExternalService(ctx context.Context, isvc 
 	} else {
 		// Delete the service
 		if getExistingErr == nil {
-			log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated Service")
-			if err := ir.client.Delete(ctx, existing); err != nil {
-				return err
+			// Make sure that we only delete services owned by the isvc
+			if existing.OwnerReferences[0].UID == isvc.UID {
+				log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated Service")
+				if err := ir.client.Delete(ctx, existing); err != nil {
+					return err
+				}
 			}
 		} else if !apierr.IsNotFound(getExistingErr) {
 			return getExistingErr
