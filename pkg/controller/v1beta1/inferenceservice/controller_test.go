@@ -559,7 +559,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			return configMap
 		}
 
-		It("Should keep the knative service when the annotation is set to false", func() {
+		It("Should keep the knative service/virtualService/service when the annotation is set to false", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -673,7 +673,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
 		})
 
-		It("Should delete the knative service when the annotation is set to true", func() {
+		It("Should delete the knative service/virtualService/service when the annotation is set to true", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -745,7 +745,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
 		})
 
-		It("Should delete the knative service when the annotation is updated to true on an existing ISVC", func() {
+		It("Should delete the knative service/virtualService/service when the annotation is updated to true on an existing ISVC", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -890,7 +890,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
 		})
 
-		It("Should create the knative service when the annotation is updated to false on an existing ISVC that is stopped", func() {
+		It("Should create the knative service/virtualService/service when the annotation is updated to false on an existing ISVC that is stopped", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
