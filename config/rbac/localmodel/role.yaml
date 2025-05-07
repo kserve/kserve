@@ -30,7 +30,6 @@ rules:
   resources:
   - persistentvolumeclaims
   - persistentvolumes
-  - serviceaccounts
   verbs:
   - create
   - get
@@ -42,17 +41,6 @@ rules:
   - apps
   resources:
   - daemonsets
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - rbac.authorization.k8s.io
-  resources:
-  - clusterrolebindings
   verbs:
   - create
   - get

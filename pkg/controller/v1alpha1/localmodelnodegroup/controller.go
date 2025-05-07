@@ -50,6 +50,21 @@ const (
 	finalizerName = "localmodelnodegroup.kserve.io/finalizer"
 	// ServiceAccount is created during the installation of KServe
 	serviceAccountName = "kserve-localmodelnode-agent"
+	agentSuffix        = "-agent"
+
+	// Component labels
+	pvComponent        = "localmodelnode-agent-pv"
+	pvcComponent       = "localmodelnode-agent-pvc"
+	daemonsetComponent = "localmodelnode-agent"
+
+	// Common label keys
+	appNameLabel      = "app.kubernetes.io/name"
+	appInstanceLabel  = "app.kubernetes.io/instance"
+	appManagedByLabel = "app.kubernetes.io/managed-by"
+	appComponentLabel = "app.kubernetes.io/component"
+
+	// Label values
+	managedByValue = "kserve-localmodelnodegroup"
 )
 
 type LocalModelNodeGroupReconciler struct {
@@ -68,9 +83,11 @@ func NewLocalModelNodeGroupReconciler(client client.Client, clientset *kubernete
 	}
 }
 
+// createPV creates a PersistentVolume for the LocalModelNodeGroup
 func (r *LocalModelNodeGroupReconciler) createPV(ctx context.Context, nodeGroup v1alpha1.LocalModelNodeGroup) (*corev1.PersistentVolume, error) {
 	persistentVolumes := r.Clientset.CoreV1().PersistentVolumes()
-	name := nodeGroup.Name + "-" + "agent"
+	name := nodeGroup.Name + agentSuffix
+
 	if pv, err := persistentVolumes.Get(ctx, name, metav1.GetOptions{}); err != nil {
 		if errors.IsNotFound(err) {
 			// Create the PersistentVolume if it doesn't exist
@@ -78,10 +95,10 @@ func (r *LocalModelNodeGroupReconciler) createPV(ctx context.Context, nodeGroup 
 				ObjectMeta: metav1.ObjectMeta{
 					Name: name,
 					Labels: map[string]string{
-						"app.kubernetes.io/name":       name,
-						"app.kubernetes.io/instance":   nodeGroup.Name,
-						"app.kubernetes.io/managed-by": "kserve-localmodelnodegroup",
-						"app.kubernetes.io/component":  "localmodelnode-agent-pv",
+						appNameLabel:      name,
+						appInstanceLabel:  nodeGroup.Name,
+						appManagedByLabel: managedByValue,
+						appComponentLabel: pvComponent,
 					},
 				},
 				Spec: nodeGroup.Spec.PersistentVolumeSpec,
@@ -105,9 +122,11 @@ func (r *LocalModelNodeGroupReconciler) createPV(ctx context.Context, nodeGroup 
 	}
 }
 
+// createPVC creates a PersistentVolumeClaim for the LocalModelNodeGroup
 func (r *LocalModelNodeGroupReconciler) createPVC(ctx context.Context, nodeGroup *v1alpha1.LocalModelNodeGroup, pvName string) (*corev1.PersistentVolumeClaim, error) {
-	name := nodeGroup.Name + "-" + "agent"
+	name := nodeGroup.Name + agentSuffix
 	persistentVolumeClaims := r.Clientset.CoreV1().PersistentVolumeClaims(constants.KServeNamespace)
+
 	// Check if the PersistentVolumeClaim already exists
 	if pvc, err := persistentVolumeClaims.Get(ctx, name, metav1.GetOptions{}); err != nil {
 		if errors.IsNotFound(err) {
@@ -117,10 +136,10 @@ func (r *LocalModelNodeGroupReconciler) createPVC(ctx context.Context, nodeGroup
 					Name:      name,
 					Namespace: constants.KServeNamespace,
 					Labels: map[string]string{
-						"app.kubernetes.io/name":       name,
-						"app.kubernetes.io/instance":   nodeGroup.Name,
-						"app.kubernetes.io/managed-by": "kserve-localmodelnodegroup",
-						"app.kubernetes.io/component":  "kserve-localmodelnode-agent-pvc",
+						appNameLabel:      name,
+						appInstanceLabel:  nodeGroup.Name,
+						appManagedByLabel: managedByValue,
+						appComponentLabel: pvcComponent,
 					},
 				},
 				Spec: nodeGroup.Spec.PersistentVolumeClaimSpec,
@@ -146,12 +165,12 @@ func (r *LocalModelNodeGroupReconciler) createPVC(ctx context.Context, nodeGroup
 }
 
 func createLocalModelAgentDaemonSet(nodeGroup v1alpha1.LocalModelNodeGroup, localModelConfig v1beta1.LocalModelConfig, pvcName string) *appsv1.DaemonSet {
-	agentName := nodeGroup.Name + "-agent"
+	agentName := nodeGroup.Name + agentSuffix
 	agentLabels := map[string]string{
-		"app.kubernetes.io/name":       agentName,
-		"app.kubernetes.io/instance":   nodeGroup.Name,
-		"app.kubernetes.io/managed-by": "kserve-localmodelnodegroup",
-		"app.kubernetes.io/component":  "kserve-localmodelnodegroup-agent",
+		appNameLabel:      agentName,
+		appInstanceLabel:  nodeGroup.Name,
+		appManagedByLabel: managedByValue,
+		appComponentLabel: daemonsetComponent,
 	}
 	agent := &appsv1.DaemonSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -326,7 +345,6 @@ func (r *LocalModelNodeGroupReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-
 	// Step 4 - Reconcile the Agent DaemonSet
 	existing := &appsv1.DaemonSet{}
 	desired := createLocalModelAgentDaemonSet(*nodeGroup, *localmodelConfig, pvc.Name)
@@ -376,6 +394,5 @@ func (r *LocalModelNodeGroupReconciler) SetupWithManager(mgr ctrl.Manager) error
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.LocalModelNodeGroup{}).
 		Owns(&appsv1.DaemonSet{}).
-		Owns(&corev1.ServiceAccount{}).
 		Complete(r)
 }
