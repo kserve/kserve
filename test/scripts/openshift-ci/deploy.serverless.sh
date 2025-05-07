@@ -193,8 +193,10 @@ fi
 oc get secret -n openshift-ingress
 oc get IngressController -n openshift-ingress-operator default -o yaml
 export tls_cert=$(oc get secret $secret_name -n openshift-ingress -o=jsonpath='{.data.tls\.crt}')
-echo $tls_cert | base64 -d > /tmp/pytest-istio-gateway.crt
-export REQUESTS_CA_BUNDLE=/tmp/pytest-istio-gateway.crt
+if [ -f "/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt" ]; then
+  # This is for python requests to work
+  export REQUESTS_CA_BUNDLE=/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt
+fi
 export tls_key=$(oc get secret $secret_name -n openshift-ingress -o=jsonpath='{.data.tls\.key}')
 oc create secret tls knative-serving-cert \
   --cert=<(echo $tls_cert | base64 -d) \
