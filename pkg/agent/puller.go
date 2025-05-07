@@ -28,7 +28,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/kserve/kserve/pkg/agent/storage"
-	v1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
 type OpType string
@@ -51,7 +51,7 @@ type ModelOp struct {
 	OnStartup bool
 	ModelName string
 	Op        OpType
-	Spec      *v1.ModelSpec
+	Spec      *v1alpha1.ModelSpec
 }
 
 type WaitGroupWrapper struct {
@@ -146,7 +146,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 	// this is important for handling Load --> Unload requests sent in tandem
 	// Load --> Unload = 0 (cancel first load)
 	// Load --> Unload --> Load = 1 Load (cancel second load?)
-	var processOp = func(modelOp *ModelOp) {
+	processOp := func(modelOp *ModelOp) {
 		switch modelOp.Op {
 		case Add:
 			p.logger.Infof("Downloading model from %s", modelOp.Spec.StorageURI)
@@ -173,7 +173,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 						}
 					}
 				}()
-				if resp.StatusCode == 200 {
+				if resp.StatusCode == http.StatusOK {
 					p.logger.Infof("Successfully loaded model %s", modelName)
 				} else {
 					body, err := io.ReadAll(resp.Body)
@@ -205,7 +205,7 @@ func (p *Puller) modelProcessor(modelName string, ops <-chan *ModelOp) {
 						}
 					}()
 				}
-				if resp.StatusCode == 200 {
+				if resp.StatusCode == http.StatusOK {
 					p.logger.Infof("Successfully unloaded model %s", modelName)
 				} else {
 					body, err := io.ReadAll(resp.Body)

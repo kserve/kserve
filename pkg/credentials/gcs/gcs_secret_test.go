@@ -17,20 +17,21 @@ limitations under the License.
 package gcs
 
 import (
-	"github.com/google/go-cmp/cmp"
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGcsSecret(t *testing.T) {
 	scenarios := map[string]struct {
-		secret              *v1.Secret
-		expectedVolume      v1.Volume
-		expectedVolumeMount v1.VolumeMount
+		secret              *corev1.Secret
+		expectedVolume      corev1.Volume
+		expectedVolumeMount corev1.VolumeMount
 	}{
 		"GCSSecretVolume": {
-			secret: &v1.Secret{
+			secret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "user-gcp-sa",
 				},
@@ -38,15 +39,15 @@ func TestGcsSecret(t *testing.T) {
 					GCSCredentialFileName: {},
 				},
 			},
-			expectedVolumeMount: v1.VolumeMount{
+			expectedVolumeMount: corev1.VolumeMount{
 				Name:      GCSCredentialVolumeName,
 				ReadOnly:  true,
 				MountPath: GCSCredentialVolumeMountPath,
 			},
-			expectedVolume: v1.Volume{
+			expectedVolume: corev1.Volume{
 				Name: GCSCredentialVolumeName,
-				VolumeSource: v1.VolumeSource{
-					Secret: &v1.SecretVolumeSource{
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
 						SecretName: "user-gcp-sa",
 					},
 				},

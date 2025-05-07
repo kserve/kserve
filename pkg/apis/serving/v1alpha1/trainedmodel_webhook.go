@@ -24,11 +24,12 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/kserve/kserve/pkg/agent/storage"
-	"github.com/kserve/kserve/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	"github.com/kserve/kserve/pkg/agent/storage"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // regular expressions for validation of isvc name

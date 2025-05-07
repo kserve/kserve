@@ -13,21 +13,22 @@
 # limitations under the License.
 
 import os
-from collections.abc import AsyncIterable
-from typing import AsyncGenerator
 import time
+from typing import AsyncGenerator
 
 from fastapi import APIRouter, FastAPI, Request, Response
+from fastapi.responses import ORJSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import TypeAdapter, ValidationError
 from starlette.responses import StreamingResponse
 
-from kserve.protocol.rest.openai.types.openapi import (
-    CreateChatCompletionRequest,
-    CreateCompletionRequest,
-    CreateEmbeddingRequest,
-    ListModelsResponse,
+from kserve.protocol.rest.openai.types import (
+    ChatCompletionRequest,
+    CompletionRequest,
+    EmbeddingRequest,
+    ErrorResponse,
     Model,
+    ModelList,
 )
 
 from ....errors import ModelNotReady
@@ -40,9 +41,9 @@ if len(OPENAI_ROUTE_PREFIX) > 0 and not OPENAI_ROUTE_PREFIX.startswith("/"):
     OPENAI_ROUTE_PREFIX = f"/{OPENAI_ROUTE_PREFIX}"
 
 
-CreateCompletionRequestAdapter = TypeAdapter(CreateCompletionRequest)
-ChatCompletionRequestAdapter = TypeAdapter(CreateChatCompletionRequest)
-EmbeddingRequestAdapter = TypeAdapter(CreateEmbeddingRequest)
+CreateCompletionRequestAdapter = TypeAdapter(CompletionRequest)
+ChatCompletionRequestAdapter = TypeAdapter(ChatCompletionRequest)
+EmbeddingRequestAdapter = TypeAdapter(EmbeddingRequest)
 
 
 class OpenAIEndpoints:
@@ -53,7 +54,7 @@ class OpenAIEndpoints:
     async def create_completion(
         self,
         raw_request: Request,
-        request_body: CreateCompletionRequest,
+        request_body: CompletionRequest,
         response: Response,
     ) -> Response:
         """Create completion handler.
@@ -80,24 +81,23 @@ class OpenAIEndpoints:
         completion = await self.dataplane.create_completion(
             model_name=model_name,
             request=params,
+            raw_request=raw_request,
             headers=raw_request.headers,
             response=response,
         )
-        if isinstance(completion, AsyncIterable):
-
-            async def stream_results() -> AsyncGenerator[str, None]:
-                async for partial_completion in completion:
-                    yield f"data: {partial_completion.model_dump_json()}\n\n"
-                yield "data: [DONE]\n\n"
-
-            return StreamingResponse(stream_results(), media_type="text/event-stream")
+        if isinstance(completion, ErrorResponse):
+            return ORJSONResponse(
+                content=completion.model_dump(), status_code=int(completion.error.code)
+            )
+        elif isinstance(completion, AsyncGenerator):
+            return StreamingResponse(completion, media_type="text/event-stream")
         else:
             return completion
 
     async def create_chat_completion(
         self,
         raw_request: Request,
-        request_body: CreateChatCompletionRequest,
+        request_body: ChatCompletionRequest,
         response: Response,
     ) -> Response:
         """Create chat completion handler.
@@ -125,33 +125,30 @@ class OpenAIEndpoints:
         completion = await self.dataplane.create_chat_completion(
             model_name=model_name,
             request=request_body,
+            raw_request=raw_request,
             headers=request_headers,
             response=response,
         )
-        if isinstance(completion, AsyncIterable):
-
-            async def stream_results() -> AsyncGenerator[str, None]:
-                async for chunk in completion:
-                    yield f"data: {chunk.model_dump_json()}\n\n"
-                yield "data: [DONE]\n\n"
-
-            return StreamingResponse(stream_results(), media_type="text/event-stream")
+        if isinstance(completion, ErrorResponse):
+            return ORJSONResponse(
+                content=completion.model_dump(), status_code=int(completion.error.code)
+            )
+        elif isinstance(completion, AsyncGenerator):
+            return StreamingResponse(completion, media_type="text/event-stream")
         else:
             return completion
 
     async def create_embedding(
         self,
         raw_request: Request,
-        request_body: CreateEmbeddingRequest,
+        request_body: EmbeddingRequest,
         response: Response,
     ) -> Response:
         """Create embedding handler.
-
         Args:
             raw_request (Request): fastapi request object,
-            request_body (CreateEmbeddingRequest): Embedding params body.
-            response (Response): fastapi response object
-
+            model_name (str): Model name.
+            request_body (EmbeddingRequestAdapter): Embedding params body.
         Returns:
             InferenceResponse: Inference response object.
         """
@@ -166,27 +163,35 @@ class OpenAIEndpoints:
         if not model_ready:
             raise ModelNotReady(model_name)
 
-        request_headers = raw_request.headers
-        return await self.dataplane.create_embedding(
+        embedding = await self.dataplane.create_embedding(
             model_name=model_name,
-            request=request_body,
-            headers=request_headers,
+            request=params,
+            raw_request=raw_request,
+            headers=raw_request.headers,
             response=response,
         )
+        if isinstance(embedding, ErrorResponse):
+            return ORJSONResponse(
+                content=embedding.model_dump(), status_code=int(embedding.error.code)
+            )
+        elif isinstance(embedding, AsyncGenerator):
+            return StreamingResponse(embedding, media_type="text/event-stream")
+        else:
+            return embedding
 
     async def models(
         self,
-    ) -> ListModelsResponse:
+    ) -> ModelList:
         """Create chat completion handler.
 
         Args:
             raw_request (Request): fastapi request object,
 
         Returns:
-            ListModelsResponse: Model response object.
+            ModelList: Model response object.
         """
         models = await self.dataplane.models()
-        return ListModelsResponse(
+        return ModelList(
             object="list",
             data=[
                 Model(
@@ -197,7 +202,12 @@ class OpenAIEndpoints:
         )
 
     async def health(self, model_name: str):
-        await self.dataplane.model_ready(model_name)
+        try:
+            model_ready = await self.dataplane.model_ready(model_name)
+        except Exception as e:
+            raise ModelNotReady(model_name) from e
+        if not model_ready:
+            raise ModelNotReady(model_name)
 
 
 def register_openai_endpoints(app: FastAPI, dataplane: OpenAIDataPlane):

@@ -19,13 +19,12 @@ package inferencegraph
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
@@ -55,18 +54,19 @@ Also propagates headers onto podspec container environment variables.
 
 This function makes sense to be used in raw k8s deployment mode
 */
-func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *RouterConfig) *v1.PodSpec {
+func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterConfig) *corev1.PodSpec {
 	bytes, err := json.Marshal(graph.Spec)
 	if err != nil {
 		return nil
 	}
 
 	// Pod spec with 'router container with resource requirements' and 'affinity' as well
-	podSpec := &v1.PodSpec{
-		Containers: []v1.Container{
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
 			{
-				Name:  graph.ObjectMeta.Name,
-				Image: config.Image,
+				Name:            graph.ObjectMeta.Name,
+				Image:           config.Image,
+				ImagePullPolicy: corev1.PullPolicy(config.ImagePullPolicy),
 				Args: []string{
 					"--enable-tls",
 					"--graph-json",
@@ -74,13 +74,13 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 				},
 				Resources:      constructResourceRequirements(*graph, *config),
 				ReadinessProbe: constants.GetRouterReadinessProbe(),
-				SecurityContext: &v1.SecurityContext{
+				SecurityContext: &corev1.SecurityContext{
 					Privileged:               proto.Bool(false),
 					RunAsNonRoot:             proto.Bool(true),
 					ReadOnlyRootFilesystem:   proto.Bool(true),
 					AllowPrivilegeEscalation: proto.Bool(false),
-					Capabilities: &v1.Capabilities{
-						Drop: []v1.Capability{v1.Capability("ALL")},
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{corev1.Capability("ALL")},
 					},
 				},
 			},
@@ -88,12 +88,17 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 		Affinity:                     graph.Spec.Affinity,
 		ServiceAccountName:           "default",
 		AutomountServiceAccountToken: proto.Bool(false), // Inference graph does not need access to api server
+		Tolerations:                  graph.Spec.Tolerations,
+		ImagePullSecrets:             config.GetImagePullSecrets(),
+		NodeSelector:                 graph.Spec.NodeSelector,
+		NodeName:                     graph.Spec.NodeName,
+		// ServiceAccountName:           graph.Spec.ServiceAccountName,
 	}
 
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
 	value, exists := config.Headers["propagate"]
 	if exists {
-		podSpec.Containers[0].Env = []v1.EnvVar{
+		podSpec.Containers[0].Env = []corev1.EnvVar{
 			{
 				Name:  constants.RouterHeadersPropagateEnvVar,
 				Value: strings.Join(value, ","),
@@ -120,7 +125,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 		// In KServe v0.14 there is no way for users to set the ServiceAccount for an
 		// InferenceGraph. In ODH this is used at our advantage to set a non-default SA
 		// and bind needed privileges for the auth verification.
-		podSpec.ServiceAccountName = fmt.Sprintf("%s-auth-verifier", graph.GetName())
+		podSpec.ServiceAccountName = graph.GetName() + "-auth-verifier"
 	}
 
 	return podSpec
@@ -129,7 +134,7 @@ func createInferenceGraphPodSpec(graph *v1alpha1api.InferenceGraph, config *Rout
 /*
 A simple utility to create a basic meta object given name and namespace;  Can be extended to accept labels, annotations as well
 */
-func constructForRawDeployment(graph *v1alpha1api.InferenceGraph) (metav1.ObjectMeta, v1beta1.ComponentExtensionSpec) {
+func constructForRawDeployment(graph *v1alpha1.InferenceGraph) (metav1.ObjectMeta, v1beta1.ComponentExtensionSpec) {
 	name := graph.ObjectMeta.Name
 	namespace := graph.ObjectMeta.Namespace
 	annotations := graph.ObjectMeta.Annotations
@@ -170,16 +175,16 @@ Handles bulk of raw deployment logic for Inference graph controller
 4. Set controller references
 5. Finally reconcile
 */
-func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	graph *v1alpha1api.InferenceGraph, routerConfig *RouterConfig) (*appsv1.Deployment, *knapis.URL, error) {
+func handleInferenceGraphRawDeployment(ctx context.Context, cl client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
+	graph *v1alpha1.InferenceGraph, routerConfig *RouterConfig,
+) (*appsv1.Deployment, *knapis.URL, error) {
 	// create desired service object.
 	desiredSvc := createInferenceGraphPodSpec(graph, routerConfig)
 
 	objectMeta, componentExtSpec := constructForRawDeployment(graph)
 
 	// create the reconciler
-	reconciler, err := raw.NewRawKubeReconciler(cl, clientset, scheme, constants.InferenceGraphResource, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
-
+	reconciler, err := raw.NewRawKubeReconciler(ctx, cl, clientset, scheme, constants.InferenceGraphResource, objectMeta, metav1.ObjectMeta{}, &componentExtSpec, desiredSvc, nil)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "fails to create NewRawKubeReconciler for inference graph")
 	}
@@ -203,7 +208,7 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 	}
 
 	// reconcile
-	deployment, err := reconciler.Reconcile()
+	deployment, err := reconciler.Reconcile(ctx)
 	logger.Info("Result of inference graph raw reconcile", "deployment", deployment[0]) // only 1 deployment exist (default deployment)
 	logger.Info("Result of reconcile", "err", err)
 
@@ -214,7 +219,7 @@ func handleInferenceGraphRawDeployment(cl client.Client, clientset kubernetes.In
 	return deployment[0], reconciler.URL, nil
 }
 
-func handleInferenceGraphRawAuthResources(ctx context.Context, clientset kubernetes.Interface, scheme *runtime.Scheme, graph *v1alpha1api.InferenceGraph) error {
+func handleInferenceGraphRawAuthResources(ctx context.Context, clientset kubernetes.Interface, scheme *runtime.Scheme, graph *v1alpha1.InferenceGraph) error {
 	saName := getServiceAccountNameForGraph(graph)
 
 	if graph.GetAnnotations()[constants.ODHKserveRawAuth] == "true" {
@@ -258,7 +263,7 @@ func handleInferenceGraphRawAuthResources(ctx context.Context, clientset kuberne
 	return nil
 }
 
-func addAuthPrivilegesToGraphServiceAccount(ctx context.Context, clientset kubernetes.Interface, graph *v1alpha1api.InferenceGraph) error {
+func addAuthPrivilegesToGraphServiceAccount(ctx context.Context, clientset kubernetes.Interface, graph *v1alpha1.InferenceGraph) error {
 	clusterRoleBinding, err := clientset.RbacV1().ClusterRoleBindings().Get(ctx, constants.InferenceGraphAuthCRBName, metav1.GetOptions{})
 	if client.IgnoreNotFound(err) != nil {
 		return errors.Wrapf(err, "fails to get cluster role binding kserve-inferencegraph-auth-verifiers while configuring inference graph auth")
@@ -307,7 +312,7 @@ func addAuthPrivilegesToGraphServiceAccount(ctx context.Context, clientset kuber
 	return nil
 }
 
-func removeAuthPrivilegesFromGraphServiceAccount(ctx context.Context, clientset kubernetes.Interface, graph *v1alpha1api.InferenceGraph) error {
+func removeAuthPrivilegesFromGraphServiceAccount(ctx context.Context, clientset kubernetes.Interface, graph *v1alpha1.InferenceGraph) error {
 	clusterRole, err := clientset.RbacV1().ClusterRoleBindings().Get(ctx, constants.InferenceGraphAuthCRBName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -339,7 +344,7 @@ func removeAuthPrivilegesFromGraphServiceAccount(ctx context.Context, clientset 
 	return nil
 }
 
-func deleteGraphServiceAccount(ctx context.Context, clientset kubernetes.Interface, graph *v1alpha1api.InferenceGraph) error {
+func deleteGraphServiceAccount(ctx context.Context, clientset kubernetes.Interface, graph *v1alpha1.InferenceGraph) error {
 	saName := getServiceAccountNameForGraph(graph)
 	err := clientset.CoreV1().ServiceAccounts(graph.GetNamespace()).Delete(ctx, saName, metav1.DeleteOptions{})
 	if client.IgnoreNotFound(err) != nil {
@@ -348,16 +353,17 @@ func deleteGraphServiceAccount(ctx context.Context, clientset kubernetes.Interfa
 	return nil
 }
 
-func getServiceAccountNameForGraph(graph *v1alpha1api.InferenceGraph) string {
-	return fmt.Sprintf("%s-auth-verifier", graph.GetName())
+func getServiceAccountNameForGraph(graph *v1alpha1.InferenceGraph) string {
+	return graph.GetName() + "-auth-verifier"
 }
 
 /*
 PropagateRawStatus Propagates deployment status onto Inference graph status.
 In raw deployment mode, deployment available denotes the ready status for IG
 */
-func PropagateRawStatus(graphStatus *v1alpha1api.InferenceGraphStatus, deployment *appsv1.Deployment,
-	url *apis.URL) {
+func PropagateRawStatus(graphStatus *v1alpha1.InferenceGraphStatus, deployment *appsv1.Deployment,
+	url *apis.URL,
+) {
 	for _, con := range deployment.Status.Conditions {
 		if con.Type == appsv1.DeploymentAvailable {
 			graphStatus.URL = url
@@ -365,7 +371,7 @@ func PropagateRawStatus(graphStatus *v1alpha1api.InferenceGraphStatus, deploymen
 			conditions := []apis.Condition{
 				{
 					Type:   apis.ConditionReady,
-					Status: v1.ConditionTrue,
+					Status: corev1.ConditionTrue,
 				},
 			}
 			graphStatus.SetConditions(conditions)

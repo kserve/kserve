@@ -20,11 +20,12 @@ import (
 	"context"
 	"sort"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 type ModelFormat struct {
@@ -50,16 +51,14 @@ type ModelSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var (
-	_ ComponentImplementation = &ModelSpec{}
-)
+var _ ComponentImplementation = &ModelSpec{}
 
 // Here, the ComponentImplementation interface is implemented in order to maintain the
 // component validation logic. This will probably be refactored out eventually.
 
 func (m *ModelSpec) Default(config *InferenceServicesConfig) {}
 
-func (m *ModelSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
+func (m *ModelSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container {
 	return &m.Container
 }
 
@@ -85,12 +84,12 @@ func (ss stringSet) contains(s string) bool {
 // support the given model. If the `isMMS` argument is true, this function will only return ServingRuntimes that are
 // ModelMesh compatible, otherwise only single-model serving compatible runtimes will be returned.
 // If `isMultinode` is true, this function will only return ServingRuntimes configured with workers.
-func (m *ModelSpec) GetSupportingRuntimes(cl client.Client, namespace string, isMMS bool, isMultinode bool) ([]v1alpha1.SupportedRuntime, error) {
+func (m *ModelSpec) GetSupportingRuntimes(ctx context.Context, cl client.Client, namespace string, isMMS bool, isMultinode bool) ([]v1alpha1.SupportedRuntime, error) {
 	modelProtocolVersion := m.GetProtocol()
 
 	// List all namespace-scoped runtimes.
 	runtimes := &v1alpha1.ServingRuntimeList{}
-	if err := cl.List(context.TODO(), runtimes, client.InNamespace(namespace)); err != nil {
+	if err := cl.List(ctx, runtimes, client.InNamespace(namespace)); err != nil {
 		return nil, err
 	}
 	// Sort namespace-scoped runtimes by created timestamp desc and name asc.
