@@ -18,6 +18,7 @@ package knative
 
 import (
 	"context"
+	"strings"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/proto"
@@ -230,10 +231,26 @@ func (r *KsvcReconciler) Reconcile(ctx context.Context) (*knservingv1.ServiceSta
 	desired := r.Service
 	existing := &knservingv1.Service{}
 
+	forceStopRuntime := false
+	if val, exist := desired.Spec.Template.Annotations[constants.StopAnnotationKey]; exist {
+		forceStopRuntime = strings.EqualFold(val, "true")
+	}
+
 	err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		log.Info("Updating knative service", "namespace", desired.Namespace, "name", desired.Name)
 		if err := r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing); err != nil {
 			return err
+		}
+
+		if forceStopRuntime {
+			log.Info("Stopping knative service", "namespace", existing.Namespace, "name", existing.Name)
+			if existing.GetDeletionTimestamp() == nil { // check if the ksvc was already deleted
+				err := r.client.Delete(ctx, existing)
+				if err != nil {
+					return err
+				}
+			}
+			return nil
 		}
 
 		// Set ResourceVersion which is required for update operation.
@@ -260,8 +277,12 @@ func (r *KsvcReconciler) Reconcile(ctx context.Context) (*knservingv1.ServiceSta
 	if err != nil {
 		// Create service if it does not exist
 		if apierr.IsNotFound(err) {
-			log.Info("Creating knative service", "namespace", desired.Namespace, "name", desired.Name)
-			return &desired.Status, r.client.Create(ctx, desired)
+			if !forceStopRuntime {
+				log.Info("Creating knative service", "namespace", desired.Namespace, "name", desired.Name)
+				return &desired.Status, r.client.Create(ctx, desired)
+			}
+
+			return &desired.Status, nil
 		}
 		return &existing.Status, errors.Wrapf(err, "fails to reconcile knative service")
 	}
