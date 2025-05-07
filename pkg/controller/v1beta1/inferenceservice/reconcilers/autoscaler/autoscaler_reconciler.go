@@ -17,29 +17,27 @@ limitations under the License.
 package autoscaler
 
 import (
-	"context"
 	"fmt"
-
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	hpa "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/hpa"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Autoscaler Interface implemented by all autoscalers
 type Autoscaler interface {
-	Reconcile(ctx context.Context) (*autoscalingv2.HorizontalPodAutoscaler, error)
+	Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error)
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
 }
 
 // NoOpAutoscaler Autoscaler that does nothing. Can be used to disable creation of autoscaler resources.
 type NoOpAutoscaler struct{}
 
-func (*NoOpAutoscaler) Reconcile(ctx context.Context) (*autoscalingv2.HorizontalPodAutoscaler, error) {
+func (*NoOpAutoscaler) Reconcile() (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	return nil, nil
 }
 
@@ -58,8 +56,7 @@ type AutoscalerReconciler struct {
 func NewAutoscalerReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec,
-) (*AutoscalerReconciler, error) {
+	componentExt *v1beta1.ComponentExtensionSpec) (*AutoscalerReconciler, error) {
 	as, err := createAutoscaler(client, scheme, componentMeta, componentExt)
 	if err != nil {
 		return nil, err
@@ -83,21 +80,20 @@ func getAutoscalerClass(metadata metav1.ObjectMeta) constants.AutoscalerClassTyp
 
 func createAutoscaler(client client.Client,
 	scheme *runtime.Scheme, componentMeta metav1.ObjectMeta,
-	componentExt *v1beta1.ComponentExtensionSpec,
-) (Autoscaler, error) {
+	componentExt *v1beta1.ComponentExtensionSpec) (Autoscaler, error) {
 	ac := getAutoscalerClass(componentMeta)
 	switch ac {
 	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal:
-		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt)
+		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt), nil
 	default:
 		return nil, fmt.Errorf("unknown autoscaler class type: %v", ac)
 	}
 }
 
 // Reconcile ...
-func (r *AutoscalerReconciler) Reconcile(ctx context.Context) error {
+func (r *AutoscalerReconciler) Reconcile() error {
 	// reconcile Autoscaler
-	_, err := r.Autoscaler.Reconcile(ctx)
+	_, err := r.Autoscaler.Reconcile()
 	if err != nil {
 		return err
 	}

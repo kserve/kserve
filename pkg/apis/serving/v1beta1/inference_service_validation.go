@@ -21,19 +21,19 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"regexp"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 // regular expressions for validation of isvc name
@@ -100,6 +100,12 @@ func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, obj runt
 	}
 	validatorLogger.Info("validate delete", "name", isvc.Name)
 	return nil, nil
+}
+
+// GetIntReference returns the pointer for the integer input
+func GetIntReference(number int) *int {
+	num := number
+	return &num
 }
 
 func validateInferenceService(isvc *InferenceService) (admission.Warnings, error) {
@@ -269,9 +275,9 @@ func validateAutoscalerTargetUtilizationPercentage(isvc *InferenceService) error
 	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
 		t, err := strconv.Atoi(value)
 		if err != nil {
-			return errors.New("the target utilization percentage should be a [1-100] integer")
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
 		} else if t < 1 || t > 100 {
-			return errors.New("the target utilization percentage should be a [1-100] integer")
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
 		}
 	}
 
@@ -285,6 +291,7 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 	}
 
 	err := validateHPAMetrics(metric)
+
 	if err != nil {
 		return err
 	}
@@ -292,11 +299,11 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 	if compExtSpec.ScaleTarget != nil {
 		target := *compExtSpec.ScaleTarget
 		if metric == MetricCPU && target < 1 || target > 100 {
-			return errors.New("the target utilization percentage should be a [1-100] integer")
+			return fmt.Errorf("the target utilization percentage should be a [1-100] integer")
 		}
 
 		if metric == MetricMemory && target < 1 {
-			return errors.New("the target memory should be greater than 1 MiB")
+			return fmt.Errorf("the target memory should be greater than 1 MiB")
 		}
 	}
 
@@ -314,7 +321,7 @@ func validateKPAMetrics(metric ScaleMetric) error {
 
 func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error {
 	if compExtSpec.DeploymentStrategy != nil {
-		return errors.New("customizing deploymentStrategy is only supported for raw deployment mode")
+		return fmt.Errorf("customizing deploymentStrategy is only supported for raw deployment mode")
 	}
 	metric := MetricConcurrency
 	if compExtSpec.ScaleMetric != nil {
@@ -322,6 +329,7 @@ func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 	}
 
 	err := validateKPAMetrics(metric)
+
 	if err != nil {
 		return err
 	}
@@ -330,7 +338,7 @@ func validateScalingKPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 		target := *compExtSpec.ScaleTarget
 
 		if metric == MetricRPS && target < 1 {
-			return errors.New("the target for rps should be greater than 1")
+			return fmt.Errorf("the target for rps should be greater than 1")
 		}
 	}
 

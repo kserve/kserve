@@ -19,27 +19,25 @@ package pod
 import (
 	"context"
 	"encoding/json"
-	"sort"
-	"testing"
-
 	"github.com/google/uuid"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	gomegaTypes "github.com/onsi/gomega/types"
 	"gomodules.xyz/jsonpatch/v2"
 	"google.golang.org/protobuf/proto"
 	admissionv1 "k8s.io/api/admission/v1"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"github.com/kserve/kserve/pkg/constants"
+	"sort"
+	"testing"
 )
 
 func TestMutator_Handle(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	kserveNamespace := corev1.Namespace{
+	kserveNamespace := v1.Namespace{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Namespace",
 			APIVersion: "v1",
@@ -47,8 +45,8 @@ func TestMutator_Handle(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.KServeNamespace,
 		},
-		Spec:   corev1.NamespaceSpec{},
-		Status: corev1.NamespaceStatus{},
+		Spec:   v1.NamespaceSpec{},
+		Status: v1.NamespaceStatus{},
 	}
 
 	if err := c.Create(context.TODO(), &kserveNamespace); err != nil {
@@ -57,13 +55,13 @@ func TestMutator_Handle(t *testing.T) {
 	mutator := Mutator{Client: c, Clientset: clientset, Decoder: admission.NewDecoder(c.Scheme())}
 
 	cases := map[string]struct {
-		configMap corev1.ConfigMap
+		configMap v1.ConfigMap
 		request   admission.Request
-		pod       corev1.Pod
+		pod       v1.Pod
 		matcher   gomegaTypes.GomegaMatcher
 	}{
 		"should not mutate non isvc pods": {
-			configMap: corev1.ConfigMap{
+			configMap: v1.ConfigMap{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "ConfigMap",
 					APIVersion: "v1",
@@ -141,7 +139,7 @@ func TestMutator_Handle(t *testing.T) {
 					Options:            runtime.RawExtension{},
 				},
 			},
-			pod: corev1.Pod{
+			pod: v1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Pod",
 					APIVersion: "v1",
@@ -169,7 +167,7 @@ func TestMutator_Handle(t *testing.T) {
 			}),
 		},
 		"should mutate isvc pods": {
-			configMap: corev1.ConfigMap{
+			configMap: v1.ConfigMap{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "ConfigMap",
 					APIVersion: "v1",
@@ -247,7 +245,7 @@ func TestMutator_Handle(t *testing.T) {
 					Options:            runtime.RawExtension{},
 				},
 			},
-			pod: corev1.Pod{
+			pod: v1.Pod{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Pod",
 					APIVersion: "v1",
@@ -257,8 +255,8 @@ func TestMutator_Handle(t *testing.T) {
 						constants.InferenceServicePodLabelKey: "",
 					},
 				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
 						},

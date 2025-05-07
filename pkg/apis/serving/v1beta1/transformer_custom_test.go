@@ -20,21 +20,20 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestTransformerDefaulter(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	defaultResource := corev1.ResourceList{
-		corev1.ResourceCPU:    resource.MustParse("1"),
-		corev1.ResourceMemory: resource.MustParse("2Gi"),
+	defaultResource := v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 	config := &InferenceServicesConfig{
 		Resource: ResourceConfig{
@@ -51,9 +50,9 @@ func TestTransformerDefaulter(t *testing.T) {
 		"DefaultResources": {
 			spec: TransformerSpec{
 				PodSpec: PodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",
@@ -65,16 +64,16 @@ func TestTransformerDefaulter(t *testing.T) {
 			},
 			expected: TransformerSpec{
 				PodSpec: PodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Name: constants.InferenceServiceContainerName,
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",
 								},
 							},
-							Resources: corev1.ResourceRequirements{
+							Resources: v1.ResourceRequirements{
 								Requests: defaultResource,
 								Limits:   defaultResource,
 							},
@@ -97,14 +96,15 @@ func TestTransformerDefaulter(t *testing.T) {
 }
 
 func TestCreateTransformerContainer(t *testing.T) {
-	requestedResource := corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
+
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
 			},
 			"memory": resource.MustParse("1Gi"),
 		},
-		Requests: corev1.ResourceList{
+		Requests: v1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "90",
 			},
@@ -114,7 +114,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
-		expectedContainerSpec *corev1.Container
+		expectedContainerSpec *v1.Container
 	}{
 		"ContainerSpecWithCustomImage": {
 			isvc: InferenceService{
@@ -126,7 +126,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
-								Container: corev1.Container{
+								Container: v1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 								},
@@ -135,10 +135,10 @@ func TestCreateTransformerContainer(t *testing.T) {
 					},
 					Transformer: &TransformerSpec{
 						PodSpec: PodSpec{
-							Containers: []corev1.Container{
+							Containers: []v1.Container{
 								{
 									Image: "transformer:0.1.0",
-									Env: []corev1.EnvVar{
+									Env: []v1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "hdfs://modelzoo",
@@ -151,7 +151,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &corev1.Container{
+			expectedContainerSpec: &v1.Container{
 				Image:     "transformer:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
@@ -163,7 +163,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 					"--http_port",
 					"8080",
 				},
-				Env: []corev1.EnvVar{
+				Env: []v1.EnvVar{
 					{
 						Name:  "STORAGE_URI",
 						Value: "hdfs://modelzoo",
@@ -184,7 +184,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
-								Container: corev1.Container{
+								Container: v1.Container{
 									Resources: requestedResource,
 								},
 							},
@@ -195,10 +195,10 @@ func TestCreateTransformerContainer(t *testing.T) {
 							ContainerConcurrency: proto.Int64(2),
 						},
 						PodSpec: PodSpec{
-							Containers: []corev1.Container{
+							Containers: []v1.Container{
 								{
 									Image: "transformer:0.1.0",
-									Env: []corev1.EnvVar{
+									Env: []v1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "hdfs://modelzoo",
@@ -211,7 +211,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &corev1.Container{
+			expectedContainerSpec: &v1.Container{
 				Image:     "transformer:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
@@ -225,7 +225,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 					"--workers",
 					"2",
 				},
-				Env: []corev1.EnvVar{
+				Env: []v1.EnvVar{
 					{
 						Name:  "STORAGE_URI",
 						Value: "hdfs://modelzoo",
@@ -246,7 +246,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 						SKLearn: &SKLearnSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
-								Container: corev1.Container{
+								Container: v1.Container{
 									Resources: requestedResource,
 									Args: []string{
 										"--workers",
@@ -261,10 +261,10 @@ func TestCreateTransformerContainer(t *testing.T) {
 							ContainerConcurrency: proto.Int64(2),
 						},
 						PodSpec: PodSpec{
-							Containers: []corev1.Container{
+							Containers: []v1.Container{
 								{
 									Image: "transformer:0.1.0",
-									Env: []corev1.EnvVar{
+									Env: []v1.EnvVar{
 										{
 											Name:  "STORAGE_URI",
 											Value: "hdfs://modelzoo",
@@ -287,7 +287,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &corev1.Container{
+			expectedContainerSpec: &v1.Container{
 				Image:     "transformer:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
@@ -301,7 +301,7 @@ func TestCreateTransformerContainer(t *testing.T) {
 					"--workers",
 					"1",
 				},
-				Env: []corev1.EnvVar{
+				Env: []v1.EnvVar{
 					{
 						Name:  "STORAGE_URI",
 						Value: "hdfs://modelzoo",
@@ -331,11 +331,11 @@ func TestTransformerGetProtocol(t *testing.T) {
 	}{
 		"DefaultProtocol": {
 			spec: &CustomTransformer{
-				PodSpec: corev1.PodSpec{
-					Containers: []corev1.Container{
+				PodSpec: v1.PodSpec{
+					Containers: []v1.Container{
 						{
 							Image: "transformer:0.1.0",
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",
@@ -360,11 +360,11 @@ func TestTransformerGetProtocol(t *testing.T) {
 		},
 		"ProtocolSpecified": {
 			spec: &CustomTransformer{
-				PodSpec: corev1.PodSpec{
-					Containers: []corev1.Container{
+				PodSpec: v1.PodSpec{
+					Containers: []v1.Container{
 						{
 							Image: "transformer:0.1.0",
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{
 									Name:  "STORAGE_URI",
 									Value: "hdfs://modelzoo",

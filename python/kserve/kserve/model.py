@@ -55,7 +55,6 @@ class BaseKServeModel(ABC):
         """
         self.name = name
         self.ready = False
-        self.engine = False
 
     async def healthy(self) -> bool:
         """
@@ -80,16 +79,8 @@ class BaseKServeModel(ABC):
         """Start handler can be overridden to perform model setup"""
         self.ready = True
 
-    async def start_engine(self):
-        """Certain models may require an engine to be started before they can be used"""
-        self.ready = True
-
     def stop(self):
         """Stop handler can be overridden to perform model teardown"""
-        self.ready = False
-
-    def stop_engine(self):
-        """Stop Engine handler can be overriden to perform the engine shutdown"""
         self.ready = False
 
 

@@ -20,7 +20,8 @@ import (
 	"flag"
 	"os"
 
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -38,7 +39,10 @@ import (
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
 )
 
-var setupLog = ctrl.Log.WithName("setup")
+var (
+	scheme   = runtime.NewScheme() //nolint: unused
+	setupLog = ctrl.Log.WithName("setup")
+)
 
 const (
 	LeaderLockName = "kserve-local-model-manager-leader-lock"
@@ -98,11 +102,9 @@ func main() {
 	setupLog.Info("Setting up manager")
 	mgr, err := manager.New(cfg, manager.Options{
 		Metrics: metricsserver.Options{
-			BindAddress: options.metricsAddr,
-		},
+			BindAddress: options.metricsAddr},
 		WebhookServer: webhook.NewServer(webhook.Options{
-			Port: options.webhookPort,
-		}),
+			Port: options.webhookPort}),
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,
@@ -127,7 +129,7 @@ func main() {
 	}
 
 	setupLog.Info("Setting up core scheme")
-	if err := corev1.AddToScheme(mgr.GetScheme()); err != nil {
+	if err := v1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Core APIs to scheme")
 		os.Exit(1)
 	}

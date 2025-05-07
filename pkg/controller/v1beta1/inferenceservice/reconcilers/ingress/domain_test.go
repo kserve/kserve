@@ -20,19 +20,18 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestGenerateDomainName(t *testing.T) {
 	type args struct {
 		name          string
-		obj           metav1.ObjectMeta
+		obj           v1.ObjectMeta
 		ingressConfig *v1beta1.IngressConfig
 	}
 
-	obj := metav1.ObjectMeta{
+	obj := v1.ObjectMeta{
 		Name:      "model",
 		Namespace: "test",
 		Annotations: map[string]string{

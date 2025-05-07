@@ -33,12 +33,10 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-
 	osv1 "github.com/openshift/api/route/v1"
-
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -57,8 +55,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/yaml"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	v1alpha1api "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	v1beta1api "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
@@ -101,20 +100,10 @@ type RouterConfig struct {
 		operations on headers. For example: Similar to "propagate" operation, one can add "transform" operation if they
 		want to transform headers keys or values before passing down to nodes.
 	*/
-	Headers          map[string][]string `json:"headers"`
-	ImagePullPolicy  string              `json:"imagePullPolicy"`
-	ImagePullSecrets []string            `json:"imagePullSecrets"`
+	Headers map[string][]string `json:"headers"`
 }
 
-func (rc *RouterConfig) GetImagePullSecrets() []corev1.LocalObjectReference {
-	imagePullSecrets := make([]corev1.LocalObjectReference, 0, len(rc.ImagePullSecrets))
-	for _, secret := range rc.ImagePullSecrets {
-		imagePullSecrets = append(imagePullSecrets, corev1.LocalObjectReference{Name: secret})
-	}
-	return imagePullSecrets
-}
-
-func getRouterConfigs(configMap *corev1.ConfigMap) (*RouterConfig, error) {
+func getRouterConfigs(configMap *v1.ConfigMap) (*RouterConfig, error) {
 	routerConfig := &RouterConfig{}
 	if agentConfigValue, ok := configMap.Data["router"]; ok {
 		err := json.Unmarshal([]byte(agentConfigValue), &routerConfig)
@@ -124,12 +113,10 @@ func getRouterConfigs(configMap *corev1.ConfigMap) (*RouterConfig, error) {
 	}
 
 	// Ensure that we set proper values for CPU/Memory Limit/Request
-	resourceDefaults := []string{
-		routerConfig.MemoryRequest,
+	resourceDefaults := []string{routerConfig.MemoryRequest,
 		routerConfig.MemoryLimit,
 		routerConfig.CpuRequest,
-		routerConfig.CpuLimit,
-	}
+		routerConfig.CpuLimit}
 	for _, key := range resourceDefaults {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {
@@ -142,8 +129,10 @@ func getRouterConfigs(configMap *corev1.ConfigMap) (*RouterConfig, error) {
 }
 
 func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	// Fetch the InferenceService instance
-	graph := &v1alpha1.InferenceGraph{}
+	_ = context.Background()
+
+	// Fetch the InferenceGraph instance
+	graph := &v1alpha1api.InferenceGraph{}
 	if err := r.Get(ctx, req.NamespacedName, graph); err != nil {
 		if apierr.IsNotFound(err) {
 			// Object not found, return.  Created objects are automatically garbage collected.
@@ -154,7 +143,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	r.Log.Info("Reconciling inference graph", "apiVersion", graph.APIVersion, "graph", graph.Name)
-	configMap, err := r.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	configMap, err := r.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(), constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		r.Log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return reconcile.Result{}, err
@@ -222,12 +211,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			}
 		}
 	}
-
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "fails to get InferenceService config map")
-	}
-	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
+	deployConfig, err := v1beta1api.NewDeployConfig(r.Clientset)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
 	}
@@ -242,7 +226,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		// Create inference graph resources such as deployment, service, hpa in raw deployment mode
-		deployment, url, err := handleInferenceGraphRawDeployment(ctx, r.Client, r.Clientset, r.Scheme, graph, routerConfig)
+		deployment, url, err := handleInferenceGraphRawDeployment(r.Client, r.Clientset, r.Scheme, graph, routerConfig)
+
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile inference graph raw deployment")
 		}
@@ -282,7 +267,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		if !ksvcAvailable {
-			r.Recorder.Event(graph, corev1.EventTypeWarning, "ServerlessModeRejected",
+			r.Recorder.Event(graph, v1.EventTypeWarning, "ServerlessModeRejected",
 				"It is not possible to use Serverless deployment mode when Knative Services are not available")
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative Services are not available", graph.Name))
 		}
@@ -294,12 +279,12 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 
 		if !knServingFound {
-			r.Recorder.Event(graph, corev1.EventTypeWarning, "ServerlessModeRejected",
+			r.Recorder.Event(graph, v1.EventTypeWarning, "ServerlessModeRejected",
 				"It is not possible to use Serverless deployment mode when Knative KnativeServings are not available")
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative KnativeServings are not available", graph.Name))
 		}
 
-		desired, err := createKnativeService(ctx, r.Client, graph.ObjectMeta, graph, routerConfig)
+		desired, err := createKnativeService(r.Client, graph.ObjectMeta, graph, routerConfig)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to create new knative service")
 		}
@@ -308,9 +293,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-
 		knativeReconciler := NewGraphKnativeServiceReconciler(r.Client, r.Scheme, desired)
-		ksvcStatus, err := knativeReconciler.Reconcile(ctx)
+		ksvcStatus, err := knativeReconciler.Reconcile()
 		if err != nil {
 			r.Log.Error(err, "failed to reconcile inference graph ksvc", "name", graph.GetName())
 			return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile inference graph ksvc")
@@ -330,18 +314,18 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	if err := r.updateStatus(ctx, graph); err != nil {
-		r.Recorder.Eventf(graph, corev1.EventTypeWarning, "InternalError", err.Error())
+	if err := r.updateStatus(graph); err != nil {
+		r.Recorder.Eventf(graph, v1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *InferenceGraphReconciler) updateStatus(ctx context.Context, desiredGraph *v1alpha1.InferenceGraph) error {
-	graph := &v1alpha1.InferenceGraph{}
+func (r *InferenceGraphReconciler) updateStatus(desiredGraph *v1alpha1api.InferenceGraph) error {
+	graph := &v1alpha1api.InferenceGraph{}
 	namespacedName := types.NamespacedName{Name: desiredGraph.Name, Namespace: desiredGraph.Namespace}
-	if err := r.Get(ctx, namespacedName, graph); err != nil {
+	if err := r.Get(context.TODO(), namespacedName, graph); err != nil {
 		return err
 	}
 
@@ -351,9 +335,9 @@ func (r *InferenceGraphReconciler) updateStatus(ctx context.Context, desiredGrap
 		// This is important because the copy we loaded from the informer's
 		// cache may be stale and we don't want to overwrite a prior update
 		// to status with this stale state.
-	} else if err := r.Status().Update(ctx, desiredGraph); err != nil {
+	} else if err := r.Status().Update(context.TODO(), desiredGraph); err != nil {
 		r.Log.Error(err, "Failed to update InferenceGraph status", "InferenceGraph", desiredGraph.Name)
-		r.Recorder.Eventf(desiredGraph, corev1.EventTypeWarning, "UpdateFailed",
+		r.Recorder.Eventf(desiredGraph, v1.EventTypeWarning, "UpdateFailed",
 			"Failed to update status for InferenceGraph %q: %v", desiredGraph.Name, err)
 		return errors.Wrapf(err, "fails to update InferenceGraph status")
 	} else {
@@ -361,23 +345,23 @@ func (r *InferenceGraphReconciler) updateStatus(ctx context.Context, desiredGrap
 		// If there was a difference and there was no error.
 		isReady := inferenceGraphReadiness(desiredGraph.Status)
 		if wasReady && !isReady { // Moved to NotReady State
-			r.Recorder.Eventf(desiredGraph, corev1.EventTypeWarning, string(InferenceGraphNotReadyState),
+			r.Recorder.Eventf(desiredGraph, v1.EventTypeWarning, string(InferenceGraphNotReadyState),
 				fmt.Sprintf("InferenceGraph [%v] is no longer Ready", desiredGraph.GetName()))
 		} else if !wasReady && isReady { // Moved to Ready State
-			r.Recorder.Eventf(desiredGraph, corev1.EventTypeNormal, string(InferenceGraphReadyState),
+			r.Recorder.Eventf(desiredGraph, v1.EventTypeNormal, string(InferenceGraphReadyState),
 				fmt.Sprintf("InferenceGraph [%v] is Ready", desiredGraph.GetName()))
 		}
 	}
 	return nil
 }
 
-func inferenceGraphReadiness(status v1alpha1.InferenceGraphStatus) bool {
+func inferenceGraphReadiness(status v1alpha1api.InferenceGraphStatus) bool {
 	return status.Conditions != nil &&
 		status.GetCondition(apis.ConditionReady) != nil &&
-		status.GetCondition(apis.ConditionReady).Status == corev1.ConditionTrue
+		status.GetCondition(apis.ConditionReady).Status == v1.ConditionTrue
 }
 
-func (r *InferenceGraphReconciler) onDeleteCleanup(ctx context.Context, graph *v1alpha1.InferenceGraph) error {
+func (r *InferenceGraphReconciler) onDeleteCleanup(ctx context.Context, graph *v1alpha1api.InferenceGraph) error {
 	if err := removeAuthPrivilegesFromGraphServiceAccount(ctx, r.Clientset, graph); err != nil {
 		return err
 	}
@@ -387,7 +371,7 @@ func (r *InferenceGraphReconciler) onDeleteCleanup(ctx context.Context, graph *v
 	return nil
 }
 
-func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig) error {
+func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1api.DeployConfig) error {
 	r.ClientConfig = mgr.GetConfig()
 
 	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
@@ -396,7 +380,7 @@ func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConf
 	}
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
-		For(&v1alpha1.InferenceGraph{}).
+		For(&v1alpha1api.InferenceGraph{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&osv1.Route{})
 

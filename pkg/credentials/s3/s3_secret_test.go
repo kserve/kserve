@@ -17,21 +17,20 @@ limitations under the License.
 package s3
 
 import (
-	"testing"
-
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
 )
 
 func TestS3Secret(t *testing.T) {
 	scenarios := map[string]struct {
 		config   S3Config
-		secret   *corev1.Secret
-		expected []corev1.EnvVar
+		secret   *v1.Secret
+		expected []v1.EnvVar
 	}{
 		"S3SecretEnvs": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
 					Annotations: map[string]string{
@@ -39,12 +38,12 @@ func TestS3Secret(t *testing.T) {
 					},
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name: AWSAccessKeyId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "s3-secret",
 							},
 							Key: AWSAccessKeyIdName,
@@ -53,9 +52,9 @@ func TestS3Secret(t *testing.T) {
 				},
 				{
 					Name: AWSSecretAccessKey,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "s3-secret",
 							},
 							Key: AWSSecretAccessKeyName,
@@ -74,7 +73,7 @@ func TestS3Secret(t *testing.T) {
 		},
 
 		"S3SecretHttpsOverrideEnvs": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
 					Annotations: map[string]string{
@@ -85,12 +84,12 @@ func TestS3Secret(t *testing.T) {
 				},
 			},
 
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name: AWSAccessKeyId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "s3-secret",
 							},
 							Key: AWSAccessKeyIdName,
@@ -99,9 +98,9 @@ func TestS3Secret(t *testing.T) {
 				},
 				{
 					Name: AWSSecretAccessKey,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "s3-secret",
 							},
 							Key: AWSSecretAccessKeyName,
@@ -128,7 +127,7 @@ func TestS3Secret(t *testing.T) {
 		},
 
 		"S3SecretEnvsWithAnonymousCredentials": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
 					Annotations: map[string]string{
@@ -137,12 +136,12 @@ func TestS3Secret(t *testing.T) {
 					},
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name: AWSAccessKeyId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "s3-secret",
 							},
 							Key: AWSAccessKeyIdName,
@@ -151,9 +150,9 @@ func TestS3Secret(t *testing.T) {
 				},
 				{
 					Name: AWSSecretAccessKey,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "s3-secret",
 							},
 							Key: AWSSecretAccessKeyName,
@@ -182,17 +181,17 @@ func TestS3Secret(t *testing.T) {
 				S3UseHttps:            "0",
 				S3Endpoint:            "s3.aws.com",
 			},
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-secret",
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name: AWSAccessKeyId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "s3-secret",
 							},
 							Key: "test-keyId",
@@ -201,9 +200,9 @@ func TestS3Secret(t *testing.T) {
 				},
 				{
 					Name: AWSSecretAccessKey,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "s3-secret",
 							},
 							Key: "test-access-key",

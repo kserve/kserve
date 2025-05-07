@@ -20,27 +20,27 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestS3ServiceAccount(t *testing.T) {
 	scenarios := map[string]struct {
 		config         S3Config
-		serviceAccount *corev1.ServiceAccount
-		expected       []corev1.EnvVar
+		serviceAccount *v1.ServiceAccount
+		expected       []v1.EnvVar
 	}{
 		"NoConfig": {
-			serviceAccount: &corev1.ServiceAccount{
+			serviceAccount: &v1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
 				},
 			},
-			expected: []corev1.EnvVar{},
+			expected: []v1.EnvVar{},
 		},
 
 		"S3Endpoint": {
-			serviceAccount: &corev1.ServiceAccount{
+			serviceAccount: &v1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
 					Annotations: map[string]string{
@@ -48,7 +48,7 @@ func TestS3ServiceAccount(t *testing.T) {
 					},
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name:  S3Endpoint,
 					Value: "s3.aws.com",
@@ -61,7 +61,7 @@ func TestS3ServiceAccount(t *testing.T) {
 		},
 
 		"S3HttpsOverrideEnvs": {
-			serviceAccount: &corev1.ServiceAccount{
+			serviceAccount: &v1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
 					Annotations: map[string]string{
@@ -71,7 +71,7 @@ func TestS3ServiceAccount(t *testing.T) {
 					},
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name:  S3UseHttps,
 					Value: "0",
@@ -92,7 +92,7 @@ func TestS3ServiceAccount(t *testing.T) {
 		},
 
 		"S3EnvsWithAnonymousCredentials": {
-			serviceAccount: &corev1.ServiceAccount{
+			serviceAccount: &v1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
 					Annotations: map[string]string{
@@ -101,7 +101,7 @@ func TestS3ServiceAccount(t *testing.T) {
 					},
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name:  S3Endpoint,
 					Value: "s3.aws.com",
@@ -123,12 +123,12 @@ func TestS3ServiceAccount(t *testing.T) {
 				S3Endpoint:               "s3.aws.com",
 				S3UseAnonymousCredential: "true",
 			},
-			serviceAccount: &corev1.ServiceAccount{
+			serviceAccount: &v1.ServiceAccount{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "s3-service-account",
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name:  S3UseHttps,
 					Value: "0",

@@ -20,7 +20,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 

@@ -81,12 +81,12 @@ func (in *ComponentExtensionSpec) DeepCopyInto(out *ComponentExtensionSpec) {
 	*out = *in
 	if in.MinReplicas != nil {
 		in, out := &in.MinReplicas, &out.MinReplicas
-		*out = new(int32)
+		*out = new(int)
 		**out = **in
 	}
 	if in.ScaleTarget != nil {
 		in, out := &in.ScaleTarget, &out.ScaleTarget
-		*out = new(int32)
+		*out = new(int)
 		**out = **in
 	}
 	if in.ScaleMetric != nil {
@@ -797,11 +797,6 @@ func (in *PodSpec) DeepCopyInto(out *PodSpec) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
-	}
-	if in.Resources != nil {
-		in, out := &in.Resources, &out.Resources
-		*out = new(corev1.ResourceRequirements)
-		(*in).DeepCopyInto(*out)
 	}
 }
 

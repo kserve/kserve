@@ -31,19 +31,15 @@ import (
 	gstorage "cloud.google.com/go/storage"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/go-logr/zapr"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-
 	"github.com/kserve/kserve/pkg/agent/mocks"
 	"github.com/kserve/kserve/pkg/agent/storage"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/modelconfig"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"go.uber.org/zap"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 var _ = Describe("Watcher", func() {
@@ -59,7 +55,6 @@ var _ = Describe("Watcher", func() {
 		sugar = zapLogger.Sugar()
 		logger.Printf("Creating temp dir %v\n", modelDir)
 		SetDefaultEventuallyTimeout(2 * time.Minute)
-		log.SetLogger(zapr.NewLogger(zapLogger))
 	})
 	AfterEach(func() {
 		os.RemoveAll(modelDir)
@@ -97,13 +92,8 @@ var _ = Describe("Watcher", func() {
 				}
 
 				file, _ := json.MarshalIndent(modelConfigs, "", " ")
-				tmpFile, err := os.Create("/tmp/configs/" + constants.ModelConfigFileName) // #nosec G303
-				if err != nil {
-					logger.Fatal(err, "failed to create model config file")
-				}
-
-				if _, err := tmpFile.Write(file); err != nil {
-					logger.Fatal(err, "tmpFile.Write failed")
+				if err := os.WriteFile("/tmp/configs/"+constants.ModelConfigFileName, file, os.ModePerm); err != nil {
+					logger.Fatal(err, " Failed to write config files")
 				}
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 
@@ -134,7 +124,6 @@ var _ = Describe("Watcher", func() {
 				Expect(watcher.ModelTracker).Should(Equal(modelSpecMap))
 
 				DeferCleanup(func() {
-					tmpFile.Close()
 					os.RemoveAll("/tmp/configs")
 				})
 			})
@@ -319,11 +308,12 @@ var _ = Describe("Watcher", func() {
 				logger.Printf("Using temp dir %v\n", modelDir)
 				var errs []s3manager.Error
 				errs = append(errs, s3manager.Error{
-					OrigErr: errors.New("failed to download"),
+					OrigErr: fmt.Errorf("failed to download"),
 					Bucket:  aws.String("modelRepo"),
 					Key:     aws.String("model1/model.pt"),
 				})
-				err := s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
+				var err error
+				err = s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
@@ -383,11 +373,11 @@ var _ = Describe("Watcher", func() {
 				modelName := "model1"
 				modelStorageURI := "gs://testBucket/"
 				err := cl.DownloadModel(modelDir, modelName, modelStorageURI)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).To(BeNil())
 
 				testFile := filepath.Join(modelDir, modelName, "testModel1")
 				dat, err := os.ReadFile(testFile)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).To(BeNil())
 				Expect(string(dat)).To(Equal(modelContents))
 			})
 		})
@@ -441,6 +431,7 @@ var _ = Describe("Watcher", func() {
 					Fail("Failed to write contents.")
 				}
 
+				const secondaryContents = "Secondary Contents"
 				w2 := bkt.Object("testModel2").NewWriter(ctx)
 				if _, err := fmt.Fprint(w2, modelContents); err != nil {
 					Fail("Failed to write contents.")
@@ -448,7 +439,7 @@ var _ = Describe("Watcher", func() {
 
 				modelStorageURI := "gs://testBucket/"
 				err := cl.DownloadModel(modelDir, "", modelStorageURI)
-				Expect(err).ToNot(HaveOccurred())
+				Expect(err).To(BeNil())
 			})
 		})
 
@@ -489,6 +480,7 @@ var _ = Describe("Watcher", func() {
 					Fail("Failed to write contents.")
 				}
 
+				const secondaryContents = "Secondary Contents"
 				w2 := bkt.Object("testModel2").NewWriter(ctx)
 				if _, err := fmt.Fprint(w2, modelContents); err != nil {
 					Fail("Failed to write contents.")
@@ -557,7 +549,7 @@ var _ = Describe("Watcher", func() {
 				watcher.parseConfig(modelConfigs, true)
 				go puller.processCommands(watcher.ModelEvents)
 				puller.waitGroup.wg.Wait()
-				Expect(puller.channelMap).To(BeEmpty())
+				Expect(len(puller.channelMap)).To(Equal(0))
 				Expect(puller.opStats["model1"][Add]).Should(Equal(1))
 				Expect(puller.opStats["model2"][Add]).Should(Equal(1))
 			})
@@ -596,11 +588,11 @@ var _ = Describe("Watcher", func() {
 					}
 
 					err := cl.DownloadModel(modelDir, modelName, modelStorageURI)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(err).To(BeNil())
 
 					testFile := filepath.Join(modelDir, modelName, modelFile)
 					dat, err := os.ReadFile(testFile)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(err).To(BeNil())
 					Expect(string(dat)).To(Equal(modelContents + "\n"))
 				}
 			})
@@ -618,7 +610,7 @@ var _ = Describe("Watcher", func() {
 				}
 
 				actualErr := cl.DownloadModel(modelDir, modelName, invalidModelStorageURI)
-				Expect(actualErr).To(HaveOccurred())
+				Expect(actualErr).NotTo(Equal(nil))
 			})
 		})
 
@@ -678,9 +670,9 @@ var _ = Describe("Watcher", func() {
 					}
 
 					err := zipcl.DownloadModel(modelDir, zipModel, zipStorageURI)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(err).To(BeNil())
 					err = tarcl.DownloadModel(modelDir, tarModel, tarStorageURI)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(err).To(BeNil())
 				}
 			})
 		})

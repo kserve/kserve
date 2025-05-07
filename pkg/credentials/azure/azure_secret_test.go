@@ -20,17 +20,17 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestAzureSecret(t *testing.T) {
 	scenarios := map[string]struct {
-		secret   *corev1.Secret
-		expected []corev1.EnvVar
+		secret   *v1.Secret
+		expected []v1.EnvVar
 	}{
 		"AzureSecretEnvsWithClientSecret": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "azcreds",
 				},
@@ -41,12 +41,12 @@ func TestAzureSecret(t *testing.T) {
 					AzureClientSecret:   []byte("AzureClientSecret"),
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name: AzureSubscriptionId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureSubscriptionId,
@@ -55,9 +55,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureTenantId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureTenantId,
@@ -66,9 +66,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureClientId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureClientId,
@@ -77,9 +77,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureClientSecret,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureClientSecret,
@@ -89,7 +89,7 @@ func TestAzureSecret(t *testing.T) {
 			},
 		},
 		"AzureSecretEnvsWithStorageAccessKey": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "azcreds",
 				},
@@ -100,12 +100,12 @@ func TestAzureSecret(t *testing.T) {
 					AzureStorageAccessKey: []byte("AzureStorageAccessKey"),
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name: AzureSubscriptionId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureSubscriptionId,
@@ -114,9 +114,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureTenantId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureTenantId,
@@ -125,9 +125,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureClientId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureClientId,
@@ -136,9 +136,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureStorageAccessKey,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureStorageAccessKey,
@@ -148,7 +148,7 @@ func TestAzureSecret(t *testing.T) {
 			},
 		},
 		"AzureSecretEnvsWithClientSecretAndStorageAccessKey": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "azcreds",
 				},
@@ -160,12 +160,12 @@ func TestAzureSecret(t *testing.T) {
 					AzureStorageAccessKey: []byte("AzureStorageAccessKey"),
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name: AzureSubscriptionId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureSubscriptionId,
@@ -174,9 +174,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureTenantId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureTenantId,
@@ -185,9 +185,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureClientId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureClientId,
@@ -196,9 +196,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureClientSecret,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureClientSecret,
@@ -207,9 +207,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureStorageAccessKey,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureStorageAccessKey,
@@ -219,7 +219,7 @@ func TestAzureSecret(t *testing.T) {
 			},
 		},
 		"AzureSecretEnvsWithoutClientSecret": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "azcreds",
 				},
@@ -230,12 +230,12 @@ func TestAzureSecret(t *testing.T) {
 					AzureStorageAccessKey: []byte("AzureStorageAccessKey"),
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name: AzureSubscriptionId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureSubscriptionId,
@@ -244,9 +244,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureTenantId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureTenantId,
@@ -255,9 +255,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureClientId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureClientId,
@@ -266,9 +266,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureStorageAccessKey,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureStorageAccessKey,
@@ -278,7 +278,7 @@ func TestAzureSecret(t *testing.T) {
 			},
 		},
 		"AzureSecretEnvsWithoutStorageAccessKey": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "azcreds",
 				},
@@ -289,12 +289,12 @@ func TestAzureSecret(t *testing.T) {
 					AzureClientSecret:   []byte("AzureClientSecret"),
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name: AzureSubscriptionId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureSubscriptionId,
@@ -303,9 +303,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureTenantId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureTenantId,
@@ -314,9 +314,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureClientId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureClientId,
@@ -325,9 +325,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureClientSecret,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureClientSecret,
@@ -337,7 +337,7 @@ func TestAzureSecret(t *testing.T) {
 			},
 		},
 		"AzureSecretEnvsWithoutClientSecretAndStorageAccessKey": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "azcreds",
 				},
@@ -347,12 +347,12 @@ func TestAzureSecret(t *testing.T) {
 					AzureClientId:       []byte("AzureClientId"),
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name: AzureSubscriptionId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureSubscriptionId,
@@ -361,9 +361,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureTenantId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureTenantId,
@@ -372,9 +372,9 @@ func TestAzureSecret(t *testing.T) {
 				},
 				{
 					Name: AzureClientId,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureClientId,
@@ -396,21 +396,21 @@ func TestAzureSecret(t *testing.T) {
 
 func TestAzureStrorageAccessSecret(t *testing.T) {
 	scenarios := map[string]struct {
-		secret   *corev1.Secret
-		expected []corev1.EnvVar
+		secret   *v1.Secret
+		expected []v1.EnvVar
 	}{
 		"AzureSecretEnvs": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "azcreds",
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name: AzureStorageAccessKey,
-					ValueFrom: &corev1.EnvVarSource{
-						SecretKeyRef: &corev1.SecretKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{
+					ValueFrom: &v1.EnvVarSource{
+						SecretKeyRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{
 								Name: "azcreds",
 							},
 							Key: AzureStorageAccessKey,

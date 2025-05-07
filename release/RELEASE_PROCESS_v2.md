@@ -45,7 +45,7 @@ Create a branch from the master and do the following:
     3. [Chart.yaml in kserve-crd](../charts/kserve-crd/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
     4. [Chart.yaml in kserve-crd-minimal](../charts/kserve-crd-minimal/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
     5. [Chart.yaml in kserve-resources](../charts/kserve-resources/Chart.yaml#L3) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`
-    6. [values.yaml in kserve-resources](../charts/kserve-resources/values.yaml#L2) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`.
+    6. [values.yaml in kserve-resources](../charts/kserve-resources/values.yaml#L2) to `v${MAJOR}.${MINOR}.${PATCH}-rc${RELEASE_CANDIDATE_VERSION}`. In addition, bump `modelmeshVersion` if it a newer version of ModelMesh is available.
     7. Run `pre-commit run` to update the Helm chart documentation 
     8. The steps are automated in the script [prepare-for-release.sh](../hack/prepare-for-release.sh)
        9. To use it execute: `make bump-version NEW_VERSION=0.14.0-rc2 PRIOR_VERSION=0.14.0-rc1`

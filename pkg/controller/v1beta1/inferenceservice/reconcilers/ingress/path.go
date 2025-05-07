@@ -19,8 +19,9 @@ package ingress
 import (
 	"bytes"
 	"fmt"
-	"net/url"
 	"text/template"
+
+	"net/url"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )

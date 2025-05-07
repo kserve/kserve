@@ -1,0 +1,82 @@
+{{- if .Values.kserve.modelmesh.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+  name: modelmesh-controller
+spec:
+  ingress:
+  - ports:
+    - port: 8443
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/managed-by: modelmesh-controller
+      control-plane: modelmesh-controller
+  policyTypes:
+  - Ingress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+  name: modelmesh-runtimes
+spec:
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/managed-by: modelmesh-controller
+    ports:
+    - port: 8033
+      protocol: TCP
+    - port: 8080
+      protocol: TCP
+  - ports:
+    - port: 8033
+      protocol: TCP
+    - port: 8008
+      protocol: TCP
+  - ports:
+    - port: 2112
+      protocol: TCP
+  podSelector:
+    matchExpressions:
+    - key: modelmesh-service
+      operator: Exists
+    matchLabels:
+      app.kubernetes.io/managed-by: modelmesh-controller
+  policyTypes:
+  - Ingress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+  name: modelmesh-webhook
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/managed-by: modelmesh-controller
+      control-plane: modelmesh-controller
+  ingress:
+    # exposed for webhook
+    - ports:
+        - port: 9443
+          protocol: TCP
+  policyTypes:
+    - Ingress
+
+{{- end }}

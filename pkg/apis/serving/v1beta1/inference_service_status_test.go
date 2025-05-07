@@ -17,22 +17,21 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/onsi/gomega"
 	"net/url"
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestInferenceServiceDuckType(t *testing.T) {
@@ -70,7 +69,7 @@ func TestInferenceServiceIsReady(t *testing.T) {
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   "Foo",
-					Status: corev1.ConditionTrue,
+					Status: v1.ConditionTrue,
 				}},
 			},
 		},
@@ -81,7 +80,7 @@ func TestInferenceServiceIsReady(t *testing.T) {
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   knservingv1.ServiceConditionReady,
-					Status: corev1.ConditionFalse,
+					Status: v1.ConditionFalse,
 				}},
 			},
 		},
@@ -92,7 +91,7 @@ func TestInferenceServiceIsReady(t *testing.T) {
 			Status: duckv1.Status{
 				Conditions: duckv1.Conditions{{
 					Type:   knservingv1.ServiceConditionReady,
-					Status: corev1.ConditionUnknown,
+					Status: v1.ConditionUnknown,
 				}},
 			},
 		},
@@ -114,15 +113,15 @@ func TestInferenceServiceIsReady(t *testing.T) {
 				Conditions: duckv1.Conditions{
 					{
 						Type:   "ConfigurationsReady",
-						Status: corev1.ConditionTrue,
+						Status: v1.ConditionTrue,
 					},
 					{
 						Type:   "RoutesReady",
-						Status: corev1.ConditionTrue,
+						Status: v1.ConditionTrue,
 					},
 					{
 						Type:   knservingv1.ServiceConditionReady,
-						Status: corev1.ConditionTrue,
+						Status: v1.ConditionTrue,
 					},
 				},
 			},
@@ -135,19 +134,19 @@ func TestInferenceServiceIsReady(t *testing.T) {
 				Conditions: duckv1.Conditions{
 					{
 						Type:   "Foo",
-						Status: corev1.ConditionTrue,
+						Status: v1.ConditionTrue,
 					},
 					{
 						Type:   "RoutesReady",
-						Status: corev1.ConditionTrue,
+						Status: v1.ConditionTrue,
 					},
 					{
 						Type:   "ConfigurationsReady",
-						Status: corev1.ConditionTrue,
+						Status: v1.ConditionTrue,
 					},
 					{
 						Type:   knservingv1.ServiceConditionReady,
-						Status: corev1.ConditionTrue,
+						Status: v1.ConditionTrue,
 					},
 				},
 			},
@@ -160,11 +159,11 @@ func TestInferenceServiceIsReady(t *testing.T) {
 				Conditions: duckv1.Conditions{
 					{
 						Type:   "Foo",
-						Status: corev1.ConditionTrue,
+						Status: v1.ConditionTrue,
 					},
 					{
 						Type:   knservingv1.ConfigurationConditionReady,
-						Status: corev1.ConditionFalse,
+						Status: v1.ConditionFalse,
 					},
 				},
 			},
@@ -196,7 +195,7 @@ func TestPropagateRawStatus(t *testing.T) {
 			Conditions: []appsv1.DeploymentCondition{
 				{
 					Type:    appsv1.DeploymentAvailable,
-					Status:  corev1.ConditionTrue,
+					Status:  v1.ConditionTrue,
 					Reason:  "MinimumReplicasAvailable",
 					Message: "Deployment has minimum availability.",
 					LastTransitionTime: metav1.Time{
@@ -226,7 +225,7 @@ func TestPropagateRawStatusWithMessages(t *testing.T) {
 
 	errorMsg := "test message"
 	reason := "test reason"
-	targetStatus := corev1.ConditionFalse
+	targetStatus := v1.ConditionFalse
 
 	status := &InferenceServiceStatus{
 		Status:      duckv1.Status{},
@@ -256,19 +255,19 @@ func TestPropagateStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Foo",
-							Status: corev1.ConditionTrue,
+							Status: v1.ConditionTrue,
 						},
 						{
 							Type:   "RoutesReady",
-							Status: corev1.ConditionTrue,
+							Status: v1.ConditionTrue,
 						},
 						{
 							Type:   "ConfigurationsReady",
-							Status: corev1.ConditionTrue,
+							Status: v1.ConditionTrue,
 						},
 						{
 							Type:   knservingv1.ServiceConditionReady,
-							Status: corev1.ConditionTrue,
+							Status: v1.ConditionTrue,
 						},
 					},
 				},
@@ -297,19 +296,19 @@ func TestPropagateStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Foo",
-							Status: corev1.ConditionTrue,
+							Status: v1.ConditionTrue,
 						},
 						{
 							Type:   "RoutesReady",
-							Status: corev1.ConditionTrue,
+							Status: v1.ConditionTrue,
 						},
 						{
 							Type:   "ConfigurationsReady",
-							Status: corev1.ConditionTrue,
+							Status: v1.ConditionTrue,
 						},
 						{
 							Type:   knservingv1.ServiceConditionReady,
-							Status: corev1.ConditionTrue,
+							Status: v1.ConditionTrue,
 						},
 					},
 				},
@@ -359,7 +358,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 	scenarios := map[string]struct {
 		isvcStatus               *InferenceServiceStatus
 		statusSpec               ComponentStatusSpec
-		podList                  *corev1.PodList
+		podList                  *v1.PodList
 		rawDeployment            bool
 		serviceStatus            *knservingv1.ServiceStatus
 		expectedRevisionStates   *ModelRevisionStates
@@ -373,7 +372,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -397,10 +396,10 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{
+			podList: &v1.PodList{
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items:    []corev1.Pod{},
+				Items:    []v1.Pod{},
 			},
 			rawDeployment: false,
 			serviceStatus: &knservingv1.ServiceStatus{
@@ -427,7 +426,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -451,10 +450,10 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{ // pod list is empty because the revision failed and scaled down to 0
+			podList: &v1.PodList{ // pod list is empty because the revision failed and scaled down to 0
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items:    []corev1.Pod{},
+				Items:    []v1.Pod{},
 			},
 			rawDeployment: false,
 			serviceStatus: &knservingv1.ServiceStatus{
@@ -483,7 +482,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -507,22 +506,22 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{
+			podList: &v1.PodList{
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items: []corev1.Pod{
+				Items: []v1.Pod{
 					{
 						TypeMeta: metav1.TypeMeta{},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: constants.InferenceServiceContainerName,
 						},
-						Spec: corev1.PodSpec{},
-						Status: corev1.PodStatus{
-							ContainerStatuses: []corev1.ContainerStatus{
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							ContainerStatuses: []v1.ContainerStatus{
 								{
 									Name:                 constants.InferenceServiceContainerName,
-									State:                corev1.ContainerState{},
-									LastTerminationState: corev1.ContainerState{},
+									State:                v1.ContainerState{},
+									LastTerminationState: v1.ContainerState{},
 									Ready:                false,
 									RestartCount:         0,
 									Image:                "",
@@ -560,7 +559,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -584,28 +583,28 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{
+			podList: &v1.PodList{
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items: []corev1.Pod{
+				Items: []v1.Pod{
 					{
 						TypeMeta: metav1.TypeMeta{},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: constants.InferenceServiceContainerName,
 						},
-						Spec: corev1.PodSpec{},
-						Status: corev1.PodStatus{
-							ContainerStatuses: []corev1.ContainerStatus{
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							ContainerStatuses: []v1.ContainerStatus{
 								{
 									Name: constants.InferenceServiceContainerName,
-									State: corev1.ContainerState{
-										Terminated: &corev1.ContainerStateTerminated{
+									State: v1.ContainerState{
+										Terminated: &v1.ContainerStateTerminated{
 											ExitCode: 1,
 											Reason:   constants.StateReasonError,
 											Message:  "For testing",
 										},
 									},
-									LastTerminationState: corev1.ContainerState{},
+									LastTerminationState: v1.ContainerState{},
 									Ready:                false,
 									RestartCount:         0,
 									Image:                "",
@@ -647,7 +646,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -671,28 +670,28 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{
+			podList: &v1.PodList{
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items: []corev1.Pod{
+				Items: []v1.Pod{
 					{
 						TypeMeta: metav1.TypeMeta{},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: constants.InferenceServiceContainerName,
 						},
-						Spec: corev1.PodSpec{},
-						Status: corev1.PodStatus{
-							ContainerStatuses: []corev1.ContainerStatus{
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							ContainerStatuses: []v1.ContainerStatus{
 								{
 									Name: constants.InferenceServiceContainerName,
-									State: corev1.ContainerState{
-										Waiting: &corev1.ContainerStateWaiting{
+									State: v1.ContainerState{
+										Waiting: &v1.ContainerStateWaiting{
 											Reason:  constants.StateReasonCrashLoopBackOff,
 											Message: "For testing",
 										},
 									},
-									LastTerminationState: corev1.ContainerState{
-										Terminated: &corev1.ContainerStateTerminated{
+									LastTerminationState: v1.ContainerState{
+										Terminated: &v1.ContainerStateTerminated{
 											Reason:   constants.StateReasonCrashLoopBackOff,
 											Message:  "For testing",
 											ExitCode: 1,
@@ -739,7 +738,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -763,28 +762,28 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{
+			podList: &v1.PodList{
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items: []corev1.Pod{
+				Items: []v1.Pod{
 					{
 						TypeMeta: metav1.TypeMeta{},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: constants.StorageInitializerContainerName,
 						},
-						Spec: corev1.PodSpec{},
-						Status: corev1.PodStatus{
-							InitContainerStatuses: []corev1.ContainerStatus{
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							InitContainerStatuses: []v1.ContainerStatus{
 								{
 									Name: constants.StorageInitializerContainerName,
-									State: corev1.ContainerState{
-										Terminated: &corev1.ContainerStateTerminated{
+									State: v1.ContainerState{
+										Terminated: &v1.ContainerStateTerminated{
 											ExitCode: 1,
 											Reason:   constants.StateReasonError,
 											Message:  "For testing",
 										},
 									},
-									LastTerminationState: corev1.ContainerState{},
+									LastTerminationState: v1.ContainerState{},
 									Ready:                false,
 									RestartCount:         0,
 									Image:                "",
@@ -826,7 +825,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -850,28 +849,28 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{
+			podList: &v1.PodList{
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items: []corev1.Pod{
+				Items: []v1.Pod{
 					{
 						TypeMeta: metav1.TypeMeta{},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: constants.StorageInitializerContainerName,
 						},
-						Spec: corev1.PodSpec{},
-						Status: corev1.PodStatus{
-							InitContainerStatuses: []corev1.ContainerStatus{
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							InitContainerStatuses: []v1.ContainerStatus{
 								{
 									Name: constants.StorageInitializerContainerName,
-									State: corev1.ContainerState{
-										Waiting: &corev1.ContainerStateWaiting{
+									State: v1.ContainerState{
+										Waiting: &v1.ContainerStateWaiting{
 											Reason:  constants.StateReasonCrashLoopBackOff,
 											Message: "For testing",
 										},
 									},
-									LastTerminationState: corev1.ContainerState{
-										Terminated: &corev1.ContainerStateTerminated{
+									LastTerminationState: v1.ContainerState{
+										Terminated: &v1.ContainerStateTerminated{
 											Reason:   constants.StateReasonCrashLoopBackOff,
 											Message:  "For testing",
 											ExitCode: 1,
@@ -918,7 +917,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -942,26 +941,26 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{
+			podList: &v1.PodList{
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items: []corev1.Pod{
+				Items: []v1.Pod{
 					{
 						TypeMeta: metav1.TypeMeta{},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: constants.StorageInitializerContainerName,
 						},
-						Spec: corev1.PodSpec{},
-						Status: corev1.PodStatus{
-							InitContainerStatuses: []corev1.ContainerStatus{
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							InitContainerStatuses: []v1.ContainerStatus{
 								{
 									Name: constants.StorageInitializerContainerName,
-									State: corev1.ContainerState{
-										Running: &corev1.ContainerStateRunning{
+									State: v1.ContainerState{
+										Running: &v1.ContainerStateRunning{
 											StartedAt: metav1.Time{},
 										},
 									},
-									LastTerminationState: corev1.ContainerState{},
+									LastTerminationState: v1.ContainerState{},
 									Ready:                false,
 									RestartCount:         0,
 									Image:                "",
@@ -999,7 +998,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -1023,27 +1022,27 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{
+			podList: &v1.PodList{
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items: []corev1.Pod{
+				Items: []v1.Pod{
 					{
 						TypeMeta: metav1.TypeMeta{},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: constants.StorageInitializerContainerName,
 						},
-						Spec: corev1.PodSpec{},
-						Status: corev1.PodStatus{
-							InitContainerStatuses: []corev1.ContainerStatus{
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							InitContainerStatuses: []v1.ContainerStatus{
 								{
 									Name: constants.StorageInitializerContainerName,
-									State: corev1.ContainerState{
-										Running: &corev1.ContainerStateRunning{
+									State: v1.ContainerState{
+										Running: &v1.ContainerStateRunning{
 											StartedAt: metav1.Time{},
 										},
 									},
-									LastTerminationState: corev1.ContainerState{
-										Terminated: &corev1.ContainerStateTerminated{
+									LastTerminationState: v1.ContainerState{
+										Terminated: &v1.ContainerStateTerminated{
 											Reason:   constants.StateReasonCrashLoopBackOff,
 											Message:  "For testing",
 											ExitCode: 1,
@@ -1085,7 +1084,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionTrue,
+							Status: v1.ConditionTrue,
 						},
 					},
 				},
@@ -1109,22 +1108,22 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{
+			podList: &v1.PodList{
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items: []corev1.Pod{
+				Items: []v1.Pod{
 					{
 						TypeMeta: metav1.TypeMeta{},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: constants.InferenceServiceContainerName,
 						},
-						Spec: corev1.PodSpec{},
-						Status: corev1.PodStatus{
-							ContainerStatuses: []corev1.ContainerStatus{
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							ContainerStatuses: []v1.ContainerStatus{
 								{
 									Name: constants.InferenceServiceContainerName,
-									State: corev1.ContainerState{
-										Running: &corev1.ContainerStateRunning{},
+									State: v1.ContainerState{
+										Running: &v1.ContainerStateRunning{},
 									},
 									Ready:        true,
 									RestartCount: 0,
@@ -1163,7 +1162,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionTrue,
+							Status: v1.ConditionTrue,
 						},
 					},
 				},
@@ -1187,22 +1186,22 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{
+			podList: &v1.PodList{
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items: []corev1.Pod{
+				Items: []v1.Pod{
 					{
 						TypeMeta: metav1.TypeMeta{},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: constants.InferenceServiceContainerName,
 						},
-						Spec: corev1.PodSpec{},
-						Status: corev1.PodStatus{
-							ContainerStatuses: []corev1.ContainerStatus{
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							ContainerStatuses: []v1.ContainerStatus{
 								{
 									Name: constants.InferenceServiceContainerName,
-									State: corev1.ContainerState{
-										Running: &corev1.ContainerStateRunning{},
+									State: v1.ContainerState{
+										Running: &v1.ContainerStateRunning{},
 									},
 									Ready:        true,
 									RestartCount: 0,
@@ -1232,7 +1231,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -1256,22 +1255,22 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{
+			podList: &v1.PodList{
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items: []corev1.Pod{
+				Items: []v1.Pod{
 					{
 						TypeMeta: metav1.TypeMeta{},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test-container",
 						},
-						Spec: corev1.PodSpec{},
-						Status: corev1.PodStatus{
-							ContainerStatuses: []corev1.ContainerStatus{
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							ContainerStatuses: []v1.ContainerStatus{
 								{
 									Name:                 "test-container",
-									State:                corev1.ContainerState{},
-									LastTerminationState: corev1.ContainerState{},
+									State:                v1.ContainerState{},
+									LastTerminationState: v1.ContainerState{},
 									Ready:                false,
 									RestartCount:         0,
 									Image:                "",
@@ -1306,7 +1305,7 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -1330,22 +1329,22 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 				GrpcURL:                   nil,
 				Address:                   nil,
 			},
-			podList: &corev1.PodList{
+			podList: &v1.PodList{
 				TypeMeta: metav1.TypeMeta{},
 				ListMeta: metav1.ListMeta{},
-				Items: []corev1.Pod{
+				Items: []v1.Pod{
 					{
 						TypeMeta: metav1.TypeMeta{},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "test-container",
 						},
-						Spec: corev1.PodSpec{},
-						Status: corev1.PodStatus{
-							InitContainerStatuses: []corev1.ContainerStatus{
+						Spec: v1.PodSpec{},
+						Status: v1.PodStatus{
+							InitContainerStatuses: []v1.ContainerStatus{
 								{
 									Name:                 "test-container",
-									State:                corev1.ContainerState{},
-									LastTerminationState: corev1.ContainerState{},
+									State:                v1.ContainerState{},
+									LastTerminationState: v1.ContainerState{},
 									Ready:                false,
 									RestartCount:         0,
 									Image:                "",
@@ -1403,7 +1402,7 @@ func TestInferenceServiceStatus_UpdateModelRevisionStates(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -1429,7 +1428,7 @@ func TestInferenceServiceStatus_UpdateModelRevisionStates(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},
@@ -1464,7 +1463,7 @@ func TestInferenceServiceStatus_UpdateModelRevisionStates(t *testing.T) {
 					Conditions: duckv1.Conditions{
 						{
 							Type:   "Ready",
-							Status: corev1.ConditionFalse,
+							Status: v1.ConditionFalse,
 						},
 					},
 				},

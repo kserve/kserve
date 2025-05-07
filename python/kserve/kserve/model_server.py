@@ -274,7 +274,6 @@ class ModelServer:
                 self.model_repository_extension,
                 kwargs=vars(args),
             )
-        self.servers = []
 
     def setup_event_loop(self):
         loop = asyncio.get_event_loop()
@@ -303,10 +302,10 @@ class ModelServer:
             )
 
     async def _servers_task(self):
-        self.servers.append(self._rest_server.start())
+        servers = [self._rest_server.start()]
         if self.enable_grpc:
-            self.servers.append(self._grpc_server.start(self.max_threads))
-        await asyncio.gather(*self.servers)
+            servers.append(self._grpc_server.start(self.max_threads))
+        await asyncio.gather(*servers)
 
     def start(self, models: List[BaseKServeModel]) -> None:
         """Start the model server with a set of registered models.
@@ -382,8 +381,6 @@ class ModelServer:
                         # pass whether to log request latency into the model
                         model.enable_latency_logging = self.enable_latency_logging
                     model.start()
-                    if model.engine:
-                        self.servers.append(model.start_engine())
                 else:
                     raise RuntimeError("Model type should be 'BaseKServeModel'")
             if not at_least_one_model_ready and models:

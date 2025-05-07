@@ -17,7 +17,6 @@ limitations under the License.
 package raw
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -26,7 +25,6 @@ import (
 	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,6 +32,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	knapis "knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -50,29 +49,20 @@ type RawKubeReconciler struct {
 }
 
 // NewRawKubeReconciler creates raw kubernetes resource reconciler.
-func NewRawKubeReconciler(ctx context.Context,
-	client client.Client,
+func NewRawKubeReconciler(client client.Client,
 	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	resourceType constants.ResourceType,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
-) (*RawKubeReconciler, error) {
+	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec) (*RawKubeReconciler, error) {
 	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt)
 	if err != nil {
 		return nil, err
 	}
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
-	if err != nil {
-		return nil, err
-	}
-	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
-	if err != nil {
-		return nil, err
-	}
-	url, err := createRawURL(ingressConfig, componentMeta)
+
+	url, err := createRawURL(clientset, componentMeta)
 	if err != nil {
 		return nil, err
 	}
@@ -83,12 +73,12 @@ func NewRawKubeReconciler(ctx context.Context,
 	}
 
 	// do not return error as service config is optional
-	serviceConfig, err1 := v1beta1.NewServiceConfig(isvcConfigMap)
+	serviceConfig, err1 := v1beta1.NewServiceConfig(clientset)
 	if err1 != nil {
 		log.Error(err1, "failed to get service config")
 	}
 
-	depl, err := deployment.NewDeploymentReconciler(ctx, client, clientset, scheme, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+	depl, err := deployment.NewDeploymentReconciler(client, clientset, scheme, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -103,31 +93,36 @@ func NewRawKubeReconciler(ctx context.Context,
 	}, nil
 }
 
-func createRawURL(ingressConfig *v1beta1.IngressConfig, metadata metav1.ObjectMeta) (*knapis.URL, error) {
+func createRawURL(clientset kubernetes.Interface, metadata metav1.ObjectMeta) (*knapis.URL, error) {
+	ingressConfig, err := v1beta1.NewIngressConfig(clientset)
+	if err != nil {
+		return nil, err
+	}
+
 	url := &knapis.URL{}
 	url.Scheme = "http"
-	var err error
-	if url.Host, err = ingress.GenerateDomainName(metadata.Name, metadata, ingressConfig); err != nil {
+	url.Host, err = ingress.GenerateDomainName(metadata.Name, metadata, ingressConfig)
+	if err != nil {
 		return nil, fmt.Errorf("failed creating host name: %w", err)
 	}
 	return url, nil
 }
 
 // Reconcile ...
-func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
+func (r *RawKubeReconciler) Reconcile() ([]*appsv1.Deployment, error) {
 	// reconciling service before deployment because we want to use "service.beta.openshift.io/serving-cert-secret-name"
 	// reconcile Service
-	_, err := r.Service.Reconcile(ctx)
+	_, err := r.Service.Reconcile()
 	if err != nil {
 		return nil, err
 	}
 	// reconcile Deployment
-	deploymentList, err := r.Deployment.Reconcile(ctx)
+	deploymentList, err := r.Deployment.Reconcile()
 	if err != nil {
 		return nil, err
 	}
 	// reconcile HPA
-	err = r.Scaler.Reconcile(ctx)
+	err = r.Scaler.Reconcile()
 	if err != nil {
 		return nil, err
 	}

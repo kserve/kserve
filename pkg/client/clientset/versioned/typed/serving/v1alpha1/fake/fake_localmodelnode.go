@@ -19,34 +19,129 @@ limitations under the License.
 package fake
 
 import (
+	"context"
+
 	v1alpha1 "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	servingv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha1"
-	gentype "k8s.io/client-go/gentype"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	types "k8s.io/apimachinery/pkg/types"
+	watch "k8s.io/apimachinery/pkg/watch"
+	testing "k8s.io/client-go/testing"
 )
 
-// fakeLocalModelNodes implements LocalModelNodeInterface
-type fakeLocalModelNodes struct {
-	*gentype.FakeClientWithList[*v1alpha1.LocalModelNode, *v1alpha1.LocalModelNodeList]
+// FakeLocalModelNodes implements LocalModelNodeInterface
+type FakeLocalModelNodes struct {
 	Fake *FakeServingV1alpha1
+	ns   string
 }
 
-func newFakeLocalModelNodes(fake *FakeServingV1alpha1, namespace string) servingv1alpha1.LocalModelNodeInterface {
-	return &fakeLocalModelNodes{
-		gentype.NewFakeClientWithList[*v1alpha1.LocalModelNode, *v1alpha1.LocalModelNodeList](
-			fake.Fake,
-			namespace,
-			v1alpha1.SchemeGroupVersion.WithResource("localmodelnodes"),
-			v1alpha1.SchemeGroupVersion.WithKind("LocalModelNode"),
-			func() *v1alpha1.LocalModelNode { return &v1alpha1.LocalModelNode{} },
-			func() *v1alpha1.LocalModelNodeList { return &v1alpha1.LocalModelNodeList{} },
-			func(dst, src *v1alpha1.LocalModelNodeList) { dst.ListMeta = src.ListMeta },
-			func(list *v1alpha1.LocalModelNodeList) []*v1alpha1.LocalModelNode {
-				return gentype.ToPointerSlice(list.Items)
-			},
-			func(list *v1alpha1.LocalModelNodeList, items []*v1alpha1.LocalModelNode) {
-				list.Items = gentype.FromPointerSlice(items)
-			},
-		),
-		fake,
+var localmodelnodesResource = v1alpha1.SchemeGroupVersion.WithResource("localmodelnodes")
+
+var localmodelnodesKind = v1alpha1.SchemeGroupVersion.WithKind("LocalModelNode")
+
+// Get takes name of the localModelNode, and returns the corresponding localModelNode object, and an error if there is any.
+func (c *FakeLocalModelNodes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.LocalModelNode, err error) {
+	emptyResult := &v1alpha1.LocalModelNode{}
+	obj, err := c.Fake.
+		Invokes(testing.NewGetActionWithOptions(localmodelnodesResource, c.ns, name, options), emptyResult)
+
+	if obj == nil {
+		return emptyResult, err
 	}
+	return obj.(*v1alpha1.LocalModelNode), err
+}
+
+// List takes label and field selectors, and returns the list of LocalModelNodes that match those selectors.
+func (c *FakeLocalModelNodes) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.LocalModelNodeList, err error) {
+	emptyResult := &v1alpha1.LocalModelNodeList{}
+	obj, err := c.Fake.
+		Invokes(testing.NewListActionWithOptions(localmodelnodesResource, localmodelnodesKind, c.ns, opts), emptyResult)
+
+	if obj == nil {
+		return emptyResult, err
+	}
+
+	label, _, _ := testing.ExtractFromListOptions(opts)
+	if label == nil {
+		label = labels.Everything()
+	}
+	list := &v1alpha1.LocalModelNodeList{ListMeta: obj.(*v1alpha1.LocalModelNodeList).ListMeta}
+	for _, item := range obj.(*v1alpha1.LocalModelNodeList).Items {
+		if label.Matches(labels.Set(item.Labels)) {
+			list.Items = append(list.Items, item)
+		}
+	}
+	return list, err
+}
+
+// Watch returns a watch.Interface that watches the requested localModelNodes.
+func (c *FakeLocalModelNodes) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+	return c.Fake.
+		InvokesWatch(testing.NewWatchActionWithOptions(localmodelnodesResource, c.ns, opts))
+
+}
+
+// Create takes the representation of a localModelNode and creates it.  Returns the server's representation of the localModelNode, and an error, if there is any.
+func (c *FakeLocalModelNodes) Create(ctx context.Context, localModelNode *v1alpha1.LocalModelNode, opts v1.CreateOptions) (result *v1alpha1.LocalModelNode, err error) {
+	emptyResult := &v1alpha1.LocalModelNode{}
+	obj, err := c.Fake.
+		Invokes(testing.NewCreateActionWithOptions(localmodelnodesResource, c.ns, localModelNode, opts), emptyResult)
+
+	if obj == nil {
+		return emptyResult, err
+	}
+	return obj.(*v1alpha1.LocalModelNode), err
+}
+
+// Update takes the representation of a localModelNode and updates it. Returns the server's representation of the localModelNode, and an error, if there is any.
+func (c *FakeLocalModelNodes) Update(ctx context.Context, localModelNode *v1alpha1.LocalModelNode, opts v1.UpdateOptions) (result *v1alpha1.LocalModelNode, err error) {
+	emptyResult := &v1alpha1.LocalModelNode{}
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateActionWithOptions(localmodelnodesResource, c.ns, localModelNode, opts), emptyResult)
+
+	if obj == nil {
+		return emptyResult, err
+	}
+	return obj.(*v1alpha1.LocalModelNode), err
+}
+
+// UpdateStatus was generated because the type contains a Status member.
+// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+func (c *FakeLocalModelNodes) UpdateStatus(ctx context.Context, localModelNode *v1alpha1.LocalModelNode, opts v1.UpdateOptions) (result *v1alpha1.LocalModelNode, err error) {
+	emptyResult := &v1alpha1.LocalModelNode{}
+	obj, err := c.Fake.
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(localmodelnodesResource, "status", c.ns, localModelNode, opts), emptyResult)
+
+	if obj == nil {
+		return emptyResult, err
+	}
+	return obj.(*v1alpha1.LocalModelNode), err
+}
+
+// Delete takes name of the localModelNode and deletes it. Returns an error if one occurs.
+func (c *FakeLocalModelNodes) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+	_, err := c.Fake.
+		Invokes(testing.NewDeleteActionWithOptions(localmodelnodesResource, c.ns, name, opts), &v1alpha1.LocalModelNode{})
+
+	return err
+}
+
+// DeleteCollection deletes a collection of objects.
+func (c *FakeLocalModelNodes) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionActionWithOptions(localmodelnodesResource, c.ns, opts, listOpts)
+
+	_, err := c.Fake.Invokes(action, &v1alpha1.LocalModelNodeList{})
+	return err
+}
+
+// Patch applies the patch and returns the patched localModelNode.
+func (c *FakeLocalModelNodes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha1.LocalModelNode, err error) {
+	emptyResult := &v1alpha1.LocalModelNode{}
+	obj, err := c.Fake.
+		Invokes(testing.NewPatchSubresourceActionWithOptions(localmodelnodesResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
+
+	if obj == nil {
+		return emptyResult, err
+	}
+	return obj.(*v1alpha1.LocalModelNode), err
 }

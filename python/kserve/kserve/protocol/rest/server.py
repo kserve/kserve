@@ -43,6 +43,7 @@ from kserve.errors import (
 from kserve.logging import trace_logger, logger
 from kserve.protocol.dataplane import DataPlane
 
+from .openai.config import maybe_register_openai_endpoints
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
 from ..model_repository_extension import ModelRepositoryExtension
@@ -93,16 +94,7 @@ class RESTServer:
         # Register OpenAI endpoints if any of the models in the registry implement the OpenAI interface
         # This adds /openai/v1/completions and /openai/v1/chat/completions routes to the
         # REST server.
-        try:
-            from kserve.protocol.rest.openai.config import (
-                maybe_register_openai_endpoints,
-            )
-
-            maybe_register_openai_endpoints(self.app, self.dataplane.model_registry)
-            logger.info("OpenAI endpoints registered")
-        except ImportError:
-            logger.info("OpenAI endpoints not registered")
-            pass
+        maybe_register_openai_endpoints(self.app, self.dataplane.model_registry)
 
     def _add_exception_handlers(self):
         self.app.add_exception_handler(InvalidInput, invalid_input_handler)

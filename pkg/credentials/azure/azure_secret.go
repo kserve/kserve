@@ -17,7 +17,7 @@ limitations under the License.
 package azure
 
 import (
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -46,8 +46,8 @@ var (
 	}
 )
 
-func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
-	envs := make([]corev1.EnvVar, 0, len(AzureEnvKeys))
+func BuildSecretEnvs(secret *v1.Secret) []v1.EnvVar {
+	envs := make([]v1.EnvVar, 0, len(AzureEnvKeys))
 	for _, k := range AzureEnvKeys {
 		dataKey := k
 		legacyDataKey := legacyAzureEnvKeyMappings[k]
@@ -56,11 +56,11 @@ func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
 		}
 		// Leave out the AzureClientSecret or AzureStorageAccessKey env var if not defined as Data in the secret
 		if _, ok := secret.Data[dataKey]; !(!ok && (dataKey == AzureClientSecret || dataKey == AzureStorageAccessKey)) {
-			envs = append(envs, corev1.EnvVar{
+			envs = append(envs, v1.EnvVar{
 				Name: k,
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
+				ValueFrom: &v1.EnvVarSource{
+					SecretKeyRef: &v1.SecretKeySelector{
+						LocalObjectReference: v1.LocalObjectReference{
 							Name: secret.Name,
 						},
 						Key: dataKey,
@@ -73,13 +73,13 @@ func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
 	return envs
 }
 
-func BuildStorageAccessKeySecretEnv(secret *corev1.Secret) []corev1.EnvVar {
-	envs := []corev1.EnvVar{
+func BuildStorageAccessKeySecretEnv(secret *v1.Secret) []v1.EnvVar {
+	envs := []v1.EnvVar{
 		{
 			Name: AzureStorageAccessKey,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
+			ValueFrom: &v1.EnvVarSource{
+				SecretKeyRef: &v1.SecretKeySelector{
+					LocalObjectReference: v1.LocalObjectReference{
 						Name: secret.Name,
 					},
 					Key: AzureStorageAccessKey,

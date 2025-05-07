@@ -19,74 +19,73 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
+	"github.com/kserve/kserve/pkg/constants"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestAcceleratorInjector(t *testing.T) {
 	scenarios := map[string]struct {
-		original *corev1.Pod
-		expected *corev1.Pod
+		original *v1.Pod
+		expected *v1.Pod
 	}{
 		"AddGPUSelector": {
-			original: &corev1.Pod{
+			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
 						constants.InferenceServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-v100",
 					},
 				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Resources: corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{{
+						Resources: v1.ResourceRequirements{
+							Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 						},
 					}},
 				},
 			},
-			expected: &corev1.Pod{
+			expected: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 					Annotations: map[string]string{
 						constants.InferenceServiceGKEAcceleratorAnnotationKey: "nvidia-tesla-v100",
 					},
 				},
-				Spec: corev1.PodSpec{
+				Spec: v1.PodSpec{
 					NodeSelector: map[string]string{
 						GkeAcceleratorNodeSelector: "nvidia-tesla-v100",
 					},
-					Containers: []corev1.Container{{
-						Resources: corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
+					Containers: []v1.Container{{
+						Resources: v1.ResourceRequirements{
+							Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 						},
 					}},
 				},
 			},
 		},
 		"DoNotAddGPUSelector": {
-			original: &corev1.Pod{
+			original: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Resources: corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{{
+						Resources: v1.ResourceRequirements{
+							Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 						},
 					}},
 				},
 			},
-			expected: &corev1.Pod{
+			expected: &v1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "deployment",
 				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{{
-						Resources: corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{{
+						Resources: v1.ResourceRequirements{
+							Limits: v1.ResourceList{constants.NvidiaGPUResourceType: resource.MustParse("1")},
 						},
 					}},
 				},

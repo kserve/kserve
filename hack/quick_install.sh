@@ -20,13 +20,21 @@ Help() {
 export ISTIO_VERSION=1.23.2
 export KNATIVE_OPERATOR_VERSION=v1.15.7
 export KNATIVE_SERVING_VERSION=1.15.2
-export KSERVE_VERSION=v0.15.0-rc1
+export KSERVE_VERSION=v0.15.0-rc0
 export CERT_MANAGER_VERSION=v1.16.1
 export GATEWAY_API_VERSION=v1.2.1
 SCRIPT_DIR="$(dirname -- "${BASH_SOURCE[0]}")"
 export SCRIPT_DIR
 
 uninstall() {
+   helm uninstall --ignore-not-found kserve -n kserve
+   helm uninstall --ignore-not-found kserve-crd -n kserve
+   echo "😀 Successfully uninstalled KServe"
+
+   kubectl delete --ignore-not-found=true KnativeServing knative-serving -n knative-serving --wait=True --timeout=300s
+   helm uninstall --ignore-not-found knative-operator -n knative-serving
+   echo "😀 Successfully uninstalled Knative"
+
    helm uninstall --ignore-not-found istio-ingressgateway -n istio-system
    helm uninstall --ignore-not-found istiod -n istio-system
    helm uninstall --ignore-not-found istio-base -n istio-system
@@ -34,14 +42,6 @@ uninstall() {
 
    helm uninstall --ignore-not-found cert-manager -n cert-manager
    echo "😀 Successfully uninstalled Cert Manager"
-
-   kubectl delete --ignore-not-found=true KnativeServing knative-serving -n knative-serving --wait=True --timeout=300s
-   helm uninstall --ignore-not-found knative-operator -n knative-serving
-   echo "😀 Successfully uninstalled Knative"
-
-   helm uninstall --ignore-not-found kserve -n kserve
-   helm uninstall --ignore-not-found kserve-crd -n kserve
-   echo "😀 Successfully uninstalled KServe"
 
    kubectl delete --ignore-not-found=true namespace istio-system
    kubectl delete --ignore-not-found=true namespace cert-manager
@@ -115,7 +115,7 @@ helm install \
 echo "😀 Successfully installed Cert Manager"
 
 # Install Knative
-if [ "${deploymentMode}" = "Serverless" ]; then
+if [ $deploymentMode = "Serverless" ]; then
    helm install knative-operator --namespace knative-serving --create-namespace --wait \
       https://github.com/knative/operator/releases/download/knative-${KNATIVE_OPERATOR_VERSION}/knative-operator-${KNATIVE_OPERATOR_VERSION}.tgz
    kubectl apply -f - <<EOF
@@ -134,11 +134,11 @@ EOF
    echo "😀 Successfully installed Knative"
 fi
 
-if [ "${installKserve}" = false ]; then
+if [ $installKserve = false ]; then
    exit
 fi
 # Install KServe
 helm install kserve-crd oci://ghcr.io/kserve/charts/kserve-crd --version ${KSERVE_VERSION} --namespace kserve --create-namespace --wait
 helm install kserve oci://ghcr.io/kserve/charts/kserve --version ${KSERVE_VERSION} --namespace kserve --create-namespace --wait \
-   --set-string kserve.controller.deploymentMode="${deploymentMode}"
+   --set-string kserve.controller.deploymentMode="${deploymentMode}" --set kserve.modelmesh.enabled=false
 echo "😀 Successfully installed KServe"

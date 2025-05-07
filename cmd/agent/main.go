@@ -66,7 +66,7 @@ var (
 	namespace        = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint         = flag.String("endpoint", "", "The endpoint name to add as header to log events")
 	component        = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
-	metadataHeaders  = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
+	metadataHeaders  = flag.StringArray("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
 	// batcher flags
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
@@ -160,7 +160,7 @@ func main() {
 	}
 	logger.Info("Starting agent http server...")
 	ctx := signals.NewContext()
-	mainServer, drain := buildServer(*port, *componentPort, loggerArgs, batcherArgs, probe, logger)
+	mainServer, drain := buildServer(ctx, *port, *componentPort, loggerArgs, batcherArgs, probe, logger)
 	servers := map[string]*http.Server{
 		"main": mainServer,
 	}
@@ -222,7 +222,7 @@ func main() {
 		logger.Errorw("Failed to bring up agent, shutting down.", zap.Error(err))
 		// This extra flush is needed because defers are not handled via os.Exit calls.
 		if err := logger.Sync(); err != nil {
-			logger.Errorf("Error syncing logger: %v", err)
+			logger.Errorw("Error syncing logger: %v", err)
 		}
 		os.Stdout.Sync()
 		os.Stderr.Sync()
@@ -285,7 +285,6 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		logger.Errorf("Malformed source_uri %s", *sourceUri)
 		os.Exit(-1)
 	}
-
 	logger.Info("Starting the log dispatcher")
 	kfslogger.StartDispatcher(workers, logger)
 	return &loggerArgs{
@@ -333,9 +332,8 @@ func buildProbe(logger *zap.SugaredLogger, probeJSON string, autodetectHTTP2 boo
 	return newProbe
 }
 
-func buildServer(port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs,
-	probeContainer func() bool, logging *zap.SugaredLogger,
-) (server *http.Server, drain func()) {
+func buildServer(ctx context.Context, port string, userPort int, loggerArgs *loggerArgs, batcherArgs *batcherArgs, // nolint unparam
+	probeContainer func() bool, logging *zap.SugaredLogger) (server *http.Server, drain func()) {
 	logging.Infof("Building server user port %d port %s", userPort, port)
 	target := &url.URL{
 		Scheme: "http",

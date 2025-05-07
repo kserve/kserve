@@ -17,7 +17,7 @@ limitations under the License.
 package mocks
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -40,7 +40,8 @@ func (m *MockS3Client) ListObjects(*s3.ListObjectsInput) (*s3.ListObjectsOutput,
 	}, nil
 }
 
-type MockS3Downloader struct{}
+type MockS3Downloader struct {
+}
 
 func (m *MockS3Downloader) DownloadWithIterator(aws.Context, s3manager.BatchDownloadIterator, ...func(*s3manager.Downloader)) error {
 	return nil
@@ -53,7 +54,7 @@ type MockS3FailDownloader struct {
 func (m *MockS3FailDownloader) DownloadWithIterator(aws.Context, s3manager.BatchDownloadIterator, ...func(*s3manager.Downloader)) error {
 	var errs []s3manager.Error
 	errs = append(errs, s3manager.Error{
-		OrigErr: errors.New("failed to download"),
+		OrigErr: fmt.Errorf("failed to download"),
 		Bucket:  aws.String("modelRepo"),
 		Key:     aws.String("model1/model.pt"),
 	})

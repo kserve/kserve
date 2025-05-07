@@ -79,7 +79,7 @@ jobs:
           path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CONTROLLER_IMG }}-${{ github.sha }}
           compression-level: 0
           if-no-files-found: error
-
+      
       - name: Upload localmodel controller image
         uses: actions/upload-artifact@v4
         with:
@@ -295,7 +295,11 @@ jobs:
 
   test-predictor:
     runs-on: ubuntu-22.04
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs:
+      [
+        kserve-image-build,
+        predictor-runtime-build,
+      ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -306,7 +310,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: "1.22"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -368,8 +372,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
-
+          go-version: "1.22"
+      
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -420,7 +424,7 @@ jobs:
       - name: Install KServe
         run: |
           ./test/scripts/gh-actions/setup-kserve.sh
-
+          
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
 
@@ -437,7 +441,11 @@ jobs:
   test-graph:
     runs-on: ubuntu-22.04
     needs:
-      [kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+      [
+        kserve-image-build,
+        predictor-runtime-build,
+        graph-tests-images-build,
+      ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -445,7 +453,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: "1.22"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -508,10 +516,15 @@ jobs:
         run: |
           ./test/scripts/gh-actions/status-check.sh
 
+
   test-path-based-routing:
     runs-on: ubuntu-22.04
     needs:
-      [kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+      [
+        kserve-image-build,
+        predictor-runtime-build,
+        explainer-runtime-build
+      ]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -519,7 +532,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: "1.22"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -611,7 +624,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: "1.22"
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -665,7 +678,8 @@ jobs:
 
   test-with-helm:
     runs-on: ubuntu-22.04
-    needs: [kserve-image-build]
+    needs:
+      [kserve-image-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -673,7 +687,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: "1.22"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -697,6 +711,7 @@ jobs:
 
       - name: Install Kserve from helm
         run: |
+          ./test/scripts/gh-actions/setup-modelmesh-dep.sh
           ./test/scripts/gh-actions/setup-kserve-helm.sh
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
@@ -731,7 +746,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: "1.22"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -803,13 +818,13 @@ jobs:
         timeout-minutes: 30
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
-
+      
       - name: Patch inferenceservice config for path based routing
         if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
         run: |
           kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-path-template.yaml
           kubectl describe configmaps -n kserve inferenceservice-config
-
+  
       - name: Run E2E tests with path based routing
         if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
         timeout-minutes: 30
@@ -845,7 +860,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: "1.22"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -918,7 +933,8 @@ jobs:
 
   test-llm:
     runs-on: ubuntu-22.04
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs:
+      [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -929,7 +945,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: "1.22"
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -977,7 +993,8 @@ jobs:
 
   test-huggingface-server-vllm:
     runs-on: ubuntu-22.04
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs:
+      [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -988,7 +1005,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: "1.22"
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -1033,10 +1050,11 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh
-
+  
   test-modelcache:
     runs-on: ubuntu-22.04
-    needs: [kserve-image-build, predictor-runtime-build]
+    needs:
+      [kserve-image-build, predictor-runtime-build]
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -1047,13 +1065,13 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: "1.22"
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.9"
-
+      
       - name: Create tmp-images directory
         run: |
           sudo mkdir -p /tmp-images
@@ -1065,7 +1083,7 @@ jobs:
           nodes: 3
           driver: "docker"
           start-args: "--mount --mount-string=/tmp-images:/tmp-images"
-
+      
       - name: Create minikube tunnel
         run: |
           nohup minikube tunnel > minikube-tunnel.log 2>&1 &
@@ -1111,7 +1129,7 @@ jobs:
           done
           sudo rm -rf tmp-images/*
           minikube ssh -n minikube-m02 -- docker image ls
-
+      
       - name: Create model root directory
         run: |
           minikube ssh -n minikube-m02 -- sudo mkdir -p -m=777 /models
@@ -1126,7 +1144,7 @@ jobs:
 
           kubectl get pods -n kserve
           kubectl describe pods -n kserve
-
+      
       - name: Enable modelcache
         run: |
           sed -i -e "s/latest/${GITHUB_SHA}/g" config/overlays/test/configmap/inferenceservice-enable-modelcache.yaml
@@ -1136,15 +1154,15 @@ jobs:
       - name: Create localmodel job namespace
         run: |
           kubectl create ns kserve-localmodel-jobs
-
+      
       - name: Label worker nodes for modelcache
         run: |
           kubectl label nodes -l '!node-role.kubernetes.io/control-plane' kserve/localmodel=worker
-
+      
       - name: Enable nodeselector in knative
         run: |
           kubectl patch configmaps -n knative-serving config-features --patch '{"data": {"kubernetes.podspec-nodeselector": "enabled"}}'
-
+      
       - name: Run E2E tests
         timeout-minutes: 15
         run: |

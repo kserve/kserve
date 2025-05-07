@@ -39,6 +39,7 @@ from . import (
     Backend,
 )
 from .vllm.utils import (
+    build_vllm_engine_args,
     infer_vllm_supported_from_model_architecture,
     maybe_add_vllm_cli_parser,
     vllm_available,
@@ -147,6 +148,15 @@ parser.add_argument(
 parser.add_argument(
     "--disable_log_requests", action="store_true", help="Disable logging requests"
 )
+parser.add_argument(
+    "--max_log_len",
+    "--max-log-len",
+    type=int,
+    default=None,
+    help="Max number of prompt characters or prompt "
+    "ID numbers being printed in log."
+    "\n\nDefault: Unlimited",
+)
 
 default_dtype = "float16" if torch.cuda.is_available() else "float32"
 if not vllm_available():
@@ -172,16 +182,6 @@ else:
         "--task", required=False, help="The ML task name for huggingface backend"
     )
 
-    parser.add_argument(
-        "--max_log_len",
-        "--max-log-len",
-        type=int,
-        default=None,
-        help="Max number of prompt characters or prompt "
-        "ID numbers being printed in log."
-        "\n\nDefault: Unlimited",
-    )
-
 args, _ = parser.parse_known_args()
 
 # auto for vLLM uses FP16 even for an FP32 model while HF uses FP32 causing inconsistency.
@@ -193,6 +193,7 @@ if "dtype" in args and args.dtype == "auto":
 
 
 def load_model():
+    engine_args = None
     model_id_or_path = get_model_id_or_path(args)
 
     if args.disable_log_requests:
@@ -211,9 +212,8 @@ def load_model():
 
         args.model = args.model_id or args.model_dir
         args.revision = args.model_revision
-        if args.served_model_name is not None:
-            args.model_name = args.served_model_name[0]
-        model = VLLMModel(args.model_name, args, request_logger=request_logger)
+        engine_args = build_vllm_engine_args(args)
+        model = VLLMModel(args.model_name, engine_args, request_logger=request_logger)
 
     else:
         kwargs = vars(args)

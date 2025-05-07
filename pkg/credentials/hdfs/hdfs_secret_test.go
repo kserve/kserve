@@ -20,7 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,12 +30,12 @@ const (
 
 func TestHdfsSecret(t *testing.T) {
 	scenarios := map[string]struct {
-		secret              *corev1.Secret
-		expectedVolume      corev1.Volume
-		expectedVolumeMount corev1.VolumeMount
+		secret              *v1.Secret
+		expectedVolume      v1.Volume
+		expectedVolumeMount v1.VolumeMount
 	}{
 		"HdfsSecret": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: secretName,
 				},
@@ -46,15 +46,15 @@ func TestHdfsSecret(t *testing.T) {
 					KerberosKeytab:    []byte("AAA="),
 				},
 			},
-			expectedVolume: corev1.Volume{
+			expectedVolume: v1.Volume{
 				Name: HdfsVolumeName,
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
+				VolumeSource: v1.VolumeSource{
+					Secret: &v1.SecretVolumeSource{
 						SecretName: secretName,
 					},
 				},
 			},
-			expectedVolumeMount: corev1.VolumeMount{
+			expectedVolumeMount: v1.VolumeMount{
 				Name:      HdfsVolumeName,
 				ReadOnly:  true,
 				MountPath: MountPath,

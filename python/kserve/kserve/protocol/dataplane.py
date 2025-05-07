@@ -14,27 +14,28 @@
 
 import time
 from importlib import metadata
-from inspect import iscoroutinefunction
 from typing import Dict, Optional, Tuple, Union, cast
+from inspect import iscoroutinefunction
 
 import cloudevents.exceptions as ce
 import orjson
+
 from cloudevents.http import CloudEvent, from_http
 from cloudevents.sdk.converters.util import has_binary_headers
-from grpc import RpcError
-from httpx import HTTPError
 
+from ..inference_client import RESTConfig
+from .rest.v2_datamodels import InferenceRequest
 from ..constants import constants
 from ..constants.constants import INFERENCE_CONTENT_LENGTH_HEADER, PredictorProtocol
 from ..errors import InvalidInput, ModelNotFound
-from ..inference_client import RESTConfig
 from ..logging import logger
-from ..model import BaseKServeModel, InferenceModel, InferenceVerb, PredictorConfig
+from ..model import PredictorConfig
+from ..model import InferenceVerb, BaseKServeModel, InferenceModel
 from ..model_repository import ModelRepository
 from ..utils.inference_client_factory import InferenceClientFactory
 from ..utils.utils import create_response_cloudevent, is_structured_cloudevent
 from .infer_type import InferRequest, InferResponse
-from .rest.v2_datamodels import InferenceRequest
+from .rest.openai import OpenAICompletionModel
 
 JSON_HEADERS = [
     "application/json",
@@ -262,15 +263,11 @@ class DataPlane:
                 )
         return True
 
-    async def model_ready(
-        self, model_name: str, disable_predictor_health_check: bool = False
-    ) -> bool:
+    async def model_ready(self, model_name: str) -> bool:
         """Check if a model is ready.
 
         Args:
             model_name (str): name of the model
-            disable_predictor_health_check (bool): Flag to disable predictor health
-            check for infer/predict requests.
 
         Returns:
             bool: True if the model is ready, False otherwise.
@@ -283,37 +280,19 @@ class DataPlane:
 
         # If predictor host is present, then it means this is a transformer,
         # We should also check the predictor model's health if predictor health check is enabled.
-        if (
-            not disable_predictor_health_check
-            and self.predictor_config
-            and self.predictor_config.predictor_health_check
-        ):
+        if self.predictor_config and self.predictor_config.predictor_health_check:
             if (
                 self.predictor_config.predictor_protocol
                 == PredictorProtocol.GRPC_V2.value
             ):
-                try:
-                    is_ready = await self.grpc_client.is_model_ready(
-                        model_name=model_name
-                    )
-                    return is_ready
-                except RpcError:
-                    # Logged in the grpc client
-                    return False
+                is_ready = await self.grpc_client.is_model_ready(model_name=model_name)
+                return is_ready
             else:
-                try:
-                    is_ready = await self.rest_client.is_model_ready(
-                        base_url=self.predictor_config.predictor_base_url,
-                        model_name=model_name,
-                    )
-                    return is_ready
-                except HTTPError as exc:
-                    logger.debug(
-                        "check predictor readiness - HTTP exception for %s - %s",
-                        exc.request.url,
-                        exc,
-                    )
-                    return False
+                is_ready = await self.rest_client.is_model_ready(
+                    base_url=self.predictor_config.predictor_base_url,
+                    model_name=model_name,
+                )
+                return is_ready
 
         return await self._model_registry.is_model_ready(model_name)
 
@@ -453,6 +432,9 @@ class DataPlane:
         # call model locally or remote model workers
         response_headers = {}
         model = await self.get_model(model_name)
+        if isinstance(model, OpenAICompletionModel):
+            error_msg = f"Model {model_name} is of type OpenAICompletionModel. It does not support the infer method."
+            raise InvalidInput(reason=error_msg)
         if not isinstance(model, InferenceModel):
             raise ValueError(
                 f"Model of type {type(model).__name__} does not support inference"
@@ -484,6 +466,11 @@ class DataPlane:
         # call model locally or remote model workers
         response_headers = headers if headers else {}
         model = await self.get_model(model_name)
+        if isinstance(model, OpenAICompletionModel):
+            logger.warning(
+                f"Model {model_name} is of type OpenAICompletionModel. It does not support the explain method."
+                " A request exercised this path and will cause a server crash."
+            )
         if not isinstance(model, InferenceModel):
             raise ValueError(
                 f"Model of type {type(model).__name__} does not support inference"

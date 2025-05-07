@@ -17,7 +17,7 @@ limitations under the License.
 package gcs
 
 import (
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -31,16 +31,16 @@ type GCSConfig struct {
 	GCSCredentialFileName string `json:"gcsCredentialFileName,omitempty"`
 }
 
-func BuildSecretVolume(secret *corev1.Secret) (corev1.Volume, corev1.VolumeMount) {
-	volume := corev1.Volume{
+func BuildSecretVolume(secret *v1.Secret) (v1.Volume, v1.VolumeMount) {
+	volume := v1.Volume{
 		Name: GCSCredentialVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			Secret: &corev1.SecretVolumeSource{
+		VolumeSource: v1.VolumeSource{
+			Secret: &v1.SecretVolumeSource{
 				SecretName: secret.Name,
 			},
 		},
 	}
-	volumeMount := corev1.VolumeMount{
+	volumeMount := v1.VolumeMount{
 		MountPath: GCSCredentialVolumeMountPath,
 		Name:      GCSCredentialVolumeName,
 		ReadOnly:  true,

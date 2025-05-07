@@ -29,35 +29,35 @@ type FakeServingV1alpha1 struct {
 }
 
 func (c *FakeServingV1alpha1) ClusterServingRuntimes(namespace string) v1alpha1.ClusterServingRuntimeInterface {
-	return newFakeClusterServingRuntimes(c, namespace)
+	return &FakeClusterServingRuntimes{c, namespace}
 }
 
 func (c *FakeServingV1alpha1) ClusterStorageContainers(namespace string) v1alpha1.ClusterStorageContainerInterface {
-	return newFakeClusterStorageContainers(c, namespace)
+	return &FakeClusterStorageContainers{c, namespace}
 }
 
 func (c *FakeServingV1alpha1) InferenceGraphs(namespace string) v1alpha1.InferenceGraphInterface {
-	return newFakeInferenceGraphs(c, namespace)
+	return &FakeInferenceGraphs{c, namespace}
 }
 
 func (c *FakeServingV1alpha1) LocalModelCaches(namespace string) v1alpha1.LocalModelCacheInterface {
-	return newFakeLocalModelCaches(c, namespace)
+	return &FakeLocalModelCaches{c, namespace}
 }
 
 func (c *FakeServingV1alpha1) LocalModelNodes(namespace string) v1alpha1.LocalModelNodeInterface {
-	return newFakeLocalModelNodes(c, namespace)
+	return &FakeLocalModelNodes{c, namespace}
 }
 
 func (c *FakeServingV1alpha1) LocalModelNodeGroups(namespace string) v1alpha1.LocalModelNodeGroupInterface {
-	return newFakeLocalModelNodeGroups(c, namespace)
+	return &FakeLocalModelNodeGroups{c, namespace}
 }
 
 func (c *FakeServingV1alpha1) ServingRuntimes(namespace string) v1alpha1.ServingRuntimeInterface {
-	return newFakeServingRuntimes(c, namespace)
+	return &FakeServingRuntimes{c, namespace}
 }
 
 func (c *FakeServingV1alpha1) TrainedModels(namespace string) v1alpha1.TrainedModelInterface {
-	return newFakeTrainedModels(c, namespace)
+	return &FakeTrainedModels{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate

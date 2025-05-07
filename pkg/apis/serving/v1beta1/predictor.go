@@ -19,15 +19,15 @@ package v1beta1
 import (
 	"reflect"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	v1 "k8s.io/api/core/v1"
 )
 
 // PredictorImplementation defines common functions for all predictors e.g Tensorflow, Triton, etc
 // +kubebuilder:object:generate=false
-type PredictorImplementation interface{}
+type PredictorImplementation interface {
+}
 
 // PredictorSpec defines the configuration for a predictor,
 // The following fields follow a "1-of" semantic. Users must specify exactly one spec.
@@ -99,7 +99,7 @@ type PredictorExtensionSpec struct {
 	// Container enables overrides for the predictor.
 	// Each framework will have different defaults that are populated in the underlying container spec.
 	// +optional
-	corev1.Container `json:",inline"`
+	v1.Container `json:",inline"`
 	// Storage Spec for model location
 	// +optional
 	Storage *StorageSpec `json:"storage,omitempty"`

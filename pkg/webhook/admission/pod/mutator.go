@@ -20,13 +20,13 @@ import (
 	"encoding/json"
 	"net/http"
 
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
 )
@@ -43,7 +43,7 @@ type Mutator struct {
 
 // Handle decodes the incoming Pod and executes mutation logic.
 func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admission.Response {
-	pod := &corev1.Pod{}
+	pod := &v1.Pod{}
 
 	if err := mutator.Decoder.Decode(req, pod); err != nil {
 		log.Error(err, "Failed to decode pod", "name", pod.Labels[constants.InferenceServicePodLabelKey])
@@ -54,7 +54,8 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 		return admission.ValidationResponse(true, "")
 	}
 
-	configMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, mutator.Clientset)
+	configMap, err := mutator.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(context.TODO(),
+		constants.InferenceServiceConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
 		return admission.Errored(http.StatusInternalServerError, err)
@@ -77,7 +78,7 @@ func (mutator *Mutator) Handle(ctx context.Context, req admission.Request) admis
 	return admission.PatchResponseFromRaw(req.AdmissionRequest.Object.Raw, patch)
 }
 
-func (mutator *Mutator) mutate(pod *corev1.Pod, configMap *corev1.ConfigMap) error {
+func (mutator *Mutator) mutate(pod *v1.Pod, configMap *v1.ConfigMap) error {
 	credentialBuilder := credentials.NewCredentialBuilder(mutator.Client, mutator.Clientset, configMap)
 
 	storageInitializerConfig, err := getStorageInitializerConfigs(configMap)
@@ -113,9 +114,12 @@ func (mutator *Mutator) mutate(pod *corev1.Pod, configMap *corev1.ConfigMap) err
 		batcherConfig:     batcherConfig,
 	}
 
-	metricsAggregator := newMetricsAggregator(configMap)
+	metricsAggregator, err := newMetricsAggregator(configMap)
+	if err != nil {
+		return err
+	}
 
-	mutators := []func(pod *corev1.Pod) error{
+	mutators := []func(pod *v1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		storageInitializer.InjectStorageInitializer,
 		storageInitializer.SetIstioCniSecurityContext,
@@ -136,7 +140,7 @@ func (mutator *Mutator) mutate(pod *corev1.Pod, configMap *corev1.ConfigMap) err
 	return nil
 }
 
-func needMutate(pod *corev1.Pod) bool {
+func needMutate(pod *v1.Pod) bool {
 	// Skip webhook if pod not managed by kserve
 	_, ok := pod.Labels[constants.InferenceServicePodLabelKey]
 	return ok

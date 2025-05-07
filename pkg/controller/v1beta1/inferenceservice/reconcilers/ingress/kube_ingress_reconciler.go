@@ -22,6 +22,10 @@ import (
 	"strconv"
 	"strings"
 
+	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -34,11 +38,6 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
-	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 // RawIngressReconciler reconciles the kubernetes ingress
@@ -52,8 +51,7 @@ type RawIngressReconciler struct {
 func NewRawIngressReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	ingressConfig *v1beta1.IngressConfig,
-	isvcConfig *v1beta1.InferenceServicesConfig,
-) (*RawIngressReconciler, error) {
+	isvcConfig *v1beta1.InferenceServicesConfig) (*RawIngressReconciler, error) {
 	return &RawIngressReconciler{
 		client:        client,
 		scheme:        scheme,
@@ -62,7 +60,7 @@ func NewRawIngressReconciler(client client.Client,
 	}, nil
 }
 
-func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
+func (r *RawIngressReconciler) Reconcile(isvc *v1beta1.InferenceService) error {
 	var err error
 	isInternal := false
 	// disable ingress creation if service is labelled with cluster local or kserve domain is cluster local
@@ -73,8 +71,7 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 		isInternal = true
 	}
 	if !isInternal && !r.ingressConfig.DisableIngressCreation {
-		ingress, err := createRawIngress(ctx, r.scheme, isvc, r.ingressConfig, r.client, r.isvcConfig)
-
+		ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig, r.client, r.isvcConfig)
 		if ingress == nil {
 			return nil
 		}
@@ -83,20 +80,20 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 		}
 		// reconcile ingress
 		existingIngress := &netv1.Ingress{}
-		err = r.client.Get(ctx, types.NamespacedName{
+		err = r.client.Get(context.TODO(), types.NamespacedName{
 			Namespace: isvc.Namespace,
 			Name:      isvc.Name,
 		}, existingIngress)
 		if err != nil {
 			if apierr.IsNotFound(err) {
-				err = r.client.Create(ctx, ingress)
+				err = r.client.Create(context.TODO(), ingress)
 				log.Info("creating ingress", "ingressName", isvc.Name, "err", err)
 			} else {
 				return err
 			}
 		} else {
 			if !semanticIngressEquals(ingress, existingIngress) {
-				err = r.client.Update(ctx, ingress)
+				err = r.client.Update(context.TODO(), ingress)
 				log.Info("updating ingress", "ingressName", isvc.Name, "err", err)
 			}
 		}
@@ -104,34 +101,28 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 			return err
 		}
 	}
-
 	authEnabled := false
 	if val, ok := isvc.Annotations[constants.ODHKserveRawAuth]; ok && strings.EqualFold(val, "true") {
 		authEnabled = true
 	}
-
-	isvc.Status.URL, err = createRawURLODH(ctx, r.client, isvc, authEnabled)
+	isvc.Status.URL, err = createRawURLODH(r.client, isvc, authEnabled)
 	if err != nil {
 		return err
 	}
-
-	internalHost := getRawServiceHost(ctx, isvc, r.client)
+	internalHost := getRawServiceHost(isvc, r.client)
 	url := &apis.URL{
 		Host:   internalHost,
 		Scheme: "http",
 		Path:   "",
 	}
-
 	if authEnabled {
 		internalHost += ":" + strconv.Itoa(constants.OauthProxyPort)
 		url.Host = internalHost
 		url.Scheme = "https"
 	}
-
 	isvc.Status.Address = &duckv1.Addressable{
 		URL: url,
 	}
-
 	isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 		Type:   v1beta1.IngressReady,
 		Status: corev1.ConditionTrue,
@@ -139,7 +130,7 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 	return nil
 }
 
-func createRawURLODH(ctx context.Context, client client.Client, isvc *v1beta1.InferenceService, authEnabled bool) (*knapis.URL, error) {
+func createRawURLODH(client client.Client, isvc *v1beta1.InferenceService, authEnabled bool) (*knapis.URL, error) {
 	// upstream implementation
 	// var err error
 	// url := &knapis.URL{}
@@ -154,16 +145,16 @@ func createRawURLODH(ctx context.Context, client client.Client, isvc *v1beta1.In
 	// return url, nil
 
 	// ODH changes
-	var url *knapis.URL
+	url := &knapis.URL{}
 	if val, ok := isvc.Labels[constants.NetworkVisibility]; ok && val == constants.ODHRouteEnabled {
 		var err error
-		url, err = v1beta1utils.GetRouteURLIfExists(ctx, client, isvc.ObjectMeta, isvc.Name)
+		url, err = v1beta1utils.GetRouteURLIfExists(client, isvc.ObjectMeta, isvc.Name)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		url = &apis.URL{
-			Host:   getRawServiceHost(ctx, isvc, client),
+			Host:   getRawServiceHost(isvc, client),
 			Scheme: "http",
 			Path:   "",
 		}
@@ -203,8 +194,7 @@ func generateRule(ingressHost string, componentName string, path string, port in
 
 func generateMetadata(isvc *v1beta1.InferenceService,
 	componentType constants.InferenceServiceComponent, name string,
-	isvcConfig *v1beta1.InferenceServicesConfig,
-) metav1.ObjectMeta {
+	isvcConfig *v1beta1.InferenceServicesConfig) metav1.ObjectMeta {
 	// get annotations from isvc
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(v1beta1utils.FilterList(isvcConfig.ServiceAnnotationDisallowedList, constants.ODHKserveRawAuth), key)
@@ -227,8 +217,7 @@ func generateIngressHost(ingressConfig *v1beta1.IngressConfig,
 	isvcConfig *v1beta1.InferenceServicesConfig,
 	componentType string,
 	topLevelFlag bool,
-	name string,
-) (string, error) {
+	name string) (string, error) {
 	metadata := generateMetadata(isvc, constants.InferenceServiceComponent(componentType), name, isvcConfig)
 	if !topLevelFlag {
 		return GenerateDomainName(metadata.Name, isvc.ObjectMeta, ingressConfig)
@@ -237,10 +226,9 @@ func generateIngressHost(ingressConfig *v1beta1.IngressConfig,
 	}
 }
 
-func createRawIngress(ctx context.Context, scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
+func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
 	ingressConfig *v1beta1.IngressConfig, client client.Client,
-	isvcConfig *v1beta1.InferenceServicesConfig,
-) (*netv1.Ingress, error) {
+	isvcConfig *v1beta1.InferenceServicesConfig) (*netv1.Ingress, error) {
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 			Type:   v1beta1.IngressReady,
@@ -264,7 +252,7 @@ func createRawIngress(ctx context.Context, scheme *runtime.Scheme, isvc *v1beta1
 		}
 		transformerName := constants.TransformerServiceName(isvc.Name)
 		explainerName := constants.ExplainerServiceName(isvc.Name)
-		err := client.Get(ctx, types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
@@ -298,7 +286,7 @@ func createRawIngress(ctx context.Context, scheme *runtime.Scheme, isvc *v1beta1
 			return nil, nil
 		}
 		explainerName := constants.ExplainerServiceName(isvc.Name)
-		err := client.Get(ctx, types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			explainerName = constants.DefaultExplainerServiceName(isvc.Name)
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
@@ -315,7 +303,7 @@ func createRawIngress(ctx context.Context, scheme *runtime.Scheme, isvc *v1beta1
 		rules = append(rules, generateRule(host, predictorName, "/", constants.CommonDefaultHttpPort))
 		rules = append(rules, generateRule(explainerHost, explainerName, "/", constants.CommonDefaultHttpPort))
 	default:
-		err := client.Get(ctx, types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
+		err := client.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 		if err == nil {
 			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
 		}

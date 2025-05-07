@@ -20,14 +20,13 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/kserve/kserve/pkg/constants"
 	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 // InferenceServiceStatus defines the observed state of InferenceService
@@ -286,27 +285,26 @@ func (ss *InferenceServiceStatus) GetCondition(t apis.ConditionType) *apis.Condi
 // IsConditionReady returns the readiness for a given condition
 func (ss *InferenceServiceStatus) IsConditionReady(t apis.ConditionType) bool {
 	condition := conditionSet.Manage(ss).GetCondition(t)
-	return condition != nil && condition.Status == corev1.ConditionTrue
+	return condition != nil && condition.Status == v1.ConditionTrue
 }
 
 // IsConditionFalse returns if a given condition is False
 func (ss *InferenceServiceStatus) IsConditionFalse(t apis.ConditionType) bool {
 	condition := conditionSet.Manage(ss).GetCondition(t)
-	return condition != nil && condition.Status == corev1.ConditionFalse
+	return condition != nil && condition.Status == v1.ConditionFalse
 }
 
 // IsConditionUnknown returns if a given condition is Unknown
 func (ss *InferenceServiceStatus) IsConditionUnknown(t apis.ConditionType) bool {
 	condition := conditionSet.Manage(ss).GetCondition(t)
-	return condition == nil || condition.Status == corev1.ConditionUnknown
+	return condition == nil || condition.Status == v1.ConditionUnknown
 }
 
 func (ss *InferenceServiceStatus) PropagateRawStatusWithMessages(
 	component ComponentType,
 	reason string,
 	msg string,
-	targetStatus corev1.ConditionStatus,
-) {
+	targetStatus v1.ConditionStatus) {
 	if len(ss.Components) == 0 {
 		ss.Components = make(map[ComponentType]ComponentStatusSpec)
 	}
@@ -330,8 +328,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatusWithMessages(
 func (ss *InferenceServiceStatus) PropagateRawStatus(
 	component ComponentType,
 	deploymentList []*appsv1.Deployment,
-	url *apis.URL,
-) {
+	url *apis.URL) {
 	if len(ss.Components) == 0 {
 		ss.Components = make(map[ComponentType]ComponentStatusSpec)
 	}
@@ -356,7 +353,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType appsv1.DeploymentConditionType) *apis.Condition {
 	condition := apis.Condition{}
 	var messages, reasons []string
-	var statuses []corev1.ConditionStatus
+	var statuses []v1.ConditionStatus
 	var lastTransitionTime []apis.VolatileTime
 	// Multi Node case
 	if len(deploymentList) > 1 {
@@ -404,14 +401,14 @@ func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType a
 }
 
 // allStatusesTrue check all status are true or not
-func allStatusesTrue(statuses []corev1.ConditionStatus) corev1.ConditionStatus {
+func allStatusesTrue(statuses []v1.ConditionStatus) v1.ConditionStatus {
 	for _, status := range statuses {
-		if status != corev1.ConditionTrue {
-			return corev1.ConditionFalse
+		if status != v1.ConditionTrue {
+			return v1.ConditionFalse
 		}
 	}
 
-	return corev1.ConditionTrue
+	return v1.ConditionTrue
 }
 
 // PropagateCrossComponentStatus aggregates the RoutesReady or ConfigurationsReady condition across all available components
@@ -423,13 +420,13 @@ func (ss *InferenceServiceStatus) PropagateCrossComponentStatus(componentList []
 	}
 	crossComponentCondition := &apis.Condition{
 		Type:   conditionType,
-		Status: corev1.ConditionTrue,
+		Status: v1.ConditionTrue,
 	}
 	for _, component := range componentList {
 		if !ss.IsConditionReady(conditionsMap[component]) {
-			crossComponentCondition.Status = corev1.ConditionFalse
+			crossComponentCondition.Status = v1.ConditionFalse
 			if ss.IsConditionUnknown(conditionsMap[component]) { // include check for nil condition
-				crossComponentCondition.Status = corev1.ConditionUnknown
+				crossComponentCondition.Status = v1.ConditionUnknown
 			}
 			crossComponentCondition.Reason = string(conditionsMap[component]) + " not ready"
 		}
@@ -483,7 +480,7 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 	}
 	// propagate overall ready condition for each component
 	readyCondition := serviceStatus.GetCondition(knservingv1.ServiceConditionReady)
-	if readyCondition != nil && readyCondition.Status == corev1.ConditionTrue {
+	if readyCondition != nil && readyCondition.Status == v1.ConditionTrue {
 		if serviceStatus.Address != nil {
 			statusSpec.Address = serviceStatus.Address
 		}
@@ -511,11 +508,11 @@ func (ss *InferenceServiceStatus) PropagateStatus(component ComponentType, servi
 func (ss *InferenceServiceStatus) SetCondition(conditionType apis.ConditionType, condition *apis.Condition) {
 	switch {
 	case condition == nil:
-	case condition.Status == corev1.ConditionUnknown:
+	case condition.Status == v1.ConditionUnknown:
 		conditionSet.Manage(ss).MarkUnknown(conditionType, condition.Reason, condition.Message)
-	case condition.Status == corev1.ConditionTrue:
+	case condition.Status == v1.ConditionTrue:
 		conditionSet.Manage(ss).MarkTrue(conditionType)
-	case condition.Status == corev1.ConditionFalse:
+	case condition.Status == v1.ConditionFalse:
 		conditionSet.Manage(ss).MarkFalse(conditionType, condition.Reason, condition.Message)
 	}
 }
@@ -573,7 +570,7 @@ func (ss *InferenceServiceStatus) SetModelFailureInfo(info *FailureInfo) bool {
 	return true
 }
 
-func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatusSpec, podList *corev1.PodList, rawDeployment bool, serviceStatus *knservingv1.ServiceStatus) bool {
+func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatusSpec, podList *v1.PodList, rawDeployment bool, serviceStatus *knservingv1.ServiceStatus) bool {
 	// Check at least one pod is running for the latest revision of inferenceservice
 	totalCopies := len(podList.Items)
 	if totalCopies == 0 {

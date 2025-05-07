@@ -18,7 +18,6 @@ package v1alpha1
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"regexp"
 
@@ -188,7 +187,7 @@ func validateInferenceGraphRouterRoot(ig *InferenceGraph) error {
 			return nil
 		}
 	}
-	return errors.New(RootNodeNotFoundError)
+	return fmt.Errorf(RootNodeNotFoundError)
 }
 
 // Validation of inference graph router type

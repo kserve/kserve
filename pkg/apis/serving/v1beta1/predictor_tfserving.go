@@ -17,10 +17,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	"errors"
+	"fmt"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
@@ -42,7 +42,9 @@ type TFServingSpec struct {
 	PredictorExtensionSpec `json:",inline"`
 }
 
-var _ ComponentImplementation = &TFServingSpec{}
+var (
+	_ ComponentImplementation = &TFServingSpec{}
+)
 
 // Validate returns an error if invalid
 func (t *TFServingSpec) Validate() error {
@@ -57,11 +59,11 @@ func (t *TFServingSpec) validateGPU() error {
 		return nil
 	}
 	if utils.IsGPUEnabled(t.Resources) && !strings.Contains(*t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return errors.New(InvalidTensorflowRuntimeIncludesGPU)
+		return fmt.Errorf(InvalidTensorflowRuntimeIncludesGPU)
 	}
 
 	if !utils.IsGPUEnabled(t.Resources) && strings.Contains(*t.RuntimeVersion, TensorflowServingGPUSuffix) {
-		return errors.New(InvalidTensorflowRuntimeExcludesGPU)
+		return fmt.Errorf(InvalidTensorflowRuntimeExcludesGPU)
 	}
 	return nil
 }
@@ -72,7 +74,7 @@ func (t *TFServingSpec) Default(config *InferenceServicesConfig) {
 	setResourceRequirementDefaults(config, &t.Resources)
 }
 
-func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *corev1.Container {
+func (t *TFServingSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig, predictorHost ...string) *v1.Container {
 	return &t.Container
 }
 

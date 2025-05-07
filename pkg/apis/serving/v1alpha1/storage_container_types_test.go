@@ -20,29 +20,29 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestStorageContainerSpec_IsStorageUriSupported(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	customSpec := StorageContainerSpec{
-		Container: corev1.Container{
+		Container: v1.Container{
 			Image: "kserve/custom:latest",
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("200Mi"),
+			Resources: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					v1.ResourceMemory: resource.MustParse("200Mi"),
 				},
 			},
 		},
 		SupportedUriFormats: []SupportedUriFormat{{Prefix: "custom://"}},
 	}
 	s3AzureSpec := StorageContainerSpec{
-		Container: corev1.Container{
+		Container: v1.Container{
 			Image: "kserve/storage-initializer:latest",
-			Resources: corev1.ResourceRequirements{
-				Limits: corev1.ResourceList{
-					corev1.ResourceMemory: resource.MustParse("200Mi"),
+			Resources: v1.ResourceRequirements{
+				Limits: v1.ResourceList{
+					v1.ResourceMemory: resource.MustParse("200Mi"),
 				},
 			},
 		},
@@ -83,7 +83,7 @@ func TestStorageContainerSpec_IsStorageUriSupported(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			supported, err := tc.spec.IsStorageUriSupported(tc.storageUri)
-			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(err).To(gomega.BeNil())
 			g.Expect(supported).To(gomega.Equal(tc.supported))
 		})
 	}

@@ -13,39 +13,37 @@
 # limitations under the License.
 
 from abc import abstractmethod
-from typing import Any, Dict, Optional, cast, AsyncGenerator, Union
-from fastapi import Request
+from typing import AsyncIterator, Iterable, Union, cast, Optional
 
 from kserve.protocol.rest.openai.types import (
-    ChatCompletionRequest,
-    CompletionRequest,
     ChatCompletion,
     ChatCompletionChoice,
-    ChatCompletionLogProb,
-    ChatCompletionLogProbs,
+    ChatCompletionChoiceLogprobs,
     ChatCompletionChunk,
-    ChatMessage,
-    ChatCompletionLogProbsContent,
+    ChatCompletionRequestMessage,
+    ChatCompletionResponseMessage,
+    ChatCompletionTokenLogprob,
     ChoiceDelta,
     ChunkChoice,
     Completion,
     CompletionChoice,
-    CompletionChunk,
-    CompletionChunkChoice,
-    CompletionLogProbs,
-    ErrorResponse,
+    CreateChatCompletionRequest,
+    CreateCompletionRequest,
+    Logprobs,
+    TopLogprob,
 )
 
-from kserve.errors import InvalidInput
-from kserve.protocol.rest.openai.openai_model import AsyncMappingIterator
-
+from ....errors import InvalidInput
 from .openai_model import (
-    OpenAIGenerativeModel,
+    OpenAICompletionModel,
     ChatPrompt,
+    CompletionRequest,
+    ChatCompletionRequest,
+    AsyncMappingIterator,
 )
 
 
-class OpenAIChatAdapterModel(OpenAIGenerativeModel):
+class OpenAIChatAdapterModel(OpenAICompletionModel):
     """
     A helper on top the OpenAI model that automatically maps chat completion requests (/v1/chat/completions)
     to completion requests (/v1/completions).
@@ -56,7 +54,8 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
     @abstractmethod
     def apply_chat_template(
         self,
-        request: ChatCompletionRequest,
+        messages: Iterable[ChatCompletionRequestMessage],
+        chat_template: Optional[str] = None,
     ) -> ChatPrompt:
         """
         Given a list of chat completion messages, convert them to a prompt.
@@ -65,35 +64,35 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
 
     @classmethod
     def chat_completion_params_to_completion_params(
-        cls, request: ChatCompletionRequest, prompt: str
-    ) -> CompletionRequest:
+        cls, params: CreateChatCompletionRequest, prompt: str
+    ) -> CreateCompletionRequest:
 
-        return CompletionRequest(
+        return CreateCompletionRequest(
             prompt=prompt,
-            model=request.model,
-            frequency_penalty=request.frequency_penalty,
-            logit_bias=request.logit_bias,
-            max_tokens=request.max_tokens,
-            n=request.n,
-            presence_penalty=request.presence_penalty,
-            seed=request.seed,
-            stop=request.stop,
-            stream=request.stream,
-            temperature=request.temperature,
-            top_p=request.top_p,
-            user=request.user,
-            logprobs=request.top_logprobs,
+            model=params.model,
+            frequency_penalty=params.frequency_penalty,
+            logit_bias=params.logit_bias,
+            max_tokens=params.max_tokens,
+            n=params.n,
+            presence_penalty=params.presence_penalty,
+            seed=params.seed,
+            stop=params.stop,
+            stream=params.stream,
+            temperature=params.temperature,
+            top_p=params.top_p,
+            user=params.user,
+            logprobs=params.top_logprobs,
         )
 
     @classmethod
-    def to_choice_logprobs(cls, logprobs: CompletionLogProbs) -> ChatCompletionLogProbs:
+    def to_choice_logprobs(cls, logprobs: Logprobs) -> ChatCompletionChoiceLogprobs:
         chat_completion_logprobs = []
         for i in range(len(logprobs.tokens)):
             token = logprobs.tokens[i]
             token_logprob = logprobs.token_logprobs[i]
             top_logprobs_dict = logprobs.top_logprobs[i]
             top_logprobs = [
-                ChatCompletionLogProb(
+                TopLogprob(
                     token=token,
                     bytes=[int(b) for b in token.encode("utf8")],
                     logprob=logprob,
@@ -101,7 +100,7 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
                 for token, logprob in top_logprobs_dict.items()
             ]
             chat_completion_logprobs.append(
-                ChatCompletionLogProbsContent(
+                ChatCompletionTokenLogprob(
                     token=token,
                     bytes=[int(b) for b in token.encode("utf8")],
                     logprob=token_logprob,
@@ -109,7 +108,7 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
                 )
             )
 
-        return ChatCompletionLogProbs(content=chat_completion_logprobs)
+        return ChatCompletionChoiceLogprobs(content=chat_completion_logprobs)
 
     @classmethod
     def to_chat_completion_choice(
@@ -125,12 +124,14 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
             index=0,
             finish_reason=completion_choice.finish_reason,
             logprobs=choice_logprobs,
-            message=ChatMessage(content=completion_choice.text, role=role),
+            message=ChatCompletionResponseMessage(
+                content=completion_choice.text, role=role
+            ),
         )
 
     @classmethod
     def to_chat_completion_chunk_choice(
-        cls, completion_choice: CompletionChunkChoice, role: str
+        cls, completion_choice: CompletionChoice, role: str
     ) -> ChunkChoice:
         # translate Token -> ChatCompletionTokenLogprob
         choice_logprobs = (
@@ -139,7 +140,7 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
             else None
         )
         choice_logprobs = (
-            ChatCompletionLogProbs(content=choice_logprobs.content)
+            ChatCompletionChoiceLogprobs(content=choice_logprobs.content)
             if choice_logprobs is not None
             else None
         )
@@ -196,51 +197,43 @@ class OpenAIChatAdapterModel(OpenAIGenerativeModel):
     async def create_chat_completion(
         self,
         request: ChatCompletionRequest,
-        raw_request: Optional[Request] = None,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Union[AsyncGenerator[str, None], ChatCompletion, ErrorResponse]:
+    ) -> Union[ChatCompletion, AsyncIterator[ChatCompletionChunk]]:
+        params = request.params
 
-        if request.n != 1:
+        if params.n != 1:
             raise InvalidInput("n != 1 is not supported")
 
         # Convert the messages into a prompt
-        chat_prompt = self.apply_chat_template(request)
+        chat_prompt = self.apply_chat_template(
+            params.messages, params.chat_template, params.tools
+        )
         # Translate the chat completion request to a completion request
         completion_params = self.chat_completion_params_to_completion_params(
-            request, chat_prompt.prompt
+            params, chat_prompt.prompt
         )
 
-        if not request.stream:
+        completion_request = CompletionRequest(
+            request_id=request.request_id,
+            params=completion_params,
+            context=request.context,
+        )
+
+        if not params.stream:
             completion = cast(
-                Completion, await self.create_completion(completion_params, raw_request)
+                Completion, await self.create_completion(completion_request)
             )
             return self.completion_to_chat_completion(
                 completion, chat_prompt.response_role
             )
         else:
-            completion_iterator = await self.create_completion(
-                completion_params, raw_request
+            completion_iterator = cast(
+                AsyncIterator[Completion],
+                await self.create_completion(completion_request),
             )
 
-            def mapper(completion_str: str) -> ChatCompletionChunk:
-
-                chunk = completion_str.removeprefix("data: ")
-                if chunk == "[DONE]\n\n":
-                    return
-
-                completion = CompletionChunk.model_validate_json(chunk)
-
+            def mapper(completion: Completion) -> ChatCompletionChunk:
                 return self.completion_to_chat_completion_chunk(
                     completion, chat_prompt.response_role
                 )
 
-            completion = AsyncMappingIterator(
-                iterator=completion_iterator, mapper=mapper
-            )
-
-            async def stream_results() -> AsyncGenerator[str, None]:
-                async for chunk in completion:
-                    yield f"data: {chunk.model_dump_json()}\n\n"
-                yield "data: [DONE]\n\n"
-
-            return stream_results()
+            return AsyncMappingIterator(iterator=completion_iterator, mapper=mapper)

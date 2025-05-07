@@ -1,0 +1,57 @@
+{{- if .Values.kserve.modelmesh.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: modelmesh-controller
+    app.kubernetes.io/managed-by: modelmesh-controller
+    app.kubernetes.io/name: modelmesh-controller
+  name: model-serving-config-defaults
+data:
+  config-defaults.yaml: |
+    podsPerRuntime: {{ .Values.kserve.modelmesh.config.podPerRuntime }}
+    headlessService: true
+    modelMeshImage:
+      name: {{ .Values.kserve.modelmesh.config.modelmeshImage }}
+      tag: {{ .Values.kserve.modelmesh.config.modelmeshImageTag }}
+    modelMeshResources:
+      requests:
+        cpu: "300m"
+        memory: "448Mi"
+      limits:
+        cpu: "3"
+        memory: "448Mi"
+    restProxy:
+      enabled: true
+      port: 8008
+      image:
+        name: {{ .Values.kserve.modelmesh.config.restProxyImage }}
+        tag: {{ .Values.kserve.modelmesh.config.restProxyImageTag }}
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "96Mi"
+        limits:
+          cpu: "1"
+          memory: "512Mi"
+    storageHelperImage:
+      name: {{ .Values.kserve.modelmesh.config.modelmeshRuntimeAdapterImage }}
+      tag: {{ .Values.kserve.modelmesh.config.modelmeshRuntimeAdapterImageTag }}
+      command: ["/opt/app/puller"]
+    storageHelperResources:
+      requests:
+        cpu: "50m"
+        memory: "96Mi"
+      limits:
+        cpu: "2"
+        memory: "512Mi"
+    serviceAccountName: ""
+    metrics:
+      enabled: true
+    builtInServerTypes:
+      - triton
+      - mlserver
+      - ovms
+      - torchserve
+{{- end }}

@@ -19,7 +19,6 @@ package storage
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 	"os"
@@ -55,7 +54,7 @@ func AsSha256(o interface{}) string {
 	h := sha256.New()
 	h.Write([]byte(fmt.Sprintf("%v", o)))
 
-	return hex.EncodeToString(h.Sum(nil))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func Create(fileName string) (*os.File, error) {
@@ -64,7 +63,7 @@ func Create(fileName string) (*os.File, error) {
 	// compatible with any model / server container, using any user ID. Note we
 	// also need to enable the `+x` bit to ensure the folder is "listable":
 	// https://stackoverflow.com/a/30788944/5015573
-	if err := os.MkdirAll(filepath.Dir(fileName), 0o777); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fileName), 0777); err != nil {
 		return nil, err
 	}
 	return os.Create(fileName)
@@ -161,6 +160,7 @@ func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, 
 		}
 
 		sess, err = session.NewSession(&awsConfig)
+
 		if err != nil {
 			return nil, err
 		}

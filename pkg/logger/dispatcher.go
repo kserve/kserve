@@ -27,19 +27,23 @@ func StartDispatcher(nworkers int, logger *zap.SugaredLogger) {
 	WorkerQueue = make(chan chan LogRequest, nworkers)
 
 	// Now, create all of our workers.
-	for i := range nworkers {
+	for i := 0; i < nworkers; i++ {
 		logger.Info("Starting worker ", i+1)
 		worker := NewWorker(i+1, WorkerQueue, logger)
 		worker.Start()
 	}
 
+	// nolint: gosimple
 	go func() {
 		for {
-			work := <-WorkQueue
-			go func() {
-				worker := <-WorkerQueue
-				worker <- work
-			}()
+			select {
+			case work := <-WorkQueue:
+				go func() {
+					worker := <-WorkerQueue
+
+					worker <- work
+				}()
+			}
 		}
 	}()
 }

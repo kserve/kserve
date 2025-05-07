@@ -128,7 +128,7 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 		}
 	}
 
-	req, err := http.NewRequest(http.MethodPost, serviceUrl, bytes.NewBuffer(input))
+	req, err := http.NewRequest("POST", serviceUrl, bytes.NewBuffer(input))
 	if err != nil {
 		log.Error(err, "An error occurred while preparing request object with serviceUrl.", "serviceUrl", serviceUrl)
 		return nil, 500, err
@@ -153,6 +153,7 @@ func callService(serviceUrl string, input []byte, headers http.Header) ([]byte, 
 		req.Header.Add("Content-Type", "application/json")
 	}
 	resp, err := http.DefaultClient.Do(req)
+
 	if err != nil {
 		log.Error(err, "An error has occurred while calling service", "service", serviceUrl)
 		return nil, 500, err
@@ -323,7 +324,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 
 			if step.Condition != "" {
 				if !gjson.ValidBytes(responseBytes) {
-					return nil, 500, errors.New("invalid response")
+					return nil, 500, fmt.Errorf("invalid response")
 				}
 				// if the condition does not match for the step in the sequence we stop and return the response
 				if !gjson.GetBytes(responseBytes, step.Condition).Exists() {
@@ -462,11 +463,11 @@ func findBearerToken(w http.ResponseWriter, r *http.Request) string {
 // valid and flagged as authenticated. If the token is usable, the result of the TokenReview
 // is returned. Otherwise, the HTTP response is sent rejecting the request and setting
 // a meaningful status code along with a reason (if available).
-func validateTokenIsAuthenticated(ctx context.Context, w http.ResponseWriter, token string, clientset *kubernetes.Clientset) *authnv1.TokenReview {
+func validateTokenIsAuthenticated(w http.ResponseWriter, token string, clientset *kubernetes.Clientset) *authnv1.TokenReview {
 	// Check the token is valid
 	tokenReview := authnv1.TokenReview{}
 	tokenReview.Spec.Token = token
-	tokenReviewResult, err := clientset.AuthenticationV1().TokenReviews().Create(ctx, &tokenReview, metav1.CreateOptions{})
+	tokenReviewResult, err := clientset.AuthenticationV1().TokenReviews().Create(context.Background(), &tokenReview, metav1.CreateOptions{})
 	if err != nil {
 		log.Error(err, "failed to create TokenReview when verifying credentials")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -489,7 +490,7 @@ func validateTokenIsAuthenticated(ctx context.Context, w http.ResponseWriter, to
 // Kubernetes API and get the InferenceGraph resource that belongs to this pod. If so, the request is considered
 // as allowed and `true` is returned. Otherwise, the HTTP response is sent rejecting the request and setting
 // a meaningful status code along with a reason (if available).
-func checkRequestIsAuthorized(ctx context.Context, w http.ResponseWriter, _ *http.Request, tokenReviewResult *authnv1.TokenReview, clientset *kubernetes.Clientset) bool {
+func checkRequestIsAuthorized(w http.ResponseWriter, _ *http.Request, tokenReviewResult *authnv1.TokenReview, clientset *kubernetes.Clientset) bool {
 	// Read pod namespace
 	const namespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 	namespaceBytes, err := os.ReadFile(namespaceFile)
@@ -520,10 +521,7 @@ func checkRequestIsAuthorized(ctx context.Context, w http.ResponseWriter, _ *htt
 		},
 	}
 
-	accessReviewResult, err := clientset.AuthorizationV1().SubjectAccessReviews().Create(
-		ctx,
-		&accessReview,
-		metav1.CreateOptions{})
+	accessReviewResult, err := clientset.AuthorizationV1().SubjectAccessReviews().Create(context.Background(), &accessReview, metav1.CreateOptions{})
 	if err != nil {
 		log.Error(err, "failed to create LocalSubjectAccessReview when verifying credentials")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -551,7 +549,7 @@ func checkRequestIsAuthorized(ctx context.Context, w http.ResponseWriter, _ *htt
 // header. The token is verified against Kubernetes using the TokenReview and SubjectAccessReview APIs.
 // If the token is valid and has enough privileges, the handler provided in the `next` argument is run.
 // Otherwise, `next` is not invoked and the reason for the rejection is sent in response headers.
-func authMiddleware(next http.Handler) http.Handler {
+func authMiddleware(next http.Handler) (http.Handler, error) {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		k8sConfig, k8sConfigErr := rest.InClusterConfig()
 		if k8sConfigErr != nil {
@@ -571,16 +569,16 @@ func authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		tokenReviewResult := validateTokenIsAuthenticated(r.Context(), w, token, clientset)
+		tokenReviewResult := validateTokenIsAuthenticated(w, token, clientset)
 		if tokenReviewResult == nil {
 			return
 		}
 
-		isAuthorized := checkRequestIsAuthorized(r.Context(), w, r, tokenReviewResult, clientset)
+		isAuthorized := checkRequestIsAuthorized(w, r, tokenReviewResult, clientset)
 		if isAuthorized {
 			next.ServeHTTP(w, r)
 		}
-	})
+	}), nil
 }
 
 func main() {
@@ -605,8 +603,12 @@ func main() {
 	var entrypointHandler http.Handler
 	entrypointHandler = http.HandlerFunc(graphHandler)
 	if *enableAuthFlag {
-		entrypointHandler = authMiddleware(entrypointHandler)
+		entrypointHandler, err = authMiddleware(entrypointHandler)
 		log.Info("This Router has authorization enabled")
+		if err != nil {
+			log.Error(err, "failed to create entrypoint handler")
+			os.Exit(1)
+		}
 	}
 
 	http.Handle("/", entrypointHandler)

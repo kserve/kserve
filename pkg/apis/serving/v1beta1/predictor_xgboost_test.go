@@ -17,17 +17,17 @@ limitations under the License.
 package v1beta1
 
 import (
+	"strconv"
 	"testing"
 
 	"google.golang.org/protobuf/proto"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestXGBoostValidation(t *testing.T) {
@@ -65,9 +65,9 @@ func TestXGBoostDefaulter(t *testing.T) {
 	protocolV1 := constants.ProtocolV1
 	protocolV2 := constants.ProtocolV2
 
-	defaultResource := corev1.ResourceList{
-		corev1.ResourceCPU:    resource.MustParse("1"),
-		corev1.ResourceMemory: resource.MustParse("2Gi"),
+	defaultResource := v1.ResourceList{
+		v1.ResourceCPU:    resource.MustParse("1"),
+		v1.ResourceMemory: resource.MustParse("2Gi"),
 	}
 
 	config := &InferenceServicesConfig{
@@ -92,11 +92,11 @@ func TestXGBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						// RuntimeVersion:  proto.String("v0.4.0"),
+						//RuntimeVersion:  proto.String("v0.4.0"),
 						ProtocolVersion: &protocolV1,
-						Container: corev1.Container{
+						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
-							Resources: corev1.ResourceRequirements{
+							Resources: v1.ResourceRequirements{
 								Requests: defaultResource,
 								Limits:   defaultResource,
 							},
@@ -116,11 +116,11 @@ func TestXGBoostDefaulter(t *testing.T) {
 			expected: PredictorSpec{
 				XGBoost: &XGBoostSpec{
 					PredictorExtensionSpec: PredictorExtensionSpec{
-						// RuntimeVersion:  proto.String("v0.1.2"),
+						//RuntimeVersion:  proto.String("v0.1.2"),
 						ProtocolVersion: &protocolV2,
-						Container: corev1.Container{
+						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
-							Resources: corev1.ResourceRequirements{
+							Resources: v1.ResourceRequirements{
 								Requests: defaultResource,
 								Limits:   defaultResource,
 							},
@@ -142,9 +142,9 @@ func TestXGBoostDefaulter(t *testing.T) {
 					PredictorExtensionSpec: PredictorExtensionSpec{
 						RuntimeVersion:  proto.String("v0.3.0"),
 						ProtocolVersion: &protocolV1,
-						Container: corev1.Container{
+						Container: v1.Container{
 							Name: constants.InferenceServiceContainerName,
-							Resources: corev1.ResourceRequirements{
+							Resources: v1.ResourceRequirements{
 								Requests: defaultResource,
 								Limits:   defaultResource,
 							},
@@ -166,19 +166,20 @@ func TestXGBoostDefaulter(t *testing.T) {
 }
 
 func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
-	requestedResource := corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
+
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
 			"cpu": resource.MustParse("100m"),
 		},
-		Requests: corev1.ResourceList{
+		Requests: v1.ResourceList{
 			"cpu": resource.MustParse("90m"),
 		},
 	}
-	config := InferenceServicesConfig{}
+	var config = InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
-		expectedContainerSpec *corev1.Container
+		expectedContainerSpec *v1.Container
 	}{
 		"ContainerSpecWithDefaultImage": {
 			isvc: InferenceService{
@@ -191,7 +192,7 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
 								RuntimeVersion: proto.String("0.1.0"),
-								Container: corev1.Container{
+								Container: v1.Container{
 									Resources: requestedResource,
 								},
 							},
@@ -199,7 +200,7 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &corev1.Container{
+			expectedContainerSpec: &v1.Container{
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 			},
@@ -214,7 +215,7 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 						XGBoost: &XGBoostSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI: proto.String("gs://someUri"),
-								Container: corev1.Container{
+								Container: v1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 								},
@@ -223,7 +224,7 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &corev1.Container{
+			expectedContainerSpec: &v1.Container{
 				Image:     "customImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
@@ -243,7 +244,7 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
 								RuntimeVersion: proto.String("0.1.0"),
-								Container: corev1.Container{
+								Container: v1.Container{
 									Resources: requestedResource,
 								},
 							},
@@ -251,7 +252,7 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &corev1.Container{
+			expectedContainerSpec: &v1.Container{
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 			},
@@ -270,7 +271,7 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:     proto.String("gs://someUri"),
 								RuntimeVersion: proto.String("0.1.0"),
-								Container: corev1.Container{
+								Container: v1.Container{
 									Resources: requestedResource,
 									Args: []string{
 										constants.ArgumentWorkers + "=1",
@@ -281,7 +282,7 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &corev1.Container{
+			expectedContainerSpec: &v1.Container{
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 				Args: []string{
@@ -305,23 +306,23 @@ func TestCreateXGBoostModelServingContainerV1(t *testing.T) {
 func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 	protocolV2 := constants.ProtocolV2
 
-	requestedResource := corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
+	var requestedResource = v1.ResourceRequirements{
+		Limits: v1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "100",
 			},
 		},
-		Requests: corev1.ResourceList{
+		Requests: v1.ResourceList{
 			"cpu": resource.Quantity{
 				Format: "90",
 			},
 		},
 	}
-	config := InferenceServicesConfig{}
+	var config = InferenceServicesConfig{}
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
 		isvc                  InferenceService
-		expectedContainerSpec *corev1.Container
+		expectedContainerSpec *v1.Container
 	}{
 		"ContainerSpecWithDefaultImage": {
 			isvc: InferenceService{
@@ -335,7 +336,7 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 								StorageURI:      proto.String("gs://someUri"),
 								RuntimeVersion:  proto.String("0.1.0"),
 								ProtocolVersion: &protocolV2,
-								Container: corev1.Container{
+								Container: v1.Container{
 									Resources: requestedResource,
 								},
 							},
@@ -343,7 +344,7 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &corev1.Container{
+			expectedContainerSpec: &v1.Container{
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 			},
@@ -359,7 +360,7 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								StorageURI:      proto.String("gs://someUri"),
 								ProtocolVersion: &protocolV2,
-								Container: corev1.Container{
+								Container: v1.Container{
 									Image:     "customImage:0.1.0",
 									Resources: requestedResource,
 								},
@@ -368,7 +369,7 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &corev1.Container{
+			expectedContainerSpec: &v1.Container{
 				Image:     "customImage:0.1.0",
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
@@ -384,7 +385,7 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 						XGBoost: &XGBoostSpec{
 							PredictorExtensionSpec: PredictorExtensionSpec{
 								ProtocolVersion: &protocolV2,
-								Container: corev1.Container{
+								Container: v1.Container{
 									Resources: requestedResource,
 								},
 							},
@@ -392,7 +393,7 @@ func TestCreateXGBoostModelServingContainerV2(t *testing.T) {
 					},
 				},
 			},
-			expectedContainerSpec: &corev1.Container{
+			expectedContainerSpec: &v1.Container{
 				Name:      constants.InferenceServiceContainerName,
 				Resources: requestedResource,
 			},
@@ -438,5 +439,130 @@ func TestXGBoostGetProtocol(t *testing.T) {
 	for _, scenario := range scenarios {
 		protocol := scenario.spec.XGBoost.GetProtocol()
 		g.Expect(protocol).To(scenario.matcher)
+	}
+}
+
+func TestXGBoostSpec_GetEnvVarsV2(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		spec    PredictorSpec
+		matcher types.GomegaMatcher
+	}{
+		"storage uri is nil": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			matcher: gomega.Equal([]v1.EnvVar{
+				{
+					Name:  constants.MLServerHTTPPortEnv,
+					Value: strconv.Itoa(int(constants.MLServerISRestPort)),
+				},
+				{
+					Name:  constants.MLServerGRPCPortEnv,
+					Value: strconv.Itoa(int(constants.MLServerISGRPCPort)),
+				},
+				{
+					Name:  constants.MLServerModelsDirEnv,
+					Value: constants.DefaultModelLocalMountPath,
+				},
+				{
+					Name:  constants.MLServerLoadModelsStartupEnv,
+					Value: strconv.FormatBool(false),
+				},
+			}),
+		},
+		"storage uri is not nil": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://kserve/model"),
+					},
+				},
+			},
+			matcher: gomega.Equal([]v1.EnvVar{
+				{
+					Name:  constants.MLServerHTTPPortEnv,
+					Value: strconv.Itoa(int(constants.MLServerISRestPort)),
+				},
+				{
+					Name:  constants.MLServerGRPCPortEnv,
+					Value: strconv.Itoa(int(constants.MLServerISGRPCPort)),
+				},
+				{
+					Name:  constants.MLServerModelsDirEnv,
+					Value: constants.DefaultModelLocalMountPath,
+				},
+			}),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.spec.XGBoost.getEnvVarsV2()
+			if !g.Expect(res).To(scenario.matcher) {
+				t.Errorf("got %q, want %q", res, scenario.matcher)
+			}
+		})
+	}
+}
+
+func TestXGBoostSpec_GetDefaultsV2(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	metadata := metav1.ObjectMeta{
+		Name: "test",
+	}
+	scenarios := map[string]struct {
+		spec    PredictorSpec
+		matcher types.GomegaMatcher
+	}{
+		"storage uri is nil": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{},
+				},
+			},
+			matcher: gomega.Equal([]v1.EnvVar{
+				{
+					Name:  constants.MLServerModelImplementationEnv,
+					Value: constants.MLServerXGBoostImplementation,
+				},
+			}),
+		},
+		"storage uri is not nil": {
+			spec: PredictorSpec{
+				XGBoost: &XGBoostSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://kserve/model"),
+					},
+				},
+			},
+			matcher: gomega.Equal([]v1.EnvVar{
+				{
+					Name:  constants.MLServerModelImplementationEnv,
+					Value: constants.MLServerXGBoostImplementation,
+				},
+				{
+					Name:  constants.MLServerModelNameEnv,
+					Value: metadata.Name,
+				},
+				{
+					Name:  constants.MLServerModelURIEnv,
+					Value: constants.DefaultModelLocalMountPath,
+				},
+			}),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.spec.XGBoost.getDefaultsV2(metadata)
+			if !g.Expect(res).To(scenario.matcher) {
+				t.Errorf("got %q, want %q", res, scenario.matcher)
+			}
+		})
 	}
 }

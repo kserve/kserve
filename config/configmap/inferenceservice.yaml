@@ -426,9 +426,7 @@ data:
            "cpuLimit": "1",
            "headers": {
              "propagate": []
-           },
-           "imagePullPolicy": "IfNotPresent",
-           "imagePullSecrets": ["docker-secret"]
+           }
        }
      # router is the implementation of inference graph.
      router: |-
@@ -458,13 +456,6 @@ data:
                 "*Trace-Id*"
              ]
            }
-
-           # imagePullPolicy specifies when the router image should be pulled from registry.
-           "imagePullPolicy": "IfNotPresent",
-           
-           # # imagePullSecrets specifies the list of secrets to be used for pulling the router image from registry.
-           # https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
-           "imagePullSecrets": ["docker-secret"]
        }
      
      # ====================================== DEPLOYMENT CONFIGURATION ======================================
@@ -665,8 +656,7 @@ data:
         "memoryRequest": "100Mi",
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
-        "cpuLimit": "1",
-        "imagePullPolicy": "IfNotPresent"
+        "cpuLimit": "1"
     }
 
   deploy: |-

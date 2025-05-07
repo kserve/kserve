@@ -21,12 +21,11 @@ import (
 	"sort"
 	"strconv"
 
-	"google.golang.org/protobuf/proto"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	"google.golang.org/protobuf/proto"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ARTExplainerType string
@@ -45,15 +44,14 @@ type ARTExplainerSpec struct {
 
 var _ ComponentImplementation = &ARTExplainerSpec{}
 
-func (s *ARTExplainerSpec) GetResourceRequirements() *corev1.ResourceRequirements {
+func (s *ARTExplainerSpec) GetResourceRequirements() *v1.ResourceRequirements {
 	// return the ResourceRequirements value if set on the spec
 	return &s.Resources
 }
 
 func (s *ARTExplainerSpec) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
-	predictorHost ...string,
-) *corev1.Container {
-	args := []string{
+	predictorHost ...string) *v1.Container {
+	var args = []string{
 		constants.ArgumentModelName, metadata.Name,
 		constants.ArgumentHttpPort, constants.InferenceServiceDefaultHttpPort,
 	}

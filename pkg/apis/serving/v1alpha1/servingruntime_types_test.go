@@ -18,14 +18,12 @@ package v1alpha1
 
 import (
 	"fmt"
-	"testing"
-
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
+	"testing"
 
-	"github.com/kserve/kserve/pkg/constants"
-
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/yaml"
 )
@@ -45,25 +43,25 @@ func TestMarshalServingRuntime(t *testing.T) {
 					"key1": "val1",
 					"key2": "val2",
 				},
-				Containers: []corev1.Container{
+				Containers: []v1.Container{
 					{
 						Args:    []string{"arg1", "arg2"},
 						Command: []string{"command", "command2"},
-						Env: []corev1.EnvVar{
+						Env: []v1.EnvVar{
 							{Name: "name", Value: "value"},
 							{
 								Name: "fromSecret",
-								ValueFrom: &corev1.EnvVarSource{
-									SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+								ValueFrom: &v1.EnvVarSource{
+									SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 								},
 							},
 						},
 						Image:           "image",
 						Name:            "name",
 						ImagePullPolicy: "IfNotPresent",
-						Resources: corev1.ResourceRequirements{
-							Limits: corev1.ResourceList{
-								corev1.ResourceMemory: resource.MustParse("200Mi"),
+						Resources: v1.ResourceRequirements{
+							Limits: v1.ResourceList{
+								v1.ResourceMemory: resource.MustParse("200Mi"),
 							},
 						},
 					},
@@ -97,25 +95,25 @@ func TestServingRuntimeSpec_IsDisabled(t *testing.T) {
 			spec: ServingRuntimeSpec{
 				GrpcDataEndpoint: &endpoint,
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -135,25 +133,25 @@ func TestServingRuntimeSpec_IsDisabled(t *testing.T) {
 				GrpcDataEndpoint: &endpoint,
 				Disabled:         proto.Bool(true),
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -206,25 +204,25 @@ func TestServingRuntimeSpec_ValidateField(t *testing.T) {
 			spec: ServingRuntimeSpec{
 				GrpcDataEndpoint: &endpoint,
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -244,25 +242,25 @@ func TestServingRuntimeSpec_ValidateField(t *testing.T) {
 				GrpcDataEndpoint: &endpoint,
 				Disabled:         proto.Bool(true),
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -287,25 +285,25 @@ func TestServingRuntimeSpec_ValidateField(t *testing.T) {
 				GrpcDataEndpoint: &endpoint,
 				Disabled:         proto.Bool(true),
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -313,25 +311,25 @@ func TestServingRuntimeSpec_ValidateField(t *testing.T) {
 				},
 				WorkerSpec: &WorkerSpec{
 					ServingRuntimePodSpec: ServingRuntimePodSpec{
-						Containers: []corev1.Container{
+						Containers: []v1.Container{
 							{
 								Args:    []string{"arg1", "arg2"},
 								Command: []string{"command", "command2"},
-								Env: []corev1.EnvVar{
+								Env: []v1.EnvVar{
 									{Name: "name", Value: "value"},
 									{
 										Name: "fromSecret",
-										ValueFrom: &corev1.EnvVarSource{
-											SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+										ValueFrom: &v1.EnvVarSource{
+											SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 										},
 									},
 								},
 								Image:           "image",
 								Name:            "name",
 								ImagePullPolicy: "IfNotPresent",
-								Resources: corev1.ResourceRequirements{
-									Limits: corev1.ResourceList{
-										corev1.ResourceMemory: resource.MustParse("200Mi"),
+								Resources: v1.ResourceRequirements{
+									Limits: v1.ResourceList{
+										v1.ResourceMemory: resource.MustParse("200Mi"),
 									},
 								},
 							},
@@ -370,25 +368,25 @@ func TestServingRuntimeSpec_IsMultiModelRuntime(t *testing.T) {
 			spec: ServingRuntimeSpec{
 				GrpcDataEndpoint: &endpoint,
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -408,25 +406,25 @@ func TestServingRuntimeSpec_IsMultiModelRuntime(t *testing.T) {
 				GrpcDataEndpoint: &endpoint,
 				MultiModel:       proto.Bool(true),
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -465,25 +463,25 @@ func TestServingRuntimeSpec_IsProtocolVersionSupported(t *testing.T) {
 			spec: ServingRuntimeSpec{
 				GrpcDataEndpoint: &endpoint,
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -505,25 +503,25 @@ func TestServingRuntimeSpec_IsProtocolVersionSupported(t *testing.T) {
 				MultiModel:       proto.Bool(true),
 				Disabled:         proto.Bool(true),
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -547,25 +545,25 @@ func TestServingRuntimeSpec_IsProtocolVersionSupported(t *testing.T) {
 					constants.ProtocolGRPCV2,
 				},
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -589,25 +587,25 @@ func TestServingRuntimeSpec_IsProtocolVersionSupported(t *testing.T) {
 					constants.ProtocolGRPCV2,
 				},
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -647,25 +645,25 @@ func TestServingRuntimeSpec_GetPriority(t *testing.T) {
 			spec: ServingRuntimeSpec{
 				GrpcDataEndpoint: &endpoint,
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -691,25 +689,25 @@ func TestServingRuntimeSpec_GetPriority(t *testing.T) {
 			spec: ServingRuntimeSpec{
 				GrpcDataEndpoint: &endpoint,
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},
@@ -734,25 +732,25 @@ func TestServingRuntimeSpec_GetPriority(t *testing.T) {
 			spec: ServingRuntimeSpec{
 				GrpcDataEndpoint: &endpoint,
 				ServingRuntimePodSpec: ServingRuntimePodSpec{
-					Containers: []corev1.Container{
+					Containers: []v1.Container{
 						{
 							Args:    []string{"arg1", "arg2"},
 							Command: []string{"command", "command2"},
-							Env: []corev1.EnvVar{
+							Env: []v1.EnvVar{
 								{Name: "name", Value: "value"},
 								{
 									Name: "fromSecret",
-									ValueFrom: &corev1.EnvVarSource{
-										SecretKeyRef: &corev1.SecretKeySelector{Key: "mykey"},
+									ValueFrom: &v1.EnvVarSource{
+										SecretKeyRef: &v1.SecretKeySelector{Key: "mykey"},
 									},
 								},
 							},
 							Image:           "image",
 							Name:            "name",
 							ImagePullPolicy: "IfNotPresent",
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceMemory: resource.MustParse("200Mi"),
+							Resources: v1.ResourceRequirements{
+								Limits: v1.ResourceList{
+									v1.ResourceMemory: resource.MustParse("200Mi"),
 								},
 							},
 						},

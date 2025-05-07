@@ -26,11 +26,10 @@ import (
 
 	"github.com/go-logr/logr"
 	guuid "github.com/google/uuid"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"knative.dev/pkg/network"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 // loggingResponseWriter is a wrapper around an http.ResponseWriter that logs the response body
@@ -89,8 +88,7 @@ type LoggerHandler struct {
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 	inferenceService string, namespace string, endpoint string, component string, next http.Handler, metadataHeaders []string,
-	certName string, tlsSkipVerify bool,
-) http.Handler {
+	certName string, tlsSkipVerify bool) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
 		log:              logf.Log.WithName("Logger"),

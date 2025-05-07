@@ -73,7 +73,6 @@ class V1beta1WorkerSpec(object):
         'priority_class_name': 'str',
         'readiness_gates': 'list[V1PodReadinessGate]',
         'resource_claims': 'list[V1PodResourceClaim]',
-        'resources': 'V1ResourceRequirements',
         'restart_policy': 'str',
         'runtime_class_name': 'str',
         'scheduler_name': 'str',
@@ -118,7 +117,6 @@ class V1beta1WorkerSpec(object):
         'priority_class_name': 'priorityClassName',
         'readiness_gates': 'readinessGates',
         'resource_claims': 'resourceClaims',
-        'resources': 'resources',
         'restart_policy': 'restartPolicy',
         'runtime_class_name': 'runtimeClassName',
         'scheduler_name': 'schedulerName',
@@ -136,7 +134,7 @@ class V1beta1WorkerSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, pipeline_parallel_size=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, tensor_parallel_size=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, pipeline_parallel_size=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, tensor_parallel_size=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1WorkerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -168,7 +166,6 @@ class V1beta1WorkerSpec(object):
         self._priority_class_name = None
         self._readiness_gates = None
         self._resource_claims = None
-        self._resources = None
         self._restart_policy = None
         self._runtime_class_name = None
         self._scheduler_name = None
@@ -238,8 +235,6 @@ class V1beta1WorkerSpec(object):
             self.readiness_gates = readiness_gates
         if resource_claims is not None:
             self.resource_claims = resource_claims
-        if resources is not None:
-            self.resources = resources
         if restart_policy is not None:
             self.restart_policy = restart_policy
         if runtime_class_name is not None:
@@ -432,7 +427,7 @@ class V1beta1WorkerSpec(object):
     def ephemeral_containers(self):
         """Gets the ephemeral_containers of this V1beta1WorkerSpec.  # noqa: E501
 
-        List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.  # noqa: E501
+        List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource. This field is beta-level and available on clusters that haven't disabled the EphemeralContainers feature gate.  # noqa: E501
 
         :return: The ephemeral_containers of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: list[V1EphemeralContainer]
@@ -443,7 +438,7 @@ class V1beta1WorkerSpec(object):
     def ephemeral_containers(self, ephemeral_containers):
         """Sets the ephemeral_containers of this V1beta1WorkerSpec.
 
-        List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.  # noqa: E501
+        List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource. This field is beta-level and available on clusters that haven't disabled the EphemeralContainers feature gate.  # noqa: E501
 
         :param ephemeral_containers: The ephemeral_containers of this V1beta1WorkerSpec.  # noqa: E501
         :type: list[V1EphemeralContainer]
@@ -455,7 +450,7 @@ class V1beta1WorkerSpec(object):
     def host_aliases(self):
         """Gets the host_aliases of this V1beta1WorkerSpec.  # noqa: E501
 
-        HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.  # noqa: E501
+        HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified. This is only valid for non-hostNetwork pods.  # noqa: E501
 
         :return: The host_aliases of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: list[V1HostAlias]
@@ -466,7 +461,7 @@ class V1beta1WorkerSpec(object):
     def host_aliases(self, host_aliases):
         """Sets the host_aliases of this V1beta1WorkerSpec.
 
-        HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.  # noqa: E501
+        HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified. This is only valid for non-hostNetwork pods.  # noqa: E501
 
         :param host_aliases: The host_aliases of this V1beta1WorkerSpec.  # noqa: E501
         :type: list[V1HostAlias]
@@ -593,7 +588,7 @@ class V1beta1WorkerSpec(object):
     def image_pull_secrets(self):
         """Gets the image_pull_secrets of this V1beta1WorkerSpec.  # noqa: E501
 
-        ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod  # noqa: E501
+        ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod  # noqa: E501
 
         :return: The image_pull_secrets of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: list[V1LocalObjectReference]
@@ -604,7 +599,7 @@ class V1beta1WorkerSpec(object):
     def image_pull_secrets(self, image_pull_secrets):
         """Sets the image_pull_secrets of this V1beta1WorkerSpec.
 
-        ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod  # noqa: E501
+        ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod  # noqa: E501
 
         :param image_pull_secrets: The image_pull_secrets of this V1beta1WorkerSpec.  # noqa: E501
         :type: list[V1LocalObjectReference]
@@ -616,7 +611,7 @@ class V1beta1WorkerSpec(object):
     def init_containers(self):
         """Gets the init_containers of this V1beta1WorkerSpec.  # noqa: E501
 
-        List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/  # noqa: E501
+        List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/  # noqa: E501
 
         :return: The init_containers of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: list[V1Container]
@@ -627,7 +622,7 @@ class V1beta1WorkerSpec(object):
     def init_containers(self, init_containers):
         """Sets the init_containers of this V1beta1WorkerSpec.
 
-        List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/  # noqa: E501
+        List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/  # noqa: E501
 
         :param init_containers: The init_containers of this V1beta1WorkerSpec.  # noqa: E501
         :type: list[V1Container]
@@ -639,7 +634,7 @@ class V1beta1WorkerSpec(object):
     def node_name(self):
         """Gets the node_name of this V1beta1WorkerSpec.  # noqa: E501
 
-        NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename  # noqa: E501
+        NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements.  # noqa: E501
 
         :return: The node_name of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: str
@@ -650,7 +645,7 @@ class V1beta1WorkerSpec(object):
     def node_name(self, node_name):
         """Sets the node_name of this V1beta1WorkerSpec.
 
-        NodeName indicates in which node this pod is scheduled. If empty, this pod is a candidate for scheduling by the scheduler defined in schedulerName. Once this field is set, the kubelet for this node becomes responsible for the lifecycle of this pod. This field should not be used to express a desire for the pod to be scheduled on a specific node. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodename  # noqa: E501
+        NodeName is a request to schedule this pod onto a specific node. If it is non-empty, the scheduler simply schedules this pod onto that node, assuming that it fits resource requirements.  # noqa: E501
 
         :param node_name: The node_name of this V1beta1WorkerSpec.  # noqa: E501
         :type: str
@@ -706,7 +701,7 @@ class V1beta1WorkerSpec(object):
     def overhead(self):
         """Gets the overhead of this V1beta1WorkerSpec.  # noqa: E501
 
-        Overhead represents the resource overhead associated with running a pod for a given RuntimeClass. This field will be autopopulated at admission time by the RuntimeClass admission controller. If the RuntimeClass admission controller is enabled, overhead must not be set in Pod create requests. The RuntimeClass admission controller will reject Pod create requests which have the overhead already set. If RuntimeClass is configured and selected in the PodSpec, Overhead will be set to the value defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero. More info: https://git.k8s.io/enhancements/keps/sig-node/688-pod-overhead/README.md  # noqa: E501
+        Overhead represents the resource overhead associated with running a pod for a given RuntimeClass. This field will be autopopulated at admission time by the RuntimeClass admission controller. If the RuntimeClass admission controller is enabled, overhead must not be set in Pod create requests. The RuntimeClass admission controller will reject Pod create requests which have the overhead already set. If RuntimeClass is configured and selected in the PodSpec, Overhead will be set to the value defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero. More info: https://git.k8s.io/enhancements/keps/sig-node/688-pod-overhead/README.md This field is beta-level as of Kubernetes v1.18, and is only honored by servers that enable the PodOverhead feature.  # noqa: E501
 
         :return: The overhead of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: dict(str, ResourceQuantity)
@@ -717,7 +712,7 @@ class V1beta1WorkerSpec(object):
     def overhead(self, overhead):
         """Sets the overhead of this V1beta1WorkerSpec.
 
-        Overhead represents the resource overhead associated with running a pod for a given RuntimeClass. This field will be autopopulated at admission time by the RuntimeClass admission controller. If the RuntimeClass admission controller is enabled, overhead must not be set in Pod create requests. The RuntimeClass admission controller will reject Pod create requests which have the overhead already set. If RuntimeClass is configured and selected in the PodSpec, Overhead will be set to the value defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero. More info: https://git.k8s.io/enhancements/keps/sig-node/688-pod-overhead/README.md  # noqa: E501
+        Overhead represents the resource overhead associated with running a pod for a given RuntimeClass. This field will be autopopulated at admission time by the RuntimeClass admission controller. If the RuntimeClass admission controller is enabled, overhead must not be set in Pod create requests. The RuntimeClass admission controller will reject Pod create requests which have the overhead already set. If RuntimeClass is configured and selected in the PodSpec, Overhead will be set to the value defined in the corresponding RuntimeClass, otherwise it will remain unset and treated as zero. More info: https://git.k8s.io/enhancements/keps/sig-node/688-pod-overhead/README.md This field is beta-level as of Kubernetes v1.18, and is only honored by servers that enable the PodOverhead feature.  # noqa: E501
 
         :param overhead: The overhead of this V1beta1WorkerSpec.  # noqa: E501
         :type: dict(str, ResourceQuantity)
@@ -752,7 +747,7 @@ class V1beta1WorkerSpec(object):
     def preemption_policy(self):
         """Gets the preemption_policy of this V1beta1WorkerSpec.  # noqa: E501
 
-        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.  # noqa: E501
+        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset. This field is beta-level, gated by the NonPreemptingPriority feature-gate.  # noqa: E501
 
         :return: The preemption_policy of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: str
@@ -763,7 +758,7 @@ class V1beta1WorkerSpec(object):
     def preemption_policy(self, preemption_policy):
         """Sets the preemption_policy of this V1beta1WorkerSpec.
 
-        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.  # noqa: E501
+        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset. This field is beta-level, gated by the NonPreemptingPriority feature-gate.  # noqa: E501
 
         :param preemption_policy: The preemption_policy of this V1beta1WorkerSpec.  # noqa: E501
         :type: str
@@ -864,31 +859,10 @@ class V1beta1WorkerSpec(object):
         self._resource_claims = resource_claims
 
     @property
-    def resources(self):
-        """Gets the resources of this V1beta1WorkerSpec.  # noqa: E501
-
-
-        :return: The resources of this V1beta1WorkerSpec.  # noqa: E501
-        :rtype: V1ResourceRequirements
-        """
-        return self._resources
-
-    @resources.setter
-    def resources(self, resources):
-        """Sets the resources of this V1beta1WorkerSpec.
-
-
-        :param resources: The resources of this V1beta1WorkerSpec.  # noqa: E501
-        :type: V1ResourceRequirements
-        """
-
-        self._resources = resources
-
-    @property
     def restart_policy(self):
         """Gets the restart_policy of this V1beta1WorkerSpec.  # noqa: E501
 
-        Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy  # noqa: E501
+        Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy  # noqa: E501
 
         :return: The restart_policy of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: str
@@ -899,7 +873,7 @@ class V1beta1WorkerSpec(object):
     def restart_policy(self, restart_policy):
         """Sets the restart_policy of this V1beta1WorkerSpec.
 
-        Restart policy for all containers within the pod. One of Always, OnFailure, Never. In some contexts, only a subset of those values may be permitted. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy  # noqa: E501
+        Restart policy for all containers within the pod. One of Always, OnFailure, Never. Default to Always. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#restart-policy  # noqa: E501
 
         :param restart_policy: The restart_policy of this V1beta1WorkerSpec.  # noqa: E501
         :type: str
@@ -911,7 +885,7 @@ class V1beta1WorkerSpec(object):
     def runtime_class_name(self):
         """Gets the runtime_class_name of this V1beta1WorkerSpec.  # noqa: E501
 
-        RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class  # noqa: E501
+        RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class This is a beta feature as of Kubernetes v1.14.  # noqa: E501
 
         :return: The runtime_class_name of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: str
@@ -922,7 +896,7 @@ class V1beta1WorkerSpec(object):
     def runtime_class_name(self, runtime_class_name):
         """Sets the runtime_class_name of this V1beta1WorkerSpec.
 
-        RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class  # noqa: E501
+        RuntimeClassName refers to a RuntimeClass object in the node.k8s.io group, which should be used to run this pod.  If no RuntimeClass resource matches the named class, the pod will not be run. If unset or empty, the \"legacy\" RuntimeClass will be used, which is an implicit class with an empty definition that uses the default runtime handler. More info: https://git.k8s.io/enhancements/keps/sig-node/585-runtime-class This is a beta feature as of Kubernetes v1.14.  # noqa: E501
 
         :param runtime_class_name: The runtime_class_name of this V1beta1WorkerSpec.  # noqa: E501
         :type: str
@@ -957,7 +931,7 @@ class V1beta1WorkerSpec(object):
     def scheduling_gates(self):
         """Gets the scheduling_gates of this V1beta1WorkerSpec.  # noqa: E501
 
-        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  # noqa: E501
+        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  This is a beta feature enabled by the PodSchedulingReadiness feature gate.  # noqa: E501
 
         :return: The scheduling_gates of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: list[V1PodSchedulingGate]
@@ -968,7 +942,7 @@ class V1beta1WorkerSpec(object):
     def scheduling_gates(self, scheduling_gates):
         """Sets the scheduling_gates of this V1beta1WorkerSpec.
 
-        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  # noqa: E501
+        SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards.  This is a beta feature enabled by the PodSchedulingReadiness feature gate.  # noqa: E501
 
         :param scheduling_gates: The scheduling_gates of this V1beta1WorkerSpec.  # noqa: E501
         :type: list[V1PodSchedulingGate]
@@ -1001,7 +975,7 @@ class V1beta1WorkerSpec(object):
     def service_account(self):
         """Gets the service_account of this V1beta1WorkerSpec.  # noqa: E501
 
-        DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.  # noqa: E501
+        DeprecatedServiceAccount is a depreciated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.  # noqa: E501
 
         :return: The service_account of this V1beta1WorkerSpec.  # noqa: E501
         :rtype: str
@@ -1012,7 +986,7 @@ class V1beta1WorkerSpec(object):
     def service_account(self, service_account):
         """Sets the service_account of this V1beta1WorkerSpec.
 
-        DeprecatedServiceAccount is a deprecated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.  # noqa: E501
+        DeprecatedServiceAccount is a depreciated alias for ServiceAccountName. Deprecated: Use serviceAccountName instead.  # noqa: E501
 
         :param service_account: The service_account of this V1beta1WorkerSpec.  # noqa: E501
         :type: str

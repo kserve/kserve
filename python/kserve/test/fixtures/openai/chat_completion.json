@@ -189,7 +189,8 @@
       "message": {
         "content": "\n\nAI stands for artificial intelligence.",
         "role": "assistant",
-        "tool_calls": []
+        "function_call": null,
+        "tool_calls": null
       }
     }
   ],

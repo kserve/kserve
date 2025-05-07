@@ -17,11 +17,10 @@ limitations under the License.
 package https
 
 import (
-	"testing"
-
 	"github.com/google/go-cmp/cmp"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
 )
 
 var (
@@ -34,36 +33,36 @@ var (
 
 func TestHTTPSSecret(t *testing.T) {
 	scenarios := map[string]struct {
-		secret   *corev1.Secret
-		expected []corev1.EnvVar
+		secret   *v1.Secret
+		expected []v1.EnvVar
 	}{
 		"noUriHost": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				Data: map[string][]byte{
 					header1: []byte(headerValue1),
 					header2: []byte(headerValue2),
 				},
 			},
-			expected: []corev1.EnvVar{},
+			expected: []v1.EnvVar{},
 		},
 		"noHeaders": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string][]byte{
 					HTTPSHost: []byte(uriHost),
 				},
 			},
-			expected: []corev1.EnvVar{},
+			expected: []v1.EnvVar{},
 		},
 		"secretEnvs": {
-			secret: &corev1.Secret{
+			secret: &v1.Secret{
 				ObjectMeta: metav1.ObjectMeta{},
 				Data: map[string][]byte{
 					HTTPSHost: []byte(uriHost),
 					HEADERS:   []byte(`{` + NEWLINE + header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2 + NEWLINE + `}`),
 				},
 			},
-			expected: []corev1.EnvVar{
+			expected: []v1.EnvVar{
 				{
 					Name:  uriHost + HeadersSuffix,
 					Value: `{` + NEWLINE + header1 + ColonSeparator + headerValue1 + NEWLINE + header2 + ColonSeparator + headerValue2 + NEWLINE + `}`,

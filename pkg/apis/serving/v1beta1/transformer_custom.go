@@ -20,26 +20,27 @@ import (
 	"fmt"
 	"strconv"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // CustomTransformer defines arguments for configuring a custom transformer.
 type CustomTransformer struct {
-	corev1.PodSpec `json:",inline"`
+	v1.PodSpec `json:",inline"`
 }
 
-// logger for the custom transformer
-var customTransformerLogger = logf.Log.WithName("inferenceservice-v1beta1-custom-transformer")
+var (
+	// logger for the custom transformer
+	customTransformerLogger = logf.Log.WithName("inferenceservice-v1beta1-custom-transformer")
+)
 
 var _ ComponentImplementation = &CustomTransformer{}
 
 func NewCustomTransformer(podSpec *PodSpec) *CustomTransformer {
-	return &CustomTransformer{PodSpec: corev1.PodSpec(*podSpec)}
+	return &CustomTransformer{PodSpec: v1.PodSpec(*podSpec)}
 }
 
 // Validate returns an error if invalid
@@ -50,7 +51,7 @@ func (c *CustomTransformer) Validate() error {
 // Default sets defaults on the resource
 func (c *CustomTransformer) Default(config *InferenceServicesConfig) {
 	if len(c.Containers) == 0 {
-		c.Containers = append(c.Containers, corev1.Container{})
+		c.Containers = append(c.Containers, v1.Container{})
 	}
 	c.Containers[0].Name = constants.InferenceServiceContainerName
 	setResourceRequirementDefaults(config, &c.Containers[0].Resources)
@@ -72,8 +73,7 @@ func (c *CustomTransformer) GetStorageSpec() *StorageSpec {
 
 // GetContainer transforms the resource into a container spec
 func (c *CustomTransformer) GetContainer(metadata metav1.ObjectMeta, extensions *ComponentExtensionSpec, config *InferenceServicesConfig,
-	predictorHost ...string,
-) *corev1.Container {
+	predictorHost ...string) *v1.Container {
 	container := &c.Containers[0]
 	argumentPredictorHost := fmt.Sprintf("%s.%s", predictorHost[0], metadata.Namespace)
 	deploymentMode, ok := metadata.Annotations[constants.DeploymentMode]

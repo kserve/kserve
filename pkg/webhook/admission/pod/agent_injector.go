@@ -25,12 +25,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/klog/v2"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 const (
@@ -75,7 +74,7 @@ type AgentInjector struct {
 }
 
 // TODO agent config
-func getAgentConfigs(configMap *corev1.ConfigMap) (*AgentConfig, error) {
+func getAgentConfigs(configMap *v1.ConfigMap) (*AgentConfig, error) {
 	agentConfig := &AgentConfig{}
 	if agentConfigValue, ok := configMap.Data[constants.AgentConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(agentConfigValue), &agentConfig)
@@ -85,12 +84,10 @@ func getAgentConfigs(configMap *corev1.ConfigMap) (*AgentConfig, error) {
 	}
 
 	// Ensure that we set proper values
-	resourceDefaults := []string{
-		agentConfig.MemoryRequest,
+	resourceDefaults := []string{agentConfig.MemoryRequest,
 		agentConfig.MemoryLimit,
 		agentConfig.CpuRequest,
-		agentConfig.CpuLimit,
-	}
+		agentConfig.CpuLimit}
 	for _, key := range resourceDefaults {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {
@@ -102,7 +99,7 @@ func getAgentConfigs(configMap *corev1.ConfigMap) (*AgentConfig, error) {
 	return agentConfig, nil
 }
 
-func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
+func getLoggerConfigs(configMap *v1.ConfigMap) (*LoggerConfig, error) {
 	loggerConfig := &LoggerConfig{}
 	if loggerConfigValue, ok := configMap.Data[LoggerConfigMapKeyName]; ok {
 		err := json.Unmarshal([]byte(loggerConfigValue), &loggerConfig)
@@ -112,12 +109,10 @@ func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
 	}
 
 	// Ensure that we set proper values for CPU/Memory Limit/Request
-	resourceDefaults := []string{
-		loggerConfig.MemoryRequest,
+	resourceDefaults := []string{loggerConfig.MemoryRequest,
 		loggerConfig.MemoryLimit,
 		loggerConfig.CpuRequest,
-		loggerConfig.CpuLimit,
-	}
+		loggerConfig.CpuLimit}
 	for _, key := range resourceDefaults {
 		_, err := resource.ParseQuantity(key)
 		if err != nil {
@@ -127,7 +122,7 @@ func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
 	return loggerConfig, nil
 }
 
-func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
+func (ag *AgentInjector) InjectAgent(pod *v1.Pod) error {
 	// Only inject the model agent sidecar if the required annotations are set
 	_, injectLogger := pod.ObjectMeta.Annotations[constants.LoggerInternalAnnotationKey]
 	_, injectPuller := pod.ObjectMeta.Annotations[constants.AgentShouldInjectAnnotationKey]
@@ -222,13 +217,13 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		args = append(args, LoggerArgumentTlsSkipVerify, strconv.FormatBool(ag.loggerConfig.TlsSkipVerify))
 	}
 
-	var queueProxyEnvs []corev1.EnvVar
-	var agentEnvs []corev1.EnvVar
+	var queueProxyEnvs []v1.EnvVar
+	var agentEnvs []v1.EnvVar
 	queueProxyAvailable := false
 	for _, container := range pod.Spec.Containers {
 		if container.Name == "queue-proxy" {
-			agentEnvs = make([]corev1.EnvVar, 0, len(container.Env))
-			agentEnvs = append(agentEnvs, container.Env...)
+			agentEnvs = make([]v1.EnvVar, len(container.Env))
+			copy(agentEnvs, container.Env)
 			queueProxyEnvs = container.Env
 			queueProxyAvailable = true
 		}
@@ -236,7 +231,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		if container.Name == "kserve-container" {
 			containerPort := constants.InferenceServiceDefaultHttpPort
 			if len(container.Ports) > 0 {
-				containerPort = strconv.Itoa(int(container.Ports[0].ContainerPort))
+				containerPort = fmt.Sprint(container.Ports[0].ContainerPort)
 			}
 
 			args = append(args, "--component-port", containerPort)
@@ -260,7 +255,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 				klog.Infof("Readiness probe marshaled and added as environment variable for pod %s/%s", pod.Namespace, pod.Name)
 
 				// Append the marshaled readiness probe as an environment variable for the agent container
-				agentEnvs = append(agentEnvs, corev1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
+				agentEnvs = append(agentEnvs, v1.EnvVar{Name: "SERVING_READINESS_PROBE", Value: string(readinessProbeJson)})
 			} else if readinessProbe.Exec != nil {
 				// Log the skipping of ExecAction readiness probes
 				klog.Infof("Exec readiness probe skipped for pod %s/%s", pod.Namespace, pod.Name)
@@ -280,21 +275,21 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	// Make sure securityContext is initialized and valid
 	securityContext := pod.Spec.Containers[0].SecurityContext.DeepCopy()
 
-	agentContainer := &corev1.Container{
+	agentContainer := &v1.Container{
 		Name:  constants.AgentContainerName,
 		Image: ag.agentConfig.Image,
 		Args:  args,
-		Resources: corev1.ResourceRequirements{
-			Limits: map[corev1.ResourceName]resource.Quantity{
-				corev1.ResourceCPU:    resource.MustParse(ag.agentConfig.CpuLimit),
-				corev1.ResourceMemory: resource.MustParse(ag.agentConfig.MemoryLimit),
+		Resources: v1.ResourceRequirements{
+			Limits: map[v1.ResourceName]resource.Quantity{
+				v1.ResourceCPU:    resource.MustParse(ag.agentConfig.CpuLimit),
+				v1.ResourceMemory: resource.MustParse(ag.agentConfig.MemoryLimit),
 			},
-			Requests: map[corev1.ResourceName]resource.Quantity{
-				corev1.ResourceCPU:    resource.MustParse(ag.agentConfig.CpuRequest),
-				corev1.ResourceMemory: resource.MustParse(ag.agentConfig.MemoryRequest),
+			Requests: map[v1.ResourceName]resource.Quantity{
+				v1.ResourceCPU:    resource.MustParse(ag.agentConfig.CpuRequest),
+				v1.ResourceMemory: resource.MustParse(ag.agentConfig.MemoryRequest),
 			},
 		},
-		Ports: []corev1.ContainerPort{
+		Ports: []v1.ContainerPort{
 			{
 				Name:          "agent-port",
 				ContainerPort: constants.InferenceServiceDefaultAgentPort,
@@ -303,10 +298,10 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		},
 		SecurityContext: securityContext,
 		Env:             agentEnvs,
-		ReadinessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					HTTPHeaders: []corev1.HTTPHeader{
+		ReadinessProbe: &v1.Probe{
+			ProbeHandler: v1.ProbeHandler{
+				HTTPGet: &v1.HTTPGetAction{
+					HTTPHeaders: []v1.HTTPHeader{
 						{
 							Name:  "K-Network-Probe",
 							Value: "queue",
@@ -324,21 +319,21 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	if injectLogger && ag.loggerConfig.CaBundle != "" {
 		// Optional. If the ConfigMap is not found, this will not make the Pod fail
 		optionalVolume := true
-		configMapVolume := corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
+		configMapVolume := v1.VolumeSource{
+			ConfigMap: &v1.ConfigMapVolumeSource{
+				LocalObjectReference: v1.LocalObjectReference{
 					Name: ag.loggerConfig.CaBundle,
 				},
 				Optional: &optionalVolume,
 			},
 		}
 
-		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		pod.Spec.Volumes = append(pod.Spec.Volumes, v1.Volume{
 			Name:         constants.LoggerCaBundleVolume,
 			VolumeSource: configMapVolume,
 		})
 
-		agentContainer.VolumeMounts = append(agentContainer.VolumeMounts, corev1.VolumeMount{
+		agentContainer.VolumeMounts = append(agentContainer.VolumeMounts, v1.VolumeMount{
 			Name:      constants.LoggerCaBundleVolume,
 			MountPath: constants.LoggerCaCertMountPath,
 			ReadOnly:  true,
@@ -375,12 +370,12 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	return nil
 }
 
-func mountModelDir(pod *corev1.Pod) error {
+func mountModelDir(pod *v1.Pod) error {
 	if _, ok := pod.ObjectMeta.Annotations[constants.AgentModelDirAnnotationKey]; ok {
-		modelDirVolume := corev1.Volume{
+		modelDirVolume := v1.Volume{
 			Name: constants.ModelDirVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			VolumeSource: v1.VolumeSource{
+				EmptyDir: &v1.EmptyDirVolumeSource{},
 			},
 		}
 		// Mount the model dir into agent container
@@ -392,13 +387,13 @@ func mountModelDir(pod *corev1.Pod) error {
 	return fmt.Errorf("can not find %v label", constants.AgentModelConfigVolumeNameAnnotationKey)
 }
 
-func mountModelConfig(pod *corev1.Pod) error {
+func mountModelConfig(pod *v1.Pod) error {
 	if modelConfigName, ok := pod.ObjectMeta.Annotations[constants.AgentModelConfigVolumeNameAnnotationKey]; ok {
-		modelConfigVolume := corev1.Volume{
+		modelConfigVolume := v1.Volume{
 			Name: constants.ModelConfigVolumeName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
+			VolumeSource: v1.VolumeSource{
+				ConfigMap: &v1.ConfigMapVolumeSource{
+					LocalObjectReference: v1.LocalObjectReference{
 						Name: modelConfigName,
 					},
 				},
@@ -410,15 +405,15 @@ func mountModelConfig(pod *corev1.Pod) error {
 	return fmt.Errorf("can not find %v label", constants.AgentModelConfigVolumeNameAnnotationKey)
 }
 
-func mountVolumeToContainer(containerName string, pod *corev1.Pod, additionalVolume corev1.Volume, mountPath string) {
+func mountVolumeToContainer(containerName string, pod *v1.Pod, additionalVolume v1.Volume, mountPath string) {
 	pod.Spec.Volumes = appendVolume(pod.Spec.Volumes, additionalVolume)
-	mountedContainers := make([]corev1.Container, 0, len(pod.Spec.Containers))
+	mountedContainers := make([]v1.Container, 0, len(pod.Spec.Containers))
 	for _, container := range pod.Spec.Containers {
 		if container.Name == containerName {
 			if container.VolumeMounts == nil {
-				container.VolumeMounts = []corev1.VolumeMount{}
+				container.VolumeMounts = []v1.VolumeMount{}
 			}
-			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			container.VolumeMounts = append(container.VolumeMounts, v1.VolumeMount{
 				Name:      additionalVolume.Name,
 				ReadOnly:  false,
 				MountPath: mountPath,
@@ -429,9 +424,9 @@ func mountVolumeToContainer(containerName string, pod *corev1.Pod, additionalVol
 	pod.Spec.Containers = mountedContainers
 }
 
-func appendVolume(existingVolumes []corev1.Volume, additionalVolume corev1.Volume) []corev1.Volume {
+func appendVolume(existingVolumes []v1.Volume, additionalVolume v1.Volume) []v1.Volume {
 	if existingVolumes == nil {
-		existingVolumes = []corev1.Volume{}
+		existingVolumes = []v1.Volume{}
 	}
 	for _, volume := range existingVolumes {
 		if volume.Name == additionalVolume.Name {
