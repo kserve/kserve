@@ -23,12 +23,16 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # Install kserve dependencies using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
+
 COPY kserve kserve
+RUN cd kserve && uv sync --active --no-cache
 
 # Install huggingfaceserver dependencies using uv
 COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
 RUN cd huggingfaceserver && uv sync --active --no-cache
+
 COPY huggingfaceserver huggingfaceserver
+RUN cd huggingfaceserver && uv sync --active --no-cache
 
 # ---------- Production image ----------
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS prod

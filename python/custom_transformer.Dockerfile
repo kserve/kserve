@@ -26,12 +26,16 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # Install kserve dependencies
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
+
 COPY kserve kserve
+RUN cd kserve && uv sync --active --no-cache
 
 # Install custom_transformer dependencies
 COPY custom_transformer/pyproject.toml custom_transformer/uv.lock custom_transformer/
 RUN cd custom_transformer && uv sync --active --no-cache
+
 COPY custom_transformer custom_transformer
+RUN cd custom_transformer && uv sync --active --no-cache
 
 # ---------- Production image ----------
 FROM ${BASE_IMAGE} AS prod

@@ -23,12 +23,16 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # Install kserve dependencies using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
+
 COPY kserve kserve
+RUN cd kserve && uv sync --active --no-cache
 
 # Install paddleserver dependencies using uv
 COPY paddleserver/pyproject.toml paddleserver/uv.lock paddleserver/
 RUN cd paddleserver && uv sync --active --no-cache
+
 COPY paddleserver paddleserver
+RUN cd paddleserver && uv sync --active --no-cache
 
 # ---------- Production image ----------
 FROM ${BASE_IMAGE} AS prod

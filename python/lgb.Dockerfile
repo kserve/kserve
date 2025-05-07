@@ -21,12 +21,16 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # Install dependencies for kserve using uv
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
+
 COPY kserve kserve
+RUN cd kserve && uv sync --active --no-cache
 
 # Install dependencies for lgbserver using uv
 COPY lgbserver/pyproject.toml lgbserver/uv.lock lgbserver/
 RUN cd lgbserver && uv sync --active --no-cache
+
 COPY lgbserver lgbserver
+RUN cd lgbserver && uv sync --active --no-cache
 
 # ---------- Production image ----------
 FROM ${BASE_IMAGE} AS prod

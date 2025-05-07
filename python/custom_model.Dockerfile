@@ -26,12 +26,16 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # ------------------ Install kserve ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
+
 COPY kserve kserve
+RUN cd kserve && uv sync --active --no-cache
 
 # ------------------ Install custom_model ------------------
 COPY custom_model/pyproject.toml custom_model/uv.lock custom_model/
 RUN cd custom_model && uv sync --active --no-cache
+
 COPY custom_model custom_model
+RUN cd custom_model && uv sync --active --no-cache
 
 # ------------------ Final production image ------------------
 FROM ${BASE_IMAGE} AS prod

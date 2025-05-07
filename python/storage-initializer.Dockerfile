@@ -20,7 +20,9 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # Install Python dependencies
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --extra storage --active --no-cache 
+
 COPY kserve kserve
+RUN cd kserve && uv sync --extra storage --active --no-cache 
 
 ARG DEBIAN_FRONTEND=noninteractive
 

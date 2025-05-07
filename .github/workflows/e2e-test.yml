@@ -471,17 +471,15 @@ jobs:
       # - name: Install Poetry and version plugin
       #   run: ./test/scripts/gh-actions/setup-poetry.sh
 
-      - name: Install uv
-        run: pip install uv==0.6.14
-        
-      - name: Set up virtualenv
+      - name: Install uv and create virtual environment
         run: |
-          export VIRTUAL_ENV=$GITHUB_WORKSPACE/.venv
-          uv venv $VIRTUAL_ENV
+          pip install uv
+          uv venv python/kserve/.venv
 
       - name: Install KServe
         run: |
-          export VIRTUAL_ENV=$GITHUB_WORKSPACE/.venv
+          export VIRTUAL_ENV=python/kserve/.venv
+          source $VIRTUAL_ENV/bin/activate
           ./test/scripts/gh-actions/setup-kserve.sh
 
           kubectl get pods -n kserve
@@ -490,7 +488,6 @@ jobs:
       - name: Run E2E tests for graph
         timeout-minutes: 30
         run: |
-          export VIRTUAL_ENV=$GITHUB_WORKSPACE/.venv
           ./test/scripts/gh-actions/run-e2e-tests.sh "graph" "6"
 
       - name: Check system status

@@ -26,12 +26,16 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # ------------------ Install kserve ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
+
 COPY kserve kserve
+RUN cd kserve && uv sync --active --no-cache
 
 # ------------------ Install custom_tokenizer ------------------
 COPY custom_tokenizer/pyproject.toml custom_tokenizer/uv.lock custom_tokenizer/
 RUN cd custom_tokenizer && uv sync --active --no-cache
+
 COPY custom_tokenizer custom_tokenizer
+RUN cd custom_tokenizer && uv sync --active --no-cache
 
 # ------------------ Final Production Image ------------------
 FROM ${BASE_IMAGE} AS prod

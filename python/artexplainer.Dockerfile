@@ -21,12 +21,16 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # ------------------ kserve deps ------------------
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
 RUN cd kserve && uv sync --active --no-cache
+
 COPY kserve kserve
+RUN cd kserve && uv sync --active --no-cache
 
 # ------------------ artexplainer deps ------------------
 COPY artexplainer/pyproject.toml artexplainer/uv.lock artexplainer/
 RUN cd artexplainer && uv sync --active --no-cache
+
 COPY artexplainer artexplainer
+RUN cd artexplainer && uv sync --active --no-cache
 
 # ------------------ Production stage ------------------
 FROM ${BASE_IMAGE} AS prod
