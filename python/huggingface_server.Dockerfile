@@ -54,35 +54,7 @@ WORKDIR ${WORKSPACE_DIR}
 FROM base AS build
 
 ARG WORKSPACE_DIR
-ARG VLLM_VERSION=0.8.4
-
-################### LMCache WHEEL BUILD ###################
-# max jobs used by Ninja to build extensions
-ARG max_jobs=2
-ENV MAX_JOBS=${max_jobs}
-# number of threads used by nvcc
-ARG nvcc_threads=8
-ENV NVCC_THREADS=$nvcc_threads
-
-ARG LMCACHE_COMMIT_ID=1
-
-RUN git clone https://github.com/LMCache/LMCache.git
-RUN git clone https://github.com/LMCache/torchac_cuda.git
-
-# install build dependencies
-RUN --mount=type=cache,target=/root/.cache/pip \
-    python3 -m pip install -r LMCache/docker/requirements-build.txt
-
-WORKDIR ${WORKSPACE_DIR}/LMCache
-RUN --mount=type=cache,target=/root/.cache/ccache \
-    --mount=type=cache,target=/root/.cache/pip \
-    python3 setup.py bdist_wheel --dist-dir=dist_lmcache
-
-WORKDIR ${WORKSPACE_DIR}/torchac_cuda
-RUN --mount=type=cache,target=/root/.cache/ccache \
-    --mount=type=cache,target=/root/.cache/pip \
-    python3 setup.py bdist_wheel --dist-dir=${WORKSPACE_DIR}/LMCache/dist_lmcache
-################### LMCache WHEEL BUILD ###################
+ARG VLLM_VERSION=0.8.5
 
 WORKDIR ${WORKSPACE_DIR}
 
@@ -104,8 +76,8 @@ RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
-# Install torchac_cuda and lmcache wheel
-RUN --mount=type=cache,target=/root/.cache/pip pip install ${WORKSPACE_DIR}/LMCache/dist_lmcache/*.whl --verbose
+# Install lmcache
+RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==0.2.11
 
 # Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
