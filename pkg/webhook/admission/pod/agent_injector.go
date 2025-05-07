@@ -36,6 +36,8 @@ import (
 const (
 	LoggerConfigMapKeyName            = "logger"
 	LoggerArgumentLogUrl              = "--log-url"
+	LoggerArgumentStorePath           = "--log-store-path"
+	LoggerArgumentStoreFormat         = "--log-store-format"
 	LoggerArgumentSourceUri           = "--source-uri"
 	LoggerArgumentMode                = "--log-mode"
 	LoggerArgumentInferenceService    = "--inference-service"
@@ -46,6 +48,8 @@ const (
 	LoggerArgumentTlsSkipVerify       = "--logger-tls-skip-verify"
 	LoggerArgumentMetadataHeaders     = "--metadata-headers"
 	LoggerArgumentMetadataAnnotations = "--metadata-annotations"
+
+	LoggerDefaultServiceAccountName = "logger-sa"
 )
 
 type AgentConfig struct {
@@ -56,16 +60,22 @@ type AgentConfig struct {
 	MemoryLimit   string `json:"memoryLimit"`
 }
 
+type LoggerStorageSpec struct {
+	*v1beta1.StorageSpec
+	ServiceAccountName *string `json:"serviceAccountName,omitempty"`
+}
+
 type LoggerConfig struct {
-	Image         string `json:"image"`
-	CpuRequest    string `json:"cpuRequest"`
-	CpuLimit      string `json:"cpuLimit"`
-	MemoryRequest string `json:"memoryRequest"`
-	MemoryLimit   string `json:"memoryLimit"`
-	DefaultUrl    string `json:"defaultUrl"`
-	CaBundle      string `json:"caBundle"`
-	CaCertFile    string `json:"caCertFile"`
-	TlsSkipVerify bool   `json:"tlsSkipVerify"`
+	Image         string             `json:"image"`
+	CpuRequest    string             `json:"cpuRequest"`
+	CpuLimit      string             `json:"cpuLimit"`
+	MemoryRequest string             `json:"memoryRequest"`
+	MemoryLimit   string             `json:"memoryLimit"`
+	DefaultUrl    string             `json:"defaultUrl"`
+	CaBundle      string             `json:"caBundle"`
+	CaCertFile    string             `json:"caCertFile"`
+	TlsSkipVerify bool               `json:"tlsSkipVerify"`
+	Store         *LoggerStorageSpec `json:"storage"`
 }
 
 type AgentInjector struct {
@@ -125,6 +135,17 @@ func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
 			return loggerConfig, fmt.Errorf("Failed to parse resource configuration for %q: %q", LoggerConfigMapKeyName, err.Error())
 		}
 	}
+	if loggerConfig.Store != nil {
+		log.Info("Using inference-service logger store configuration", "Store", loggerConfig.Store)
+		if loggerConfig.Store.StorageKey == nil || *loggerConfig.Store.StorageKey == "" {
+			storageKey := constants.LoggerDefaultStorageKey
+			loggerConfig.Store.StorageKey = &storageKey
+		}
+		if loggerConfig.Store.ServiceAccountName == nil || *loggerConfig.Store.ServiceAccountName == "" {
+			saName := constants.LoggerDefaultServiceAccountName
+			loggerConfig.Store.ServiceAccountName = &saName
+		}
+	}
 	return loggerConfig, nil
 }
 
@@ -177,6 +198,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	}
 	// Only inject if the logger required annotations are set
 	if injectLogger {
+		log.Info("Injecting logger configuration")
 		logUrl, ok := pod.ObjectMeta.Annotations[constants.LoggerSinkUrlInternalAnnotationKey]
 		if !ok {
 			logUrl = ag.loggerConfig.DefaultUrl
@@ -191,6 +213,22 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		namespace := pod.ObjectMeta.Namespace
 		endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
 		component := pod.ObjectMeta.Labels[constants.KServiceComponentLabel]
+
+		storagePath := ""
+		if ag.loggerConfig.Store != nil {
+			if ag.loggerConfig.Store.Path != nil {
+				storagePath = *ag.loggerConfig.Store.Path
+			}
+		}
+		storageFormat := ""
+		if ag.loggerConfig.Store != nil {
+			if ag.loggerConfig.Store.Parameters != nil {
+				format, ok := (*ag.loggerConfig.Store.Parameters)[constants.LoggerFormatKey]
+				if ok {
+					storageFormat = format
+				}
+			}
+		}
 
 		loggerArgs := []string{
 			LoggerArgumentLogUrl,
@@ -207,6 +245,14 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			endpoint,
 			LoggerArgumentComponent,
 			component,
+		}
+		if storagePath != "" {
+			loggerArgs = append(loggerArgs, LoggerArgumentStorePath)
+			loggerArgs = append(loggerArgs, storagePath)
+		}
+		if storageFormat != "" {
+			loggerArgs = append(loggerArgs, LoggerArgumentStoreFormat)
+			loggerArgs = append(loggerArgs, storageFormat)
 		}
 		logHeaderMetadata, ok := pod.ObjectMeta.Annotations[constants.LoggerMetadataHeadersInternalAnnotationKey]
 		if ok {
@@ -239,6 +285,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 
 	var queueProxyEnvs []corev1.EnvVar
 	var agentEnvs []corev1.EnvVar
+
 	queueProxyAvailable := false
 	transformerContainerIdx := -1
 	componentPort := constants.InferenceServiceDefaultHttpPort
@@ -386,6 +433,22 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		&pod.Spec.Volumes,
 	); err != nil {
 		return err
+	}
+
+	if injectLogger && ag.loggerConfig.Store != nil {
+		saName := LoggerDefaultServiceAccountName
+		if ag.loggerConfig.Store.ServiceAccountName != nil {
+			saName = *ag.loggerConfig.Store.ServiceAccountName
+		}
+		if err := ag.credentialBuilder.CreateSecretVolumeAndEnv(
+			pod.Namespace,
+			pod.Annotations,
+			saName,
+			agentContainer,
+			&pod.Spec.Volumes,
+		); err != nil {
+			return err
+		}
 	}
 
 	// Add container to the spec

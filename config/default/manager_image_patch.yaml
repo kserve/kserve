@@ -8,5 +8,5 @@ spec:
     spec:
       containers:
       # Change the value of image field below to your controller image URL
-      - image: kserve/kserve-controller:latest
+      - image: 192.168.1.171:6000/kserve-controller:latest
         name: manager

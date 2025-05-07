@@ -23,15 +23,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
+	"github.com/kserve/kserve/pkg/constants"
+	"go.uber.org/zap"
 	"net/http"
 	"os"
 	"path/filepath"
-
-	cloudevents "github.com/cloudevents/sdk-go/v2"
-	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
-	"go.uber.org/zap"
-
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 const (
@@ -63,7 +61,7 @@ func QueueLogRequest(req LogRequest) error {
 // NewWorker creates, and returns a new Worker object. Its only argument
 // is a channel that the worker can add itself to whenever it is done its
 // work.
-func NewWorker(id int, workerQueue chan chan LogRequest, logger *zap.SugaredLogger) Worker {
+func NewWorker(id int, workerQueue chan chan LogRequest, store Store, logger *zap.SugaredLogger) Worker {
 	// Create, and return the worker.
 	return Worker{
 		Log:         logger,
@@ -71,6 +69,7 @@ func NewWorker(id int, workerQueue chan chan LogRequest, logger *zap.SugaredLogg
 		Work:        make(chan LogRequest),
 		WorkerQueue: workerQueue,
 		QuitChan:    make(chan bool),
+		Store:       store,
 	}
 }
 
@@ -80,9 +79,10 @@ type Worker struct {
 	Work        chan LogRequest
 	WorkerQueue chan chan LogRequest
 	QuitChan    chan bool
+	Store       Store
 }
 
-func (w *Worker) sendCloudEvent(logReq LogRequest) error {
+func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 	t, err := cloudevents.NewHTTP(
 		cloudevents.WithTarget(logReq.Url.String()),
 	)
@@ -179,8 +179,25 @@ func (w *Worker) Start() {
 				// Receive a work request.
 				w.Log.Infof("Received work request %d, url: %s, requestId: %s", w.ID, work.Url.String(), work.Id)
 
-				if err := w.sendCloudEvent(work); err != nil {
-					w.Log.Error(err, "Failed to send cloud event, url: %s", work.Url.String())
+				// Determine how we should handle the work request.
+				strategy := GetStorageStrategy(work.Url.String())
+
+				// Use HTTP if the URL scheme is HTTP or HTTPS, or if we don't have a configured logger store.
+				if strategy == HttpStorage {
+					if err := w.sendHttpCloudEvent(work); err != nil {
+						w.Log.Error(err, "Failed to send cloud event, url: %s", work.Url.String())
+					}
+					continue
+				}
+
+				if w.Store == nil {
+					w.Log.Error("Logger store not configured, cannot store event")
+					continue
+				}
+
+				// Store the cloud event in a logger store.
+				if err := w.Store.Store(work.Url, work); err != nil {
+					w.Log.Error(err, "Failed to log cloud event", "url", work.Url.String())
 				}
 
 			case <-w.QuitChan:

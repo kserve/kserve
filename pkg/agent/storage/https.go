@@ -59,6 +59,10 @@ func (m *HTTPSProvider) DownloadModel(modelDir string, modelName string, storage
 	return nil
 }
 
+func (m *HTTPSProvider) UploadObject(bucket string, key string, object []byte) error {
+	return fmt.Errorf("upload not supported for HTTPS storage")
+}
+
 type HTTPSDownloader struct {
 	StorageUri string
 	ModelDir   string
