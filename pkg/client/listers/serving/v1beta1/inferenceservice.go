@@ -19,10 +19,10 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	servingv1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // InferenceServiceLister helps list InferenceServices.
@@ -30,7 +30,7 @@ import (
 type InferenceServiceLister interface {
 	// List lists all InferenceServices in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.InferenceService, err error)
+	List(selector labels.Selector) (ret []*servingv1beta1.InferenceService, err error)
 	// InferenceServices returns an object that can list and get InferenceServices.
 	InferenceServices(namespace string) InferenceServiceNamespaceLister
 	InferenceServiceListerExpansion
@@ -38,17 +38,17 @@ type InferenceServiceLister interface {
 
 // inferenceServiceLister implements the InferenceServiceLister interface.
 type inferenceServiceLister struct {
-	listers.ResourceIndexer[*v1beta1.InferenceService]
+	listers.ResourceIndexer[*servingv1beta1.InferenceService]
 }
 
 // NewInferenceServiceLister returns a new InferenceServiceLister.
 func NewInferenceServiceLister(indexer cache.Indexer) InferenceServiceLister {
-	return &inferenceServiceLister{listers.New[*v1beta1.InferenceService](indexer, v1beta1.Resource("inferenceservice"))}
+	return &inferenceServiceLister{listers.New[*servingv1beta1.InferenceService](indexer, servingv1beta1.Resource("inferenceservice"))}
 }
 
 // InferenceServices returns an object that can list and get InferenceServices.
 func (s *inferenceServiceLister) InferenceServices(namespace string) InferenceServiceNamespaceLister {
-	return inferenceServiceNamespaceLister{listers.NewNamespaced[*v1beta1.InferenceService](s.ResourceIndexer, namespace)}
+	return inferenceServiceNamespaceLister{listers.NewNamespaced[*servingv1beta1.InferenceService](s.ResourceIndexer, namespace)}
 }
 
 // InferenceServiceNamespaceLister helps list and get InferenceServices.
@@ -56,15 +56,15 @@ func (s *inferenceServiceLister) InferenceServices(namespace string) InferenceSe
 type InferenceServiceNamespaceLister interface {
 	// List lists all InferenceServices in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.InferenceService, err error)
+	List(selector labels.Selector) (ret []*servingv1beta1.InferenceService, err error)
 	// Get retrieves the InferenceService from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.InferenceService, error)
+	Get(name string) (*servingv1beta1.InferenceService, error)
 	InferenceServiceNamespaceListerExpansion
 }
 
 // inferenceServiceNamespaceLister implements the InferenceServiceNamespaceLister
 // interface.
 type inferenceServiceNamespaceLister struct {
-	listers.ResourceIndexer[*v1beta1.InferenceService]
+	listers.ResourceIndexer[*servingv1beta1.InferenceService]
 }

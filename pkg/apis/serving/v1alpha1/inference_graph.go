@@ -54,20 +54,36 @@ type InferenceGraphSpec struct {
 	TimeoutSeconds *int64 `json:"timeout,omitempty"`
 	// Minimum number of replicas, defaults to 1 but can be set to 0 to enable scale-to-zero.
 	// +optional
-	MinReplicas *int `json:"minReplicas,omitempty"`
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
 	// Maximum number of replicas for autoscaling.
 	// +optional
-	MaxReplicas int `json:"maxReplicas,omitempty"`
+	MaxReplicas int32 `json:"maxReplicas,omitempty"`
 	// ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for.
 	// concurrency and rps targets are supported by Knative Pod Autoscaler
 	// (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/).
 	// +optional
-	ScaleTarget *int `json:"scaleTarget,omitempty"`
+	ScaleTarget *int32 `json:"scaleTarget,omitempty"`
 	// ScaleMetric defines the scaling metric type watched by autoscaler
 	// possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via
 	// Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).
 	// +optional
 	ScaleMetric *ScaleMetric `json:"scaleMetric,omitempty"`
+	// Toleration specifies the toleration for the InferenceGraph.
+	// https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+	// +optional
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+	// NodeSelector specifies the node selector for the InferenceGraph.
+	// https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+	// +optional
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// NodeName specifies the node name for the InferenceGraph.
+	// https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+	// +optional
+	NodeName string `json:"nodeName,omitempty"`
+	// ServiceAccountName specifies the service account name for the InferenceGraph.
+	// https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+	// +optional
+	ServiceAccountName string `json:"serviceAccountName,omitempty"`
 }
 
 // ScaleMetric enum

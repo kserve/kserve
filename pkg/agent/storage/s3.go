@@ -88,7 +88,7 @@ func (s *S3ObjectDownloader) GetAllObjects(s3Svc s3iface.S3API) ([]s3manager.Bat
 		return nil, fmt.Errorf("%s has no objects or does not exist", s.StorageUri)
 	}
 
-	var foundObject = false
+	foundObject := false
 
 	for _, object := range resp.Contents {
 		if strings.HasSuffix(*object.Key, "/") {

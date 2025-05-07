@@ -19,17 +19,19 @@ package utils
 import (
 	"context"
 
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/pkg/errors"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/component-helpers/scheduling/corev1"
 	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kserve/kserve/pkg/constants"
+
+	corev1 "k8s.io/api/core/v1"
+	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 )
 
 // GetAutoscalerConfiguration reads the global knative serving configuration and retrieves values related to the autoscaler.
 // This configuration is defined in the knativeserving custom resource.
-func GetAutoscalerConfiguration(client client.Client) (string, string, error) {
+func GetAutoscalerConfiguration(ctx context.Context, client client.Client) (string, string, error) {
 	// Set allow-zero-initial-scale and intitial-scale to their default values to start.
 	// If autoscaling values are not set in the configuration, then the defaults are used.
 	allowZeroInitialScale := "false"
@@ -37,7 +39,7 @@ func GetAutoscalerConfiguration(client client.Client) (string, string, error) {
 
 	// List all knativeserving custom resources to handle scenarios where the custom resource is not created in the default knative-serving namespace.
 	knservingList := &operatorv1beta1.KnativeServingList{}
-	err := client.List(context.TODO(), knservingList)
+	err := client.List(ctx, knservingList)
 	if err != nil {
 		return allowZeroInitialScale, globalInitialScale, errors.Wrapf(
 			err,
@@ -70,15 +72,11 @@ func GetAutoscalerConfiguration(client client.Client) (string, string, error) {
 }
 
 // CheckNodeAffinity returns true if the node matches the node affinity specified in the PV Spec
-func CheckNodeAffinity(pvSpec *v1.PersistentVolumeSpec, node v1.Node) (bool, error) {
+func CheckNodeAffinity(pvSpec *corev1.PersistentVolumeSpec, node corev1.Node) (bool, error) {
 	if pvSpec.NodeAffinity == nil || pvSpec.NodeAffinity.Required == nil {
 		return false, nil
 	}
 
 	terms := pvSpec.NodeAffinity.Required
-	if matches, err := corev1.MatchNodeSelectorTerms(&node, terms); err != nil {
-		return matches, nil
-	} else {
-		return matches, err
-	}
+	return corev1helpers.MatchNodeSelectorTerms(&node, terms)
 }

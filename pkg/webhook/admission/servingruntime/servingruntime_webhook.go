@@ -25,12 +25,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var log = logf.Log.WithName(constants.ServingRuntimeValidatorWebhookName)
@@ -77,7 +78,7 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 	}
 
 	ExistingRuntimes := &v1alpha1.ServingRuntimeList{}
-	if err := sr.Client.List(context.TODO(), ExistingRuntimes, client.InNamespace(servingRuntime.Namespace)); err != nil {
+	if err := sr.Client.List(ctx, ExistingRuntimes, client.InNamespace(servingRuntime.Namespace)); err != nil {
 		log.Error(err, "Failed to get serving runtime list", "namespace", servingRuntime.Namespace)
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
@@ -115,11 +116,11 @@ func (sr *ServingRuntimeValidator) Handle(ctx context.Context, req admission.Req
 // 		return admission.Errored(http.StatusBadRequest, err)
 // 	}
 
-// 	ExistingRuntimes := &v1alpha1.ClusterServingRuntimeList{}
-// 	if err := csr.Client.List(context.TODO(), ExistingRuntimes); err != nil {
-// 		log.Error(err, "Failed to get cluster serving runtime list")
-// 		return admission.Errored(http.StatusInternalServerError, err)
-// 	}
+// ExistingRuntimes := &v1alpha1.ClusterServingRuntimeList{}
+// if err := csr.Client.List(ctx, ExistingRuntimes); err != nil {
+//	log.Error(err, "Failed to get cluster serving runtime list")
+//	return admission.Errored(http.StatusInternalServerError, err)
+//}
 
 // 	// Only validate for priority if the new cluster serving runtime is not disabled
 // 	if clusterServingRuntime.Spec.IsDisabled() {

@@ -24,9 +24,10 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/kserve/kserve/pkg/constants"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var (

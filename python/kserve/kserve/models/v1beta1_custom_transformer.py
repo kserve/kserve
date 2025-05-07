@@ -72,6 +72,7 @@ class V1beta1CustomTransformer(object):
         'priority_class_name': 'str',
         'readiness_gates': 'list[V1PodReadinessGate]',
         'resource_claims': 'list[V1PodResourceClaim]',
+        'resources': 'V1ResourceRequirements',
         'restart_policy': 'str',
         'runtime_class_name': 'str',
         'scheduler_name': 'str',
@@ -114,6 +115,7 @@ class V1beta1CustomTransformer(object):
         'priority_class_name': 'priorityClassName',
         'readiness_gates': 'readinessGates',
         'resource_claims': 'resourceClaims',
+        'resources': 'resources',
         'restart_policy': 'restartPolicy',
         'runtime_class_name': 'runtimeClassName',
         'scheduler_name': 'schedulerName',
@@ -130,7 +132,7 @@ class V1beta1CustomTransformer(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1CustomTransformer - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -161,6 +163,7 @@ class V1beta1CustomTransformer(object):
         self._priority_class_name = None
         self._readiness_gates = None
         self._resource_claims = None
+        self._resources = None
         self._restart_policy = None
         self._runtime_class_name = None
         self._scheduler_name = None
@@ -226,6 +229,8 @@ class V1beta1CustomTransformer(object):
             self.readiness_gates = readiness_gates
         if resource_claims is not None:
             self.resource_claims = resource_claims
+        if resources is not None:
+            self.resources = resources
         if restart_policy is not None:
             self.restart_policy = restart_policy
         if runtime_class_name is not None:
@@ -825,6 +830,27 @@ class V1beta1CustomTransformer(object):
         """
 
         self._resource_claims = resource_claims
+
+    @property
+    def resources(self):
+        """Gets the resources of this V1beta1CustomTransformer.  # noqa: E501
+
+
+        :return: The resources of this V1beta1CustomTransformer.  # noqa: E501
+        :rtype: V1ResourceRequirements
+        """
+        return self._resources
+
+    @resources.setter
+    def resources(self, resources):
+        """Sets the resources of this V1beta1CustomTransformer.
+
+
+        :param resources: The resources of this V1beta1CustomTransformer.  # noqa: E501
+        :type: V1ResourceRequirements
+        """
+
+        self._resources = resources
 
     @property
     def restart_policy(self):

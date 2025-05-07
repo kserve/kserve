@@ -21,6 +21,7 @@ from kserve.logging import logger
 try:
     from vllm.engine.arg_utils import AsyncEngineArgs
     from vllm.model_executor.models import ModelRegistry
+    from vllm.entrypoints.openai.cli_args import make_arg_parser
 
     _vllm = True
 except ImportError:
@@ -54,7 +55,7 @@ def infer_vllm_supported_from_model_architecture(
 def maybe_add_vllm_cli_parser(parser: ArgumentParser) -> ArgumentParser:
     if not _vllm:
         return parser
-    return AsyncEngineArgs.add_cli_args(parser)
+    return make_arg_parser(parser)
 
 
 def build_vllm_engine_args(args) -> "AsyncEngineArgs":
