@@ -110,7 +110,7 @@ func TestValidateServingRuntimePriority(t *testing.T) {
 			},
 			expected: gomega.BeNil(),
 		},
-		"When priority is same for model format in multi model serving runtime then it should return error": {
+		"When priority is same for model format in multi model serving runtime it should return error": {
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "new-runtime",
@@ -691,7 +691,7 @@ func TestValidateServingRuntimePriority(t *testing.T) {
 			},
 			expected: gomega.BeNil(),
 		},
-		"When model version is nil in both serving runtime and priority is same then it should return error": {
+		"When model version is nil in both serving runtime and priority is same it should return error": {
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "example-runtime-1",
@@ -977,7 +977,7 @@ func TestValidateServingRuntimePriority(t *testing.T) {
 			},
 			expected: gomega.BeNil(),
 		},
-		"When model version is same in both serving runtime and priority is same then it should return error": {
+		"When model version is same in both serving runtime and priority is same it should return error": {
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "example-runtime-1",
@@ -1356,7 +1356,7 @@ func TestValidateModelFormatPrioritySame(t *testing.T) {
 		newServingRuntime *v1alpha1.ServingRuntime
 		expected          gomega.OmegaMatcher
 	}{
-		"When different priority assigned for the same model format in the runtime then it should return error": {
+		"When different priority assigned for the same model format in the runtime it should return error": {
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "example-runtime-1",
@@ -1458,7 +1458,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 		existingServingRuntime *v1alpha1.ServingRuntime
 		expected               gomega.OmegaMatcher
 	}{
-		"When pipelineParallelSize is not set, then it should return error": {
+		"When pipeline-parallel-size set less than 1, it should return error": {
 			existingServingRuntime: &v1alpha1.ServingRuntime{},
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1480,87 +1480,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 						},
 					},
 					WorkerSpec: &v1alpha1.WorkerSpec{
-						TensorParallelSize: intPtr(1),
-						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-							Containers: []corev1.Container{
-								{
-									Name:    "worker-container",
-									Image:   "kserve/huggingfaceserver:latest",
-									Command: []string{"bash", "-c"},
-									Args: []string{
-										"ray start --address=$RAY_HEAD_ADDRESS --block",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			expected: gomega.Equal(errors.New(MissingPipelineParallelSizeValueError)),
-		},
-		"When tensorParallelSize is not set, then it should return error": {
-			existingServingRuntime: &v1alpha1.ServingRuntime{},
-			newServingRuntime: &v1alpha1.ServingRuntime{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "example-runtime-2",
-					Namespace: "test",
-				},
-				Spec: v1alpha1.ServingRuntimeSpec{
-					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  constants.InferenceServiceContainerName,
-								Image: "kserve/sklearnserver:latest",
-								Args: []string{
-									"--model_name={{.Name}}",
-									"--model_dir=/mnt/models",
-									"--http_port=8080",
-								},
-							},
-						},
-					},
-					WorkerSpec: &v1alpha1.WorkerSpec{
-						PipelineParallelSize: intPtr(2),
-						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-							Containers: []corev1.Container{
-								{
-									Name:    "worker-container",
-									Image:   "kserve/huggingfaceserver:latest",
-									Command: []string{"bash", "-c"},
-									Args: []string{
-										"ray start --address=$RAY_HEAD_ADDRESS --block",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			expected: gomega.Equal(errors.New(MissingTensorParallelSizeValueError)),
-		},
-		"When pipeline-parallel-size set less than 2, then it should return error": {
-			existingServingRuntime: &v1alpha1.ServingRuntime{},
-			newServingRuntime: &v1alpha1.ServingRuntime{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "example-runtime-3",
-					Namespace: "test",
-				},
-				Spec: v1alpha1.ServingRuntimeSpec{
-					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  constants.InferenceServiceContainerName,
-								Image: "kserve/sklearnserver:latest",
-								Args: []string{
-									"--model_name={{.Name}}",
-									"--model_dir=/mnt/models",
-									"--http_port=8080",
-								},
-							},
-						},
-					},
-					WorkerSpec: &v1alpha1.WorkerSpec{
-						PipelineParallelSize: intPtr(1),
+						PipelineParallelSize: intPtr(0),
 						TensorParallelSize:   intPtr(1),
 						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 							Containers: []corev1.Container{
@@ -1577,13 +1497,13 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, "1")),
+			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, "0")),
 		},
-		"When tensor-parallel-size set less than 1, then it should return error": {
+		"When tensor-parallel-size set less than 1, it should return error": {
 			existingServingRuntime: &v1alpha1.ServingRuntime{},
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "example-runtime-4",
+					Name:      "example-runtime-2",
 					Namespace: "test",
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
@@ -1620,11 +1540,11 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			},
 			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, "0")),
 		},
-		"When pipeline-parallel-size set in the environment, then it should return error": {
+		"When pipeline-parallel-size set in the environment, it should return error": {
 			existingServingRuntime: &v1alpha1.ServingRuntime{},
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "example-runtime-5",
+					Name:      "example-runtime-3",
 					Namespace: "test",
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
@@ -1662,11 +1582,11 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			},
 			expected: gomega.Equal(errors.New(DisallowedWorkerSpecPipelineParallelSizeEnvError)),
 		},
-		"When tensor-parallel-size set in the environment, then it should return error": {
+		"When tensor-parallel-size set in the environment, it should return error": {
 			existingServingRuntime: &v1alpha1.ServingRuntime{},
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "example-runtime-6",
+					Name:      "example-runtime-4",
 					Namespace: "test",
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
@@ -1704,10 +1624,10 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			},
 			expected: gomega.Equal(errors.New(DisallowedWorkerSpecTensorParallelSizeEnvError)),
 		},
-		"when the existing workerSpec is removed from the servingRuntime, then it should return error": {
+		"when the existing workerSpec is removed from the servingRuntime, it should return error": {
 			existingServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "example-runtime-7",
+					Name:      "example-runtime-5",
 					Namespace: "test",
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
@@ -1763,11 +1683,11 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			},
 			expected: gomega.Equal(errors.New(DisallowedRemovingWorkerSpecFromServingRuntimeError)),
 		},
-		"When multiple containers set in WorkerSpec, then it should return error": {
+		"When multiple containers set in WorkerSpec, it should return error": {
 			existingServingRuntime: &v1alpha1.ServingRuntime{},
 			newServingRuntime: &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "example-runtime-8",
+					Name:      "example-runtime-6",
 					Namespace: "test",
 				},
 				Spec: v1alpha1.ServingRuntimeSpec{
