@@ -194,7 +194,7 @@ func createLocalModelAgentDaemonSet(nodeGroup v1alpha1.LocalModelNodeGroup, loca
 						{
 							Name:            "manager",
 							Image:           localModelConfig.LocalModelAgentImage,
-							ImagePullPolicy: corev1.PullAlways,
+							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: []corev1.EnvVar{
 								{
 									Name: "POD_NAMESPACE",
