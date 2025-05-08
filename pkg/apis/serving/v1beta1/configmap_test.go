@@ -71,6 +71,23 @@ var (
 		]
 	}`
 	MultiNodeConfigNoData = `{}`
+
+	LocalModelConfigWithValidPullPolicy = `{
+		"enabled": true,
+		"jobNamespace": "default",
+		"localModelAgentImagePullPolicy": "Always"
+	}`
+
+	LocalModelConfigWithInvalidPullPolicy = `{
+		"enabled": true,
+		"jobNamespace": "default",
+		"localModelAgentImagePullPolicy": "Invalid"
+	}`
+
+	LocalModelConfigNoPolicy = `{
+		"enabled": true,
+		"jobNamespace": "default"
+	}`
 )
 
 func TestNewInferenceServiceConfig(t *testing.T) {
@@ -277,6 +294,61 @@ func TestInferenceServiceDisallowedLists(t *testing.T) {
 	g.Expect(isvcConfigWithoutData).ShouldNot(gomega.BeNil())
 	g.Expect(isvcConfigWithoutData.ServiceAnnotationDisallowedList).To(gomega.Equal(constants.ServiceAnnotationDisallowedList))
 	g.Expect(isvcConfigWithoutData.ServiceLabelDisallowedList).To(gomega.Equal(constants.RevisionTemplateLabelDisallowedList))
+}
+
+func TestNewLocalModelConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	tests := []struct {
+		name          string
+		configData    string
+		expectedError bool
+		errorMessage  string
+	}{
+		{
+			name:          "valid pull policy",
+			configData:    LocalModelConfigWithValidPullPolicy,
+			expectedError: false,
+		},
+		{
+			name:          "invalid pull policy",
+			configData:    LocalModelConfigWithInvalidPullPolicy,
+			expectedError: true,
+			errorMessage:  "invalid local model agent image pull policy: Invalid",
+		},
+		{
+			name:          "no pull policy specified",
+			configData:    LocalModelConfigNoPolicy,
+			expectedError: true,
+			errorMessage:  "invalid local model agent image pull policy: ",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+				Data: map[string]string{
+					LocalModelConfigName: tt.configData,
+				},
+			})
+
+			configMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+			localModelConfig, err := NewLocalModelConfig(configMap)
+
+			if tt.expectedError {
+				g.Expect(err).Should(gomega.HaveOccurred())
+				if tt.errorMessage != "" {
+					g.Expect(err.Error()).Should(gomega.Equal(tt.errorMessage))
+				}
+			} else {
+				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				g.Expect(localModelConfig).ShouldNot(gomega.BeNil())
+			}
+		})
+	}
 }
 
 func TestValidateIngressGateway(t *testing.T) {

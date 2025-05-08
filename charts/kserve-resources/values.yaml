@@ -432,6 +432,7 @@ kserve:
       agent:
         image: kserve/kserve-localmodelnode-agent
         tag: *defaultVersion
+        imagePullPolicy: Always
         reconcilationFrequencyInSecs: 60
         securityContext:
           runAsUser: 1000

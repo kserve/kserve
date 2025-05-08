@@ -12,6 +12,7 @@ Name | Type | Description | Notes
 **local_model_agent_cpu_limit** | **str** |  | [optional] 
 **local_model_agent_cpu_request** | **str** |  | [optional] 
 **local_model_agent_image** | **str** |  | [optional] 
+**local_model_agent_image_pull_policy** | **str** |  | [optional] 
 **local_model_agent_memory_limit** | **str** |  | [optional] 
 **local_model_agent_memory_request** | **str** |  | [optional] 
 **reconcilation_frequency_in_secs** | **int** |  | [optional] 
