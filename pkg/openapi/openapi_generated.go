@@ -6302,6 +6302,12 @@ func schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref common.ReferenceCallba
 							Format: "",
 						},
 					},
+					"localModelAgentImagePullPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"localModelAgentCpuLimit": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
