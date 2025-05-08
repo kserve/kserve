@@ -559,7 +559,6 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 }
 
 func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta, workerObjectMeta metav1.ObjectMeta, podSpec, workerPodSpec *corev1.PodSpec) error {
-
 	r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, constants.InferenceServiceResource, objectMeta, workerObjectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 		podSpec, workerPodSpec)
 	if err != nil {
@@ -604,6 +603,9 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 func (p *Predictor) reconcileKnativeDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) (*knservingv1.ServiceStatus, error) {
 	r, err := knative.NewKsvcReconciler(ctx, p.client, p.scheme, *objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 		podSpec, isvc.Status.Components[v1beta1.PredictorComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fails to create new knative service reconciler for predictor")
+	}
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return nil, errors.Wrapf(err, "fails to set owner reference for predictor")
 	}
