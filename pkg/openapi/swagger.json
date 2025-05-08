@@ -3486,6 +3486,9 @@
         "localModelAgentImage": {
           "type": "string"
         },
+        "localModelAgentImagePullPolicy": {
+          "type": "string"
+        },
         "localModelAgentMemoryLimit": {
           "type": "string"
         },
