@@ -187,7 +187,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.0
 | kserve.storage.containerSecurityContext.privileged | bool | `false` |  |
 | kserve.storage.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | kserve.storage.cpuModelcar | string | `"10m"` | Model sidecar cpu requirement. |
-| kserve.storage.enableModelcar | bool | `false` | Flag for enabling model sidecar feature. |
+| kserve.storage.enableModelcar | bool | `true` | Flag for enabling model sidecar feature. |
 | kserve.storage.image | string | `"kserve/storage-initializer"` |  |
 | kserve.storage.memoryModelcar | string | `"15Mi"` | Model sidecar memory requirement. |
 | kserve.storage.s3 | object | `{"CABundle":"","accessKeyIdName":"AWS_ACCESS_KEY_ID","endpoint":"","region":"","secretAccessKeyName":"AWS_SECRET_ACCESS_KEY","useAnonymousCredential":"","useHttps":"","useVirtualBucket":"","verifySSL":""}` | Configurations for S3 storage |
