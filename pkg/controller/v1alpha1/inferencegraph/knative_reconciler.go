@@ -165,6 +165,7 @@ func createKnativeService(ctx context.Context, client client.Client, componentMe
 		return !utils.Includes(constants.RevisionTemplateLabelDisallowedList, key)
 	})
 	labels[constants.InferenceGraphLabel] = componentMeta.Name
+	labels[constants.KServeWorkloadKind] = "InferenceGraph"
 	service := &knservingv1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        componentMeta.Name,

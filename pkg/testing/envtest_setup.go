@@ -24,6 +24,7 @@ import (
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	netv1 "k8s.io/api/networking/v1"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
@@ -63,6 +64,9 @@ func SetupEnvTest(crdDirectoryPaths []string) *envtest.Environment {
 
 	if err := gatewayapiv1.Install(scheme.Scheme); err != nil {
 		log.Error(err, "Failed to add gateway scheme")
+	}
+	if err := kedav1alpha1.SchemeBuilder.AddToScheme(scheme.Scheme); err != nil {
+		log.Error(err, "Failed to add KEDA scheme")
 	}
 	return t
 }

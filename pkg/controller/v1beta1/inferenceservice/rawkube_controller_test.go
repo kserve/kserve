@@ -22,14 +22,16 @@ import (
 	"reflect"
 	"time"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/utils"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/ginkgo/v2"
+
+	"github.com/onsi/gomega"
 
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
@@ -56,6 +58,8 @@ import (
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
 
 var _ = Describe("v1beta1 inference service controller", func() {
@@ -7063,6 +7067,181 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"enableDirectPvcVolumeMount": false
 			}`,
 		}
+
+		It("Should have KEDA ScaledObject created", func() {
+			By("By creating a new InferenceService")
+			// Create configmap
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving-raw",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			serviceName := "raw-foo-1"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "keda",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas:     ptr.To(int32(1)),
+							MaxReplicas:     3,
+							ScaleMetric:     (*v1beta1.ScaleMetric)(&constants.AutoScalerMetricsMemory),
+							ScaleMetricType: (*autoscalingv2.MetricTargetType)(&constants.AutoScalerMetricsUtilization),
+							ScaleTarget:     ptr.To(int32(10)),
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: corev1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			inferenceService := &v1beta1.InferenceService{}
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			actualScaledObject := &kedav1alpha1.ScaledObject{}
+
+			predictorSObjectKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorSObjectKey, actualScaledObject) }, timeout).
+				Should(Succeed())
+
+			expectedScaledobject := &kedav1alpha1.ScaledObject{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      predictorSObjectKey.Name,
+					Namespace: predictorSObjectKey.Namespace,
+				},
+				Spec: kedav1alpha1.ScaledObjectSpec{
+					ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+						Name: predictorSObjectKey.Name,
+					},
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{
+							Type: string("memory"),
+							Metadata: map[string]string{
+								"value": "10",
+							},
+							MetricType: autoscalingv2.MetricTargetType(constants.AutoScalerMetricsUtilization),
+						},
+					},
+					MinReplicaCount: proto.Int32(1),
+					MaxReplicaCount: proto.Int32(3),
+				},
+			}
+			Expect(actualScaledObject.Spec).To(gomega.Equal(expectedScaledobject.Spec))
+
+			// check service
+			actualService := &corev1.Service{}
+			predictorServiceKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
+				Should(Succeed())
+
+			expectedService := &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      predictorServiceKey.Name,
+					Namespace: predictorServiceKey.Namespace,
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{
+							Name:       constants.PredictorServiceName(serviceName),
+							Protocol:   "TCP",
+							Port:       80,
+							TargetPort: intstr.IntOrString{Type: 0, IntVal: 8080, StrVal: ""},
+						},
+					},
+					Type:            "ClusterIP",
+					SessionAffinity: "None",
+					Selector: map[string]string{
+						"app": "isvc." + constants.PredictorServiceName(serviceName),
+					},
+				},
+			}
+			actualService.Spec.ClusterIP = ""
+			actualService.Spec.ClusterIPs = nil
+			actualService.Spec.IPFamilies = nil
+			actualService.Spec.IPFamilyPolicy = nil
+			actualService.Spec.InternalTrafficPolicy = nil
+			Expect(actualService.Spec).To(gomega.Equal(expectedService.Spec))
+
+			// check isvc status
+			updatedScaledObject := actualScaledObject.DeepCopy()
+			updatedScaledObject.Status.Conditions = []kedav1alpha1.Condition{
+				{
+					Type:   kedav1alpha1.ConditionReady,
+					Status: kedav1alpha1.GetInitializedConditions().GetActiveCondition().Status,
+				},
+			}
+			Expect(k8sClient.Status().Update(context.TODO(), updatedScaledObject)).NotTo(gomega.HaveOccurred())
+		})
+
 		It("Should have ingress/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap

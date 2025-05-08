@@ -246,7 +246,7 @@ def request_url(url, method="HEAD", timeout=5, headers={}) -> int:
 
 
 def verify_urls_concurrently(
-    file_line_text_url: [(str, int, str, str)]
+    file_line_text_url: [(str, int, str, str)],
 ) -> [(str, int, str, str)]:
     file_line_text_url_status = []
 

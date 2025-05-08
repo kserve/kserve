@@ -17,6 +17,7 @@
 set -o errexit
 set -o pipefail
 
+GOLANGCI_LINT_VERSION="1.64"
 # golangci-lint binary path
 # Check if GOBIN is set, if not use GOPATH/bin
 golangci_lint_binary="$(go env GOPATH)/bin/golangci-lint"
@@ -27,11 +28,11 @@ fi
 # Check if golangci-lint is already installed
 if ! command -v golangci-lint &> /dev/null; then
     echo "installing golangci-lint"
-    go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.63
+    go install github.com/golangci/golangci-lint/cmd/golangci-lint@v${GOLANGCI_LINT_VERSION}
     # Verify golangci-lint installation
     $golangci_lint_binary --version
-elif ! $golangci_lint_binary --version | grep -q "1.63"; then
-    echo "golangci-lint version 1.63 is required"
+elif ! $golangci_lint_binary --version | grep -q "${GOLANGCI_LINT_VERSION}"; then
+    echo "golangci-lint version ${GOLANGCI_LINT_VERSION} is required"
     exit 1
 fi
 
