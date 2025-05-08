@@ -26,6 +26,8 @@ spec:
       serviceAccountName: kserve-localmodel-controller-manager
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - command:
         - /manager
