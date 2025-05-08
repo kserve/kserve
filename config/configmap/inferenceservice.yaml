@@ -710,7 +710,7 @@ data:
 
   localModel: |-
     {
-      "enabled": true,
+      "enabled": false,
       "jobNamespace": "kserve-localmodel-jobs",
       "defaultJobImage" : "kserve/storage-initializer:latest",
       "fsGroup": 1000,
