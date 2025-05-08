@@ -281,12 +281,25 @@ func TestCustomOK(t *testing.T) {
 	isvc.Spec.Predictor.PodSpec = PodSpec{
 		Containers: []corev1.Container{
 			{
+				Name:  constants.InferenceServiceContainerName,
 				Image: "some-image",
 			},
 		},
 	}
 	validator := InferenceServiceValidator{}
 	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	g.Expect(err).Should(gomega.Succeed())
+	g.Expect(warnings).Should(gomega.BeEmpty())
+
+	isvc.Spec.Predictor.PodSpec = PodSpec{
+		Containers: []corev1.Container{
+			{
+				Image: "some-image",
+			},
+		},
+	}
+	validator = InferenceServiceValidator{}
+	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -354,6 +367,44 @@ func TestRejectBadNameIncludeDot(t *testing.T) {
 	validator := InferenceServiceValidator{}
 	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
 	g.Expect(err).ShouldNot(gomega.Succeed())
+	g.Expect(warnings).Should(gomega.BeEmpty())
+}
+
+func TestValidateTwoPredictorImplementationCollocation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Model: &ModelSpec{
+					ModelFormat: ModelFormat{
+						Name: "huggingface",
+					},
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://testbucket/testmodel"),
+					},
+				},
+				PodSpec: PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "test/predictor:latest",
+						},
+						{
+							Name:  constants.TransformerContainerName,
+							Image: "test/transformer:latest",
+						},
+					},
+				},
+			},
+		},
+	}
+	validator := InferenceServiceValidator{}
+	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	g.Expect(err).Should(gomega.MatchError(ExactlyOneErrorFor(&isvc.Spec.Predictor)))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
 

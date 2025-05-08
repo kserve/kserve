@@ -2551,6 +2551,94 @@ spec:
                       workingDir:
                         type: string
                     type: object
+                  autoScaling:
+                    properties:
+                      metrics:
+                        items:
+                          properties:
+                            external:
+                              properties:
+                                metric:
+                                  properties:
+                                    backend:
+                                      enum:
+                                      - prometheus
+                                      - graphite
+                                      type: string
+                                    namespace:
+                                      type: string
+                                    query:
+                                      type: string
+                                    serverAddress:
+                                      type: string
+                                  type: object
+                                target:
+                                  properties:
+                                    averageUtilization:
+                                      format: int32
+                                      type: integer
+                                    averageValue:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    type:
+                                      enum:
+                                      - Utilization
+                                      - Value
+                                      - AverageValue
+                                      type: string
+                                    value:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                              type: object
+                            resource:
+                              properties:
+                                name:
+                                  enum:
+                                  - cpu
+                                  - memory
+                                  - concurrency
+                                  - rps
+                                  type: string
+                                target:
+                                  properties:
+                                    averageUtilization:
+                                      format: int32
+                                      type: integer
+                                    averageValue:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    type:
+                                      enum:
+                                      - Utilization
+                                      - Value
+                                      - AverageValue
+                                      type: string
+                                    value:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                              type: object
+                            type:
+                              enum:
+                              - Resource
+                              - External
+                              type: string
+                          type: object
+                        type: array
+                    type: object
                   automountServiceAccountToken:
                     type: boolean
                   batcher:
@@ -4123,6 +4211,8 @@ spec:
                     - concurrency
                     - rps
                     type: string
+                  scaleMetricType:
+                    type: string
                   scaleTarget:
                     format: int32
                     type: integer
@@ -5538,6 +5628,94 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
+                    type: object
+                  autoScaling:
+                    properties:
+                      metrics:
+                        items:
+                          properties:
+                            external:
+                              properties:
+                                metric:
+                                  properties:
+                                    backend:
+                                      enum:
+                                      - prometheus
+                                      - graphite
+                                      type: string
+                                    namespace:
+                                      type: string
+                                    query:
+                                      type: string
+                                    serverAddress:
+                                      type: string
+                                  type: object
+                                target:
+                                  properties:
+                                    averageUtilization:
+                                      format: int32
+                                      type: integer
+                                    averageValue:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    type:
+                                      enum:
+                                      - Utilization
+                                      - Value
+                                      - AverageValue
+                                      type: string
+                                    value:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                              type: object
+                            resource:
+                              properties:
+                                name:
+                                  enum:
+                                  - cpu
+                                  - memory
+                                  - concurrency
+                                  - rps
+                                  type: string
+                                target:
+                                  properties:
+                                    averageUtilization:
+                                      format: int32
+                                      type: integer
+                                    averageValue:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    type:
+                                      enum:
+                                      - Utilization
+                                      - Value
+                                      - AverageValue
+                                      type: string
+                                    value:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                              type: object
+                            type:
+                              enum:
+                              - Resource
+                              - External
+                              type: string
+                          type: object
+                        type: array
                     type: object
                   automountServiceAccountToken:
                     type: boolean
@@ -11930,6 +12108,8 @@ spec:
                     - memory
                     - concurrency
                     - rps
+                    type: string
+                  scaleMetricType:
                     type: string
                   scaleTarget:
                     format: int32
@@ -19700,6 +19880,94 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  autoScaling:
+                    properties:
+                      metrics:
+                        items:
+                          properties:
+                            external:
+                              properties:
+                                metric:
+                                  properties:
+                                    backend:
+                                      enum:
+                                      - prometheus
+                                      - graphite
+                                      type: string
+                                    namespace:
+                                      type: string
+                                    query:
+                                      type: string
+                                    serverAddress:
+                                      type: string
+                                  type: object
+                                target:
+                                  properties:
+                                    averageUtilization:
+                                      format: int32
+                                      type: integer
+                                    averageValue:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    type:
+                                      enum:
+                                      - Utilization
+                                      - Value
+                                      - AverageValue
+                                      type: string
+                                    value:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                              type: object
+                            resource:
+                              properties:
+                                name:
+                                  enum:
+                                  - cpu
+                                  - memory
+                                  - concurrency
+                                  - rps
+                                  type: string
+                                target:
+                                  properties:
+                                    averageUtilization:
+                                      format: int32
+                                      type: integer
+                                    averageValue:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    type:
+                                      enum:
+                                      - Utilization
+                                      - Value
+                                      - AverageValue
+                                      type: string
+                                    value:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                              type: object
+                            type:
+                              enum:
+                              - Resource
+                              - External
+                              type: string
+                          type: object
+                        type: array
+                    type: object
                   automountServiceAccountToken:
                     type: boolean
                   batcher:
@@ -21271,6 +21539,8 @@ spec:
                     - memory
                     - concurrency
                     - rps
+                    type: string
+                  scaleMetricType:
                     type: string
                   scaleTarget:
                     format: int32
