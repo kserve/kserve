@@ -7067,8 +7067,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"enableDirectPvcVolumeMount": false
 			}`,
 		}
-<<<<<<< HEAD
-=======
+
 		It("Should have KEDA ScaledObject created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
@@ -7243,7 +7242,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedScaledObject)).NotTo(gomega.HaveOccurred())
 		})
 
->>>>>>> e1ffb4920
 		It("Should have ingress/service/deployment/hpa created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
