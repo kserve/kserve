@@ -9,34 +9,36 @@ ARG PYTHON_VERSION
 # Install python
 RUN apt-get update && \
     apt-get install -y --no-install-recommends "python${PYTHON_VERSION}" "python${PYTHON_VERSION}-dev" "python${PYTHON_VERSION}-venv" \
+    curl \
     gcc build-essential && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-ARG POETRY_HOME=/opt/poetry
-ARG POETRY_VERSION=1.8.3
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
-RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip install poetry==${POETRY_VERSION}
-ENV PATH="$PATH:${POETRY_HOME}/bin"
-
-# Activate virtual env
+# Setup virtual environment
 ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
-RUN python${PYTHON_VERSION} -m venv $VIRTUAL_ENV
+RUN uv venv $VIRTUAL_ENV
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN cd kserve && poetry install --no-root --no-interaction --no-cache
+# Install dependencies for kserve using uv
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN cd kserve && uv sync --active --no-cache
+
 COPY kserve kserve
-RUN cd kserve && poetry install --no-interaction --no-cache
+RUN cd kserve && uv sync --active --no-cache
 
-COPY pmmlserver/pyproject.toml pmmlserver/poetry.lock pmmlserver/
-RUN cd pmmlserver && poetry install --no-root --no-interaction --no-cache
+# Install dependencies for pmmlserver using uv
+COPY pmmlserver/pyproject.toml pmmlserver/uv.lock pmmlserver/
+RUN cd pmmlserver && uv sync --active --no-cache
+
 COPY pmmlserver pmmlserver
-RUN cd pmmlserver && poetry install --no-interaction --no-cache
+RUN cd pmmlserver && uv sync --active --no-cache
 
-
+# ---------- Production image ----------
 FROM ${BASE_IMAGE} AS prod
 
 COPY third_party third_party
@@ -53,9 +55,11 @@ ARG VENV_PATH
 ENV VIRTUAL_ENV=${VENV_PATH}
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
+# Create non-root user
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
-COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
+# Copy venv and code from builder stage
+COPY --from=builder --chown=kserve:kserve ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 COPY --from=builder kserve kserve
 COPY --from=builder pmmlserver pmmlserver
 
