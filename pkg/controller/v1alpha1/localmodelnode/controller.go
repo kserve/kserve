@@ -62,7 +62,6 @@ type LocalModelNodeReconciler struct {
 }
 
 const (
-	MountPath             = "/mnt/models" // Volume mount path for models, must be the same as the value in the DaemonSet spec
 	DownloadContainerName = "kserve-localmodel-download"
 	PvcSourceMountName    = "kserve-pvc-source"
 )
@@ -74,7 +73,7 @@ var (
 	jobTTLSecondsAfterFinished int32         = 3600                   // One hour. Can be overwritten by the value in the configmap
 	reconcilationFreqency      time.Duration = time.Minute            // Reconcile every one minute to check if model folders exist. Can be overwritten by the value in configmap
 	nodeName                                 = os.Getenv("NODE_NAME") // Name of current node, passed as an env variable via downward API
-	modelsRootFolder                         = filepath.Join(MountPath, "models")
+	modelsRootFolder                         = filepath.Join(constants.DefaultModelLocalMountPath, "models")
 	fsHelper                   FileSystemInterface
 )
 
@@ -117,10 +116,10 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		return nil, err
 	}
 
-	container.Args = []string{modelInfo.SourceModelUri, MountPath}
+	container.Args = []string{modelInfo.SourceModelUri, constants.DefaultModelLocalMountPath}
 	container.VolumeMounts = []corev1.VolumeMount{
 		{
-			MountPath: MountPath,
+			MountPath: constants.DefaultModelLocalMountPath,
 			Name:      PvcSourceMountName,
 			ReadOnly:  false,
 			SubPath:   filepath.Join("models", modelInfo.ModelName),
@@ -329,7 +328,6 @@ func (c *LocalModelNodeReconciler) deleteModels(localModelNode v1alpha1.LocalMod
 	entries, err := fsHelper.getModelFolders()
 	if err != nil {
 		c.Log.Error(err, "Failed to list model folder")
-		// TODO Reviewer: Is the err ignored intentionally?
 		return err
 	}
 	for _, entry := range entries {
@@ -404,7 +402,6 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// fsHelper is a global variable to allow mocking in tests
 	if fsHelper == nil {
 		fsHelper = NewFileSystemHelper(modelsRootFolder)
-		// TODO we need a way to ensure that the local path on persistent volume is the same as the local path of the node agent DaemonSet.
 		err := fsHelper.ensureModelRootFolderExists()
 		if err != nil {
 			panic("Failed to ensure model root folder exists: " + err.Error())
