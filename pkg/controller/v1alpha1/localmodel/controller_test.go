@@ -137,8 +137,8 @@ var _ = Describe("CachedModel controller", func() {
 		}
 		configs = map[string]string{
 			"localModel": `{
-        		"jobNamespace": "kserve-localmodel-jobs",
-                "defaultJobImage": "kserve/storage-initializer:latest",
+				"jobNamespace": "kserve-localmodel-jobs",
+				"defaultJobImage": "kserve/storage-initializer:latest",
 				"localModelAgentImage": "kserve/agent:latest",
 				"localModelAgentImagePullPolicy": "Always",
 				"localModelAgentCpuRequest": "100m", 

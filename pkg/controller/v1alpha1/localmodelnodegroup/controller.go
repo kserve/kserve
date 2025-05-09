@@ -235,7 +235,7 @@ func createLocalModelAgentDaemonSet(nodeGroup v1alpha1.LocalModelNodeGroup, loca
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "models",
-									MountPath: "/mnt/models",
+									MountPath: constants.DefaultModelLocalMountPath,
 									ReadOnly:  false,
 								},
 							},
@@ -395,7 +395,7 @@ func (r *LocalModelNodeGroupReconciler) Reconcile(ctx context.Context, req ctrl.
 	if err := r.reconcileDaemonSet(ctx, nodeGroup, localModelConfig, pvc.Name); err != nil {
 		return ctrl.Result{}, err
 	}
-	
+
 	// TODO: Update LocalModelNodeGroup status
 	return ctrl.Result{}, nil
 }
