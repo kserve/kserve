@@ -405,7 +405,6 @@ func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerNa
 // Reconcile ...
 func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
 	for _, deployment := range r.DeploymentList {
-
 		// Reconcile Deployment
 		checkResult, _, err := r.checkDeploymentExist(ctx, r.client, deployment)
 		if err != nil {
