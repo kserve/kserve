@@ -217,6 +217,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		predictor_ready_condition := &apis.Condition{
 			Type:   v1beta1.PredictorReady,
 			Status: corev1.ConditionFalse,
+			Reason: "Stopped",
 		}
 		isvc.Status.SetCondition(v1beta1.PredictorReady, predictor_ready_condition)
 
@@ -722,7 +723,10 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 		return errors.Wrapf(err, "fails to reconcile predictor")
 	}
 
-	isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
+	if !isvc.GetForceStopRuntime() {
+		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
+	}
+
 	return nil
 }
 
