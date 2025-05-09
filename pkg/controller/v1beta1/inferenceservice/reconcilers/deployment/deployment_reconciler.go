@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -207,6 +208,11 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 
 // checkDeploymentExist checks if the deployment exists?
 func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client kclient.Client, deployment *appsv1.Deployment) (constants.CheckResultType, *appsv1.Deployment, error) {
+	forceStopRuntime := false
+	if val, exist := deployment.Annotations[constants.StopAnnotationKey]; exist {
+		forceStopRuntime = strings.EqualFold(val, "true")
+	}
+
 	// get deployment
 	existingDeployment := &appsv1.Deployment{}
 	err := client.Get(ctx, types.NamespacedName{
@@ -215,10 +221,21 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 	}, existingDeployment)
 	if err != nil {
 		if apierr.IsNotFound(err) {
-			return constants.CheckResultCreate, nil, nil
+			if !forceStopRuntime {
+				return constants.CheckResultCreate, nil, nil
+			} else {
+				// Do nothing
+				return constants.CheckResultUnknown, nil, nil
+			}
 		}
 		return constants.CheckResultUnknown, nil, err
 	}
+
+	// existed, but marked for deletetion
+	if forceStopRuntime {
+		return constants.CheckResultDelete, nil, nil
+	}
+
 	// existed, check equivalence
 	// for HPA scaling, we should ignore Replicas of Deployment
 	// for none scaler, we should not ignore Replicas.
@@ -428,6 +445,16 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 
 			// Patch the deployment object with the strategic merge patch
 			opErr = r.client.Patch(ctx, existingDep, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
+
+		case constants.CheckResultDelete:
+			log.Info("Stopping deployment", "namespace", existingDep.Namespace, "name", existingDep.Name)
+			if existingDep.GetDeletionTimestamp() == nil { // check if the deployment was already deleted
+				err := r.client.Delete(ctx, existingDep)
+				if err != nil {
+					return nil, err
+				}
+			}
+			return nil, nil
 		}
 
 		if opErr != nil {
