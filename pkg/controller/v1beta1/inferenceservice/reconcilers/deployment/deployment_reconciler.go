@@ -445,12 +445,8 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 		case constants.CheckResultDelete:
 			log.Info("Stopping deployment", "namespace", deployment.Namespace, "name", deployment.Name)
 			if deployment.GetDeletionTimestamp() == nil { // check if the deployment was already deleted
-				err := r.client.Delete(ctx, deployment)
-				if err != nil {
-					return nil, err
-				}
+				opErr = r.client.Delete(ctx, deployment)
 			}
-			return nil, nil
 		}
 
 		if opErr != nil {
