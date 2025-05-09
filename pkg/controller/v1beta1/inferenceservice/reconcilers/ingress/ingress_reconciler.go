@@ -88,6 +88,7 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionFalse,
+			Reason: "Stopped",
 		})
 
 		return nil

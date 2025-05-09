@@ -2016,6 +2016,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			serviceKey := expectedRequest.NamespacedName
 			storageUri := "s3://test/mnist/export"
 			qty := resource.MustParse("10Gi")
+			predictorKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
 
 			// Serving runtime
 			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving-raw")
@@ -2036,11 +2040,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Check the deployment
 			actualDeployment := &appsv1.Deployment{}
-			predictorDeploymentKey := types.NamespacedName{
-				Name:      constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace,
-			}
-			Eventually(func() error { return k8sClient.Get(context.Background(), predictorDeploymentKey, actualDeployment) }, timeout).
+			Eventually(func() error { return k8sClient.Get(context.Background(), predictorKey, actualDeployment) }, timeout).
 				Should(Succeed())
 
 			updatedDeployment := actualDeployment.DeepCopy()
@@ -2052,16 +2052,12 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
-			// check service
+			// check the service
 			actualService := &corev1.Service{}
-			predictorServiceKey := types.NamespacedName{
-				Name:      constants.PredictorServiceName(serviceKey.Name),
-				Namespace: serviceKey.Namespace,
-			}
-			Eventually(func() error { return k8sClient.Get(context.Background(), predictorServiceKey, actualService) }, timeout).
+			Eventually(func() error { return k8sClient.Get(context.Background(), predictorKey, actualService) }, timeout).
 				Should(Succeed())
 
-			// check http route
+			// check the http routes
 			actualTopLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), types.NamespacedName{
@@ -2073,7 +2069,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
 			Eventually(func() error {
 				return k8sClient.Get(context.Background(), types.NamespacedName{
-					Name:      predictorServiceKey.Name,
+					Name:      predictorKey.Name,
 					Namespace: serviceKey.Namespace,
 				}, actualPredictorHttpRoute)
 			}, timeout).Should(Succeed())
@@ -2143,6 +2139,97 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				return updatedIsvc.Status.IsConditionReady(v1beta1.IngressReady)
 			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
+		})
+		It("Should not create the httproute/service/deployment created when the annotation is set to true", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			// Config map
+			configMap := createInferenceServiceConfigMap()
+			Expect(k8sClient.Create(context.Background(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			// Setup values
+			serviceName := "stop-true-isvc"
+			serviceNamespace := "default"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: serviceNamespace}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "s3://test/mnist/export"
+			qty := resource.MustParse("10Gi")
+			predictorKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+
+			// Serving runtime
+			servingRuntime := createServingRuntime(serviceKey.Namespace, "tf-serving-raw")
+			Expect(k8sClient.Create(context.Background(), servingRuntime)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, servingRuntime)
+
+			// Define InferenceService
+			isvc := defaultIsvc(serviceKey, storageUri, qty)
+			isvc.Annotations[constants.StopAnnotationKey] = "true"
+			Expect(k8sClient.Create(context.Background(), isvc)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, isvc)
+
+			actualISVC := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, actualISVC)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Check that the deployment was not created
+			actualDeployment := &appsv1.Deployment{}
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), predictorKey, actualDeployment)
+				return apierr.IsNotFound(err)
+			}, timeout).Should(BeTrue(), "The deployment should not be created")
+
+			// check that the service was not created
+			actualService := &corev1.Service{}
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), predictorKey, actualService)
+				return apierr.IsNotFound(err)
+			}, timeout).Should(BeTrue(), "The service should not be created")
+
+			// check that the http routes were not created
+			actualTopLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				}, actualTopLevelHttpRoute)
+				return apierr.IsNotFound(err)
+			}, timeout).Should(BeTrue(), "The top level http route should not be created")
+
+			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+			Eventually(func() bool {
+				err := k8sClient.Get(context.Background(), types.NamespacedName{
+					Name:      predictorKey.Name,
+					Namespace: serviceKey.Namespace,
+				}, actualPredictorHttpRoute)
+				return apierr.IsNotFound(err)
+			}, timeout).Should(BeTrue(), "The predictor http route should not be created")
+
+			// Check that the ISVC was updated
+			updatedIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Check that the ISVC status reflects that it is stopped
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, updatedIsvc)
+				if err == nil {
+					stopped_cond := updatedIsvc.Status.GetCondition(v1beta1.Stopped)
+					if stopped_cond != nil && stopped_cond.Status == corev1.ConditionTrue {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
+
 		})
 	})
 	Context("When creating inference service with raw kube predictor and ingress creation disabled", func() {
