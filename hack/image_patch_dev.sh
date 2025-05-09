@@ -99,6 +99,7 @@ data:
       "defaultJobImage" : "kserve/storage-initializer:latest",
       "fsGroup": 1000,
       "localModelAgentImage": "${LOCALMODELNODE_AGENT_IMG}",
+      "localModelImagePullPolicy": "Always",
       "localModelAgentCpuRequest": "100m",
       "localModelAgentMemoryRequest": "200Mi",
       "localModelAgentCpuLimit": "100m",
