@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -491,7 +490,7 @@ func TestGetSupportingRuntimes(t *testing.T) {
 	mockClient := fake.NewClientBuilder().WithLists(runtimes /*, clusterRuntimes*/).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _ := scenario.spec.GetSupportingRuntimes(context.Background(), mockClient, namespace, scenario.isMMS, scenario.isMultinode)
+			res, _ := scenario.spec.GetSupportingRuntimes(t.Context(), mockClient, namespace, scenario.isMMS, scenario.isMultinode)
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", res, scenario.expected)
 			}

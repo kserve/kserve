@@ -185,23 +185,44 @@ rules:
   - patch
   - update
 - apiGroups:
-  - route.openshift.io
+    - route.openshift.io
   resources:
-  - routes
+    - routes
   verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
 - apiGroups:
-  - route.openshift.io
+    - route.openshift.io
   resources:
-  - routes/status
+    - routes/status
   verbs:
-  - get
+    - get
+- apiGroups:
+    - opentelemetry.io
+  resources:
+    - opentelemetrycollectors
+    - opentelemetrycollectors/finalizers
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
+- apiGroups:
+    - opentelemetry.io
+  resources:
+    - opentelemetrycollectors/status
+  verbs:
+    - get
+    - patch
+    - update
 - apiGroups:
   - serving.knative.dev
   resources:

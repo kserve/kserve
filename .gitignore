@@ -40,7 +40,6 @@ venv/
 .ipynb_checkpoints
 
 .gitlab-ci.yml
-.openapi-generator-ignore
 .openapi-generator/
 
 # Ignore files for local deployment

@@ -135,3 +135,113 @@ func TestGenerateDomainName(t *testing.T) {
 		})
 	}
 }
+
+func TestGetAdditionalHosts(t *testing.T) {
+	tests := []struct {
+		name        string
+		domainList  *[]string
+		serviceHost string
+		config      *v1beta1.IngressConfig
+		want        *[]string
+	}{
+		{
+			name:        "nil domain list",
+			domainList:  nil,
+			serviceHost: "model-test.example.com",
+			config: &v1beta1.IngressConfig{
+				AdditionalIngressDomains: &[]string{"secondary.com"},
+			},
+			want: &[]string{},
+		},
+		{
+			name:        "empty domain list",
+			domainList:  &[]string{},
+			serviceHost: "model-test.example.com",
+			config: &v1beta1.IngressConfig{
+				AdditionalIngressDomains: &[]string{"secondary.com"},
+			},
+			want: &[]string{},
+		},
+		{
+			name:        "nil additional domains",
+			domainList:  &[]string{"example.com"},
+			serviceHost: "model-test.example.com",
+			config: &v1beta1.IngressConfig{
+				AdditionalIngressDomains: nil,
+			},
+			want: &[]string{},
+		},
+		{
+			name:        "empty additional domains",
+			domainList:  &[]string{"example.com"},
+			serviceHost: "model-test.example.com",
+			config: &v1beta1.IngressConfig{
+				AdditionalIngressDomains: &[]string{},
+			},
+			want: &[]string{},
+		},
+		{
+			name:        "no matching domain",
+			domainList:  &[]string{"other.com"},
+			serviceHost: "model-test.example.com",
+			config: &v1beta1.IngressConfig{
+				AdditionalIngressDomains: &[]string{"secondary.com"},
+			},
+			want: &[]string{},
+		},
+		{
+			name:        "single additional domain",
+			domainList:  &[]string{"example.com"},
+			serviceHost: "model-test.example.com",
+			config: &v1beta1.IngressConfig{
+				AdditionalIngressDomains: &[]string{"secondary.com"},
+			},
+			want: &[]string{"model-test.secondary.com"},
+		},
+		{
+			name:        "multiple additional domains",
+			domainList:  &[]string{"example.com"},
+			serviceHost: "model-test.example.com",
+			config: &v1beta1.IngressConfig{
+				AdditionalIngressDomains: &[]string{"secondary.com", "tertiary.com"},
+			},
+			want: &[]string{"model-test.secondary.com", "model-test.tertiary.com"},
+		},
+		{
+			name:        "duplicate additional domains",
+			domainList:  &[]string{"example.com"},
+			serviceHost: "model-test.example.com",
+			config: &v1beta1.IngressConfig{
+				AdditionalIngressDomains: &[]string{"secondary.com", "secondary.com", "tertiary.com"},
+			},
+			want: &[]string{"model-test.secondary.com", "model-test.tertiary.com"},
+		},
+		{
+			name:        "invalid domain name",
+			domainList:  &[]string{"example.com"},
+			serviceHost: "model-test.example.com",
+			config: &v1beta1.IngressConfig{
+				AdditionalIngressDomains: &[]string{"invalid_domain", "secondary.com"},
+			},
+			want: &[]string{"model-test.secondary.com"},
+		},
+		{
+			name:        "multiple domains in domain list",
+			domainList:  &[]string{"example.org", "example.com", "example.net"},
+			serviceHost: "model-test.example.com",
+			config: &v1beta1.IngressConfig{
+				AdditionalIngressDomains: &[]string{"secondary.com", "tertiary.com"},
+			},
+			want: &[]string{"model-test.secondary.com", "model-test.tertiary.com"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetAdditionalHosts(tt.domainList, tt.serviceHost, tt.config)
+			if diff := cmp.Diff(*tt.want, *got); diff != "" {
+				t.Errorf("GetAdditionalHosts() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
