@@ -547,14 +547,14 @@ func (r *RawHTTPRouteReconciler) reconcilePredictorHTTPRoute(ctx context.Context
 		}
 
 		if getExistingErr != nil {
-			if apierr.IsNotFound(err) {
+			if apierr.IsNotFound(getExistingErr) {
 				log.Info("Creating Predictor HttpRoute resource", "name", desired.Name)
 				if err := r.client.Create(ctx, desired); err != nil {
 					log.Error(err, "Failed to create predictor HttpRoute", "name", desired.Name)
 					return err
 				}
 			} else {
-				return err
+				return getExistingErr
 			}
 		} else {
 			// Set ResourceVersion which is required for update operation.
@@ -703,7 +703,7 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 					return err
 				}
 			} else {
-				return err
+				return getExistingErr
 			}
 		} else {
 			// Set ResourceVersion which is required for update operation.
