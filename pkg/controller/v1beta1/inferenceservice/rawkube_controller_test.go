@@ -2000,7 +2000,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			return isvc
 		}
 
-		It("Should keep the httproute/service/deployment created when the annotation is set to false", func() {
+		It("Should keep the httproute/service/deployment/hpa created when the annotation is set to false", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -2053,9 +2053,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Status().Update(context.TODO(), updatedDeployment)).NotTo(HaveOccurred())
 
 			// check the service
-			/*actualService := &corev1.Service{}
+			actualService := &corev1.Service{}
 			Eventually(func() error { return k8sClient.Get(context.Background(), predictorKey, actualService) }, timeout).
-				Should(Succeed())*/
+				Should(Succeed())
 
 			// check the http routes
 			actualTopLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
@@ -2069,10 +2069,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).Should(Succeed())
 
 			// check the HPA
-			/*existingHPA := &autoscalingv2.HorizontalPodAutoscaler{}
+			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 			Eventually(func() error {
-				return k8sClient.Get(ctx, predictorKey, existingHPA)
-			}, timeout).Should(Succeed())*/
+				return k8sClient.Get(ctx, predictorKey, actualHPA)
+			}, timeout).Should(Succeed())
 
 			// Mark the Ingress as accepted to make isvc ready
 			httpRouteStatus := gatewayapiv1.HTTPRouteStatus{
@@ -2140,7 +2140,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return updatedIsvc.Status.IsConditionReady(v1beta1.IngressReady)
 			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
 		})
-		It("Should not create the httproute/service/deployment created when the annotation is set to true", func() {
+		It("Should not create the httproute/service/deployment/hpa when the annotation is set to true", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
 
@@ -2200,11 +2200,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout).Should(BeTrue(), "The top level http route should not be created")
 
 			// check that the HPA was not created
-			/*existingHPA := &autoscalingv2.HorizontalPodAutoscaler{}
+			existingHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 			Consistently(func() bool {
 				err := k8sClient.Get(ctx, predictorKey, existingHPA)
 				return apierr.IsNotFound(err)
-			}, timeout).Should(BeTrue(), "The HPA should not be created")*/
+			}, timeout).Should(BeTrue(), "The HPA should not be created")
 
 			actualPredictorHttpRoute := &gatewayapiv1.HTTPRoute{}
 			Consistently(func() bool {
