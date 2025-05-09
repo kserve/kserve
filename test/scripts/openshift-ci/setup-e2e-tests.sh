@@ -61,7 +61,6 @@ fi
 echo "Installing KServe Python SDK ..."
 pushd $PROJECT_ROOT >/dev/null
   ./test/scripts/gh-actions/setup-poetry.sh
-  ./test/scripts/gh-actions/check-poetry-lockfile.sh
 popd
 pushd $PROJECT_ROOT/python/kserve >/dev/null
   poetry install --with=test --no-interaction

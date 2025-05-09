@@ -479,17 +479,6 @@ files = [
 packaging = "*"
 
 [[package]]
-name = "durationpy"
-version = "0.9"
-description = "Module for converting between datetime.timedelta and Go's Duration strings."
-optional = false
-python-versions = "*"
-files = [
-    {file = "durationpy-0.9-py3-none-any.whl", hash = "sha256:e65359a7af5cedad07fb77a2dd3f390f8eb0b74cb845589fa6c057086834dd38"},
-    {file = "durationpy-0.9.tar.gz", hash = "sha256:fd3feb0a69a0057d582ef643c355c40d2fa1c942191f914d12203b1a01ac722a"},
-]
-
-[[package]]
 name = "exceptiongroup"
 version = "1.2.2"
 description = "Backport of PEP 654 (exception groups)"
@@ -969,9 +958,7 @@ files = []
 develop = true
 
 [package.dependencies]
-anyio = "^4.4.0"
 cloudevents = "^1.6.2"
-durationpy = "^0.9.0"
 fastapi = ">=0.115.3"
 grpc-interceptor = ">=0.15.4,<1.0.0"
 grpcio = "^1.60.0"

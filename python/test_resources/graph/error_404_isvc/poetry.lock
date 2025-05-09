@@ -515,7 +515,6 @@ files = []
 develop = true
 
 [package.dependencies]
-anyio = "^4.4.0"
 cloudevents = "^1.6.2"
 fastapi = ">=0.115.3"
 grpc-interceptor = ">=0.15.4,<1.0.0"
