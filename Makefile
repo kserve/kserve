@@ -127,26 +127,18 @@ generate: controller-gen helm-docs
 # Update poetry.lock files
 poetry-lock: $(POETRY)
 # Update the kserve package first as other packages depends on it.
-	@echo "Entering ./python directory"
 	cd ./python && \
-		echo "Entering kserve directory to update poetry.lock" && \
-		cd kserve && \
-		echo "Running: $(POETRY) lock --no-update in $$(pwd)" && \
-		$(POETRY) lock --no-update && \
-		cd .. && \
-		echo "Searching for pyproject.toml files in ./python (excluding ./pyproject.toml)" && \
-		for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml"); do \
-			folder=$$(dirname "$$file"); \
-			echo "Found pyproject.toml in $$folder"; \
-			echo "moving into folder $$folder"; \
-			case "$$folder" in \
-				*plugin*|plugin|kserve) \
-					echo -e "\033[33mSkipping folder $$folder\033[0m" ;; \
-				*) \
-					echo "Running: $(POETRY) lock --no-update in $$(pwd)/$$folder"; \
-					cd "$$folder" && $(POETRY) lock --no-update && cd - > /dev/null ;; \
-			esac; \
-		done
+	cd kserve && $(POETRY) lock --no-update && cd .. && \
+	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml"); do \
+		folder=$$(dirname "$$file"); \
+		echo "moving into folder $$folder"; \
+		case "$$folder" in \
+			*plugin*|plugin|kserve) \
+				echo -e "\033[33mSkipping folder $$folder\033[0m" ;; \
+			*) \
+				cd "$$folder" && $(POETRY) lock --no-update && cd - > /dev/null ;; \
+		esac; \
+	done
 
 # This runs all necessary steps to prepare for a commit.
 precommit: vet tidy go-lint py-fmt py-lint generate manifests poetry-lock
