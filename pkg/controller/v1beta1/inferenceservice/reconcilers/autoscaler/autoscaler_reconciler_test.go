@@ -17,11 +17,17 @@ limitations under the License.
 package autoscaler
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -78,6 +84,223 @@ func TestGetAutoscalerClass(t *testing.T) {
 			result := getAutoscalerClass(*tt.isvcMetaData)
 			if diff := cmp.Diff(tt.expectedAutoScalerType, result); diff != "" {
 				t.Errorf("Test %q unexpected result (-want +got): %v", t.Name(), diff)
+			}
+		})
+	}
+}
+func TestCreateAutoscaler(t *testing.T) {
+	type args struct {
+		client        client.Client
+		scheme        *runtime.Scheme
+		componentMeta metav1.ObjectMeta
+		componentExt  *v1beta1.ComponentExtensionSpec
+		configMap     *corev1.ConfigMap
+	}
+	serviceName := "my-model"
+	namespace := "test"
+	baseMeta := metav1.ObjectMeta{
+		Name:      serviceName,
+		Namespace: namespace,
+	}
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		wantType    string
+		wantErr     bool
+	}{
+		{
+			name:        "Return HPAReconciler for default (no annotation)",
+			annotations: map[string]string{},
+			wantType:    "*hpa.HPAReconciler",
+			wantErr:     false,
+		},
+		{
+			name:        "Return HPAReconciler for hpa annotation",
+			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "hpa"},
+			wantType:    "*hpa.HPAReconciler",
+			wantErr:     false,
+		},
+		{
+			name:        "Return HPAReconciler for external annotation",
+			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "external"},
+			wantType:    "*hpa.HPAReconciler",
+			wantErr:     false,
+		},
+		{
+			name:        "Return HPAReconciler for none annotation",
+			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "none"},
+			wantType:    "*hpa.HPAReconciler",
+			wantErr:     false,
+		},
+		{
+			name:        "Return KedaReconciler for keda annotation",
+			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "keda"},
+			wantType:    "*keda.KedaReconciler",
+			wantErr:     false,
+		},
+		{
+			name:        "Return error for unknown annotation",
+			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "unknown"},
+			wantType:    "",
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			meta := baseMeta
+			meta.Annotations = tt.annotations
+			// Use nils for client, scheme, configMap as we only test type selection logic
+			as, err := createAutoscaler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("createAutoscaler() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				if as != nil {
+					t.Errorf("Expected nil Autoscaler on error, got %T", as)
+				}
+				return
+			}
+			if as == nil {
+				t.Errorf("Expected Autoscaler, got nil")
+				return
+			}
+			gotType := fmt.Sprintf("%T", as)
+			if gotType != tt.wantType {
+				t.Errorf("Expected Autoscaler type %s, got %s", tt.wantType, gotType)
+			}
+		})
+	}
+}
+func TestNewAutoscalerReconciler(t *testing.T) {
+	serviceName := "my-model"
+	namespace := "test"
+	baseMeta := metav1.ObjectMeta{
+		Name:      serviceName,
+		Namespace: namespace,
+	}
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		wantType    string
+		wantErr     bool
+	}{
+		{
+			name:        "Return AutoscalerReconciler with HPAReconciler for default (no annotation)",
+			annotations: map[string]string{},
+			wantType:    "*hpa.HPAReconciler",
+			wantErr:     false,
+		},
+		{
+			name:        "Return AutoscalerReconciler with HPAReconciler for hpa annotation",
+			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "hpa"},
+			wantType:    "*hpa.HPAReconciler",
+			wantErr:     false,
+		},
+		{
+			name:        "Return AutoscalerReconciler with HPAReconciler for external annotation",
+			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "external"},
+			wantType:    "*hpa.HPAReconciler",
+			wantErr:     false,
+		},
+		{
+			name:        "Return AutoscalerReconciler with HPAReconciler for none annotation",
+			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "none"},
+			wantType:    "*hpa.HPAReconciler",
+			wantErr:     false,
+		},
+		{
+			name:        "Return AutoscalerReconciler with KedaReconciler for keda annotation",
+			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "keda"},
+			wantType:    "*keda.KedaReconciler",
+			wantErr:     false,
+		},
+		{
+			name:        "Return error for unknown annotation",
+			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "unknown"},
+			wantType:    "",
+			wantErr:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			meta := baseMeta
+			meta.Annotations = tt.annotations
+			ar, err := NewAutoscalerReconciler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, nil)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewAutoscalerReconciler() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantErr {
+				if ar != nil {
+					t.Errorf("Expected nil AutoscalerReconciler on error, got %T", ar)
+				}
+				return
+			}
+			if ar == nil {
+				t.Errorf("Expected AutoscalerReconciler, got nil")
+				return
+			}
+			if ar.Autoscaler == nil {
+				t.Errorf("Expected Autoscaler in AutoscalerReconciler, got nil")
+				return
+			}
+			gotType := fmt.Sprintf("%T", ar.Autoscaler)
+			if gotType != tt.wantType {
+				t.Errorf("Expected Autoscaler type %s, got %s", tt.wantType, gotType)
+			}
+		})
+	}
+}
+
+type fakeAutoscaler struct {
+	reconcileCalled bool
+	reconcileErr    error
+}
+
+var _ Autoscaler = &fakeAutoscaler{}
+
+// Implement Autoscaler interface
+func (f *fakeAutoscaler) Reconcile(ctx context.Context) error {
+	f.reconcileCalled = true
+	return f.reconcileErr
+}
+func (f *fakeAutoscaler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
+	return nil
+}
+
+func TestAutoscalerReconciler_Reconcile(t *testing.T) {
+	tests := []struct {
+		name         string
+		reconcileErr error
+		wantErr      bool
+	}{
+		{
+			name:         "Reconcile succeeds",
+			reconcileErr: nil,
+			wantErr:      false,
+		},
+		{
+			name:         "Reconcile returns error",
+			reconcileErr: fmt.Errorf("some error"),
+			wantErr:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fake := &fakeAutoscaler{reconcileErr: tt.reconcileErr}
+			ar := &AutoscalerReconciler{
+				Autoscaler: fake,
+			}
+			err := ar.Reconcile(context.Background())
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Reconcile() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !fake.reconcileCalled {
+				t.Errorf("Expected Reconcile to be called on Autoscaler")
 			}
 		})
 	}
