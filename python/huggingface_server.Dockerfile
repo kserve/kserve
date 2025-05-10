@@ -77,7 +77,7 @@ COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
 # Install lmcache
-RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==0.2.11
+RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==0.2.1
 
 # Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
