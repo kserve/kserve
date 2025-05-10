@@ -58,24 +58,6 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
-      - name: kube-rbac-proxy
-        image: "{{ .Values.kserve.controller.rbacProxyImage }}"
-        args:
-        - "--secure-listen-address=0.0.0.0:8443"
-        - "--upstream=http://127.0.0.1:8080/"
-        - "--logtostderr=true"
-        - "--v=10"
-        ports:
-        - containerPort: 8443
-          name: https
-        securityContext:
-          {{- with .Values.kserve.controller.rbacProxy.securityContext}}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
-        resources:
-          {{- with .Values.kserve.controller.rbacProxy.resources }}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
       - command:
         - /manager
         image: "{{ .Values.kserve.controller.image }}:{{ .Values.kserve.controller.tag }}"
@@ -118,16 +100,23 @@ spec:
         - containerPort: 9443
           name: webhook-server
           protocol: TCP
-        - containerPort: 8080
-          name: metrics
+        - containerPort: {{ .Values.kserve.controller.metricsBindPort }}
+          name: https
           protocol: TCP
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
-          name: cert
+          name: webhook-cert
+          readOnly: true
+        - mountPath: /tmp/k8s-metrics-server/serving-certs
+          name: metrics-cert
           readOnly: true
       terminationGracePeriodSeconds: 10
       volumes:
-      - name: cert
+      - name: webhook-cert
         secret:
           defaultMode: 420
           secretName: kserve-webhook-server-cert
+      - name: metrics-cert
+        secret:
+          defaultMode: 420
+          secretName: kserve-metrics-server-cert

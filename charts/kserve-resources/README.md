@@ -42,20 +42,10 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.0
 | kserve.controller.knativeAddressableResolver | object | `{"enabled":false}` | Indicates whether to create an addressable resolver ClusterRole for Knative Eventing. This ClusterRole grants the necessary permissions for the Knative's DomainMapping reconciler to resolve InferenceService addressables. |
 | kserve.controller.labels | object | `{}` | Optional additional labels to add to the controller deployment. |
 | kserve.controller.metricsBindAddress | string | `"127.0.0.1"` | Metrics bind address |
-| kserve.controller.metricsBindPort | string | `"8080"` | Metrics bind port |
+| kserve.controller.metricsBindPort | string | `"8443"` | Metrics bind port |
 | kserve.controller.nodeSelector | object | `{}` | The nodeSelector on Pods tells Kubernetes to schedule Pods on the nodes with matching labels. For more information, see [Assigning Pods to Nodes](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/).  |
 | kserve.controller.podAnnotations | object | `{}` | Optional additional annotations to add to the controller Pods. |
 | kserve.controller.podLabels | object | `{}` | Optional additional labels to add to the controller Pods. |
-| kserve.controller.rbacProxy.resources.limits.cpu | string | `"100m"` |  |
-| kserve.controller.rbacProxy.resources.limits.memory | string | `"300Mi"` |  |
-| kserve.controller.rbacProxy.resources.requests.cpu | string | `"100m"` |  |
-| kserve.controller.rbacProxy.resources.requests.memory | string | `"300Mi"` |  |
-| kserve.controller.rbacProxy.securityContext.allowPrivilegeEscalation | bool | `false` |  |
-| kserve.controller.rbacProxy.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
-| kserve.controller.rbacProxy.securityContext.privileged | bool | `false` |  |
-| kserve.controller.rbacProxy.securityContext.readOnlyRootFilesystem | bool | `true` |  |
-| kserve.controller.rbacProxy.securityContext.runAsNonRoot | bool | `true` |  |
-| kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.18.0"` | KServe controller manager rbac proxy contrainer image |
 | kserve.controller.resources | object | `{"limits":{"cpu":"100m","memory":"300Mi"},"requests":{"cpu":"100m","memory":"300Mi"}}` | Resources to provide to the kserve controller pod.  For example:  requests:    cpu: 10m    memory: 32Mi  For more information, see [Resource Management for Pods and Containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/). |
 | kserve.controller.securityContext | object | `{"runAsNonRoot":true}` | Pod Security Context. For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/). |
 | kserve.controller.serviceAnnotations | object | `{}` | Optional additional annotations to add to the controller service. |
