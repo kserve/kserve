@@ -51,6 +51,8 @@ type InferenceServiceStatus struct {
 	Components map[ComponentType]ComponentStatusSpec `json:"components,omitempty"`
 	// Model related statuses
 	ModelStatus ModelStatus `json:"modelStatus,omitempty"`
+	// InferenceService DeploymentMode
+	DeploymentMode string `json:"deploymentMode,omitempty"`
 }
 
 // ComponentStatusSpec describes the state of the component
@@ -122,6 +124,8 @@ const (
 	RoutesReady apis.ConditionType = "RoutesReady"
 	// LatestDeploymentReady is set when underlying configurations for all components have reported readiness.
 	LatestDeploymentReady apis.ConditionType = "LatestDeploymentReady"
+	// Stopped is set when the inference service has been stopped and all related objects are deleted
+	Stopped apis.ConditionType = "Stopped"
 )
 
 type ModelStatus struct {

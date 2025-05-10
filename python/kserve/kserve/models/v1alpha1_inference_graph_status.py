@@ -49,6 +49,7 @@ class V1alpha1InferenceGraphStatus(object):
     openapi_types = {
         'annotations': 'dict(str, str)',
         'conditions': 'list[KnativeCondition]',
+        'deployment_mode': 'str',
         'observed_generation': 'int',
         'url': 'KnativeURL'
     }
@@ -56,11 +57,12 @@ class V1alpha1InferenceGraphStatus(object):
     attribute_map = {
         'annotations': 'annotations',
         'conditions': 'conditions',
+        'deployment_mode': 'deploymentMode',
         'observed_generation': 'observedGeneration',
         'url': 'url'
     }
 
-    def __init__(self, annotations=None, conditions=None, observed_generation=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, conditions=None, deployment_mode=None, observed_generation=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceGraphStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -68,6 +70,7 @@ class V1alpha1InferenceGraphStatus(object):
 
         self._annotations = None
         self._conditions = None
+        self._deployment_mode = None
         self._observed_generation = None
         self._url = None
         self.discriminator = None
@@ -76,6 +79,8 @@ class V1alpha1InferenceGraphStatus(object):
             self.annotations = annotations
         if conditions is not None:
             self.conditions = conditions
+        if deployment_mode is not None:
+            self.deployment_mode = deployment_mode
         if observed_generation is not None:
             self.observed_generation = observed_generation
         if url is not None:
@@ -126,6 +131,29 @@ class V1alpha1InferenceGraphStatus(object):
         """
 
         self._conditions = conditions
+
+    @property
+    def deployment_mode(self):
+        """Gets the deployment_mode of this V1alpha1InferenceGraphStatus.  # noqa: E501
+
+        InferenceGraph DeploymentMode  # noqa: E501
+
+        :return: The deployment_mode of this V1alpha1InferenceGraphStatus.  # noqa: E501
+        :rtype: str
+        """
+        return self._deployment_mode
+
+    @deployment_mode.setter
+    def deployment_mode(self, deployment_mode):
+        """Sets the deployment_mode of this V1alpha1InferenceGraphStatus.
+
+        InferenceGraph DeploymentMode  # noqa: E501
+
+        :param deployment_mode: The deployment_mode of this V1alpha1InferenceGraphStatus.  # noqa: E501
+        :type: str
+        """
+
+        self._deployment_mode = deployment_mode
 
     @property
     def observed_generation(self):
