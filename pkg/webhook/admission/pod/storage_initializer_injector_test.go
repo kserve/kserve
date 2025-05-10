@@ -2680,10 +2680,92 @@ func TestGetStorageContainerSpec(t *testing.T) {
 		var container *corev1.Container
 		var err error
 
-		if container, err = GetContainerSpecForStorageUri(t.Context(), scenario.storageUri, c); err != nil {
+		if container, err = GetContainerSpecForStorageUri(t.Context(), scenario.storageUri, metav1.ObjectMeta{}, c); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		g.Expect(container).To(gomega.Equal(scenario.expectedSpec))
+	}
+}
+
+func TestGetStorageContainerSpecWithSelector(t *testing.T) {
+	customAppSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "app-custom",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Image: "kserve/custom:latest",
+				Env: []corev1.EnvVar{
+					{
+						Name:  "APP",
+						Value: "CUSTOM",
+					},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+			ObjectSelector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "custom",
+				},
+			},
+		},
+	}
+	customServiceSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "service-custom",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Image: "kserve/custom:latest",
+				Env: []corev1.EnvVar{
+					{
+						Name:  "CUSTOM",
+						Value: "Service",
+					},
+				},
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+			ObjectSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      "app",
+						Operator: "In",
+						Values:   []string{"service"},
+					},
+				},
+			},
+		},
+	}
+	require.NoError(t, c.Create(t.Context(), &customAppSpec))
+	require.NoError(t, c.Create(t.Context(), &customServiceSpec))
+
+	scenarios := map[string]struct {
+		storageUri   string
+		objectLabels map[string]string
+		expectedSpec *corev1.Container
+	}{
+		"matchLabels": {
+			storageUri: "custom://foo",
+			objectLabels: map[string]string{
+				"app": "custom",
+			},
+			expectedSpec: &customAppSpec.Spec.Container,
+		},
+		"matchExpressions": {
+			storageUri: "custom://bar",
+			objectLabels: map[string]string{
+				"app": "service",
+			},
+			expectedSpec: &customAppSpec.Spec.Container,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			container, err := GetContainerSpecForStorageUri(t.Context(), scenario.storageUri, metav1.ObjectMeta{}, c)
+			require.NoError(t, err)
+			assert.Equal(t, scenario.expectedSpec, container)
+		})
 	}
 }
 

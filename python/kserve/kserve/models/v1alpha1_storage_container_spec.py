@@ -48,28 +48,33 @@ class V1alpha1StorageContainerSpec(object):
     """
     openapi_types = {
         'container': 'V1Container',
+        'object_selector': 'V1LabelSelector',
         'supported_uri_formats': 'list[V1alpha1SupportedUriFormat]',
         'workload_type': 'str'
     }
 
     attribute_map = {
         'container': 'container',
+        'object_selector': 'objectSelector',
         'supported_uri_formats': 'supportedUriFormats',
         'workload_type': 'workloadType'
     }
 
-    def __init__(self, container=None, supported_uri_formats=None, workload_type=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, container=None, object_selector=None, supported_uri_formats=None, workload_type=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1StorageContainerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._container = None
+        self._object_selector = None
         self._supported_uri_formats = None
         self._workload_type = None
         self.discriminator = None
 
         self.container = container
+        if object_selector is not None:
+            self.object_selector = object_selector
         self.supported_uri_formats = supported_uri_formats
         if workload_type is not None:
             self.workload_type = workload_type
@@ -96,6 +101,27 @@ class V1alpha1StorageContainerSpec(object):
             raise ValueError("Invalid value for `container`, must not be `None`")  # noqa: E501
 
         self._container = container
+
+    @property
+    def object_selector(self):
+        """Gets the object_selector of this V1alpha1StorageContainerSpec.  # noqa: E501
+
+
+        :return: The object_selector of this V1alpha1StorageContainerSpec.  # noqa: E501
+        :rtype: V1LabelSelector
+        """
+        return self._object_selector
+
+    @object_selector.setter
+    def object_selector(self, object_selector):
+        """Sets the object_selector of this V1alpha1StorageContainerSpec.
+
+
+        :param object_selector: The object_selector of this V1alpha1StorageContainerSpec.  # noqa: E501
+        :type: V1LabelSelector
+        """
+
+        self._object_selector = object_selector
 
     @property
     def supported_uri_formats(self):
