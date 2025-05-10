@@ -17,5 +17,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -o localmodelnode-agent ./cmd/localmode
 # Copy the controller-manager into a thin image
 FROM gcr.io/distroless/static:nonroot
 COPY third_party/ /third_party/
-COPY --from=builder /go/src/github.com/kserve/kserve/localmodelnode-agent /manager
-ENTRYPOINT ["/manager"]
+WORKDIR /ko-app
+COPY --from=builder /go/src/github.com/kserve/kserve/localmodelnode-agent /ko-app/manager
+ENTRYPOINT ["/ko-app/manager"]
