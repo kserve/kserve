@@ -451,6 +451,94 @@ func TestInferenceGraphWithCondition(t *testing.T) {
 	assert.Equal(t, expectedModel4Response, response["model4"])
 }
 
+func TestInferenceGraphSequenceWithUnmetCondition(t *testing.T) {
+	// Start a local HTTP server
+	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := io.ReadAll(req.Body)
+		if err != nil {
+			return
+		}
+		response := map[string]interface{}{
+			"predictions": []map[string]interface{}{
+				{
+					"label": "cat",
+					"score": []float32{
+						0.8, 0.2,
+					},
+				},
+			},
+		}
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			t.Fatalf("failed to marshal response: %v", err)
+		}
+		_, err = rw.Write(responseBytes)
+		if err != nil {
+			t.Fatalf("failed to write response: %v", err)
+		}
+	}))
+	model1Url, err := apis.ParseURL(model1.URL)
+	if err != nil {
+		t.Fatalf("Failed to parse model url")
+	}
+	defer model1.Close()
+
+	graphSpec := v1alpha1.InferenceGraphSpec{
+		Nodes: map[string]v1alpha1.InferenceRouter{
+			"root": {
+				RouterType: v1alpha1.Sequence,
+				Steps: []v1alpha1.InferenceStep{
+					{
+						StepName: "step1",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: model1Url.String(),
+						},
+					},
+					{
+						StepName: "step2",
+						InferenceTarget: v1alpha1.InferenceTarget{
+							ServiceURL: "http://dummy", // Because in this test, this step won't be run.
+						},
+						Condition: "predictions.#(label==\"dog\")",
+					},
+				},
+			},
+		},
+	}
+	input := map[string]interface{}{
+		"instances": []map[string]string{
+			{"modelId": "1"},
+		},
+	}
+	jsonBytes, _ := json.Marshal(input)
+	headers := http.Header{}
+	res, statusCode, err := routeStep("root", graphSpec, jsonBytes, headers)
+	if err != nil {
+		t.Fatalf("routeStep failed: %v", err)
+	}
+
+	// Despite the condition for step2 is unmet, a 200 status code is expected.
+	assert.Equal(t, http.StatusOK, statusCode)
+
+	var response map[string]interface{}
+	err = json.Unmarshal(res, &response)
+	if err != nil {
+		t.Fatalf("json.Unmarshal failed: %v", err)
+	}
+	expectedResponse := map[string]interface{}{
+		"predictions": []interface{}{
+			map[string]interface{}{
+				"label": "cat",
+				"score": []interface{}{
+					0.8, 0.2,
+				},
+			},
+		},
+	}
+	fmt.Printf("final response:%v\n", response)
+	assert.Equal(t, expectedResponse, response)
+}
+
 func TestCallServiceWhenNoneHeadersToPropagateIsEmpty(t *testing.T) {
 	// Start a local HTTP server
 	model1 := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
