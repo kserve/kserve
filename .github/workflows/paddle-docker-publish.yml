@@ -39,7 +39,7 @@ jobs:
       - name: Run tests
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64/v8
           context: python
           file: python/paddle.Dockerfile
           push: false
@@ -93,7 +93,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64/v8
           context: python
           file: python/paddle.Dockerfile
           push: true
