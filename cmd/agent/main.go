@@ -288,7 +288,7 @@ func startLogger(workers int, logStorePath *string, logStoreFormat *string, log 
 
 	sourceUriParsed, err := url.Parse(*sourceUri)
 	if err != nil {
-		log.Errorw("Malformed source_uri %s", *sourceUri)
+		log.Errorw("Malformed source_uri", "source_uri", *sourceUri)
 		os.Exit(-1)
 	}
 
