@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/docker/distribution/context"
 	"github.com/onsi/gomega/types"
 	"knative.dev/pkg/apis"
 	knativeV1 "knative.dev/pkg/apis/duck/v1"
@@ -994,7 +995,7 @@ func TestGetServingRuntime(t *testing.T) {
 	mockClient := fake.NewClientBuilder().WithLists(runtimes /*, clusterRuntimes*/).WithScheme(s).Build()
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res, _ := GetServingRuntime(t.Context(), mockClient, scenario.runtimeName, namespace)
+			res, _ := GetServingRuntime(context.Background(), mockClient, scenario.runtimeName, namespace)
 			if !g.Expect(res).To(gomega.Equal(&scenario.expected)) {
 				t.Errorf("got %v, want %v", res, &scenario.expected)
 			}
@@ -1003,7 +1004,7 @@ func TestGetServingRuntime(t *testing.T) {
 
 	// Check invalid case
 	t.Run("InvalidServingRuntime", func(t *testing.T) {
-		res, err := GetServingRuntime(t.Context(), mockClient, "foo", namespace)
+		res, err := GetServingRuntime(context.Background(), mockClient, "foo", namespace)
 		if !g.Expect(res).To(gomega.BeNil()) {
 			t.Errorf("got %v, want %v", res, nil)
 		}
@@ -1864,7 +1865,7 @@ func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
 	for _, uri := range validUris {
-		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err != nil {
+		if err := ValidateStorageURI(context.Background(), &uri, mockClient); err != nil {
 			t.Errorf("%q validation failed: %s", uri, err)
 		}
 	}
@@ -1881,7 +1882,7 @@ func TestValidateStorageURIForCustomPrefix(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
 	for _, uri := range invalidUris {
-		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err == nil {
+		if err := ValidateStorageURI(context.Background(), &uri, mockClient); err == nil {
 			t.Errorf("%q validation failed: error expected", uri)
 		}
 	}
@@ -1919,7 +1920,7 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
 	for _, uri := range validUris {
-		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err != nil {
+		if err := ValidateStorageURI(context.Background(), &uri, mockClient); err != nil {
 			t.Errorf("%q validation failed: %s", uri, err)
 		}
 	}

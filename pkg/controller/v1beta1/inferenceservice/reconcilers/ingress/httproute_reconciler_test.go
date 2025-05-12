@@ -22,6 +22,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
+	"golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -152,7 +153,7 @@ func TestGetRawServiceHost(t *testing.T) {
 	s.AddKnownTypes(v1beta1.SchemeGroupVersion, &v1beta1.InferenceService{})
 	client := fake.NewClientBuilder().WithScheme(s).Build()
 	// Create a dummy service to test default suffix cases
-	client.Create(t.Context(), &corev1.Service{
+	client.Create(context.Background(), &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-isvc-pred-default",
 			Namespace: "default",
@@ -161,7 +162,7 @@ func TestGetRawServiceHost(t *testing.T) {
 	})
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			host := getRawServiceHost(t.Context(), tc.isvc, client)
+			host := getRawServiceHost(context.Background(), tc.isvc, client)
 			g.Expect(tc.expectedHost).To(BeComparableTo(host))
 		})
 	}
@@ -1289,7 +1290,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 				&gatewayapiv1.HTTPRoute{})
 			client := fake.NewClientBuilder().WithScheme(s).Build()
 			// Create a dummy service to test default suffix case
-			client.Create(t.Context(), &corev1.Service{
+			client.Create(context.Background(), &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-isvc-default-predictor-default",
 					Namespace: "default",
@@ -1300,7 +1301,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawTopLevelHTTPRoute(t.Context(), tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawTopLevelHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
@@ -1546,7 +1547,7 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 				&gatewayapiv1.HTTPRoute{})
 			client := fake.NewClientBuilder().WithScheme(s).Build()
 			// Create a dummy service to test default suffix case
-			client.Create(t.Context(), &corev1.Service{
+			client.Create(context.Background(), &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-isvc-default-predictor-default",
 					Namespace: "default",
@@ -1557,7 +1558,7 @@ func TestCreateRawPredictorHTTPRoute(t *testing.T) {
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawPredictorHTTPRoute(t.Context(), tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawPredictorHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
@@ -1806,7 +1807,7 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 				&gatewayapiv1.HTTPRoute{})
 			client := fake.NewClientBuilder().WithScheme(s).Build()
 			// Create a dummy service to test default suffix case
-			client.Create(t.Context(), &corev1.Service{
+			client.Create(context.Background(), &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-isvc-default-transformer-default",
 					Namespace: "default",
@@ -1817,7 +1818,7 @@ func TestCreateRawTransformerHTTPRoute(t *testing.T) {
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawTransformerHTTPRoute(t.Context(), tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawTransformerHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {
@@ -2066,7 +2067,7 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 				&gatewayapiv1.HTTPRoute{})
 			client := fake.NewClientBuilder().WithScheme(s).Build()
 			// Create a dummy service to test default suffix case
-			client.Create(t.Context(), &corev1.Service{
+			client.Create(context.Background(), &corev1.Service{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-isvc-default-explainer-default",
 					Namespace: "default",
@@ -2077,7 +2078,7 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 				ServiceAnnotationDisallowedList: []string{},
 				ServiceLabelDisallowedList:      []string{},
 			}
-			httpRoute, err := createRawExplainerHTTPRoute(t.Context(), tc.isvc, tc.ingressConfig, isvcConfig, client)
+			httpRoute, err := createRawExplainerHTTPRoute(context.Background(), tc.isvc, tc.ingressConfig, isvcConfig, client)
 
 			g.Expect(err).ToNot(HaveOccurred())
 			if tc.expected != nil {

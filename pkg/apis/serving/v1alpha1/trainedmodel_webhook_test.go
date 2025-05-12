@@ -22,6 +22,7 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"golang.org/x/net/context"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -135,7 +136,7 @@ func TestValidateCreate(t *testing.T) {
 			for tmField, value := range scenario.update {
 				tm.update(tmField, value)
 			}
-			warnings, err := validator.ValidateCreate(t.Context(), tm)
+			warnings, err := validator.ValidateCreate(context.Background(), tm)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -260,7 +261,7 @@ func TestValidateUpdate(t *testing.T) {
 			for tmField, value := range scenario.update {
 				tm.update(tmField, value)
 			}
-			warnings, err := validator.ValidateUpdate(t.Context(), old, tm)
+			warnings, err := validator.ValidateUpdate(context.Background(), old, tm)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -289,7 +290,7 @@ func TestValidateDelete(t *testing.T) {
 	validator := TrainedModelValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
-			warnings, err := validator.ValidateDelete(t.Context(), &scenario.tm)
+			warnings, err := validator.ValidateDelete(context.Background(), &scenario.tm)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}

@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/docker/distribution/context"
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/stretchr/testify/assert"
@@ -1133,8 +1134,8 @@ func TestCredentialInjection(t *testing.T) {
 
 	builder := credentials.NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(t.Context(), scenario.sa)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(context.Background(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(context.Background(), scenario.secret)).NotTo(gomega.HaveOccurred())
 
 		injector := &StorageInitializerInjector{
 			credentialBuilder: builder,
@@ -1148,8 +1149,8 @@ func TestCredentialInjection(t *testing.T) {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 
-		g.Expect(c.Delete(t.Context(), scenario.sa)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(context.Background(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(context.Background(), scenario.secret)).NotTo(gomega.HaveOccurred())
 	}
 }
 
@@ -2060,8 +2061,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 
 	builder := credentials.NewCredentialBuilder(c, clientset, configMap)
 	for name, scenario := range scenarios {
-		g.Expect(c.Create(t.Context(), scenario.sa)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Create(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(context.Background(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Create(context.Background(), scenario.secret)).NotTo(gomega.HaveOccurred())
 
 		injector := &StorageInitializerInjector{
 			credentialBuilder: builder,
@@ -2075,8 +2076,8 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 
-		g.Expect(c.Delete(t.Context(), scenario.secret)).NotTo(gomega.HaveOccurred())
-		g.Expect(c.Delete(t.Context(), scenario.sa)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(context.Background(), scenario.secret)).NotTo(gomega.HaveOccurred())
+		g.Expect(c.Delete(context.Background(), scenario.sa)).NotTo(gomega.HaveOccurred())
 	}
 }
 
@@ -2645,17 +2646,17 @@ func TestGetStorageContainerSpec(t *testing.T) {
 		},
 	}
 
-	if err := c.Create(t.Context(), &s3AzureSpec); err != nil {
+	if err := c.Create(context.Background(), &s3AzureSpec); err != nil {
 		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
-	if err := c.Create(t.Context(), &customSpec); err != nil {
+	if err := c.Create(context.Background(), &customSpec); err != nil {
 		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
 	defer func() {
-		if err := c.Delete(t.Context(), &s3AzureSpec); err != nil {
+		if err := c.Delete(context.Background(), &s3AzureSpec); err != nil {
 			t.Errorf("unable to delete cluster storage container: %v", err)
 		}
-		if err := c.Delete(t.Context(), &customSpec); err != nil {
+		if err := c.Delete(context.Background(), &customSpec); err != nil {
 			t.Errorf("unable to delete cluster storage container: %v", err)
 		}
 	}()
@@ -2680,7 +2681,7 @@ func TestGetStorageContainerSpec(t *testing.T) {
 		var container *corev1.Container
 		var err error
 
-		if container, err = GetContainerSpecForStorageUri(t.Context(), scenario.storageUri, c); err != nil {
+		if container, err = GetContainerSpecForStorageUri(context.Background(), scenario.storageUri, c); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		g.Expect(container).To(gomega.Equal(scenario.expectedSpec))
@@ -2723,17 +2724,17 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "s3://"}, {Regex: "https://(.+?).blob.core.windows.net/(.+)"}},
 		},
 	}
-	if err := c.Create(t.Context(), &s3AzureSpec); err != nil {
+	if err := c.Create(context.Background(), &s3AzureSpec); err != nil {
 		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
-	if err := c.Create(t.Context(), &customSpec); err != nil {
+	if err := c.Create(context.Background(), &customSpec); err != nil {
 		t.Fatalf("unable to create cluster storage container: %v", err)
 	}
 	defer func() {
-		if err := c.Delete(t.Context(), &s3AzureSpec); err != nil {
+		if err := c.Delete(context.Background(), &s3AzureSpec); err != nil {
 			t.Errorf("unable to delete cluster storage container: %v", err)
 		}
-		if err := c.Delete(t.Context(), &customSpec); err != nil {
+		if err := c.Delete(context.Background(), &customSpec); err != nil {
 			t.Errorf("unable to delete cluster storage container: %v", err)
 		}
 	}()
