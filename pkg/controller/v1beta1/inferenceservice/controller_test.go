@@ -220,7 +220,17 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Name: constants.DefaultKnServingName, Namespace: constants.DefaultKnServingNamespace}, knativeService)).ToNot(HaveOccurred())
 			knativeService.Spec.CommonSpec.Config["autoscaler"]["allow-zero-initial-scale"] = "false"
 			Eventually(func() error {
-				return k8sClient.Update(context.TODO(), knativeService)
+				err := k8sClient.Update(context.TODO(), knativeService)
+				if err != nil {
+					if apierr.IsConflict(err) {
+						// Retry on conflict
+						return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+							return k8sClient.Update(context.TODO(), knativeService)
+						})
+					}
+					return err
+				}
+				return err
 			}, timeout).Should(Succeed())
 		})
 		AfterEach(func() {
