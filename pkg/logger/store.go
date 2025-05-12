@@ -103,7 +103,7 @@ func NewStoreForScheme(scheme string, logStorePath string, logStoreFormat string
 
 	// Convert to a Protocol to reuse existing types
 	if !strings.HasSuffix(scheme, "://") {
-		scheme = scheme + "://"
+		scheme += "://"
 	}
 	protocol := storage.Protocol(scheme)
 	provider, err := storage.GetProvider(map[storage.Protocol]storage.Provider{}, protocol)
