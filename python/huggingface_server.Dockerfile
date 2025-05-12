@@ -77,13 +77,13 @@ RUN --mount=type=cache,target=/root/.cache/pypoetry cd huggingfaceserver && poet
 COPY huggingfaceserver huggingfaceserver
 RUN --mount=type=cache,target=/root/.cache/pypoetry cd huggingfaceserver && poetry install --no-interaction --no-cache
 
-# Install lmcache
-RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VERSION}
-
 # Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
 # https://docs.vllm.ai/en/latest/models/extensions/fastsafetensor.html
 RUN --mount=type=cache,target=/root/.cache/pip pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
+
+# Install lmcache
+RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VERSION}
 
 #################### WHEEL BUILD IMAGE ####################
 
