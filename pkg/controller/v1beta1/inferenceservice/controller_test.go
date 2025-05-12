@@ -994,7 +994,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Add a url to the knative service so the services can be made
 			copiedKsvc := actualService.DeepCopy()
-			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			copiedKsvc.Status.URL = predictorUrl
 			copiedKsvc.Status.Conditions = duckv1.Conditions{
 				{
@@ -1181,7 +1181,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Add a url to the knative service so the services can be made
 			copiedKsvc := actualService.DeepCopy()
-			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			copiedKsvc.Status.URL = predictorUrl
 			copiedKsvc.Status.Conditions = duckv1.Conditions{
 				{
@@ -1370,7 +1370,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 
 			// Add a url to the knative service so the services can be made
 			copiedKsvc := actualService.DeepCopy()
-			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
 			copiedKsvc.Status.URL = predictorUrl
 			copiedKsvc.Status.Conditions = duckv1.Conditions{
 				{
