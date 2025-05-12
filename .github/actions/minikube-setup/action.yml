@@ -26,7 +26,7 @@ runs:
     - name: Setup Minikube
       uses: medyagh/setup-minikube@latest
       with:
-        minikube-version: '1.33.1'
+        minikube-version: '1.35.0'
         kubernetes-version: 'v1.30.7'
         driver: ${{ inputs.driver }}
         wait: 'all'
