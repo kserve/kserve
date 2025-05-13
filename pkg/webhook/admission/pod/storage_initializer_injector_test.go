@@ -779,8 +779,8 @@ func TestCustomSpecStorageUriInjection(t *testing.T) {
 		var originalEnvVar *corev1.EnvVar
 		for _, envVar := range scenario.original.Spec.Containers[0].Env {
 			if envVar.Name == constants.CustomSpecStorageUriEnvVarKey {
-				originalEnvVar = envVar
-				break 
+				originalEnvVar = &envVar
+				break
 			}
 		}
 		if diff, _ := kmp.SafeDiff(scenario.expectedStorageUriEnvVariable, originalEnvVar); diff != "" {
