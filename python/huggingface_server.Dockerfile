@@ -6,11 +6,11 @@ FROM ${BASE_IMAGE} AS builder
 ARG TARGETPLATFORM
 ARG CUDA_VERSION=12.4.1
 ARG PYTHON_VERSION=3.12
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.8.3
-ENV DEBIAN_FRONTEND=noninteractive
 
 # Install vllm
 ARG VLLM_VERSION=0.8.5
@@ -33,6 +33,14 @@ RUN apt-get update && apt-get upgrade -y && apt-get install gcc-10 g++-10 -y && 
 RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 110 --slave /usr/bin/g++ g++ /usr/bin/g++-10
 RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip3 install poetry==${POETRY_VERSION}
 ENV PATH="$PATH:${POETRY_HOME}/bin"
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+    pip install -r https://github.com/vllm-project/vllm/raw/refs/heads/v0.8.5/requirements/build.txt; \
+    pip install --index-url https://download.pytorch.org/whl/nightly/cu128 "torch==2.8.0.dev20250318+cu128" "torchvision==0.22.0.dev20250319";  \
+    pip install --index-url https://download.pytorch.org/whl/nightly/cu128 --pre pytorch_triton==3.3.0+gitab727c40; \
+    pip download --no-binary ":all:" vllm==0.8.5 && tar -xvf vllm-0.8.5.tar.gz && cd vllm-0.8.5 && python3 setup.py bdist_wheel --dist-dir=dist --py-limited-api=cp38; \
+    fi
 
 # Activate virtual env
 ARG VENV_PATH
@@ -76,11 +84,13 @@ RUN cd huggingfaceserver && poetry install --no-interaction --no-cache --only-ro
 
 RUN --mount=type=cache,target=/root/.cache/pip \
     if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-    pip install --index-url https://download.pytorch.org/whl/nightly/cu124 "torch==2.8.0.dev20250318+cu128" "torchvision==0.22.0.dev20250319";  \
-    pip install --index-url https://download.pytorch.org/whl/nightly/cu124 --pre pytorch_triton==3.3.0+gitab727c40; \
+    pip install --index-url https://download.pytorch.org/whl/nightly/cu128 "torch==2.8.0.dev20250318+cu128" "torchvision==0.22.0.dev20250319";  \
+    pip install --index-url https://download.pytorch.org/whl/nightly/cu128 --pre pytorch_triton==3.3.0+gitab727c40; \
     fi
 
-RUN --mount=type=cache,target=/root/.cache/pip pip install vllm==${VLLM_VERSION}
+RUN python3 -c "import torch; print(torch.__version__); print(torch.version.cuda);"
+ENV VLLM_TARGET_DEVICE=cuda
+RUN --mount=type=cache,target=/root/.cache/pip pip install --no-build-isolation vllm==${VLLM_VERSION}
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
