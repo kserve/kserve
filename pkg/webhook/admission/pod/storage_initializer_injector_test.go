@@ -4122,7 +4122,7 @@ func TestLocalModelPVC(t *testing.T) {
 	})
 
 	for name, scenario := range scenarios {
-		original := &v1.Pod{
+		original := &corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageUri,
