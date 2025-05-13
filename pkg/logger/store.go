@@ -37,16 +37,17 @@ const DefaultStorage = HttpStorage
 
 func GetStorageStrategy(url string) StorageStrategy {
 	// http, https
-	if strings.HasPrefix(url, "http") {
+	switch {
+	
+	case strings.HasPrefix(url, "http"):  // http, https
 		return HttpStorage
-	}
-
-	// s3, s3a
-	if strings.HasPrefix(url, "s3") {
+		
+	case strings.HasPrefix(url, "s3"): // s3, s3a
 		return S3Storage
+		
+	default:
+		return DefaultStorage
 	}
-
-	return DefaultStorage
 }
 
 type Marshaller interface {
