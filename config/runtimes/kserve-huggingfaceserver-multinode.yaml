@@ -22,7 +22,7 @@ spec:
       - "-c"
       - |
         export MODEL_DIR_ARG=""
-        if [[ ! -z ${MODEL_DIR} ]]
+        if [[ ! -z ${MODEL_ID} ]]
         then
           export MODEL_DIR_ARG="--model_dir=${MODEL_ID}"
         fi
