@@ -267,7 +267,6 @@ func (r *ServiceReconciler) checkServiceExist(ctx context.Context, client client
 				// Do nothing
 				return constants.CheckResultUnknown, nil, nil
 			}
-
 		}
 		return constants.CheckResultUnknown, nil, err
 	}
