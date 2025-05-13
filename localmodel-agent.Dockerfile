@@ -14,8 +14,15 @@ COPY pkg/    pkg/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux go build -a -o localmodelnode-agent ./cmd/localmodelnode
 
+# Generate third-party licenses
+COPY LICENSE LICENSE
+RUN go install github.com/google/go-licenses@latest
+# Forbidden Licenses: https://github.com/google/licenseclassifier/blob/e6a9bb99b5a6f71d5a34336b8245e305f5430f99/license_type.go#L341
+RUN go-licenses check ./cmd/... ./pkg/... --disallowed_types="forbidden,unknown"
+RUN go-licenses save --save_path third_party/library ./cmd/localmodelnode
+
 # Copy the controller-manager into a thin image
 FROM gcr.io/distroless/static:nonroot
-COPY third_party/ /third_party/
+COPY --from=builder /go/src/github.com/kserve/kserve/third_party /third_party
 COPY --from=builder /go/src/github.com/kserve/kserve/localmodelnode-agent /manager
 ENTRYPOINT ["/manager"]
