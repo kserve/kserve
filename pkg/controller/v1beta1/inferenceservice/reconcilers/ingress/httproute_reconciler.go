@@ -630,7 +630,6 @@ func (r *RawHTTPRouteReconciler) reconcilePredictorHTTPRoute(ctx context.Context
 					return err
 				}
 			}
-
 		} else if !apierr.IsNotFound(getExistingErr) {
 			return getExistingErr
 		}
@@ -780,7 +779,6 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 					return err
 				}
 			}
-
 		} else if !apierr.IsNotFound(getExistingErr) {
 			return getExistingErr
 		}

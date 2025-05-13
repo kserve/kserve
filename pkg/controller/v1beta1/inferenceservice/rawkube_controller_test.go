@@ -1690,7 +1690,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 	})
-  Context("When creating inference service with raw kube predictor and `serving.kserve.io/stop`", func() {
+	Context("When creating inference service with raw kube predictor and `serving.kserve.io/stop`", func() {
 		configs := map[string]string{
 			"explainers": `{
 				"alibi": {
@@ -1954,7 +1954,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				return updatedIsvc.Status.IsConditionReady(v1beta1.IngressReady)
 			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
-
 		})
 		It("Should keep the ingress/service/deployment/keda/otel created when gateway api is disabled and the annotation is set to false", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -2093,7 +2092,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				return updatedIsvc.Status.IsConditionReady(v1beta1.IngressReady)
 			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
-
 		})
 		It("Should not create the httproute/service/deployment/hpa/otel when the annotation is set to true", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -2313,7 +2311,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue(), "The stopped condition should be set to true")
 		})
 	})
-  Context("When updating ISVC envs", func() {
+	Context("When updating ISVC envs", func() {
 		It("Should reconcile the deployment if isvc envs are updated", func() {
 			defaultEnvs := []corev1.EnvVar{
 				{
