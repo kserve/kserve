@@ -106,6 +106,17 @@ func TestComponentExtensionSpec_validateStorageSpec(t *testing.T) {
 			storageUri: proto.String("gs://test/model"),
 			matcher:    gomega.MatchError(fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageSpecURIPrefixList, ", "), "gs://test/model")),
 		},
+		"InvalidStoragespec": {
+			spec: &ModelStorageSpec{
+				StorageSpec: StorageSpec{
+					Parameters: &map[string]string{
+						"type": "gs",
+					},
+				},
+			},
+			storageUri: nil,
+			matcher:    gomega.MatchError(fmt.Errorf(UnsupportedStorageSpecFormatError, strings.Join(SupportedStorageSpecURIPrefixList, ", "), "gs")),
+		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
