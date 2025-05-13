@@ -575,7 +575,7 @@ func (r *RawHTTPRouteReconciler) reconcilePredictorHTTPRoute(ctx context.Context
 		// Delete the http route
 		if getExistingErr == nil {
 			// Make sure that we only delete http routes owned by the isvc
-			if existing.OwnerReferences[0].UID == isvc.UID {
+			if existing.OwnerReferences[0].UID == isvc.UID && existing.GetDeletionTimestamp() == nil {
 				log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated http route")
 				if err := r.client.Delete(ctx, existing); err != nil {
 					return err
@@ -725,7 +725,7 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 		// Delete the http route
 		if getExistingErr == nil {
 			// Make sure that we only delete http route owned by the isvc
-			if existingHttpRoute.OwnerReferences[0].UID == isvc.UID {
+			if existingHttpRoute.OwnerReferences[0].UID == isvc.UID && existingHttpRoute.GetDeletionTimestamp() == nil {
 				log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated top level http route")
 				if err := r.client.Delete(ctx, existingHttpRoute); err != nil {
 					return err
