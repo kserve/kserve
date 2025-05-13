@@ -11,7 +11,20 @@ spec:
     kind: Issuer
     name: selfsigned-issuer
   secretName: kserve-webhook-server-cert
-
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kserve-metrics-serving-cert
+  namespace: {{ .Release.Namespace }}
+spec:
+  commonName: kserve-controller-manager-service.{{ .Release.Namespace }}.svc
+  dnsNames:
+    - kserve-controller-manager-service.{{ .Release.Namespace }}.svc
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: kserve-metrics-server-cert
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer
