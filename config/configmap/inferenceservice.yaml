@@ -664,7 +664,7 @@ data:
         "memoryLimit": "1Gi",
         "cpuRequest": "100m",
         "cpuLimit": "1",
-        "defaultUrl": "http://default-broker",
+        "defaultUrl": "http://default-broker"
     }
 
   batcher: |-
