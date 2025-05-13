@@ -243,7 +243,7 @@ func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler, desired *a
 }
 
 func shouldCreateHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
-	//Skip creating the HPA if the stop annotation is true
+	// Skip creating the HPA if the stop annotation is true
 	forceStopRuntime := false
 	if val, exist := desired.Annotations[constants.StopAnnotationKey]; exist {
 		forceStopRuntime = strings.EqualFold(val, "true")
