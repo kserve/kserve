@@ -444,12 +444,12 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 			}
 
 			// Patch the deployment object with the strategic merge patch
-      opErr = r.client.Patch(ctx, existingDep, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
+			opErr = r.client.Patch(ctx, existingDep, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
 
 		case constants.CheckResultDelete:
-			log.Info("Stopping deployment", "namespace", deployment.Namespace, "name", deployment.Name)
-			if deployment.GetDeletionTimestamp() == nil { // check if the deployment was already deleted
-				opErr = r.client.Delete(ctx, deployment)
+			log.Info("Stopping deployment", "namespace", existingDep.Namespace, "name", existingDep.Name)
+			if existingDep.GetDeletionTimestamp() == nil { // check if the deployment was already deleted
+				opErr = r.client.Delete(ctx, existingDep)
 			}
 		}
 
