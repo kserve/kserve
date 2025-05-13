@@ -85,6 +85,11 @@ RUN --mount=type=cache,target=/root/.cache/pip pip install vllm[runai,tensorizer
 # Install lmcache
 RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VERSION}
 
+# Generate third-party licenses
+COPY pyproject.toml pyproject.toml
+COPY third_party/pip-licenses.py pip-licenses.py
+RUN mkdir -p third_party/library && python3 pip-licenses.py
+
 #################### WHEEL BUILD IMAGE ####################
 
 #################### PROD IMAGE ####################
@@ -112,8 +117,6 @@ RUN apt-get update -y \
     && python3 --version && python3 -m pip --version \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-COPY third_party third_party
-
 ARG VENV_PATH
 # Activate virtual env by setting VIRTUAL_ENV
 ENV VIRTUAL_ENV=${WORKSPACE_DIR}/${VENV_PATH}
@@ -121,7 +124,7 @@ ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
-COPY --from=builder --chown=kserve:kserve third_party third_party
+COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/third_party third_party
 COPY --from=build --chown=kserve:kserve ${WORKSPACE_DIR}/$VENV_PATH $VENV_PATH
 COPY --from=build ${WORKSPACE_DIR}/kserve kserve
 COPY --from=build ${WORKSPACE_DIR}/huggingfaceserver huggingfaceserver
