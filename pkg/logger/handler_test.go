@@ -349,5 +349,4 @@ func TestLoggerWithS3Store(t *testing.T) {
 	// get logResponse
 	res := <-store.ResponseChan
 	g.Expect(res.ReqType).To(gomega.Equal(CEInferenceResponse))
-
 }

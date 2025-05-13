@@ -23,13 +23,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	cloudevents "github.com/cloudevents/sdk-go/v2"
-	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
-	"github.com/kserve/kserve/pkg/constants"
-	"go.uber.org/zap"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cehttp "github.com/cloudevents/sdk-go/v2/protocol/http"
+	"go.uber.org/zap"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 const (

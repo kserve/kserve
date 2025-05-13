@@ -1,12 +1,30 @@
+/*
+Copyright 2023 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package logger
 
 import (
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/kserve/kserve/pkg/agent/storage"
-	"github.com/onsi/gomega"
-	pkglogging "knative.dev/pkg/logging"
 	"net/url"
 	"testing"
+
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/onsi/gomega"
+	pkglogging "knative.dev/pkg/logging"
+
+	"github.com/kserve/kserve/pkg/agent/storage"
 )
 
 func mockStore() (*S3Store, *MockS3Uploader) {
@@ -32,7 +50,7 @@ func TestMissingBucket(t *testing.T) {
 	store, _ := mockStore()
 
 	logUrl, err := url.Parse("s3://")
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	err = store.Store(logUrl, LogRequest{
 		ReqType: CEInferenceRequest,
@@ -46,7 +64,7 @@ func TestConfiguredPrefix(t *testing.T) {
 	store, uploader := mockStore()
 
 	logUrl, err := url.Parse("s3://bucket/prefix")
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	err = store.Store(logUrl, LogRequest{
 		Id:               "0123",
@@ -55,7 +73,7 @@ func TestConfiguredPrefix(t *testing.T) {
 		Component:        "predictor",
 		ReqType:          CEInferenceRequest,
 	})
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	req := <-uploader.ReceivedUploadObjectsChan
 	g.Expect(*req.Object.Bucket).To(gomega.Equal("bucket"))
