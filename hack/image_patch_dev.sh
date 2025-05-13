@@ -77,15 +77,7 @@ data:
         "memoryRequest": "100Mi",
         "memoryLimit": "100Mi",
         "cpuRequest": "100m",
-        "cpuLimit": "100m",
-        "storage": {
-            "path": "/logger",
-            "parameters": {
-              "type": "s3",
-              "format": "json"
-            },
-            "key": "logger-credentials"
-        }
+        "cpuLimit": "100m"
     }
   batcher: |-
     {
