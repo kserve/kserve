@@ -2139,7 +2139,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				return updatedIsvc.Status.IsConditionReady(v1beta1.IngressReady)
 			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
-
 		})
 		It("Should keep the ingress/service/deployment/keda/otel created when gateway api is disabled and the annotation is set to false", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -2278,7 +2277,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				return updatedIsvc.Status.IsConditionReady(v1beta1.IngressReady)
 			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
-
 		})
 		It("Should not create the httproute/service/deployment/hpa/otel when the annotation is set to true", func() {
 			ctx, cancel := context.WithCancel(context.Background())
