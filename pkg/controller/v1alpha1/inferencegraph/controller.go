@@ -221,7 +221,11 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative Serving is not available", graph.Name))
 		}
 
-		desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
+		desired, err := createKnativeService(ctx, r.Clientset, graph.ObjectMeta, graph, routerConfig)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to create new knative service")
+		}
+
 		err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
 		if err != nil {
 			return reconcile.Result{}, err

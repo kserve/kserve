@@ -302,7 +302,6 @@ func (ir *IngressReconciler) reconcileVirtualService(ctx context.Context, isvc *
 					return err
 				}
 			}
-
 		} else if !apierr.IsNotFound(getExistingErr) {
 			return getExistingErr
 		}
