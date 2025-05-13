@@ -36,5 +36,3 @@ type LogRequest struct {
 	CertName         string
 	TlsSkipVerify    bool
 }
-
-const DefaultStoreFormat string = "json"
