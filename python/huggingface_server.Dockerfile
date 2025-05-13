@@ -1,18 +1,36 @@
-ARG BASE_IMAGE=nvidia/cuda:12.4.1-devel-ubuntu22.04
+ARG BASE_IMAGE=nvidia/cuda:12.4.1-devel-ubuntu20.04
 ARG VENV_PATH=/prod_venv
 
 FROM ${BASE_IMAGE} AS builder
 
+ARG TARGETPLATFORM
+ARG CUDA_VERSION=12.4.1
+ARG PYTHON_VERSION=3.12
 
 # Install Poetry
 ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.8.3
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install vllm
 ARG VLLM_VERSION=0.8.5
 
-RUN apt-get update && apt-get upgrade -y && apt-get install gcc python3.10-venv python3-dev -y && apt-get clean && \
+RUN echo 'tzdata tzdata/Areas select America' | debconf-set-selections \
+    && echo 'tzdata tzdata/Zones/America select Los_Angeles' | debconf-set-selections \
+    && apt-get update -y \
+    && apt-get install -y ccache software-properties-common git curl sudo \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update -y \
+    && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
+    && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
+    && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
+    && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
+    && python3 --version && python3 -m pip --version
+
+RUN apt-get update && apt-get upgrade -y && apt-get install gcc-10 g++-10 -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 110 --slave /usr/bin/g++ g++ /usr/bin/g++-10
 RUN python3 -m venv ${POETRY_HOME} && ${POETRY_HOME}/bin/pip3 install poetry==${POETRY_VERSION}
 ENV PATH="$PATH:${POETRY_HOME}/bin"
 
@@ -27,12 +45,42 @@ RUN cd kserve && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
 RUN cd kserve && poetry install --no-interaction --no-cache
 
-COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/health_check.py huggingfaceserver/
-RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
-COPY huggingfaceserver huggingfaceserver
-RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
+RUN ldconfig /usr/local/cuda-$(echo $CUDA_VERSION | cut -d. -f1,2)/compat/
 
-RUN pip install --upgrade pip && pip install vllm==${VLLM_VERSION}
+# cuda arch list used by torch
+# can be useful for both `dev` and `test`
+# explicitly set the list to avoid issues with torch 2.2
+# see https://github.com/pytorch/pytorch/pull/123243
+ARG torch_cuda_arch_list='7.0 7.5 8.0 8.6 8.9 9.0+PTX'
+ENV TORCH_CUDA_ARCH_LIST=${torch_cuda_arch_list}
+# Override the arch list for flash-attn to reduce the binary size
+ARG vllm_fa_cmake_gpu_arches='80-real;90-real'
+ENV VLLM_FA_CMAKE_GPU_ARCHES=${vllm_fa_cmake_gpu_arches}
+ENV VLLM_TARGET_DEVICE=cuda
+COPY huggingfaceserver/ huggingfaceserver/
+RUN --mount=type=cache,target=/root/.cache/pypoetry \
+    if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+    cd huggingfaceserver; \
+    sed -i -E 's/(kserve\s*=\s*\{[^\}]*extras\s*=\s*\[)[^]]*\]/\1"storage"\]/' pyproject.toml &&  sed -i '/^\s*vllm\s*=/d' pyproject.toml; \
+    poetry lock --no-update; \
+    fi
+RUN --mount=type=cache,target=/root/.cache/pypoetry cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
+COPY huggingfaceserver huggingfaceserver
+# RUN --mount=type=cache,target=/root/.cache/pypoetry \
+#     if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+#     cd huggingfaceserver; \
+#     sed -i -E 's/(kserve\s*=\s*\{[^\}]*extras\s*=\s*\[)[^]]*\]/\1"storage"\]/' pyproject.toml &&  sed -i '/^\s*vllm\s*=/d' pyproject.toml; \
+#     poetry lock --no-update; \
+#     fi
+RUN cd huggingfaceserver && poetry install --no-interaction --no-cache --only-root
+
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+    pip install --index-url https://download.pytorch.org/whl/nightly/cu124 "torch==2.8.0.dev20250318+cu128" "torchvision==0.22.0.dev20250319";  \
+    pip install --index-url https://download.pytorch.org/whl/nightly/cu124 --pre pytorch_triton==3.3.0+gitab727c40; \
+    fi
+
+RUN --mount=type=cache,target=/root/.cache/pip pip install vllm==${VLLM_VERSION}
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
