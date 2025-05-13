@@ -18,12 +18,15 @@ package logger
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/kserve/kserve/pkg/agent/storage"
-	"go.uber.org/zap"
 	"net/url"
 	"path"
 	"strings"
+
+	"go.uber.org/zap"
+
+	"github.com/kserve/kserve/pkg/agent/storage"
 )
 
 type StorageStrategy string
@@ -38,13 +41,12 @@ const DefaultStorage = HttpStorage
 func GetStorageStrategy(url string) StorageStrategy {
 	// http, https
 	switch {
-	
-	case strings.HasPrefix(url, "http"):  // http, https
+	case strings.HasPrefix(url, "http"): // http, https
 		return HttpStorage
-		
+
 	case strings.HasPrefix(url, "s3"): // s3, s3a
 		return S3Storage
-		
+
 	default:
 		return DefaultStorage
 	}
@@ -119,7 +121,7 @@ func NewStoreForScheme(scheme string, logStorePath string, logStoreFormat string
 
 func (s *S3Store) Store(logUrl *url.URL, logRequest LogRequest) error {
 	if logUrl == nil {
-		return fmt.Errorf("log url is invalid")
+		return errors.New("log url is invalid")
 	}
 
 	value, err := s.marshaller.Marshal(logRequest)
@@ -135,7 +137,7 @@ func (s *S3Store) Store(logUrl *url.URL, logRequest LogRequest) error {
 	}
 
 	if bucket == "" {
-		return fmt.Errorf("no bucket specified in url")
+		return errors.New("no bucket specified in url")
 	}
 
 	objectKey, err := s.getObjectKey(configPrefix, &logRequest)
@@ -155,7 +157,7 @@ func (s *S3Store) Store(logUrl *url.URL, logRequest LogRequest) error {
 
 func (s *S3Store) getObjectPrefix(configPrefix string, request *LogRequest) (string, error) {
 	if request == nil {
-		return "", fmt.Errorf("log request is invalid")
+		return "", errors.New("log request is invalid")
 	}
 
 	var parts []string
@@ -180,7 +182,7 @@ func (s *S3Store) getObjectPrefix(configPrefix string, request *LogRequest) (str
 
 func (s *S3Store) getObjectKey(configPrefix string, request *LogRequest) (string, error) {
 	if request == nil {
-		return "", fmt.Errorf("log request is invalid")
+		return "", errors.New("log request is invalid")
 	}
 
 	prefix, err := s.getObjectPrefix(configPrefix, request)
