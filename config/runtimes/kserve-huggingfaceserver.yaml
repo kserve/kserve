@@ -19,6 +19,9 @@ spec:
       image: huggingfaceserver:replace
       args:
         - --model_name={{.Name}}
+      env:
+        - name: LMCACHE_USE_EXPERIMENTAL
+          value: "True"
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
