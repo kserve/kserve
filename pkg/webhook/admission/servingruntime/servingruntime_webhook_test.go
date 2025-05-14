@@ -30,9 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	runtime "k8s.io/apimachinery/pkg/runtime"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
-	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
 func TestValidateServingRuntimePriority(t *testing.T) {
@@ -1733,6 +1734,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 		})
 	}
 }
+
 func TestServingRuntimeValidator_Handle(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -1880,12 +1882,12 @@ func TestServingRuntimeValidator_Handle(t *testing.T) {
 				Decoder: fakeDecoder,
 			}
 			req := admission.Request{}
-			resp := validator.Handle(context.Background(), req)
+			resp := validator.Handle(t.Context(), req)
 			if tt.wantAllowed {
 				g.Expect(resp.Allowed).To(gomega.BeTrue())
 			}
 			if tt.wantStatusCode != 0 {
-				g.Expect(resp.Result.Code).To(gomega.Equal(int32(tt.wantStatusCode)))
+				g.Expect(int(resp.Result.Code)).To(gomega.Equal(tt.wantStatusCode))
 			}
 		})
 	}
@@ -1901,8 +1903,7 @@ func (f *fakeClient) List(ctx context.Context, list client.ObjectList, opts ...c
 	if f.listErr != nil {
 		return f.listErr
 	}
-	switch l := list.(type) {
-	case *v1alpha1.ServingRuntimeList:
+	if l, ok := list.(*v1alpha1.ServingRuntimeList); ok {
 		for _, obj := range f.objs {
 			if sr, ok := obj.(*v1alpha1.ServingRuntime); ok {
 				l.Items = append(l.Items, *sr)
@@ -1924,12 +1925,12 @@ func (f *fakeDecoder) Decode(_ admission.Request, into runtime.Object) error {
 	if f.err != nil {
 		return f.err
 	}
-	switch v := into.(type) {
-	case *v1alpha1.ServingRuntime:
+	if v, ok := into.(*v1alpha1.ServingRuntime); ok {
 		*v = *(f.obj.(*v1alpha1.ServingRuntime))
 	}
 	return nil
 }
+
 func intPtr(i int) *int {
 	return &i
 }

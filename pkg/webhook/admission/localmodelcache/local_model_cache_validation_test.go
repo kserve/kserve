@@ -125,6 +125,7 @@ func TestUnableToCreateLocalModelCacheWithSameStorageURI(t *testing.T) {
 	g.Expect(warnings).NotTo(gomega.BeNil())
 	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s has the same StorageURI %s", lmc.Name, newLmc.Spec.SourceModelUri)))
 }
+
 func makeTestLocalModelCacheWithDifferentStorageURI() v1alpha1.LocalModelCache {
 	localModelCache := v1alpha1.LocalModelCache{
 		ObjectMeta: metav1.ObjectMeta{
@@ -172,7 +173,7 @@ func TestValidateUpdate_LocalModelCacheWithUniqueStorageURI(t *testing.T) {
 	oldLmc := makeTestLocalModelCacheWithSameStorageURI()
 	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmc, &newLmc)
 	g.Expect(warnings).To(gomega.BeNil())
-	g.Expect(err).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
 }
 
 func TestValidateUpdate_InvalidObjectType(t *testing.T) {

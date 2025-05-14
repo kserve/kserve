@@ -1505,6 +1505,7 @@ func TestInferenceServiceStatus_UpdateModelRevisionStates(t *testing.T) {
 		})
 	}
 }
+
 func TestGetDeploymentCondition_SingleDeployment(t *testing.T) {
 	now := metav1.Now()
 	deployment := &appsv1.Deployment{
@@ -1677,11 +1678,12 @@ func TestGetDeploymentCondition_SingleDeployment_NoMatchingCondition(t *testing.
 		t.Errorf("expected empty reason, got %q", condition.Reason)
 	}
 }
+
 func TestPropagateCrossComponentStatus(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Helper to create a status with a given condition
-	setComponentCondition := func(ss *InferenceServiceStatus, component ComponentType, condType apis.ConditionType, status corev1.ConditionStatus) {
+	setComponentCondition := func(ss *InferenceServiceStatus, condType apis.ConditionType, status corev1.ConditionStatus) {
 		cond := &apis.Condition{
 			Type:   condType,
 			Status: status,
@@ -1692,9 +1694,9 @@ func TestPropagateCrossComponentStatus(t *testing.T) {
 	t.Run("All components ready sets RoutesReady True", func(t *testing.T) {
 		ss := &InferenceServiceStatus{}
 		ss.InitializeConditions()
-		setComponentCondition(ss, PredictorComponent, PredictorRouteReady, corev1.ConditionTrue)
-		setComponentCondition(ss, ExplainerComponent, ExplainerRoutesReady, corev1.ConditionTrue)
-		setComponentCondition(ss, TransformerComponent, TransformerRouteReady, corev1.ConditionTrue)
+		setComponentCondition(ss, PredictorRouteReady, corev1.ConditionTrue)
+		setComponentCondition(ss, ExplainerRoutesReady, corev1.ConditionTrue)
+		setComponentCondition(ss, TransformerRouteReady, corev1.ConditionTrue)
 
 		ss.PropagateCrossComponentStatus([]ComponentType{PredictorComponent, ExplainerComponent, TransformerComponent}, RoutesReady)
 		cond := ss.GetCondition(RoutesReady)
@@ -1705,9 +1707,9 @@ func TestPropagateCrossComponentStatus(t *testing.T) {
 	t.Run("One component not ready sets RoutesReady False", func(t *testing.T) {
 		ss := &InferenceServiceStatus{}
 		ss.InitializeConditions()
-		setComponentCondition(ss, PredictorComponent, PredictorRouteReady, corev1.ConditionTrue)
-		setComponentCondition(ss, ExplainerComponent, ExplainerRoutesReady, corev1.ConditionFalse)
-		setComponentCondition(ss, TransformerComponent, TransformerRouteReady, corev1.ConditionTrue)
+		setComponentCondition(ss, PredictorRouteReady, corev1.ConditionTrue)
+		setComponentCondition(ss, ExplainerRoutesReady, corev1.ConditionFalse)
+		setComponentCondition(ss, TransformerRouteReady, corev1.ConditionTrue)
 
 		ss.PropagateCrossComponentStatus([]ComponentType{PredictorComponent, ExplainerComponent, TransformerComponent}, RoutesReady)
 		cond := ss.GetCondition(RoutesReady)
@@ -1719,9 +1721,9 @@ func TestPropagateCrossComponentStatus(t *testing.T) {
 	t.Run("One component unknown sets RoutesReady Unknown", func(t *testing.T) {
 		ss := &InferenceServiceStatus{}
 		ss.InitializeConditions()
-		setComponentCondition(ss, PredictorComponent, PredictorRouteReady, corev1.ConditionTrue)
-		setComponentCondition(ss, ExplainerComponent, ExplainerRoutesReady, corev1.ConditionUnknown)
-		setComponentCondition(ss, TransformerComponent, TransformerRouteReady, corev1.ConditionTrue)
+		setComponentCondition(ss, PredictorRouteReady, corev1.ConditionTrue)
+		setComponentCondition(ss, ExplainerRoutesReady, corev1.ConditionUnknown)
+		setComponentCondition(ss, TransformerRouteReady, corev1.ConditionTrue)
 
 		ss.PropagateCrossComponentStatus([]ComponentType{PredictorComponent, ExplainerComponent, TransformerComponent}, RoutesReady)
 		cond := ss.GetCondition(RoutesReady)
@@ -1751,9 +1753,9 @@ func TestPropagateCrossComponentStatus(t *testing.T) {
 	t.Run("All components ready sets LatestDeploymentReady True", func(t *testing.T) {
 		ss := &InferenceServiceStatus{}
 		ss.InitializeConditions()
-		setComponentCondition(ss, PredictorComponent, PredictorConfigurationReady, corev1.ConditionTrue)
-		setComponentCondition(ss, ExplainerComponent, ExplainerConfigurationReady, corev1.ConditionTrue)
-		setComponentCondition(ss, TransformerComponent, TransformerConfigurationReady, corev1.ConditionTrue)
+		setComponentCondition(ss, PredictorConfigurationReady, corev1.ConditionTrue)
+		setComponentCondition(ss, ExplainerConfigurationReady, corev1.ConditionTrue)
+		setComponentCondition(ss, TransformerConfigurationReady, corev1.ConditionTrue)
 
 		ss.PropagateCrossComponentStatus([]ComponentType{PredictorComponent, ExplainerComponent, TransformerComponent}, LatestDeploymentReady)
 		cond := ss.GetCondition(LatestDeploymentReady)
@@ -1764,9 +1766,9 @@ func TestPropagateCrossComponentStatus(t *testing.T) {
 	t.Run("One component not ready sets LatestDeploymentReady False", func(t *testing.T) {
 		ss := &InferenceServiceStatus{}
 		ss.InitializeConditions()
-		setComponentCondition(ss, PredictorComponent, PredictorConfigurationReady, corev1.ConditionTrue)
-		setComponentCondition(ss, ExplainerComponent, ExplainerConfigurationReady, corev1.ConditionFalse)
-		setComponentCondition(ss, TransformerComponent, TransformerConfigurationReady, corev1.ConditionTrue)
+		setComponentCondition(ss, PredictorConfigurationReady, corev1.ConditionTrue)
+		setComponentCondition(ss, ExplainerConfigurationReady, corev1.ConditionFalse)
+		setComponentCondition(ss, TransformerConfigurationReady, corev1.ConditionTrue)
 
 		ss.PropagateCrossComponentStatus([]ComponentType{PredictorComponent, ExplainerComponent, TransformerComponent}, LatestDeploymentReady)
 		cond := ss.GetCondition(LatestDeploymentReady)
@@ -1775,6 +1777,7 @@ func TestPropagateCrossComponentStatus(t *testing.T) {
 		g.Expect(cond.Reason).To(gomega.Equal("ExplainerConfigurationReady not ready"))
 	})
 }
+
 func TestInferenceServiceStatus_ClearCondition(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

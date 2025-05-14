@@ -1368,6 +1368,7 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
 }
+
 func TestValidateDelete(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	validator := InferenceServiceValidator{}
@@ -1375,7 +1376,7 @@ func TestValidateDelete(t *testing.T) {
 	t.Run("Valid InferenceService object", func(t *testing.T) {
 		isvc := makeTestInferenceService()
 		warnings, err := validator.ValidateDelete(t.Context(), &isvc)
-		g.Expect(err).Should(gomega.BeNil())
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(warnings).Should(gomega.BeEmpty())
 	})
 
@@ -1383,10 +1384,11 @@ func TestValidateDelete(t *testing.T) {
 		// Use a valid runtime.Object type but not an InferenceService
 		notIsvc := &corev1.Pod{}
 		warnings, err := validator.ValidateDelete(t.Context(), notIsvc)
-		g.Expect(err).ShouldNot(gomega.BeNil())
+		g.Expect(err).Should(gomega.HaveOccurred())
 		g.Expect(warnings).Should(gomega.BeEmpty())
 	})
 }
+
 func TestValidateScalingKedaCompExtension(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -1605,7 +1607,7 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateScalingKedaCompExtension(tt.spec)
 			if tt.wantErr == "" {
-				g.Expect(err).To(gomega.BeNil())
+				g.Expect(err).ToNot(gomega.HaveOccurred())
 			} else {
 				g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(tt.wantErr)))
 			}

@@ -18,6 +18,7 @@ package autoscaler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -88,6 +89,7 @@ func TestGetAutoscalerClass(t *testing.T) {
 		})
 	}
 }
+
 func TestCreateAutoscaler(t *testing.T) {
 	type args struct {
 		client        client.Client
@@ -173,6 +175,7 @@ func TestCreateAutoscaler(t *testing.T) {
 		})
 	}
 }
+
 func TestNewAutoscalerReconciler(t *testing.T) {
 	serviceName := "my-model"
 	namespace := "test"
@@ -267,6 +270,7 @@ func (f *fakeAutoscaler) Reconcile(ctx context.Context) error {
 	f.reconcileCalled = true
 	return f.reconcileErr
 }
+
 func (f *fakeAutoscaler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
 	return nil
 }
@@ -284,7 +288,7 @@ func TestAutoscalerReconciler_Reconcile(t *testing.T) {
 		},
 		{
 			name:         "Reconcile returns error",
-			reconcileErr: fmt.Errorf("some error"),
+			reconcileErr: errors.New("some error"),
 			wantErr:      true,
 		},
 	}
@@ -295,7 +299,7 @@ func TestAutoscalerReconciler_Reconcile(t *testing.T) {
 			ar := &AutoscalerReconciler{
 				Autoscaler: fake,
 			}
-			err := ar.Reconcile(context.Background())
+			err := ar.Reconcile(t.Context())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Reconcile() error = %v, wantErr %v", err, tt.wantErr)
 			}

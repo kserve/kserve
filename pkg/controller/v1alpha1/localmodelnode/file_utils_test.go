@@ -1,3 +1,19 @@
+/*
+Copyright 2023 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package localmodelnode
 
 import (
@@ -40,13 +56,14 @@ func TestFileSystemHelper_hasModelFolder(t *testing.T) {
 	if err := os.Chmod(tempDir, 0o000); err != nil {
 		t.Fatalf("failed to chmod tempDir: %v", err)
 	}
-	defer os.Chmod(tempDir, 0o755) // restore permissions for cleanup
+	defer os.Chmod(tempDir, 0o755) //nolint
 
 	_, err = helper.hasModelFolder("any-model")
 	if err == nil {
 		t.Errorf("expected error due to permission denied, got nil")
 	}
 }
+
 func TestFileSystemHelper_removeModel(t *testing.T) {
 	tempDir := t.TempDir()
 	helper := NewFileSystemHelper(tempDir)
@@ -65,7 +82,7 @@ func TestFileSystemHelper_removeModel(t *testing.T) {
 	}
 	// Create a file inside the model folder
 	filePath := filepath.Join(modelPath, "file.txt")
-	if err := os.WriteFile(filePath, []byte("data"), 0o644); err != nil {
+	if err := os.WriteFile(filePath, []byte("data"), 0o644); err != nil { //nolint
 		t.Fatalf("failed to create file in model folder: %v", err)
 	}
 	err = helper.removeModel(modelName)
@@ -85,15 +102,16 @@ func TestFileSystemHelper_removeModel(t *testing.T) {
 		t.Fatalf("failed to create perm-model folder: %v", err)
 	}
 	// Remove write permission from parent dir
-	if err := os.Chmod(tempDir, 0o555); err != nil {
+	if err := os.Chmod(tempDir, 0o555); err != nil { //nolint
 		t.Fatalf("failed to chmod tempDir: %v", err)
 	}
-	defer os.Chmod(tempDir, 0o755)
+	defer os.Chmod(tempDir, 0o755) //nolint
 	err = helper.removeModel(permModel)
 	if err == nil {
 		t.Errorf("expected error due to permission denied, got nil")
 	}
 }
+
 func TestFileSystemHelper_ensureModelRootFolderExists(t *testing.T) {
 	// Case 1: Folder does not exist, should be created
 	tempDir := t.TempDir()
@@ -123,7 +141,7 @@ func TestFileSystemHelper_ensureModelRootFolderExists(t *testing.T) {
 	if err := os.Mkdir(permDir, 0o555); err != nil {
 		t.Fatalf("failed to create permDir: %v", err)
 	}
-	defer os.Chmod(permDir, 0o755)
+	defer os.Chmod(permDir, 0o755) //nolint
 	unwritableRoot := filepath.Join(permDir, "models")
 	helper2 := NewFileSystemHelper(unwritableRoot)
 	err = helper2.ensureModelRootFolderExists()

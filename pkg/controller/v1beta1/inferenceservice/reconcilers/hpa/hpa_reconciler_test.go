@@ -543,31 +543,40 @@ func TestCheckHPAExist(t *testing.T) {
 			},
 			expectedResult: constants.CheckResultUpdate,
 		},
-		// {
-		// 	name: "hpa exists but should be deleted due to external autoscaler",
-		// 	existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name:      "test-hpa",
-		// 			Namespace: "default",
-		// 		},
-		// 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-		// 			MinReplicas: ptr.To(int32(1)),
-		// 			MaxReplicas: 3,
-		// 		},
-		// 	},
-		// 	desiredHPA: &autoscalingv2.HorizontalPodAutoscaler{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name:        "test-hpa",
-		// 			Namespace:   "default",
-		// 			Annotations: map[string]string{constants.AutoscalerClass: string(constants.AutoscalerClassExternal)},
-		// 		},
-		// 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-		// 			MinReplicas: ptr.To(int32(1)),
-		// 			MaxReplicas: 3,
-		// 		},
-		// 	},
-		// 	expectedResult: constants.CheckResultDelete,
-		// },
+		{
+			name: "hpa exists but should be deleted due to external autoscaler, owner is kserve",
+			existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "serving.kserve.io/v1beta1",
+							Kind:       "InferenceService",
+							Name:       "my-inferenceservice",
+							UID:        "12345",
+							Controller: ptr.To(true),
+						},
+					},
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 3,
+				},
+			},
+			desiredHPA: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-hpa",
+					Namespace:   "default",
+					Annotations: map[string]string{constants.AutoscalerClass: string(constants.AutoscalerClassExternal)},
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 3,
+				},
+			},
+			expectedResult: constants.CheckResultDelete,
+		},
 		{
 			name: "hpa with different autoscaler class",
 			existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
@@ -601,7 +610,7 @@ func TestCheckHPAExist(t *testing.T) {
 			client := fake.NewClientBuilder().WithScheme(scheme).Build()
 			// Create the existing HPA if it's provided
 			if tc.existingHPA != nil {
-				err := client.Create(context.Background(), tc.existingHPA)
+				err := client.Create(t.Context(), tc.existingHPA)
 				require.NoError(t, err)
 			}
 
@@ -611,7 +620,7 @@ func TestCheckHPAExist(t *testing.T) {
 				HPA:    tc.desiredHPA,
 			}
 
-			result, hpa, err := reconciler.checkHPAExist(context.Background(), client)
+			result, hpa, err := reconciler.checkHPAExist(t.Context(), client)
 			require.NoError(t, err)
 			assert.Equal(t, tc.expectedResult, result)
 
@@ -966,36 +975,84 @@ func TestReconcile(t *testing.T) {
 			expectedResult: nil,
 			expectedAction: "update",
 		},
-		// {
-		// 	name: "delete hpa with external autoscaler",
-		// 	existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name:      "test-hpa",
-		// 			Namespace: "default",
-		// 		},
-		// 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-		// 			MinReplicas: ptr.To(int32(1)),
-		// 			MaxReplicas: 3,
-		// 		},
-		// 	},
-		// 	desiredHPA: &autoscalingv2.HorizontalPodAutoscaler{
-		// 		ObjectMeta: metav1.ObjectMeta{
-		// 			Name:        "test-hpa",
-		// 			Namespace:   "default",
-		// 			Annotations: map[string]string{constants.AutoscalerClass: string(constants.AutoscalerClassExternal)},
-		// 		},
-		// 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-		// 			MinReplicas: ptr.To(int32(1)),
-		// 			MaxReplicas: 3,
-		// 		},
-		// 	},
-		// 	componentExt: &v1beta1.ComponentExtensionSpec{
-		// 		MinReplicas: ptr.To(int32(1)),
-		// 		MaxReplicas: 3,
-		// 	},
-		// 	expectedResult: nil,
-		// 	expectedAction: "delete",
-		// },
+		{
+			name: "delete hpa with external autoscaler and kserve owner",
+			existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "serving.kserve.io/v1beta1",
+							Kind:       "InferenceService",
+							Name:       "my-inferenceservice",
+							UID:        "12345",
+							Controller: ptr.To(true),
+						},
+					},
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 3,
+				},
+			},
+			desiredHPA: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-hpa",
+					Namespace:   "default",
+					Annotations: map[string]string{constants.AutoscalerClass: string(constants.AutoscalerClassExternal)},
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 3,
+				},
+			},
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				MaxReplicas: 3,
+			},
+			expectedResult: nil,
+			expectedAction: "delete",
+		},
+		{
+			name: "do not delete hpa with external autoscaler and not owned by kserve",
+			existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-hpa",
+					Namespace: "default",
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "some-deployment",
+							UID:        "54321",
+							Controller: ptr.To(true),
+						},
+					},
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 3,
+				},
+			},
+			desiredHPA: &autoscalingv2.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-hpa",
+					Namespace:   "default",
+					Annotations: map[string]string{constants.AutoscalerClass: string(constants.AutoscalerClassExternal)},
+				},
+				Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 3,
+				},
+			},
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				MaxReplicas: 3,
+			},
+			expectedResult: nil,
+			expectedAction: "update",
+		},
 		{
 			name: "skip when hpa exists and is equivalent",
 			existingHPA: &autoscalingv2.HorizontalPodAutoscaler{
@@ -1073,7 +1130,7 @@ func TestReconcile(t *testing.T) {
 				componentExt: tc.componentExt,
 			}
 
-			result := reconciler.Reconcile(context.Background())
+			result := reconciler.Reconcile(t.Context())
 
 			assert.Equal(t, tc.expectedResult, result)
 			if tc.expectedAction == "skip" {
@@ -1083,7 +1140,7 @@ func TestReconcile(t *testing.T) {
 			}
 			// Verify the HPA state after reconciliation
 			resultHPA := &autoscalingv2.HorizontalPodAutoscaler{}
-			err := client.Get(context.Background(), types.NamespacedName{
+			err := client.Get(t.Context(), types.NamespacedName{
 				Namespace: tc.desiredHPA.Namespace,
 				Name:      tc.desiredHPA.Name,
 			}, resultHPA)

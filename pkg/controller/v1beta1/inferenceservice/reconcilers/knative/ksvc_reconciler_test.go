@@ -17,17 +17,17 @@ limitations under the License.
 package knative
 
 import (
-	"context"
 	"strconv"
 	"testing"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 
+	"k8s.io/client-go/kubernetes/fake"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	knserving "knative.dev/serving/pkg/apis/serving"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	rtesting "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -122,13 +122,25 @@ func TestCreateKnativeService(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ksvc := createKnativeService(
+			// Add required config-autoscaler ConfigMap to the fake clientset
+			clientset := fake.NewSimpleClientset(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config-autoscaler",
+					Namespace: "knative-serving",
+				},
+				Data: map[string]string{},
+			})
+			ksvc, err := createKnativeService(
+				t.Context(),
+				clientset,
 				tt.componentMeta,
 				tt.componentExt,
 				podSpec,
 				tt.componentStatus,
 				disallowedLabelList,
 			)
+			require.NoError(t, err, "createKnativeService should not return an error")
+			require.NotNil(t, ksvc, "createKnativeService should not return nil ksvc")
 
 			// Verify basic service properties
 			assert.Equal(t, tt.componentMeta.Name, ksvc.Name)
@@ -154,15 +166,15 @@ func TestCreateKnativeService(t *testing.T) {
 			// Verify annotations
 			if tt.componentExt.MinReplicas != nil {
 				assert.Equal(t, strconv.Itoa(int(*tt.componentExt.MinReplicas)),
-					ksvc.Spec.Template.Annotations[constants.MinScaleAnnotationKey])
+					ksvc.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey])
 			} else {
 				assert.Equal(t, strconv.Itoa(int(constants.DefaultMinReplicas)),
-					ksvc.Spec.Template.Annotations[constants.MinScaleAnnotationKey])
+					ksvc.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey])
 			}
 
 			if tt.componentExt.MaxReplicas != 0 {
 				assert.Equal(t, strconv.Itoa(int(tt.componentExt.MaxReplicas)),
-					ksvc.Spec.Template.Annotations[constants.MaxScaleAnnotationKey])
+					ksvc.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey])
 			}
 
 			// Verify managed annotations at ksvc level
@@ -297,8 +309,8 @@ func TestKsvcReconciler_Reconcile(t *testing.T) {
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Annotations: map[string]string{
-									constants.MinScaleAnnotationKey:         "1",
-									constants.MaxScaleAnnotationKey:         "3",
+									autoscaling.MinScaleAnnotationKey:       "1",
+									autoscaling.MaxScaleAnnotationKey:       "3",
 									autoscaling.ClassAnnotationKey:          autoscaling.KPA,
 									autoscaling.TargetAnnotationKey:         "10",
 									autoscaling.MetricAnnotationKey:         "concurrency",
@@ -345,16 +357,25 @@ func TestKsvcReconciler_Reconcile(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set up fake client
-			client := fake.NewClientBuilder().WithScheme(scheme).Build()
+			client := rtesting.NewClientBuilder().WithScheme(scheme).Build()
 			// Create the existing KService if provided
 			if tt.existingKsvc != nil {
-				err := client.Create(context.Background(), tt.existingKsvc)
+				err := client.Create(t.Context(), tt.existingKsvc)
 				require.NoError(t, err)
 			}
+			clientset := fake.NewSimpleClientset(&corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config-autoscaler",
+					Namespace: "knative-serving",
+				},
+				Data: map[string]string{},
+			})
 
 			// Create reconciler
-			reconciler := NewKsvcReconciler(
+			reconciler, _ := NewKsvcReconciler(
+				t.Context(),
 				client,
+				clientset,
 				scheme,
 				componentMeta,
 				componentExt,
@@ -364,7 +385,7 @@ func TestKsvcReconciler_Reconcile(t *testing.T) {
 			)
 
 			// Call Reconcile
-			status, err := reconciler.Reconcile(context.Background())
+			status, err := reconciler.Reconcile(t.Context())
 			// Verify expectations
 			if tt.wantErr {
 				require.Error(t, err)
@@ -375,7 +396,7 @@ func TestKsvcReconciler_Reconcile(t *testing.T) {
 
 			// Verify service was created/updated
 			createdService := &knservingv1.Service{}
-			err = client.Get(context.Background(),
+			err = client.Get(t.Context(),
 				types.NamespacedName{Name: componentMeta.Name, Namespace: componentMeta.Namespace},
 				createdService)
 			require.NoError(t, err)

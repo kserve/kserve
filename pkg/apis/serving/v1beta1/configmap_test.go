@@ -336,6 +336,7 @@ func TestValidateIngressGateway(t *testing.T) {
 		})
 	}
 }
+
 func TestNewOtelCollectorConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -508,6 +509,7 @@ func TestNewLocalModelConfig(t *testing.T) {
 		g.Expect(cfg).To(gomega.BeNil())
 	})
 }
+
 func TestNewSecurityConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

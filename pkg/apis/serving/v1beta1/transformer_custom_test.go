@@ -396,6 +396,7 @@ func TestTransformerGetProtocol(t *testing.T) {
 		g.Expect(protocol).To(scenario.matcher)
 	}
 }
+
 func TestCustomTransformer_GetContainer(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	requestedResource := corev1.ResourceRequirements{
@@ -543,6 +544,7 @@ func TestCustomTransformer_GetContainer(t *testing.T) {
 		})
 	}
 }
+
 func TestCustomTransformer_GetStorageUri(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

@@ -246,8 +246,8 @@ func TestGetAdditionalHosts(t *testing.T) {
 		})
 	}
 }
-func TestGenerateInternalDomainName(t *testing.T) {
 
+func TestGenerateInternalDomainName(t *testing.T) {
 	type args struct {
 		name          string
 		obj           metav1.ObjectMeta

@@ -17,7 +17,6 @@ limitations under the License.
 package ingress
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 	"testing"
@@ -2274,8 +2273,8 @@ func TestGetHostPrefix(t *testing.T) {
 		})
 	}
 }
-func TestIngressReconciler_Reconcile(t *testing.T) {
 
+func TestIngressReconciler_Reconcile(t *testing.T) {
 	type fields struct {
 		ingressConfig *v1beta1.IngressConfig
 		isvcConfig    *v1beta1.InferenceServicesConfig
@@ -2468,7 +2467,7 @@ func TestIngressReconciler_Reconcile(t *testing.T) {
 				ingressConfig: tt.fields.ingressConfig,
 				isvcConfig:    tt.fields.isvcConfig,
 			}
-			err := r.Reconcile(context.Background(), tt.args.isvc)
+			err := r.Reconcile(t.Context(), tt.args.isvc)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Reconcile() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -2491,6 +2490,7 @@ func TestIngressReconciler_Reconcile(t *testing.T) {
 		})
 	}
 }
+
 func TestNewIngressReconciler(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

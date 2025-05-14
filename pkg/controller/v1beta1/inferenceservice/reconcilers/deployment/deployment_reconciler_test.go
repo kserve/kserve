@@ -854,6 +854,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 		})
 	}
 }
+
 func TestCheckDeploymentExist(t *testing.T) {
 	type fields struct {
 		client kclient.Client
@@ -888,7 +889,7 @@ func TestCheckDeploymentExist(t *testing.T) {
 				deployment: &appsv1.Deployment{
 					ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
 				},
-				getErr: fmt.Errorf("some error"),
+				getErr: fmt.Errorf("some error"), //nolint
 			},
 			wantResult:   constants.CheckResultUnknown,
 			wantExisting: nil,
@@ -979,7 +980,6 @@ func TestCheckDeploymentExist(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			mockClient := &mockClientForCheckDeploymentExist{
 				getDeployment: tt.args.existing,
@@ -988,7 +988,7 @@ func TestCheckDeploymentExist(t *testing.T) {
 			r := &DeploymentReconciler{
 				client: mockClient,
 			}
-			ctx := context.Background()
+			ctx := t.Context()
 			gotResult, gotExisting, err := r.checkDeploymentExist(ctx, mockClient, tt.args.deployment)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("checkDeploymentExist() error = %v, wantErr %v", err, tt.wantErr)
@@ -1106,20 +1106,6 @@ func TestNewDeploymentReconciler(t *testing.T) {
 			wantErr:     false,
 			wantWorkers: 2,
 		},
-		// {
-		// 	name: "error on createRawDeployment",
-		// 	fields: fields{
-		// 		client:       nil,
-		// 		scheme:       nil,
-		// 		objectMeta:   metav1.ObjectMeta{},
-		// 		workerMeta:   metav1.ObjectMeta{},
-		// 		componentExt: nil,
-		// 		podSpec:      nil,
-		// 		workerPod:    nil,
-		// 	},
-		// 	wantErr:     true,
-		// 	wantWorkers: 0,
-		// },
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1170,6 +1156,7 @@ func (m *mockClientForCheckDeploymentExist) Update(ctx context.Context, obj kcli
 	// Simulate dry-run update always succeeds
 	return nil
 }
+
 func intStrPtr(s string) *intstr.IntOrString {
 	v := intstr.FromString(s)
 	return &v
