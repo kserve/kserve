@@ -50,6 +50,7 @@ class V1beta1LoggerSpec(object):
         'metadata_annotations': 'list[str]',
         'metadata_headers': 'list[str]',
         'mode': 'str',
+        'storage': 'V1beta1LoggerStorageSpec',
         'url': 'str'
     }
 
@@ -57,10 +58,11 @@ class V1beta1LoggerSpec(object):
         'metadata_annotations': 'metadataAnnotations',
         'metadata_headers': 'metadataHeaders',
         'mode': 'mode',
+        'storage': 'storage',
         'url': 'url'
     }
 
-    def __init__(self, metadata_annotations=None, metadata_headers=None, mode=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, metadata_annotations=None, metadata_headers=None, mode=None, storage=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LoggerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -69,6 +71,7 @@ class V1beta1LoggerSpec(object):
         self._metadata_annotations = None
         self._metadata_headers = None
         self._mode = None
+        self._storage = None
         self._url = None
         self.discriminator = None
 
@@ -78,6 +81,8 @@ class V1beta1LoggerSpec(object):
             self.metadata_headers = metadata_headers
         if mode is not None:
             self.mode = mode
+        if storage is not None:
+            self.storage = storage
         if url is not None:
             self.url = url
 
@@ -149,6 +154,27 @@ class V1beta1LoggerSpec(object):
         """
 
         self._mode = mode
+
+    @property
+    def storage(self):
+        """Gets the storage of this V1beta1LoggerSpec.  # noqa: E501
+
+
+        :return: The storage of this V1beta1LoggerSpec.  # noqa: E501
+        :rtype: V1beta1LoggerStorageSpec
+        """
+        return self._storage
+
+    @storage.setter
+    def storage(self, storage):
+        """Sets the storage of this V1beta1LoggerSpec.
+
+
+        :param storage: The storage of this V1beta1LoggerSpec.  # noqa: E501
+        :type: V1beta1LoggerStorageSpec
+        """
+
+        self._storage = storage
 
     @property
     def url(self):
