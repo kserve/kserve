@@ -3,33 +3,31 @@ name = "kserve"
 version = "0.15.0"
 description = "KServe Python SDK"
 authors = [
-    "The KServe Authors <dsun20@bloomberg.net>",
-    "The KServe Authors <ellisbigelow@google.com>",
-    "The KServe Authors <hejinchi@cn.ibm.com>",
+  "The KServe Authors <dsun20@bloomberg.net>",
+  "The KServe Authors <ellisbigelow@google.com>",
+  "The KServe Authors <hejinchi@cn.ibm.com>",
 ]
 license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/kserve/kserve/tree/master/python/kserve"
 classifiers = [
-    "Intended Audience :: Developers",
-    "Intended Audience :: Education",
-    "Intended Audience :: Science/Research",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "License :: OSI Approved :: Apache Software License",
-    "Operating System :: OS Independent",
-    "Topic :: Scientific/Engineering",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Topic :: Software Development",
-    "Topic :: Software Development :: Libraries",
-    "Topic :: Software Development :: Libraries :: Python Modules",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Education",
+  "Intended Audience :: Science/Research",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-packages = [
-    { include = "kserve" },
-]
+packages = [{ include = "kserve" }]
 exclude = ["kserve/storage/test"]
 
 [tool.poetry.dependencies]
@@ -40,18 +38,21 @@ cloudevents = "^1.6.2"
 six = "^1.16.0"
 kubernetes = ">=23.3.0"
 python-dateutil = "^2.8.0"
-numpy = "^1.26.0"
+numpy = ">=1.26.0,<3.0.0"
 psutil = "^5.9.6"
 grpcio = "^1.60.0"
-grpc-interceptor= ">=0.15.4,<1.0.0"
+grpc-interceptor = ">=0.15.4,<1.0.0"
 protobuf = "^4.25.4"
 prometheus-client = "^0.20.0"
 orjson = "^3.9.15"
 httpx = "^0.27.2"
 timing-asgi = "^0.3.0"
 tabulate = "^0.9.0"
-pandas =  "^2.2.0"
-pydantic = [{ version = "^2.5.0", python = "3.12" }, { version = ">1.0,<3", python = ">=3.9,<3.12" }]
+pandas = "^2.2.0"
+pydantic = [
+  { version = "^2.5.0", python = "3.12" },
+  { version = ">1.0,<3", python = ">=3.9,<3.12" },
+]
 pyyaml = "^6.0.0"
 
 # Storage dependencies. They can be opted into by apps.
@@ -61,37 +62,33 @@ azure-storage-blob = { version = "^12.20.0", optional = true }
 azure-storage-file-share = { version = "^12.16.0", optional = true }
 azure-identity = { version = "^1.15.0", optional = true }
 boto3 = { version = "^1.29.0", optional = true }
-huggingface-hub = { version = "^0.26.0", extras = ["hf-transfer"], optional = true }
+huggingface-hub = { version = "^0.30.0", extras = [
+  "hf-transfer",
+], optional = true }
 
 # Logging dependencies. They can be opted into by apps.
 asgi-logger = { version = "^0.1.0", optional = true }
 
 # Ray dependency
-ray = { version = "~2.44.0", extras = ["serve"], optional = true }
+ray = { version = ">=2.43.0", extras = ["serve"], optional = true }
 
 # OpenAI Types dependency
-vllm = { version = "^0.8.1", optional = true }
+vllm = { version = "^0.8.4", optional = true }
 
 [tool.poetry.extras]
 storage = [
-    "requests",
-    "google-cloud-storage",
-    "azure-storage-blob",
-    "azure-storage-file-share",
-    "azure-identity",
-    "boto3",
-    "huggingface-hub"
+  "requests",
+  "google-cloud-storage",
+  "azure-storage-blob",
+  "azure-storage-file-share",
+  "azure-identity",
+  "boto3",
+  "huggingface-hub",
 
 ]
-logging = [
-    "asgi-logger"
-]
-ray = [
-    "ray"
-]
-llm = [
-    "vllm"
-]
+logging = ["asgi-logger"]
+ray = ["ray"]
+llm = ["vllm"]
 
 [tool.poetry.group.test]
 optional = true
