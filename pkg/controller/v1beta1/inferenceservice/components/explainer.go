@@ -50,11 +50,12 @@ type Explainer struct {
 	scheme                 *runtime.Scheme
 	inferenceServiceConfig *v1beta1.InferenceServicesConfig
 	deploymentMode         constants.DeploymentModeType
+	allowZeroInitialScale  bool // Used for Serverless deployment mode only.
 	Log                    logr.Logger
 }
 
 func NewExplainer(client client.Client, clientset kubernetes.Interface, scheme *runtime.Scheme,
-	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType,
+	inferenceServiceConfig *v1beta1.InferenceServicesConfig, deploymentMode constants.DeploymentModeType, allowZeroInitialScale bool,
 ) Component {
 	return &Explainer{
 		client:                 client,
@@ -62,6 +63,7 @@ func NewExplainer(client client.Client, clientset kubernetes.Interface, scheme *
 		scheme:                 scheme,
 		inferenceServiceConfig: inferenceServiceConfig,
 		deploymentMode:         deploymentMode,
+		allowZeroInitialScale:  allowZeroInitialScale,
 		Log:                    ctrl.Log.WithName("ExplainerReconciler"),
 	}
 }
@@ -168,11 +170,9 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		}
 		isvc.Status.PropagateRawStatus(v1beta1.ExplainerComponent, deployment, r.URL)
 	} else {
-		r, err := knative.NewKsvcReconciler(ctx, e.client, e.clientset, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
-			&podSpec, isvc.Status.Components[v1beta1.ExplainerComponent], e.inferenceServiceConfig.ServiceLabelDisallowedList)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to create new knative service reconciler for explainer")
-		}
+		r := knative.NewKsvcReconciler(e.client, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
+			&podSpec, isvc.Status.Components[v1beta1.ExplainerComponent], e.inferenceServiceConfig.ServiceLabelDisallowedList, e.allowZeroInitialScale)
+
 		if err := controllerutil.SetControllerReference(isvc, r.Service, e.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set owner reference for explainer")
 		}

@@ -96,7 +96,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	)
 
 	Context("with knative configured to not allow zero initial scale", func() {
-		When("an InferenceService with 0 minReplicas and 0 maxReplicas is created", func() {
+		When("a Serverless InferenceService with 0 minReplicas and 0 maxReplicas is created", func() {
 			It("should create a knative service with initial-scale of 1, min-scale of 0, and max-scale of 0", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -120,6 +120,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
+						Annotations: map[string]string{
+							"serving.kserve.io/deploymentMode": "Serverless",
+						},
 					},
 					Spec: v1beta1.InferenceServiceSpec{
 						Predictor: v1beta1.PredictorSpec{
@@ -155,7 +158,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
-		When("an InferenceService with nil minReplicas and 0 maxReplicas is created", func() {
+		When("a Serverless InferenceService with nil minReplicas and 0 maxReplicas is created", func() {
 			It(fmt.Sprintf(
 				"should create a knative service with initial-scale of %d, min-scale of %d, and max-scale of 0",
 				constants.DefaultMinReplicas,
@@ -182,6 +185,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
+						Annotations: map[string]string{
+							"serving.kserve.io/deploymentMode": "Serverless",
+						},
 					},
 					Spec: v1beta1.InferenceServiceSpec{
 						Predictor: v1beta1.PredictorSpec{
@@ -214,7 +220,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
-		When("an InferenceService is created with an initial-scale annotation", func() {
+		When("a Serverless InferenceService is created with an initial-scale annotation and valid integer value", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -239,6 +245,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
+							"serving.kserve.io/deploymentMode":    "Serverless",
 							autoscaling.InitialScaleAnnotationKey: "0",
 						},
 					},
@@ -276,6 +283,69 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
+		When("a Serverless InferenceService is created with an initial-scale annotation and invalid non-integer value", func() {
+			It("should ignore the annotation", func() {
+				// Create configmap
+				configMap := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.InferenceServiceConfigMapName,
+						Namespace: constants.KServeNamespace,
+					},
+					Data: configs,
+				}
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), configMap)
+
+				// Create InferenceService
+				serviceName := "initialscale4"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+				serviceKey := expectedRequest.NamespacedName
+				storageUri := "s3://test/mnist/export"
+				ctx := context.Background()
+				var minScale int32 = 2
+				isvc := &v1beta1.InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceKey.Name,
+						Namespace: serviceKey.Namespace,
+						Annotations: map[string]string{
+							"serving.kserve.io/deploymentMode":    "Serverless",
+							autoscaling.InitialScaleAnnotationKey: "non-integer",
+						},
+					},
+					Spec: v1beta1.InferenceServiceSpec{
+						Predictor: v1beta1.PredictorSpec{
+							ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+								MinReplicas: &minScale,
+							},
+							Tensorflow: &v1beta1.TFServingSpec{
+								PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+									StorageURI:     &storageUri,
+									RuntimeVersion: proto.String("1.14.0"),
+									Container: corev1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: defaultResource,
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+				defer k8sClient.Delete(ctx, isvc)
+
+				predictorServiceKey := types.NamespacedName{
+					Name:      constants.PredictorServiceName(serviceKey.Name),
+					Namespace: serviceKey.Namespace,
+				}
+				actualService := &knservingv1.Service{}
+				Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
+					Should(Succeed())
+
+				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("2"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]).To(Equal("2"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
+			})
+		})
 	})
 	Context("with knative configured to allow zero initial scale", func() {
 		BeforeEach(func() {
@@ -306,7 +376,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				return k8sClient.Patch(context.TODO(), configAutoscaler, client.RawPatch(types.StrategicMergePatchType, configPatch))
 			}, timeout).Should(Succeed())
 		})
-		When("an InferenceService with 0 minReplicas and 0 maxReplicas is created", func() {
+		When("a Serverless InferenceService with 0 minReplicas and 0 maxReplicas is created", func() {
 			It("should create a knative service with initial-scale of 0, min-scale of 0, and max-scale of 0", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -320,7 +390,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(context.TODO(), configMap)
 
 				// Create InferenceService
-				serviceName := "initialscale4"
+				serviceName := "initialscale5"
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
@@ -330,6 +400,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
+						Annotations: map[string]string{
+							"serving.kserve.io/deploymentMode": "Serverless",
+						},
 					},
 					Spec: v1beta1.InferenceServiceSpec{
 						Predictor: v1beta1.PredictorSpec{
@@ -365,7 +438,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
-		When("an InferenceService with nil minReplicas and 0 maxReplicas is created", func() {
+		When("a Serverless InferenceService with nil minReplicas and 0 maxReplicas is created", func() {
 			It(fmt.Sprintf(
 				"should create a knative service with initial-scale of %d, min-scale of %d, and max-scale of 0",
 				constants.DefaultMinReplicas,
@@ -383,7 +456,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(context.TODO(), configMap)
 
 				// Create InferenceService
-				serviceName := "initialscale5"
+				serviceName := "initialscale6"
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
@@ -392,6 +465,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
+						Annotations: map[string]string{
+							"serving.kserve.io/deploymentMode": "Serverless",
+						},
 					},
 					Spec: v1beta1.InferenceServiceSpec{
 						Predictor: v1beta1.PredictorSpec{
@@ -424,7 +500,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})
 		})
-		When("an InferenceService is created with an initial-scale annotation", func() {
+		When("a Serverless InferenceService is created with an initial-scale annotation and valid integer value", func() {
 			It("should override the default initial scale value with the annotation value", func() {
 				// Create configmap
 				configMap := &corev1.ConfigMap{
@@ -438,7 +514,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				defer k8sClient.Delete(context.TODO(), configMap)
 
 				// Create InferenceService
-				serviceName := "initialscale6"
+				serviceName := "initialscale7"
 				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
 				serviceKey := expectedRequest.NamespacedName
 				storageUri := "s3://test/mnist/export"
@@ -449,6 +525,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Name:      serviceKey.Name,
 						Namespace: serviceKey.Namespace,
 						Annotations: map[string]string{
+							"serving.kserve.io/deploymentMode":    "Serverless",
 							autoscaling.InitialScaleAnnotationKey: "0",
 						},
 					},
@@ -482,6 +559,69 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Should(Succeed())
 
 				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("0"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]).To(Equal("2"))
+				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
+			})
+		})
+		When("a Serverless InferenceService is created with an initial-scale annotation and invalid non-integer value", func() {
+			It("should ignore the annotation", func() {
+				// Create configmap
+				configMap := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.InferenceServiceConfigMapName,
+						Namespace: constants.KServeNamespace,
+					},
+					Data: configs,
+				}
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), configMap)
+
+				// Create InferenceService
+				serviceName := "initialscale8"
+				expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+				serviceKey := expectedRequest.NamespacedName
+				storageUri := "s3://test/mnist/export"
+				ctx := context.Background()
+				var minScale int32 = 2
+				isvc := &v1beta1.InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceKey.Name,
+						Namespace: serviceKey.Namespace,
+						Annotations: map[string]string{
+							"serving.kserve.io/deploymentMode":    "Serverless",
+							autoscaling.InitialScaleAnnotationKey: "non-integer",
+						},
+					},
+					Spec: v1beta1.InferenceServiceSpec{
+						Predictor: v1beta1.PredictorSpec{
+							ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+								MinReplicas: &minScale,
+							},
+							Tensorflow: &v1beta1.TFServingSpec{
+								PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+									StorageURI:     &storageUri,
+									RuntimeVersion: proto.String("1.14.0"),
+									Container: corev1.Container{
+										Name:      constants.InferenceServiceContainerName,
+										Resources: defaultResource,
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+				defer k8sClient.Delete(ctx, isvc)
+
+				predictorServiceKey := types.NamespacedName{
+					Name:      constants.PredictorServiceName(serviceKey.Name),
+					Namespace: serviceKey.Namespace,
+				}
+				actualService := &knservingv1.Service{}
+				Eventually(func() error { return k8sClient.Get(context.TODO(), predictorServiceKey, actualService) }, timeout).
+					Should(Succeed())
+
+				Expect(actualService.Spec.Template.Annotations[autoscaling.InitialScaleAnnotationKey]).To(Equal("2"))
 				Expect(actualService.Spec.Template.Annotations[autoscaling.MinScaleAnnotationKey]).To(Equal("2"))
 				Expect(actualService.Spec.Template.Annotations[autoscaling.MaxScaleAnnotationKey]).To(Equal("0"))
 			})

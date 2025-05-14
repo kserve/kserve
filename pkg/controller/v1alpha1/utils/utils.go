@@ -45,15 +45,17 @@ func CheckNodeAffinity(pvSpec *corev1.PersistentVolumeSpec, node corev1.Node) (b
 
 // SetAutoScalingAnnotations validates the requested autoscaling configuration against the
 // globally configured knative autoscaler configuration, then sets the resolved autoscaling annotations.
-func SetAutoScalingAnnotations(ctx context.Context,
-	clientset kubernetes.Interface,
+func SetAutoScalingAnnotations(
 	annotations map[string]string,
 	scaleTarget *int32,
 	scaleMetric *string,
 	minReplicas *int32,
 	maxReplicas int32,
+	allowZeroInitialScale bool,
 	log logr.Logger,
-) error {
+) {
+	var initialScale int32
+
 	// User can pass down scaling class annotation to overwrite the default scaling KPA.
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
@@ -70,8 +72,10 @@ func SetAutoScalingAnnotations(ctx context.Context,
 	// If a min replicas value is not set, use the default min replicas value.
 	if minReplicas == nil {
 		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
+		initialScale = constants.DefaultMinReplicas
 	} else {
 		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(*minReplicas))
+		initialScale = *minReplicas
 	}
 
 	annotations[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(int(maxReplicas))
@@ -93,28 +97,30 @@ func SetAutoScalingAnnotations(ctx context.Context,
 		)
 		annotations[autoscaling.InitialScaleAnnotationKey] = annotations[autoscaling.MinScaleAnnotationKey]
 	} else {
-		log.Info(
-			fmt.Sprintf(
-				"The %s annotation is explicitly set. kserve will override the default initial scale value for knative revisions with the value of this annotation",
-				autoscaling.InitialScaleAnnotationKey,
-			),
-			"initial-scale", annotations[autoscaling.InitialScaleAnnotationKey],
-		)
-	}
-	initialScale, err := strconv.Atoi(annotations[autoscaling.InitialScaleAnnotationKey])
-	if err != nil {
-		return errors.Wrapf(
-			err,
-			"failed to convert %s annotation value of %s to an integer",
-			autoscaling.InitialScaleAnnotationKey,
-			annotations[autoscaling.InitialScaleAnnotationKey],
-		)
-	}
-
-	// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
-	allowZeroInitialScale, err := CheckZeroInitialScaleAllowed(ctx, clientset)
-	if err != nil {
-		return errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
+		// If the annotation is explicitly set, validate that it is set to an integer value.
+		// If the annotation value is not an integer, then set the annotation equal to the min replicas requested.
+		initialScaleValue, err := strconv.ParseInt(annotations[autoscaling.InitialScaleAnnotationKey], 10, 32)
+		if err != nil {
+			log.Info(
+				fmt.Sprintf(
+					"The %s annotation is explicitly set to an invalid non-integer value of %s. "+
+						"kserve will default the initial scale value for knative revisions to equal the min replicas requested",
+					autoscaling.InitialScaleAnnotationKey,
+					annotations[autoscaling.InitialScaleAnnotationKey],
+				),
+				"initial-scale", annotations[autoscaling.MinScaleAnnotationKey],
+			)
+			annotations[autoscaling.InitialScaleAnnotationKey] = annotations[autoscaling.MinScaleAnnotationKey]
+		} else {
+			log.Info(
+				fmt.Sprintf(
+					"The %s annotation is explicitly set. kserve will override the default initial scale value for knative revisions with the value of this annotation",
+					autoscaling.InitialScaleAnnotationKey,
+				),
+				"initial-scale", annotations[autoscaling.InitialScaleAnnotationKey],
+			)
+			initialScale = int32(initialScaleValue)
+		}
 	}
 
 	// If knative is configured to not allow zero initial scale when 0 min replicas are requested,
@@ -126,8 +132,6 @@ func SetAutoScalingAnnotations(ctx context.Context,
 			"initial-scale", 1)
 		annotations[autoscaling.InitialScaleAnnotationKey] = "1"
 	}
-
-	return nil
 }
 
 // CheckZeroInitialScaleAllowed reads the global knative autoscaler configuration defined in the autoscaler
