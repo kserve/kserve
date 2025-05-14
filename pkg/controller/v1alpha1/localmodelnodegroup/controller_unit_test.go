@@ -457,6 +457,7 @@ func TestCreateLocalModelAgentDaemonSet(t *testing.T) {
 		require.False(t, *container.SecurityContext.AllowPrivilegeEscalation, "Privilege escalation should not be allowed")
 		require.True(t, *container.SecurityContext.RunAsNonRoot, "Container should run as non-root")
 		require.True(t, *container.SecurityContext.ReadOnlyRootFilesystem, "Root filesystem should be read-only")
+		require.Equal(t, int64(1000), *container.SecurityContext.RunAsUser, "Container should run as user ID 1000")
 
 		// Check resource requests and limits
 		require.Equal(t, resource.MustParse(localModelConfig.LocalModelAgentCpuRequest),
