@@ -16,11 +16,11 @@ limitations under the License.
 package localmodelcache
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
 	"github.com/onsi/gomega"
+	"golang.org/x/net/context"
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

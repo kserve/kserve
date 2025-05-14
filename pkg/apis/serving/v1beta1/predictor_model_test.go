@@ -17,11 +17,11 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
 	"testing"
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"golang.org/x/net/context"
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

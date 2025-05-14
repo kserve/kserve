@@ -22,9 +22,10 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	autoscaler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
 	deployment "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/deployment"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/otel"
 	service "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/service"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -41,12 +42,13 @@ var log = logf.Log.WithName("RawKubeReconciler")
 
 // RawKubeReconciler reconciles the Native K8S Resources
 type RawKubeReconciler struct {
-	client     client.Client
-	scheme     *runtime.Scheme
-	Deployment *deployment.DeploymentReconciler
-	Service    *service.ServiceReconciler
-	Scaler     *autoscaler.AutoscalerReconciler
-	URL        *knapis.URL
+	client        client.Client
+	scheme        *runtime.Scheme
+	Deployment    *deployment.DeploymentReconciler
+	Service       *service.ServiceReconciler
+	Scaler        *autoscaler.AutoscalerReconciler
+	OtelCollector *otel.OtelReconciler
+	URL           *knapis.URL
 }
 
 // NewRawKubeReconciler creates raw kubernetes resource reconciler.
@@ -60,11 +62,32 @@ func NewRawKubeReconciler(ctx context.Context,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec, workerPodSpec *corev1.PodSpec,
 ) (*RawKubeReconciler, error) {
-	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt)
+	var otelCollector *otel.OtelReconciler
+	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
 	if err != nil {
+		log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
 		return nil, err
 	}
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
+	// create OTel Collector if pod metrics is enabled for auto-scaling
+	if componentExt.AutoScaling != nil {
+		metrics := componentExt.AutoScaling.Metrics
+		for _, metric := range metrics {
+			if metric.Type == v1beta1.PodMetricSourceType {
+				if metric.PodMetric.Metric.Backend == v1beta1.PodsMetricsBackend(constants.OTelBackend) {
+					otelConfig, err := v1beta1.NewOtelCollectorConfig(isvcConfigMap)
+					if err != nil {
+						return nil, err
+					}
+					otelCollector, err = otel.NewOtelReconciler(client, scheme, componentMeta, metric, *otelConfig)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+	}
+
+	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, isvcConfigMap)
 	if err != nil {
 		return nil, err
 	}
@@ -94,12 +117,13 @@ func NewRawKubeReconciler(ctx context.Context,
 	}
 
 	return &RawKubeReconciler{
-		client:     client,
-		scheme:     scheme,
-		Deployment: depl,
-		Service:    service.NewServiceReconciler(client, scheme, resourceType, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
-		Scaler:     as,
-		URL:        url,
+		client:        client,
+		scheme:        scheme,
+		Deployment:    depl,
+		Service:       service.NewServiceReconciler(client, scheme, resourceType, componentMeta, componentExt, podSpec, multiNodeEnabled, serviceConfig),
+		Scaler:        as,
+		OtelCollector: otelCollector,
+		URL:           url,
 	}, nil
 }
 
@@ -121,11 +145,21 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment
 	if err != nil {
 		return nil, err
 	}
+
+	// reconcile OTel Collector
+	if r.OtelCollector != nil {
+		err := r.OtelCollector.Reconcile(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// reconcile Deployment
 	deploymentList, err := r.Deployment.Reconcile(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	// reconcile HPA
 	err = r.Scaler.Reconcile(ctx)
 	if err != nil {

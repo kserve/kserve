@@ -1,4 +1,6 @@
-FROM golang:1.23
+# Upstream already is on go 1.24, however there is no gotoolset for 1.24 yet.
+# TODO move to ubi9/go-toolset:1.24 when available
+FROM registry.access.redhat.com/ubi9/go-toolset:1.23 as builder
 
 RUN apt-get update && apt-get -y upgrade && apt-get -y install git
 

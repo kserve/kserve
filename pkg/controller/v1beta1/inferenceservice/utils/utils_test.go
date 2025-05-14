@@ -17,11 +17,11 @@ limitations under the License.
 package utils
 
 import (
-	"context"
 	"errors"
 	"strconv"
 	"testing"
 
+	"github.com/docker/distribution/context"
 	"github.com/onsi/gomega/types"
 	"knative.dev/pkg/apis"
 	knativeV1 "knative.dev/pkg/apis/duck/v1"

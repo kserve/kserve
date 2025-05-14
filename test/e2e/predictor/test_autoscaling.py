@@ -30,9 +30,13 @@ from kserve import (
     V1beta1ResourceMetricSource,
     V1beta1MetricTarget,
     V1beta1ExternalMetricSource,
-    V1beta1MetricIdentifier,
+    V1beta1ExternalMetrics,
     V1beta1MetricsSpec,
+    V1beta1PodMetricSource,
+    V1beta1PodMetrics,
 )
+
+
 from ..common.utils import KSERVE_TEST_NAMESPACE
 from ..common.utils import predict_isvc
 
@@ -148,8 +152,7 @@ async def test_sklearn_kserve_cpu(rest_v1_client):
         ),
     )
 
-    annotations = {}
-    annotations["autoscaling.knative.dev/class"] = "hpa.autoscaling.knative.dev"
+    annotations = {"autoscaling.knative.dev/class": "hpa.autoscaling.knative.dev"}
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -197,8 +200,7 @@ async def test_sklearn_scale_raw(rest_v1_client, network_layer):
         ),
     )
 
-    annotations = {}
-    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 
     labels = dict()
     labels["networking.kserve.io/visibility"] = "exposed"
@@ -255,8 +257,7 @@ async def test_sklearn_rolling_update():
         ),
     )
 
-    annotations = {}
-    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
+    annotations = {"serving.kserve.io/deploymentMode": "RawDeployment"}
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -273,9 +274,10 @@ async def test_sklearn_rolling_update():
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    updated_annotations = {}
-    updated_annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
-    updated_annotations["serving.kserve.io/customAnnotation"] = "TestAnnotation"
+    updated_annotations = {
+        "serving.kserve.io/deploymentMode": "RawDeployment",
+        "serving.kserve.io/customAnnotation": "TestAnnotation",
+    }
 
     updated_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -311,68 +313,6 @@ async def test_sklearn_rolling_update():
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_keda_scale_existing_spec(rest_v1_client, network_layer):
-    """
-    Test KEDA autoscaling with existing InferenceService spec
-    """
-    service_name = "isvc-sklearn-keda-scale"
-    predictor = V1beta1PredictorSpec(
-        min_replicas=1,
-        max_replicas=5,
-        scale_metric="memory",
-        scale_metric_type="Utilization",
-        scale_target=50,
-        sklearn=V1beta1SKLearnSpec(
-            storage_uri=MODEL,
-            resources=V1ResourceRequirements(
-                requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
-            ),
-        ),
-    )
-
-    annotations = {}
-    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
-    annotations["serving.kserve.io/autoscalerClass"] = "keda"
-
-    isvc = V1beta1InferenceService(
-        api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
-        ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor),
-    )
-
-    kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-    )
-    kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    api_instance = kserve_client.api_instance
-
-    scaledobject_resp = api_instance.list_namespaced_custom_object(
-        group="keda.sh",
-        version="v1alpha1",
-        namespace=KSERVE_TEST_NAMESPACE,
-        label_selector=f"serving.kserve.io/inferenceservice={service_name}",
-        plural="scaledobjects",
-    )
-
-    assert (
-        scaledobject_resp["items"][0]["spec"]["triggers"][0]["metricType"]
-        == "Utilization"
-    )
-    assert scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"] == "memory"
-    res = await predict_isvc(
-        rest_v1_client, service_name, INPUT, network_layer=network_layer
-    )
-    assert res["predictions"] == [1, 1]
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
-
-@pytest.mark.raw
-@pytest.mark.asyncio(scope="session")
 async def test_sklearn_keda_scale_new_spec_resource(rest_v1_client, network_layer):
     """
     Test KEDA autoscaling with new InferenceService (auto_scaling) spec
@@ -403,9 +343,10 @@ async def test_sklearn_keda_scale_new_spec_resource(rest_v1_client, network_laye
         ),
     )
 
-    annotations = {}
-    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
-    annotations["serving.kserve.io/autoscalerClass"] = "keda"
+    annotations = {
+        "serving.kserve.io/deploymentMode": "RawDeployment",
+        "serving.kserve.io/autoscalerClass": "keda",
+    }
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -458,7 +399,7 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
                 V1beta1MetricsSpec(
                     type="External",
                     external=V1beta1ExternalMetricSource(
-                        metric=V1beta1MetricIdentifier(
+                        metric=V1beta1ExternalMetrics(
                             backend="prometheus",
                             server_address="http://prometheus:9090",
                             query="http_requests_per_second",
@@ -477,9 +418,10 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
         ),
     )
 
-    annotations = {}
-    annotations["serving.kserve.io/deploymentMode"] = "RawDeployment"
-    annotations["serving.kserve.io/autoscalerClass"] = "keda"
+    annotations = {
+        "serving.kserve.io/deploymentMode": "RawDeployment",
+        "serving.kserve.io/autoscalerClass": "keda",
+    }
 
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
@@ -510,7 +452,106 @@ async def test_sklearn_keda_scale_new_spec_external(rest_v1_client, network_laye
     assert trigger_type == "prometheus"
     assert trigger_metadata["query"] == "http_requests_per_second"
     assert trigger_metadata["serverAddress"] == "http://prometheus:9090"
-    assert trigger_metadata["threshold"] == "50"
+    assert trigger_metadata["threshold"] == "50.000000"
+    res = await predict_isvc(
+        rest_v1_client, service_name, INPUT, network_layer=network_layer
+    )
+    assert res["predictions"] == [1, 1]
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.raw
+@pytest.mark.asyncio(scope="session")
+async def test_scaling_sklearn_with_keda_otel_add_on(rest_v1_client, network_layer):
+    """
+    Test KEDA-Otel-Add-On autoscaling with InferenceService (auto_scaling) spec
+    """
+    service_name = "isvc-sklearn-keda-otel-add-on"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        max_replicas=5,
+        auto_scaling=V1beta1AutoScalingSpec(
+            metrics=[
+                V1beta1MetricsSpec(
+                    type="PodMetric",
+                    podmetric=V1beta1PodMetricSource(
+                        metric=V1beta1PodMetrics(
+                            backend="opentelemetry",
+                            metric_names=["http_requests_per_second"],
+                            query="http_requests_per_second",
+                        ),
+                        target=V1beta1MetricTarget(type="Value", value=50),
+                    ),
+                )
+            ]
+        ),
+        sklearn=V1beta1SKLearnSpec(
+            storage_uri=MODEL,
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+
+    annotations = {
+        "serving.kserve.io/deploymentMode": "RawDeployment",
+        "serving.kserve.io/autoscalerClass": "keda",
+        "sidecar.opentelemetry.io/inject": f"{service_name}-predictor",
+    }
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE, annotations=annotations
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    api_instance = kserve_client.api_instance
+
+    otelp_collector_resp = api_instance.list_namespaced_custom_object(
+        group="opentelemetry.io",
+        version="v1beta1",
+        namespace=KSERVE_TEST_NAMESPACE,
+        plural="opentelemetrycollectors",
+    )
+
+    otel_receiver = otelp_collector_resp["items"][0]["spec"]["config"]["receivers"]
+    otel_exporter = otelp_collector_resp["items"][0]["spec"]["config"]["exporters"]
+    assert (
+        otel_receiver["prometheus"]["config"]["scrape_configs"][0]["job_name"]
+        == "otel-collector"
+    )
+    assert (
+        otel_receiver["prometheus"]["config"]["scrape_configs"][0]["static_configs"][0][
+            "targets"
+        ][0]
+        == "localhost:8080"
+    )
+
+    assert otel_exporter["otlp"]["endpoint"] == "keda-otel-scaler.keda.svc:4317"
+
+    scaledobject_resp = api_instance.list_namespaced_custom_object(
+        group="keda.sh",
+        version="v1alpha1",
+        namespace=KSERVE_TEST_NAMESPACE,
+        label_selector=f"serving.kserve.io/inferenceservice={service_name}",
+        plural="scaledobjects",
+    )
+
+    trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
+    trigger_type = scaledobject_resp["items"][0]["spec"]["triggers"][0]["type"]
+    assert trigger_type == "external"
+    assert trigger_metadata["metricQuery"] == "http_requests_per_second"
+    assert trigger_metadata["scalerAddress"] == "keda-otel-scaler.keda.svc:4318"
+    assert trigger_metadata["targetValue"] == "50.000000"
     res = await predict_isvc(
         rest_v1_client, service_name, INPUT, network_layer=network_layer
     )

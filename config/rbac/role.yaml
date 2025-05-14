@@ -153,6 +153,27 @@ rules:
   - update
   - watch
 - apiGroups:
+  - opentelemetry.io
+  resources:
+  - opentelemetrycollectors
+  - opentelemetrycollectors/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - opentelemetry.io
+  resources:
+  - opentelemetrycollectors/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - operator.knative.dev
   resources:
   - knativeservings

@@ -17,12 +17,12 @@ limitations under the License.
 package ingress
 
 import (
-	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
+	"golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -420,7 +420,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "test-isvc-default.additional.example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -549,7 +549,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "test-isvc-default.additional.example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -683,7 +683,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "test-isvc-default.additional.example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -860,7 +860,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "additional.example.com", "example.com"},
+					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "test-isvc-default.additional.example.com", "example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -1086,7 +1086,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "additional.example.com", "example.com"},
+					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default.example.com", "test-isvc-default.additional.example.com", "example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{
@@ -1222,7 +1222,7 @@ func TestCreateRawTopLevelHTTPRoute(t *testing.T) {
 					Labels:      map[string]string{},
 				},
 				Spec: gatewayapiv1.HTTPRouteSpec{
-					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default-default.example.com", "additional.example.com"},
+					Hostnames: []gatewayapiv1.Hostname{"test-isvc-default-default.example.com", "test-isvc-default-default.additional.example.com"},
 					Rules: []gatewayapiv1.HTTPRouteRule{
 						{
 							Matches: []gatewayapiv1.HTTPRouteMatch{

@@ -56,6 +56,8 @@ def test_huggingface_openai_chat_completions():
                 "huggingface",
                 "--max_model_len",
                 "512",
+                "--dtype",
+                "bfloat16",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
