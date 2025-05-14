@@ -32,7 +32,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.0
 | kserve.controller.gateway.ingressGateway.createGateway | bool | `false` | createGateway controls whether to create the default Gateway resource for ingress routing as part of the installation. This is only used when Gateway API is enabled. |
 | kserve.controller.gateway.ingressGateway.enableGatewayApi | bool | `false` | enableGatewayApi controls whether to use the Gateway API for ingress routing instead of kuberetes Ingress. |
 | kserve.controller.gateway.ingressGateway.gateway | string | `"knative-serving/knative-ingress-gateway"` | gateway specifies the name and namespace of the Knative's ingress gateway. |
-| kserve.controller.gateway.ingressGateway.kserveGateway | string | `"kserve/kserve-ingress-gateway"` | kserveGateway specifies the name and namespace of the Gateway which handles the network traffic from outside the cluster.  This is only used when Gateway API is enabled. The gateway should be specified in format <gateway namespace>/<gateway name> |
+| kserve.controller.gateway.ingressGateway.kserveGateway | string | `"kserve/kserve-ingress-gateway"` | kserveGateway specifies the name and namespace of the Gateway which handles the network traffic from outside the cluster. This is only used when Gateway API is enabled. The gateway should be specified in format <gateway namespace>/<gateway name> |
 | kserve.controller.gateway.localGateway.gateway | string | `"knative-serving/knative-local-gateway"` | localGateway specifies the gateway which handles the network traffic within the cluster. |
 | kserve.controller.gateway.localGateway.gatewayService | string | `"knative-local-gateway.istio-system.svc.cluster.local"` | localGatewayService specifies the hostname of the local gateway service. |
 | kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` | knativeLocalGatewayService specifies the hostname of the Knative's local gateway service. When unset, the value of "localGatewayService" will be used. When enabling strict mTLS in Istio, KServe local gateway should be created and pointed to the Knative local gateway. |
@@ -99,6 +99,7 @@ $ helm install kserve oci://ghcr.io/kserve/charts/kserve --version v0.15.0
 | kserve.servingruntime.huggingfaceserver.hostIPC.enabled | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.image | string | `"kserve/huggingfaceserver"` |  |
 | kserve.servingruntime.huggingfaceserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.huggingfaceserver.lmcacheUseExperimental | string | `"True"` |  |
 | kserve.servingruntime.huggingfaceserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.servingruntime.huggingfaceserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | kserve.servingruntime.huggingfaceserver.securityContext.privileged | bool | `false` |  |
