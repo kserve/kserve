@@ -28,6 +28,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/scaleway/scaleway-sdk-go/logger"
+
 	"github.com/go-logr/zapr"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
@@ -63,6 +65,8 @@ var (
 	workers             = flag.Int("workers", 5, "Number of workers")
 	sourceUri           = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
 	logMode             = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
+	logStorePath        = flag.String("log-store-path", "", "The path to the log output")
+	logStoreFormat      = flag.String("log-store-format", "", "Format for log output, 'json' or 'yaml'")
 	inferenceService    = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
 	namespace           = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint            = flag.String("endpoint", "", "The endpoint name to add as header to log events")
@@ -153,7 +157,7 @@ func main() {
 	var loggerArgs *loggerArgs
 	if *logUrl != "" {
 		logger.Info("Starting logger")
-		loggerArgs = startLogger(*workers, logger)
+		loggerArgs = startLogger(*workers, logStorePath, logStoreFormat, logger)
 	}
 
 	var batcherArgs *batcherArgs
@@ -264,18 +268,18 @@ func startBatcher(logger *zap.SugaredLogger) *batcherArgs {
 	}
 }
 
-func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
+func startLogger(workers int, logStorePath *string, logStoreFormat *string, log *zap.SugaredLogger) *loggerArgs {
 	loggingMode := v1beta1.LoggerType(*logMode)
 	switch loggingMode {
 	case v1beta1.LogAll, v1beta1.LogRequest, v1beta1.LogResponse:
 	default:
-		logger.Errorf("Malformed log-mode %s", *logMode)
+		log.Errorf("Malformed log-mode %s", *logMode)
 		os.Exit(-1)
 	}
 
 	logUrlParsed, err := url.Parse(*logUrl)
 	if err != nil {
-		logger.Errorf("Malformed log-url %s", *logUrl)
+		log.Errorf("Malformed log-url %s", *logUrl)
 		os.Exit(-1)
 	}
 
@@ -285,7 +289,7 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 
 	sourceUriParsed, err := url.Parse(*sourceUri)
 	if err != nil {
-		logger.Errorf("Malformed source_uri %s", *sourceUri)
+		log.Errorf("Malformed source_uri %s", *sourceUri)
 		os.Exit(-1)
 	}
 
@@ -300,8 +304,20 @@ func startLogger(workers int, logger *zap.SugaredLogger) *loggerArgs {
 		}
 	}
 
-	logger.Info("Starting the log dispatcher")
-	kfslogger.StartDispatcher(workers, logger)
+	var store kfslogger.Store
+	if kfslogger.GetStorageStrategy(*logUrl) != kfslogger.HttpStorage {
+		if logStoreFormat != nil && *logStoreFormat != "" {
+			log.Infow("Logger storage is enabled", "path", logStorePath, "logStoreFormat", logStoreFormat)
+			store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, *logStorePath, *logStoreFormat, log)
+			if err != nil {
+				log.Errorw("Error creating logger store", zap.Error(err))
+				os.Exit(-1)
+			}
+		}
+	}
+
+	log.Info("Starting the log dispatcher")
+	kfslogger.StartDispatcher(workers, store, log)
 	return &loggerArgs{
 		loggerType:       loggingMode,
 		logUrl:           logUrlParsed,
