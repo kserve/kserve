@@ -25,6 +25,38 @@ if [[ "$1" == "uninstall" ]]; then
   kubectl delete ns ambassador
   telepresence quit -s
   [ -d "${TMPDIR}/k8s-webhook-server" ] && rm -rf "${TMPDIR}/k8s-webhook-server"
+  kubectl --namespace kserve patch deployment kserve-controller-manager \
+    -n kserve \
+    --type='json' \
+    -p='[
+          {
+            "op": "replace",
+            "path": "/spec/template/spec/containers/0/securityContext",
+            "value": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": ["ALL"]
+              },
+              "privileged": false,
+              "readOnlyRootFilesystem": true,
+              "runAsNonRoot": true
+            }
+          },
+          {
+            "op": "replace",
+            "path": "/spec/template/spec/containers/1/securityContext",
+            "value": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": ["ALL"]
+              },
+              "privileged": false,
+              "readOnlyRootFilesystem": true,
+              "runAsNonRoot": true
+            }
+          }
+        ]'
+
   exit 0
 fi
 
