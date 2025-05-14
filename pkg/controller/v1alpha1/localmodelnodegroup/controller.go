@@ -221,6 +221,7 @@ func createLocalModelAgentDaemonSet(nodeGroup v1alpha1.LocalModelNodeGroup, loca
 								AllowPrivilegeEscalation: ptr.To(false),
 								RunAsNonRoot:             ptr.To(true),
 								ReadOnlyRootFilesystem:   ptr.To(true),
+								RunAsUser:                ptr.To(int64(1000)),
 							},
 							Resources: corev1.ResourceRequirements{
 								Requests: corev1.ResourceList{

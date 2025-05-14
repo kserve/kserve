@@ -434,9 +434,6 @@ kserve:
         tag: *defaultVersion
         imagePullPolicy: Always
         reconcilationFrequencyInSecs: 60
-        securityContext:
-          runAsUser: 1000
-          runAsNonRoot: true
         resources:
           requests:
             cpu: 100m
