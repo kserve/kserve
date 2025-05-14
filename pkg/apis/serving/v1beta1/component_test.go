@@ -61,48 +61,63 @@ func TestComponentExtensionSpec_Validate(t *testing.T) {
 }
 
 func TestComponentExtensionSpec_validateStorageSpec(t *testing.T) {
+	storagePath := "/logger"
+	storageParameters := map[string]string{
+		"type":   "s3",
+		"region": "us-west-2",
+		"format": "json",
+	}
+	storageKey := "logger-credentials"
 	g := gomega.NewGomegaWithT(t)
 	scenarios := map[string]struct {
-		spec       *StorageSpec
+		spec       *ModelStorageSpec
 		storageUri *string
 		matcher    types.GomegaMatcher
 	}{
 		"ValidStoragespec": {
-			spec: &StorageSpec{
-				Parameters: &map[string]string{
-					"type": "s3",
+			spec: &ModelStorageSpec{
+				StorageSpec: StorageSpec{
+					Path:       &storagePath,
+					Parameters: &storageParameters,
+					StorageKey: &storageKey,
 				},
 			},
 			storageUri: nil,
 			matcher:    gomega.BeNil(),
 		},
 		"ValidStoragespecWithoutParameters": {
-			spec:       &StorageSpec{},
+			spec:       &ModelStorageSpec{},
 			storageUri: nil,
 			matcher:    gomega.BeNil(),
 		},
 		"ValidStoragespecWithStorageURI": {
-			spec: &StorageSpec{
-				Parameters: &map[string]string{
-					"type": "s3",
+			spec: &ModelStorageSpec{
+				StorageSpec: StorageSpec{
+					Path:       &storagePath,
+					Parameters: &storageParameters,
+					StorageKey: &storageKey,
 				},
 			},
 			storageUri: proto.String("s3://test/model"),
 			matcher:    gomega.BeNil(),
 		},
 		"StorageSpecWithInvalidStorageURI": {
-			spec: &StorageSpec{
-				Parameters: &map[string]string{
-					"type": "gs",
+			spec: &ModelStorageSpec{
+				StorageSpec: StorageSpec{
+					Parameters: &map[string]string{
+						"type": "gs",
+					},
 				},
 			},
 			storageUri: proto.String("gs://test/model"),
 			matcher:    gomega.MatchError(fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageSpecURIPrefixList, ", "), "gs://test/model")),
 		},
 		"InvalidStoragespec": {
-			spec: &StorageSpec{
-				Parameters: &map[string]string{
-					"type": "gs",
+			spec: &ModelStorageSpec{
+				StorageSpec: StorageSpec{
+					Parameters: &map[string]string{
+						"type": "gs",
+					},
 				},
 			},
 			storageUri: nil,
@@ -156,6 +171,20 @@ func TestComponentExtensionSpec_validateLogger(t *testing.T) {
 		"LoggerIsNil": {
 			logger:  nil,
 			matcher: gomega.BeNil(),
+		},
+		"StorageConfigNilValues": {
+			logger: &LoggerSpec{
+				Mode: LogAll,
+				Storage: &LoggerStorageSpec{
+					StorageSpec: StorageSpec{
+						Path:       nil,
+						Parameters: nil,
+						StorageKey: nil,
+					},
+					ServiceAccountName: nil,
+				},
+			},
+			matcher: gomega.MatchError(errors.New(InvalidLoggerStorageConfigError)),
 		},
 	}
 	for name, scenario := range scenarios {
