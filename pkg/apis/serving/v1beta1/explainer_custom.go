@@ -62,7 +62,7 @@ func (c *CustomExplainer) GetStorageUri() *string {
 	return nil
 }
 
-func (c *CustomExplainer) GetStorageSpec() *StorageSpec {
+func (c *CustomExplainer) GetStorageSpec() *ModelStorageSpec {
 	return nil
 }
 
