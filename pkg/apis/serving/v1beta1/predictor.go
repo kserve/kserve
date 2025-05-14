@@ -101,23 +101,14 @@ type PredictorExtensionSpec struct {
 	corev1.Container `json:",inline"`
 	// Storage Spec for model location
 	// +optional
-	Storage *StorageSpec `json:"storage,omitempty"`
+	Storage *ModelStorageSpec `json:"storage,omitempty"`
 }
 
-type StorageSpec struct {
-	// The path to the model object in the storage. It cannot co-exist
-	// with the storageURI.
-	// +optional
-	Path *string `json:"path,omitempty"`
+type ModelStorageSpec struct {
+	StorageSpec `json:",inline"`
 	// The path to the model schema file in the storage.
 	// +optional
 	SchemaPath *string `json:"schemaPath,omitempty"`
-	// Parameters to override the default storage credentials and config.
-	// +optional
-	Parameters *map[string]string `json:"parameters,omitempty"`
-	// The Storage Key in the secret for this model.
-	// +optional
-	StorageKey *string `json:"key,omitempty"`
 }
 
 // GetImplementations returns the implementations for the component
@@ -176,6 +167,6 @@ func (p *PredictorExtensionSpec) GetStorageUri() *string {
 }
 
 // GetStorageSpec returns the predictor storage spec object
-func (p *PredictorExtensionSpec) GetStorageSpec() *StorageSpec {
+func (p *PredictorExtensionSpec) GetStorageSpec() *ModelStorageSpec {
 	return p.Storage
 }
