@@ -9,7 +9,7 @@ ARG POETRY_HOME=/opt/poetry
 ARG POETRY_VERSION=1.8.3
 
 # Install vllm
-ARG VLLM_VERSION=0.7.3
+ARG VLLM_VERSION=0.8.5
 
 RUN apt-get update && apt-get upgrade -y && apt-get install gcc python3.10-venv python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -34,12 +34,17 @@ RUN cd huggingfaceserver && poetry install --no-interaction --no-cache
 
 RUN pip install --upgrade pip && pip install vllm==${VLLM_VERSION}
 
+# Generate third-party licenses
+COPY pyproject.toml pyproject.toml
+COPY third_party/pip-licenses.py pip-licenses.py
+# TODO: Remove this when upgrading to python 3.11+
+RUN pip install --no-cache-dir tomli
+RUN mkdir -p third_party/library && python3 pip-licenses.py
+
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS prod
 
 RUN apt-get update && apt-get upgrade -y && apt-get install python3.10-venv build-essential gcc python3-dev -y && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-COPY third_party third_party
 
 # Activate virtual env
 ARG VENV_PATH
@@ -48,6 +53,7 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
+COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
 COPY --from=builder huggingfaceserver huggingfaceserver

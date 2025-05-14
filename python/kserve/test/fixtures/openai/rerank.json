@@ -1,0 +1,23 @@
+{
+  "id": "id", 
+  "model": "model_name", 
+  "usage": {
+    "total_tokens": 100
+  },
+  "results": [
+    {
+      "index": 1,
+      "document": {
+        "text": "The capital of France is Paris."
+      },
+      "relevance_score": 0.95
+    },
+    {
+      "index": 0,
+      "document": {
+        "text": "The capital of Brazil is Brasilia."
+      },
+      "relevance_score": 0.01
+    }
+  ]
+}

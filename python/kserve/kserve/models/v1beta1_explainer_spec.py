@@ -1219,7 +1219,7 @@ class V1beta1ExplainerSpec(object):
     def scale_metric(self):
         """Gets the scale_metric of this V1beta1ExplainerSpec.  # noqa: E501
 
-        ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).  # noqa: E501
+        ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).  # noqa: E501
 
         :return: The scale_metric of this V1beta1ExplainerSpec.  # noqa: E501
         :rtype: str
@@ -1230,7 +1230,7 @@ class V1beta1ExplainerSpec(object):
     def scale_metric(self, scale_metric):
         """Sets the scale_metric of this V1beta1ExplainerSpec.
 
-        ScaleMetric defines the scaling metric type watched by autoscaler possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).  # noqa: E501
+        ScaleMetric defines the scaling metric type watched by autoscaler. possible values are concurrency, rps, cpu, memory. concurrency, rps are supported via Knative Pod Autoscaler(https://knative.dev/docs/serving/autoscaling/autoscaling-metrics).  # noqa: E501
 
         :param scale_metric: The scale_metric of this V1beta1ExplainerSpec.  # noqa: E501
         :type: str

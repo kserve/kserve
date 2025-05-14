@@ -21,7 +21,7 @@ Help() {
 export ISTIO_VERSION=1.23.2
 export KNATIVE_OPERATOR_VERSION=v1.15.7
 export KNATIVE_SERVING_VERSION=1.15.2
-export KSERVE_VERSION=v0.15.0-rc1
+export KSERVE_VERSION=v0.15.0
 export CERT_MANAGER_VERSION=v1.16.1
 export GATEWAY_API_VERSION=v1.2.1
 export KEDA_VERSION=2.14.0
@@ -127,7 +127,13 @@ if [ $installKeda = true ]; then
    helm repo add kedacore https://kedacore.github.io/charts
    helm install keda kedacore/keda --version ${KEDA_VERSION} --namespace keda --create-namespace --wait
    echo "😀 Successfully installed KEDA"
+
+   kubectl apply -f https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml
+   
+   helm upgrade -i kedify-otel oci://ghcr.io/kedify/charts/otel-add-on --version=v0.0.6 --namespace keda --wait --set validatingAdmissionPolicy.enabled=false
+   echo "😀 Successfully installed KEDA"
 fi
+
 
 # Install Knative
 if [ "${deploymentMode}" = "Serverless" ]; then

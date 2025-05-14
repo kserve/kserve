@@ -15,6 +15,7 @@ package hpa
 
 import (
 	"context"
+	"strings"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -29,7 +30,6 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 var log = logf.Log.WithName("HPAReconciler")
@@ -47,10 +47,7 @@ func NewHPAReconciler(client client.Client,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 ) (*HPAReconciler, error) {
-	hpa, err := createHPA(componentMeta, componentExt)
-	if err != nil {
-		return nil, err
-	}
+	hpa := createHPA(componentMeta, componentExt)
 	return &HPAReconciler{
 		client:       client,
 		scheme:       scheme,
@@ -59,49 +56,92 @@ func NewHPAReconciler(client client.Client,
 	}, nil
 }
 
-func getHPAMetrics(metadata metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec) ([]autoscalingv2.MetricSpec, error) {
+func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2.MetricSpec {
 	var metrics []autoscalingv2.MetricSpec
-	var utilization int32
-	var err error
-	annotations := metadata.Annotations
-	resourceName := corev1.ResourceCPU
-
-	if value, ok := annotations[constants.TargetUtilizationPercentage]; ok {
-		utilization, err = utils.StringToInt32(value)
-		if err != nil {
-			return metrics, err
+	if componentExt.AutoScaling != nil {
+		for _, metric := range componentExt.AutoScaling.Metrics {
+			switch metric.Resource.Name {
+			case v1beta1.ResourceMetricCPU:
+				averageUtilization := &constants.DefaultCPUUtilization
+				if metric.Resource.Target.AverageUtilization != nil {
+					averageUtilization = metric.Resource.Target.AverageUtilization
+				}
+				ms := autoscalingv2.MetricSpec{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: corev1.ResourceName(metric.Resource.Name),
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
+							AverageUtilization: averageUtilization,
+						},
+					},
+				}
+				metrics = append(metrics, ms)
+			case v1beta1.ResourceMetricMemory:
+				ms := autoscalingv2.MetricSpec{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: corev1.ResourceName(metric.Resource.Name),
+					},
+				}
+				if metric.Resource.Target.Type == v1beta1.UtilizationMetricType {
+					ms.Resource.Target.Type = autoscalingv2.UtilizationMetricType
+					ms.Resource.Target.AverageUtilization = metric.Resource.Target.AverageUtilization
+				} else if metric.Resource.Target.Type == v1beta1.AverageValueMetricType {
+					ms.Resource.Target.Type = autoscalingv2.AverageValueMetricType
+					ms.Resource.Target.AverageValue = metric.Resource.Target.AverageValue
+				}
+				metrics = append(metrics, ms)
+			}
 		}
 	} else {
-		utilization = constants.DefaultCPUUtilization
+		resourceName := corev1.ResourceCPU
+		if componentExt.ScaleMetric != nil {
+			resourceName = corev1.ResourceName(*componentExt.ScaleMetric)
+		}
+		if resourceName == corev1.ResourceCPU {
+			var utilization int32
+			if componentExt.ScaleTarget != nil {
+				utilization = *componentExt.ScaleTarget
+			} else {
+				utilization = constants.DefaultCPUUtilization
+			}
+			metricTarget := autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: &utilization,
+			}
+			resourceMetricSource := &autoscalingv2.ResourceMetricSource{
+				Name:   resourceName,
+				Target: metricTarget,
+			}
+			ms := autoscalingv2.MetricSpec{
+				Type:     autoscalingv2.ResourceMetricSourceType,
+				Resource: resourceMetricSource,
+			}
+			metrics = append(metrics, ms)
+		} else if resourceName == corev1.ResourceMemory && componentExt.ScaleTarget != nil {
+			// For memory, we do not set the default scale target.
+			metricTarget := autoscalingv2.MetricTarget{
+				Type:               autoscalingv2.UtilizationMetricType,
+				AverageUtilization: componentExt.ScaleTarget,
+			}
+			resourceMetricSource := &autoscalingv2.ResourceMetricSource{
+				Name:   resourceName,
+				Target: metricTarget,
+			}
+			ms := autoscalingv2.MetricSpec{
+				Type:     autoscalingv2.ResourceMetricSourceType,
+				Resource: resourceMetricSource,
+			}
+			metrics = append(metrics, ms)
+		}
 	}
-
-	if componentExt.ScaleTarget != nil {
-		utilization = *componentExt.ScaleTarget
-	}
-
-	if componentExt.ScaleMetric != nil {
-		resourceName = corev1.ResourceName(*componentExt.ScaleMetric)
-	}
-
-	metricTarget := autoscalingv2.MetricTarget{
-		Type:               "Utilization",
-		AverageUtilization: &utilization,
-	}
-
-	ms := autoscalingv2.MetricSpec{
-		Type: autoscalingv2.ResourceMetricSourceType,
-		Resource: &autoscalingv2.ResourceMetricSource{
-			Name:   resourceName,
-			Target: metricTarget,
-		},
-	}
-	metrics = append(metrics, ms)
-	return metrics, nil
+	return metrics
 }
 
 func createHPA(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-) (*autoscalingv2.HorizontalPodAutoscaler, error) {
+) *autoscalingv2.HorizontalPodAutoscaler {
 	var minReplicas int32
 	if componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas {
 		minReplicas = constants.DefaultMinReplicas
@@ -113,10 +153,7 @@ func createHPA(componentMeta metav1.ObjectMeta,
 	if maxReplicas < minReplicas {
 		maxReplicas = minReplicas
 	}
-	metrics, err := getHPAMetrics(componentMeta, componentExt)
-	if err != nil {
-		return nil, err
-	}
+	metrics := getHPAMetrics(componentExt)
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: componentMeta,
 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
@@ -131,7 +168,7 @@ func createHPA(componentMeta metav1.ObjectMeta,
 			Behavior:    &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 		},
 	}
-	return hpa, nil
+	return hpa
 }
 
 // checkHPAExist checks if the hpa exists?
@@ -157,7 +194,7 @@ func (r *HPAReconciler) checkHPAExist(ctx context.Context, client client.Client)
 	if semanticHPAEquals(r.HPA, existingHPA) {
 		return constants.CheckResultExisted, existingHPA, nil
 	}
-	if shouldDeleteHPA(r.HPA) {
+	if shouldDeleteHPA(existingHPA, r.HPA) {
 		return constants.CheckResultDelete, existingHPA, nil
 	}
 	return constants.CheckResultUpdate, existingHPA, nil
@@ -175,17 +212,32 @@ func semanticHPAEquals(desired, existing *autoscalingv2.HorizontalPodAutoscaler)
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) && !autoscalerClassChanged
 }
 
-func shouldDeleteHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
+func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler, desired *autoscalingv2.HorizontalPodAutoscaler) bool {
+	// Check if the HPA is owned by an InferenceService
+	isOwnedByKServe := false
+	for _, ownerRef := range existing.OwnerReferences {
+		if strings.HasPrefix(ownerRef.APIVersion, "serving.kserve.io") && ownerRef.Kind == "InferenceService" {
+			isOwnedByKServe = true
+			break
+		}
+	}
+
+	// If not owned by an InferenceService, do not delete
+	if !isOwnedByKServe {
+		return false
+	}
+
+	// Check if the autoscaler class in the desired object is "external" or "none"
 	desiredAutoscalerClass, hasDesiredAutoscalerClass := desired.Annotations[constants.AutoscalerClass]
-	return hasDesiredAutoscalerClass && constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassExternal
+	return hasDesiredAutoscalerClass && (constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassExternal || constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassNone)
 }
 
 func shouldCreateHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
 	desiredAutoscalerClass, hasDesiredAutoscalerClass := desired.Annotations[constants.AutoscalerClass]
-	return !hasDesiredAutoscalerClass || (hasDesiredAutoscalerClass && constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassHPA)
+	return !hasDesiredAutoscalerClass || (constants.AutoscalerClassType(desiredAutoscalerClass) == constants.AutoscalerClassHPA)
 }
 
-// Reconcile ...
+// Reconcile Kubernetes HPA resource
 func (r *HPAReconciler) Reconcile(ctx context.Context) error {
 	// reconcile HorizontalPodAutoscaler
 	checkResult, _, err := r.checkHPAExist(ctx, r.client)

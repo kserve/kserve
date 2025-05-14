@@ -5399,6 +5399,8 @@ spec:
                   - type
                   type: object
                 type: array
+              deploymentMode:
+                type: string
               observedGeneration:
                 format: int64
                 type: integer
@@ -6646,6 +6648,56 @@ spec:
                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                   type: object
+                              required:
+                              - metric
+                              - target
+                              type: object
+                            podmetric:
+                              properties:
+                                metric:
+                                  properties:
+                                    backend:
+                                      enum:
+                                      - opentelemetry
+                                      type: string
+                                    metricNames:
+                                      items:
+                                        type: string
+                                      type: array
+                                    operationOverTime:
+                                      type: string
+                                    query:
+                                      type: string
+                                    serverAddress:
+                                      type: string
+                                  type: object
+                                target:
+                                  properties:
+                                    averageUtilization:
+                                      format: int32
+                                      type: integer
+                                    averageValue:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    type:
+                                      enum:
+                                      - Utilization
+                                      - Value
+                                      - AverageValue
+                                      type: string
+                                    value:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                              required:
+                              - metric
+                              - target
                               type: object
                             resource:
                               properties:
@@ -6653,8 +6705,6 @@ spec:
                                   enum:
                                   - cpu
                                   - memory
-                                  - concurrency
-                                  - rps
                                   type: string
                                 target:
                                   properties:
@@ -6680,12 +6730,18 @@ spec:
                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                   type: object
+                              required:
+                              - name
+                              - target
                               type: object
                             type:
                               enum:
                               - Resource
                               - External
+                              - PodMetric
                               type: string
+                          required:
+                          - type
                           type: object
                         type: array
                     type: object
@@ -8146,6 +8202,10 @@ spec:
                     type: object
                   logger:
                     properties:
+                      metadataAnnotations:
+                        items:
+                          type: string
+                        type: array
                       metadataHeaders:
                         items:
                           type: string
@@ -8262,6 +8322,10 @@ spec:
                     - rps
                     type: string
                   scaleMetricType:
+                    enum:
+                    - Utilization
+                    - Value
+                    - AverageValue
                     type: string
                   scaleTarget:
                     format: int32
@@ -9724,6 +9788,56 @@ spec:
                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                   type: object
+                              required:
+                              - metric
+                              - target
+                              type: object
+                            podmetric:
+                              properties:
+                                metric:
+                                  properties:
+                                    backend:
+                                      enum:
+                                      - opentelemetry
+                                      type: string
+                                    metricNames:
+                                      items:
+                                        type: string
+                                      type: array
+                                    operationOverTime:
+                                      type: string
+                                    query:
+                                      type: string
+                                    serverAddress:
+                                      type: string
+                                  type: object
+                                target:
+                                  properties:
+                                    averageUtilization:
+                                      format: int32
+                                      type: integer
+                                    averageValue:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    type:
+                                      enum:
+                                      - Utilization
+                                      - Value
+                                      - AverageValue
+                                      type: string
+                                    value:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                              required:
+                              - metric
+                              - target
                               type: object
                             resource:
                               properties:
@@ -9731,8 +9845,6 @@ spec:
                                   enum:
                                   - cpu
                                   - memory
-                                  - concurrency
-                                  - rps
                                   type: string
                                 target:
                                   properties:
@@ -9758,12 +9870,18 @@ spec:
                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                   type: object
+                              required:
+                              - name
+                              - target
                               type: object
                             type:
                               enum:
                               - Resource
                               - External
+                              - PodMetric
                               type: string
+                          required:
+                          - type
                           type: object
                         type: array
                     type: object
@@ -12598,6 +12716,10 @@ spec:
                     type: object
                   logger:
                     properties:
+                      metadataAnnotations:
+                        items:
+                          type: string
+                        type: array
                       metadataHeaders:
                         items:
                           type: string
@@ -16160,6 +16282,10 @@ spec:
                     - rps
                     type: string
                   scaleMetricType:
+                    enum:
+                    - Utilization
+                    - Value
+                    - AverageValue
                     type: string
                   scaleTarget:
                     format: int32
@@ -23975,6 +24101,56 @@ spec:
                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                   type: object
+                              required:
+                              - metric
+                              - target
+                              type: object
+                            podmetric:
+                              properties:
+                                metric:
+                                  properties:
+                                    backend:
+                                      enum:
+                                      - opentelemetry
+                                      type: string
+                                    metricNames:
+                                      items:
+                                        type: string
+                                      type: array
+                                    operationOverTime:
+                                      type: string
+                                    query:
+                                      type: string
+                                    serverAddress:
+                                      type: string
+                                  type: object
+                                target:
+                                  properties:
+                                    averageUtilization:
+                                      format: int32
+                                      type: integer
+                                    averageValue:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                    type:
+                                      enum:
+                                      - Utilization
+                                      - Value
+                                      - AverageValue
+                                      type: string
+                                    value:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  type: object
+                              required:
+                              - metric
+                              - target
                               type: object
                             resource:
                               properties:
@@ -23982,8 +24158,6 @@ spec:
                                   enum:
                                   - cpu
                                   - memory
-                                  - concurrency
-                                  - rps
                                   type: string
                                 target:
                                   properties:
@@ -24009,12 +24183,18 @@ spec:
                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                   type: object
+                              required:
+                              - name
+                              - target
                               type: object
                             type:
                               enum:
                               - Resource
                               - External
+                              - PodMetric
                               type: string
+                          required:
+                          - type
                           type: object
                         type: array
                     type: object
@@ -25475,6 +25655,10 @@ spec:
                     type: object
                   logger:
                     properties:
+                      metadataAnnotations:
+                        items:
+                          type: string
+                        type: array
                       metadataHeaders:
                         items:
                           type: string
@@ -25591,6 +25775,10 @@ spec:
                     - rps
                     type: string
                   scaleMetricType:
+                    enum:
+                    - Utilization
+                    - Value
+                    - AverageValue
                     type: string
                   scaleTarget:
                     format: int32
@@ -26648,6 +26836,8 @@ spec:
                   - type
                   type: object
                 type: array
+              deploymentMode:
+                type: string
               modelStatus:
                 properties:
                   copies:

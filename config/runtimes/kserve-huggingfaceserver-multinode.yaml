@@ -16,7 +16,7 @@ spec:
     - v1
   containers:
     - name: kserve-container
-      image: kserve/huggingfaceserver:latest-gpu
+      image: huggingfaceserver-gpu:replace
       command:
       - "bash"
       - "-c"
@@ -99,11 +99,11 @@ spec:
         medium: Memory
         sizeLimit: 3Gi
   workerSpec:
-    pipelineParallelSize: 2
+    pipelineParallelSize: 1
     tensorParallelSize: 1
     containers:
       - name: worker-container
-        image: kserve/huggingfaceserver:latest-gpu
+        image: huggingfaceserver-gpu:replace
         command:
         - "bash"
         - "-c"

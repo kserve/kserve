@@ -45,7 +45,8 @@ const (
 	ComponentAttr        = "component"
 	MetadataAttr         = "metadata"
 	// endpoint would be either default or canary
-	EndpointAttr = "endpoint"
+	EndpointAttr   = "endpoint"
+	AnnotationAttr = "annotations"
 
 	LoggerWorkerQueueSize = 100
 	CloudEventsIdHeader   = "Ce-Id"
@@ -132,6 +133,15 @@ func (w *Worker) sendCloudEvent(logReq LogRequest) error {
 		return fmt.Errorf("could not encode metadata as json: %w", err)
 	}
 	event.SetExtension(MetadataAttr, string(encodedMetadata))
+
+	if len(logReq.Annotations) > 0 {
+		bits, err := json.Marshal(logReq.Annotations)
+		if err != nil {
+			w.Log.Errorf("failed to marshal annotations: %w", err)
+		} else {
+			event.SetExtension(AnnotationAttr, string(bits))
+		}
+	}
 
 	event.SetSource(logReq.SourceUri.String())
 	if err := event.SetData(logReq.ContentType, *logReq.Bytes); err != nil {

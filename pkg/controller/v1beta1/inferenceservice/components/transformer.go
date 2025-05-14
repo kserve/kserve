@@ -197,8 +197,11 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 		}
 		isvc.Status.PropagateRawStatus(v1beta1.TransformerComponent, deployment, r.URL)
 	} else {
-		r := knative.NewKsvcReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
+		r, err := knative.NewKsvcReconciler(ctx, p.client, p.clientset, p.scheme, objectMeta, &isvc.Spec.Transformer.ComponentExtensionSpec,
 			&podSpec, isvc.Status.Components[v1beta1.TransformerComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to create new knative service reconciler for transformer")
+		}
 		if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set owner reference for transformer")
 		}

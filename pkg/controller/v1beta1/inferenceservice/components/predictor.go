@@ -19,6 +19,7 @@ package components
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -29,7 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -37,7 +41,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/keda"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
@@ -48,8 +51,9 @@ import (
 var _ Component = &Predictor{}
 
 const (
-	ErrInvalidPlaceholder = "failed to replace placeholders in serving runtime %s Container %s"
-	ErrNoContainerFound   = "no container configuration found in selected serving runtime"
+	ErrInvalidPlaceholder         = "failed to replace placeholders in serving runtime %s Container %s"
+	ErrNoContainerFound           = "no container configuration found in selected serving runtime"
+	ErrRayClusterInsufficientGPUs = "the total required number of GPUs(%d) is less than the number of GPUs assigned to the head node(%d) + worker node(%d)"
 )
 
 // Predictor reconciles resources for this component.
@@ -163,6 +167,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		var err error
 		workerObjectMeta, workerPodSpec, err = p.reconcileWorker(sRuntime, isvc, &podSpec, annotations, predictorAnnotations, isvcGeneration)
 		if err != nil {
+			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidGPUAllocation, err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
 		}
 		objectMeta.Labels[constants.InferenceServiceGenerationPodLabelKey] = isvcGeneration
@@ -185,8 +190,46 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	} else {
 		var err error
 		podLabelKey = constants.RevisionLabel
+
 		if kstatus, err = p.reconcileKnativeDeployment(ctx, isvc, &objectMeta, &podSpec); err != nil {
 			return ctrl.Result{}, err
+		}
+		if isvc.GetForceStopRuntime() {
+			// Exit early if we have already set the status to stopped
+			existing_stopped_condition := isvc.Status.GetCondition(v1beta1.Stopped)
+			if existing_stopped_condition != nil && existing_stopped_condition.Status == corev1.ConditionTrue {
+				return ctrl.Result{}, nil
+			}
+
+			deployMode := isvc.Status.DeploymentMode
+
+			// Clear all statuses
+			isvc.Status = v1beta1.InferenceServiceStatus{}
+
+			// Preserve the deployment mode value
+			isvc.Status.DeploymentMode = deployMode
+
+			// Set the ready condition
+			predictor_ready_condition := &apis.Condition{
+				Type:   v1beta1.PredictorReady,
+				Status: corev1.ConditionFalse,
+			}
+			isvc.Status.SetCondition(v1beta1.PredictorReady, predictor_ready_condition)
+
+			// Add the stopped condition
+			stopped_condition := &apis.Condition{
+				Type:   v1beta1.Stopped,
+				Status: corev1.ConditionTrue,
+			}
+			isvc.Status.SetCondition(v1beta1.Stopped, stopped_condition)
+
+			return ctrl.Result{}, nil
+		} else {
+			resume_condition := &apis.Condition{
+				Type:   v1beta1.Stopped,
+				Status: corev1.ConditionFalse,
+			}
+			isvc.Status.SetCondition(v1beta1.Stopped, resume_condition)
 		}
 	}
 
@@ -200,6 +243,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	if err != nil {
 		return ctrl.Result{}, errors.Wrapf(err, "fails to list inferenceservice pods by label")
 	}
+
 	if isvc.Status.PropagateModelStatus(statusSpec, predictorPods, rawDeployment, kstatus) {
 		return ctrl.Result{}, nil
 	} else {
@@ -427,10 +471,6 @@ func (p *Predictor) reconcileWorker(sRuntime v1alpha1.ServingRuntimeSpec, isvc *
 
 	sRuntimeWorkerAnnotations := sRuntime.WorkerSpec.Annotations
 	sRuntimeWorkerLabels := sRuntime.WorkerSpec.ServingRuntimePodSpec.Labels
-	// If CustomGPUResourceTypeAnnotationKey is set, the specified custom GPU resource will be added to the available GPUResourceTypeList.
-	if isvc.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey] != "" {
-		sRuntimeWorkerAnnotations[constants.CustomGPUResourceTypesAnnotationKey] = isvc.GetAnnotations()[constants.CustomGPUResourceTypesAnnotationKey]
-	}
 
 	if workerPodSpec, err = multiNodeProcess(sRuntime, isvc, podSpec, annotations, isvcGeneration); err != nil {
 		return workerObjectMeta, workerPodSpec, err
@@ -460,6 +500,27 @@ func (p *Predictor) reconcileWorker(sRuntime v1alpha1.ServingRuntimeSpec, isvc *
 }
 
 func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.InferenceService, podSpec *corev1.PodSpec, annotations map[string]string, isvcGeneration string) (*corev1.PodSpec, error) {
+	var workerContainer *corev1.Container
+	var mergedWorkerPodSpec *corev1.PodSpec
+	var err error
+
+	// Initialize PipelineParallelSize and TensorParallelSize if not set
+	if sRuntime.WorkerSpec.PipelineParallelSize == nil {
+		sRuntime.WorkerSpec.PipelineParallelSize = ptr.To(constants.DefaultPipelineParallelSize)
+	}
+	if sRuntime.WorkerSpec.TensorParallelSize == nil {
+		sRuntime.WorkerSpec.TensorParallelSize = ptr.To(constants.DefaultTensorParallelSize)
+	}
+
+	// Set the PipelineParallelSize from InferenceService to ServingRuntime workerSpec.PipelineParallelSize
+	if isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize != nil {
+		sRuntime.WorkerSpec.PipelineParallelSize = isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize
+	}
+	// Set the TensorParallelSize from InferenceService to ServingRuntime workerSpec.TensorParallelSize
+	if isvc.Spec.Predictor.WorkerSpec.TensorParallelSize != nil {
+		sRuntime.WorkerSpec.TensorParallelSize = isvc.Spec.Predictor.WorkerSpec.TensorParallelSize
+	}
+
 	if sRuntime.WorkerSpec == nil {
 		errMsg := "you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec"
 		isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, v1beta1.InvalidWorkerSpecNotSet, errMsg, corev1.ConditionFalse)
@@ -475,10 +536,6 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 		return nil, errors.New(errMsg)
 	}
 
-	var workerContainer *corev1.Container
-	var mergedWorkerPodSpec *corev1.PodSpec
-	var err error
-
 	targetisvcContainer := corev1.Container{}
 	if isvc.Spec.Predictor.WorkerSpec.Containers != nil {
 		targetisvcContainer = isvc.Spec.Predictor.WorkerSpec.Containers[0]
@@ -488,28 +545,34 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 		return nil, err
 	}
 
-	// Set the PipelineParallelSize from InferenceService to ServingRuntime workerSpec.PipelineParallelSize
-	if isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize != nil {
-		sRuntime.WorkerSpec.PipelineParallelSize = isvc.Spec.Predictor.WorkerSpec.PipelineParallelSize
-	}
-
-	// Set the TensorParallelSize from InferenceService to ServingRuntime workerSpec.TensorParallelSize
-	if isvc.Spec.Predictor.WorkerSpec.TensorParallelSize != nil {
-		sRuntime.WorkerSpec.TensorParallelSize = isvc.Spec.Predictor.WorkerSpec.TensorParallelSize
-	}
-
 	mergedWorkerPodSpec.Containers = []corev1.Container{
 		*workerContainer,
+	}
+
+	// Calculate the total number of GPUs required for the request based on the tensor parallel size and pipeline parallel size specified in the worker spec.
+	// totalRequestGPUCount is the product of TensorParallelSize and PipelineParallelSize,
+	// which represents the total number of GPUs needed for distributed computation.
+
+	totalRequestGPUCount := *sRuntime.WorkerSpec.TensorParallelSize * *sRuntime.WorkerSpec.PipelineParallelSize
+
+	rayNodeCount, workerNodeGPUCount, headNodeGPUCount, err := computeRayNodeAndGPUs(mergedWorkerPodSpec, totalRequestGPUCount, podSpec)
+	if err != nil {
+		return nil, err
 	}
 
 	// Add required environment variables: PipelineParallelSize, TensorParallelSize
 	// Deployment node deployement
 	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.PipelineParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.PipelineParallelSize)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add PIPELINE_PARALLEL_SIZE environment to the container(%s)", constants.InferenceServiceContainerName)
+		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.PipelineParallelSizeEnvName, constants.InferenceServiceContainerName)
 	}
-
 	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.TensorParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.TensorParallelSize)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add Tensor_PARALLEL_SIZE environment to the container(%s)", constants.InferenceServiceContainerName)
+		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.TensorParallelSizeEnvName, constants.InferenceServiceContainerName)
+	}
+	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.RayNodeCountEnvName, strconv.Itoa(rayNodeCount)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RayNodeCountEnvName, constants.InferenceServiceContainerName)
+	}
+	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.RequestGPUCountEnvName, strconv.Itoa(headNodeGPUCount)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RequestGPUCountEnvName, constants.InferenceServiceContainerName)
 	}
 
 	// Set the environment variable for "isvc name" to the MODEL_NAME when multiNodeEnabled is true.
@@ -526,19 +589,99 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 		}
 	}
 	// Worker node deployement
-	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.PipelineParallelSizeEnvName, strconv.Itoa(*sRuntime.WorkerSpec.PipelineParallelSize)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add PIPELINE_PARALLEL_SIZE environment to the container(%s)", constants.WorkerContainerName)
+	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.RayNodeCountEnvName, strconv.Itoa(rayNodeCount)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RayNodeCountEnvName, constants.WorkerContainerName)
 	}
-
+	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, constants.RequestGPUCountEnvName, strconv.Itoa(workerNodeGPUCount)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RequestGPUCountEnvName, constants.WorkerContainerName)
+	}
 	// Set the environment variable for "isvc name" to the ISVC_NAME when multiNodeEnabled is true.
 	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "ISVC_NAME", isvc.Name); err != nil {
-		return nil, errors.Wrapf(err, "failed to add ISVC_NAME environment to the container(%s)", constants.InferenceServiceContainerName)
+		return nil, errors.Wrapf(err, "failed to add ISVC_NAME environment to the container(%s)", constants.WorkerContainerName)
 	}
-	// Set the environment variable for "isvc name" to the ISVC_NAME when multiNodeEnabled is true.
-	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "HEAD_SVC", constants.GeHeadServiceName(isvc.Name, isvcGeneration)); err != nil {
-		return nil, errors.Wrapf(err, "failed to add ISVC_NAME environment to the container(%s)", constants.InferenceServiceContainerName)
+	// Set the environment variable for "isvc name" to the HEAD_SVC when multiNodeEnabled is true.
+	if err := isvcutils.AddEnvVarToPodSpec(mergedWorkerPodSpec, constants.WorkerContainerName, "HEAD_SVC", constants.GetHeadServiceName(isvc.Name, isvcGeneration)); err != nil {
+		return nil, errors.Wrapf(err, "failed to add HEAD_SVC environment to the container(%s)", constants.WorkerContainerName)
 	}
 	return mergedWorkerPodSpec, nil
+}
+
+// The `rayNodeCount` is determined based on the requested GPU count.
+// We use the GPU resource defined in `workerSpec` to calculate the required GPU count.
+// The `rayNodeCount` is set to the ceiling value of (total requested GPU count / GPUs per worker node).
+// The head node GPU count is determined by subtracting (workerSpec GPU resource * (rayNodeCount - 1)) from the total GPU count.
+// If the head node has a predefined GPU count, it takes precedence.
+// However, if the total required GPU count is less than the sum of (head node GPU count + workerSpec GPU resource * rayNodeCount), an error is raised.
+func computeRayNodeAndGPUs(mergedWorkerPodSpec *corev1.PodSpec, totalRequestGPUCount int, podSpec *corev1.PodSpec) (int, int, int, error) {
+	getGPUResourceQty := func(spec *corev1.PodSpec) int {
+		if _, gpuResourceQuantity, exist := utils.GetGPUResourceQtyByType(&spec.Containers[0].Resources, "Request"); exist {
+			return int(gpuResourceQuantity.Value())
+		}
+		return 0
+	}
+
+	computeRayNodes := func(totalGPUs, workerGPUs int) int {
+		if workerGPUs == 0 {
+			return 1
+		}
+		return int(math.Ceil(float64(totalGPUs) / float64(workerGPUs)))
+	}
+
+	validateGPUAllocation := func(rayNodeCount, headNodeGPUCount, workerNodeGPUCount int) error {
+		if totalRequestGPUCount > headNodeGPUCount+(workerNodeGPUCount*(rayNodeCount-1)) {
+			return fmt.Errorf(ErrRayClusterInsufficientGPUs, totalRequestGPUCount, headNodeGPUCount, workerNodeGPUCount*(rayNodeCount-1))
+		}
+		return nil
+	}
+
+	var rayNodeCount int
+	headNodeGPUCount := getGPUResourceQty(podSpec)
+	workerNodeGPUCount := getGPUResourceQty(mergedWorkerPodSpec)
+
+	// Case 1 & 2: At least worker GPUs are set
+	if workerNodeGPUCount > 0 {
+		rayNodeCount = computeRayNodes(totalRequestGPUCount, workerNodeGPUCount)
+		newHeadNodeGPUCount := totalRequestGPUCount - workerNodeGPUCount*(rayNodeCount-1)
+
+		if headNodeGPUCount > 0 {
+			rayNodeCountByHeadGpuCount := computeRayNodes(totalRequestGPUCount, headNodeGPUCount)
+			if rayNodeCountByHeadGpuCount == 1 {
+				rayNodeCount = 1
+			}
+		} else if headNodeGPUCount == 0 {
+			headNodeGPUCount = newHeadNodeGPUCount
+		}
+
+		// Use only head node with total request gpu count if it can satisfy the GPU requirement
+		if rayNodeCount == 1 {
+			workerNodeGPUCount = 0
+			headNodeGPUCount = totalRequestGPUCount
+		}
+
+		if err := validateGPUAllocation(rayNodeCount, headNodeGPUCount, workerNodeGPUCount); err != nil {
+			return 0, 0, 0, err
+		}
+		return rayNodeCount, workerNodeGPUCount, headNodeGPUCount, nil
+	}
+
+	// Case 3: Only head GPU is set
+	if headNodeGPUCount > 0 {
+		remainingGPUs := totalRequestGPUCount - headNodeGPUCount
+		rayNodeCount = 1
+		workerNodeGPUCount = 1
+
+		if remainingGPUs > 0 {
+			rayNodeCount = computeRayNodes(remainingGPUs, workerNodeGPUCount) + 1 // Single GPU worker nodes
+		}
+
+		if err := validateGPUAllocation(rayNodeCount, headNodeGPUCount, workerNodeGPUCount); err != nil {
+			return 0, 0, 0, err
+		}
+		return rayNodeCount, workerNodeGPUCount, headNodeGPUCount, nil
+	}
+
+	// Case 4: No GPUs found → Default values
+	return totalRequestGPUCount, 1, 1, nil
 }
 
 func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta, workerObjectMeta metav1.ObjectMeta, podSpec, workerPodSpec *corev1.PodSpec) error {
@@ -560,6 +703,12 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 			return errors.Wrapf(err, "fails to set service owner reference for predictor")
 		}
 	}
+	// set Otel Controller
+	if r.OtelCollector != nil {
+		if err := r.OtelCollector.SetControllerReferences(isvc, p.scheme); err != nil {
+			return errors.Wrapf(err, "fails to set otel owner references for predictor")
+		}
+	}
 	// set autoscaler Controller
 	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {
 		return errors.Wrapf(err, "fails to set autoscaler owner references for predictor")
@@ -570,22 +719,16 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 		return errors.Wrapf(err, "fails to reconcile predictor")
 	}
 
-	kr, err := keda.NewKedaReconciler(p.client, p.scheme, objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec)
-	if err != nil {
-		return errors.Wrapf(err, "fails to reconcile keda")
-	}
-	// set ScaledObject Controller
-	if err := controllerutil.SetControllerReference(isvc, kr.ScaledObject, p.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set ScaledObject owner reference for predictor")
-	}
-
 	isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
 	return nil
 }
 
 func (p *Predictor) reconcileKnativeDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) (*knservingv1.ServiceStatus, error) {
-	r := knative.NewKsvcReconciler(p.client, p.scheme, *objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
+	r, err := knative.NewKsvcReconciler(ctx, p.client, p.clientset, p.scheme, *objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
 		podSpec, isvc.Status.Components[v1beta1.PredictorComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList)
+	if err != nil {
+		return nil, errors.Wrapf(err, "fails to create new knative service reconciler for predictor")
+	}
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return nil, errors.Wrapf(err, "fails to set owner reference for predictor")
 	}
@@ -593,6 +736,8 @@ func (p *Predictor) reconcileKnativeDeployment(ctx context.Context, isvc *v1beta
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to reconcile predictor")
 	}
-	isvc.Status.PropagateStatus(v1beta1.PredictorComponent, kstatus)
+	if !isvc.GetForceStopRuntime() {
+		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, kstatus)
+	}
 	return kstatus, nil
 }

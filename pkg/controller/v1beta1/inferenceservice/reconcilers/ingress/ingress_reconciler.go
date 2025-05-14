@@ -22,9 +22,6 @@ import (
 	"os"
 	"strings"
 
-	duckv1 "knative.dev/pkg/apis/duck/v1"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -36,12 +33,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
+	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -77,57 +75,30 @@ func NewIngressReconciler(client client.Client, clientset kubernetes.Interface, 
 }
 
 func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
-	serviceHost := getServiceHost(isvc)
-	serviceUrl := getServiceUrl(isvc, ir.ingressConfig)
 	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
-	if serviceHost == "" || serviceUrl == "" {
+
+	if err := ir.reconcileVirtualService(ctx, isvc); err != nil {
+		return errors.Wrapf(err, "fails to reconcile virtual service")
+	}
+	// Create external service which points to local gateway
+	if err := ir.reconcileExternalService(ctx, isvc, ir.ingressConfig); err != nil {
+		return errors.Wrapf(err, "fails to reconcile external name service")
+	}
+
+	if isvc.GetForceStopRuntime() {
+		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+			Type:   v1beta1.IngressReady,
+			Status: corev1.ConditionFalse,
+		})
+
 		return nil
 	}
-	// When Istio virtual host is disabled, we return the underlying component url.
-	// When Istio virtual host is enabled. we return the url using inference service virtual host name and redirect to the corresponding transformer, predictor or explainer url.
-	if !disableIstioVirtualHost {
-		// Check if existing knative service name has default suffix
-		defaultNameExisting := &knservingv1.Service{}
-		useDefault := false
-		err := ir.client.Get(ctx, types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, defaultNameExisting)
-		if err == nil {
-			useDefault = true
-		}
-		domainList := getDomainList(ctx, ir.clientset)
-		desiredIngress := createIngress(isvc, useDefault, ir.ingressConfig, domainList, ir.isvcConfig)
-		if desiredIngress == nil {
-			return nil
-		}
 
-		// Create external service which points to local gateway
-		if err := ir.reconcileExternalService(ctx, isvc, ir.ingressConfig); err != nil {
-			return errors.Wrapf(err, "fails to reconcile external name service")
-		}
-
-		if err := controllerutil.SetControllerReference(isvc, desiredIngress, ir.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set owner reference for ingress")
-		}
-
-		existing := &istioclientv1beta1.VirtualService{}
-		err = ir.client.Get(ctx, types.NamespacedName{Name: desiredIngress.Name, Namespace: desiredIngress.Namespace}, existing)
-		if err != nil {
-			if apierr.IsNotFound(err) {
-				log.Info("Creating Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
-				err = ir.client.Create(ctx, desiredIngress)
-			}
-		} else {
-			if !routeSemanticEquals(desiredIngress, existing) {
-				deepCopy := existing.DeepCopy()
-				deepCopy.Spec = *desiredIngress.Spec.DeepCopy()
-				deepCopy.Annotations = desiredIngress.Annotations
-				deepCopy.Labels = desiredIngress.Labels
-				log.Info("Update Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
-				err = ir.client.Update(ctx, deepCopy)
-			}
-		}
-		if err != nil {
-			return errors.Wrapf(err, "fails to create or update ingress")
-		}
+	serviceHost := getServiceHost(isvc)
+	serviceUrl := getServiceUrl(isvc, ir.ingressConfig)
+	if serviceHost == "" || serviceUrl == "" {
+		log.Info("service host and serviceurl are empty, skipping updating the inference service")
+		return nil
 	}
 
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
@@ -194,41 +165,6 @@ func getServiceHost(isvc *v1beta1.InferenceService) string {
 		} else {
 			return strings.Replace(predictorStatus.URL.Host, "-"+string(constants.Predictor), "",
 				1)
-		}
-	}
-}
-
-func getAdditionalHosts(domainList *[]string, serviceHost string, config *v1beta1.IngressConfig, additionalHosts *[]string) {
-	// Include additional ingressDomain to the domains (both internal and external)
-	subdomain := ""
-	if domainList != nil && len(*domainList) != 0 {
-		for _, domain := range *domainList {
-			res, found := strings.CutSuffix(serviceHost, domain)
-			if found {
-				subdomain = res
-				break
-			}
-		}
-	}
-	if len(subdomain) != 0 && config.AdditionalIngressDomains != nil && len(*config.AdditionalIngressDomains) > 0 {
-		// len(subdomain) != 0 means we have found the subdomain.
-		// If the list of the additionalIngressDomains is not empty, we will append the valid host created by the
-		// additional ingress domain.
-		// Deduplicate the domains in the additionalIngressDomains, making sure that the returned additionalHosts
-		// do not have duplicate domains.
-		deduplicateMap := map[string]bool{}
-		for _, domain := range *config.AdditionalIngressDomains {
-			// If the domain is redundant, go to the next element.
-			if !deduplicateMap[domain] {
-				host := fmt.Sprintf("%s%s", subdomain, domain)
-				if err := validation.IsDNS1123Subdomain(host); len(err) > 0 {
-					log.Error(fmt.Errorf("The domain name %s in the additionalIngressDomains is not valid", domain),
-						"Failed to get the valid host name")
-					continue
-				}
-				*additionalHosts = append(*additionalHosts, host)
-				deduplicateMap[domain] = true
-			}
 		}
 	}
 }
@@ -305,7 +241,77 @@ func getHostBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.Ingr
 	}
 }
 
-func (r *IngressReconciler) reconcileExternalService(ctx context.Context, isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) error {
+func (ir *IngressReconciler) reconcileVirtualService(ctx context.Context, isvc *v1beta1.InferenceService) error {
+	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
+
+	// Check if existing knative service name has default suffix
+	defaultNameExisting := &knservingv1.Service{}
+	useDefault := false
+	err := ir.client.Get(ctx, types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, defaultNameExisting)
+	if err == nil {
+		useDefault = true
+	}
+
+	domainList := getDomainList(ctx, ir.clientset)
+	desiredIngress := createIngress(isvc, useDefault, ir.ingressConfig, domainList, ir.isvcConfig) // actually the virtual service
+
+	existing := &istioclientv1beta1.VirtualService{}
+	getExistingErr := ir.client.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, existing)
+
+	if !isvc.GetForceStopRuntime() {
+		// When Istio virtual host is disabled, we return the underlying component url.
+		// When Istio virtual host is enabled. we return the url using inference service virtual host name and redirect to the corresponding transformer, predictor or explainer url.
+		if !disableIstioVirtualHost {
+			if desiredIngress == nil {
+				return nil
+			}
+
+			err = controllerutil.SetControllerReference(isvc, desiredIngress, ir.scheme)
+			if err != nil {
+				return errors.Wrapf(err, "fails to set owner reference for ingress")
+			}
+
+			if getExistingErr != nil {
+				if apierr.IsNotFound(getExistingErr) {
+					log.Info("Creating Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
+					err = ir.client.Create(ctx, desiredIngress)
+				}
+			} else {
+				if !routeSemanticEquals(desiredIngress, existing) {
+					deepCopy := existing.DeepCopy()
+					deepCopy.Spec = *desiredIngress.Spec.DeepCopy()
+					deepCopy.Annotations = desiredIngress.Annotations
+					deepCopy.Labels = desiredIngress.Labels
+					log.Info("Update Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
+					err = ir.client.Update(ctx, deepCopy)
+				}
+			}
+
+			if err != nil {
+				return errors.Wrapf(err, "fails to create or update ingress")
+			}
+		}
+	} else {
+		// Delete the virtualservice
+		if getExistingErr == nil {
+			// Make sure that we only delete virtual services owned by the isvc
+			if existing.OwnerReferences[0].UID == isvc.UID {
+				log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated VirtualService")
+				if err := ir.client.Delete(ctx, existing); err != nil {
+					return err
+				}
+			}
+		} else if !apierr.IsNotFound(getExistingErr) {
+			return getExistingErr
+		}
+	}
+
+	return nil
+}
+
+func (ir *IngressReconciler) reconcileExternalService(ctx context.Context, isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig) error {
+	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
+
 	desired := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      isvc.Name,
@@ -317,39 +323,60 @@ func (r *IngressReconciler) reconcileExternalService(ctx context.Context, isvc *
 			SessionAffinity: corev1.ServiceAffinityNone,
 		},
 	}
-	if err := controllerutil.SetControllerReference(isvc, desired, r.scheme); err != nil {
-		return err
-	}
 
-	// Create service if does not exist
 	existing := &corev1.Service{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
-	if err != nil {
-		if apierr.IsNotFound(err) {
-			log.Info("Creating external name service", "namespace", desired.Namespace, "name", desired.Name)
-			err = r.client.Create(ctx, desired)
-		}
+	getExistingErr := ir.client.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, existing)
+
+	if err := controllerutil.SetControllerReference(isvc, desired, ir.scheme); err != nil {
 		return err
 	}
 
-	// Return if no differences to reconcile.
-	if equality.Semantic.DeepEqual(desired, existing) {
-		return nil
-	}
+	if !isvc.GetForceStopRuntime() {
+		// When Istio virtual host is disabled, we return the underlying component url.
+		// When Istio virtual host is enabled. we return the url using inference service virtual host name and redirect to the corresponding transformer, predictor or explainer url.
+		if !disableIstioVirtualHost {
+			// Create service if does not exist
+			if getExistingErr != nil {
+				if apierr.IsNotFound(getExistingErr) {
+					log.Info("Creating external name service", "namespace", desired.Namespace, "name", desired.Name)
+					return ir.client.Create(ctx, desired)
+				}
+				return getExistingErr
+			}
 
-	// Reconcile differences and update
-	diff, err := kmp.SafeDiff(desired.Spec, existing.Spec)
-	if err != nil {
-		return errors.Wrapf(err, "failed to diff external name service")
-	}
-	log.Info("Reconciling external service diff (-desired, +observed):", "diff", diff)
-	log.Info("Updating external service", "namespace", existing.Namespace, "name", existing.Name)
-	existing.Spec = desired.Spec
-	existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
-	existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
-	err = r.client.Update(ctx, existing)
-	if err != nil {
-		return errors.Wrapf(err, "fails to update external name service")
+			// Return if no differences to reconcile.
+			if equality.Semantic.DeepEqual(desired, existing) {
+				return nil
+			}
+
+			// Reconcile differences and update
+			diff, err := kmp.SafeDiff(desired.Spec, existing.Spec)
+			if err != nil {
+				return errors.Wrapf(err, "failed to diff external name service")
+			}
+			log.Info("Reconciling external service diff (-desired, +observed):", "diff", diff)
+			log.Info("Updating external service", "namespace", existing.Namespace, "name", existing.Name)
+			existing.Spec = desired.Spec
+			existing.ObjectMeta.Labels = desired.ObjectMeta.Labels
+			existing.ObjectMeta.Annotations = desired.ObjectMeta.Annotations
+			err = ir.client.Update(ctx, existing)
+			if err != nil {
+				return errors.Wrapf(err, "fails to update external name service")
+			}
+		}
+	} else {
+		// Delete the service
+		if getExistingErr == nil {
+			// Make sure that we only delete services owned by the isvc
+			if existing.OwnerReferences[0].UID == isvc.UID {
+				log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated Service")
+				if err := ir.client.Delete(ctx, existing); err != nil {
+					return err
+				}
+			}
+		} else if !apierr.IsNotFound(getExistingErr) {
+			return getExistingErr
+		}
 	}
 
 	return nil
@@ -501,12 +528,12 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		expBackend = constants.DefaultExplainerServiceName(isvc.Name)
 	}
 
-	additionalHosts := &[]string{}
+	var additionalHosts *[]string
 	hosts := []string{
 		network.GetServiceHostname(isvc.Name, isvc.Namespace),
 	}
 	if !isInternal {
-		getAdditionalHosts(domainList, serviceHost, config, additionalHosts)
+		additionalHosts = GetAdditionalHosts(domainList, serviceHost, config)
 	}
 
 	if isvc.Spec.Explainer != nil {
@@ -665,14 +692,15 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 
 	if !isInternal {
 		// We only append the additional hosts, when the ingress is not internal.
-		hostMap := map[string]bool{}
+		hostMap := make(map[string]bool, len(hosts))
 		for _, host := range hosts {
 			hostMap[host] = true
 		}
-
-		for _, additionalHost := range *additionalHosts {
-			if !hostMap[additionalHost] {
-				hosts = append(hosts, additionalHost)
+		if additionalHosts != nil && len(*additionalHosts) != 0 {
+			for _, additionalHost := range *additionalHosts {
+				if !hostMap[additionalHost] {
+					hosts = append(hosts, additionalHost)
+				}
 			}
 		}
 	}

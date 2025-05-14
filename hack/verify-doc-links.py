@@ -210,7 +210,6 @@ next_time_for_github_request = datetime.now()
 
 
 def wait_before_retry(url):
-    global next_time_for_github_request
     if "github.com" in url:
         if datetime.now() < next_time_for_github_request:
             sleep((next_time_for_github_request - datetime.now()).seconds + extra_wait)
@@ -247,7 +246,7 @@ def request_url(url, method="HEAD", timeout=5, headers={}) -> int:
 
 
 def verify_urls_concurrently(
-    file_line_text_url: [(str, int, str, str)]
+    file_line_text_url: [(str, int, str, str)],
 ) -> [(str, int, str, str)]:
     file_line_text_url_status = []
 

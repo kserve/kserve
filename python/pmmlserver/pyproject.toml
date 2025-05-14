@@ -1,9 +1,9 @@
 [tool.poetry]
 name = "pmmlserver"
-version = "0.15.0rc1"
+version = "0.15.0"
 description = "Model Server implementation for PMML. Not intended for use outside KServe Frameworks Images."
 authors = ["AnyISalIn <anyisalin@gmail.com>"]
-license = "https://github.com/kserve/kserve/blob/master/LICENSE"
+license = "Apache-2.0"
 readme = "README.md"
 packages = [
     { include = "pmmlserver" },
