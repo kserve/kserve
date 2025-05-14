@@ -25,6 +25,7 @@ if [[ "$1" == "uninstall" ]]; then
   kubectl delete ns ambassador
   telepresence quit -s
   [ -d "${TMPDIR}/k8s-webhook-server" ] && rm -rf "${TMPDIR}/k8s-webhook-server"
+  echo "* Patching deployment kserve-controller-manager to disallow traffic execution"
   kubectl --namespace kserve patch deployment kserve-controller-manager \
     -n kserve \
     --type='json' \
