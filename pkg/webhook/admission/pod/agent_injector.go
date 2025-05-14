@@ -145,9 +145,6 @@ func getLoggerConfigs(configMap *corev1.ConfigMap) (*LoggerConfig, error) {
 			saName := constants.LoggerDefaultServiceAccountName
 			loggerConfig.Store.ServiceAccountName = &saName
 		}
-		if loggerConfig.Store.ServiceAccountName == "" {
-			return loggerConfig, fmt.Errorf("Logger storage is configured but storage service accout name is not set")
-		}
 	}
 	return loggerConfig, nil
 }
