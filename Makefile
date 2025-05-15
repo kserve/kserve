@@ -246,7 +246,7 @@ undeploy:
 undeploy-dev:
 	kubectl delete -k config/overlays/development
 
-bump-version:
+bump-version: yq
 	@echo "bumping version numbers for this release"
 	@hack/prepare-for-release.sh $(PRIOR_VERSION) $(NEW_VERSION)
 
