@@ -1,10 +1,10 @@
 kserve:
   version: &defaultVersion v0.15.2
   agent:
-    image: kserve/agent
+    image: ghcr.io/kserve/agent
     tag: *defaultVersion
   router:
-    image: kserve/router
+    image: ghcr.io/kserve/router
     tag: *defaultVersion
     # -- Specifies when to pull router image from registry.
     imagePullPolicy: "IfNotPresent"
@@ -13,7 +13,7 @@ kserve:
   service:
     serviceClusterIPNone: false
   storage:
-    image: kserve/storage-initializer
+    image: ghcr.io/kserve/storage-initializer
     tag: *defaultVersion
 
     # security context for the default storage container
@@ -186,7 +186,7 @@ kserve:
         enableGatewayApi: false
         # -- kserveGateway specifies the name and namespace of the Gateway which handles the network traffic from outside the cluster.
         # This is only used when Gateway API is enabled. The gateway should be specified in format <gateway namespace>/<gateway name>
-        kserveGateway: kserve/kserve-ingress-gateway
+        kserveGateway: ghcr.io/kserve/kserve-ingress-gateway
         # -- createGateway controls whether to create the default Gateway resource for ingress routing as part of the installation. This is only used when Gateway API is enabled.
         createGateway: false
         # -- gateway specifies the name and namespace of the Knative's ingress gateway.
@@ -237,7 +237,7 @@ kserve:
     affinity: {}
 
     # -- KServe controller container image name.
-    image: kserve/kserve-controller
+    image: ghcr.io/kserve/kserve-controller
 
     # -- KServe controller contrainer image tag.
     tag: *defaultVersion
@@ -299,7 +299,7 @@ kserve:
             - ALL
     sklearnserver:
       disabled: false
-      image: kserve/sklearnserver
+      image: ghcr.io/kserve/sklearnserver
       tag: *defaultVersion
       imagePullSecrets: []
       securityContext:
@@ -311,7 +311,7 @@ kserve:
             - ALL
     xgbserver:
       disabled: false
-      image: kserve/xgbserver
+      image: ghcr.io/kserve/xgbserver
       tag: *defaultVersion
       imagePullSecrets: []
       securityContext:
@@ -323,7 +323,7 @@ kserve:
             - ALL
     huggingfaceserver:
       disabled: false
-      image: kserve/huggingfaceserver
+      image: ghcr.io/kserve/huggingfaceserver
       tag: *defaultVersion
       imagePullSecrets: []
       securityContext:
@@ -367,7 +367,7 @@ kserve:
             - ALL
     pmmlserver:
       disabled: false
-      image: kserve/pmmlserver
+      image: ghcr.io/kserve/pmmlserver
       tag: *defaultVersion
       imagePullSecrets: []
       securityContext:
@@ -379,7 +379,7 @@ kserve:
             - ALL
     paddleserver:
       disabled: false
-      image: kserve/paddleserver
+      image: ghcr.io/kserve/paddleserver
       tag: *defaultVersion
       imagePullSecrets: []
       securityContext:
@@ -391,7 +391,7 @@ kserve:
             - ALL
     lgbserver:
       disabled: false
-      image: kserve/lgbserver
+      image: ghcr.io/kserve/lgbserver
       tag: *defaultVersion
       imagePullSecrets: []
       securityContext:
@@ -416,13 +416,13 @@ kserve:
           drop:
             - ALL
     art:
-      image: kserve/art-explainer
+      image: ghcr.io/kserve/art-explainer
       defaultVersion: *defaultVersion
       imagePullSecrets: []
   localmodel:
     enabled: false
     controller:
-      image: kserve/kserve-localmodel-controller
+      image: ghcr.io/kserve/kserve-localmodel-controller
       tag: *defaultVersion
     jobNamespace: kserve-localmodel-jobs
     jobTTLSecondsAfterFinished: 3600
@@ -434,7 +434,7 @@ kserve:
       affinity: {}
       tolerations: []
       hostPath: /mnt/models
-      image: kserve/kserve-localmodelnode-agent
+      image: ghcr.io/kserve/kserve-localmodelnode-agent
       tag: *defaultVersion
       reconcilationFrequencyInSecs: 60
       securityContext:

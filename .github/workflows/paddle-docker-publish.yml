@@ -113,9 +113,5 @@ jobs:
             ${{ env.DOCKERHUB_IMAGE_ID }}:${{ env.VERSION }}
             ${{ env.GHCR_IMAGE_ID }}:${{ env.VERSION }}
           # https://github.com/docker/buildx/issues/1533
-<<<<<<< HEAD
           provenance: false
           sbom: true
-=======
-          provenance: false
->>>>>>> b3e19cd12 ( update: Updating Dockerhub + GHCR push workflows)
