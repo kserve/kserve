@@ -411,8 +411,7 @@ class ModelServer:
                         model.enable_latency_logging = self.enable_latency_logging
                     model.start()
                     if model.engine:
-                        loop = asyncio.get_event_loop()
-                        loop.run_until_complete(model.start_engine())
+                        self.servers.append(model.start_engine())
                 else:
                     raise RuntimeError("Model type should be 'BaseKServeModel'")
             if not at_least_one_model_ready and models:
