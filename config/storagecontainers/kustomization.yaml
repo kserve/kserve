@@ -9,5 +9,5 @@ configurations:
 
 images:
 - name: default-storage-initilizer
-  newName: kserve/storage-initializer
+  newName: ghcr.io/kserve/storage-initializer
   newTag: latest
