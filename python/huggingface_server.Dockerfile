@@ -81,7 +81,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     fi
 
 # max jobs used by Ninja to build extensions
-ARG max_jobs=4
+ARG max_jobs=1
 ENV MAX_JOBS=${max_jobs}
 # number of threads used by nvcc
 ARG nvcc_threads=8
