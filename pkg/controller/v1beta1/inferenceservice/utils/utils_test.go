@@ -1864,7 +1864,7 @@ func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
 	for _, uri := range validUris {
-		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err != nil {
+		if err := ValidateStorageURI(t.Context(), &uri, metav1.ObjectMeta{}, mockClient); err != nil {
 			t.Errorf("%q validation failed: %s", uri, err)
 		}
 	}
@@ -1881,7 +1881,7 @@ func TestValidateStorageURIForCustomPrefix(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithScheme(s).Build()
 	for _, uri := range invalidUris {
-		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err == nil {
+		if err := ValidateStorageURI(t.Context(), &uri, metav1.ObjectMeta{}, mockClient); err == nil {
 			t.Errorf("%q validation failed: error expected", uri)
 		}
 	}
@@ -1919,7 +1919,7 @@ func TestValidateStorageURIForDefaultStorageInitializerCRD(t *testing.T) {
 	}
 	mockClient := fake.NewClientBuilder().WithLists(storageContainerSpecs).WithScheme(s).Build()
 	for _, uri := range validUris {
-		if err := ValidateStorageURI(t.Context(), &uri, mockClient); err != nil {
+		if err := ValidateStorageURI(t.Context(), &uri, metav1.ObjectMeta{}, mockClient); err != nil {
 			t.Errorf("%q validation failed: %s", uri, err)
 		}
 	}
