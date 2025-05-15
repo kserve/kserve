@@ -81,10 +81,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     fi
 
 # max jobs used by Ninja to build extensions
-ARG max_jobs=1
+ARG max_jobs=2
 ENV MAX_JOBS=${max_jobs}
 # number of threads used by nvcc
-ARG nvcc_threads=8
+ARG nvcc_threads=2
 ENV NVCC_THREADS=$nvcc_threads
 
 # Build vLLM wheel for ARM64
