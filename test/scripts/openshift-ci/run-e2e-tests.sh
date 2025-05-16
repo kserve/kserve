@@ -57,9 +57,12 @@ if [ "$SETUP_E2E" = "true" ]; then
   popd
 fi
 
-sed -i -E -e '/^[[:space:]]*verify=.*,$/d' -e "s|^([[:space:]]*)timeout=60,|\1verify=False,\n\1timeout=60,|g" ./test/e2e/conftest.py
-
 PARALLELISM="${2:-1}"
+
+# Use certify go module to get the CA certs
+export REQUESTS_CA_BUNDLE="/tmp/ca.crt"
+echo "REQUESTS_CA_BUNDLE=$(cat ${REQUESTS_CA_BUNDLE})"
+
 echo "Run E2E tests: $1"
 pushd $PROJECT_ROOT >/dev/null
 ./test/scripts/gh-actions/run-e2e-tests.sh "$1" $PARALLELISM | tee 2>&1 ./test/scripts/openshift-ci/run-e2e-tests-$1.log

@@ -20,7 +20,6 @@ CUSTOM_TRANSFORMER_IMG ?= image-transformer
 CUSTOM_TRANSFORMER_GRPC_IMG ?= custom-image-transformer-grpc
 HUGGINGFACE_SERVER_IMG ?= huggingfaceserver
 HUGGINGFACE_SERVER_CPU_IMG ?= huggingfaceserver-cpu
-HUGGINGFACE_SERVER_CPU_OPENVINO_IMG ?= huggingfaceserver-cpu-openvino
 AIF_IMG ?= aiffairness
 ART_IMG ?= art-explainer
 STORAGE_INIT_IMG ?= storage-initializer
@@ -130,8 +129,7 @@ poetry-lock: $(POETRY)
 # Update the kserve package first as other packages depends on it.
 	cd ./python && \
 	cd kserve && $(POETRY) lock --no-update && cd .. && \
-	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml" -not -path "*.venv/*"); do \
-	  	echo `pwd`; \
+	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml"); do \
 		folder=$$(dirname "$$file"); \
 		echo "moving into folder $$folder"; \
 		case "$$folder" in \
@@ -381,12 +379,6 @@ docker-build-huggingface-cpu:
 
 docker-push-huggingface-cpu: docker-build-huggingface-cpu
 	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG}
-
-docker-build-huggingface-cpu-openvino:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_OPENVINO_IMG} -f huggingface_server_cpu_openvino.Dockerfile .
-
-docker-push-huggingface-cpu-openvino: docker-build-huggingface-cpu-openvino
-	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_OPENVINO_IMG}
 
 apidocs:
 	${ENGINE} buildx build ${ARCH} -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
