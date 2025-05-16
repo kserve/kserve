@@ -30,7 +30,7 @@ COPY lgbserver/pyproject.toml lgbserver/uv.lock lgbserver/
 RUN cd lgbserver && uv sync --active --no-cache
 
 COPY lgbserver lgbserver
-RUN cd lgbserver && poetry install --no-interaction --no-cache
+RUN cd lgbserver && uv sync --active --no-cache
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml

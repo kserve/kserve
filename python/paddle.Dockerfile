@@ -32,7 +32,7 @@ COPY paddleserver/pyproject.toml paddleserver/uv.lock paddleserver/
 RUN cd paddleserver && uv sync --active --no-cache
 
 COPY paddleserver paddleserver
-RUN cd paddleserver && poetry install --no-interaction --no-cache
+RUN cd paddleserver && uv sync --active --no-cache
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml

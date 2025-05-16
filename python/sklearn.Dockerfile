@@ -30,7 +30,7 @@ COPY sklearnserver/pyproject.toml sklearnserver/uv.lock sklearnserver/
 RUN cd sklearnserver && uv sync --active --no-cache
 
 COPY sklearnserver sklearnserver
-RUN cd sklearnserver && poetry install --no-interaction --no-cache
+RUN cd sklearnserver && uv sync --active --no-cache
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
