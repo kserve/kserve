@@ -2,7 +2,7 @@
 authors = [
     {name = "Dan Sun", email = "dsun20@bloomberg.net"},
 ]
-license = {text = "https://github.com/kserve/kserve/blob/master/LICENSE"}
+license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
     "kserve[llm,storage] @ file:///${PROJECT_ROOT}/../kserve",
@@ -13,13 +13,12 @@ dependencies = [
     "vllm==0.8.5",
     "bitsandbytes>=0.45.3",
     "flashinfer-python~=0.2.5",
+    "modelscope<2.0.0,>=1.16.0",
     "setuptools>=70.0.0",
 ]
 name = "huggingfaceserver"
 version = "0.15.2"
 description = "Model Server implementation for huggingface. Not intended for use outside KServe Frameworks Images."
-authors = ["Dan Sun <dsun20@bloomberg.net>"]
-license = "Apache-2.0"
 readme = "README.md"
 
 [tool.poetry.dependencies]
