@@ -35,7 +35,7 @@ COPY custom_tokenizer/pyproject.toml custom_tokenizer/uv.lock custom_tokenizer/
 RUN cd custom_tokenizer && uv sync --active --no-cache
 
 COPY custom_tokenizer custom_tokenizer
-RUN cd custom_tokenizer && poetry install --no-interaction --no-cache
+RUN cd custom_tokenizer && uv sync --active --no-cache
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml

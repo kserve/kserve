@@ -30,7 +30,7 @@ COPY artexplainer/pyproject.toml artexplainer/uv.lock artexplainer/
 RUN cd artexplainer && uv sync --active --no-cache
 
 COPY artexplainer artexplainer
-RUN cd artexplainer && poetry install --no-interaction --no-cache
+RUN cd artexplainer && uv sync --active --no-cache
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
