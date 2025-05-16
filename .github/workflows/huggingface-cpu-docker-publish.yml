@@ -23,7 +23,7 @@ jobs:
   # Run tests.
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
 
     steps:
       - name: Checkout source
@@ -38,7 +38,7 @@ jobs:
       - name: Run tests
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64
+          platforms: linux/arm64
           context: python
           file: python/huggingface_server_cpu.Dockerfile
           push: false
