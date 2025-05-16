@@ -87,7 +87,7 @@ func (c *CustomPredictor) GetStorageUri() *string {
 	return nil
 }
 
-func (c *CustomPredictor) GetStorageSpec() *StorageSpec {
+func (c *CustomPredictor) GetStorageSpec() *ModelStorageSpec {
 	return nil
 }
 
