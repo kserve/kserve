@@ -67,6 +67,12 @@ var (
 	ModelConfigFileName = "models.json"
 )
 
+// Remote Storage URI
+const (
+	EnableRemoteStorageEnvAnnotation = "kserve.io/enable-remote-storage-env"
+	RemoteStorageEnvVarName          = "REMOTE_STORAGE_URI"
+)
+
 // Model agent Constants
 const (
 	AgentContainerName        = "agent"
