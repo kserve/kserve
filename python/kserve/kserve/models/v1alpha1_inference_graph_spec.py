@@ -54,6 +54,7 @@ class V1alpha1InferenceGraphSpec(object):
         'node_selector': 'dict(str, str)',
         'nodes': 'dict(str, V1alpha1InferenceRouter)',
         'resources': 'V1ResourceRequirements',
+        'router_timeouts': 'V1alpha1InfereceGraphRouterTimeouts',
         'scale_metric': 'str',
         'scale_target': 'int',
         'service_account_name': 'str',
@@ -69,6 +70,7 @@ class V1alpha1InferenceGraphSpec(object):
         'node_selector': 'nodeSelector',
         'nodes': 'nodes',
         'resources': 'resources',
+        'router_timeouts': 'routerTimeouts',
         'scale_metric': 'scaleMetric',
         'scale_target': 'scaleTarget',
         'service_account_name': 'serviceAccountName',
@@ -76,7 +78,7 @@ class V1alpha1InferenceGraphSpec(object):
         'tolerations': 'tolerations'
     }
 
-    def __init__(self, affinity=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, nodes=None, resources=None, scale_metric=None, scale_target=None, service_account_name=None, timeout=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, affinity=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, nodes=None, resources=None, router_timeouts=None, scale_metric=None, scale_target=None, service_account_name=None, timeout=None, tolerations=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1InferenceGraphSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -89,6 +91,7 @@ class V1alpha1InferenceGraphSpec(object):
         self._node_selector = None
         self._nodes = None
         self._resources = None
+        self._router_timeouts = None
         self._scale_metric = None
         self._scale_target = None
         self._service_account_name = None
@@ -109,6 +112,8 @@ class V1alpha1InferenceGraphSpec(object):
         self.nodes = nodes
         if resources is not None:
             self.resources = resources
+        if router_timeouts is not None:
+            self.router_timeouts = router_timeouts
         if scale_metric is not None:
             self.scale_metric = scale_metric
         if scale_target is not None:
@@ -278,6 +283,27 @@ class V1alpha1InferenceGraphSpec(object):
         """
 
         self._resources = resources
+
+    @property
+    def router_timeouts(self):
+        """Gets the router_timeouts of this V1alpha1InferenceGraphSpec.  # noqa: E501
+
+
+        :return: The router_timeouts of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :rtype: V1alpha1InfereceGraphRouterTimeouts
+        """
+        return self._router_timeouts
+
+    @router_timeouts.setter
+    def router_timeouts(self, router_timeouts):
+        """Sets the router_timeouts of this V1alpha1InferenceGraphSpec.
+
+
+        :param router_timeouts: The router_timeouts of this V1alpha1InferenceGraphSpec.  # noqa: E501
+        :type: V1alpha1InfereceGraphRouterTimeouts
+        """
+
+        self._router_timeouts = router_timeouts
 
     @property
     def scale_metric(self):
