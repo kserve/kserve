@@ -38,6 +38,7 @@ Please also list any relevant details for your test configuration.
 - [ ] Have you added unit/e2e tests that prove your fix is effective or that this feature works?
 - [ ] Has code been commented, particularly in hard-to-understand areas?
 - [ ] Have you made corresponding changes to the documentation?
+- [ ] Have you linked the JIRA issue(s) to this PR?
 
 **Release note**:
 <!--  Write your release note:
