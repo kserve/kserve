@@ -39,7 +39,6 @@ import (
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/network"
 	"knative.dev/pkg/system"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	"knative.dev/serving/pkg/reconciler/route/config"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -103,20 +102,7 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 
 	if url, err := apis.ParseURL(serviceUrl); err == nil {
 		isvc.Status.URL = url
-		var hostPrefix string
-		if disableIstioVirtualHost {
-			// Check if existing kubernetes service name has default suffix
-			existingServiceWithDefaultSuffix := &corev1.Service{}
-			useDefault := false
-			err := ir.client.Get(ctx, types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existingServiceWithDefaultSuffix)
-			if err == nil {
-				useDefault = true
-			}
-			hostPrefix = getHostPrefix(isvc, disableIstioVirtualHost, useDefault)
-		} else {
-			hostPrefix = getHostPrefix(isvc, disableIstioVirtualHost, false)
-		}
-
+		hostPrefix := getHostPrefix(isvc, disableIstioVirtualHost)
 		isvc.Status.Address = &duckv1.Addressable{
 			URL: &apis.URL{
 				Host:   network.GetServiceHostname(hostPrefix, isvc.Namespace),
@@ -244,16 +230,8 @@ func getHostBasedServiceUrl(isvc *v1beta1.InferenceService, config *v1beta1.Ingr
 func (ir *IngressReconciler) reconcileVirtualService(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	disableIstioVirtualHost := ir.ingressConfig.DisableIstioVirtualHost
 
-	// Check if existing knative service name has default suffix
-	defaultNameExisting := &knservingv1.Service{}
-	useDefault := false
-	err := ir.client.Get(ctx, types.NamespacedName{Name: constants.DefaultPredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, defaultNameExisting)
-	if err == nil {
-		useDefault = true
-	}
-
 	domainList := getDomainList(ctx, ir.clientset)
-	desiredIngress := createIngress(isvc, useDefault, ir.ingressConfig, domainList, ir.isvcConfig) // actually the virtual service
+	desiredIngress := createIngress(isvc, ir.ingressConfig, domainList, ir.isvcConfig) // actually the virtual service
 
 	existing := &istioclientv1beta1.VirtualService{}
 	getExistingErr := ir.client.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, existing)
@@ -266,15 +244,17 @@ func (ir *IngressReconciler) reconcileVirtualService(ctx context.Context, isvc *
 				return nil
 			}
 
-			err = controllerutil.SetControllerReference(isvc, desiredIngress, ir.scheme)
-			if err != nil {
+			if err := controllerutil.SetControllerReference(isvc, desiredIngress, ir.scheme); err != nil {
 				return errors.Wrapf(err, "fails to set owner reference for ingress")
 			}
 
 			if getExistingErr != nil {
 				if apierr.IsNotFound(getExistingErr) {
 					log.Info("Creating Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
-					err = ir.client.Create(ctx, desiredIngress)
+					if err := ir.client.Create(ctx, desiredIngress); err != nil {
+						log.Error(err, "Failed to create ingress", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
+						return err
+					}
 				}
 			} else {
 				if !routeSemanticEquals(desiredIngress, existing) {
@@ -283,12 +263,11 @@ func (ir *IngressReconciler) reconcileVirtualService(ctx context.Context, isvc *
 					deepCopy.Annotations = desiredIngress.Annotations
 					deepCopy.Labels = desiredIngress.Labels
 					log.Info("Update Ingress for isvc", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
-					err = ir.client.Update(ctx, deepCopy)
+					if err := ir.client.Update(ctx, deepCopy); err != nil {
+						log.Error(err, "Failed to update ingress", "namespace", desiredIngress.Namespace, "name", desiredIngress.Name)
+						return err
+					}
 				}
-			}
-
-			if err != nil {
-				return errors.Wrapf(err, "fails to create or update ingress")
 			}
 		}
 	} else {
@@ -473,7 +452,7 @@ func gatewaysEqual(matchRequest, matchRequestDest *istiov1beta1.HTTPMatchRequest
 	return equality.Semantic.DeepEqual(matchRequest.GetGateways(), matchRequestDest.GetGateways())
 }
 
-func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1beta1.IngressConfig,
+func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig,
 	domainList *[]string, isvcConfig *v1beta1.InferenceServicesConfig,
 ) *istioclientv1beta1.VirtualService {
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
@@ -489,15 +468,9 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 		return nil
 	}
 	backend := constants.PredictorServiceName(isvc.Name)
-	if useDefault {
-		backend = constants.DefaultPredictorServiceName(isvc.Name)
-	}
 
 	if isvc.Spec.Transformer != nil {
 		backend = constants.TransformerServiceName(isvc.Name)
-		if useDefault {
-			backend = constants.DefaultTransformerServiceName(isvc.Name)
-		}
 		if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
 			status := corev1.ConditionFalse
 			if isvc.Status.IsConditionUnknown(v1beta1.TransformerReady) {
@@ -524,9 +497,6 @@ func createIngress(isvc *v1beta1.InferenceService, useDefault bool, config *v1be
 	httpRoutes := []*istiov1beta1.HTTPRoute{}
 	// Build explain route
 	expBackend := constants.ExplainerServiceName(isvc.Name)
-	if useDefault {
-		expBackend = constants.DefaultExplainerServiceName(isvc.Name)
-	}
 
 	var additionalHosts *[]string
 	hosts := []string{
@@ -749,19 +719,12 @@ func routeSemanticEquals(desired, existing *istioclientv1beta1.VirtualService) b
 		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations)
 }
 
-func getHostPrefix(isvc *v1beta1.InferenceService, disableIstioVirtualHost bool, useDefault bool) string {
+func getHostPrefix(isvc *v1beta1.InferenceService, disableIstioVirtualHost bool) string {
 	if disableIstioVirtualHost {
-		if useDefault {
-			if isvc.Spec.Transformer != nil {
-				return constants.DefaultTransformerServiceName(isvc.Name)
-			}
-			return constants.DefaultPredictorServiceName(isvc.Name)
-		} else {
-			if isvc.Spec.Transformer != nil {
-				return constants.TransformerServiceName(isvc.Name)
-			}
-			return constants.PredictorServiceName(isvc.Name)
+		if isvc.Spec.Transformer != nil {
+			return constants.TransformerServiceName(isvc.Name)
 		}
+		return constants.PredictorServiceName(isvc.Name)
 	}
 	return isvc.Name
 }

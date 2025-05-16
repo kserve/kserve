@@ -27,9 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -88,21 +86,6 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 
 	transformerName := constants.TransformerServiceName(isvc.Name)
 	predictorName := constants.PredictorServiceName(isvc.Name)
-	if p.deploymentMode == constants.RawDeployment {
-		existing := &corev1.Service{}
-		err := p.client.Get(ctx, types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
-		if err == nil {
-			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
-			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
-		}
-	} else {
-		existing := &knservingv1.Service{}
-		err := p.client.Get(ctx, types.NamespacedName{Name: constants.DefaultTransformerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
-		if err == nil {
-			transformerName = constants.DefaultTransformerServiceName(isvc.Name)
-			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
-		}
-	}
 
 	// Labels and annotations from transformer component
 	// Label filter will be handled in ksvc_reconciler
