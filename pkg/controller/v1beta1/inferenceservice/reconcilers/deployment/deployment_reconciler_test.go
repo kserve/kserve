@@ -16,6 +16,8 @@ limitations under the License.
 package deployment
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -23,9 +25,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -83,7 +88,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				},
 				Labels: map[string]string{
 					constants.DeploymentMode:  string(constants.RawDeployment),
-					constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 				},
 			},
 			workerObjectMeta: metav1.ObjectMeta{
@@ -94,7 +99,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				},
 				Labels: map[string]string{
 					constants.DeploymentMode:  string(constants.RawDeployment),
-					constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 				},
 			},
 			componentExt: &v1beta1.ComponentExtensionSpec{},
@@ -240,7 +245,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					},
 					Labels: map[string]string{
 						"app":                               "isvc.default-predictor",
-						"serving.kserve.io/autoscalerClass": "external",
+						"serving.kserve.io/autoscalerClass": "none",
 						"serving.kserve.io/deploymentMode":  "RawDeployment",
 					},
 				},
@@ -266,7 +271,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							},
 							Labels: map[string]string{
 								"app":                               "isvc.default-predictor",
-								"serving.kserve.io/autoscalerClass": "external",
+								"serving.kserve.io/autoscalerClass": "none",
 								"serving.kserve.io/deploymentMode":  "RawDeployment",
 							},
 						},
@@ -322,7 +327,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					},
 					Labels: map[string]string{
 						constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
-						constants.AutoscalerClass:       string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass:       string(constants.AutoscalerClassNone),
 						constants.DeploymentMode:        string(constants.RawDeployment),
 					},
 				},
@@ -349,7 +354,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 							},
 							Labels: map[string]string{
 								constants.RawDeploymentAppLabel: "isvc.default-predictor-worker",
-								constants.AutoscalerClass:       string(constants.AutoscalerClassExternal),
+								constants.AutoscalerClass:       string(constants.AutoscalerClassNone),
 								constants.DeploymentMode:        string(constants.RawDeployment),
 							},
 						},
@@ -848,6 +853,308 @@ func TestCreateDefaultDeployment(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCheckDeploymentExist(t *testing.T) {
+	type fields struct {
+		client kclient.Client
+	}
+	type args struct {
+		deployment *appsv1.Deployment
+		existing   *appsv1.Deployment
+		getErr     error
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantResult   constants.CheckResultType
+		wantExisting *appsv1.Deployment
+		wantErr      bool
+	}{
+		{
+			name: "deployment not found returns CheckResultCreate",
+			args: args{
+				deployment: &appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
+				},
+				getErr: errors.NewNotFound(appsv1.Resource("deployment"), "foo"),
+			},
+			wantResult:   constants.CheckResultCreate,
+			wantExisting: nil,
+			wantErr:      false,
+		},
+		{
+			name: "get error returns CheckResultUnknown",
+			args: args{
+				deployment: &appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
+				},
+				getErr: fmt.Errorf("some error"), //nolint
+			},
+			wantResult:   constants.CheckResultUnknown,
+			wantExisting: nil,
+			wantErr:      true,
+		},
+		{
+			name: "deployment exists and is equivalent returns CheckResultExisted",
+			args: args{
+				deployment: &appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
+					Spec: appsv1.DeploymentSpec{
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"app": "foo"},
+						},
+						Template: corev1.PodTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "foo"}},
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{Name: "c", Image: "img"},
+								},
+							},
+						},
+					},
+				},
+				existing: &appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
+					Spec: appsv1.DeploymentSpec{
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"app": "foo"},
+						},
+						Template: corev1.PodTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "foo"}},
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{Name: "c", Image: "img"},
+								},
+							},
+						},
+					},
+				},
+				getErr: nil,
+			},
+			wantResult:   constants.CheckResultExisted,
+			wantExisting: &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "bar"}},
+			wantErr:      false,
+		},
+		{
+			name: "deployment exists and is different returns CheckResultUpdate",
+			args: args{
+				deployment: &appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
+					Spec: appsv1.DeploymentSpec{
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"app": "foo"},
+						},
+						Template: corev1.PodTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "foo"}},
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{Name: "c", Image: "img1"},
+								},
+							},
+						},
+					},
+				},
+				existing: &appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "bar"},
+					Spec: appsv1.DeploymentSpec{
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"app": "foo"},
+						},
+						Template: corev1.PodTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "foo"}},
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{
+									{Name: "c", Image: "img2"},
+								},
+							},
+						},
+					},
+				},
+				getErr: nil,
+			},
+			wantResult:   constants.CheckResultUpdate,
+			wantExisting: &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "bar"}},
+			wantErr:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockClient := &mockClientForCheckDeploymentExist{
+				getDeployment: tt.args.existing,
+				getErr:        tt.args.getErr,
+			}
+			r := &DeploymentReconciler{
+				client: mockClient,
+			}
+			ctx := t.Context()
+			gotResult, gotExisting, err := r.checkDeploymentExist(ctx, mockClient, tt.args.deployment)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("checkDeploymentExist() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotResult != tt.wantResult {
+				t.Errorf("checkDeploymentExist() gotResult = %v, want %v", gotResult, tt.wantResult)
+			}
+			// Only check name/namespace for gotExisting
+			if tt.wantExisting != nil && gotExisting != nil {
+				if gotExisting.Name != tt.args.deployment.Name || gotExisting.Namespace != tt.args.deployment.Namespace {
+					t.Errorf("checkDeploymentExist() gotExisting = %v, want %v", gotExisting, tt.wantExisting)
+				}
+			}
+			if tt.wantExisting == nil && gotExisting != nil {
+				t.Errorf("checkDeploymentExist() gotExisting = %v, want nil", gotExisting)
+			}
+		})
+	}
+}
+
+func TestNewDeploymentReconciler(t *testing.T) {
+	type fields struct {
+		client       kclient.Client
+		scheme       *runtime.Scheme
+		objectMeta   metav1.ObjectMeta
+		workerMeta   metav1.ObjectMeta
+		componentExt *v1beta1.ComponentExtensionSpec
+		podSpec      *corev1.PodSpec
+		workerPod    *corev1.PodSpec
+	}
+	tests := []struct {
+		name        string
+		fields      fields
+		wantErr     bool
+		wantWorkers int
+	}{
+		{
+			name: "default deployment",
+			fields: fields{
+				client: nil,
+				scheme: nil,
+				objectMeta: metav1.ObjectMeta{
+					Name:      "test-predictor",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.DefaultAutoscalerClass),
+					},
+					Annotations: map[string]string{},
+				},
+				workerMeta:   metav1.ObjectMeta{},
+				componentExt: &v1beta1.ComponentExtensionSpec{},
+				podSpec: &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "test-image",
+						},
+					},
+				},
+				workerPod: nil,
+			},
+			wantErr:     false,
+			wantWorkers: 1,
+		},
+		{
+			name: "multi-node deployment",
+			fields: fields{
+				client: nil,
+				scheme: nil,
+				objectMeta: metav1.ObjectMeta{
+					Name:      "test-predictor",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
+					},
+					Annotations: map[string]string{},
+				},
+				workerMeta: metav1.ObjectMeta{
+					Name:      "worker-predictor",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
+					},
+					Annotations: map[string]string{},
+				},
+				componentExt: &v1beta1.ComponentExtensionSpec{},
+				podSpec: &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.InferenceServiceContainerName,
+							Image: "test-image",
+							Env: []corev1.EnvVar{
+								{Name: constants.RayNodeCountEnvName, Value: "2"},
+								{Name: constants.RequestGPUCountEnvName, Value: "1"},
+							},
+						},
+					},
+				},
+				workerPod: &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  constants.WorkerContainerName,
+							Image: "worker-image",
+							Env: []corev1.EnvVar{
+								{Name: constants.RequestGPUCountEnvName, Value: "1"},
+							},
+						},
+					},
+				},
+			},
+			wantErr:     false,
+			wantWorkers: 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := NewDeploymentReconciler(
+				tt.fields.client,
+				tt.fields.scheme,
+				tt.fields.objectMeta,
+				tt.fields.workerMeta,
+				tt.fields.componentExt,
+				tt.fields.podSpec,
+				tt.fields.workerPod,
+			)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("NewDeploymentReconciler() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil && got != nil {
+				if len(got.DeploymentList) != tt.wantWorkers {
+					t.Errorf("DeploymentList length = %v, want %v", len(got.DeploymentList), tt.wantWorkers)
+				}
+				if got.componentExt != tt.fields.componentExt {
+					t.Errorf("componentExt pointer mismatch")
+				}
+			}
+		})
+	}
+}
+
+// mockClientForCheckDeploymentExist is a minimal mock for kclient.Client for checkDeploymentExist
+type mockClientForCheckDeploymentExist struct {
+	kclient.Client
+	getDeployment *appsv1.Deployment
+	getErr        error
+}
+
+func (m *mockClientForCheckDeploymentExist) Get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+	if m.getErr != nil {
+		return m.getErr
+	}
+	if m.getDeployment != nil {
+		d := obj.(*appsv1.Deployment)
+		*d = *m.getDeployment.DeepCopy()
+	}
+	return nil
+}
+
+func (m *mockClientForCheckDeploymentExist) Update(ctx context.Context, obj kclient.Object, opts ...kclient.UpdateOption) error {
+	// Simulate dry-run update always succeeds
+	return nil
 }
 
 func intStrPtr(s string) *intstr.IntOrString {

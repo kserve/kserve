@@ -989,7 +989,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-1-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1019,7 +1019,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-1-2",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1049,7 +1049,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-2-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1077,7 +1077,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-2-2",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1105,7 +1105,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-3-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1140,7 +1140,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-3-2",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1180,7 +1180,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-3-3",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass:                     string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass:                     string(constants.AutoscalerClassNone),
 						constants.CustomGPUResourceTypesAnnotationKey: "[\"unknownGPU.com/gpu\"]",
 					},
 				},
@@ -1216,7 +1216,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-3-4",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass:                     string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass:                     string(constants.AutoscalerClassNone),
 						constants.CustomGPUResourceTypesAnnotationKey: "[\"unknownGPU.com/gpu\"]",
 					},
 				},
@@ -1257,7 +1257,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-4-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1276,7 +1276,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 			},
 			expected: gomega.Equal(fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, "foo-4-1", "s3")),
 		},
-		"When external autoscaler is not set, it should return error": {
+		"When none autoscaler is not set, then it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo-4-2",
@@ -1307,7 +1307,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					Name:      "foo-9",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1339,6 +1339,278 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			err := validateMultiNodeVariables(scenario.isvc)
 			g.Expect(err).To(scenario.expected)
+		})
+	}
+}
+
+func TestDeploymentModeUpdate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	oldIsvc := makeTestInferenceService()
+	oldIsvc.Status = InferenceServiceStatus{
+		DeploymentMode: "Serverless",
+	}
+	updatedIsvc := oldIsvc.DeepCopy()
+	updatedIsvc.Annotations = map[string]string{
+		constants.DeploymentMode: "RawDeployment",
+	}
+	validator := InferenceServiceValidator{}
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc)
+	// Annotation does not match status, update should be rejected
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
+
+	updatedIsvc1 := oldIsvc.DeepCopy()
+	updatedIsvc1.Annotations = map[string]string{
+		constants.DeploymentMode: "Serverless",
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc1)
+	// Annotation matches status, update is accepted
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+}
+
+func TestValidateDelete(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validator := InferenceServiceValidator{}
+
+	t.Run("Valid InferenceService object", func(t *testing.T) {
+		isvc := makeTestInferenceService()
+		warnings, err := validator.ValidateDelete(t.Context(), &isvc)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(warnings).Should(gomega.BeEmpty())
+	})
+
+	t.Run("Invalid object type", func(t *testing.T) {
+		// Use a valid runtime.Object type but not an InferenceService
+		notIsvc := &corev1.Pod{}
+		warnings, err := validator.ValidateDelete(t.Context(), notIsvc)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(warnings).Should(gomega.BeEmpty())
+	})
+}
+
+func TestValidateScalingKedaCompExtension(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	validCPU := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+					Resource: &ResourceMetricSource{
+						Name: ResourceMetricCPU,
+						Target: MetricTarget{
+							Type:               UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(80)),
+						},
+					},
+				},
+			},
+		},
+	}
+	validMemory := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+					Resource: &ResourceMetricSource{
+						Name: ResourceMetricMemory,
+						Target: MetricTarget{
+							Type:         AverageValueMetricType,
+							AverageValue: ptr.To(resource.MustParse("2Gi")),
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidScaleMetric := &ComponentExtensionSpec{
+		ScaleMetric: ptr.To(MetricCPU),
+	}
+	missingResource := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+				},
+			},
+		},
+	}
+	invalidCPUType := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+					Resource: &ResourceMetricSource{
+						Name: ResourceMetricCPU,
+						Target: MetricTarget{
+							Type: AverageValueMetricType,
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidMemoryType := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+					Resource: &ResourceMetricSource{
+						Name: ResourceMetricMemory,
+						Target: MetricTarget{
+							Type: ValueMetricType,
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidMemoryValue := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+					Resource: &ResourceMetricSource{
+						Name: ResourceMetricMemory,
+						Target: MetricTarget{
+							Type:         AverageValueMetricType,
+							AverageValue: ptr.To(resource.MustParse("512Ki")),
+						},
+					},
+				},
+			},
+		},
+	}
+	unsupportedResource := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+					Resource: &ResourceMetricSource{
+						Name: "disk",
+						Target: MetricTarget{
+							Type: UtilizationMetricType,
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidExternal := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ExternalMetricSourceType,
+					External: &ExternalMetricSource{
+						Metric: ExternalMetrics{
+							Backend: PrometheusBackend,
+							Query:   "",
+						},
+						Target: MetricTarget{
+							Type:  ValueMetricType,
+							Value: nil,
+						},
+					},
+				},
+			},
+		},
+	}
+	validExternal := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ExternalMetricSourceType,
+					External: &ExternalMetricSource{
+						Metric: ExternalMetrics{
+							Backend: PrometheusBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:  ValueMetricType,
+							Value: ptr.To(resource.MustParse("10")),
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidPodMetric := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: PodMetricSourceType,
+					PodMetric: &PodMetricSource{
+						Metric: PodMetrics{
+							Backend: OpenTelemetryBackend,
+							Query:   "",
+						},
+						Target: MetricTarget{
+							Type:  ValueMetricType,
+							Value: nil,
+						},
+					},
+				},
+			},
+		},
+	}
+	validPodMetric := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: PodMetricSourceType,
+					PodMetric: &PodMetricSource{
+						Metric: PodMetrics{
+							Backend: OpenTelemetryBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:  ValueMetricType,
+							Value: ptr.To(resource.MustParse("5")),
+						},
+					},
+				},
+			},
+		},
+	}
+	unknownMetricType := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: "UnknownType",
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name    string
+		spec    *ComponentExtensionSpec
+		wantErr string
+	}{
+		{"valid cpu", validCPU, ""},
+		{"valid memory", validMemory, ""},
+		{"invalid: ScaleMetric set", invalidScaleMetric, "ScaleMetric is not supported for KEDA"},
+		{"invalid: missing resource", missingResource, "metricSpec.Resource is not set for resource metric source type"},
+		{"invalid: cpu wrong type", invalidCPUType, "the cpu target value type should be Utilization"},
+		{"invalid: memory wrong type", invalidMemoryType, "the memory target value type should be AverageValue or Utilization"},
+		{"invalid: memory value too low", invalidMemoryValue, "the memory target value should be greater than 1 MiB"},
+		{"invalid: unsupported resource", unsupportedResource, "resource type disk is not supported"},
+		{"invalid: external metric missing query/value", invalidExternal, "the query should not be empty"},
+		{"valid: external metric", validExternal, ""},
+		{"invalid: pod metric missing query/value", invalidPodMetric, "the query should not be empty"},
+		{"valid: pod metric", validPodMetric, ""},
+		{"invalid: unknown metric type", unknownMetricType, "unknown KEDA metric type with value [UnknownType].Valid types are Resource,External,PodMetric"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateScalingKedaCompExtension(tt.spec)
+			if tt.wantErr == "" {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			} else {
+				g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(tt.wantErr)))
+			}
 		})
 	}
 }

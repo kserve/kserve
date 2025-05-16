@@ -29,9 +29,14 @@ import (
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
+	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	fake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -2267,4 +2272,254 @@ func TestGetHostPrefix(t *testing.T) {
 			g.Expect(host).Should(tc.matcher)
 		})
 	}
+}
+
+func TestIngressReconciler_Reconcile(t *testing.T) {
+	type fields struct {
+		ingressConfig *v1beta1.IngressConfig
+		isvcConfig    *v1beta1.InferenceServicesConfig
+	}
+	type args struct {
+		isvc *v1beta1.InferenceService
+	}
+	tests := []struct {
+		name           string
+		fields         fields
+		args           args
+		setupClient    func(*v1beta1.InferenceService) client.Client
+		setupClientset func() kubernetes.Interface
+		wantErr        bool
+		wantURLHost    string
+		wantAddress    string
+	}{
+		{
+			name: "Istio virtual host enabled, predictor ready, creates virtualservice",
+			fields: fields{
+				ingressConfig: &v1beta1.IngressConfig{
+					DisableIstioVirtualHost:    false,
+					KnativeLocalGatewayService: "knative-local-gateway",
+					LocalGateway:               "knative-local-gateway",
+					IngressGateway:             "istio-ingressgateway",
+					IngressDomain:              "example.com",
+					UrlScheme:                  "http",
+				},
+				isvcConfig: &v1beta1.InferenceServicesConfig{
+					ServiceAnnotationDisallowedList: []string{},
+					ServiceLabelDisallowedList:      []string{},
+				},
+			},
+			args: args{
+				isvc: &v1beta1.InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc",
+						Namespace: "ns",
+					},
+					Spec: v1beta1.InferenceServiceSpec{
+						Predictor: v1beta1.PredictorSpec{
+							PodSpec: v1beta1.PodSpec{
+								Containers: []corev1.Container{{Name: "predictor"}},
+							},
+						},
+					},
+					Status: v1beta1.InferenceServiceStatus{
+						Components: map[v1beta1.ComponentType]v1beta1.ComponentStatusSpec{
+							v1beta1.PredictorComponent: {
+								URL: &apis.URL{Scheme: "http", Host: "svc-predictor.ns"},
+							},
+						},
+						Status: duckv1.Status{
+							Conditions: duckv1.Conditions{
+								{
+									Type:   v1beta1.PredictorReady,
+									Status: corev1.ConditionTrue,
+								},
+							},
+						},
+					},
+				},
+			},
+			setupClient: func(isvc *v1beta1.InferenceService) client.Client {
+				s := runtime.NewScheme()
+				_ = v1beta1.AddToScheme(s)
+				_ = istioclientv1beta1.AddToScheme(s)
+				_ = corev1.AddToScheme(s)
+				cl := fake.NewClientBuilder().WithScheme(s).WithObjects(isvc).Build()
+				return cl
+			},
+			setupClientset: func() kubernetes.Interface {
+				cm := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "config-domain",
+						Namespace: "knative-serving",
+					},
+					Data: map[string]string{"example.com": ""},
+				}
+				fake := kubernetesfake.NewSimpleClientset(cm)
+				return fake
+			},
+			wantErr:     false,
+			wantURLHost: "svc.ns",
+			wantAddress: "svc.ns.svc.cluster.local",
+		},
+		{
+			name: "Predictor not ready, does not set URL",
+			fields: fields{
+				ingressConfig: &v1beta1.IngressConfig{
+					DisableIstioVirtualHost:    false,
+					KnativeLocalGatewayService: "knative-local-gateway",
+					LocalGateway:               "knative-local-gateway",
+					IngressGateway:             "istio-ingressgateway",
+					IngressDomain:              "example.com",
+					UrlScheme:                  "http",
+				},
+				isvcConfig: &v1beta1.InferenceServicesConfig{},
+			},
+			args: args{
+				isvc: &v1beta1.InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc",
+						Namespace: "ns",
+					},
+					Spec: v1beta1.InferenceServiceSpec{
+						Predictor: v1beta1.PredictorSpec{},
+					},
+					Status: v1beta1.InferenceServiceStatus{
+						Status: duckv1.Status{
+							Conditions: duckv1.Conditions{
+								{
+									Type:   v1beta1.PredictorReady,
+									Status: corev1.ConditionFalse,
+								},
+							},
+						},
+					},
+				},
+			},
+			setupClient: func(isvc *v1beta1.InferenceService) client.Client {
+				s := runtime.NewScheme()
+				_ = v1beta1.AddToScheme(s)
+				_ = corev1.AddToScheme(s)
+				_ = duckv1.AddToScheme(s)
+				cl := fake.NewClientBuilder().WithScheme(s).WithObjects(isvc).Build()
+				return cl
+			},
+			setupClientset: func() kubernetes.Interface {
+				return kubernetesfake.NewSimpleClientset()
+			},
+			wantErr:     false,
+			wantURLHost: "",
+			wantAddress: "",
+		},
+		{
+			name: "No components in status, returns nil",
+			fields: fields{
+				ingressConfig: &v1beta1.IngressConfig{
+					DisableIstioVirtualHost:    false,
+					KnativeLocalGatewayService: "knative-local-gateway",
+					LocalGateway:               "knative-local-gateway",
+					IngressGateway:             "istio-ingressgateway",
+					IngressDomain:              "example.com",
+					UrlScheme:                  "http",
+				},
+				isvcConfig: &v1beta1.InferenceServicesConfig{},
+			},
+			args: args{
+				isvc: &v1beta1.InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "svc",
+						Namespace: "ns",
+					},
+					Spec: v1beta1.InferenceServiceSpec{
+						Predictor: v1beta1.PredictorSpec{},
+					},
+					Status: v1beta1.InferenceServiceStatus{},
+				},
+			},
+			setupClient: func(isvc *v1beta1.InferenceService) client.Client {
+				s := runtime.NewScheme()
+				_ = v1beta1.AddToScheme(s)
+				_ = corev1.AddToScheme(s)
+				_ = duckv1.AddToScheme(s)
+				cl := fake.NewClientBuilder().WithScheme(s).WithObjects(isvc).Build()
+				return cl
+			},
+			setupClientset: func() kubernetes.Interface {
+				return kubernetesfake.NewSimpleClientset()
+			},
+			wantErr:     false,
+			wantURLHost: "",
+			wantAddress: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cl := tt.setupClient(tt.args.isvc)
+			clientset := tt.setupClientset()
+			s := runtime.NewScheme()
+			_ = v1beta1.AddToScheme(s)
+			_ = corev1.AddToScheme(s)
+			_ = duckv1.AddToScheme(s)
+			r := &IngressReconciler{
+				client:        cl,
+				clientset:     clientset,
+				scheme:        s,
+				ingressConfig: tt.fields.ingressConfig,
+				isvcConfig:    tt.fields.isvcConfig,
+			}
+			err := r.Reconcile(t.Context(), tt.args.isvc)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Reconcile() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if tt.wantURLHost != "" {
+				if tt.args.isvc.Status.URL == nil || tt.args.isvc.Status.URL.Host != tt.wantURLHost {
+					t.Errorf("Expected URL host %v, got %v", tt.wantURLHost, tt.args.isvc.Status.URL)
+				}
+			} else if tt.args.isvc.Status.URL != nil {
+				t.Errorf("Expected URL to be nil, got %v", tt.args.isvc.Status.URL)
+			}
+			if tt.wantAddress != "" {
+				if tt.args.isvc.Status.Address == nil || tt.args.isvc.Status.Address.URL == nil ||
+					tt.args.isvc.Status.Address.URL.Host != tt.wantAddress {
+					t.Errorf("Expected Address host %v, got %v", tt.wantAddress, tt.args.isvc.Status.Address)
+				}
+			} else if tt.args.isvc.Status.Address != nil {
+				t.Errorf("Expected Address to be nil, got %v", tt.args.isvc.Status.Address)
+			}
+		})
+	}
+}
+
+func TestNewIngressReconciler(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Create fake controller-runtime client
+	scheme := runtime.NewScheme()
+	client := fake.NewClientBuilder().WithScheme(scheme).Build()
+
+	// Create fake kubernetes clientset
+	clientset := kubernetesfake.NewSimpleClientset()
+
+	// Create configs
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressGateway:             "test-ingress-gateway",
+		LocalGateway:               "test-local-gateway",
+		KnativeLocalGatewayService: "test-knative-local-gateway-service",
+		DisableIstioVirtualHost:    false,
+		UrlScheme:                  "http",
+		IngressDomain:              "example.com",
+	}
+	isvcConfig := &v1beta1.InferenceServicesConfig{}
+
+	// Call constructor
+	reconciler := NewIngressReconciler(client, clientset, scheme, ingressConfig, isvcConfig)
+
+	// Assertions
+	g.Expect(reconciler).NotTo(gomega.BeNil())
+	g.Expect(reconciler.client).To(gomega.Equal(client))
+	g.Expect(reconciler.clientset).To(gomega.Equal(clientset))
+	g.Expect(reconciler.scheme).To(gomega.Equal(scheme))
+	g.Expect(reconciler.ingressConfig).To(gomega.Equal(ingressConfig))
+	g.Expect(reconciler.isvcConfig).To(gomega.Equal(isvcConfig))
 }
