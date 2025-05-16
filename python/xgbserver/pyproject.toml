@@ -2,7 +2,7 @@
 authors = [
     {name = "Ellis Tarn", email = "ellisbigelow@google.com"},
 ]
-license = {text = "https://github.com/kserve/kserve/blob/master/LICENSE"}
+license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
     "kserve[storage] @ file:///${PROJECT_ROOT}/../kserve",
@@ -11,8 +11,6 @@ dependencies = [
 name = "xgbserver"
 version = "0.15.2"
 description = "Model Server implementation for XGBoost. Not intended for use outside KServe Frameworks Images."
-authors = ["Ellis Tarn <ellisbigelow@google.com>"]
-license = "Apache-2.0"
 readme = "README.md"
 
 [dependency-groups]

@@ -35,7 +35,7 @@ COPY custom_model/pyproject.toml custom_model/uv.lock custom_model/
 RUN cd custom_model && uv sync --active --no-cache
 
 COPY custom_model custom_model
-RUN cd custom_model && poetry install --no-interaction --no-cache
+RUN cd custom_model && uv sync --active --no-cache
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml

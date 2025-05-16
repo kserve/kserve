@@ -8,7 +8,11 @@ FROM ${BASE_IMAGE} AS builder
 ARG PYTHON_VERSION
 # Install python
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends "python${PYTHON_VERSION}" "python${PYTHON_VERSION}-dev" "python${PYTHON_VERSION}-venv" \
+    apt-get install -y --no-install-recommends \
+    "python${PYTHON_VERSION}" \
+    "python${PYTHON_VERSION}-dev" \
+    "python${PYTHON_VERSION}-venv" \
+    python3-pip \
     curl \
     gcc build-essential && \
     apt-get clean && \
@@ -36,13 +40,13 @@ COPY pmmlserver/pyproject.toml pmmlserver/uv.lock pmmlserver/
 RUN cd pmmlserver && uv sync --active --no-cache
 
 COPY pmmlserver pmmlserver
-RUN cd pmmlserver && poetry install --no-interaction --no-cache
+RUN cd pmmlserver && uv sync --active --no-cache
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
 COPY third_party/pip-licenses.py pip-licenses.py
 # TODO: Remove this when upgrading to python 3.11+
-RUN pip install --no-cache-dir tomli
+RUN uv pip install --no-cache-dir tomli
 RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 # ---------- Production image ----------
