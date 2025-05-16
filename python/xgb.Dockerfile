@@ -28,7 +28,7 @@ RUN cd kserve && uv sync --active --no-cache
 COPY xgbserver/pyproject.toml xgbserver/uv.lock xgbserver/
 RUN cd xgbserver && uv sync --active --no-cache
 COPY xgbserver xgbserver
-RUN cd xgbserver && poetry install --no-interaction --no-cache
+RUN cd xgbserver && uv sync --active --no-cache
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml

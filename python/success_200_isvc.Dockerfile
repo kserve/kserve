@@ -28,7 +28,7 @@ RUN echo $(ls)
 COPY test_resources/graph/success_200_isvc/pyproject.toml test_resources/graph/success_200_isvc/uv.lock success_200_isvc/
 RUN cd success_200_isvc && uv sync --active --no-cache  
 COPY test_resources/graph/success_200_isvc success_200_isvc
-RUN cd success_200_isvc && poetry install --no-interaction --no-cache
+RUN cd success_200_isvc && uv sync --active --no-cache  
 
 # Generate third-party licenses 
 COPY pyproject.toml pyproject.toml
