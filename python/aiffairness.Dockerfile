@@ -31,7 +31,7 @@ COPY aiffairness/pyproject.toml aiffairness/uv.lock aiffairness/
 RUN cd aiffairness && uv sync --active --no-cache
 
 COPY aiffairness aiffairness
-RUN cd aiffairness && poetry install --no-interaction --no-cache
+RUN cd aiffairness && uv sync --active --no-cache
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml

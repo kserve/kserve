@@ -2,7 +2,7 @@
 authors = [
     {name = "Andrew Butler", email = "Andrew.Butler@ibm.com"},
 ]
-license = {text = "https://github.com/kserve/kserve/blob/master/LICENSE"}
+license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
     "kserve @ file:///${PROJECT_ROOT}/../kserve",
@@ -13,8 +13,6 @@ dependencies = [
 name = "aifserver"
 version = "0.15.2"
 description = "'Model Server implementation for AI fairness. Not intended for use outside KServe Frameworks Images."
-authors = ["Andrew Butler <Andrew.Butler@ibm.com>"]
-license = "Apache-2.0"
 readme = "README.md"
 
 [project.urls]

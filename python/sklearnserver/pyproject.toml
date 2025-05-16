@@ -1,25 +1,27 @@
 [project]
+authors = [
+    {name = "singhan", email = "singhan@us.ibm.com"},
+]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve[storage] @ file:///${PROJECT_ROOT}/../kserve",
+    "scikit-learn~=1.5.1",
+    "joblib<2.0.0,>=1.4.0",
+    "pandas<3.0.0,>=2.2.0",
+]
 name = "sklearnserver"
 version = "0.15.2"
 description = "Model Server implementation for scikit-learn. Not intended for use outside KServe Frameworks Images."
-authors = [{ name = "singhan", email = "singhan@us.ibm.com" }]
-license = "Apache-2.0"
 readme = "README.md"
-requires-python = ">=3.9,<3.13"
-dependencies = [
-    "scikit-learn~=1.5.1",
-    "joblib>=1.4.0,<2.0.0",
-    "pandas>=2.2.0,<3.0.0",
-    "kserve[storage] @ file:///${PROJECT_ROOT}/../kserve",
-]
 
 [dependency-groups]
 test = [
-    "pytest>=7.2.0,<8.0.0",
-    "pytest-cov>=4.0.0,<5.0.0",
-    "mypy>=0.991,<1.0.0",
-    "pytest-asyncio>=0.23.4,<1.0.0"
+    "pytest<8.0.0,>=7.2.0",
+    "pytest-cov<5.0.0,>=4.0.0",
+    "mypy<1.0,>=0.991",
+    "pytest-asyncio<1.0.0,>=0.23.4",
 ]
 dev = [
-    "black[colorama]~=24.3.0"
+    "black[colorama]~=24.3.0",
 ]

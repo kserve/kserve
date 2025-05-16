@@ -2,7 +2,7 @@
 authors = [
     {name = "Dan Sun", email = "dsun20@bloomberg.net"},
 ]
-license = {text = "https://github.com/kserve/kserve/blob/master/LICENSE"}
+license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
     "kserve @ file:///${PROJECT_ROOT}/../kserve",
@@ -10,8 +10,12 @@ dependencies = [
 name = "custom_tokenizer"
 version = "0.15.2"
 description = "Custom Tokenizer Examples. Not intended for use outside KServe Frameworks Images."
-authors = ["Dan Sun <dsun20@bloomberg.net>"]
-license = "Apache-2.0"
-packages = [
-    { include = "*.py" }
+
+[dependency-groups]
+test = [
+    "pytest<8.0.0,>=7.4.4",
+    "mypy<1.0,>=0.991",
+]
+dev = [
+    "black[colorama]~=24.3.0",
 ]

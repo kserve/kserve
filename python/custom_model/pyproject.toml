@@ -1,12 +1,18 @@
 [project]
+authors = [
+    {name = "The KServe Authors"},
+]
+license = {text = "Apache-2.0"}
+requires-python = "<3.13,>=3.9"
+dependencies = [
+    "kserve[ray] @ file:///${PROJECT_ROOT}/../kserve",
+    "torchvision==0.18.0+cpu",
+    "torch==2.3.0+cpu",
+    "pillow<11.0.0,>=10.3.0",
+]
 name = "custom-model"
 version = "0.15.2"
 description = "Custom model implementation. Not intended for use outside KServe Frameworks Images."
-authors = ["The KServe Authors"]
-license = "Apache-2.0"
-packages = [
-    { include = "*.py" }
-]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.13"

@@ -1336,13 +1336,14 @@ hf-xet = [
 
 [[package]]
 name = "huggingfaceserver"
-version = "0.15.0"
+version = "0.15.1"
 source = { virtual = "." }
 dependencies = [
     { name = "accelerate" },
     { name = "bitsandbytes" },
     { name = "flashinfer-python" },
     { name = "kserve", extra = ["llm", "storage"] },
+    { name = "modelscope" },
     { name = "setuptools" },
     { name = "torch" },
     { name = "transformers" },
@@ -1370,6 +1371,7 @@ requires-dist = [
     { name = "bitsandbytes", specifier = ">=0.45.3" },
     { name = "flashinfer-python", specifier = "~=0.2.5" },
     { name = "kserve", extras = ["llm", "storage"], directory = "../kserve" },
+    { name = "modelscope", specifier = ">=1.16.0,<2.0.0" },
     { name = "setuptools", specifier = ">=70.0.0" },
     { name = "torch", specifier = ">=2.6.0" },
     { name = "transformers", specifier = ">=4.51.2" },
@@ -1543,7 +1545,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.15.0"
+version = "0.15.1"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "cloudevents" },
@@ -1852,6 +1854,21 @@ wheels = [
 [package.optional-dependencies]
 opencv = [
     { name = "opencv-python-headless" },
+]
+
+[[package]]
+name = "modelscope"
+version = "1.26.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "tqdm" },
+    { name = "urllib3", version = "1.26.20", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "urllib3", version = "2.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/48/3c/76d1701761590012b331742d6c67babc3b048df166d5ef99a8c6b0c80c2f/modelscope-1.26.0.tar.gz", hash = "sha256:3178d82ce795ba1a5472eacefda517e1f2162186e4f9f9641cf6587d2c368bc1", size = 4390303 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/6e/50fed6b37503accb0199153d3c18884380797b40491b11bd03279cd2d698/modelscope-1.26.0-py3-none-any.whl", hash = "sha256:fdb23191cdf8d5811accefc09ef4594f3b7c5f1d165af9194dc64eba96780c3a", size = 5855598 },
 ]
 
 [[package]]

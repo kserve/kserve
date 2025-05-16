@@ -330,7 +330,7 @@ wheels = [
 
 [[package]]
 name = "custom-model"
-version = "0.15.0"
+version = "0.15.1"
 source = { virtual = "." }
 dependencies = [
     { name = "kserve", extra = ["ray"] },
@@ -348,8 +348,8 @@ dev = [
 requires-dist = [
     { name = "kserve", extras = ["ray"], directory = "../kserve" },
     { name = "pillow", specifier = ">=10.3.0,<11.0.0" },
-    { name = "torch", url = "https://download.pytorch.org/whl/cpu/torch-2.3.0%2Bcpu-cp39-cp39-linux_x86_64.whl" },
-    { name = "torchvision", url = "https://download.pytorch.org/whl/cpu/torchvision-0.18.0%2Bcpu-cp39-cp39-linux_x86_64.whl" },
+    { name = "torch", url = "https://download.pytorch.org/whl/cpu/torch-2.3.0%2Bcpu-cp311-cp311-linux_x86_64.whl" },
+    { name = "torchvision", url = "https://download.pytorch.org/whl/cpu/torchvision-0.18.0%2Bcpu-cp311-cp311-linux_x86_64.whl" },
 ]
 
 [package.metadata.requires-dev]
@@ -737,7 +737,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.15.0"
+version = "0.15.1"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "cloudevents" },
@@ -798,7 +798,7 @@ requires-dist = [
     { name = "tabulate", specifier = ">=0.9.0,<1.0.0" },
     { name = "timing-asgi", specifier = ">=0.3.0,<1.0.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.6,<1.0.0" },
-    { name = "vllm", marker = "extra == 'llm'", specifier = ">=0.8.4,<1.0.0" },
+    { name = "vllm", marker = "extra == 'llm'", specifier = "==0.8.5" },
 ]
 provides-extras = ["storage", "logging", "ray", "llm"]
 
@@ -2070,7 +2070,7 @@ wheels = [
 [[package]]
 name = "torch"
 version = "2.3.0+cpu"
-source = { url = "https://download.pytorch.org/whl/cpu/torch-2.3.0%2Bcpu-cp39-cp39-linux_x86_64.whl" }
+source = { url = "https://download.pytorch.org/whl/cpu/torch-2.3.0%2Bcpu-cp311-cp311-linux_x86_64.whl" }
 dependencies = [
     { name = "filelock" },
     { name = "fsspec" },
@@ -2082,7 +2082,7 @@ dependencies = [
     { name = "typing-extensions" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/cpu/torch-2.3.0%2Bcpu-cp39-cp39-linux_x86_64.whl", hash = "sha256:1e86e225e472392440ace378ba3165b5e87648e8b5fbf16adc41c0df881c38b8" },
+    { url = "https://download.pytorch.org/whl/cpu/torch-2.3.0%2Bcpu-cp311-cp311-linux_x86_64.whl", hash = "sha256:97a38b25ee0e3d020691e7846efbca62a3d8a57645c027dcb5ba0adfec36fe55" },
 ]
 
 [package.metadata]
@@ -2102,7 +2102,7 @@ provides-extras = ["opt-einsum", "optree"]
 [[package]]
 name = "torchvision"
 version = "0.18.0+cpu"
-source = { url = "https://download.pytorch.org/whl/cpu/torchvision-0.18.0%2Bcpu-cp39-cp39-linux_x86_64.whl" }
+source = { url = "https://download.pytorch.org/whl/cpu/torchvision-0.18.0%2Bcpu-cp311-cp311-linux_x86_64.whl" }
 dependencies = [
     { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "numpy", version = "2.2.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -2110,7 +2110,7 @@ dependencies = [
     { name = "torch" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/cpu/torchvision-0.18.0%2Bcpu-cp39-cp39-linux_x86_64.whl", hash = "sha256:0e764a15c69f51742b09ec17cc2dcd1eee445e87cfd93a9b13b1caa2037f154d" },
+    { url = "https://download.pytorch.org/whl/cpu/torchvision-0.18.0%2Bcpu-cp311-cp311-linux_x86_64.whl", hash = "sha256:ad2cfbf625f93f6a51bbbb8e993f4e0ba96e84a12a6719cc5f7ed3cc5b0fc09d" },
 ]
 
 [package.metadata]

@@ -35,7 +35,7 @@ COPY custom_transformer/pyproject.toml custom_transformer/uv.lock custom_transfo
 RUN cd custom_transformer && uv sync --active --no-cache
 
 COPY custom_transformer custom_transformer
-RUN cd custom_transformer && poetry install --no-interaction --no-cache
+RUN cd custom_transformer && uv sync --active --no-cache
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml

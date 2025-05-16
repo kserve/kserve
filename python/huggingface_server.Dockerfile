@@ -65,15 +65,15 @@ ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
 # From this point, all Python packages will be installed in the virtual environment and copied to the final image
 
-COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd kserve && poetry install --no-root --no-interaction --no-cache
-COPY kserve kserve
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd kserve && poetry install --no-interaction --no-cache
+COPY kserve/pyproject.toml kserve/uv.lock kserve/
+RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
+COPY kserve kserve  
+RUN --mount=type=cache,target=/root/.cache/uv cd kserve && uv sync --active --no-cache
 
-COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/health_check.py huggingfaceserver/
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd huggingfaceserver && poetry install --no-root --no-interaction
+COPY huggingfaceserver/pyproject.toml huggingfaceserver/uv.lock huggingfaceserver/health_check.py huggingfaceserver/
+RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --active --no-cache
 COPY huggingfaceserver huggingfaceserver
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd huggingfaceserver && poetry install --no-interaction --no-cache
+RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --active --no-cache
 
 # Install vllm
 # https://docs.vllm.ai/en/latest/models/extensions/runai_model_streamer.html, https://docs.vllm.ai/en/latest/models/extensions/tensorizer.html
