@@ -51,7 +51,7 @@ class V2Endpoints:
         Returns:
             ServerMetadataResponse: Server metadata JSON object.
         """
-        return ServerMetadataResponse.parse_obj(self.dataplane.metadata())
+        return ServerMetadataResponse.model_validate(self.dataplane.metadata())
 
     async def live(self) -> ServerLiveResponse:
         """Server live endpoint.
@@ -83,7 +83,7 @@ class V2Endpoints:
             ListModelsResponse: List of models object.
         """
         models = list(self.dataplane.model_registry.get_models().keys())
-        return ListModelsResponse.parse_obj({"models": models})
+        return ListModelsResponse.model_validate({"models": models})
 
     async def model_metadata(
         self, model_name: str, model_version: Optional[str] = None
@@ -102,7 +102,7 @@ class V2Endpoints:
             raise NotImplementedError("Model versioning not supported yet.")
 
         metadata = await self.dataplane.model_metadata(model_name)
-        return ModelMetadataResponse.parse_obj(metadata)
+        return ModelMetadataResponse.model_validate(metadata)
 
     async def model_ready(
         self, model_name: str, model_version: Optional[str] = None
@@ -125,7 +125,9 @@ class V2Endpoints:
         if not model_ready:
             raise ModelNotReady(model_name)
 
-        return ModelReadyResponse.parse_obj({"name": model_name, "ready": model_ready})
+        return ModelReadyResponse.model_validate(
+            {"name": model_name, "ready": model_ready}
+        )
 
     async def infer(
         self,
@@ -188,7 +190,7 @@ class V2Endpoints:
             raw_response.body = response
             res = raw_response
         else:
-            res = InferenceResponse.parse_obj(response)
+            res = InferenceResponse.model_validate(response)
         return res
 
     async def load(self, model_name: str) -> Dict:
