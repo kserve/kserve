@@ -25,6 +25,39 @@ if [[ "$1" == "uninstall" ]]; then
   kubectl delete ns ambassador
   telepresence quit -s
   [ -d "${TMPDIR}/k8s-webhook-server" ] && rm -rf "${TMPDIR}/k8s-webhook-server"
+  echo "* Patching deployment kserve-controller-manager to disallow traffic execution"
+  kubectl --namespace kserve patch deployment kserve-controller-manager \
+    -n kserve \
+    --type='json' \
+    -p='[
+          {
+            "op": "replace",
+            "path": "/spec/template/spec/containers/0/securityContext",
+            "value": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": ["ALL"]
+              },
+              "privileged": false,
+              "readOnlyRootFilesystem": true,
+              "runAsNonRoot": true
+            }
+          },
+          {
+            "op": "replace",
+            "path": "/spec/template/spec/containers/1/securityContext",
+            "value": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": ["ALL"]
+              },
+              "privileged": false,
+              "readOnlyRootFilesystem": true,
+              "runAsNonRoot": true
+            }
+          }
+        ]'
+
   exit 0
 fi
 
@@ -48,14 +81,43 @@ fi
 # Connect to the cluster
 set -e
 echo "* Connecting to cluster (local root password might be required)"
-telepresence connect
+telepresence connect --namespace kserve
 set +e
 
 # Intercept the kserve controller manager
 if ! telepresence status --output json | jq -e '.user_daemon.intercepts[]? | select(.name == "kserve-controller-manager-kserve")' > /dev/null; then
+  echo "* Patching deployment kserve-controller-manager to allow traffic to execute"
+  kubectl --namespace kserve patch deployment kserve-controller-manager \
+    -n kserve \
+    --type='json' \
+    -p='[
+      {
+        "op": "replace",
+        "path": "/spec/template/spec/containers/0/securityContext",
+        "value": {
+          "allowPrivilegeEscalation": true,
+          "privileged": true,
+          "readOnlyRootFilesystem": false,
+          "runAsNonRoot": false,
+          "runAsUser": 0
+        }
+      },
+      {
+        "op": "replace",
+        "path": "/spec/template/spec/containers/1/securityContext",
+        "value": {
+          "allowPrivilegeEscalation": true,
+          "privileged": true,
+          "readOnlyRootFilesystem": false,
+          "runAsNonRoot": false,
+          "runAsUser": 0
+        }
+      }
+    ]'
+
   echo "* Intercept kserve-webhook-server-service"
   set -e
-  telepresence intercept kserve-controller-manager --service=kserve-webhook-server-service --port 9443 -n kserve --mount=false
+  telepresence intercept kserve-controller-manager --service=kserve-webhook-server-service --port 9443 --mount=false
   set +e
 else
   echo "* Webhook service already intercepted"
