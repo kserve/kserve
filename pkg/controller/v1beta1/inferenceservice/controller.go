@@ -53,6 +53,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
@@ -198,6 +199,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// Abort early if the resolved deployment mode is Serverless, but Knative Services are not available
+	var allowZeroInitialScale bool
 	if deploymentMode == constants.Serverless {
 		ksvcAvailable, checkKsvcErr := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 		if checkKsvcErr != nil {
@@ -208,6 +210,12 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			r.Recorder.Event(isvc, corev1.EventTypeWarning, "ServerlessModeRejected",
 				"It is not possible to use Serverless deployment mode when Knative Services are not available")
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Serverless, but Knative Serving is not available", isvc.Name))
+		}
+
+		// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
+		allowZeroInitialScale, err = knutils.CheckZeroInitialScaleAllowed(ctx, r.Clientset)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
 		}
 	}
 
@@ -222,13 +230,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	reconcilers := []components.Component{}
 	if deploymentMode != constants.ModelMeshDeployment {
-		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode, allowZeroInitialScale))
 	}
 	if isvc.Spec.Transformer != nil {
-		reconcilers = append(reconcilers, components.NewTransformer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		reconcilers = append(reconcilers, components.NewTransformer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode, allowZeroInitialScale))
 	}
 	if isvc.Spec.Explainer != nil {
-		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
+		reconcilers = append(reconcilers, components.NewExplainer(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode, allowZeroInitialScale))
 	}
 	for _, reconciler := range reconcilers {
 		result, err := reconciler.Reconcile(ctx, isvc)
