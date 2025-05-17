@@ -981,6 +981,7 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	s3StorageUri := "s3://test"
 	pvcStorageUri := "pvc://test"
+	ociStorageUri := "oci://test"
 	scenarios := map[string]struct {
 		isvc     *InferenceService
 		expected gomega.OmegaMatcher
@@ -1200,6 +1201,31 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 				},
 			},
 			expected: gomega.Equal(fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, "foo-7", "s3")),
+		},
+		"When using OCI storageURI set, validation should succeed": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-4-3",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &ociStorageUri,
+							},
+						},
+						WorkerSpec: &WorkerSpec{},
+					},
+				},
+			},
+			expected: gomega.BeNil(),
 		},
 		"When external autoscaler is not set, then it should return error": {
 			isvc: &InferenceService{
