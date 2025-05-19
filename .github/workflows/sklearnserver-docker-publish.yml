@@ -25,27 +25,30 @@ jobs:
   # Run tests.
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            os: ubuntu-latest
+          - platform: linux/arm64
+            os: ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
     if: github.event_name == 'pull_request'
-
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v3
-
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Run tests
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/amd64,linux/arm64/v8
+          platforms: ${{ matrix.platform }}
           context: python
           file: python/sklearn.Dockerfile
           push: false
-          # https://github.com/docker/buildx/issues/1533
           provenance: false
 
   # Build and Push image to DockerHub.
@@ -70,7 +73,9 @@ jobs:
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
       - name: Export version variable
         run: |
+          # Compose image name from env variables
           IMAGE_ID=$IMAGE_REPO/$IMAGE_NAME
+          # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
           echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
       - name: Docker meta
@@ -133,9 +138,15 @@ jobs:
         uses: docker/setup-buildx-action@v3
       - name: Export version variable
         run: |
+          # Compose image name from env variables
           IMAGE_ID=$IMAGE_REPO/$IMAGE_NAME
+          # Change all uppercase to lowercase
           IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          # Strip git ref prefix from version
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip "v" prefix from tag name
+          # [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          # Use Docker `latest` tag convention
           [ "$VERSION" == "master" ] && VERSION=latest
           echo VERSION=$VERSION >> $GITHUB_ENV
           echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
