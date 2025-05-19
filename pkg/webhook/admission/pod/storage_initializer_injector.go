@@ -304,7 +304,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 				SubPath:  pvcPath,
 				ReadOnly: isvcReadonlyStringFlag,
 			}
-			
+
 			for _, envVar := range userContainer.Env {
 				if envVar.Name == constants.CustomSpecStorageMountPathKey && envVar.Value != "" {
 					pvcSourceVolumeMount.MountPath = envVar.Value
@@ -409,7 +409,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 			break
 		}
 	}
-	
+
 	// Add an init container to run provisioning logic to the PodSpec
 	initContainer := &corev1.Container{
 		Name:                     StorageInitializerContainerName,
