@@ -76,8 +76,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # after this step
 RUN --mount=type=cache,target=/root/.cache/pip \
     if [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-        pip install --index-url https://download.pytorch.org/whl/nightly/cu128 "torch==2.8.0.dev20250318+cu128" "torchvision==0.22.0.dev20250319";  \
-        pip install --index-url https://download.pytorch.org/whl/nightly/cu128 --pre pytorch_triton==3.3.0+gitab727c40; \
+        pip install --index-url https://download.pytorch.org/whl/nightly/cu128 "torch==2.8.0.dev20250321+cu128" "torchvision==0.22.0.dev20250322";  \
+        pip install --index-url https://download.pytorch.org/whl/nightly/cu128 --pre pytorch-triton==3.3.0+git96316ce5; \
     fi
 
 # max jobs used by Ninja to build extensions
@@ -149,7 +149,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     fi
 
 # Install lmcache
-RUN --mount=type=cache,target=/root/.cache/pip pip install lmcache==${LMCACHE_VERSION}
+RUN --mount=type=cache,target=/root/.cache/pip \
+    if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+        pip install lmcache==${LMCACHE_VERSION}; \
+    fi
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
