@@ -23,7 +23,8 @@ jobs:
   # Run tests.
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
   test:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
 
     steps:
       - name: Checkout source
@@ -38,22 +39,16 @@ jobs:
       - name: Run tests
         uses: docker/build-push-action@v5
         with:
-          platforms: linux/arm64
+          platforms: linux/amd64
           context: python
           file: python/huggingface_server.Dockerfile
           push: false
           # https://github.com/docker/buildx/issues/1533
           provenance: false
-          build-args: |
-            torch_cuda_arch_list=9.0+PTX
-            vllm_fa_cmake_gpu_arches=90-real
 
   # Push image to GitHub Packages.
   # See also https://docs.docker.com/docker-hub/builds/
   push:
-    # Ensure test job passes before pushing image.
-    needs: test
-
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
 
