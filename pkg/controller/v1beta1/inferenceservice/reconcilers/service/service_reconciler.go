@@ -235,7 +235,7 @@ func createHeadlessSvc(componentMeta metav1.ObjectMeta) *corev1.Service {
 	workerComponentMeta := componentMeta.DeepCopy()
 	predictorSvcName := workerComponentMeta.Name
 	isvcGeneration := componentMeta.GetLabels()[constants.InferenceServiceGenerationPodLabelKey]
-	workerComponentMeta.Name = constants.GeHeadServiceName(predictorSvcName, isvcGeneration)
+	workerComponentMeta.Name = constants.GetHeadServiceName(predictorSvcName, isvcGeneration)
 	workerComponentMeta.Labels[constants.MultiNodeRoleLabelKey] = constants.MultiNodeHead
 
 	service := &corev1.Service{

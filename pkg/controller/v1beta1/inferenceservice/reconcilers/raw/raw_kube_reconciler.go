@@ -112,6 +112,7 @@ func NewRawKubeReconciler(ctx context.Context,
 	}
 
 	depl, err := deployment.NewDeploymentReconciler(ctx, client, clientset, scheme, resourceType, componentMeta, workerComponentMeta, componentExt, podSpec, workerPodSpec)
+
 	if err != nil {
 		return nil, err
 	}

@@ -104,7 +104,7 @@ spec:
         medium: Memory
         sizeLimit: 3Gi
   workerSpec:
-    pipelineParallelSize: 2
+    pipelineParallelSize: 1
     tensorParallelSize: 1
     containers:
       - name: worker-container
