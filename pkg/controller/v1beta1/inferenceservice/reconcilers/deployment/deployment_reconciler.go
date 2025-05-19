@@ -693,8 +693,8 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 			}
 			// To avoid the conflict between HPA and Deployment,
 			// we need to remove the Replicas field from the deployment spec
-			// For external autoscaler, it should not remove replicas
-			if deployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassExternal) {
+			// For external and none autoscaler, it should not remove replicas
+			if deployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 				deployment.Spec.Replicas = nil
 			}
 
