@@ -39,14 +39,26 @@ jobs:
             docker buildx build . --file router.Dockerfile
           fi
 
-  # Push image to GitHub Packages.
-  # See also https://docs.docker.com/docker-hub/builds/
+  # Build and Push image to DockerHub.
+  # See also https://docs.docker.com/build/ci/github-actions/multi-platform/#distribute-build-across-multiple-runners
   push:
-    # Ensure test job passes before pushing image.
-    needs: test
-
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            os: ubuntu-latest
+          - platform: linux/arm/v7
+            os: ubuntu-24.04-arm
+          - platform: linux/arm64
+            os: ubuntu-24.04-arm
+          - platform: linux/ppc64le
+            os: ubuntu-latest
+          - platform: linux/s390x
+            os: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     if: github.event_name == 'push'
+    needs: test
 
     steps:
       - name: Checkout source
