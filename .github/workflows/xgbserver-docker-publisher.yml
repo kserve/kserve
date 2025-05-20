@@ -47,7 +47,7 @@ jobs:
         with:
           platforms: ${{ matrix.platform }}
           context: python
-          file: python/xgbserver.Dockerfile
+          file: python/xgb.Dockerfile
           push: false
           provenance: false
 

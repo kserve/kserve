@@ -82,7 +82,7 @@ ENV VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE}
 RUN --mount=type=cache,target=/root/.cache/pip git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git && \
     cd vllm && \
     pip install -r requirements/build.txt && \
-    pip install -r requirements/cpu.txt && \
+    pip install -r requirements/cpu.txt --extra-index-url ${TORCH_EXTRA_INDEX_URL} && \
     python setup.py bdist_wheel --dist-dir dist
 
 # From this point, all Python packages will be installed in the virtual environment and copied to the final image.
