@@ -51,8 +51,7 @@ ARG VLLM_VERSION=0.9.0.1
 
 WORKDIR ${WORKSPACE_DIR}
 
-RUN --mount=type=cache,target=/var/cache/apt \
-    apt-get update && \
+RUN apt-get update && \
     apt-get install --no-install-recommends --fix-missing -y \
     build-essential \
     git \
@@ -70,7 +69,6 @@ ENV PATH="$PATH:${POETRY_HOME}/bin"
 ARG TORCH_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cpu"
 ARG IPEX_EXTRA_INDEX_URL="https://pytorch-extension.intel.com/release-whl/stable/cpu/us/"
 ARG TORCH_VERSION=2.7.0
-ARG TORCHVISION_VERSION=0.22.0
 
 ARG VLLM_CPU_DISABLE_AVX512=true
 ENV VLLM_CPU_DISABLE_AVX512=${VLLM_CPU_DISABLE_AVX512}
@@ -96,23 +94,21 @@ ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
 # Install kserve
 COPY kserve/pyproject.toml kserve/poetry.lock kserve/
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd kserve && poetry install --no-root --no-interaction
+RUN cd kserve && poetry install --no-root --no-interaction --no-cache
 COPY kserve kserve
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd kserve && poetry install --no-interaction
-
+RUN cd kserve && poetry install --no-interaction --no-cache
 # Install huggingfaceserver
 COPY huggingfaceserver/pyproject.toml huggingfaceserver/poetry.lock huggingfaceserver/
 # Remove vllm and torch from the huggingface and kserve dependencies as wheels is not available for CPU
-RUN --mount=type=cache,target=/root/.cache/pypoetry \
-    cd huggingfaceserver; \
+RUN cd huggingfaceserver; \
     sed -i -E 's/(kserve\s*=\s*\{[^\}]*extras\s*=\s*\[)[^]]*\]/\1"storage"\]/' pyproject.toml && \
     sed -i '/^\s*vllm\s*=/d' pyproject.toml; \
     sed -i '/^\s*torch\s*=/d' pyproject.toml; \
     poetry lock --no-update;
 
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd huggingfaceserver && poetry install --no-root --no-interaction
+RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
 COPY huggingfaceserver huggingfaceserver
-RUN --mount=type=cache,target=/root/.cache/pypoetry cd huggingfaceserver && poetry install --no-interaction --only-root
+RUN cd huggingfaceserver && poetry install --no-interaction --only-root
 
 RUN --mount=type=cache,target=/root/.cache/pip \
     if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
@@ -121,7 +117,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     fi
 
 # Install vllm
-RUN --mount=type=cache,target=/root/.cache/pip pip install --no-cache-dir vllm/dist/vllm-${VLLM_VERSION}*.whl --extra-index-url ${TORCH_EXTRA_INDEX_URL}
+RUN --mount=type=cache,target=/root/.cache/pip pip install vllm/dist/vllm-${VLLM_VERSION}*.whl --extra-index-url ${TORCH_EXTRA_INDEX_URL}
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml
