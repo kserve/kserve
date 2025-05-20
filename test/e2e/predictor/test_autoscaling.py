@@ -313,7 +313,7 @@ async def test_sklearn_rolling_update():
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_keda_scale_new_spec_resource(rest_v1_client, network_layer):
+async def test_sklearn_keda_scale_resource_memory(rest_v1_client, network_layer):
     """
     Test KEDA autoscaling with new InferenceService (auto_scaling) spec
     """
@@ -372,6 +372,7 @@ async def test_sklearn_keda_scale_new_spec_resource(rest_v1_client, network_laye
         plural="scaledobjects",
     )
 
+    trigger_metadata = scaledobject_resp["items"][0]["spec"]["triggers"][0]["metadata"]
     assert (
         scaledobject_resp["items"][0]["spec"]["triggers"][0]["metricType"]
         == "Utilization"
@@ -380,6 +381,7 @@ async def test_sklearn_keda_scale_new_spec_resource(rest_v1_client, network_laye
     res = await predict_isvc(
         rest_v1_client, service_name, INPUT, network_layer=network_layer
     )
+    assert trigger_metadata["value"] == "50"
     assert res["predictions"] == [1, 1]
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 

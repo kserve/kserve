@@ -24,6 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
@@ -253,8 +254,8 @@ func GetEnvVarValue(envVars []corev1.EnvVar, key string) (string, bool) {
 	return "", false // if key does not exist, return "", false
 }
 
-// IsUnknownGpuResourceType check if the provided gpu resource type is unknown one
-func IsUnknownGpuResourceType(resources corev1.ResourceRequirements, annotations map[string]string) (bool, error) {
+// HasUnknownGpuResourceType check if the provided gpu resource type is unknown one
+func HasUnknownGpuResourceType(resources corev1.ResourceRequirements, annotations map[string]string) (bool, error) {
 	basicResourceTypes := map[corev1.ResourceName]struct{}{
 		corev1.ResourceCPU:              {},
 		corev1.ResourceMemory:           {},
@@ -403,4 +404,29 @@ func UpdateGlobalGPUResourceTypeList(newGPUResourceTypes []string) error {
 	}
 
 	return nil
+}
+
+// GetGPUResourceQtyByType retrieves the GPU resource quantity from the given ResourceRequirements.
+// It checks both Request and Limit based on the provided resourceType.
+func GetGPUResourceQtyByType(resourceRequirements *corev1.ResourceRequirements, resourceType string) (corev1.ResourceName, *resource.Quantity, bool) {
+	if resourceType == "Limit" {
+		for resourceName, quantity := range resourceRequirements.Limits {
+			for _, gpuResourceType := range constants.DefaultGPUResourceTypeList {
+				if string(resourceName) == gpuResourceType {
+					return resourceName, &quantity, true
+				}
+			}
+		}
+	} else {
+		for resourceName, quantity := range resourceRequirements.Requests {
+			for _, gpuResourceType := range constants.DefaultGPUResourceTypeList {
+				if string(resourceName) == gpuResourceType {
+					return resourceName, &quantity, true
+				}
+			}
+		}
+	}
+	qty := resource.NewQuantity(0, resource.DecimalSI)
+
+	return "", qty, false
 }

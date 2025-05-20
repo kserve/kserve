@@ -327,7 +327,7 @@ func routeStep(nodeName string, graph v1alpha1.InferenceGraphSpec, input []byte,
 				}
 				// if the condition does not match for the step in the sequence we stop and return the response
 				if !gjson.GetBytes(responseBytes, step.Condition).Exists() {
-					return responseBytes, 500, nil
+					return responseBytes, 200, nil
 				}
 			}
 			if responseBytes, statusCode, err = executeStep(step, graph, request, headers); err != nil {

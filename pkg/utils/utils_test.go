@@ -710,7 +710,7 @@ func TestIsUnknownGpuResourceType(t *testing.T) {
 
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			result, _ := IsUnknownGpuResourceType(scenario.resources, scenario.annotations)
+			result, _ := HasUnknownGpuResourceType(scenario.resources, scenario.annotations)
 			g.Expect(result).Should(gomega.Equal(scenario.expectedUnknown))
 		})
 	}
@@ -1100,6 +1100,83 @@ func TestUpdateGlobalGPUResourceTypeList(t *testing.T) {
 			err := UpdateGlobalGPUResourceTypeList(tt.newGPUResourceTypes)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred())
 			g.Expect(constants.DefaultGPUResourceTypeList).Should(gomega.Equal(tt.expectedResult))
+		})
+	}
+}
+
+// TestGetGPUResourceQtyByType tests GetGPUResourceQtyByType function.
+func TestGetGPUResourceQtyByType(t *testing.T) {
+	g := gomega.NewWithT(t)
+	// Define sample GPU resource types
+	gpuType := "nvidia.com/gpu"
+	invalidGpuType := "example.com/invalid-gpu"
+
+	// Define test cases
+	tests := []struct {
+		name             string
+		resourceRequests corev1.ResourceList
+		resourceLimits   corev1.ResourceList
+		resourceType     string
+		expectedResource corev1.ResourceName
+		expectedQuantity string
+		expectedFound    bool
+	}{
+		{
+			name: "Valid GPU request",
+			resourceRequests: corev1.ResourceList{
+				corev1.ResourceName(gpuType): resource.MustParse("2"),
+			},
+			resourceLimits:   corev1.ResourceList{},
+			resourceType:     "Request",
+			expectedResource: corev1.ResourceName(gpuType),
+			expectedQuantity: "2",
+			expectedFound:    true,
+		},
+		{
+			name:             "Valid GPU limit",
+			resourceRequests: corev1.ResourceList{},
+			resourceLimits: corev1.ResourceList{
+				corev1.ResourceName(gpuType): resource.MustParse("4"),
+			},
+			resourceType:     "Limit",
+			expectedResource: corev1.ResourceName(gpuType),
+			expectedQuantity: "4",
+			expectedFound:    true,
+		},
+		{
+			name:             "No GPU resource found",
+			resourceRequests: corev1.ResourceList{},
+			resourceLimits:   corev1.ResourceList{},
+			resourceType:     "Request",
+			expectedResource: "",
+			expectedQuantity: "0",
+			expectedFound:    false,
+		},
+		{
+			name: "Invalid GPU type",
+			resourceRequests: corev1.ResourceList{
+				corev1.ResourceName(invalidGpuType): resource.MustParse("3"),
+			},
+			resourceLimits:   corev1.ResourceList{},
+			resourceType:     "Request",
+			expectedResource: "",
+			expectedQuantity: "0",
+			expectedFound:    false,
+		},
+	}
+
+	// Execute tests
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resourceRequirements := corev1.ResourceRequirements{
+				Requests: tt.resourceRequests,
+				Limits:   tt.resourceLimits,
+			}
+
+			resourceName, quantity, found := GetGPUResourceQtyByType(&resourceRequirements, tt.resourceType)
+			g.Expect(string(resourceName)).Should(gomega.Equal(string(tt.expectedResource)))
+			g.Expect(found).Should(gomega.Equal(tt.expectedFound))
+			g.Expect(quantity.String()).Should(gomega.Equal(tt.expectedQuantity))
 		})
 	}
 }
