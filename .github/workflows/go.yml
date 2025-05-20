@@ -1,4 +1,4 @@
-name: Go
+name: Go Test
 
 on:
   push:
@@ -10,10 +10,12 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
+permissions:
+  contents: write
+  pull-requests: write
 jobs:
-  build:
-    name: Build
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - name: Check out code into the Go module directory
@@ -40,9 +42,132 @@ jobs:
           ./coverage.sh
           echo ::set-output name=coverage::$(./coverage.sh | tr -s '\t' | cut -d$'\t' -f 3)
 
-      - name: Print coverage
+      - name: upload cover profile artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage.out
+          path: coverage.out
+          if-no-files-found: error
+
+  check-coverage:
+    needs: test
+    runs-on: ubuntu-latest
+    name: Check Coverage
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: Download cover profile artifact
+        id: download-coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage.out
+
+      - name: Extract coverage percentage
+        id: current-coverage
         run: |
-          echo "Coverage output is ${{ steps.test.outputs.coverage }}"
+          if [ -f coverage.out ]; then
+            COVERAGE=$(go tool cover -func=coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
+            echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          else
+            echo "coverage=0" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: download artifact (master.breakdown)
+        id: download-master-breakdown
+        uses: dawidd6/action-download-artifact@v9
+        with:
+          branch: master
+          workflow_conclusion: success
+          name: master.breakdown
+          if_no_artifact_found: warn
+
+      - name: download artifact (master-coverage.out)
+        id: download-master-coverage
+        uses: dawidd6/action-download-artifact@v9
+        with:
+          branch: master
+          workflow_conclusion: success
+          name: master-coverage.out
+          if_no_artifact_found: warn
+
+      - name: Extract master coverage percentage
+        id: master-coverage
+        run: |
+          if [ -f master-coverage.out ]; then
+            MASTER_COVERAGE=$(go tool cover -func=master-coverage.out | grep total: | awk '{print $3}' | sed 's/%//')
+            echo "coverage=$MASTER_COVERAGE" >> $GITHUB_OUTPUT
+          else
+            echo "coverage=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: check test coverage
+        id: coverage
+        uses: vladopajic/go-test-coverage@v2
+        continue-on-error: true
+        with:
+          config: ./.github/.testcoverage.yml
+          breakdown-file-name: ${{ github.ref_name == 'master' && 'master.breakdown' || '' }}
+          diff-base-breakdown-file-name: ${{ steps.download-master-breakdown.outputs.found_artifact == 'true' && 'master.breakdown' || '' }}
+      
+      - name: upload artifact (master.breakdown)
+        uses: actions/upload-artifact@v4
+        if: github.ref_name == 'master'
+        with:
+          name: master.breakdown
+          path: master.breakdown
+          if-no-files-found: error
+          
+      - name: Previous coverage
+        run: |
+          echo "Previous Coverage ${{ steps.master-coverage.outputs.coverage }}"
+
+      - name: Current coverage
+        run: |
+          echo "Current Coverage ${{ steps.current-coverage.outputs.coverage }}"
+
+      - name: post coverage report
+        if: github.event_name == 'pull_request'
+        uses: thollander/actions-comment-pull-request@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-tag: coverage-report
+          pr-number: ${{ github.event.pull_request.number }}
+          message: |
+            ## 📊 Go Test Coverage Report
+
+            ${{ 
+              steps.current-coverage.outputs.coverage > steps.master-coverage.outputs.coverage 
+              && '✅ **Overall code coverage increased.**' 
+              || steps.current-coverage.outputs.coverage < steps.master-coverage.outputs.coverage 
+              && '❌ **Overall code coverage decreased.**' 
+              || 'ℹ️ **Overall code coverage unchanged.**' 
+            }}
+
+            **🔍 Coverage Summary**
+            - **Pull Request Coverage:** `${{ steps.current-coverage.outputs.coverage }}%`
+            - **Main Branch Coverage:** `${{ steps.master-coverage.outputs.coverage }}%`
+
+            <details>
+            <summary>📄 Click to expand full coverage breakdown</summary>
+
+            ```
+            ${{ fromJSON(steps.coverage.outputs.report) }}
+            ```
+
+            </details>
+      - name: Rename and upload master coverage  # to avoid collision with the current run
+        if: github.ref_name == 'master'
+        run: mv coverage.out master-coverage.out
+
+      - name: Upload master coverage artifact
+        # This is used to compare the coverage of the current branch with the master branch
+        if: github.ref_name == 'master'
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-coverage.out
+          path: master-coverage.out
+          if-no-files-found: error
 
       - name: Update coverage badge
         if: github.ref == 'refs/heads/master'
