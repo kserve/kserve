@@ -14,13 +14,14 @@ ARG PYTHON_VERSION
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y \
-    && apt-get install -y software-properties-common ccache curl git sudo gcc g++ kmod python-is-python3 \
+    && apt-get install -y software-properties-common ccache curl git sudo gcc g++ kmod \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update -y \
     && apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
     && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
     && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
+    && ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
     && python3 --version && python3 -m pip --version \
     && gcc -v && g++ -v \
@@ -94,6 +95,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
         git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git && \
         cd vllm && python3 use_existing_torch.py && \
         pip install -v -r requirements/build.txt && \
+        pip install -v -r requirements/cuda.txt && \
         python3 setup.py bdist_wheel --dist-dir=dist --py-limited-api=cp38; \
     fi
 
@@ -182,6 +184,7 @@ RUN apt-get update -y \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
     && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
     && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
+    && ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
     && python3 --version && python3 -m pip --version \
     && apt-get clean && rm -rf /var/lib/apt/lists/*

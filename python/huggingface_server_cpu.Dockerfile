@@ -24,7 +24,6 @@ RUN apt-get update -y \
     libjemalloc2 \
     libnuma1 \
     numactl \
-    python-is-python3 \
     gnupg \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update -y \
@@ -32,6 +31,7 @@ RUN apt-get update -y \
     && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
     && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
     && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
+    && ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
     && python3 --version && python3 -m pip --version \
     && apt-get clean && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
@@ -77,10 +77,10 @@ ENV VLLM_CPU_AVX512BF16=${VLLM_CPU_AVX512BF16}
 ARG VLLM_TARGET_DEVICE=cpu
 ENV VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE}
 
-RUN --mount=type=cache,target=/root/.cache/pip git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git && \
+RUN git clone --single-branch --branch v${VLLM_VERSION} https://github.com/vllm-project/vllm.git && \
     cd vllm && \
-    pip install -r requirements/build.txt && \
-    pip install -r requirements/cpu.txt --extra-index-url ${TORCH_EXTRA_INDEX_URL} && \
+    pip install --no-cache-dir -r requirements/build.txt && \
+    pip install --no-cache-dir -r requirements/cpu.txt --extra-index-url ${TORCH_EXTRA_INDEX_URL} && \
     python setup.py bdist_wheel --dist-dir dist
 
 # From this point, all Python packages will be installed in the virtual environment and copied to the final image.
@@ -110,10 +110,9 @@ RUN cd huggingfaceserver && poetry install --no-root --no-interaction --no-cache
 COPY huggingfaceserver huggingfaceserver
 RUN cd huggingfaceserver && poetry install --no-interaction --only-root
 
-RUN --mount=type=cache,target=/root/.cache/pip \
-    if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-      pip install --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
-      'intel_extension_for_pytorch~='${TORCH_VERSION} intel-openmp; \
+RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+    pip install --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} \
+    'intel_extension_for_pytorch~='${TORCH_VERSION} intel-openmp; \
     fi
 
 # Install vllm
@@ -150,4 +149,4 @@ ENV HF_HUB_DISABLE_TELEMETRY="1"
 ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libtcmalloc.so.4:/usr/lib/x86_64-linux-gnu/libjemalloc.so.2:${LD_PRELOAD}
 
 USER 1000
-ENTRYPOINT ["python", "-m", "huggingfaceserver"]
+ENTRYPOINT ["python3", "-m", "huggingfaceserver"]
