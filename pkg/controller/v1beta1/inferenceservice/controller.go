@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"slices"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -134,6 +133,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return reconcile.Result{}, err
 	}
+
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
 	if err != nil {
 		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
@@ -168,6 +168,20 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		r.Log.Info("Continue reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 			"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	}
+
+	// Check if auto-update is disabled, this will skip the reconciliation if the annotation is present.
+	// Used for when k8s autoreconciles the InferenceService.
+	if annotations != nil {
+		if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" {
+			// Only skip reconciliation if this is an update (not initial creation)
+			// Initial creation will have an empty ServingRuntimeName
+			if isvc.Status.ServingRuntimeName != "" {
+				r.Log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
+				return reconcile.Result{}, nil
+			}
+		}
+	}
+
 	// name of our custom finalizer
 	finalizerName := "inferenceservice.finalizers"
 
@@ -376,19 +390,10 @@ func inferenceServiceStatusEqual(s1, s2 v1beta1.InferenceServiceStatus, deployme
 func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
 	runtimeObj, ok := obj.(*v1alpha1.ServingRuntime)
 
-	if !ok || runtimeObj == nil || runtimeObj.Spec.SupportedModelFormats == nil {
+	if !ok || runtimeObj == nil {
 		return nil
 	}
 
-	protocolVersions := runtimeObj.Spec.ProtocolVersions
-	if protocolVersions == nil {
-		return nil
-	}
-
-	protocolVersionsAsStrings := []string{}
-	for _, protocolVersion := range protocolVersions {
-		protocolVersionsAsStrings = append(protocolVersionsAsStrings, string(protocolVersion))
-	}
 	var isvcList v1beta1.InferenceServiceList
 	// List all InferenceServices in the same namespace.
 	if err := r.Client.List(ctx, &isvcList, client.InNamespace(runtimeObj.Namespace)); err != nil {
@@ -397,22 +402,15 @@ func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj
 	}
 
 	var requests []reconcile.Request
-	supportedModelFormatNames := []string{}
-	for _, supportedModelFormat := range runtimeObj.Spec.SupportedModelFormats {
-		supportedModelFormatNames = append(supportedModelFormatNames, supportedModelFormat.Name)
-	}
 	for _, isvc := range isvcList.Items {
 		annotations := isvc.GetAnnotations()
 		if annotations != nil {
-			if autoUpdate, found := annotations[constants.AutoUpdateAnnotationKey]; found && autoUpdate == "false" {
+			if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" {
 				r.Log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
 				continue
 			}
 		}
-		if isvc.Spec.Predictor.Model.ProtocolVersion == nil {
-			continue
-		}
-		if slices.Contains(supportedModelFormatNames, isvc.Spec.Predictor.Model.ModelFormat.Name) && slices.Contains(protocolVersionsAsStrings, string(*isvc.Spec.Predictor.Model.ProtocolVersion)) {
+		if isvc.Status.ServingRuntimeName == runtimeObj.Name {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Namespace: isvc.Namespace,
@@ -453,11 +451,8 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		if !ok {
 			return nil
 		}
-		if isvc.Spec.Predictor.Model == nil || isvc.Spec.Predictor.Model.Runtime == nil {
-			return nil
-		}
-		if *isvc.Spec.Predictor.Model.Runtime != "" {
-			return []string{*isvc.Spec.Predictor.Model.Runtime}
+		if isvc.Status.ServingRuntimeName != "" {
+			return []string{isvc.Status.ServingRuntimeName}
 		}
 		return nil
 	}); err != nil {

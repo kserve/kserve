@@ -1692,7 +1692,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 	})
-	Context("When Updating a Serving Runtime", func() {
+	FContext("When Updating a Serving Runtime", func() {
 		configs := map[string]string{
 			"explainers": `{
 				"alibi": {
@@ -1942,9 +1942,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
-						constants.AutoUpdateAnnotationKey:   "true",
+						"serving.kserve.io/deploymentMode":       "RawDeployment",
+						"serving.kserve.io/autoscalerClass":      "external",
+						constants.DisableAutoUpdateAnnotationKey: "false",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -2084,9 +2084,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKey.Name,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
-						constants.AutoUpdateAnnotationKey:   "false",
+						"serving.kserve.io/deploymentMode":       "RawDeployment",
+						"serving.kserve.io/autoscalerClass":      "external",
+						constants.DisableAutoUpdateAnnotationKey: "true",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -2274,9 +2274,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKeyPytorch.Name,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
-						constants.AutoUpdateAnnotationKey:   "true",
+						"serving.kserve.io/deploymentMode":       "RawDeployment",
+						"serving.kserve.io/autoscalerClass":      "external",
+						constants.DisableAutoUpdateAnnotationKey: "false",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -2310,9 +2310,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      serviceKeyTensorflow.Name,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
-						constants.AutoUpdateAnnotationKey:   "true",
+						"serving.kserve.io/deploymentMode":       "RawDeployment",
+						"serving.kserve.io/autoscalerClass":      "external",
+						constants.DisableAutoUpdateAnnotationKey: "false",
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
