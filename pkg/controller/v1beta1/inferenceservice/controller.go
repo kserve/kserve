@@ -169,19 +169,6 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	}
 
-	// Check if auto-update is disabled, this will skip the reconciliation if the annotation is present.
-	// Used for when k8s autoreconciles the InferenceService.
-	if annotations != nil {
-		if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" {
-			// Only skip reconciliation if this is an update (not initial creation)
-			// Initial creation will have an empty ServingRuntimeName
-			if isvc.Status.ServingRuntimeName != "" {
-				r.Log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
-				return reconcile.Result{}, nil
-			}
-		}
-	}
-
 	// name of our custom finalizer
 	finalizerName := "inferenceservice.finalizers"
 
@@ -238,12 +225,27 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Setup reconcilers
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 
+	// Check if auto-update is disabled, this will skip the reconciliation if the annotation is present.
+	// Used for when k8s autoreconciles the InferenceService.
+	skipReconciliation := false
+	if annotations != nil {
+		if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" {
+			// Only skip reconciliation if this is an update (not initial creation)
+			// Initial creation will have an empty ServingRuntimeName
+			if isvc.Status.ServingRuntimeName != "" {
+				r.Log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
+				skipReconciliation = true
+			}
+		}
+	}
+
 	// Reconcile cabundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset, r.Scheme)
 	if err := caBundleConfigMapReconciler.Reconcile(ctx, isvc); err != nil {
 		return reconcile.Result{}, err
 	}
 
+	// Always reconcile components for initial creation
 	reconcilers := []components.Component{}
 	if deploymentMode != constants.ModelMeshDeployment {
 		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
@@ -269,6 +271,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return result, nil
 		}
 	}
+
 	// reconcile RoutesReady and LatestDeploymentReady conditions for serverless deployment
 	if deploymentMode == constants.Serverless {
 		componentList := []v1beta1.ComponentType{v1beta1.PredictorComponent}
@@ -281,7 +284,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.RoutesReady)
 		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
 	}
-	// Reconcile ingress
+
+	// Always reconcile ingress for initial creation
 	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
@@ -312,10 +316,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	// Reconcile modelConfig
-	configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Clientset, r.Scheme)
-	if err := configMapReconciler.Reconcile(ctx, isvc); err != nil {
-		return reconcile.Result{}, err
+	// Only reconcile modelConfig if not skipping updates
+	if !skipReconciliation {
+		// Reconcile modelConfig
+		configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Clientset, r.Scheme)
+		if err := configMapReconciler.Reconcile(ctx, isvc); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	if err = r.updateStatus(ctx, isvc, deploymentMode); err != nil {
