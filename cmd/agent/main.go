@@ -28,8 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/scaleway/scaleway-sdk-go/logger"
-
 	"github.com/go-logr/zapr"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
@@ -299,7 +297,7 @@ func startLogger(workers int, logStorePath *string, logStoreFormat *string, log 
 		if found {
 			annotationKVPair[k] = v
 		} else {
-			logger.Errorf("annotation does not adhere to desired format got key: %s value: %s", k, v)
+			log.Errorf("annotation does not adhere to desired format got key: %s value: %s", k, v)
 			os.Exit(-1)
 		}
 	}

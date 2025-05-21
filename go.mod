@@ -21,7 +21,6 @@ require (
 	github.com/onsi/gomega v1.36.3
 	github.com/open-telemetry/opentelemetry-operator v0.113.0
 	github.com/pkg/errors v0.9.1
-	github.com/scaleway/scaleway-sdk-go v1.0.0-beta.30
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.6
 	github.com/stretchr/testify v1.10.0
