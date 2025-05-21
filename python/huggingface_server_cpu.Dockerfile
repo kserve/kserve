@@ -128,10 +128,10 @@ FROM base AS prod
 
 RUN echo 'ulimit -c 0' >> ~/.bashrc
 
-# Activate virtual env
 ARG VENV_PATH
-ENV VIRTUAL_ENV=${VENV_PATH}
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+# Activate virtual env by setting VIRTUAL_ENV
+ENV VIRTUAL_ENV=${WORKSPACE_DIR}/${VENV_PATH}
+ENV PATH="${WORKSPACE_DIR}/${VENV_PATH}/bin:$PATH"
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
