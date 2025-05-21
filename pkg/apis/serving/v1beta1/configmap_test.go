@@ -299,6 +299,7 @@ func TestInferenceServiceDisallowedLists(t *testing.T) {
 func TestNewLocalModelConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
+	// Test pull policy cases
 	tests := []struct {
 		name          string
 		configData    string
@@ -349,6 +350,64 @@ func TestNewLocalModelConfig(t *testing.T) {
 			}
 		})
 	}
+
+	// Test configuration parsing cases
+	t.Run("returns default config when localModel config is missing", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				LocalModelConfigName: `{"localModelAgentImagePullPolicy": "Always"}`,
+			},
+		}
+		cfg, err := NewLocalModelConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.Enabled).To(gomega.BeFalse())
+		g.Expect(cfg.JobNamespace).To(gomega.BeEmpty())
+	})
+
+	t.Run("returns config when localModel config is present", func(t *testing.T) {
+		fsGroup := int64(1000)
+		jobTTL := int32(3600)
+		reconFreq := int64(60)
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				LocalModelConfigName: fmt.Sprintf(`{
+					"enabled": true,
+					"jobNamespace": "test-ns",
+					"defaultJobImage": "test-image",
+					"fsGroup": %d,
+					"jobTTLSecondsAfterFinished": %d,
+					"reconcilationFrequencyInSecs": %d,
+					"disableVolumeManagement": true,
+					"localModelAgentImagePullPolicy": "Always"
+				}`, fsGroup, jobTTL, reconFreq),
+			},
+		}
+		cfg, err := NewLocalModelConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.Enabled).To(gomega.BeTrue())
+		g.Expect(cfg.JobNamespace).To(gomega.Equal("test-ns"))
+		g.Expect(cfg.DefaultJobImage).To(gomega.Equal("test-image"))
+		g.Expect(cfg.FSGroup).ToNot(gomega.BeNil())
+		g.Expect(*cfg.FSGroup).To(gomega.Equal(fsGroup))
+		g.Expect(cfg.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
+		g.Expect(*cfg.JobTTLSecondsAfterFinished).To(gomega.Equal(jobTTL))
+		g.Expect(cfg.ReconcilationFrequencyInSecs).ToNot(gomega.BeNil())
+		g.Expect(*cfg.ReconcilationFrequencyInSecs).To(gomega.Equal(reconFreq))
+		g.Expect(cfg.DisableVolumeManagement).To(gomega.BeTrue())
+	})
+
+	t.Run("returns error on invalid localModel config json", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				LocalModelConfigName: `invalid-json`,
+			},
+		}
+		cfg, err := NewLocalModelConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+	})
 }
 
 func TestValidateIngressGateway(t *testing.T) {
@@ -522,64 +581,6 @@ func TestNewDeployConfig_EmptyConfigMap(t *testing.T) {
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(cfg).ShouldNot(gomega.BeNil())
 	g.Expect(cfg.DefaultDeploymentMode).To(gomega.BeEmpty())
-}
-
-func TestNewLocalModelConfig(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	t.Run("returns default config when localModel config is missing", func(t *testing.T) {
-		cm := &corev1.ConfigMap{
-			Data: map[string]string{},
-		}
-		cfg, err := NewLocalModelConfig(cm)
-		g.Expect(err).ShouldNot(gomega.HaveOccurred())
-		g.Expect(cfg).ShouldNot(gomega.BeNil())
-		g.Expect(cfg.Enabled).To(gomega.BeFalse())
-		g.Expect(cfg.JobNamespace).To(gomega.BeEmpty())
-	})
-
-	t.Run("returns config when localModel config is present", func(t *testing.T) {
-		fsGroup := int64(1000)
-		jobTTL := int32(3600)
-		reconFreq := int64(60)
-		cm := &corev1.ConfigMap{
-			Data: map[string]string{
-				LocalModelConfigName: fmt.Sprintf(`{
-					"enabled": true,
-					"jobNamespace": "test-ns",
-					"defaultJobImage": "test-image",
-					"fsGroup": %d,
-					"jobTTLSecondsAfterFinished": %d,
-					"reconcilationFrequencyInSecs": %d,
-					"disableVolumeManagement": true
-				}`, fsGroup, jobTTL, reconFreq),
-			},
-		}
-		cfg, err := NewLocalModelConfig(cm)
-		g.Expect(err).ShouldNot(gomega.HaveOccurred())
-		g.Expect(cfg).ShouldNot(gomega.BeNil())
-		g.Expect(cfg.Enabled).To(gomega.BeTrue())
-		g.Expect(cfg.JobNamespace).To(gomega.Equal("test-ns"))
-		g.Expect(cfg.DefaultJobImage).To(gomega.Equal("test-image"))
-		g.Expect(cfg.FSGroup).ToNot(gomega.BeNil())
-		g.Expect(*cfg.FSGroup).To(gomega.Equal(fsGroup))
-		g.Expect(cfg.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
-		g.Expect(*cfg.JobTTLSecondsAfterFinished).To(gomega.Equal(jobTTL))
-		g.Expect(cfg.ReconcilationFrequencyInSecs).ToNot(gomega.BeNil())
-		g.Expect(*cfg.ReconcilationFrequencyInSecs).To(gomega.Equal(reconFreq))
-		g.Expect(cfg.DisableVolumeManagement).To(gomega.BeTrue())
-	})
-
-	t.Run("returns error on invalid localModel config json", func(t *testing.T) {
-		cm := &corev1.ConfigMap{
-			Data: map[string]string{
-				LocalModelConfigName: `invalid-json`,
-			},
-		}
-		cfg, err := NewLocalModelConfig(cm)
-		g.Expect(err).Should(gomega.HaveOccurred())
-		g.Expect(cfg).To(gomega.BeNil())
-	})
 }
 
 func TestNewSecurityConfig(t *testing.T) {
