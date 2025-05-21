@@ -450,6 +450,9 @@ spec:
       image: "{{ .Values.kserve.servingruntime.huggingfaceserver.image }}:{{ .Values.kserve.servingruntime.huggingfaceserver.tag }}"
       args:
         - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+      env:
+        - name: LMCACHE_USE_EXPERIMENTAL
+          value: "{{ .Values.kserve.servingruntime.huggingfaceserver.lmcacheUseExperimental }}"
       securityContext:
           {{- with .Values.kserve.servingruntime.huggingfaceserver.securityContext}}
           {{- toYaml . | nindent 10 }}
@@ -693,4 +696,4 @@ spec:
     {{- with .Values.kserve.servingruntime.huggingfaceserver_multinode.imagePullSecrets }}
     imagePullSecrets:
       {{- toYaml . | nindent 4 }}
-    {{- end }}          
+    {{- end }}
