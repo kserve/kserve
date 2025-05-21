@@ -304,7 +304,7 @@ func startLogger(workers int, logStorePath *string, logStoreFormat *string, log 
 
 	var store kfslogger.Store
 	if kfslogger.GetStorageStrategy(*logUrl) != kfslogger.HttpStorage {
-		if logStoreFormat != nil && *logStoreFormat != "" {
+		if logStoreFormat != nil && *logStoreFormat != "" && logStorePath != nil && *logStorePath != "" {
 			log.Infow("Logger storage is enabled", "path", logStorePath, "logStoreFormat", logStoreFormat)
 			store, err = kfslogger.NewStoreForScheme(logUrlParsed.Scheme, *logStorePath, *logStoreFormat, log)
 			if err != nil {
