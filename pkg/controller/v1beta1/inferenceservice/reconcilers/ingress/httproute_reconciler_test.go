@@ -23,8 +23,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/format"
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -1713,4 +1715,811 @@ func TestCreateRawExplainerHTTPRoute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRawHTTPRouteReconciler_reconcilePredictorHTTPRoute(t *testing.T) {
+	g := NewGomegaWithT(t)
+	s := scheme.Scheme
+	_ = v1beta1.AddToScheme(s)
+	_ = gatewayapiv1.Install(s)
+	_ = corev1.AddToScheme(s)
+
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressDomain:        "example.com",
+		UrlScheme:            "http",
+		DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+		KserveIngressGateway: "kserve/knative-gateway",
+	}
+	isvcConfig := &v1beta1.InferenceServicesConfig{}
+
+	t.Run("creates predictor HTTPRoute if not exists", func(t *testing.T) {
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		reconciler := &RawHTTPRouteReconciler{
+			client:        client,
+			scheme:        s,
+			ingressConfig: ingressConfig,
+			isvcConfig:    isvcConfig,
+		}
+
+		err := reconciler.reconcilePredictorHTTPRoute(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		route := &gatewayapiv1.HTTPRoute{}
+		err = client.Get(t.Context(), types.NamespacedName{
+			Name:      "foo-predictor",
+			Namespace: "default",
+		}, route)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(route.Spec.Hostnames).To(ContainElement(gatewayapiv1.Hostname("foo-predictor-default.example.com")))
+	})
+
+	t.Run("does nothing if desired is nil (PredictorReady false)", func(t *testing.T) {
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		// PredictorReady is not set or false
+
+		reconciler := &RawHTTPRouteReconciler{
+			client:        client,
+			scheme:        s,
+			ingressConfig: ingressConfig,
+			isvcConfig:    isvcConfig,
+		}
+
+		err := reconciler.reconcilePredictorHTTPRoute(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		route := &gatewayapiv1.HTTPRoute{}
+		err = client.Get(t.Context(), types.NamespacedName{
+			Name:      "foo-predictor",
+			Namespace: "default",
+		}, route)
+		g.Expect(apierr.IsNotFound(err)).To(BeTrue())
+	})
+
+	t.Run("updates HTTPRoute if spec changes", func(t *testing.T) {
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		// Create an existing HTTPRoute with a different hostname
+		existing := &gatewayapiv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo-predictor",
+				Namespace: "default",
+			},
+			Spec: gatewayapiv1.HTTPRouteSpec{
+				Hostnames: []gatewayapiv1.Hostname{"old-host.example.com"},
+			},
+		}
+		_ = client.Create(t.Context(), existing)
+
+		reconciler := &RawHTTPRouteReconciler{
+			client:        client,
+			scheme:        s,
+			ingressConfig: ingressConfig,
+			isvcConfig:    isvcConfig,
+		}
+
+		err := reconciler.reconcilePredictorHTTPRoute(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		route := &gatewayapiv1.HTTPRoute{}
+		err = client.Get(t.Context(), types.NamespacedName{
+			Name:      "foo-predictor",
+			Namespace: "default",
+		}, route)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(route.Spec.Hostnames).To(ContainElement(gatewayapiv1.Hostname("foo-predictor-default.example.com")))
+	})
+}
+
+func TestRawHTTPRouteReconciler_reconcileTransformerHTTPRoute(t *testing.T) {
+	g := NewGomegaWithT(t)
+	s := scheme.Scheme
+	s.AddKnownTypes(v1beta1.SchemeGroupVersion, &v1beta1.InferenceService{})
+	s.AddKnownTypes(schema.GroupVersion{Group: gatewayapiv1.GroupVersion.Group, Version: gatewayapiv1.GroupVersion.Version}, &gatewayapiv1.HTTPRoute{})
+	s.AddKnownTypes(corev1.SchemeGroupVersion, &corev1.Service{})
+
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressDomain:        "example.com",
+		UrlScheme:            "http",
+		DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+		KserveIngressGateway: "kserve/knative-gateway",
+	}
+	isvcConfig := &v1beta1.InferenceServicesConfig{}
+
+	t.Run("creates transformer HTTPRoute if not exists", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor:   v1beta1.PredictorSpec{},
+				Transformer: &v1beta1.TransformerSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.TransformerReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			},
+		}
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		// Create a dummy transformer service so the reconciler finds it
+		client.Create(t.Context(), &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-transformer",
+				Namespace: "default",
+			},
+		})
+		reconciler := &RawHTTPRouteReconciler{
+			client:        client,
+			scheme:        s,
+			ingressConfig: ingressConfig,
+			isvcConfig:    isvcConfig,
+		}
+		err := reconciler.reconcileTransformerHTTPRoute(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		route := &gatewayapiv1.HTTPRoute{}
+		err = client.Get(t.Context(), types.NamespacedName{
+			Name:      "test-isvc-transformer",
+			Namespace: "default",
+		}, route)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(route.Spec.Hostnames).ToNot(BeEmpty())
+	})
+
+	t.Run("updates transformer HTTPRoute if spec changed", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc2",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor:   v1beta1.PredictorSpec{},
+				Transformer: &v1beta1.TransformerSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.TransformerReady,
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+			},
+		}
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		client.Create(t.Context(), &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc2-transformer",
+				Namespace: "default",
+			},
+		})
+		// Create an existing HTTPRoute with different spec
+		existingRoute := &gatewayapiv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc2-transformer",
+				Namespace: "default",
+			},
+			Spec: gatewayapiv1.HTTPRouteSpec{
+				Hostnames: []gatewayapiv1.Hostname{"oldhost.example.com"},
+			},
+		}
+		client.Create(t.Context(), existingRoute)
+
+		reconciler := &RawHTTPRouteReconciler{
+			client:        client,
+			scheme:        s,
+			ingressConfig: ingressConfig,
+			isvcConfig:    isvcConfig,
+		}
+		err := reconciler.reconcileTransformerHTTPRoute(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		route := &gatewayapiv1.HTTPRoute{}
+		err = client.Get(t.Context(), types.NamespacedName{
+			Name:      "test-isvc2-transformer",
+			Namespace: "default",
+		}, route)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(route.Spec.Hostnames).To(ContainElement(gatewayapiv1.Hostname("test-isvc2-transformer-default.example.com")))
+	})
+
+	t.Run("does nothing if desired is nil", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc3",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor:   v1beta1.PredictorSpec{},
+				Transformer: &v1beta1.TransformerSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   v1beta1.TransformerReady,
+							Status: corev1.ConditionFalse,
+						},
+					},
+				},
+			},
+		}
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		reconciler := &RawHTTPRouteReconciler{
+			client:        client,
+			scheme:        s,
+			ingressConfig: ingressConfig,
+			isvcConfig:    isvcConfig,
+		}
+		err := reconciler.reconcileTransformerHTTPRoute(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+	})
+}
+
+func TestRawHTTPRouteReconciler_reconcileExplainerHTTPRoute(t *testing.T) {
+	g := NewGomegaWithT(t)
+	s := scheme.Scheme
+	s.AddKnownTypes(v1beta1.SchemeGroupVersion, &v1beta1.InferenceService{})
+	s.AddKnownTypes(schema.GroupVersion{Group: gatewayapiv1.GroupVersion.Group, Version: gatewayapiv1.GroupVersion.Version}, &gatewayapiv1.HTTPRoute{})
+	ctx := t.Context()
+
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressDomain:        "example.com",
+		UrlScheme:            "http",
+		DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+		KserveIngressGateway: "kserve-system/kserve-gateway",
+	}
+	isvcConfig := &v1beta1.InferenceServicesConfig{}
+
+	t.Run("creates explainer HTTPRoute when ready", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+				Explainer: &v1beta1.ExplainerSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.ExplainerReady, &apis.Condition{
+			Type:   v1beta1.ExplainerReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		// Create explainer service so default suffix is not used
+		client.Create(ctx, &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo-explainer",
+				Namespace: "bar",
+			},
+		})
+
+		reconciler := &RawHTTPRouteReconciler{
+			client:        client,
+			scheme:        s,
+			ingressConfig: ingressConfig,
+			isvcConfig:    isvcConfig,
+		}
+
+		err := reconciler.reconcileExplainerHTTPRoute(ctx, isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		route := &gatewayapiv1.HTTPRoute{}
+		err = client.Get(ctx, types.NamespacedName{Name: "foo-explainer", Namespace: "bar"}, route)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(route.Spec.Hostnames).ToNot(BeEmpty())
+	})
+
+	t.Run("does not create HTTPRoute if explainer not ready", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+				Explainer: &v1beta1.ExplainerSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		// ExplainerReady not set or false
+
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		reconciler := &RawHTTPRouteReconciler{
+			client:        client,
+			scheme:        s,
+			ingressConfig: ingressConfig,
+			isvcConfig:    isvcConfig,
+		}
+
+		err := reconciler.reconcileExplainerHTTPRoute(ctx, isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		route := &gatewayapiv1.HTTPRoute{}
+		err = client.Get(ctx, types.NamespacedName{Name: "foo-explainer", Namespace: "bar"}, route)
+		g.Expect(apierr.IsNotFound(err)).To(BeTrue())
+	})
+
+	t.Run("uses default suffix if explainer service with default suffix exists", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+				Explainer: &v1beta1.ExplainerSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.ExplainerReady, &apis.Condition{
+			Type:   v1beta1.ExplainerReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		// Register HTTPRoute and corev1.Service types in the scheme for this test
+		s.AddKnownTypes(schema.GroupVersion{Group: gatewayapiv1.GroupVersion.Group, Version: gatewayapiv1.GroupVersion.Version}, &gatewayapiv1.HTTPRoute{})
+		s.AddKnownTypes(corev1.SchemeGroupVersion, &corev1.Service{})
+
+		client := fake.NewClientBuilder().WithScheme(s).
+			WithObjects(&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-explainer-default",
+					Namespace: "bar",
+				},
+			}).Build()
+
+		reconciler := &RawHTTPRouteReconciler{
+			client:        client,
+			scheme:        s,
+			ingressConfig: ingressConfig,
+			isvcConfig:    isvcConfig,
+		}
+
+		err := reconciler.reconcileExplainerHTTPRoute(ctx, isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		route := &gatewayapiv1.HTTPRoute{}
+		_ = client.Get(ctx, types.NamespacedName{Name: "foo-explainer-default", Namespace: "bar"}, route)
+	})
+}
+
+func TestRawHTTPRouteReconciler_reconcileTopLevelHTTPRoute(t *testing.T) {
+	g := NewGomegaWithT(t)
+	s := scheme.Scheme
+	_ = gatewayapiv1.Install(s)
+	_ = v1beta1.AddToScheme(s)
+
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressDomain:        "example.com",
+		UrlScheme:            "http",
+		DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+		KserveIngressGateway: "kserve/kserve-gateway",
+	}
+	isvcConfig := &v1beta1.InferenceServicesConfig{}
+
+	t.Run("creates top-level HTTPRoute for predictor only", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		client := fake.NewClientBuilder().WithScheme(s).WithObjects(
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc-predictor",
+					Namespace: "default",
+				},
+			},
+		).Build()
+
+		reconciler := &RawHTTPRouteReconciler{
+			client:        client,
+			scheme:        s,
+			ingressConfig: ingressConfig,
+			isvcConfig:    isvcConfig,
+		}
+
+		err := reconciler.reconcileTopLevelHTTPRoute(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		route := &gatewayapiv1.HTTPRoute{}
+		err = client.Get(t.Context(), types.NamespacedName{
+			Name:      "test-isvc",
+			Namespace: "default",
+		}, route)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(route.Spec.Hostnames).To(ContainElement(gatewayapiv1.Hostname("test-isvc-default.example.com")))
+	})
+
+	t.Run("creates top-level HTTPRoute for predictor+transformer+explainer", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc2",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor:   v1beta1.PredictorSpec{},
+				Transformer: &v1beta1.TransformerSpec{},
+				Explainer:   &v1beta1.ExplainerSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+		isvc.Status.SetCondition(v1beta1.TransformerReady, &apis.Condition{
+			Type:   v1beta1.TransformerReady,
+			Status: corev1.ConditionTrue,
+		})
+		isvc.Status.SetCondition(v1beta1.ExplainerReady, &apis.Condition{
+			Type:   v1beta1.ExplainerReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		client := fake.NewClientBuilder().WithScheme(s).WithObjects(
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc2-predictor",
+					Namespace: "default",
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc2-transformer",
+					Namespace: "default",
+				},
+			},
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-isvc2-explainer",
+					Namespace: "default",
+				},
+			},
+		).Build()
+
+		reconciler := &RawHTTPRouteReconciler{
+			client:        client,
+			scheme:        s,
+			ingressConfig: ingressConfig,
+			isvcConfig:    isvcConfig,
+		}
+
+		err := reconciler.reconcileTopLevelHTTPRoute(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		route := &gatewayapiv1.HTTPRoute{}
+		err = client.Get(t.Context(), types.NamespacedName{
+			Name:      "test-isvc2",
+			Namespace: "default",
+		}, route)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(route.Spec.Hostnames).To(ContainElement(gatewayapiv1.Hostname("test-isvc2-default.example.com")))
+		g.Expect(route.Spec.Rules).ToNot(BeEmpty())
+	})
+
+	t.Run("does not create HTTPRoute if predictor not ready", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc3",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		reconciler := &RawHTTPRouteReconciler{
+			client:        client,
+			scheme:        s,
+			ingressConfig: ingressConfig,
+			isvcConfig:    isvcConfig,
+		}
+		err := reconciler.reconcileTopLevelHTTPRoute(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		route := &gatewayapiv1.HTTPRoute{}
+		err = client.Get(t.Context(), types.NamespacedName{
+			Name:      "test-isvc3",
+			Namespace: "default",
+		}, route)
+		g.Expect(apierr.IsNotFound(err)).To(BeTrue())
+	})
+}
+
+func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// Setup minimal IngressConfig and InferenceServicesConfig
+	ingressConfig := &v1beta1.IngressConfig{
+		IngressDomain:        "example.com",
+		UrlScheme:            "http",
+		DomainTemplate:       "{{.Name}}-{{.Namespace}}.{{.IngressDomain}}",
+		KserveIngressGateway: "kserve/knative-gateway",
+	}
+	isvcConfig := &v1beta1.InferenceServicesConfig{
+		ServiceAnnotationDisallowedList: []string{},
+		ServiceLabelDisallowedList:      []string{},
+	}
+
+	// Setup scheme and fake client
+	s := scheme.Scheme
+	s.AddKnownTypes(v1beta1.SchemeGroupVersion, &v1beta1.InferenceService{})
+	s.AddKnownTypes(schema.GroupVersion{Group: gatewayapiv1.GroupVersion.Group, Version: gatewayapiv1.GroupVersion.Version}, &gatewayapiv1.HTTPRoute{})
+	s.AddKnownTypes(corev1.SchemeGroupVersion, &corev1.Service{})
+
+	// Helper to create a ready HTTPRoute status
+	readyHTTPRoute := func(name, namespace string) *gatewayapiv1.HTTPRoute {
+		return &gatewayapiv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+			},
+			Status: gatewayapiv1.HTTPRouteStatus{
+				RouteStatus: gatewayapiv1.RouteStatus{
+					Parents: []gatewayapiv1.RouteParentStatus{
+						{
+							Conditions: []metav1.Condition{
+								{
+									Type:   string(gatewayapiv1.RouteConditionAccepted),
+									Status: metav1.ConditionTrue,
+								},
+								{
+									Type:   string(gatewayapiv1.RouteConditionResolvedRefs),
+									Status: metav1.ConditionTrue,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	t.Run("Reconcile disables ingress creation for cluster-local label", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "default",
+				Labels: map[string]string{
+					constants.NetworkVisibility: constants.ClusterLocalVisibility,
+				},
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
+		err := reconciler.Reconcile(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionTrue))
+	})
+
+	t.Run("Reconcile disables ingress creation for cluster-local domain", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		clusterLocalConfig := *ingressConfig
+		clusterLocalConfig.IngressDomain = constants.ClusterLocalDomain
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		reconciler := NewRawHTTPRouteReconciler(client, s, &clusterLocalConfig, isvcConfig)
+		err := reconciler.Reconcile(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionTrue))
+	})
+
+	t.Run("Reconcile returns error if HTTPRoute not found", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
+		err := reconciler.Reconcile(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+	})
+
+	t.Run("Reconcile sets IngressReady to False if HTTPRoute not ready", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+		notReadyHTTPRoute := &gatewayapiv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      constants.PredictorServiceName(isvc.Name),
+				Namespace: isvc.Namespace,
+			},
+			Status: gatewayapiv1.HTTPRouteStatus{
+				RouteStatus: gatewayapiv1.RouteStatus{
+					Parents: []gatewayapiv1.RouteParentStatus{
+						{
+							Conditions: []metav1.Condition{
+								{
+									Type:    string(gatewayapiv1.RouteConditionAccepted),
+									Status:  metav1.ConditionFalse,
+									Reason:  "NotAccepted",
+									Message: "Route not accepted",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		client := fake.NewClientBuilder().
+			WithScheme(s).
+			WithObjects(
+				notReadyHTTPRoute,
+				readyHTTPRoute(isvc.Name, isvc.Namespace),
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.PredictorServiceName(isvc.Name),
+						Namespace: isvc.Namespace,
+					},
+				},
+			).
+			Build()
+		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
+		err := reconciler.Reconcile(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+		g.Expect(cond.Message).To(ContainSubstring("Predictor"))
+	})
+
+	t.Run("Reconcile with transformer and explainer, all HTTPRoutes ready", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor:   v1beta1.PredictorSpec{},
+				Transformer: &v1beta1.TransformerSpec{},
+				Explainer:   &v1beta1.ExplainerSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+		isvc.Status.SetCondition(v1beta1.TransformerReady, &apis.Condition{
+			Type:   v1beta1.TransformerReady,
+			Status: corev1.ConditionTrue,
+		})
+		isvc.Status.SetCondition(v1beta1.ExplainerReady, &apis.Condition{
+			Type:   v1beta1.ExplainerReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		client := fake.NewClientBuilder().
+			WithScheme(s).
+			WithObjects(
+				readyHTTPRoute(constants.PredictorServiceName(isvc.Name), isvc.Namespace),
+				readyHTTPRoute(constants.TransformerServiceName(isvc.Name), isvc.Namespace),
+				readyHTTPRoute(constants.ExplainerServiceName(isvc.Name), isvc.Namespace),
+				readyHTTPRoute(isvc.Name, isvc.Namespace),
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.PredictorServiceName(isvc.Name),
+						Namespace: isvc.Namespace,
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.TransformerServiceName(isvc.Name),
+						Namespace: isvc.Namespace,
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.ExplainerServiceName(isvc.Name),
+						Namespace: isvc.Namespace,
+					},
+				},
+			).
+			Build()
+
+		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
+		err := reconciler.Reconcile(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+	})
 }
