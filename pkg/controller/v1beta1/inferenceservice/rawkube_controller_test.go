@@ -1692,7 +1692,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 	})
-	FContext("When Updating a Serving Runtime", func() {
+	Context("When Updating a Serving Runtime", func() {
 		configs := map[string]string{
 			"explainers": `{
 				"alibi": {
