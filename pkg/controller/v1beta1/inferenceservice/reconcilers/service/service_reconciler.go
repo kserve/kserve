@@ -305,7 +305,7 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, e
 		case constants.CheckResultUpdate:
 			opErr = r.client.Update(ctx, svc)
 		case constants.CheckResultDelete:
-			log.Info("Stopping service", "namespace", svc.Namespace, "name", svc.Name)
+			log.Info("Deleting service", "namespace", svc.Namespace, "name", svc.Name)
 			if svc.GetDeletionTimestamp() == nil { // check if the service was already deleted
 				opErr = r.client.Delete(ctx, svc)
 			}

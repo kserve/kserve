@@ -231,7 +231,7 @@ func (r *KedaReconciler) Reconcile(ctx context.Context) error {
 		}
 	} else {
 		if forceStopRuntime {
-			log.Info("Stopping KEDA Autoscaler", "namespace", existing.Namespace, "name", existing.Name)
+			log.Info("Deleting KEDA Autoscaler", "namespace", existing.Namespace, "name", existing.Name)
 			if existing.GetDeletionTimestamp() == nil { // check if the autoscaler was already deleted
 				err := r.client.Delete(ctx, existing)
 				if err != nil {

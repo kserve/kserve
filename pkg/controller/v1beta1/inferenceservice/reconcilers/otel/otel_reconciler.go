@@ -171,7 +171,7 @@ func (o *OtelReconciler) Reconcile(ctx context.Context) error {
 		}
 	} else {
 		if forceStopRuntime {
-			log.Info("Stopping OpenTelemetry Collector", "namespace", existing.Namespace, "name", existing.Name)
+			log.Info("Deleting OpenTelemetry Collector", "namespace", existing.Namespace, "name", existing.Name)
 			if existing.GetDeletionTimestamp() == nil { // check if the otel was already deleted
 				err := o.client.Delete(ctx, existing)
 				if err != nil {
