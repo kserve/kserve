@@ -114,14 +114,6 @@ type InferenceServiceReconciler struct {
 	Recorder     record.EventRecorder
 }
 
-func convertToStringSlice(protocols []constants.InferenceServiceProtocol) []string {
-	result := make([]string, len(protocols))
-	for i, protocol := range protocols {
-		result[i] = string(protocol)
-	}
-	return result
-}
-
 func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	// Fetch the InferenceService instance
 	isvc := &v1beta1.InferenceService{}
