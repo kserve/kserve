@@ -18,58 +18,21 @@ package utils
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
 	"github.com/pkg/errors"
-	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/go-logr/logr"
+	"k8s.io/client-go/kubernetes"
+	"knative.dev/serving/pkg/apis/autoscaling"
 
 	"github.com/kserve/kserve/pkg/constants"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1helpers "k8s.io/component-helpers/scheduling/corev1"
 )
-
-// GetAutoscalerConfiguration reads the global knative serving configuration and retrieves values related to the autoscaler.
-// This configuration is defined in the knativeserving custom resource.
-func GetAutoscalerConfiguration(ctx context.Context, client client.Client) (string, string, error) {
-	// Set allow-zero-initial-scale and intitial-scale to their default values to start.
-	// If autoscaling values are not set in the configuration, then the defaults are used.
-	allowZeroInitialScale := "false"
-	globalInitialScale := "1"
-
-	// List all knativeserving custom resources to handle scenarios where the custom resource is not created in the default knative-serving namespace.
-	knservingList := &operatorv1beta1.KnativeServingList{}
-	err := client.List(ctx, knservingList)
-	if err != nil {
-		return allowZeroInitialScale, globalInitialScale, errors.Wrapf(
-			err,
-			"fails to retrieve the knativeserving custom resource.",
-		)
-	} else if len(knservingList.Items) == 0 {
-		return allowZeroInitialScale, globalInitialScale, errors.New("no knativeserving resources found in cluster.")
-	}
-
-	// Always use the first knativeserving resource returned.
-	// We are operating under the assumption that there should be a single knativeserving custom resource created on the cluster.
-	knserving := knservingList.Items[0]
-
-	// Check for both the autoscaler key with and without the 'config-' prefix. Both are supported by knative.
-	var knservingAutoscalerConfig map[string]string
-	if _, ok := knserving.Spec.Config[constants.AutoscalerKey]; ok {
-		knservingAutoscalerConfig = knserving.Spec.Config[constants.AutoscalerKey]
-	} else if _, ok := knserving.Spec.Config["config-"+constants.AutoscalerKey]; ok {
-		knservingAutoscalerConfig = knserving.Spec.Config["config-"+constants.AutoscalerKey]
-	}
-
-	if configuredAllowZeroInitialScale, ok := knservingAutoscalerConfig[constants.AutoscalerAllowZeroScaleKey]; ok {
-		allowZeroInitialScale = configuredAllowZeroInitialScale
-	}
-	if configuredInitialScale, ok := knservingAutoscalerConfig[constants.AutoscalerInitialScaleKey]; ok {
-		globalInitialScale = configuredInitialScale
-	}
-
-	return allowZeroInitialScale, globalInitialScale, nil
-}
 
 // CheckNodeAffinity returns true if the node matches the node affinity specified in the PV Spec
 func CheckNodeAffinity(pvSpec *corev1.PersistentVolumeSpec, node corev1.Node) (bool, error) {
@@ -79,4 +42,118 @@ func CheckNodeAffinity(pvSpec *corev1.PersistentVolumeSpec, node corev1.Node) (b
 
 	terms := pvSpec.NodeAffinity.Required
 	return corev1helpers.MatchNodeSelectorTerms(&node, terms)
+}
+
+// SetAutoScalingAnnotations validates the requested autoscaling configuration against the
+// globally configured knative autoscaler configuration, then sets the resolved autoscaling annotations.
+func SetAutoScalingAnnotations(ctx context.Context,
+	clientset kubernetes.Interface,
+	annotations map[string]string,
+	scaleTarget *int32,
+	scaleMetric *string,
+	minReplicas *int32,
+	maxReplicas int32,
+	log logr.Logger,
+) error {
+	// User can pass down scaling class annotation to overwrite the default scaling KPA.
+	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
+		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
+	}
+
+	if scaleTarget != nil {
+		annotations[autoscaling.TargetAnnotationKey] = strconv.Itoa(int(*scaleTarget))
+	}
+
+	if scaleMetric != nil {
+		annotations[autoscaling.MetricAnnotationKey] = *scaleMetric
+	}
+
+	// If a min replicas value is not set, use the default min replicas value.
+	if minReplicas == nil {
+		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
+	} else {
+		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(*minReplicas))
+	}
+
+	annotations[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(int(maxReplicas))
+
+	log.Info("kserve will always set the lower and upper scale bounds for knative revisions equal to the min and max replicas requested",
+		"min-scale", annotations[autoscaling.MinScaleAnnotationKey],
+		"max-scale", annotations[autoscaling.MaxScaleAnnotationKey],
+	)
+
+	// By default the initial scale value for knative revisions will be set equal to the min replicas requested.
+	// This functionality can be overridden by explicitly setting the knative initial-scale annotation.
+	if _, ok := annotations[autoscaling.InitialScaleAnnotationKey]; !ok {
+		log.Info(
+			fmt.Sprintf(
+				"The %s annotation is not explicitly set. kserve will default the initial scale value for knative revisions to equal the min replicas requested",
+				autoscaling.InitialScaleAnnotationKey,
+			),
+			"initial-scale", annotations[autoscaling.MinScaleAnnotationKey],
+		)
+		annotations[autoscaling.InitialScaleAnnotationKey] = annotations[autoscaling.MinScaleAnnotationKey]
+	} else {
+		log.Info(
+			fmt.Sprintf(
+				"The %s annotation is explicitly set. kserve will override the default initial scale value for knative revisions with the value of this annotation",
+				autoscaling.InitialScaleAnnotationKey,
+			),
+			"initial-scale", annotations[autoscaling.InitialScaleAnnotationKey],
+		)
+	}
+	initialScale, err := strconv.Atoi(annotations[autoscaling.InitialScaleAnnotationKey])
+	if err != nil {
+		return errors.Wrapf(
+			err,
+			"failed to convert %s annotation value of %s to an integer",
+			autoscaling.InitialScaleAnnotationKey,
+			annotations[autoscaling.InitialScaleAnnotationKey],
+		)
+	}
+
+	// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
+	allowZeroInitialScale, err := CheckZeroInitialScaleAllowed(ctx, clientset)
+	if err != nil {
+		return errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
+	}
+
+	// If knative is configured to not allow zero initial scale when 0 min replicas are requested,
+	// set the initial scale to 1 for the created knative revision. This represents the closest supported value
+	// to the requested min replicas. After initialization, the knative revision will be scaled to 0.
+	if !allowZeroInitialScale && initialScale == 0 {
+		log.Info("The current knative autoscaler global configuration does not allow zero initial scale. The knative revision will be initialized with 1 replica then scaled down to 0",
+			"allow-zero-initial-scale", allowZeroInitialScale,
+			"initial-scale", 1)
+		annotations[autoscaling.InitialScaleAnnotationKey] = "1"
+	}
+
+	return nil
+}
+
+// CheckZeroInitialScaleAllowed reads the global knative autoscaler configuration defined in the autoscaler
+// configmap and returns a boolean value based on if knative is configured to allow zero initial scale.
+// This configmap will always be defined with the name 'config-autoscaler'.
+// The namespace the configmap exists within may vary. If the configmap is created in a namespace other than
+// 'knative-serving' this value must be set using the KNATIVE_CONFIG_AUTOSCALER_NAMESPACE environmental variable.
+func CheckZeroInitialScaleAllowed(ctx context.Context, clientset kubernetes.Interface) (bool, error) {
+	// Set allow-zero-initial-scale to the default values to start.
+	// If autoscaling values are not set in the configuration, then the defaults are used.
+	allowZeroInitialScale := "false"
+
+	configAutoscaler, err := clientset.CoreV1().ConfigMaps(constants.AutoscalerConfigmapNamespace).Get(ctx, constants.AutoscalerConfigmapName, metav1.GetOptions{})
+	if err != nil {
+		return false, errors.Wrapf(
+			err,
+			"fails to retrieve the %s configmap from the %s namespace.",
+			constants.AutoscalerConfigmapName,
+			constants.AutoscalerConfigmapNamespace,
+		)
+	}
+
+	if configuredAllowZeroInitialScale, ok := configAutoscaler.Data[constants.AutoscalerAllowZeroScaleKey]; ok {
+		allowZeroInitialScale = configuredAllowZeroInitialScale
+	}
+
+	return strconv.ParseBool(allowZeroInitialScale)
 }

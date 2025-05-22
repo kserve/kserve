@@ -29,8 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials/gcs"
 )
@@ -750,40 +748,6 @@ func TestIsValidCustomGPUArray(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestCheckEnvsToRemove(t *testing.T) {
-	current := []corev1.EnvVar{
-		{Name: "env1", Value: "value1"},
-		{Name: "env2", Value: "value2"},
-		{Name: "env3", Value: "value3"},
-		{Name: "env4", Value: "delete"},
-	}
-	desired := []corev1.EnvVar{
-		{Name: "env2", Value: "value2"},
-		{Name: "env4", Value: "delete"},
-	}
-
-	needsToBeRemoved := []corev1.EnvVar{
-		{Name: "env1", Value: "env_marked_for_deletion"},
-		{Name: "env3", Value: "env_marked_for_deletion"},
-	}
-	removed, keep := CheckEnvsToRemove(desired, current)
-	assert.Equal(t, needsToBeRemoved, removed)
-	assert.Equal(t, desired, keep)
-
-	// resultant list should contain both envs with the delete marker and the envs that needs to be kept as it is
-	finalList := []corev1.EnvVar{}
-	finalList = append(finalList, desired...)
-	finalList = append(finalList, needsToBeRemoved...)
-	expected := []corev1.EnvVar{
-		{Name: "env2", Value: "value2"},
-		// the original value is "delete", so, it should be in the needs to  be removed list
-		{Name: "env4", Value: "delete"},
-		{Name: "env1", Value: "env_marked_for_deletion"},
-		{Name: "env3", Value: "env_marked_for_deletion"},
-	}
-	assert.Equal(t, expected, finalList)
 }
 
 func TestAppendEnvVarIfNotExists(t *testing.T) {

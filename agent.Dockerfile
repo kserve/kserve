@@ -17,6 +17,13 @@ COPY pkg/    pkg/
 USER root
 RUN CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=mod go build -a -o agent ./cmd/agent
 
+# Generate third-party licenses
+COPY LICENSE LICENSE
+RUN go install github.com/google/go-licenses@latest
+# Forbidden Licenses: https://github.com/google/licenseclassifier/blob/e6a9bb99b5a6f71d5a34336b8245e305f5430f99/license_type.go#L341
+RUN /opt/app-root/src/go/bin/go-licenses check ./cmd/... ./pkg/... --disallowed_types="forbidden,unknown"
+RUN /opt/app-root/src/go/bin/go-licenses save --save_path third_party/library ./cmd/agent
+
 # Copy the inference-agent into a thin image
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
@@ -24,8 +31,11 @@ RUN microdnf install -y --disablerepo=* --enablerepo=ubi-9-baseos-rpms shadow-ut
     microdnf clean all && \
     useradd kserve -m -u 1000
 RUN microdnf remove -y shadow-utils
-COPY third_party/ third_party/
+
+COPY --from=builder /go/src/github.com/kserve/kserve/third_party /third_party
+
 WORKDIR /ko-app
+
 COPY --from=builder /go/src/github.com/kserve/kserve/agent /ko-app/
 USER 1000:1000
 

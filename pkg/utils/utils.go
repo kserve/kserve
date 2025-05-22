@@ -323,32 +323,6 @@ func IsValidCustomGPUArray(s string) ([]string, bool) {
 	return customGPUTypes, true
 }
 
-const PLACEHOLDER_FOR_DELETION = "env_marked_for_deletion"
-
-// CheckEnvsToRemove checks the current envs against the desired ones and returns the envs that needs to be
-// removed from the target env list and envs that need to be kept.
-// Returns envsToRemove, envsToKeep
-func CheckEnvsToRemove(desired, current []corev1.EnvVar) ([]corev1.EnvVar, []corev1.EnvVar) {
-	var envsToRemove []corev1.EnvVar
-	var envsToKeep []corev1.EnvVar
-	for _, currentEnv := range current {
-		found := false
-		for _, desiredEnv := range desired {
-			if currentEnv.Name == desiredEnv.Name {
-				envsToKeep = append(envsToKeep, currentEnv)
-				found = true
-				break
-			}
-		}
-		if !found {
-			// replace the value of the found env to a placeholder to mark it for deletion
-			currentEnv.Value = PLACEHOLDER_FOR_DELETION
-			envsToRemove = append(envsToRemove, currentEnv)
-		}
-	}
-	return envsToRemove, envsToKeep
-}
-
 // StringToInt32 converts a given integer to int32. If the number exceeds the int32 limit, it returns an error.
 func StringToInt32(number string) (int32, error) {
 	converted, err := strconv.ParseInt(number, 10, 32)

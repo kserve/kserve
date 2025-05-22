@@ -30,8 +30,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"knative.dev/operator/pkg/apis/operator/base"
-	operatorv1beta1 "knative.dev/operator/pkg/apis/operator/v1beta1"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -125,23 +123,14 @@ var _ = BeforeSuite(func() {
 	Expect(k8sClient.Create(context.Background(), kserveNamespaceObj)).Should(Succeed())
 	Expect(k8sClient.Create(context.Background(), knativeServingNamespace)).Should(Succeed())
 
-	// Create knativeserving custom resource
-	knativeCr := &operatorv1beta1.KnativeServing{
+	// Create knative config-autoscaler configmap
+	configAutoscaler := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      constants.DefaultKnServingName,
-			Namespace: constants.DefaultKnServingNamespace,
-		},
-		Spec: operatorv1beta1.KnativeServingSpec{
-			CommonSpec: base.CommonSpec{
-				Config: base.ConfigMapData{
-					"autoscaler": map[string]string{
-						"allow-zero-initial-scale": "true",
-					},
-				},
-			},
+			Name:      constants.AutoscalerConfigmapName,
+			Namespace: constants.AutoscalerConfigmapNamespace,
 		},
 	}
-	Expect(k8sClient.Create(context.Background(), knativeCr)).Should(Succeed())
+	Expect(k8sClient.Create(context.Background(), configAutoscaler)).Should(Succeed())
 
 	deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Serverless"}
 

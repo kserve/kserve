@@ -357,6 +357,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	ss.ObservedGeneration = deploymentList[0].Status.ObservedGeneration
 }
 
+//nolint:unparam
 func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType appsv1.DeploymentConditionType) *apis.Condition {
 	condition := apis.Condition{}
 	var messages, reasons []string
