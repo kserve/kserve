@@ -22,10 +22,14 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 
 	corev1 "k8s.io/api/core/v1"
@@ -77,6 +81,23 @@ type StorageInitializerInjector struct {
 	client            client.Client
 }
 
+type clusterStorageContainerAccessor struct {
+	v1alpha1.ClusterStorageContainer
+
+	initObjectSelector sync.Once
+	objectSelector     labels.Selector
+	objectSelectorErr  error
+}
+
+func (s *clusterStorageContainerAccessor) GetParsedObjectSelector() (labels.Selector, error) {
+	s.initObjectSelector.Do(func() {
+		if s.objectSelector == nil {
+			s.objectSelector, s.objectSelectorErr = metav1.LabelSelectorAsSelector(s.Spec.ObjectSelector)
+		}
+	})
+	return s.objectSelector, s.objectSelectorErr
+}
+
 func getStorageInitializerConfigs(configMap *corev1.ConfigMap) (*StorageInitializerConfig, error) {
 	storageInitializerConfig := &StorageInitializerConfig{}
 	if initializerConfig, ok := configMap.Data[StorageInitializerConfigMapKeyName]; ok {
@@ -102,12 +123,14 @@ func getStorageInitializerConfigs(configMap *corev1.ConfigMap) (*StorageInitiali
 	return storageInitializerConfig, nil
 }
 
-func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, client client.Client) (*corev1.Container, error) {
+func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, objMeta metav1.ObjectMeta, cli client.Client) (*corev1.Container, error) {
 	storageContainers := &v1alpha1.ClusterStorageContainerList{}
-	if err := client.List(ctx, storageContainers); err != nil {
+	if err := cli.List(ctx, storageContainers); err != nil {
 		return nil, err
 	}
 
+	// Filter storage containers that supports the given storage uri
+	supportedStorageContainers := make([]*clusterStorageContainerAccessor, 0, len(storageContainers.Items))
 	for _, sc := range storageContainers.Items {
 		if sc.IsDisabled() {
 			continue
@@ -115,16 +138,56 @@ func GetContainerSpecForStorageUri(ctx context.Context, storageUri string, clien
 		if sc.Spec.WorkloadType != v1alpha1.InitContainer {
 			continue
 		}
-		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
-		if err != nil {
+
+		if supported, err := sc.Spec.IsStorageUriSupported(storageUri); err != nil {
 			return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
+		} else if !supported {
+			continue
 		}
-		if supported {
+
+		accessor := &clusterStorageContainerAccessor{
+			ClusterStorageContainer: sc,
+		}
+		if _, err := accessor.GetParsedObjectSelector(); err != nil {
+			return nil, fmt.Errorf("error matching labels for storage container %s: %w", sc.Name, err)
+		}
+
+		supportedStorageContainers = append(supportedStorageContainers, accessor)
+	}
+
+	// storagecontainer that contains non-empty object selectors takes precedence
+	slices.SortStableFunc(supportedStorageContainers, func(a, b *clusterStorageContainerAccessor) int {
+		asel, _ := a.GetParsedObjectSelector()
+		bsel, _ := b.GetParsedObjectSelector()
+		switch {
+		case !asel.Empty() && bsel.Empty():
+			return -1
+		case asel.Empty() && !bsel.Empty():
+			return 1
+		}
+		return 0
+	})
+
+	for _, sc := range supportedStorageContainers {
+		if matches, err := matchLabels(sc.Spec.ObjectSelector, objMeta.Labels); err != nil {
+			return nil, fmt.Errorf("error matching labels for storage container %s: %w", sc.Name, err)
+		} else if matches {
 			return &sc.Spec.Container, nil
 		}
 	}
 
 	return nil, nil
+}
+
+func matchLabels(ps *metav1.LabelSelector, labelMap map[string]string) (matches bool, err error) {
+	sel, err := metav1.LabelSelectorAsSelector(ps)
+	if err != nil {
+		return false, err
+	}
+	if sel.Empty() {
+		return true, nil
+	}
+	return sel.Matches(labels.Set(labelMap)), nil
 }
 
 // InjectModelcar injects a sidecar with the full model included to the Pod.
@@ -506,7 +569,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(pod *corev1.Pod) 
 	// Update initContainer (container spec) from a storage container CR if there is a match,
 	// otherwise initContainer is not updated.
 	// Priority: CR > configMap
-	storageContainerSpec, err := GetContainerSpecForStorageUri(context.Background(), srcURI, mi.client)
+	storageContainerSpec, err := GetContainerSpecForStorageUri(context.Background(), srcURI, pod.ObjectMeta, mi.client)
 	if err != nil {
 		return err
 	}

@@ -706,6 +706,32 @@ spec:
                 required:
                 - name
                 type: object
+              objectSelector:
+                properties:
+                  matchExpressions:
+                    items:
+                      properties:
+                        key:
+                          type: string
+                        operator:
+                          type: string
+                        values:
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: atomic
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    type: object
+                type: object
+                x-kubernetes-map-type: atomic
               supportedUriFormats:
                 items:
                   properties:
@@ -722,6 +748,10 @@ spec:
             - container
             - supportedUriFormats
             type: object
+            x-kubernetes-validations:
+            - message: '`objectSelector` is only supported for the ''initContainer''
+                workload type'
+              rule: self.workloadType != "initContainer" || !has(self.objectSelector)
         type: object
     served: true
     storage: true
