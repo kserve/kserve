@@ -140,7 +140,6 @@ func createKnativeService(
 	componentMeta metav1.ObjectMeta,
 	graph *v1alpha1.InferenceGraph,
 	config *RouterConfig,
-	allowZeroInitialScale bool,
 ) *knservingv1.Service {
 	bytes, err := json.Marshal(graph.Spec)
 	if err != nil {
@@ -157,7 +156,6 @@ func createKnativeService(
 		(*string)(graph.Spec.ScaleMetric),
 		graph.Spec.MinReplicas,
 		graph.Spec.MaxReplicas,
-		allowZeroInitialScale,
 		log,
 	)
 

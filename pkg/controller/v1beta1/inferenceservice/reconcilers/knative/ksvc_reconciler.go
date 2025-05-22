@@ -65,12 +65,11 @@ func NewKsvcReconciler(
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
-	allowZeroInitialScale bool,
 ) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:          client,
 		scheme:          scheme,
-		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList, allowZeroInitialScale),
+		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList),
 		componentExt:    componentExt,
 		componentStatus: componentStatus,
 	}
@@ -82,7 +81,6 @@ func createKnativeService(
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
-	allowZeroInitialScale bool,
 ) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
@@ -92,7 +90,6 @@ func createKnativeService(
 		(*string)(componentExtension.ScaleMetric),
 		componentExtension.MinReplicas,
 		componentExtension.MaxReplicas,
-		allowZeroInitialScale,
 		log,
 	)
 

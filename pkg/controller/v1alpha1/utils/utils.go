@@ -51,11 +51,8 @@ func SetAutoScalingAnnotations(
 	scaleMetric *string,
 	minReplicas *int32,
 	maxReplicas int32,
-	allowZeroInitialScale bool,
 	log logr.Logger,
 ) {
-	var initialScale int32
-
 	// User can pass down scaling class annotation to overwrite the default scaling KPA.
 	if _, ok := annotations[autoscaling.ClassAnnotationKey]; !ok {
 		annotations[autoscaling.ClassAnnotationKey] = autoscaling.KPA
@@ -72,65 +69,14 @@ func SetAutoScalingAnnotations(
 	// If a min replicas value is not set, use the default min replicas value.
 	if minReplicas == nil {
 		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(constants.DefaultMinReplicas))
-		initialScale = constants.DefaultMinReplicas
 	} else {
 		annotations[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(int(*minReplicas))
-		initialScale = *minReplicas
 	}
 
-	annotations[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(int(maxReplicas))
-
-	log.Info("kserve will always set the lower and upper scale bounds for knative revisions equal to the min and max replicas requested",
-		"min-scale", annotations[autoscaling.MinScaleAnnotationKey],
-		"max-scale", annotations[autoscaling.MaxScaleAnnotationKey],
-	)
-
-	// By default the initial scale value for knative revisions will be set equal to the min replicas requested.
-	// This functionality can be overridden by explicitly setting the knative initial-scale annotation.
-	if _, ok := annotations[autoscaling.InitialScaleAnnotationKey]; !ok {
-		log.Info(
-			fmt.Sprintf(
-				"The %s annotation is not explicitly set. kserve will default the initial scale value for knative revisions to equal the min replicas requested",
-				autoscaling.InitialScaleAnnotationKey,
-			),
-			"initial-scale", annotations[autoscaling.MinScaleAnnotationKey],
-		)
-		annotations[autoscaling.InitialScaleAnnotationKey] = annotations[autoscaling.MinScaleAnnotationKey]
-	} else {
-		// If the annotation is explicitly set, validate that it is set to an integer value.
-		// If the annotation value is not an integer, then set the annotation equal to the min replicas requested.
-		initialScaleValue, err := strconv.ParseInt(annotations[autoscaling.InitialScaleAnnotationKey], 10, 32)
-		if err != nil {
-			log.Info(
-				fmt.Sprintf(
-					"The %s annotation is explicitly set to an invalid non-integer value of %s. "+
-						"kserve will default the initial scale value for knative revisions to equal the min replicas requested",
-					autoscaling.InitialScaleAnnotationKey,
-					annotations[autoscaling.InitialScaleAnnotationKey],
-				),
-				"initial-scale", annotations[autoscaling.MinScaleAnnotationKey],
-			)
-			annotations[autoscaling.InitialScaleAnnotationKey] = annotations[autoscaling.MinScaleAnnotationKey]
-		} else {
-			log.Info(
-				fmt.Sprintf(
-					"The %s annotation is explicitly set. kserve will override the default initial scale value for knative revisions with the value of this annotation",
-					autoscaling.InitialScaleAnnotationKey,
-				),
-				"initial-scale", annotations[autoscaling.InitialScaleAnnotationKey],
-			)
-			initialScale = int32(initialScaleValue)
-		}
-	}
-
-	// If knative is configured to not allow zero initial scale when 0 min replicas are requested,
-	// set the initial scale to 1 for the created knative revision. This represents the closest supported value
-	// to the requested min replicas. After initialization, the knative revision will be scaled to 0.
-	if !allowZeroInitialScale && initialScale == 0 {
-		log.Info("The current knative autoscaler global configuration does not allow zero initial scale. The knative revision will be initialized with 1 replica then scaled down to 0",
-			"allow-zero-initial-scale", allowZeroInitialScale,
-			"initial-scale", 1)
-		annotations[autoscaling.InitialScaleAnnotationKey] = "1"
+	// Set the max scale equivalent to the max replicas unless max replicas is set to be unlimited, i.e. zero.
+	// If unlimited max replicas is set, then we will allow scaling up to the globally configured knative max scale value.
+	if maxReplicas != 0 {
+		annotations[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(int(maxReplicas))
 	}
 }
 
@@ -159,4 +105,51 @@ func CheckZeroInitialScaleAllowed(ctx context.Context, clientset kubernetes.Inte
 	}
 
 	return strconv.ParseBool(allowZeroInitialScale)
+}
+
+// ValidateInitialScaleAnnotation checks the annotations of a resource for the knative initial scale annotation.
+// When the annotation is set validation is performed. If any of this validation fails, the annotation will
+// be removed and the default initial scale behavior will be used.
+func ValidateInitialScaleAnnotation(annotations map[string]string, allowZeroInitialScale bool, log logr.Logger) {
+	// Check that the annoation is set.
+	_, set := annotations[autoscaling.InitialScaleAnnotationKey]
+	if !set {
+		return
+	}
+
+	// If the initial scale annotation is set to an invalid non-integer then proceed with default initial scale behavior.
+	initialScale, err := strconv.Atoi(annotations[autoscaling.InitialScaleAnnotationKey])
+	if err != nil {
+		log.Info(
+			fmt.Sprintf(
+				"Invalid value '%s' set for %s annotation, must be an integer. "+
+					"This annotation will be ignored and the default initial scale behavior will be used.",
+				annotations[autoscaling.InitialScaleAnnotationKey],
+				autoscaling.InitialScaleAnnotationKey,
+			),
+		)
+		delete(annotations, autoscaling.InitialScaleAnnotationKey)
+		return
+	}
+
+	// If the initial scale annotation is set to zero when zero initial scale is not allowed then proceed with default initial scale behavior
+	if !allowZeroInitialScale && initialScale == 0 {
+		log.Info(
+			fmt.Sprintf(
+				"The %s annotation is explicitly set to 0 when the current knative autoscaler global configuration does not allow zero initial scale. "+
+					"This annotation will be ignored and the default initial scale behavior will be used",
+				autoscaling.InitialScaleAnnotationKey,
+			),
+		)
+		delete(annotations, autoscaling.InitialScaleAnnotationKey)
+		return
+	}
+
+	log.Info(
+		fmt.Sprintf(
+			"The %s annotation is explicitly set to an allowed integer. This value will override the default initial scale behavior",
+			autoscaling.InitialScaleAnnotationKey,
+		),
+		"initial-scale", annotations[autoscaling.InitialScaleAnnotationKey],
+	)
 }
