@@ -3172,6 +3172,10 @@
           "type": "integer",
           "format": "int64"
         },
+        "servingRuntimeName": {
+          "description": "ServingRuntimeName is the name of the ServingRuntime that the InferenceService is using",
+          "type": "string"
+        },
         "url": {
           "description": "URL holds the url that will distribute traffic over the provided traffic targets. It generally has the form http[s]://{route-name}.{route-namespace}.{cluster-level-suffix}",
           "$ref": "#/definitions/knative.URL"
