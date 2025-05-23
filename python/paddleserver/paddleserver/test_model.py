@@ -19,7 +19,7 @@ import numpy as np
 import cv2
 from paddleserver import PaddleModel
 
-model_dir = os.path.join(os.path.dirname(__file__), "new_example", "new")
+model_dir = os.path.join(os.path.dirname(__file__), "example_face_model", "new")
 
 
 def face_detect_preprocess(img, shrink=0.3):
