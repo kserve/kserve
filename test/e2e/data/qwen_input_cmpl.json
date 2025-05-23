@@ -1,0 +1,6 @@
+{
+  "model": "hf-qwen-cmpl",
+  "prompt": "What is the result of 2 + 2?",
+  "temperature": 0,
+  "max_tokens": 20
+}
