@@ -184,8 +184,8 @@ def test_huggingface_vllm_cpu_openai_completions():
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
-@pytest.mark.llm
-def test_huggingface_openai_chat_completions_streaming():
+@pytest.mark.vllm
+def test_huggingface_vllm_openai_chat_completions_streaming():
     service_name = "hf-qwen-chat-stream-vllm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -227,12 +227,9 @@ def test_huggingface_openai_chat_completions_streaming():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    # Test streaming response
     full_response, _ = chat_completion_stream(
         service_name, "./data/qwen_input_chat_stream.json"
     )
-
-    # Verify we got a valid response
     assert full_response.strip() == "The result of 2 + 2 is 4."
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

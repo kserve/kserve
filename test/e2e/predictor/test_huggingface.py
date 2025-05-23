@@ -43,6 +43,8 @@ from .test_output import (
     huggingface_sequence_classification_with_probabilities_expected_output,
 )
 
+from kserve.logging import trace_logger
+
 
 @pytest.mark.llm
 def test_huggingface_openai_chat_completions():
@@ -110,6 +112,12 @@ def test_huggingface_openai_chat_completions_streaming():
                 "--dtype",
                 "bfloat16",
             ],
+            env=[
+                client.V1EnvVar(
+                    name="TRANSFORMERS_VERBOSITY",
+                    value="info",
+                ),
+            ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "1", "memory": "2Gi"},
                 limits={"cpu": "1", "memory": "4Gi"},
@@ -136,9 +144,10 @@ def test_huggingface_openai_chat_completions_streaming():
     full_response, _ = chat_completion_stream(
         service_name, "./data/qwen_input_chat_stream.json"
     )
+    trace_logger.info(f"Full response: {full_response}")
 
     # Verify we got a valid response
-    assert full_response.strip() == "The result of 2 + 2 is 4."
+    assert full_response.strip() == "The result of 2 + 2 is 4.<|im_end|>"
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -234,9 +243,8 @@ def test_huggingface_openai_text_completion_streaming():
     full_response, _ = completion_stream(
         service_name, "./data/qwen_input_cmpl_stream.json"
     )
-
-    # Verify we got a valid response
-    assert full_response.strip() == "The result of 2 + 2 is 4."
+    trace_logger.info(f"Full response: {full_response}")
+    assert full_response.strip() == "The result of 2 + 2 is 4.<|endoftext|>"
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
