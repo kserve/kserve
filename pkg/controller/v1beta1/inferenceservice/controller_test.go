@@ -507,6 +507,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
 			defer k8sClient.Delete(context.TODO(), configMap)
+
 			// Create ServingRuntime
 			servingRuntime := &v1alpha1.ServingRuntime{
 				ObjectMeta: metav1.ObjectMeta{
@@ -799,6 +800,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(updatedVirtualService.Annotations).To(Equal(annotations))
 			Expect(updatedVirtualService.Labels).To(Equal(labels))
 		})
+
 		It("Should fail if Knative Serving is not installed", func() {
 			// Simulate Knative Serving is absent by setting to false the relevant item in utils.gvResourcesCache variable
 			servingResources, getServingResourcesErr := utils.GetAvailableResourcesForApi(cfg, knservingv1.SchemeGroupVersion.String())
@@ -4133,6 +4135,119 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(inferenceService.Status.ModelStatus.ModelRevisionStates.TargetModelState).To(Equal(v1beta1.FailedToLoad))
 			Expect(inferenceService.Status.ModelStatus.LastFailureInfo.Reason).To(Equal(v1beta1.ModelLoadFailed))
 			Expect(inferenceService.Status.ModelStatus.LastFailureInfo.Message).To(Equal("Invalid Storage URI provided"))
+		})
+	})
+
+	Context("When creating an inference service with a unsupported storageURI", func() {
+		It("Should fail if unsupported storageURI is set", func() {
+			defaultNamespace := "storage-uri-test"
+			namespace := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: defaultNamespace,
+				},
+			}
+			Expect(k8sClient.Create(context.TODO(), namespace)).NotTo(HaveOccurred())
+
+			// Create configmap
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving",
+					Namespace: defaultNamespace,
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:    constants.InferenceServiceContainerName,
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			Expect(k8sClient.Create(context.TODO(), servingRuntime)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+
+			// Deploy a new inference service with invalid storage URI
+			serviceName := "foo-1"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: defaultNamespace}}
+			serviceKey := expectedRequest.NamespacedName
+			storageUri := "sss3://test/mnist/export"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: corev1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+								},
+							},
+						},
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MaxReplicas: 1,
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+
+			time.Sleep(5 * time.Second)
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, inferenceService)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// status should contain InvalidStorageSpec error
+			val := fmt.Sprintf(v1beta1.UnsupportedStorageURIFormatError, strings.Join(constants.SupportedStorageURIPrefixList, ", "), storageUri)
+			message := "StorageURI not supported: " + val
+			lastFailureInfo := v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidPredictorSpec,
+				Message: message,
+			}
+
+			Eventually(func() bool {
+				// try a little more until the status is populated
+				if inferenceService.Status.ModelStatus == (v1beta1.ModelStatus{}) {
+					errr := k8sClient.Get(ctx, serviceKey, inferenceService)
+					return errr == nil
+				}
+				return *inferenceService.Status.ModelStatus.LastFailureInfo == lastFailureInfo
+			}, timeout, interval).Should(BeTrue())
 		})
 	})
 
