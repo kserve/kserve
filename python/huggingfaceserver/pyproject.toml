@@ -13,9 +13,10 @@ kserve = { path = "../kserve", extras = ["storage", "llm"], develop = true }
 transformers = ">=4.51.2"
 accelerate = "^1.6.0"
 torch = ">=2.6.0"
-triton = "3.2.0"
-vllm = "0.8.5"
-bitsandbytes = ">=0.45.3"
+# triton is not supported on aarch64 architecture, 
+triton = { version = "3.2.0", markers = "platform_machine != 'aarch64' and platform_machine != 'arm64'" }
+# bitsandbytes is not supported on aarch64 architecture
+bitsandbytes = { version =  ">=0.45.3", markers = "platform_machine != 'aarch64' and platform_machine != 'arm64'" }
 flashinfer-python = "~0.2.5"
 modelscope = "^1.16.0"
 setuptools = ">=70.0.0"
