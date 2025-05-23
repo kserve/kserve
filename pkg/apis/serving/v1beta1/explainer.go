@@ -51,7 +51,7 @@ type ExplainerExtensionSpec struct {
 	corev1.Container `json:",inline"`
 	// Storage Spec for model location
 	// +optional
-	Storage *StorageSpec `json:"storage,omitempty"`
+	Storage *ModelStorageSpec `json:"storage,omitempty"`
 }
 
 var _ Component = &ExplainerSpec{}
@@ -72,7 +72,7 @@ func (e *ExplainerExtensionSpec) GetStorageUri() *string {
 }
 
 // GetStorageSpec returns the predictor storage spec object
-func (e *ExplainerExtensionSpec) GetStorageSpec() *StorageSpec {
+func (e *ExplainerExtensionSpec) GetStorageSpec() *ModelStorageSpec {
 	return e.Storage
 }
 
