@@ -26,6 +26,8 @@ from kserve.protocol.rest.openai.types import (
     Completion,
     Embedding,
     EmbeddingRequest,
+    Rerank,
+    RerankRequest,
 )
 from typing import AsyncIterator, Union
 
@@ -42,20 +44,30 @@ class DummyOpenAIGenerativeModel(OpenAIGenerativeModel):
         pass
 
 
-class DummyOpenAIEmbeddingModel(OpenAIEncoderModel):
+class DummyOpenAIEncoderModel(OpenAIEncoderModel):
     async def create_embedding(self, params: EmbeddingRequest) -> Embedding:
+        pass
+
+    async def create_rerank(self, params: RerankRequest) -> Rerank:
         pass
 
 
 def test_adding_kserve_model():
     repo = ModelRepository()
-    repo.update(Model(name="kserve-model"))
+    model = Model(name="kserve-model")
+    repo.update(model)
 
     actual = repo.get_model("kserve-model")
 
     assert actual is not None
     assert isinstance(actual, Model)
     assert actual.name == "kserve-model"
+
+    repo.update(model, name="additional-model-name")
+    actual = repo.get_model("additional-model-name")
+    assert actual is not None
+    assert isinstance(actual, Model)
+    assert actual is model
 
 
 def test_adding_openai_completion_model():
@@ -71,13 +83,24 @@ def test_adding_openai_completion_model():
 
 def test_adding_openai_embedding_model():
     repo = ModelRepository()
-    repo.update(DummyOpenAIEmbeddingModel(name="openai-embedding-model"))
+    repo.update(DummyOpenAIEncoderModel(name="openai-embedding-model"))
 
     actual = repo.get_model("openai-embedding-model")
 
     assert actual is not None
     assert isinstance(actual, OpenAIEncoderModel)
     assert actual.name == "openai-embedding-model"
+
+
+def test_adding_rerank_model():
+    repo = ModelRepository()
+    repo.update(DummyOpenAIEncoderModel(name="rerank-model"))
+
+    actual = repo.get_model("rerank-model")
+
+    assert actual is not None
+    assert isinstance(actual, OpenAIEncoderModel)
+    assert actual.name == "rerank-model"
 
 
 @pytest.mark.asyncio

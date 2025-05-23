@@ -692,6 +692,13 @@ func schema_pkg_apis_serving_v1alpha1_InferenceGraphStatus(ref common.ReferenceC
 							Ref:         ref("knative.dev/pkg/apis.URL"),
 						},
 					},
+					"deploymentMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InferenceGraph DeploymentMode",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -5770,6 +5777,13 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref common.Reference
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelStatus"),
 						},
 					},
+					"deploymentMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "InferenceService DeploymentMode",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
@@ -6359,6 +6373,21 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 					"metadataHeaders": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Matched metadata HTTP headers for propagating to inference logger cloud events.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"metadataAnnotations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Matched inference service annotations for propagating to inference logger cloud events.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

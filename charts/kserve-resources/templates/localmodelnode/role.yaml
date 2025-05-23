@@ -48,17 +48,11 @@ rules:
   - serving.kserve.io
   resources:
   - clusterstoragecontainers
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
   - localmodelnodegroups
   verbs:
   - get
   - list
+  - watch
 - apiGroups:
   - serving.kserve.io
   resources:

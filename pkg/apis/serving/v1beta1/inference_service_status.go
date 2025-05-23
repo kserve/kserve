@@ -51,6 +51,8 @@ type InferenceServiceStatus struct {
 	Components map[ComponentType]ComponentStatusSpec `json:"components,omitempty"`
 	// Model related statuses
 	ModelStatus ModelStatus `json:"modelStatus,omitempty"`
+	// InferenceService DeploymentMode
+	DeploymentMode string `json:"deploymentMode,omitempty"`
 }
 
 // ComponentStatusSpec describes the state of the component
@@ -122,6 +124,8 @@ const (
 	RoutesReady apis.ConditionType = "RoutesReady"
 	// LatestDeploymentReady is set when underlying configurations for all components have reported readiness.
 	LatestDeploymentReady apis.ConditionType = "LatestDeploymentReady"
+	// Stopped is set when the inference service has been stopped and all related objects are deleted
+	Stopped apis.ConditionType = "Stopped"
 )
 
 type ModelStatus struct {
@@ -213,6 +217,8 @@ const (
 	InvalidPredictorSpec FailureReason = "InvalidPredictorSpec"
 	// When WorkerSpec is set in InferenceService with a ServingRuntime that does not have a WorkerSpec.
 	InvalidWorkerSpecNotSet = "InvalidWorkerSpecNotSet"
+	// InvalidGPUAllocation indicates an incorrect GPU allocation for the Ray cluster.
+	InvalidGPUAllocation = "InvalidGPUAllocation"
 )
 
 type FailureInfo struct {
@@ -348,6 +354,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	ss.ObservedGeneration = deploymentList[0].Status.ObservedGeneration
 }
 
+//nolint:unparam
 func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType appsv1.DeploymentConditionType) *apis.Condition {
 	condition := apis.Condition{}
 	var messages, reasons []string

@@ -184,7 +184,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
 	}
 
-	deploymentMode := isvcutils.GetDeploymentMode(graph.ObjectMeta.Annotations, deployConfig)
+	deploymentMode := isvcutils.GetDeploymentMode(graph.Status.DeploymentMode, graph.ObjectMeta.Annotations, deployConfig)
 	r.Log.Info("Inference graph deployment ", "deployment mode ", deploymentMode)
 	if deploymentMode == constants.RawDeployment {
 		// Create inference graph resources such as deployment, service, hpa in raw deployment mode
@@ -221,7 +221,11 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative Serving is not available", graph.Name))
 		}
 
-		desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
+		desired, err := createKnativeService(ctx, r.Clientset, graph.ObjectMeta, graph, routerConfig)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to create new knative service")
+		}
+
 		err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
 		if err != nil {
 			return reconcile.Result{}, err

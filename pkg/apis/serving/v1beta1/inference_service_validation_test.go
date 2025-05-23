@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -340,7 +339,7 @@ func TestAutoscalerClassHPA(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			validator := InferenceServiceValidator{}
-			_, err := validator.ValidateCreate(context.Background(), scenario.isvc)
+			_, err := validator.ValidateCreate(t.Context(), scenario.isvc)
 			g.Expect(err).Should(scenario.errMatcher)
 		})
 	}
@@ -550,7 +549,7 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			validator := InferenceServiceValidator{}
-			_, err := validator.ValidateCreate(context.Background(), scenario.isvc)
+			_, err := validator.ValidateCreate(t.Context(), scenario.isvc)
 			g.Expect(err).Should(scenario.errMatcher)
 		})
 	}
@@ -561,7 +560,7 @@ func TestRejectMultipleModelSpecs(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.XGBoost = &XGBoostSpec{}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(ExactlyOneErrorFor(&isvc.Spec.Predictor)))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -574,7 +573,7 @@ func TestCustomizeDeploymentStrategyUnsupportedForServerless(t *testing.T) {
 		Type: appsv1.RecreateDeploymentStrategyType,
 	}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError("customizing deploymentStrategy is only supported for raw deployment mode"))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -584,7 +583,7 @@ func TestModelSpecAndCustomOverridesIsValid(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.PodSpec = PodSpec{ServiceAccountName: "test"}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -594,7 +593,7 @@ func TestRejectModelSpecMissing(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.Tensorflow = nil
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(ExactlyOneErrorFor(&isvc.Spec.Predictor)))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -604,7 +603,7 @@ func TestBadParallelismValues(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.ContainerConcurrency = proto.Int64(-1)
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(ParallelismLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -614,19 +613,19 @@ func TestBadReplicaValues(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(-1))
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(1))
 	isvc.Spec.Predictor.MaxReplicas = -1
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.Spec.Predictor.MinReplicas = ptr.To(int32(2))
 	isvc.Spec.Predictor.MaxReplicas = 1
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
@@ -643,19 +642,19 @@ func TestBadReplicaValues(t *testing.T) {
 		},
 	}
 	isvc.Spec.Transformer.MinReplicas = ptr.To(int32(-1))
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.Spec.Transformer.MinReplicas = ptr.To(int32(1))
 	isvc.Spec.Transformer.MaxReplicas = -1
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.Spec.Transformer.MinReplicas = ptr.To(int32(2))
 	isvc.Spec.Transformer.MaxReplicas = 1
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
@@ -670,19 +669,19 @@ func TestBadReplicaValues(t *testing.T) {
 		},
 	}
 	isvc.Spec.Explainer.MinReplicas = ptr.To(int32(-1))
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.Spec.Explainer.MinReplicas = ptr.To(int32(1))
 	isvc.Spec.Explainer.MaxReplicas = -1
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MaxReplicasLowerBoundExceededError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
 	isvc.Spec.Explainer.MinReplicas = ptr.To(int32(2))
 	isvc.Spec.Explainer.MaxReplicas = 1
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(MinReplicasShouldBeLessThanMaxError))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -700,7 +699,7 @@ func TestCustomOK(t *testing.T) {
 		},
 	}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 
@@ -712,7 +711,7 @@ func TestCustomOK(t *testing.T) {
 		},
 	}
 	validator = InferenceServiceValidator{}
-	warnings, err = validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err = validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -722,7 +721,7 @@ func TestRejectBadTransformer(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Transformer = &TransformerSpec{}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(ExactlyOneErrorFor(isvc.Spec.Transformer)))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -732,7 +731,7 @@ func TestRejectBadExplainer(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Spec.Explainer = &ExplainerSpec{}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(ExactlyOneErrorFor(isvc.Spec.Explainer)))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -748,7 +747,7 @@ func TestGoodExplainer(t *testing.T) {
 		},
 	}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -758,7 +757,7 @@ func TestGoodName(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Name = "abc-123"
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -768,7 +767,7 @@ func TestRejectBadNameStartWithNumber(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Name = "1abcde"
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).ShouldNot(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -778,7 +777,7 @@ func TestRejectBadNameIncludeDot(t *testing.T) {
 	isvc := makeTestInferenceService()
 	isvc.Name = "abc.de"
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).ShouldNot(gomega.Succeed())
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -816,7 +815,7 @@ func TestValidateTwoPredictorImplementationCollocation(t *testing.T) {
 		},
 	}
 	validator := InferenceServiceValidator{}
-	warnings, err := validator.ValidateCreate(context.Background(), &isvc)
+	warnings, err := validator.ValidateCreate(t.Context(), &isvc)
 	g.Expect(err).Should(gomega.MatchError(ExactlyOneErrorFor(&isvc.Spec.Predictor)))
 	g.Expect(warnings).Should(gomega.BeEmpty())
 }
@@ -984,13 +983,13 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 		isvc     *InferenceService
 		expected gomega.OmegaMatcher
 	}{
-		"When TENSOR_PARALLEL_SIZE set in the environment, then it should return error": {
+		"When TENSOR_PARALLEL_SIZE set as an environment variable, it should return an error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-1",
+					Name:      "foo-1-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1012,15 +1011,15 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, "foo-1")),
+			expected: gomega.Equal(fmt.Errorf(DisallowedWorkerSpecTensorParallelSizeEnvError, "foo-1-1")),
 		},
-		"When PIPELINE_PARALLEL_SIZE set in the environment, then it should return error": {
+		"When PIPELINE_PARALLEL_SIZE set as an environment variable, it should return an error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-2",
+					Name:      "foo-1-2",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1042,15 +1041,15 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(DisallowedWorkerSpecPipelineParallelSizeEnvError, "foo-2")),
+			expected: gomega.Equal(fmt.Errorf(DisallowedWorkerSpecPipelineParallelSizeEnvError, "foo-1-2")),
 		},
-		"When workerSpec.TensorParallelSize set less than 1, then it should return error": {
+		"When workerSpec.TensorParallelSize set less than 1, it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-3",
+					Name:      "foo-2-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1070,15 +1069,15 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, "foo-3", "0")),
+			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecTensorParallelSizeValueError, "foo-2-1", "0")),
 		},
-		"When WorkerSpec.PipelineParallelSize set less than 2, then it should return error": {
+		"When WorkerSpec.PipelineParallelSize set less than 1, it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-4",
+					Name:      "foo-2-2",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1093,20 +1092,20 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 						},
 						WorkerSpec: &WorkerSpec{
 							PodSpec:              PodSpec{},
-							PipelineParallelSize: intPtr(1),
+							PipelineParallelSize: intPtr(0),
 						},
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, "foo-4", "1")),
+			expected: gomega.Equal(fmt.Errorf(InvalidWorkerSpecPipelineParallelSizeValueError, "foo-2-2", "0")),
 		},
-		"When unknownGPUResource set in Predictor.Model, then it should return error": {
+		"When unknownGPUResource set in Predictor.Model, it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-5",
+					Name:      "foo-3-1",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1133,15 +1132,15 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidUnknownGPUTypeError, "foo-5")),
+			expected: gomega.Equal(fmt.Errorf(InvalidUnknownGPUTypeError, "foo-3-1")),
 		},
-		"When unknownGPUResource set in Predictor.WorkerSpec, then it should return error": {
+		"When unknownGPUResource set in Predictor.WorkerSpec, it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-6",
+					Name:      "foo-3-2",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1173,15 +1172,92 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidUnknownGPUTypeError, "foo-6")),
+			expected: gomega.Equal(fmt.Errorf(InvalidUnknownGPUTypeError, "foo-3-2")),
 		},
-		"When unsupported storageURI set, then it should return error": {
+		"When customGPUResourceTypes set to annotations, unknownGPUResource in Predictor.Model do not return an error and function correctly": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-7",
+					Name:      "foo-3-3",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass:                     string(constants.AutoscalerClassNone),
+						constants.CustomGPUResourceTypesAnnotationKey: "[\"unknownGPU.com/gpu\"]",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+								Container: corev1.Container{
+									Resources: corev1.ResourceRequirements{
+										Limits: corev1.ResourceList{
+											"unknownGPU.com/gpu": resource.MustParse("1"),
+										},
+										Requests: corev1.ResourceList{
+											"unknownGPU.com/gpu": resource.MustParse("1"),
+										},
+									},
+								},
+							},
+						},
+						WorkerSpec: &WorkerSpec{},
+					},
+				},
+			},
+			expected: gomega.BeNil(),
+		},
+		"When customGPUResourceTypes set to annotations, unknownGPUResource in Predictor.WorkerSpec do not return an error and function correctly": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-3-4",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass:                     string(constants.AutoscalerClassNone),
+						constants.CustomGPUResourceTypesAnnotationKey: "[\"unknownGPU.com/gpu\"]",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							ModelFormat: ModelFormat{
+								Name: "huggingface",
+							},
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: &pvcStorageUri,
+							},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec: PodSpec{
+								Containers: []corev1.Container{
+									{
+										Resources: corev1.ResourceRequirements{
+											Limits: corev1.ResourceList{
+												"unknownGPU.com/gpu": resource.MustParse("1"),
+											},
+											Requests: corev1.ResourceList{
+												"unknownGPU.com/gpu": resource.MustParse("1"),
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.BeNil(),
+		},
+		"When unsupported storageURI set, it should return error": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-4-1",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1198,12 +1274,12 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, "foo-7", "s3")),
+			expected: gomega.Equal(fmt.Errorf(InvalidNotSupportedStorageURIProtocolError, "foo-4-1", "s3")),
 		},
-		"When external autoscaler is not set, then it should return error": {
+		"When none autoscaler is not set, then it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-8",
+					Name:      "foo-4-2",
 					Namespace: "default",
 					Annotations: map[string]string{
 						constants.AutoscalerClass: string(constants.AutoscalerClassHPA),
@@ -1223,15 +1299,15 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 					},
 				},
 			},
-			expected: gomega.Equal(fmt.Errorf(InvalidAutoScalerError, "foo-8", constants.AutoscalerClassHPA)),
+			expected: gomega.Equal(fmt.Errorf(InvalidAutoScalerError, "foo-4-2", constants.AutoscalerClassHPA)),
 		},
-		"When multiple containers set in WorkerSpec, then it should return error": {
+		"When multiple containers set in WorkerSpec, it should return error": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo-9",
 					Namespace: "default",
 					Annotations: map[string]string{
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: InferenceServiceSpec{
@@ -1263,6 +1339,278 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			err := validateMultiNodeVariables(scenario.isvc)
 			g.Expect(err).To(scenario.expected)
+		})
+	}
+}
+
+func TestDeploymentModeUpdate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	oldIsvc := makeTestInferenceService()
+	oldIsvc.Status = InferenceServiceStatus{
+		DeploymentMode: "Serverless",
+	}
+	updatedIsvc := oldIsvc.DeepCopy()
+	updatedIsvc.Annotations = map[string]string{
+		constants.DeploymentMode: "RawDeployment",
+	}
+	validator := InferenceServiceValidator{}
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc)
+	// Annotation does not match status, update should be rejected
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
+
+	updatedIsvc1 := oldIsvc.DeepCopy()
+	updatedIsvc1.Annotations = map[string]string{
+		constants.DeploymentMode: "Serverless",
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvc, updatedIsvc1)
+	// Annotation matches status, update is accepted
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+}
+
+func TestValidateDelete(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validator := InferenceServiceValidator{}
+
+	t.Run("Valid InferenceService object", func(t *testing.T) {
+		isvc := makeTestInferenceService()
+		warnings, err := validator.ValidateDelete(t.Context(), &isvc)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(warnings).Should(gomega.BeEmpty())
+	})
+
+	t.Run("Invalid object type", func(t *testing.T) {
+		// Use a valid runtime.Object type but not an InferenceService
+		notIsvc := &corev1.Pod{}
+		warnings, err := validator.ValidateDelete(t.Context(), notIsvc)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(warnings).Should(gomega.BeEmpty())
+	})
+}
+
+func TestValidateScalingKedaCompExtension(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	validCPU := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+					Resource: &ResourceMetricSource{
+						Name: ResourceMetricCPU,
+						Target: MetricTarget{
+							Type:               UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(80)),
+						},
+					},
+				},
+			},
+		},
+	}
+	validMemory := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+					Resource: &ResourceMetricSource{
+						Name: ResourceMetricMemory,
+						Target: MetricTarget{
+							Type:         AverageValueMetricType,
+							AverageValue: ptr.To(resource.MustParse("2Gi")),
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidScaleMetric := &ComponentExtensionSpec{
+		ScaleMetric: ptr.To(MetricCPU),
+	}
+	missingResource := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+				},
+			},
+		},
+	}
+	invalidCPUType := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+					Resource: &ResourceMetricSource{
+						Name: ResourceMetricCPU,
+						Target: MetricTarget{
+							Type: AverageValueMetricType,
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidMemoryType := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+					Resource: &ResourceMetricSource{
+						Name: ResourceMetricMemory,
+						Target: MetricTarget{
+							Type: ValueMetricType,
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidMemoryValue := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+					Resource: &ResourceMetricSource{
+						Name: ResourceMetricMemory,
+						Target: MetricTarget{
+							Type:         AverageValueMetricType,
+							AverageValue: ptr.To(resource.MustParse("512Ki")),
+						},
+					},
+				},
+			},
+		},
+	}
+	unsupportedResource := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ResourceMetricSourceType,
+					Resource: &ResourceMetricSource{
+						Name: "disk",
+						Target: MetricTarget{
+							Type: UtilizationMetricType,
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidExternal := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ExternalMetricSourceType,
+					External: &ExternalMetricSource{
+						Metric: ExternalMetrics{
+							Backend: PrometheusBackend,
+							Query:   "",
+						},
+						Target: MetricTarget{
+							Type:  ValueMetricType,
+							Value: nil,
+						},
+					},
+				},
+			},
+		},
+	}
+	validExternal := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ExternalMetricSourceType,
+					External: &ExternalMetricSource{
+						Metric: ExternalMetrics{
+							Backend: PrometheusBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:  ValueMetricType,
+							Value: ptr.To(resource.MustParse("10")),
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidPodMetric := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: PodMetricSourceType,
+					PodMetric: &PodMetricSource{
+						Metric: PodMetrics{
+							Backend: OpenTelemetryBackend,
+							Query:   "",
+						},
+						Target: MetricTarget{
+							Type:  ValueMetricType,
+							Value: nil,
+						},
+					},
+				},
+			},
+		},
+	}
+	validPodMetric := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: PodMetricSourceType,
+					PodMetric: &PodMetricSource{
+						Metric: PodMetrics{
+							Backend: OpenTelemetryBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:  ValueMetricType,
+							Value: ptr.To(resource.MustParse("5")),
+						},
+					},
+				},
+			},
+		},
+	}
+	unknownMetricType := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: "UnknownType",
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name    string
+		spec    *ComponentExtensionSpec
+		wantErr string
+	}{
+		{"valid cpu", validCPU, ""},
+		{"valid memory", validMemory, ""},
+		{"invalid: ScaleMetric set", invalidScaleMetric, "ScaleMetric is not supported for KEDA"},
+		{"invalid: missing resource", missingResource, "metricSpec.Resource is not set for resource metric source type"},
+		{"invalid: cpu wrong type", invalidCPUType, "the cpu target value type should be Utilization"},
+		{"invalid: memory wrong type", invalidMemoryType, "the memory target value type should be AverageValue or Utilization"},
+		{"invalid: memory value too low", invalidMemoryValue, "the memory target value should be greater than 1 MiB"},
+		{"invalid: unsupported resource", unsupportedResource, "resource type disk is not supported"},
+		{"invalid: external metric missing query/value", invalidExternal, "the query should not be empty"},
+		{"valid: external metric", validExternal, ""},
+		{"invalid: pod metric missing query/value", invalidPodMetric, "the query should not be empty"},
+		{"valid: pod metric", validPodMetric, ""},
+		{"invalid: unknown metric type", unknownMetricType, "unknown KEDA metric type with value [UnknownType].Valid types are Resource,External,PodMetric"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateScalingKedaCompExtension(tt.spec)
+			if tt.wantErr == "" {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			} else {
+				g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(tt.wantErr)))
+			}
 		})
 	}
 }

@@ -1505,3 +1505,297 @@ func TestInferenceServiceStatus_UpdateModelRevisionStates(t *testing.T) {
 		})
 	}
 }
+
+func TestGetDeploymentCondition_SingleDeployment(t *testing.T) {
+	now := metav1.Now()
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "predictor",
+		},
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:               appsv1.DeploymentAvailable,
+					Status:             corev1.ConditionTrue,
+					Reason:             "MinimumReplicasAvailable",
+					Message:            "Deployment has minimum availability.",
+					LastTransitionTime: now,
+				},
+			},
+		},
+	}
+	condition := getDeploymentCondition([]*appsv1.Deployment{deployment}, appsv1.DeploymentAvailable)
+	if condition.Type != apis.ConditionType(appsv1.DeploymentAvailable) {
+		t.Errorf("expected condition type %v, got %v", appsv1.DeploymentAvailable, condition.Type)
+	}
+	if condition.Status != corev1.ConditionTrue {
+		t.Errorf("expected condition status %v, got %v", corev1.ConditionTrue, condition.Status)
+	}
+	if condition.Message != "Deployment has minimum availability." {
+		t.Errorf("expected message %q, got %q", "Deployment has minimum availability.", condition.Message)
+	}
+	if condition.Reason != "MinimumReplicasAvailable" {
+		t.Errorf("expected reason %q, got %q", "MinimumReplicasAvailable", condition.Reason)
+	}
+	if !condition.LastTransitionTime.Inner.Equal(&now) {
+		t.Errorf("expected last transition time %v, got %v", now, condition.LastTransitionTime.Inner)
+	}
+}
+
+func TestGetDeploymentCondition_MultiDeployment_AllTrue(t *testing.T) {
+	now := metav1.Now()
+	headDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "predictor",
+		},
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:               appsv1.DeploymentAvailable,
+					Status:             corev1.ConditionTrue,
+					Reason:             "HeadReady",
+					Message:            "Head node ready.",
+					LastTransitionTime: now,
+				},
+			},
+		},
+	}
+	workerDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "predictor-worker",
+		},
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:               appsv1.DeploymentAvailable,
+					Status:             corev1.ConditionTrue,
+					Reason:             "WorkerReady",
+					Message:            "Worker node ready.",
+					LastTransitionTime: now,
+				},
+			},
+		},
+	}
+	condition := getDeploymentCondition([]*appsv1.Deployment{headDeployment, workerDeployment}, appsv1.DeploymentAvailable)
+	if condition.Type != apis.ConditionType(appsv1.DeploymentAvailable) {
+		t.Errorf("expected condition type %v, got %v", appsv1.DeploymentAvailable, condition.Type)
+	}
+	if condition.Status != corev1.ConditionTrue {
+		t.Errorf("expected condition status %v, got %v", corev1.ConditionTrue, condition.Status)
+	}
+	expectedMsg := "predictor-container: Head node ready., worker-container: Worker node ready."
+	if condition.Message != expectedMsg {
+		t.Errorf("expected message %q, got %q", expectedMsg, condition.Message)
+	}
+	if condition.Reason != "" {
+		t.Errorf("expected reason to be empty, got %q", condition.Reason)
+	}
+	if !condition.LastTransitionTime.Inner.Equal(&now) {
+		t.Errorf("expected last transition time %v, got %v", now, condition.LastTransitionTime.Inner)
+	}
+}
+
+func TestGetDeploymentCondition_MultiDeployment_OneFalse(t *testing.T) {
+	now := metav1.Now()
+	headDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "predictor",
+		},
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:               appsv1.DeploymentAvailable,
+					Status:             corev1.ConditionTrue,
+					Reason:             "HeadReady",
+					Message:            "Head node ready.",
+					LastTransitionTime: now,
+				},
+			},
+		},
+	}
+	workerDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "predictor-worker",
+		},
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:               appsv1.DeploymentAvailable,
+					Status:             corev1.ConditionFalse,
+					Reason:             "WorkerNotReady",
+					Message:            "Worker node not ready.",
+					LastTransitionTime: now,
+				},
+			},
+		},
+	}
+	condition := getDeploymentCondition([]*appsv1.Deployment{headDeployment, workerDeployment}, appsv1.DeploymentAvailable)
+	if condition.Type != apis.ConditionType(appsv1.DeploymentAvailable) {
+		t.Errorf("expected condition type %v, got %v", appsv1.DeploymentAvailable, condition.Type)
+	}
+	if condition.Status != corev1.ConditionFalse {
+		t.Errorf("expected condition status %v, got %v", corev1.ConditionFalse, condition.Status)
+	}
+	expectedMsg := "predictor-container: Head node ready., worker-container: Worker node not ready."
+	if condition.Message != expectedMsg {
+		t.Errorf("expected message %q, got %q", expectedMsg, condition.Message)
+	}
+	if condition.Reason != "" {
+		t.Errorf("expected reason to be empty, got %q", condition.Reason)
+	}
+	if !condition.LastTransitionTime.Inner.Equal(&now) {
+		t.Errorf("expected last transition time %v, got %v", now, condition.LastTransitionTime.Inner)
+	}
+}
+
+func TestGetDeploymentCondition_SingleDeployment_NoMatchingCondition(t *testing.T) {
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "predictor",
+		},
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:    appsv1.DeploymentProgressing,
+					Status:  corev1.ConditionTrue,
+					Reason:  "NewReplicaSetAvailable",
+					Message: "ReplicaSet \"predictor-xxx\" has successfully progressed.",
+				},
+			},
+		},
+	}
+	condition := getDeploymentCondition([]*appsv1.Deployment{deployment}, appsv1.DeploymentAvailable)
+	if condition.Type != "" {
+		t.Errorf("expected empty condition type, got %v", condition.Type)
+	}
+	if condition.Status != "" {
+		t.Errorf("expected empty condition status, got %v", condition.Status)
+	}
+	if condition.Message != "" {
+		t.Errorf("expected empty message, got %q", condition.Message)
+	}
+	if condition.Reason != "" {
+		t.Errorf("expected empty reason, got %q", condition.Reason)
+	}
+}
+
+func TestPropagateCrossComponentStatus(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Helper to create a status with a given condition
+	setComponentCondition := func(ss *InferenceServiceStatus, condType apis.ConditionType, status corev1.ConditionStatus) {
+		cond := &apis.Condition{
+			Type:   condType,
+			Status: status,
+		}
+		ss.SetCondition(condType, cond)
+	}
+
+	t.Run("All components ready sets RoutesReady True", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		setComponentCondition(ss, PredictorRouteReady, corev1.ConditionTrue)
+		setComponentCondition(ss, ExplainerRoutesReady, corev1.ConditionTrue)
+		setComponentCondition(ss, TransformerRouteReady, corev1.ConditionTrue)
+
+		ss.PropagateCrossComponentStatus([]ComponentType{PredictorComponent, ExplainerComponent, TransformerComponent}, RoutesReady)
+		cond := ss.GetCondition(RoutesReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionTrue))
+	})
+
+	t.Run("One component not ready sets RoutesReady False", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		setComponentCondition(ss, PredictorRouteReady, corev1.ConditionTrue)
+		setComponentCondition(ss, ExplainerRoutesReady, corev1.ConditionFalse)
+		setComponentCondition(ss, TransformerRouteReady, corev1.ConditionTrue)
+
+		ss.PropagateCrossComponentStatus([]ComponentType{PredictorComponent, ExplainerComponent, TransformerComponent}, RoutesReady)
+		cond := ss.GetCondition(RoutesReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionFalse))
+		g.Expect(cond.Reason).To(gomega.Equal("ExplainerRoutesReady not ready"))
+	})
+
+	t.Run("One component unknown sets RoutesReady Unknown", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		setComponentCondition(ss, PredictorRouteReady, corev1.ConditionTrue)
+		setComponentCondition(ss, ExplainerRoutesReady, corev1.ConditionUnknown)
+		setComponentCondition(ss, TransformerRouteReady, corev1.ConditionTrue)
+
+		ss.PropagateCrossComponentStatus([]ComponentType{PredictorComponent, ExplainerComponent, TransformerComponent}, RoutesReady)
+		cond := ss.GetCondition(RoutesReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionUnknown))
+		g.Expect(cond.Reason).To(gomega.Equal("ExplainerRoutesReady not ready"))
+	})
+
+	t.Run("No components sets nothing", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		ss.PropagateCrossComponentStatus([]ComponentType{}, RoutesReady)
+		cond := ss.GetCondition(RoutesReady)
+		// Should still be initialized, but True by default
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionTrue))
+	})
+
+	t.Run("Unknown conditionType does nothing", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		ss.PropagateCrossComponentStatus([]ComponentType{PredictorComponent}, "UnknownConditionType")
+		cond := ss.GetCondition("UnknownConditionType")
+		g.Expect(cond).To(gomega.BeNil())
+	})
+
+	t.Run("All components ready sets LatestDeploymentReady True", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		setComponentCondition(ss, PredictorConfigurationReady, corev1.ConditionTrue)
+		setComponentCondition(ss, ExplainerConfigurationReady, corev1.ConditionTrue)
+		setComponentCondition(ss, TransformerConfigurationReady, corev1.ConditionTrue)
+
+		ss.PropagateCrossComponentStatus([]ComponentType{PredictorComponent, ExplainerComponent, TransformerComponent}, LatestDeploymentReady)
+		cond := ss.GetCondition(LatestDeploymentReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionTrue))
+	})
+
+	t.Run("One component not ready sets LatestDeploymentReady False", func(t *testing.T) {
+		ss := &InferenceServiceStatus{}
+		ss.InitializeConditions()
+		setComponentCondition(ss, PredictorConfigurationReady, corev1.ConditionTrue)
+		setComponentCondition(ss, ExplainerConfigurationReady, corev1.ConditionFalse)
+		setComponentCondition(ss, TransformerConfigurationReady, corev1.ConditionTrue)
+
+		ss.PropagateCrossComponentStatus([]ComponentType{PredictorComponent, ExplainerComponent, TransformerComponent}, LatestDeploymentReady)
+		cond := ss.GetCondition(LatestDeploymentReady)
+		g.Expect(cond).NotTo(gomega.BeNil())
+		g.Expect(cond.Status).To(gomega.Equal(corev1.ConditionFalse))
+		g.Expect(cond.Reason).To(gomega.Equal("ExplainerConfigurationReady not ready"))
+	})
+}
+
+func TestInferenceServiceStatus_ClearCondition(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	status := &InferenceServiceStatus{}
+	status.InitializeConditions()
+
+	// Mark PredictorReady as True
+	status.SetCondition(PredictorReady, &apis.Condition{
+		Status: corev1.ConditionTrue,
+	})
+	g.Expect(status.GetCondition(PredictorReady)).NotTo(gomega.BeNil())
+	g.Expect(status.IsConditionReady(PredictorReady)).To(gomega.BeTrue())
+
+	// Clear PredictorReady
+	status.ClearCondition(PredictorReady)
+	cond := status.GetCondition(PredictorReady)
+	g.Expect(cond).NotTo(gomega.BeNil())
+
+	// Try clearing a condition that was never set
+	status.ClearCondition(TransformerReady)
+}

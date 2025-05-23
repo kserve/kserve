@@ -17,7 +17,6 @@ limitations under the License.
 package pod
 
 import (
-	"context"
 	"encoding/json"
 	"sort"
 	"testing"
@@ -51,7 +50,7 @@ func TestMutator_Handle(t *testing.T) {
 		Status: corev1.NamespaceStatus{},
 	}
 
-	if err := c.Create(context.TODO(), &kserveNamespace); err != nil {
+	if err := c.Create(t.Context(), &kserveNamespace); err != nil {
 		t.Errorf("failed to create namespace: %v", err)
 	}
 	mutator := Mutator{Client: c, Clientset: clientset, Decoder: admission.NewDecoder(c.Scheme())}
@@ -296,7 +295,7 @@ func TestMutator_Handle(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			if err := c.Create(context.TODO(), &tc.configMap); err != nil {
+			if err := c.Create(t.Context(), &tc.configMap); err != nil {
 				t.Errorf("failed to create config map: %v", err)
 			}
 			byteData, err := json.Marshal(tc.pod)
@@ -304,10 +303,10 @@ func TestMutator_Handle(t *testing.T) {
 				t.Errorf("failed to marshal pod data: %v", err)
 			}
 			tc.request.Object.Raw = byteData
-			res := mutator.Handle(context.TODO(), tc.request)
+			res := mutator.Handle(t.Context(), tc.request)
 			sortPatches(res.Patches)
 			g.Expect(res).Should(tc.matcher)
-			if err := c.Delete(context.TODO(), &tc.configMap); err != nil {
+			if err := c.Delete(t.Context(), &tc.configMap); err != nil {
 				t.Errorf("failed to delete configmap %v", err)
 			}
 		})

@@ -16,7 +16,6 @@ limitations under the License.
 package localmodelcache
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -106,7 +105,7 @@ func TestUnableToDeleteLocalModelCacheWithActiveIsvc(t *testing.T) {
 	}
 	fakeClient := fake.NewClientBuilder().WithObjects(&isvc).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
-	warnings, err := validator.ValidateDelete(context.Background(), &lmc)
+	warnings, err := validator.ValidateDelete(t.Context(), &lmc)
 	g.Expect(warnings).NotTo(gomega.BeNil())
 	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s is being used by InferenceService %s", lmc.Name, isvc.Name)))
 }
@@ -122,7 +121,70 @@ func TestUnableToCreateLocalModelCacheWithSameStorageURI(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithObjects(&lmc).WithScheme(s).Build()
 	validator := LocalModelCacheValidator{fakeClient}
 	newLmc := makeTestLocalModelCacheWithSameStorageURI()
-	warnings, err := validator.ValidateCreate(context.Background(), &newLmc)
+	warnings, err := validator.ValidateCreate(t.Context(), &newLmc)
 	g.Expect(warnings).NotTo(gomega.BeNil())
 	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s has the same StorageURI %s", lmc.Name, newLmc.Spec.SourceModelUri)))
+}
+
+func makeTestLocalModelCacheWithDifferentStorageURI() v1alpha1.LocalModelCache {
+	localModelCache := v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "different",
+		},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			ModelSize:      resource.MustParse("1Gi"),
+			NodeGroups:     []string{"gpu1"},
+			SourceModelUri: "gs://testbucket/differentmodel",
+		},
+	}
+	return localModelCache
+}
+
+func TestValidateUpdate_LocalModelCacheWithSameStorageURI(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	existingLmc := makeTestLocalModelCache()
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
+	validator := LocalModelCacheValidator{fakeClient}
+	// newLmc has a different name but same StorageURI as existingLmc
+	newLmc := makeTestLocalModelCacheWithSameStorageURI()
+	oldLmc := makeTestLocalModelCacheWithDifferentStorageURI()
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmc, &newLmc)
+	g.Expect(warnings).NotTo(gomega.BeNil())
+	g.Expect(err).To(gomega.MatchError(fmt.Errorf("LocalModelCache %s has the same StorageURI %s", existingLmc.Name, newLmc.Spec.SourceModelUri)))
+}
+
+func TestValidateUpdate_LocalModelCacheWithUniqueStorageURI(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	existingLmc := makeTestLocalModelCache()
+	s := runtime.NewScheme()
+	err := v1alpha1.AddToScheme(s)
+	if err != nil {
+		t.Errorf("unable to add scheme : %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
+	validator := LocalModelCacheValidator{fakeClient}
+	// newLmc has a unique StorageURI
+	newLmc := makeTestLocalModelCacheWithDifferentStorageURI()
+	oldLmc := makeTestLocalModelCacheWithSameStorageURI()
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmc, &newLmc)
+	g.Expect(warnings).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+}
+
+func TestValidateUpdate_InvalidObjectType(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	s := runtime.NewScheme()
+	fakeClient := fake.NewClientBuilder().WithScheme(s).Build()
+	validator := LocalModelCacheValidator{fakeClient}
+	invalidObj := &v1beta1.InferenceService{}
+	oldLmc := makeTestLocalModelCache()
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmc, invalidObj)
+	g.Expect(warnings).To(gomega.BeNil())
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("expected an LocalModelCache object"))
 }

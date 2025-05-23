@@ -1,9 +1,9 @@
 [tool.poetry]
 name = "aifserver"
-version = "0.15.0"
+version = "0.15.1"
 description = "'Model Server implementation for AI fairness. Not intended for use outside KServe Frameworks Images."
 authors = ["Andrew Butler <Andrew.Butler@ibm.com>"]
-license = "https://github.com/kserve/kserve/blob/master/LICENSE"
+license = "Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/kserve/kserve/tree/master/python/aiffairness"
 packages = [

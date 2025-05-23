@@ -31,10 +31,14 @@ RUN cd paddleserver && poetry install --no-root --no-interaction --no-cache
 COPY paddleserver paddleserver
 RUN cd paddleserver && poetry install --no-interaction --no-cache
 
+# Generate third-party licenses
+COPY pyproject.toml pyproject.toml
+COPY third_party/pip-licenses.py pip-licenses.py
+# TODO: Remove this when upgrading to python 3.11+
+RUN pip install --no-cache-dir tomli
+RUN mkdir -p third_party/library && python3 pip-licenses.py
 
 FROM ${BASE_IMAGE} AS prod
-
-COPY third_party third_party
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libgomp1 && \
@@ -48,6 +52,7 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
 RUN useradd kserve -m -u 1000 -d /home/kserve
 
+COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
 COPY --from=builder paddleserver paddleserver
