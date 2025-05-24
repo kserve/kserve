@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from . import logging
 from .constants.constants import (
@@ -188,6 +189,13 @@ app = FastAPI(
     docs_url="/docs" if args.enable_docs_url else None,
     redoc_url=None,
     default_response_class=ORJSONResponse,
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
