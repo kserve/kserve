@@ -197,6 +197,9 @@ const (
 	FailedToLoad ModelState = "FailedToLoad"
 )
 
+// Stopped Inference Service reason
+const StoppedISVCReason = "Stopped"
+
 // FailureReason enum
 // +kubebuilder:validation:Enum=ModelLoadFailed;RuntimeUnhealthy;RuntimeDisabled;NoSupportingRuntime;RuntimeNotRecognized;InvalidPredictorSpec
 type FailureReason string

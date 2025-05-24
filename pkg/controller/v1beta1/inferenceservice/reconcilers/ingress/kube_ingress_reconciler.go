@@ -141,7 +141,7 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionFalse,
-			Reason: constants.StoppedISVCReason,
+			Reason: v1beta1.StoppedISVCReason,
 		})
 	}
 	return nil
