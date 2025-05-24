@@ -84,7 +84,7 @@ func (ir *IngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infere
 		return errors.Wrapf(err, "fails to reconcile external name service")
 	}
 
-	if isvc.GetForceStopRuntime() {
+	if utils.GetForceStopRuntime(isvc) {
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionFalse,
@@ -237,7 +237,7 @@ func (ir *IngressReconciler) reconcileVirtualService(ctx context.Context, isvc *
 	existing := &istioclientv1beta1.VirtualService{}
 	getExistingErr := ir.client.Get(ctx, types.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace}, existing)
 
-	if !isvc.GetForceStopRuntime() {
+	if !utils.GetForceStopRuntime(isvc) {
 		// When Istio virtual host is disabled, we return the underlying component url.
 		// When Istio virtual host is enabled. we return the url using inference service virtual host name and redirect to the corresponding transformer, predictor or explainer url.
 		if !disableIstioVirtualHost {
@@ -311,7 +311,7 @@ func (ir *IngressReconciler) reconcileExternalService(ctx context.Context, isvc 
 		return err
 	}
 
-	if !isvc.GetForceStopRuntime() {
+	if !utils.GetForceStopRuntime(isvc) {
 		// When Istio virtual host is disabled, we return the underlying component url.
 		// When Istio virtual host is enabled. we return the url using inference service virtual host name and redirect to the corresponding transformer, predictor or explainer url.
 		if !disableIstioVirtualHost {

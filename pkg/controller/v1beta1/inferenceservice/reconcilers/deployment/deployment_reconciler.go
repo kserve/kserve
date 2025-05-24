@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -208,10 +207,7 @@ func createRawWorkerDeployment(componentMeta metav1.ObjectMeta,
 
 // checkDeploymentExist checks if the deployment exists?
 func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client kclient.Client, deployment *appsv1.Deployment) (constants.CheckResultType, *appsv1.Deployment, error) {
-	forceStopRuntime := false
-	if val, exist := deployment.Annotations[constants.StopAnnotationKey]; exist {
-		forceStopRuntime = strings.EqualFold(val, "true")
-	}
+	forceStopRuntime := utils.GetForceStopRuntime(deployment)
 
 	// get deployment
 	existingDeployment := &appsv1.Deployment{}

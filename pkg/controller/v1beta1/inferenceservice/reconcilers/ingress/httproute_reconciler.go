@@ -536,7 +536,7 @@ func (r *RawHTTPRouteReconciler) reconcilePredictorHTTPRoute(ctx context.Context
 	existing := &gatewayapiv1.HTTPRoute{}
 	getExistingErr := r.client.Get(ctx, types.NamespacedName{Name: constants.PredictorServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
 
-	if !isvc.GetForceStopRuntime() {
+	if !utils.GetForceStopRuntime(isvc) {
 		if desired == nil {
 			return nil
 		}
@@ -683,7 +683,7 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 		Name:      isvc.Name,
 	}, existingHttpRoute)
 
-	if !isvc.GetForceStopRuntime() {
+	if !utils.GetForceStopRuntime(isvc) {
 		if desired == nil {
 			return nil
 		}
@@ -701,9 +701,8 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 					log.Error(err, "Failed to create top level HttpRoute", "name", desired.Name)
 					return err
 				}
-			} else {
-				return getExistingErr
 			}
+			return getExistingErr
 		} else {
 			// Set ResourceVersion which is required for update operation.
 			desired.ResourceVersion = existingHttpRoute.ResourceVersion
@@ -767,7 +766,7 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 			return err
 		}
 
-		if isvc.GetForceStopRuntime() {
+		if utils.GetForceStopRuntime(isvc) {
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 				Type:   v1beta1.IngressReady,
 				Status: corev1.ConditionFalse,
