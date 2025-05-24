@@ -312,6 +312,8 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		}
 
 		sRuntime = *r
+		// Set the ServingRuntimeName in the status
+		isvc.Status.ServingRuntimeName = *isvc.Spec.Predictor.Model.Runtime
 	} else {
 		runtimes, err := isvc.Spec.Predictor.Model.GetSupportingRuntimes(ctx, p.client, isvc.Namespace, false, multiNodeEnabled)
 		if err != nil {
@@ -327,6 +329,8 @@ func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceS
 		// Get first supporting runtime.
 		sRuntime = runtimes[0].Spec
 		isvc.Spec.Predictor.Model.Runtime = &runtimes[0].Name
+		// Set the ServingRuntimeName in the status
+		isvc.Status.ServingRuntimeName = runtimes[0].Name
 
 		// set runtime defaults
 		isvc.SetRuntimeDefaults()

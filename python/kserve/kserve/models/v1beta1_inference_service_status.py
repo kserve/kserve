@@ -54,6 +54,7 @@ class V1beta1InferenceServiceStatus(object):
         'deployment_mode': 'str',
         'model_status': 'V1beta1ModelStatus',
         'observed_generation': 'int',
+        'serving_runtime_name': 'str',
         'url': 'KnativeURL'
     }
 
@@ -65,10 +66,11 @@ class V1beta1InferenceServiceStatus(object):
         'deployment_mode': 'deploymentMode',
         'model_status': 'modelStatus',
         'observed_generation': 'observedGeneration',
+        'serving_runtime_name': 'servingRuntimeName',
         'url': 'url'
     }
 
-    def __init__(self, address=None, annotations=None, components=None, conditions=None, deployment_mode=None, model_status=None, observed_generation=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, address=None, annotations=None, components=None, conditions=None, deployment_mode=None, model_status=None, observed_generation=None, serving_runtime_name=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServiceStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -81,6 +83,7 @@ class V1beta1InferenceServiceStatus(object):
         self._deployment_mode = None
         self._model_status = None
         self._observed_generation = None
+        self._serving_runtime_name = None
         self._url = None
         self.discriminator = None
 
@@ -98,6 +101,8 @@ class V1beta1InferenceServiceStatus(object):
             self.model_status = model_status
         if observed_generation is not None:
             self.observed_generation = observed_generation
+        if serving_runtime_name is not None:
+            self.serving_runtime_name = serving_runtime_name
         if url is not None:
             self.url = url
 
@@ -257,6 +262,29 @@ class V1beta1InferenceServiceStatus(object):
         """
 
         self._observed_generation = observed_generation
+
+    @property
+    def serving_runtime_name(self):
+        """Gets the serving_runtime_name of this V1beta1InferenceServiceStatus.  # noqa: E501
+
+        ServingRuntimeName is the name of the ServingRuntime that the InferenceService is using  # noqa: E501
+
+        :return: The serving_runtime_name of this V1beta1InferenceServiceStatus.  # noqa: E501
+        :rtype: str
+        """
+        return self._serving_runtime_name
+
+    @serving_runtime_name.setter
+    def serving_runtime_name(self, serving_runtime_name):
+        """Sets the serving_runtime_name of this V1beta1InferenceServiceStatus.
+
+        ServingRuntimeName is the name of the ServingRuntime that the InferenceService is using  # noqa: E501
+
+        :param serving_runtime_name: The serving_runtime_name of this V1beta1InferenceServiceStatus.  # noqa: E501
+        :type: str
+        """
+
+        self._serving_runtime_name = serving_runtime_name
 
     @property
     def url(self):
