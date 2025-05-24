@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"strings"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 
@@ -38,6 +37,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var log = logf.Log.WithName("KedaReconciler")
@@ -209,11 +209,7 @@ func semanticScaledObjectEquals(desired, existing *kedav1alpha1.ScaledObject) bo
 
 func (r *KedaReconciler) Reconcile(ctx context.Context) error {
 	desired := r.ScaledObject
-
-	forceStopRuntime := false
-	if val, exist := desired.Annotations[constants.StopAnnotationKey]; exist {
-		forceStopRuntime = strings.EqualFold(val, "true")
-	}
+	forceStopRuntime := utils.GetForceStopRuntime(desired)
 
 	existing := &kedav1alpha1.ScaledObject{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)

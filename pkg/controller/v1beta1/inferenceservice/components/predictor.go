@@ -197,7 +197,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 
 	// Handle InferenceService status updates based on the force stop annotation.
 	// If true, transition the service to a stopped and unready state; otherwise, ensure it's not marked as stopped.
-	if isvc.GetForceStopRuntime() {
+	if utils.GetForceStopRuntime(isvc) {
 		// Exit early if we have already set the status to stopped
 		existingStoppedCondition := isvc.Status.GetCondition(v1beta1.Stopped)
 		if existingStoppedCondition != nil && existingStoppedCondition.Status == corev1.ConditionTrue {
@@ -704,7 +704,7 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 		return errors.Wrapf(err, "fails to reconcile predictor")
 	}
 
-	if !isvc.GetForceStopRuntime() {
+	if !utils.GetForceStopRuntime(isvc) {
 		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
 	}
 
@@ -722,7 +722,7 @@ func (p *Predictor) reconcileKnativeDeployment(ctx context.Context, isvc *v1beta
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to reconcile predictor")
 	}
-	if !isvc.GetForceStopRuntime() {
+	if !utils.GetForceStopRuntime(isvc) {
 		isvc.Status.PropagateStatus(v1beta1.PredictorComponent, kstatus)
 	}
 	return kstatus, nil

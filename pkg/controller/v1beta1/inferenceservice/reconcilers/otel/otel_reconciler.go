@@ -19,10 +19,9 @@ package otel
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
@@ -148,11 +147,7 @@ func semanticOtelCollectorEquals(desired, existing *otelv1beta1.OpenTelemetryCol
 
 func (o *OtelReconciler) Reconcile(ctx context.Context) error {
 	desired := o.OTelCollector
-
-	forceStopRuntime := false
-	if val, exist := desired.Annotations[constants.StopAnnotationKey]; exist {
-		forceStopRuntime = strings.EqualFold(val, "true")
-	}
+	forceStopRuntime := utils.GetForceStopRuntime(desired)
 
 	existing := &otelv1beta1.OpenTelemetryCollector{}
 	err := o.client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, existing)
