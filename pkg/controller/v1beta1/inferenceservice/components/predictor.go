@@ -216,7 +216,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		predictorReadyCondition := &apis.Condition{
 			Type:   v1beta1.PredictorReady,
 			Status: corev1.ConditionFalse,
-			Reason: constants.StoppedISVCReason,
+			Reason: v1beta1.StoppedISVCReason,
 		}
 		isvc.Status.SetCondition(v1beta1.PredictorReady, predictorReadyCondition)
 
