@@ -503,9 +503,6 @@ const (
 	StateReasonCrashLoopBackOff = "CrashLoopBackOff"
 )
 
-// Stopped Inference Service reason
-const StoppedISVCReason = "Stopped"
-
 // CRD Kinds
 const (
 	IstioVirtualServiceKind = "VirtualService"
