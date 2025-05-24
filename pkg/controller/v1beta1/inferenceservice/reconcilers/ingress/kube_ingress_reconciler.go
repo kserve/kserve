@@ -75,7 +75,7 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 		Name:      isvc.Name,
 	}, existingIngress)
 
-	if !isvc.GetForceStopRuntime() {
+	if !utils.GetForceStopRuntime(isvc) {
 		if !isInternal && !r.ingressConfig.DisableIngressCreation {
 			ingress, err := createRawIngress(ctx, r.scheme, isvc, r.ingressConfig, r.client, r.isvcConfig)
 

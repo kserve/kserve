@@ -30,6 +30,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 var log = logf.Log.WithName("HPAReconciler")
@@ -228,11 +229,7 @@ func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler, desired *a
 	}
 
 	// Forcibly stop the HPA based on the stop annotation
-	forceStopRuntime := false
-	if val, exist := existing.Annotations[constants.StopAnnotationKey]; exist {
-		forceStopRuntime = strings.EqualFold(val, "true")
-	}
-
+	forceStopRuntime := utils.GetForceStopRuntime(existing)
 	if forceStopRuntime {
 		return true
 	}
@@ -244,11 +241,7 @@ func shouldDeleteHPA(existing *autoscalingv2.HorizontalPodAutoscaler, desired *a
 
 func shouldCreateHPA(desired *autoscalingv2.HorizontalPodAutoscaler) bool {
 	// Skip creating the HPA if the stop annotation is true
-	forceStopRuntime := false
-	if val, exist := desired.Annotations[constants.StopAnnotationKey]; exist {
-		forceStopRuntime = strings.EqualFold(val, "true")
-	}
-
+	forceStopRuntime := utils.GetForceStopRuntime(desired)
 	if forceStopRuntime {
 		return false
 	}

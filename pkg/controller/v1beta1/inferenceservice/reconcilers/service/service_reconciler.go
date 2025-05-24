@@ -248,10 +248,7 @@ func (r *ServiceReconciler) cleanHeadSvc(ctx context.Context) error {
 
 // checkServiceExist checks if the service exists?
 func (r *ServiceReconciler) checkServiceExist(ctx context.Context, client client.Client, svc *corev1.Service) (constants.CheckResultType, *corev1.Service, error) {
-	forceStopRuntime := false
-	if val, exist := svc.Annotations[constants.StopAnnotationKey]; exist {
-		forceStopRuntime = strings.EqualFold(val, "true")
-	}
+	forceStopRuntime := utils.GetForceStopRuntime(svc)
 
 	// get service
 	existingService := &corev1.Service{}
