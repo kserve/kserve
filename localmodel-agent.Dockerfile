@@ -24,5 +24,6 @@ RUN go-licenses save --save_path third_party/library ./cmd/localmodelnode
 # Copy the controller-manager into a thin image
 FROM gcr.io/distroless/static:nonroot
 COPY --from=builder /go/src/github.com/kserve/kserve/third_party /third_party
-COPY --from=builder /go/src/github.com/kserve/kserve/localmodelnode-agent /manager
-ENTRYPOINT ["/manager"]
+WORKDIR /ko-app
+COPY --from=builder /go/src/github.com/kserve/kserve/localmodelnode-agent /ko-app/manager
+ENTRYPOINT ["/ko-app/manager"]
