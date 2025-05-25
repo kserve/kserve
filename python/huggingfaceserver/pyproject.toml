@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "huggingfaceserver"
-version = "0.15.0"
+version = "0.15.1"
 description = "Model Server implementation for huggingface. Not intended for use outside KServe Frameworks Images."
 authors = ["Dan Sun <dsun20@bloomberg.net>"]
 license = "Apache-2.0"
@@ -17,6 +17,7 @@ triton = "3.2.0"
 vllm = "0.8.5"
 bitsandbytes = ">=0.45.3"
 flashinfer-python = "~0.2.5"
+modelscope = "^1.16.0"
 setuptools = ">=70.0.0"
 
 [tool.poetry.group.test]
