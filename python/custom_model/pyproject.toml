@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "custom-model"
-version = "0.15.1"
+version = "0.15.2"
 description = "Custom model implementation. Not intended for use outside KServe Frameworks Images."
 authors = ["The KServe Authors"]
 license = "Apache-2.0"
