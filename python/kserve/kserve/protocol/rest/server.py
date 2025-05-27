@@ -124,6 +124,7 @@ class RESTServer:
             )
 
             maybe_register_openai_endpoints(app, self.dataplane.model_registry)
+            FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer_provider)
             logger.info("OpenAI endpoints registered")
             
         except ImportError:
