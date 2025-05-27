@@ -76,6 +76,7 @@ ray = { version = ">=2.43.0", extras = ["serve"], optional = true }
 
 # OpenAI Types dependency
 vllm = { version = "0.9.0.1", optional = true }
+opentelemetry-instrumentation-logging = "^0.54b1"
 
 [tool.poetry.extras]
 storage = [
