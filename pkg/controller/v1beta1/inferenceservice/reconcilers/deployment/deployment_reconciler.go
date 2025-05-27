@@ -225,9 +225,9 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 		return constants.CheckResultUnknown, nil, err
 	}
 
-	// existed, but marked for deletetion
+	// existed, but marked for deletion
 	if forceStopRuntime {
-		return constants.CheckResultDelete, nil, nil
+		return constants.CheckResultDelete, existingDeployment, nil
 	}
 
 	// existed, check equivalence
