@@ -624,7 +624,7 @@ i18n = ["Babel (>=2.7)"]
 
 [[package]]
 name = "kserve"
-version = "0.15.1"
+version = "0.15.2"
 description = "KServe Python SDK"
 optional = false
 python-versions = ">=3.9,<3.13"
