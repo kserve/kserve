@@ -14,24 +14,8 @@
 
 set -eu
 
-waitforpodlabeled() {
-  local ns=${1?namespace is required}; shift
-  local podlabel=${1?pod label is required}; shift
-
-  echo "Waiting for pod -l $podlabel to be created"
-  until oc get pod -n "$ns" -l $podlabel -o=jsonpath='{.items[0].metadata.name}' >/dev/null 2>&1; do
-    sleep 1
-  done
-}
-
-waitpodready() {
-  local ns=${1?namespace is required}; shift
-  local podlabel=${1?pod label is required}; shift
-
-  waitforpodlabeled "$ns" "$podlabel"
-  echo "Waiting for pod -l $podlabel to become ready"
-  oc wait --for=condition=ready --timeout=180s pod -n $ns -l $podlabel
-}
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source "${SCRIPT_DIR}/common.sh"
 
 # Deploy OSSM operator
 cat <<EOF | oc apply -f -
@@ -50,7 +34,7 @@ spec:
   sourceNamespace: openshift-marketplace
 EOF
 
-waitpodready "openshift-operators" "name=istio-operator"
+wait_for_pod_ready "openshift-operators" "name=istio-operator"
 
 # Create new namespace
 oc new-project istio-system
@@ -101,6 +85,6 @@ spec:
 EOF
 
 # Waiting for OSSM minimum start
-waitpodready "istio-system" "app=istiod"
+wait_for_pod_ready "istio-system" "app=istiod"
 
 echo -e "\n  OSSM has partially started and should be fully ready soon."

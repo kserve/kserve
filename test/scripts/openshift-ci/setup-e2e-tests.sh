@@ -66,6 +66,8 @@ pushd $PROJECT_ROOT/python/kserve >/dev/null
   poetry install --with=test --no-interaction
 popd
 
+$MY_PATH/deploy.cma.sh
+
 # Install KServe stack
 if [ "$1" != "raw" ]; then
   echo "Installing OSSM"

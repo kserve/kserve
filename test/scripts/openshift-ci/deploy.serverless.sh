@@ -14,27 +14,8 @@
 
 set -eu
 
-waitforpodlabeled() {
-  local ns=${1?namespace is required}; shift
-  local podlabel=${1?pod label is required}; shift
-
-  echo "Waiting for pod -l $podlabel to be created"
-  until oc get pod -n "$ns" -l $podlabel -o=jsonpath='{.items[0].metadata.name}' >/dev/null 2>&1; do
-    sleep 1
-  done
-}
-
-waitpodready() {
-  local ns=${1?namespace is required}; shift
-  local podlabel=${1?pod label is required}; shift
-
-  waitforpodlabeled "$ns" "$podlabel"
-  sleep 2
-  oc get pod -n $ns -l $podlabel
-
-  echo "Waiting for pod -l $podlabel to become ready"
-  oc wait --for=condition=ready --timeout=600s pod -n $ns -l $podlabel || (oc get pod -n $ns -l $podlabel && false)
-}
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source "${SCRIPT_DIR}/common.sh"
 
 # Create namespaces(openshift-serverless)
 oc create ns openshift-serverless
@@ -69,9 +50,9 @@ spec:
   sourceNamespace: openshift-marketplace
 EOF
 
-waitpodready "openshift-serverless" "name=knative-openshift"
-waitpodready "openshift-serverless" "name=knative-openshift-ingress"
-waitpodready "openshift-serverless" "name=knative-operator"
+wait_for_pod_ready "openshift-serverless" "name=knative-openshift"
+wait_for_pod_ready "openshift-serverless" "name=knative-openshift-ingress"
+wait_for_pod_ready "openshift-serverless" "name=knative-operator"
 
 # Install KNative
 cat <<EOF | oc apply -f -
@@ -167,18 +148,18 @@ EOF
 
 
 # Apparently, as part of KNative installation, deployments can be restarted because
-# of configuration changes, leading to waitpodready to fail sometimes.
+# of configuration changes, leading to wait_for_pod_ready to fail sometimes.
 # Let's sleep 2minutes to let the KNative operator to stabilize the installation before
 # checking for the readiness of KNative stack.
 sleep 120
 
-waitpodready "knative-serving" "app=controller"
-waitpodready "knative-serving" "app=net-istio-controller"
-waitpodready "knative-serving" "app=net-istio-webhook"
-waitpodready "knative-serving" "app=autoscaler-hpa"
-waitpodready "knative-serving" "app=webhook"
-waitpodready "knative-serving" "app=activator"
-waitpodready "knative-serving" "app=autoscaler"
+wait_for_pod_ready "knative-serving" "app=controller"
+wait_for_pod_ready "knative-serving" "app=net-istio-controller"
+wait_for_pod_ready "knative-serving" "app=net-istio-webhook"
+wait_for_pod_ready "knative-serving" "app=autoscaler-hpa"
+wait_for_pod_ready "knative-serving" "app=webhook"
+wait_for_pod_ready "knative-serving" "app=activator"
+wait_for_pod_ready "knative-serving" "app=autoscaler"
 
 export secret_name=$(oc get IngressController default -n openshift-ingress-operator -o yaml -o=jsonpath='{ .spec.defaultCertificate.name}')
 if [ -z "$secret_name" ]; then

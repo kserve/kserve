@@ -150,4 +150,9 @@ spec:
   - Egress
 EOF
 
+echo "Delete CMA / KEDA operator"
+oc delete kedacontroller -n openshift-keda keda --ignore-not-found
+oc delete subscription -n openshift-keda openshift-custom-metrics-autoscaler-operator --ignore-not-found
+oc delete namespace openshift-keda --ignore-not-found
+
 echo "Teardown complete"
