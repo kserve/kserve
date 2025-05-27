@@ -1,0 +1,99 @@
+name: PR Style Check
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+
+permissions:
+  contents: read
+
+jobs:
+  description:
+    name: Description
+    runs-on: ubuntu-latest
+    env:
+      # Do not use ${{ github.event.pull_request.body }} directly in run command.
+      BODY: ${{ github.event.pull_request.body }}
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    steps:
+      - name: Check comment out lines
+        run: |
+          if [[ $BODY =~ "<!--" ]]; then
+              echo "PR description contains '<!--'. Please remove all the comment out lines in the template after carefully reading them."
+              exit 1
+          fi
+          if [[ $BODY =~ "-->" ]]; then
+              echo "PR description contains '-->'. Please remove all the comment out lines in the template after carefully reading them."
+              exit 1
+          fi
+      - name: Check the first line matches '**Commit Message**'
+        run: |
+          first_line=$(echo -n "$BODY" | head -n 1)
+          trimmed_first_line=$(echo "$first_line" | sed 's/[[:space:]]*$//')
+          echo "$trimmed_first_line='$trimmed_first_line'"
+          if [[ "$trimmed_first_line" != "**Commit Message**" ]]; then
+            echo "The first line of the PR description must be '**Commit Message**'"
+            exit 1
+          fi
+      - name: Check no markdown format link in PR description.
+        run: |
+          if echo "$BODY" | grep -q '\[[^]]\+\](\([^)]\+\))'; then
+            echo "PR description contains markdown format link. Please remove all of them."
+            echo "If you want to refer to a link, please use the following format where you place the link at the end of the PR description:"
+            echo ""
+            echo "**Commit Message**:"
+            echo "This modifies foo bar. The official documentation can be found at [1] and [2]. Please refer to them for more details."
+            echo ""
+            echo "1: https://example.com"
+            echo "2: https://another.com"
+            exit 1
+          fi
+
+  title:
+    name: Title
+    runs-on: ubuntu-latest
+    if: ${{ github.actor != 'dependabot[bot]' }}
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            docs
+            style
+            feat
+            test
+            build
+            ci
+            chore
+            revert
+            release
+            api
+            deps
+            e2e
+            controller
+            modelserver
+            examples
+            backport
+            refactor
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" found in the pull request title "{title}"
+            didn't match the configured pattern. Please ensure that the subject
+            doesn't start with an uppercase character.
+
+      - name: Check length of PR title
+        env:
+          # Do not use ${{ github.event.pull_request.title }} directly in run command.
+          TITLE: ${{ github.event.pull_request.title }}
+        # We want to make sure that each commit "subject" is <=60 characters not to
+        # be truncated in the git log as well as in the GitHub UI.
+        # https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/process/submitting-patches.rst?id=bc7938deaca7f474918c41a0372a410049bd4e13#n664
+        run: |
+          if (( ${#TITLE} > 60 )); then
+            echo "The PR title is too long. Please keep it <=60 characters."
+            exit 1
+          fi
