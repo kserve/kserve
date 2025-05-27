@@ -260,17 +260,15 @@ func (r *ServiceReconciler) checkServiceExist(ctx context.Context, client client
 		if apierr.IsNotFound(err) {
 			if !forceStopRuntime {
 				return constants.CheckResultCreate, nil, nil
-			} else {
-				// Do nothing
-				return constants.CheckResultUnknown, nil, nil
 			}
+			return constants.CheckResultUnknown, nil, nil
 		}
 		return constants.CheckResultUnknown, nil, err
 	}
 
-	// existed, but marked for deletetion
+	// existed, but marked for deletion
 	if forceStopRuntime {
-		return constants.CheckResultDelete, nil, nil
+		return constants.CheckResultDelete, existingService, nil
 	}
 
 	// existed, check equivalent
