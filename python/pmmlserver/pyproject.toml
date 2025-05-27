@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pmmlserver"
-version = "0.15.1"
+version = "0.15.2"
 description = "Model Server implementation for PMML. Not intended for use outside KServe Frameworks Images."
 authors = ["AnyISalIn <anyisalin@gmail.com>"]
 license = "Apache-2.0"
