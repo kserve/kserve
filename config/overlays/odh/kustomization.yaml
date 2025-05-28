@@ -27,7 +27,6 @@ replacements:
 configMapGenerator:
 - envs:
   - params.env
-  - params-synced.env
   name: kserve-parameters
 
 generatorOptions:
