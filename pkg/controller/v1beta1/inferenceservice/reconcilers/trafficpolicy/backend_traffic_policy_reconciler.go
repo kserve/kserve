@@ -88,13 +88,13 @@ func (r *BackendTrafficPolicyReconciler) createTrafficPolicy() *egv1a1.BackendTr
 		},
 		Spec: egv1a1.BackendTrafficPolicySpec{
 			RateLimit: &egv1a1.RateLimitSpec{
-				Type: egv1a1.GlobalRateLimitType,
+				Type:   egv1a1.GlobalRateLimitType,
 				Global: &r.isvc.Spec.TrafficPolicy.RateLimit.Global,
 			},
 			ClusterSettings: egv1a1.ClusterSettings{
-				Retry: r.isvc.Spec.TrafficPolicy.Retry,
+				Retry:          r.isvc.Spec.TrafficPolicy.Retry,
 				CircuitBreaker: r.isvc.Spec.TrafficPolicy.CircuitBreaker,
-				LoadBalancer: r.isvc.Spec.TrafficPolicy.LoadBalancer,
+				LoadBalancer:   r.isvc.Spec.TrafficPolicy.LoadBalancer,
 			},
 		},
 	}

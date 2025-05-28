@@ -51,9 +51,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
-	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -103,6 +100,7 @@ import (
 // +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=envoyproxy.ai,resources=aiservicebackends,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=gateway.envoyproxy.io,resources=backendtrafficpolicies,verbs=get;list;watch;create;update;patch;delete
+
 // InferenceServiceState describes the Readiness of the InferenceService
 type InferenceServiceState string
 
@@ -484,7 +482,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		r.Log.Info("The InferenceService controller won't watch envoyproxy.ai/v1alpha1/AIServiceBackend resources because the CRD is not available.")
 	}
 
-	egwFound, egwCheckErr := utils.IsCrdAvailable(r.ClientConfig, egv1a1.GroupVersion.String(), constants.KindBackendTrafficPolicy)	
+	egwFound, egwCheckErr := utils.IsCrdAvailable(r.ClientConfig, egv1a1.GroupVersion.String(), constants.KindBackendTrafficPolicy)
 	if egwCheckErr != nil {
 		r.Log.Error(egwCheckErr, "error when checking if Envoy Gateway kind is available")
 		return egwCheckErr
