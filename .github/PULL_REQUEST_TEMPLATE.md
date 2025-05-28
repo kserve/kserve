@@ -4,6 +4,7 @@
 3. If you want *faster* PR reviews, read how: https://git.k8s.io/community/contributors/guide/pull-requests.md#best-practices-for-faster-reviews
 4. Follow the instructions for writing a release note: https://git.k8s.io/community/contributors/guide/release-notes.md
 5. If the PR is unfinished, see how to mark it: https://git.k8s.io/community/contributors/guide/pull-requests.md#marking-unfinished-pull-requests
+6. Re-running failed tests: comment `/rerun-all` to rerun all failed workflows.
 -->
 
 **What this PR does / why we need it**:
@@ -12,7 +13,7 @@
 Fixes #
 
 **Type of changes**
-Please delete options that are not relevant.
+<!-- Please delete options that are not relevant. -->
 
 - [ ] Bug fix (non-breaking change which fixes an issue)
 - [ ] New feature (non-breaking change which adds functionality)
@@ -21,8 +22,8 @@ Please delete options that are not relevant.
 
 **Feature/Issue validation/testing**:
 
-Please describe the tests that you ran to verify your changes and relevant result summary. Provide instructions so it can be reproduced.
-Please also list any relevant details for your test configuration.
+<!--Please describe the tests that you ran to verify your changes and relevant result summary. Provide instructions so it can be reproduced.
+Please also list any relevant details for your test configuration. -->
 
 - [ ] Test A
 - [ ] Test B
@@ -31,13 +32,13 @@ Please also list any relevant details for your test configuration.
 
 **Special notes for your reviewer**:
 
-1. Please confirm that if this PR changes any image versions, then that's the sole change this PR makes.
+<!-- 1. Please confirm that if this PR changes any image versions, then that's the sole change this PR makes. -->
 
 **Checklist**:
 
 - [ ] Have you added unit/e2e tests that prove your fix is effective or that this feature works?
 - [ ] Has code been commented, particularly in hard-to-understand areas?
-- [ ] Have you made corresponding changes to the documentation?
+- [ ] Have you made corresponding changes to the [documentation](https://github.com/kserve/website)?
 
 **Release note**:
 <!--  Write your release note:
@@ -47,8 +48,3 @@ Please also list any relevant details for your test configuration.
 ```release-note
 
 ```
-
-**Re-running failed tests**
-
-- `/rerun-all` - rerun all failed workflows.
-- `/rerun-workflow <workflow name>` - rerun a specific failed workflow. Only one workflow name can be specified. Multiple /rerun-workflow commands are allowed per comment.
