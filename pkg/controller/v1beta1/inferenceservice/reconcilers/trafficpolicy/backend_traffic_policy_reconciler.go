@@ -91,11 +91,6 @@ func (r *BackendTrafficPolicyReconciler) createTrafficPolicy() *egv1a1.BackendTr
 				Type:   egv1a1.GlobalRateLimitType,
 				Global: &r.isvc.Spec.TrafficPolicy.RateLimit.Global,
 			},
-			ClusterSettings: egv1a1.ClusterSettings{
-				Retry:          r.isvc.Spec.TrafficPolicy.Retry,
-				CircuitBreaker: r.isvc.Spec.TrafficPolicy.CircuitBreaker,
-				LoadBalancer:   r.isvc.Spec.TrafficPolicy.LoadBalancer,
-			},
 		},
 	}
 }

@@ -47,81 +47,24 @@ class V1beta1TrafficPolicy(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'circuit_breaker': 'GithubComEnvoyproxyGatewayApiV1alpha1CircuitBreaker',
-        'load_balancer': 'GithubComEnvoyproxyGatewayApiV1alpha1LoadBalancer',
-        'rate_limit': 'V1beta1RateLimit',
-        'retry': 'GithubComEnvoyproxyGatewayApiV1alpha1Retry'
+        'rate_limit': 'V1beta1RateLimit'
     }
 
     attribute_map = {
-        'circuit_breaker': 'circuitBreaker',
-        'load_balancer': 'loadBalancer',
-        'rate_limit': 'rateLimit',
-        'retry': 'retry'
+        'rate_limit': 'rateLimit'
     }
 
-    def __init__(self, circuit_breaker=None, load_balancer=None, rate_limit=None, retry=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, rate_limit=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1TrafficPolicy - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
-        self._circuit_breaker = None
-        self._load_balancer = None
         self._rate_limit = None
-        self._retry = None
         self.discriminator = None
 
-        if circuit_breaker is not None:
-            self.circuit_breaker = circuit_breaker
-        if load_balancer is not None:
-            self.load_balancer = load_balancer
         if rate_limit is not None:
             self.rate_limit = rate_limit
-        if retry is not None:
-            self.retry = retry
-
-    @property
-    def circuit_breaker(self):
-        """Gets the circuit_breaker of this V1beta1TrafficPolicy.  # noqa: E501
-
-
-        :return: The circuit_breaker of this V1beta1TrafficPolicy.  # noqa: E501
-        :rtype: GithubComEnvoyproxyGatewayApiV1alpha1CircuitBreaker
-        """
-        return self._circuit_breaker
-
-    @circuit_breaker.setter
-    def circuit_breaker(self, circuit_breaker):
-        """Sets the circuit_breaker of this V1beta1TrafficPolicy.
-
-
-        :param circuit_breaker: The circuit_breaker of this V1beta1TrafficPolicy.  # noqa: E501
-        :type: GithubComEnvoyproxyGatewayApiV1alpha1CircuitBreaker
-        """
-
-        self._circuit_breaker = circuit_breaker
-
-    @property
-    def load_balancer(self):
-        """Gets the load_balancer of this V1beta1TrafficPolicy.  # noqa: E501
-
-
-        :return: The load_balancer of this V1beta1TrafficPolicy.  # noqa: E501
-        :rtype: GithubComEnvoyproxyGatewayApiV1alpha1LoadBalancer
-        """
-        return self._load_balancer
-
-    @load_balancer.setter
-    def load_balancer(self, load_balancer):
-        """Sets the load_balancer of this V1beta1TrafficPolicy.
-
-
-        :param load_balancer: The load_balancer of this V1beta1TrafficPolicy.  # noqa: E501
-        :type: GithubComEnvoyproxyGatewayApiV1alpha1LoadBalancer
-        """
-
-        self._load_balancer = load_balancer
 
     @property
     def rate_limit(self):
@@ -143,27 +86,6 @@ class V1beta1TrafficPolicy(object):
         """
 
         self._rate_limit = rate_limit
-
-    @property
-    def retry(self):
-        """Gets the retry of this V1beta1TrafficPolicy.  # noqa: E501
-
-
-        :return: The retry of this V1beta1TrafficPolicy.  # noqa: E501
-        :rtype: GithubComEnvoyproxyGatewayApiV1alpha1Retry
-        """
-        return self._retry
-
-    @retry.setter
-    def retry(self, retry):
-        """Sets the retry of this V1beta1TrafficPolicy.
-
-
-        :param retry: The retry of this V1beta1TrafficPolicy.  # noqa: E501
-        :type: GithubComEnvoyproxyGatewayApiV1alpha1Retry
-        """
-
-        self._retry = retry
 
     def to_dict(self):
         """Returns the model properties as a dict"""

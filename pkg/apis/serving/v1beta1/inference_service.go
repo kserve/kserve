@@ -117,19 +117,7 @@ type RateLimit struct {
 }
 
 type TrafficPolicy struct {
-	// LoadBalancer defines the load balancer policy to be applied
-	// +optional
-	LoadBalancer *egwv1a1.LoadBalancer `json:"loadBalancer,omitempty"`
-
-	// Retry defines the retry strategy to be applied.
-	// +optional
-	Retry *egwv1a1.Retry `json:"retry,omitempty"`
-
-	// CircuitBreaker defines the Circuit Breaker configuration.
-	// +optional
-	CircuitBreaker *egwv1a1.CircuitBreaker `json:"circuitBreaker,omitempty"`
-
-	// RateLimit defines the configuration associated with the Rate Limit policy.
+	// RateLimit defines the configuration for token based rate limiting for LLMs.
 	// +optional
 	RateLimit *RateLimit `json:"rateLimit,omitempty"`
 }
