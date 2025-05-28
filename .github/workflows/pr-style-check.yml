@@ -29,28 +29,6 @@ jobs:
               echo "PR description contains '-->'. Please remove all the comment out lines in the template after carefully reading them."
               exit 1
           fi
-      - name: Check the first line matches '**Commit Message**'
-        run: |
-          first_line=$(echo -n "$BODY" | head -n 1)
-          trimmed_first_line=$(echo "$first_line" | sed 's/[[:space:]]*$//')
-          echo "$trimmed_first_line='$trimmed_first_line'"
-          if [[ "$trimmed_first_line" != "**Commit Message**" ]]; then
-            echo "The first line of the PR description must be '**Commit Message**'"
-            exit 1
-          fi
-      - name: Check no markdown format link in PR description.
-        run: |
-          if echo "$BODY" | grep -q '\[[^]]\+\](\([^)]\+\))'; then
-            echo "PR description contains markdown format link. Please remove all of them."
-            echo "If you want to refer to a link, please use the following format where you place the link at the end of the PR description:"
-            echo ""
-            echo "**Commit Message**:"
-            echo "This modifies foo bar. The official documentation can be found at [1] and [2]. Please refer to them for more details."
-            echo ""
-            echo "1: https://example.com"
-            echo "2: https://another.com"
-            exit 1
-          fi
 
   title:
     name: Title
