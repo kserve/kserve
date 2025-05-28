@@ -37,14 +37,14 @@ import (
 type AIServiceBackendReconciler struct {
 	client client.Client
 	isvc   *v1beta1.InferenceService
-	log logr.Logger
+	log    logr.Logger
 }
 
 func NewAIServiceBackendReconciler(client client.Client, isvc *v1beta1.InferenceService, logger logr.Logger) *AIServiceBackendReconciler {
 	return &AIServiceBackendReconciler{
 		client: client,
 		isvc:   isvc,
-		log: logger,
+		log:    logger,
 	}
 }
 
@@ -83,7 +83,7 @@ func (r *AIServiceBackendReconciler) Reconcile(ctx context.Context) error {
 	return nil
 }
 
-func (r *AIServiceBackendReconciler) createAIServiceBackend() (*aigwv1a1.AIServiceBackend) {
+func (r *AIServiceBackendReconciler) createAIServiceBackend() *aigwv1a1.AIServiceBackend {
 	serviceName := constants.PredictorServiceName(r.isvc.Name)
 	if r.isvc.Spec.Transformer != nil {
 		serviceName = constants.TransformerServiceName(r.isvc.Name)
@@ -98,10 +98,10 @@ func (r *AIServiceBackendReconciler) createAIServiceBackend() (*aigwv1a1.AIServi
 				Name: aigwv1a1.APISchemaOpenAI,
 			},
 			BackendRef: gwapiv1.BackendObjectReference{
-				Kind: ptr.To(gwapiv1.Kind(constants.KindService)),
-				Name: gwapiv1.ObjectName(serviceName),
+				Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+				Name:      gwapiv1.ObjectName(serviceName),
 				Namespace: ptr.To(gwapiv1.Namespace(r.isvc.Namespace)),
-				Port: ptr.To(gwapiv1.PortNumber(constants.CommonDefaultHttpPort)),
+				Port:      ptr.To(gwapiv1.PortNumber(constants.CommonDefaultHttpPort)),
 			},
 			Timeouts: &gwapiv1.HTTPRouteTimeouts{
 				Request: ptr.To(gwapiv1.Duration(fmt.Sprintf("%ds", constants.DefaultTimeoutSeconds))),

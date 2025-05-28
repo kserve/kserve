@@ -506,15 +506,15 @@ const (
 
 // CRD Kinds
 const (
-	KindIstioVirtualService = "VirtualService"
-	KindKnativeService      = "Service"
-	KindHTTPRoute           = "HTTPRoute"
-	KindGateway             = "Gateway"
-	KindService             = "Service"
-	KindKedaScaledObject    = "ScaledObject"
-	KindAIServiceBackend	= "AIServiceBackend"
+	KindIstioVirtualService  = "VirtualService"
+	KindKnativeService       = "Service"
+	KindHTTPRoute            = "HTTPRoute"
+	KindGateway              = "Gateway"
+	KindService              = "Service"
+	KindKedaScaledObject     = "ScaledObject"
+	KindAIServiceBackend     = "AIServiceBackend"
 	KindBackendTrafficPolicy = "BackendTrafficPolicy"
-	OpenTelemetryCollector  = "OpenTelemetryCollector"
+	OpenTelemetryCollector   = "OpenTelemetryCollector"
 )
 
 // MultiNode environment variables
