@@ -14,6 +14,7 @@
 
 import io
 import os
+import re
 import tempfile
 import binascii
 import unittest.mock as mock
@@ -62,6 +63,16 @@ def test_no_prefix_local_path():
     relative_path = "."
     assert Storage.download(abs_path) == abs_path
     assert Storage.download(relative_path) == relative_path
+
+
+def test_storage_unsupported_protocol():
+    uri = "unsupported://models/model.joblib"
+    text = (
+        "Cannot recognize storage type for 'unsupported://models/model.joblib'. \n"
+        "'['gs://', 's3://', 'hdfs://', 'webhdfs://', ['https://(.+?).blob.core.windows.net/(.+)', 'https://(.+?).z[0-9]{1,2}.blob.storage.azure.net/(.+)'], ['https://(.+?).file.core.windows.net/(.+)', 'https://(.+?).z[0-9]{1,2}.file.storage.azure.net/(.+)'], 'file://', 'https?://(.+)/(.+)', 'http(s)://', 'hf://', '/mnt/pvc']' are the current available storage type."
+    )
+    with pytest.raises(Exception, match=re.escape(text)):
+        Storage.download(uri)
 
 
 def test_local_path_with_out_dir_exist():

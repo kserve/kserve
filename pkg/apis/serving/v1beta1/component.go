@@ -55,11 +55,6 @@ const (
 	DisallowedWorkerSpecTensorParallelSizeEnvError   = "the InferenceService %q is invalid: setting TENSOR_PARALLEL_SIZE in environment variables is not allowed"
 )
 
-// SupportedStorageSpecURIPrefixList Constants
-var (
-	SupportedStorageSpecURIPrefixList = []string{"s3://", "hdfs://", "webhdfs://"}
-)
-
 // ComponentImplementation interface is implemented by predictor, transformer, and explainer implementations
 // +kubebuilder:object:generate=false
 type ComponentImplementation interface {
@@ -327,24 +322,23 @@ func validateStorageSpec(storageSpec *StorageSpec, storageURI *string) error {
 	if storageSpec == nil {
 		return nil
 	}
-	if storageURI != nil {
-		if utils.IsPrefixSupported(*storageURI, SupportedStorageSpecURIPrefixList) {
-			return nil
-		} else {
-			return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(SupportedStorageSpecURIPrefixList, ", "), *storageURI)
-		}
-	}
+
 	if storageSpec.Parameters != nil {
 		for k, v := range *storageSpec.Parameters {
 			if k == "type" {
-				if utils.IsPrefixSupported(v+"://", SupportedStorageSpecURIPrefixList) {
-					return nil
-				} else {
-					return fmt.Errorf(UnsupportedStorageSpecFormatError, strings.Join(SupportedStorageSpecURIPrefixList, ", "), v)
+				if !utils.IsPrefixSupported(v+"://", constants.SupportedStorageURIPrefixList) {
+					return fmt.Errorf(UnsupportedStorageSpecFormatError, strings.Join(constants.SupportedStorageURIPrefixList, ", "), v)
 				}
 			}
 		}
 	}
+
+	if nil == storageURI {
+		return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(constants.SupportedStorageURIPrefixList, ", "), "empty")
+	} else if !utils.IsPrefixSupported(*storageURI, constants.SupportedStorageURIPrefixList) {
+		return fmt.Errorf(UnsupportedStorageURIFormatError, strings.Join(constants.SupportedStorageURIPrefixList, ", "), *storageURI)
+	}
+
 	return nil
 }
 

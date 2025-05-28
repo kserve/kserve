@@ -153,6 +153,13 @@ var (
 	DefaultStorageSpecSecretPath = "/mnt/storage-secret" // #nosec G101
 )
 
+var SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "oci://", "hf://"}
+
+const (
+	AzureBlobURL      = "blob.core.windows.net"
+	AzureBlobURIRegEx = "https://(.+?).blob.core.windows.net/(.+)"
+)
+
 // Controller Constants
 var (
 	ControllerLabelName                   = KServeName + "-controller-manager"
