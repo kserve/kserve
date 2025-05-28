@@ -10616,27 +10616,9 @@ func schema_pkg_apis_serving_v1beta1_TrafficPolicy(ref common.ReferenceCallback)
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"loadBalancer": {
-						SchemaProps: spec.SchemaProps{
-							Description: "LoadBalancer defines the load balancer policy to be applied",
-							Ref:         ref("github.com/envoyproxy/gateway/api/v1alpha1.LoadBalancer"),
-						},
-					},
-					"retry": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Retry defines the retry strategy to be applied.",
-							Ref:         ref("github.com/envoyproxy/gateway/api/v1alpha1.Retry"),
-						},
-					},
-					"circuitBreaker": {
-						SchemaProps: spec.SchemaProps{
-							Description: "CircuitBreaker defines the Circuit Breaker configuration.",
-							Ref:         ref("github.com/envoyproxy/gateway/api/v1alpha1.CircuitBreaker"),
-						},
-					},
 					"rateLimit": {
 						SchemaProps: spec.SchemaProps{
-							Description: "RateLimit defines the configuration associated with the Rate Limit policy.",
+							Description: "RateLimit defines the configuration for token based rate limiting for LLMs.",
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.RateLimit"),
 						},
 					},
@@ -10644,7 +10626,7 @@ func schema_pkg_apis_serving_v1beta1_TrafficPolicy(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/envoyproxy/gateway/api/v1alpha1.CircuitBreaker", "github.com/envoyproxy/gateway/api/v1alpha1.LoadBalancer", "github.com/envoyproxy/gateway/api/v1alpha1.Retry", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.RateLimit"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.RateLimit"},
 	}
 }
 
