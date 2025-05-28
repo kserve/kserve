@@ -536,7 +536,7 @@ all = ["flake8 (>=7.1.1)", "mypy (>=1.11.2)", "pytest (>=8.3.2)", "ruff (>=0.6.2
 
 [[package]]
 name = "kserve"
-version = "0.15.1"
+version = "0.15.2"
 description = "KServe Python SDK"
 optional = false
 python-versions = ">=3.9,<3.13"

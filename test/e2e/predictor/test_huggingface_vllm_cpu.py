@@ -27,12 +27,18 @@ from kserve import (
     KServeClient,
 )
 from kserve.constants import constants
-from ..common.utils import KSERVE_TEST_NAMESPACE, generate, rerank
+from ..common.utils import (
+    KSERVE_TEST_NAMESPACE,
+    generate,
+    rerank,
+    chat_completion_stream,
+    completion_stream,
+)
 
 
 @pytest.mark.vllm
 def test_huggingface_vllm_cpu_openai_chat_completions():
-    service_name = "hf-opt-125m-chat"
+    service_name = "hf-qwen-chat-vllm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -41,11 +47,11 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
             ),
             args=[
                 "--model_id",
-                "facebook/opt-125m",
-                "--model_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
-                "--tokenizer_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
+                "Qwen/Qwen2-0.5B-Instruct",
+                "--model_name",
+                "hf-qwen-chat",
+                "--backend",
+                "vllm",
                 "--max_model_len",
                 "512",
                 "--dtype",
@@ -73,18 +79,66 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    res = generate(service_name, "./data/opt_125m_input_generate.json")
-    assert (
-        res["choices"][0]["message"]["content"]
-        == "I'm not sure if this is a good idea, but I'm going to try to get a"
+    res = generate(service_name, "./data/qwen_input_chat.json")
+    assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.vllm
+def test_huggingface_vllm_cpu_text_completion_streaming():
+    service_name = "hf-qwen-cmpl-stream-vllm"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="huggingface",
+            ),
+            args=[
+                "--model_id",
+                "Qwen/Qwen2-0.5B",
+                "--model_name",
+                "hf-qwen-cmpl-stream",
+                "--backend",
+                "vllm",
+                "--max_model_len",
+                "512",
+                "--dtype",
+                "bfloat16",
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "2", "memory": "6Gi"},
+                limits={"cpu": "2", "memory": "6Gi"},
+            ),
+        ),
     )
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    full_response, _ = completion_stream(
+        service_name, "./data/qwen_input_cmpl_stream.json"
+    )
+    assert full_response.strip() == "The result of 2 + 2 is 4."
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.vllm
 def test_huggingface_vllm_cpu_openai_completions():
-    service_name = "hf-opt-125m-cmpl"
+    service_name = "hf-qwen-cmpl-vllm"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
         model=V1beta1ModelSpec(
@@ -93,11 +147,11 @@ def test_huggingface_vllm_cpu_openai_completions():
             ),
             args=[
                 "--model_id",
-                "facebook/opt-125m",
-                "--model_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
-                "--tokenizer_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
+                "Qwen/Qwen2-0.5B",
+                "--model_name",
+                "hf-qwen-cmpl",
+                "--backend",
+                "vllm",
                 "--max_model_len",
                 "512",
                 "--dtype",
@@ -124,10 +178,59 @@ def test_huggingface_vllm_cpu_openai_completions():
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    res = generate(
-        service_name, "./data/opt_125m_completion_input.json", chat_completions=False
+    res = generate(service_name, "./data/qwen_input_cmpl.json", chat_completions=False)
+    assert res["choices"][0]["text"].strip() == "The result of 2 + 2 is 4."
+
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+
+@pytest.mark.vllm
+def test_huggingface_vllm_openai_chat_completions_streaming():
+    service_name = "hf-qwen-chat-stream-vllm"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        model=V1beta1ModelSpec(
+            model_format=V1beta1ModelFormat(
+                name="huggingface",
+            ),
+            args=[
+                "--model_id",
+                "Qwen/Qwen2-0.5B-Instruct",
+                "--model_name",
+                "hf-qwen-chat-stream",
+                "--backend",
+                "vllm",
+                "--max_model_len",
+                "512",
+                "--dtype",
+                "bfloat16",
+            ],
+            resources=V1ResourceRequirements(
+                requests={"cpu": "2", "memory": "6Gi"},
+                limits={"cpu": "2", "memory": "6Gi"},
+            ),
+        ),
     )
-    assert res["choices"][0]["text"] == "\nI think it's a mod that allows you"
+
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+
+    full_response, _ = chat_completion_stream(
+        service_name, "./data/qwen_input_chat_stream.json"
+    )
+    assert full_response.strip() == "The result of 2 + 2 is 4."
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
