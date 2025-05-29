@@ -52,11 +52,14 @@ jobs:
             api
             deps
             e2e
-            controller
+            infgraph
+            isvc
+            modelcache
             modelserver
             examples
             backport
             refactor
+            fix
           subjectPattern: ^(?![A-Z]).+$
           subjectPatternError: |
             The subject "{subject}" found in the pull request title "{title}"
