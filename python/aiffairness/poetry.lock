@@ -1009,10 +1009,7 @@ pandas = "^2.2.0"
 prometheus-client = "^0.20.0"
 protobuf = "^4.25.4"
 psutil = "^5.9.6"
-pydantic = [
-    {version = ">=2.5.0,<3.0.0", markers = "python_version == \"3.12\""},
-    {version = ">1.0,<3", markers = "python_version >= \"3.9\" and python_version < \"3.12\""},
-]
+pydantic = "^2.5.0"
 python-dateutil = "^2.8.0"
 pyyaml = "^6.0.0"
 six = "^1.16.0"
@@ -1409,9 +1406,9 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
     {version = ">=1.22.4", markers = "python_version < \"3.11\""},
     {version = ">=1.23.2", markers = "python_version == \"3.11\""},
+    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
