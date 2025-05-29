@@ -1531,8 +1531,8 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.15.1"
-source = { virtual = "." }
+version = "0.15.2"
+source = { editable = "." }
 dependencies = [
     { name = "cloudevents" },
     { name = "fastapi" },
@@ -1615,8 +1615,7 @@ requires-dist = [
     { name = "prometheus-client", specifier = ">=0.20.0,<1.0.0" },
     { name = "protobuf", specifier = ">=4.25.4,<5.0.0" },
     { name = "psutil", specifier = ">=5.9.6,<6.0.0" },
-    { name = "pydantic", marker = "python_full_version >= '3.9' and python_full_version < '3.12'", specifier = ">1.0,<3" },
-    { name = "pydantic", marker = "python_full_version == '3.12.*'", specifier = ">=2.5.0,<3.0.0" },
+    { name = "pydantic", specifier = ">=2.5.0,<3.0.0" },
     { name = "python-dateutil", specifier = ">=2.8.0,<3.0.0" },
     { name = "pyyaml", specifier = ">=6.0.0,<7.0.0" },
     { name = "ray", extras = ["serve"], marker = "extra == 'ray'", specifier = ">=2.43.0" },
