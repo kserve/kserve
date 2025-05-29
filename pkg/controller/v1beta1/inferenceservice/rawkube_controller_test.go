@@ -70,15 +70,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 	}
 	kserveGateway := types.NamespacedName{Name: "kserve-ingress-gateway", Namespace: "kserve"}
 
-	Context("When creating inference service with raw kube predictor", func() {
-		configs := map[string]string{
-			"explainers": `{
+	configs := map[string]string{
+		"explainers": `{
 				"alibi": {
 					"image": "kserve/alibi-explainer",
 					"defaultImageVersion": "latest"
 				}
 			}`,
-			"ingress": `{
+		"ingress": `{
 				"enableGatewayApi": true,
 				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
 				"ingressGateway": "knative-serving/knative-ingress-gateway",
@@ -86,7 +85,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local",
 				"additionalIngressDomains": ["additional.example.com"]
 			}`,
-			"storageInitializer": `{
+		"storageInitializer": `{
 				"image" : "kserve/storage-initializer:latest",
 				"memoryRequest": "100Mi",
 				"memoryLimit": "1Gi",
@@ -96,8 +95,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
 				"enableDirectPvcVolumeMount": false
 			}`,
-		}
-
+	}
+	Context("When creating inference service with raw kube predictor", func() {
 		It("Should have httproute/service/deployment/httproute created", func() {
 			By("By creating a new InferenceService")
 			// Create configmap
@@ -1197,7 +1196,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(actualHPA.Spec).To(BeComparableTo(expectedHPA.Spec))
 		})
 		It("Should have httproute/service/deployment created", func() {
-			By("By creating a new InferenceService with AutoscalerClass External")
+			By("By creating a new InferenceService with AutoscalerClass None")
 			// Create configmap
 			configMap := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1254,7 +1253,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Namespace: serviceKey.Namespace,
 					Annotations: map[string]string{
 						constants.DeploymentMode:  string(constants.RawDeployment),
-						constants.AutoscalerClass: string(constants.AutoscalerClassExternal),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -1318,7 +1317,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
 								constants.DeploymentMode:                                   string(constants.RawDeployment),
-								constants.AutoscalerClass:                                  string(constants.AutoscalerClassExternal),
+								constants.AutoscalerClass:                                  string(constants.AutoscalerClassNone),
 							},
 						},
 						Spec: corev1.PodSpec{
@@ -1661,7 +1660,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			// check HPA is not created
 			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
 			predictorHPAKey := types.NamespacedName{
-				Name:      constants.DefaultPredictorServiceName(serviceKey.Name),
+				Name:      constants.PredictorServiceName(serviceKey.Name),
 				Namespace: serviceKey.Namespace,
 			}
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
@@ -1691,6 +1690,193 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 	})
+
+	Context("When updating ISVC envs", func() {
+		It("Should reconcile the deployment if isvc envs are updated", func() {
+			defaultEnvs := []corev1.EnvVar{
+				{
+					Name:  "env1",
+					Value: "val1",
+				},
+				{
+					Name:  "env2",
+					Value: "val2",
+				},
+				{
+					Name:  "env3",
+					Value: "val3",
+				},
+			}
+
+			// Create configmap
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+			// Create ServingRuntime
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "tf-serving-raw",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "tensorflow",
+							Version:    proto.String("1"),
+							AutoSelect: proto.Bool(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:    "kserve-container",
+								Image:   "tensorflow/serving:1.14.0",
+								Command: []string{"/usr/bin/tensorflow_model_server"},
+								Args: []string{
+									"--port=9000",
+									"--rest_api_port=8080",
+									"--model_base_path=/mnt/models",
+									"--rest_api_timeout_in_ms=60000",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: proto.Bool(false),
+				},
+			}
+			k8sClient.Create(context.TODO(), servingRuntime)
+			defer k8sClient.Delete(context.TODO(), servingRuntime)
+			serviceName := "raw-test-env"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			// create isvc
+			storageUri := "s3://test/mnist/export"
+			isvcOriginal := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":              "RawDeployment",
+						"serving.kserve.io/autoscalerClass":             "hpa",
+						"serving.kserve.io/metrics":                     "cpu",
+						"serving.kserve.io/targetUtilizationPercentage": "75",
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: ptr.To(int32(1)),
+							MaxReplicas: 3,
+						},
+						Tensorflow: &v1beta1.TFServingSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     &storageUri,
+								RuntimeVersion: proto.String("1.14.0"),
+								Container: corev1.Container{
+									Name:      constants.InferenceServiceContainerName,
+									Resources: defaultResource,
+									Env:       defaultEnvs,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			isvcOriginal.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+			Expect(k8sClient.Create(context.TODO(), isvcOriginal)).Should(Succeed())
+
+			inferenceService := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(context.TODO(), serviceKey, inferenceService)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			deployed1 := &appsv1.Deployment{}
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), predictorDeploymentKey, deployed1)
+			}, timeout, interval).Should(Succeed())
+			Expect(deployed1.Spec.Template.Spec.Containers[0].Env).To(ContainElements(defaultEnvs))
+
+			// Now, update the isvc with new env
+			newEnvs := []corev1.EnvVar{
+				{
+					Name:  "newEnv1",
+					Value: "newValue1",
+				},
+				{
+					Name:  "newEnv2",
+					Value: "delete",
+				},
+			}
+
+			// Update the isvc to add new envs
+			fmt.Fprintln(GinkgoWriter, "### Adding new envs")
+			isvcUpdated1 := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				// get the latest deployed version
+				if err := k8sClient.Get(context.TODO(), serviceKey, inferenceService); err != nil {
+					return false
+				}
+
+				isvcUpdated1 = inferenceService.DeepCopy()
+				isvcUpdated1.Spec.Predictor.Model.Env = append(isvcUpdated1.Spec.Predictor.Model.Env, newEnvs...)
+				if err1 := k8sClient.Update(context.TODO(), isvcUpdated1); err1 != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			// The deployment should be reconciled
+			deployed2 := &appsv1.Deployment{}
+			appendedEnvs := append(defaultEnvs, newEnvs...)
+			Eventually(func() []corev1.EnvVar {
+				_ = k8sClient.Get(context.TODO(), predictorDeploymentKey, deployed2)
+				return deployed2.Spec.Template.Spec.Containers[0].Env
+			}, timeout, interval).Should(ContainElements(appendedEnvs))
+
+			// Now remove the default envs and update the isvc
+			fmt.Fprintln(GinkgoWriter, "### Removing default envs")
+			isvcUpdated2 := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				// get the latest deployed version
+				if err := k8sClient.Get(context.TODO(), serviceKey, isvcUpdated1); err != nil {
+					return false
+				}
+
+				isvcUpdated2 = isvcUpdated1.DeepCopy()
+				isvcUpdated2.Spec.Predictor.Model.Env = newEnvs
+				// Make sure the default envs were removed before updating the isvc
+				Expect(isvcUpdated2.Spec.Predictor.Model.Env).ToNot(ContainElements(defaultEnvs))
+
+				if err1 := k8sClient.Update(context.TODO(), isvcUpdated2); err1 != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+
+			deployed3 := &appsv1.Deployment{}
+			Eventually(func() []corev1.EnvVar {
+				_ = k8sClient.Get(context.TODO(), predictorDeploymentKey, deployed3)
+				return deployed3.Spec.Template.Spec.Containers[0].Env
+			}, timeout, interval).Should(Not(ContainElements(defaultEnvs)))
+
+			Expect(deployed3.Spec.Template.Spec.Containers[0].Env).ToNot(ContainElement(HaveField("Value", "env_marked_for_deletion")))
+			Expect(deployed3.Spec.Template.Spec.Containers[0].Env).To(ContainElements(newEnvs))
+		})
+	})
+
 	Context("When creating inference service with raw kube predictor and ingress creation disabled", func() {
 		configs := map[string]string{
 			"explainers": `{
@@ -8305,8 +8491,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8381,8 +8567,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8461,8 +8647,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8553,8 +8739,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8645,8 +8831,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
@@ -8736,8 +8922,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      isvcName,
 					Namespace: isvcNamespace,
 					Annotations: map[string]string{
-						"serving.kserve.io/deploymentMode":  "RawDeployment",
-						"serving.kserve.io/autoscalerClass": "external",
+						constants.DeploymentMode:  string(constants.RawDeployment),
+						constants.AutoscalerClass: string(constants.AutoscalerClassNone),
 					},
 				},
 				Spec: v1beta1.InferenceServiceSpec{
