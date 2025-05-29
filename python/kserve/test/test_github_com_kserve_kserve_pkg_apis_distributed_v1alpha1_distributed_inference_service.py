@@ -30,10 +30,15 @@ import unittest
 import datetime
 
 import kserve
-from kserve.models.github_com_kserve_kserve_pkg_apis_distributed_v1alpha1_distributed_inference_service import GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService  # noqa: E501
+from kserve.models.github_com_kserve_kserve_pkg_apis_distributed_v1alpha1_distributed_inference_service import (
+    GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService,
+)  # noqa: E501
 from kserve.rest import ApiException
 
-class TestGithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService(unittest.TestCase):
+
+class TestGithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService(
+    unittest.TestCase
+):
     """GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService unit test stubs"""
 
     def setUp(self):
@@ -44,27 +49,26 @@ class TestGithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceSer
 
     def make_instance(self, include_optional):
         """Test GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService
-            include_option is a boolean, when False only required
-            params are included, when True both required and
-            optional params are included """
+        include_option is a boolean, when False only required
+        params are included, when True both required and
+        optional params are included"""
         # model = kserve.models.github_com_kserve_kserve_pkg_apis_distributed_v1alpha1_distributed_inference_service.GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService()  # noqa: E501
-        if include_optional :
+        if include_optional:
             return GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService(
-                api_version = '0', 
-                kind = '0', 
-                metadata = None, 
-                spec = None, 
-                status = None
+                api_version="0", kind="0", metadata=None, spec=None, status=None
             )
-        else :
-            return GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService(
-        )
+        else:
+            return (
+                GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService()
+            )
 
-    def testGithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService(self):
+    def testGithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService(
+        self,
+    ):
         """Test GithubComKserveKservePkgApisDistributedV1alpha1DistributedInferenceService"""
         inst_req_only = self.make_instance(include_optional=False)
         inst_req_and_optional = self.make_instance(include_optional=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
