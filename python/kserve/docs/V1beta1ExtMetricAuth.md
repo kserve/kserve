@@ -1,11 +1,9 @@
-# V1beta1ExternalMetricSource
+# V1beta1ExtMetricAuth
 
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**authentication_ref** | [**V1beta1ExtMetricAuth**](V1beta1ExtMetricAuth.md) |  | [optional] 
-**metric** | [**V1beta1ExternalMetrics**](V1beta1ExternalMetrics.md) |  | 
-**target** | [**V1beta1MetricTarget**](V1beta1MetricTarget.md) |  | 
+**name** | **str** |  | [optional] [default to '']
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 
