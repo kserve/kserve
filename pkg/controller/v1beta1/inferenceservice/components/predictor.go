@@ -118,7 +118,7 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 
 	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
-	if err := p.addStorageInitializerAnnotations(ctx, predictor, annotations); err != nil {
+	if err := p.addStorageInitializerAnnotations(ctx, predictor, annotations, isvc); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -255,13 +255,13 @@ func (p *Predictor) reconcileModelConfig(ctx context.Context, isvc *v1beta1.Infe
 	return configMapReconciler.Reconcile(ctx, isvc)
 }
 
-func (p *Predictor) addStorageInitializerAnnotations(ctx context.Context, predictor v1beta1.ComponentImplementation, annotations map[string]string) error {
+func (p *Predictor) addStorageInitializerAnnotations(ctx context.Context, predictor v1beta1.ComponentImplementation, annotations map[string]string, isvc *v1beta1.InferenceService) error {
 	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
 		if _, ok := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]; ok {
 			return errors.New("must provide only one of storageUri and storage.path")
 		}
 		annotations[constants.StorageInitializerSourceUriInternalAnnotationKey] = *sourceURI
-		err := isvcutils.ValidateStorageURI(ctx, sourceURI, p.client)
+		err := isvcutils.ValidateStorageURI(ctx, sourceURI, isvc.ObjectMeta, p.client)
 		if err != nil {
 			return fmt.Errorf("StorageURI not supported: %w", err)
 		}

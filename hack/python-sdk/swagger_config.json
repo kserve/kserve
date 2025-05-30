@@ -24,6 +24,7 @@
         "V1Volume": "from kubernetes.client import V1Volume",
         "V1ObjectMeta": "from kubernetes.client import V1ObjectMeta",
         "V1ListMeta": "from kubernetes.client import V1ListMeta",
-        "V1ResourceRequirements": "from kubernetes.client import V1ResourceRequirements"
+        "V1ResourceRequirements": "from kubernetes.client import V1ResourceRequirements",
+        "V1LabelSelector": "from kubernetes.client import V1LabelSelector"
     }
 }

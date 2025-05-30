@@ -5,6 +5,7 @@ StorageContainerSpec defines the container spec for the storage initializer init
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **container** | [**V1Container**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Container.md) |  | 
+**object_selector** | [**V1LabelSelector**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1LabelSelector.md) |  | [optional] 
 **supported_uri_formats** | [**list[V1alpha1SupportedUriFormat]**](V1alpha1SupportedUriFormat.md) | List of URI formats that this container supports | 
 **workload_type** | **str** |  | [optional] 
 

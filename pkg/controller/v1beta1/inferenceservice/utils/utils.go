@@ -343,13 +343,13 @@ func sortPodsByCreatedTimestampDesc(pods *corev1.PodList) {
 	})
 }
 
-func ValidateStorageURI(ctx context.Context, storageURI *string, client client.Client) error {
+func ValidateStorageURI(ctx context.Context, storageURI *string, objMeta metav1.ObjectMeta, client client.Client) error {
 	if storageURI == nil {
 		return nil
 	}
 
 	// Step 1: Passes the validation if we have a storage container CR that supports this storageURI.
-	storageContainerSpec, err := pod.GetContainerSpecForStorageUri(ctx, *storageURI, client)
+	storageContainerSpec, err := pod.GetContainerSpecForStorageUri(ctx, *storageURI, objMeta, client)
 	if err != nil {
 		return err
 	}
