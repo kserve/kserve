@@ -5,7 +5,7 @@ authors = [
 license = {text = "Apache-2.0"}
 requires-python = "<3.13,>=3.9"
 dependencies = [
-    "kserve @ file:///${PROJECT_ROOT}/../kserve",
+    "kserve",
 ]
 name = "success_200_isvc"
 version = "0.15.2"
@@ -15,3 +15,6 @@ description = "Custom isvc that always returns 200 with a JSON SUCCESS message"
 dev = [
     "black[colorama]~=24.3.0",
 ]
+
+[tool.uv.sources]
+kserve = { path = "../../../kserve" }

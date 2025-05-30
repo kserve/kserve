@@ -8,14 +8,6 @@ dev_install:
 
 install_dependencies:
 	uv sync --active --group test
-	
-# TODO: remove
-# install_cpu_dependencies:
-# 	poetry source add --priority=supplemental pytorch-cpu ${TORCH_EXTRA_INDEX_URL}
-# 	poetry add --source pytorch-cpu 'torch~='${TORCH_VERSION} 'torchaudio~='${TORCH_VERSION} 'torchvision~='${TORCHVISION_VERSION}
-# 	poetry lock
-# 	pip install --no-cache-dir --extra-index-url ${TORCH_EXTRA_INDEX_URL} --extra-index-url ${IPEX_EXTRA_INDEX_URL} 'intel_extension_for_pytorch~='${TORCH_VERSION}
-# 	poetry install --with=test --no-interaction --no-root
 
 install_cpu_dependencies:
 	poetry source add --priority=supplemental pytorch-cpu ${TORCH_EXTRA_INDEX_URL}
