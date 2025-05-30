@@ -74,68 +74,22 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 		Namespace: isvc.Namespace,
 		Name:      isvc.Name,
 	}, existingIngress)
+	ingressIsNotFound := apierr.IsNotFound(getExistingErr)
+	if getExistingErr != nil && !ingressIsNotFound {
+		return fmt.Errorf("failed to get existing ingress: %w", getExistingErr)
+	}
 
-	if !utils.GetForceStopRuntime(isvc) {
-		if !isInternal && !r.ingressConfig.DisableIngressCreation {
-			ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig, r.isvcConfig)
-			if ingress == nil {
-				return nil
-			}
-			if err != nil {
+	// ISVC is stopped, delete the ingress if it exists, otherwise, do nothing
+	forceStopRuntime := utils.GetForceStopRuntime(isvc)
+	if (getExistingErr != nil && ingressIsNotFound) && forceStopRuntime {
+		return nil
+	}
+	if forceStopRuntime {
+		if ctrl := metav1.GetControllerOf(existingIngress); ctrl != nil && ctrl.UID == isvc.UID {
+			log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated ingress")
+			if err := r.client.Delete(ctx, existingIngress); err != nil {
 				return err
 			}
-
-			// reconcile ingress
-			existingIngress := &netv1.Ingress{}
-			err = r.client.Get(ctx, types.NamespacedName{
-				Namespace: isvc.Namespace,
-				Name:      isvc.Name,
-			}, existingIngress)
-			if getExistingErr != nil {
-				if apierr.IsNotFound(getExistingErr) {
-					err = r.client.Create(ctx, ingress)
-					log.Info("creating ingress", "ingressName", isvc.Name, "err", err)
-				} else {
-					return getExistingErr
-				}
-			} else {
-				if !semanticIngressEquals(ingress, existingIngress) {
-					err = r.client.Update(ctx, ingress)
-					log.Info("updating ingress", "ingressName", isvc.Name, "err", err)
-				}
-			}
-			if err != nil {
-				return err
-			}
-		}
-
-		isvc.Status.URL, err = createRawURL(isvc, r.ingressConfig)
-		if err != nil {
-			return err
-		}
-		isvc.Status.Address = &duckv1.Addressable{
-			URL: &apis.URL{
-				Host:   getRawServiceHost(isvc),
-				Scheme: r.ingressConfig.UrlScheme,
-				Path:   "",
-			},
-		}
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-			Type:   v1beta1.IngressReady,
-			Status: corev1.ConditionTrue,
-		})
-	} else {
-		// Delete the ingress
-		if getExistingErr == nil {
-			// Make sure that we only delete the ingress owned by the isvc
-			if existingIngress.OwnerReferences[0].UID == isvc.UID && existingIngress.GetDeletionTimestamp() == nil {
-				log.Info("The InferenceService ", isvc.Name, " is marked as stopped — delete its associated http route")
-				if err := r.client.Delete(ctx, existingIngress); err != nil {
-					return err
-				}
-			}
-		} else if !apierr.IsNotFound(getExistingErr) {
-			return getExistingErr
 		}
 
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
@@ -143,7 +97,51 @@ func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.Infe
 			Status: corev1.ConditionFalse,
 			Reason: v1beta1.StoppedISVCReason,
 		})
+
+		return nil
 	}
+
+	// Create or update ingress to match the desired state
+	if !isInternal && !r.ingressConfig.DisableIngressCreation {
+		ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig, r.isvcConfig)
+		if err != nil {
+			return err
+		}
+		if ingress == nil {
+			return nil
+		}
+
+		if getExistingErr != nil && ingressIsNotFound {
+			log.Info("creating ingress", "ingressName", isvc.Name, "err", err)
+			if err := r.client.Create(ctx, ingress); err != nil {
+				log.Error(err, "Failed to create ingress", "name", ingress.Name)
+				return err
+			}
+		} else if !semanticIngressEquals(ingress, existingIngress) {
+			log.Info("updating ingress", "ingressName", isvc.Name, "err", err)
+			if err := r.client.Update(ctx, ingress); err != nil {
+				log.Error(err, "Failed to update ingress", "name", ingress.Name)
+				return err
+			}
+		}
+	}
+
+	isvc.Status.URL, err = createRawURL(isvc, r.ingressConfig)
+	if err != nil {
+		return err
+	}
+	isvc.Status.Address = &duckv1.Addressable{
+		URL: &apis.URL{
+			Host:   getRawServiceHost(isvc),
+			Scheme: r.ingressConfig.UrlScheme,
+			Path:   "",
+		},
+	}
+	isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		Type:   v1beta1.IngressReady,
+		Status: corev1.ConditionTrue,
+	})
+
 	return nil
 }
 
