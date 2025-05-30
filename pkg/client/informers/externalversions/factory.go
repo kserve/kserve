@@ -24,6 +24,7 @@ import (
 	time "time"
 
 	versioned "github.com/kserve/kserve/pkg/client/clientset/versioned"
+	distributed "github.com/kserve/kserve/pkg/client/informers/externalversions/distributed"
 	internalinterfaces "github.com/kserve/kserve/pkg/client/informers/externalversions/internalinterfaces"
 	serving "github.com/kserve/kserve/pkg/client/informers/externalversions/serving"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -254,7 +255,12 @@ type SharedInformerFactory interface {
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
+	Distributed() distributed.Interface
 	Serving() serving.Interface
+}
+
+func (f *sharedInformerFactory) Distributed() distributed.Interface {
+	return distributed.New(f, f.namespace, f.tweakListOptions)
 }
 
 func (f *sharedInformerFactory) Serving() serving.Interface {

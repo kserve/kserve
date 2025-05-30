@@ -22,6 +22,7 @@ import (
 	fmt "fmt"
 	http "net/http"
 
+	distributedv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/distributed/v1alpha1"
 	servingv1alpha1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 	servingv1beta1 "github.com/kserve/kserve/pkg/client/clientset/versioned/typed/serving/v1beta1"
 	discovery "k8s.io/client-go/discovery"
@@ -31,6 +32,7 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
+	DistributedV1alpha1() distributedv1alpha1.DistributedV1alpha1Interface
 	ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface
 	ServingV1beta1() servingv1beta1.ServingV1beta1Interface
 }
@@ -38,8 +40,14 @@ type Interface interface {
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	servingV1alpha1 *servingv1alpha1.ServingV1alpha1Client
-	servingV1beta1  *servingv1beta1.ServingV1beta1Client
+	distributedV1alpha1 *distributedv1alpha1.DistributedV1alpha1Client
+	servingV1alpha1     *servingv1alpha1.ServingV1alpha1Client
+	servingV1beta1      *servingv1beta1.ServingV1beta1Client
+}
+
+// DistributedV1alpha1 retrieves the DistributedV1alpha1Client
+func (c *Clientset) DistributedV1alpha1() distributedv1alpha1.DistributedV1alpha1Interface {
+	return c.distributedV1alpha1
 }
 
 // ServingV1alpha1 retrieves the ServingV1alpha1Client
@@ -96,6 +104,10 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
+	cs.distributedV1alpha1, err = distributedv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	if err != nil {
+		return nil, err
+	}
 	cs.servingV1alpha1, err = servingv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
@@ -125,6 +137,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
+	cs.distributedV1alpha1 = distributedv1alpha1.New(c)
 	cs.servingV1alpha1 = servingv1alpha1.New(c)
 	cs.servingV1beta1 = servingv1beta1.New(c)
 

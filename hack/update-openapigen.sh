@@ -58,7 +58,8 @@ go run k8s.io/kube-openapi/cmd/openapi-gen \
     "knative.dev/pkg/apis" \
     "knative.dev/pkg/apis/duck/v1" \
     "./pkg/apis/serving/v1beta1" \
-    "./pkg/apis/serving/v1alpha1"
+    "./pkg/apis/serving/v1alpha1" \
+    "./pkg/apis/distributed/v1alpha1"
 
 # Hack, the name is required in openAPI specification even if set "+optional" for v1.Container in PredictorExtensionSpec.
 sed -i'.bak' -e 's/Required: \[\]string{\"name\"},//g' $OPENAPI_SPEC_FILE && rm -rf $OPENAPI_SPEC_FILE.bak

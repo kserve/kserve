@@ -16,3 +16,5 @@ exclude =
   python/*_pb2.py
   docs/**/*.py
   python/kserve/kserve/protocol/rest/openai/types/openapi.py
+  # TODO: Remove this once implemented distributed inference service
+  python/kserve/test/test_github_com_kserve_kserve_pkg_apis_distributed_v1alpha1_*
