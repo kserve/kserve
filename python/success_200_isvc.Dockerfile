@@ -25,10 +25,10 @@ RUN cd kserve && uv sync --active --no-cache
 
 RUN echo $(pwd)
 RUN echo $(ls)
-COPY test_resources/graph/success_200_isvc/pyproject.toml test_resources/graph/success_200_isvc/uv.lock success_200_isvc/
-RUN cd success_200_isvc && uv sync --active --no-cache  
-COPY test_resources/graph/success_200_isvc success_200_isvc
-RUN cd success_200_isvc && uv sync --active --no-cache  
+COPY test_resources/graph/success_200_isvc/pyproject.toml test_resources/graph/success_200_isvc/uv.lock test_resources/graph/success_200_isvc/
+RUN cd test_resources/graph/success_200_isvc && uv sync --active --no-cache
+COPY test_resources/graph/success_200_isvc test_resources/graph/success_200_isvc
+RUN cd test_resources/graph/success_200_isvc && uv sync --active --no-cache
 
 # Generate third-party licenses 
 COPY pyproject.toml pyproject.toml
@@ -49,7 +49,7 @@ RUN useradd kserve -m -u 1000 -d /home/kserve
 COPY --from=builder --chown=kserve:kserve third_party third_party
 COPY --from=builder --chown=kserve:kserve $VIRTUAL_ENV $VIRTUAL_ENV
 COPY --from=builder kserve kserve
-COPY --from=builder success_200_isvc success_200_isvc
+COPY --from=builder test_resources/graph/success_200_isvc success_200_isvc
 
 USER 1000
 ENTRYPOINT ["python", "-m", "success_200_isvc.model"]
