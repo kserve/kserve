@@ -54,15 +54,16 @@ class PaddleModel(Model):
                 if file_path:
                     return file_path
 
-            raise Exception(f"Missing model file with extension '{primary_ext}'"
-                            + (f" or '{fallback_ext}'" if fallback_ext else ""))
+            raise Exception(
+                f"Missing model file with extension '{primary_ext}'"
+                + (f" or '{fallback_ext}'" if fallback_ext else "")
+            )
 
         model_path = Storage.download(self.model_dir)
         config = inference.Config(
-            get_model_file(".pdmodel", ".json"),
-            get_model_file(".pdiparams")
+            get_model_file(".pdmodel", ".json"), get_model_file(".pdiparams")
         )
-                # TODO: add GPU support
+        # TODO: add GPU support
         config.disable_gpu()
 
         self.predictor = inference.create_predictor(config)

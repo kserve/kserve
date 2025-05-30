@@ -56,6 +56,7 @@ ARG PYTHON_VERSION
 # Install python
 RUN apt-get update && \
     apt-get install -y --no-install-recommends "python${PYTHON_VERSION}" && \
+    ln -s /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

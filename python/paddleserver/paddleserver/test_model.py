@@ -51,7 +51,7 @@ def test_model():
 
     def test_img(filename: str, expected_class: int):
         img = cv2.imread(os.path.join(model_dir, filename))
-        
+
         try:
             input_data = image_preprocess(img)
         except Exception as e:
@@ -69,13 +69,10 @@ def test_model():
             datatype=from_np_dtype(input_data.dtype),
             data=input_data,
         )
-        infer_request = InferRequest(
-            model_name="model", 
-            infer_inputs=[infer_input]
-        )
+        infer_request = InferRequest(model_name="model", infer_inputs=[infer_input])
         v2_response = server.predict(infer_request)
         infer_dict, _ = v2_response.to_rest()
         v2_pred = np.argmax(infer_dict["outputs"][0]["data"])
         assert v2_pred == expected_class
-        
+
     test_img("cat.jpg", 0)
