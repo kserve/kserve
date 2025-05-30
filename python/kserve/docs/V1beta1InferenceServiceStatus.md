@@ -11,6 +11,7 @@ Name | Type | Description | Notes
 **deployment_mode** | **str** | InferenceService DeploymentMode | [optional] 
 **model_status** | [**V1beta1ModelStatus**](V1beta1ModelStatus.md) |  | [optional] 
 **observed_generation** | **int** | ObservedGeneration is the &#39;Generation&#39; of the Service that was last processed by the controller. | [optional] 
+**serving_runtime_name** | **str** | ServingRuntimeName is the name of the ServingRuntime that the InferenceService is using | [optional] 
 **url** | [**KnativeURL**](KnativeURL.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)

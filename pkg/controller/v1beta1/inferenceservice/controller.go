@@ -45,6 +45,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -125,6 +126,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		return reconcile.Result{}, err
 	}
+
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
 	if err != nil {
 		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
@@ -159,6 +161,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		r.Log.Info("Continue reconciliation for InferenceService", constants.DeploymentMode, deploymentMode,
 			"apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 	}
+
 	// name of our custom finalizer
 	finalizerName := "inferenceservice.finalizers"
 
@@ -223,12 +226,27 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	// Setup reconcilers
 	r.Log.Info("Reconciling inference service", "apiVersion", isvc.APIVersion, "isvc", isvc.Name)
 
+	// Check if auto-update is disabled, this will skip the reconciliation if the annotation is present.
+	// Used for when k8s autoreconciles the InferenceService.
+	skipReconciliation := false
+	if annotations != nil {
+		if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" {
+			// Only skip reconciliation if this is an update (not initial creation)
+			// Initial creation will have an empty ServingRuntimeName
+			if isvc.Status.ServingRuntimeName != "" {
+				r.Log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
+				skipReconciliation = true
+			}
+		}
+	}
+
 	// Reconcile cabundleConfigMap
 	caBundleConfigMapReconciler := cabundleconfigmap.NewCaBundleConfigMapReconciler(r.Client, r.Clientset, r.Scheme)
 	if err := caBundleConfigMapReconciler.Reconcile(ctx, isvc); err != nil {
 		return reconcile.Result{}, err
 	}
 
+	// Always reconcile components for initial creation
 	reconcilers := []components.Component{}
 	if deploymentMode != constants.ModelMeshDeployment {
 		reconcilers = append(reconcilers, components.NewPredictor(r.Client, r.Clientset, r.Scheme, isvcConfig, deploymentMode))
@@ -254,6 +272,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			return result, nil
 		}
 	}
+
 	// reconcile RoutesReady and LatestDeploymentReady conditions for serverless deployment
 	if deploymentMode == constants.Serverless {
 		componentList := []v1beta1.ComponentType{v1beta1.PredictorComponent}
@@ -268,7 +287,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
 		}
 	}
-	// Reconcile ingress
+
+	// Always reconcile ingress for initial creation
 	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
@@ -299,10 +319,13 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
-	// Reconcile modelConfig
-	configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Clientset, r.Scheme)
-	if err := configMapReconciler.Reconcile(ctx, isvc); err != nil {
-		return reconcile.Result{}, err
+	// Only reconcile modelConfig if not skipping updates
+	if !skipReconciliation {
+		// Reconcile modelConfig
+		configMapReconciler := modelconfig.NewModelConfigReconciler(r.Client, r.Clientset, r.Scheme)
+		if err := configMapReconciler.Reconcile(ctx, isvc); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	if err = r.updateStatus(ctx, isvc, deploymentMode); err != nil {
@@ -374,8 +397,44 @@ func inferenceServiceStatusEqual(s1, s2 v1beta1.InferenceServiceStatus, deployme
 	return equality.Semantic.DeepEqual(s1, s2)
 }
 
+func (r *InferenceServiceReconciler) servingRuntimeFunc(ctx context.Context, obj client.Object) []reconcile.Request {
+	runtimeObj, ok := obj.(*v1alpha1.ServingRuntime)
+
+	if !ok || runtimeObj == nil {
+		return nil
+	}
+
+	var isvcList v1beta1.InferenceServiceList
+	// List all InferenceServices in the same namespace.
+	if err := r.Client.List(ctx, &isvcList, client.InNamespace(runtimeObj.Namespace)); err != nil {
+		r.Log.Error(err, "unable to list InferenceServices", "runtime", runtimeObj.Name)
+		return nil
+	}
+
+	var requests []reconcile.Request
+	for _, isvc := range isvcList.Items {
+		annotations := isvc.GetAnnotations()
+		if annotations != nil {
+			if disableAutoUpdate, found := annotations[constants.DisableAutoUpdateAnnotationKey]; found && disableAutoUpdate == "true" {
+				r.Log.Info("Auto-update is disabled for InferenceService", "InferenceService", isvc.Name)
+				continue
+			}
+		}
+		if isvc.Status.ServingRuntimeName == runtimeObj.Name {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: isvc.Namespace,
+					Name:      isvc.Name,
+				},
+			})
+		}
+	}
+	return requests
+}
+
 func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployConfig *v1beta1.DeployConfig, ingressConfig *v1beta1.IngressConfig) error {
 	r.ClientConfig = mgr.GetConfig()
+	ctx := context.Background()
 
 	ksvcFound, err := utils.IsCrdAvailable(r.ClientConfig, knservingv1.SchemeGroupVersion.String(), constants.KnativeServiceKind)
 	if err != nil {
@@ -395,6 +454,30 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	vsFound, err := utils.IsCrdAvailable(r.ClientConfig, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
 	if err != nil {
 		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &v1beta1.InferenceService{}, "spec.predictor.model.runtime", func(rawObj client.Object) []string {
+		isvc, ok := rawObj.(*v1beta1.InferenceService)
+		if !ok {
+			return nil
+		}
+		if isvc.Status.ServingRuntimeName != "" {
+			return []string{isvc.Status.ServingRuntimeName}
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	servingRuntimesPredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldServingRuntime := e.ObjectOld.(*v1alpha1.ServingRuntime)
+			newServingRuntime := e.ObjectNew.(*v1alpha1.ServingRuntime)
+			return !reflect.DeepEqual(oldServingRuntime.Spec, newServingRuntime.Spec)
+		},
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
 	}
 
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
@@ -453,7 +536,7 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		ctrlBuilder = ctrlBuilder.Owns(&netv1.Ingress{})
 	}
 
-	return ctrlBuilder.Complete(r)
+	return ctrlBuilder.Watches(&v1alpha1.ServingRuntime{}, handler.EnqueueRequestsFromMapFunc(r.servingRuntimeFunc), builder.WithPredicates(servingRuntimesPredicate)).Complete(r)
 }
 
 func (r *InferenceServiceReconciler) deleteExternalResources(ctx context.Context, isvc *v1beta1.InferenceService) error {
