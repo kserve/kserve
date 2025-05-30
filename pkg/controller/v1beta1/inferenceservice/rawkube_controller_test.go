@@ -543,6 +543,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Type:   apis.ConditionReady,
 							Status: "True",
 						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
+						},
 					},
 				},
 				URL: &apis.URL{
@@ -1094,6 +1099,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Type:   apis.ConditionReady,
 							Status: "True",
 						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
+						},
 					},
 				},
 				URL: &apis.URL{
@@ -1121,13 +1131,31 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				DeploymentMode: string(constants.RawDeployment),
 			}
-			Eventually(func() string {
-				isvc := &v1beta1.InferenceService{}
-				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
-					return err.Error()
+			// Check that the ISVC was updated
+			actualIsvc := &v1beta1.InferenceService{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, actualIsvc)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			// Check that the inference service is ready
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, actualIsvc)
+				if err != nil {
+					return false
 				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
-			}, timeout).Should(BeEmpty())
+				return actualIsvc.Status.IsConditionReady(v1beta1.PredictorReady)
+			}, timeout, interval).Should(BeTrue(), "The predictor should be ready")
+
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, serviceKey, actualIsvc)
+				if err != nil {
+					return false
+				}
+				return actualIsvc.Status.IsConditionReady(v1beta1.IngressReady)
+			}, timeout, interval).Should(BeTrue(), "The ingress should be ready")
+			diff := cmp.Diff(&expectedIsvcStatus, &actualIsvc.Status, cmpopts.IgnoreTypes(apis.VolatileTime{}))
+			Expect(diff).To(BeEmpty())
 
 			// check HPA
 			var minReplicas int32 = 1
@@ -1622,6 +1650,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							Type:   apis.ConditionReady,
 							Status: "True",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
 						},
 					},
 				},
@@ -3196,6 +3229,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Type:   apis.ConditionReady,
 							Status: "True",
 						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
+						},
 					},
 				},
 				URL: &apis.URL{
@@ -3765,6 +3803,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							Type:   apis.ConditionReady,
 							Status: "True",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
 						},
 					},
 				},
@@ -4594,6 +4637,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Type:     v1beta1.TransformerReady,
 							Status:   "True",
 							Severity: "Info",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
 						},
 					},
 				},
@@ -5540,6 +5588,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Type:   apis.ConditionReady,
 							Status: "True",
 						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
+						},
 					},
 				},
 				URL: &apis.URL{
@@ -6231,6 +6284,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							Type:   apis.ConditionReady,
 							Status: "True",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
 						},
 					},
 				},
@@ -7110,6 +7168,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Type:     v1beta1.TransformerReady,
 							Status:   "True",
 							Severity: "Info",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
 						},
 					},
 				},
@@ -8148,6 +8211,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Type:   apis.ConditionReady,
 							Status: "True",
 						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
+						},
 					},
 				},
 				URL: &apis.URL{
@@ -9039,6 +9107,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						{
 							Type:   apis.ConditionReady,
 							Status: "True",
+						},
+						{
+							Type:     v1beta1.Stopped,
+							Status:   "False",
+							Severity: apis.ConditionSeverityInfo,
 						},
 					},
 				},
