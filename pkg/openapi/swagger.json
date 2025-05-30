@@ -3118,6 +3118,10 @@
           "default": {},
           "$ref": "#/definitions/v1beta1.PredictorSpec"
         },
+        "trafficPolicy": {
+          "description": "TrafficPolicy defines the traffic policy for the inference service",
+          "$ref": "#/definitions/v1beta1.TrafficPolicy"
+        },
         "transformer": {
           "description": "Transformer defines the pre/post processing before and after the predictor call, transformer service calls to predictor service.",
           "$ref": "#/definitions/v1beta1.TransformerSpec"
@@ -5251,6 +5255,20 @@
         }
       }
     },
+    "v1beta1.RateLimit": {
+      "description": "RateLimit specifies the rate limit configuration Currently only global rate limit is supported",
+      "type": "object",
+      "required": [
+        "global"
+      ],
+      "properties": {
+        "global": {
+          "description": "GlobalRateLimit defines global rate limit configuration.",
+          "default": {},
+          "$ref": "#/definitions/github.com.envoyproxy.gateway.api.v1alpha1.GlobalRateLimit"
+        }
+      }
+    },
     "v1beta1.ResourceConfig": {
       "type": "object",
       "properties": {
@@ -5873,6 +5891,15 @@
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
           "type": "string"
+        }
+      }
+    },
+    "v1beta1.TrafficPolicy": {
+      "type": "object",
+      "properties": {
+        "rateLimit": {
+          "description": "RateLimit defines the configuration for token based rate limiting for LLMs.",
+          "$ref": "#/definitions/v1beta1.RateLimit"
         }
       }
     },
