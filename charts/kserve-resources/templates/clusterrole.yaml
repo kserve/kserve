@@ -94,6 +94,8 @@ rules:
 - apiGroups:
   - envoyproxy.ai
   resources:
+  - aigatewayroutes
+  - aigatewayroutes/finalizers
   - aiservicebackends
   verbs:
   - create
@@ -103,6 +105,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - envoyproxy.ai
+  resources:
+  - aigatewayroutes/status
+  verbs:
+  - get
 - apiGroups:
   - gateway.envoyproxy.io
   resources:

@@ -99,6 +99,9 @@ import (
 // +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=envoyproxy.ai,resources=aiservicebackends,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=envoyproxy.ai,resources=aigatewayroutes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=envoyproxy.ai,resources=aigatewayroutes/status,verbs=get;
+// +kubebuilder:rbac:groups=envoyproxy.ai,resources=aigatewayroutes/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=gateway.envoyproxy.io,resources=backendtrafficpolicies,verbs=get;list;watch;create;update;patch;delete
 
 // InferenceServiceState describes the Readiness of the InferenceService
@@ -299,9 +302,19 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		// Reconcile AI Gateway if enabled
 		if isEnabled, ok := isvc.Annotations[constants.EnableAIGatewayAnnotationKey]; ok && strings.ToLower(isEnabled) == "true" {
+			if err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "fails to create AIGatewayConfig")
+			}
+
 			aiServiceBackendReconciler := aigateway.NewAIServiceBackendReconciler(r.Client, isvc, r.Log)
 			if err := aiServiceBackendReconciler.Reconcile(ctx); err != nil {
 				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile AIServiceBackend")
+			}
+
+			// Reconcile AIGatewayRoute
+			aiGatewayRouteReconciler := aigateway.NewAIGatewayRouteReconciler(r.Client, r.Scheme, ingressConfig)
+			if err := aiGatewayRouteReconciler.Reconcile(ctx, isvc); err != nil {
+				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile AIGatewayRoute")
 			}
 
 			// Reconcile BackendTrafficPolicy

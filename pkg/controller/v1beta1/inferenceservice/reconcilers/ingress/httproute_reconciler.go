@@ -188,7 +188,7 @@ func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
-	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
+	gwName, gwNamespace := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
 	httpRoute := gatewayapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        constants.PredictorServiceName(isvc.Name),
@@ -204,8 +204,8 @@ func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.KindGateway)),
-						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
-						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
+						Namespace: (*gatewayapiv1.Namespace)(&gwNamespace),
+						Name:      gatewayapiv1.ObjectName(gwName),
 					},
 				},
 			},
@@ -252,7 +252,7 @@ func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
-	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
+	gwName, gwNamespace := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
 	httpRoute := gatewayapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        constants.TransformerServiceName(isvc.Name),
@@ -268,8 +268,8 @@ func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.KindGateway)),
-						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
-						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
+						Namespace: (*gatewayapiv1.Namespace)(&gwNamespace),
+						Name:      gatewayapiv1.ObjectName(gwName),
 					},
 				},
 			},
@@ -318,7 +318,7 @@ func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
-	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
+	gwName, gwNamespace := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
 	httpRoute := gatewayapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        constants.ExplainerServiceName(isvc.Name),
@@ -334,8 +334,8 @@ func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.KindGateway)),
-						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
-						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
+						Namespace: (*gatewayapiv1.Namespace)(&gwNamespace),
+						Name:      gatewayapiv1.ObjectName(gwName),
 					},
 				},
 			},
@@ -482,7 +482,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
-	gatewaySlice := strings.Split(ingressConfig.KserveIngressGateway, "/")
+	gwName, gwNamespace := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
 	httpRoute := gatewayapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        isvc.Name,
@@ -498,8 +498,8 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 					{
 						Group:     (*gatewayapiv1.Group)(&gatewayapiv1.GroupVersion.Group),
 						Kind:      (*gatewayapiv1.Kind)(ptr.To(constants.KindGateway)),
-						Namespace: (*gatewayapiv1.Namespace)(&gatewaySlice[0]),
-						Name:      gatewayapiv1.ObjectName(gatewaySlice[1]),
+						Namespace: (*gatewayapiv1.Namespace)(&gwNamespace),
+						Name:      gatewayapiv1.ObjectName(gwName),
 					},
 				},
 			},

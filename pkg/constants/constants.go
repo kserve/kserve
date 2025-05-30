@@ -537,6 +537,14 @@ var (
 	MultiNodeHead         = "head"
 )
 
+// AI Gateway constants
+const (
+	// LLM Cost Metadata keys
+	MetadataKeyInputToken  = "llm_input_token"
+	MetadataKeyOutputToken = "llm_output_token"
+	MetadataKeyTotalToken  = "llm_total_token"
+)
+
 // GetRawServiceLabel generate native service label
 func GetRawServiceLabel(service string) string {
 	return "isvc." + service

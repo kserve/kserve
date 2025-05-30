@@ -74,7 +74,7 @@ func (r *AIServiceBackendReconciler) Reconcile(ctx context.Context) error {
 		r.log.Error(err, "Failed to perform dry-run update for AIServiceBackend", "name", desired.Name, "namespace", desired.Namespace)
 		return err
 	}
-	if !equality.Semantic.DeepEqual(desired.Spec, existing.Spec) {
+	if !r.SemanticEquals(desired, existing) {
 		r.log.Info("Updating AIServiceBackend", "name", desired.Name, "namespace", desired.Namespace)
 		if err := r.client.Update(ctx, desired); err != nil {
 			r.log.Error(err, "Failed to update AIServiceBackend", "name", desired.Name, "namespace", desired.Namespace)
@@ -84,10 +84,7 @@ func (r *AIServiceBackendReconciler) Reconcile(ctx context.Context) error {
 }
 
 func (r *AIServiceBackendReconciler) createAIServiceBackend() *aigwv1a1.AIServiceBackend {
-	serviceName := constants.PredictorServiceName(r.isvc.Name)
-	if r.isvc.Spec.Transformer != nil {
-		serviceName = constants.TransformerServiceName(r.isvc.Name)
-	}
+	serviceName := getAIServiceBackendName(r.isvc)
 	aiServiceBackend := &aigwv1a1.AIServiceBackend{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.isvc.Name,
@@ -109,4 +106,19 @@ func (r *AIServiceBackendReconciler) createAIServiceBackend() *aigwv1a1.AIServic
 		},
 	}
 	return aiServiceBackend
+}
+
+// aiGatewayRouteSemanticEquals compares two AIGatewayRoute resources for semantic equality
+func (r *AIServiceBackendReconciler) SemanticEquals(desired, existing *aigwv1a1.AIServiceBackend) bool {
+	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
+		equality.Semantic.DeepEqual(desired.Labels, existing.Labels) &&
+		equality.Semantic.DeepEqual(desired.Annotations, existing.Annotations)
+}
+
+// getAIServiceBackendName returns the AIServiceBackend name based on the InferenceService.
+func getAIServiceBackendName(isvc *v1beta1.InferenceService) string {
+	if isvc.Spec.Transformer != nil {
+		return constants.TransformerServiceName(isvc.Name)
+	}
+	return constants.PredictorServiceName(isvc.Name)
 }
