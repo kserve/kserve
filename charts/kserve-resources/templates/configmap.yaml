@@ -683,13 +683,26 @@ data:
     }
 
   inferenceService: |-
+    {{- $resourceConfig := dict }}
+    {{- $kserve := .Values.kserve | default dict }}
+    {{- $inferenceservice := $kserve.inferenceservice | default dict }}
+    {{- $resources := $inferenceservice.resources | default dict }}
+    {{- $limits := $resources.limits | default dict }}
+    {{- $requests := $resources.requests | default dict }}
+    {{- if $limits.cpu }}
+    {{- $_ := set $resourceConfig "cpuLimit" $limits.cpu }}
+    {{- end }}
+    {{- if $requests.cpu }}
+    {{- $_ := set $resourceConfig "cpuRequest" $requests.cpu }}
+    {{- end }}
+    {{- if $limits.memory }}
+    {{- $_ := set $resourceConfig "memoryLimit" $limits.memory }}
+    {{- end }}
+    {{- if $requests.memory }}
+    {{- $_ := set $resourceConfig "memoryRequest" $requests.memory }}
+    {{- end }}
     {
-      "resource": {
-        "cpuLimit": "{{ .Values.kserve.inferenceservice.resources.limits.cpu }}",
-        "cpuRequest": "{{ .Values.kserve.inferenceservice.resources.requests.cpu }}",
-        "memoryLimit": "{{ .Values.kserve.inferenceservice.resources.limits.memory }}",
-        "memoryRequest": "{{ .Values.kserve.inferenceservice.resources.requests.memory }}"
-      }
+      "resource": {{ $resourceConfig | toJson }}
     }
 
   opentelemetryCollector: |-
