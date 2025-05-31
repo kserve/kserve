@@ -192,8 +192,8 @@ files = [
 jmespath = ">=0.7.1,<2.0.0"
 python-dateutil = ">=2.1,<3.0.0"
 urllib3 = [
-    {version = ">=1.25.4,<2.2.0 || >2.2.0,<3", markers = "python_version >= \"3.10\""},
     {version = ">=1.25.4,<1.27", markers = "python_version < \"3.10\""},
+    {version = ">=1.25.4,<2.2.0 || >2.2.0,<3", markers = "python_version >= \"3.10\""},
 ]
 
 [package.extras]
@@ -1176,7 +1176,7 @@ files = [
 
 [[package]]
 name = "kserve"
-version = "0.15.1"
+version = "0.15.2"
 description = "KServe Python SDK"
 optional = false
 python-versions = ">=3.9,<3.13"
@@ -1202,10 +1202,7 @@ pandas = "^2.2.0"
 prometheus-client = "^0.20.0"
 protobuf = "^4.25.4"
 psutil = "^5.9.6"
-pydantic = [
-    {version = ">=2.5.0,<3.0.0", markers = "python_version == \"3.12\""},
-    {version = ">1.0,<3", markers = "python_version >= \"3.9\" and python_version < \"3.12\""},
-]
+pydantic = "^2.5.0"
 python-dateutil = "^2.8.0"
 pyyaml = "^6.0.0"
 requests = {version = "^2.32.2", optional = true}
@@ -1585,9 +1582,9 @@ files = [
 
 [package.dependencies]
 numpy = [
-    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
     {version = ">=1.22.4", markers = "python_version < \"3.11\""},
     {version = ">=1.23.2", markers = "python_version == \"3.11\""},
+    {version = ">=1.26.0", markers = "python_version >= \"3.12\""},
 ]
 python-dateutil = ">=2.8.2"
 pytz = ">=2020.1"
