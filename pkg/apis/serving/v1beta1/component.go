@@ -279,6 +279,8 @@ type ExternalMetrics struct {
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
 	// authModes defines the authentication modes for the metrics backend
+	// possible values are bearer, basic, tls.
+	// for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters
 	// +optional
 	AuthModes string `json:"authModes,omitempty"`
 }
