@@ -46,7 +46,8 @@ var (
 var (
 	InferenceServiceName                  = "inferenceservice"
 	InferenceServiceAPIName               = "inferenceservices"
-	InferenceServicePodLabelKey           = KServeAPIGroupName + "/" + InferenceServiceName
+	InferenceServiceNameLabel             = KServeAPIGroupName + "/" + InferenceServiceName
+	InferenceServiceNamespaceLabel        = KServeAPIGroupName + "/" + InferenceServiceName + "-namespace"
 	InferenceServiceGenerationPodLabelKey = "isvc.generation"
 	InferenceServiceConfigMapName         = "inferenceservice-config"
 )
@@ -332,12 +333,6 @@ const (
 	KServiceModelLabel     = "model"
 	KServiceEndpointLabel  = "endpoint"
 	KServeWorkloadKind     = KServeAPIGroupName + "/kind"
-)
-
-// Labels for TrainedModel
-const (
-	ParentInferenceServiceLabel = "inferenceservice"
-	InferenceServiceLabel       = "serving.kserve.io/inferenceservice"
 )
 
 // InferenceService canary constants

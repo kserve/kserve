@@ -232,9 +232,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -784,9 +784,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -1310,9 +1310,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -2030,9 +2030,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -2443,9 +2443,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -3056,9 +3056,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -3158,9 +3158,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      transformerDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + transformerDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Transformer.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + transformerDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Transformer.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.DeploymentMode:  string(constants.RawDeployment),
@@ -3955,9 +3955,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -4057,9 +4057,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      explainerDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + explainerDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Explainer.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + explainerDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Explainer.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.DeploymentMode:  string(constants.RawDeployment),
@@ -4864,9 +4864,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -5527,9 +5527,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -5629,9 +5629,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      transformerDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + transformerDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Transformer.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + transformerDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Transformer.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.DeploymentMode:  string(constants.RawDeployment),
@@ -6473,9 +6473,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,
@@ -6575,9 +6575,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      explainerDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + explainerDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Explainer.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + explainerDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Explainer.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.DeploymentMode:  string(constants.RawDeployment),
@@ -7834,9 +7834,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Name:      predictorDeploymentKey.Name,
 							Namespace: "default",
 							Labels: map[string]string{
-								"app":                                 "isvc." + predictorDeploymentKey.Name,
-								constants.KServiceComponentLabel:      constants.Predictor.String(),
-								constants.InferenceServicePodLabelKey: serviceName,
+								"app":                               "isvc." + predictorDeploymentKey.Name,
+								constants.KServiceComponentLabel:    constants.Predictor.String(),
+								constants.InferenceServiceNameLabel: serviceName,
 							},
 							Annotations: map[string]string{
 								constants.StorageInitializerSourceUriInternalAnnotationKey: *isvc.Spec.Predictor.Model.StorageURI,

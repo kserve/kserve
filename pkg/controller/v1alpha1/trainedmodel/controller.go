@@ -101,7 +101,7 @@ func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if tm.Labels == nil {
 		tm.Labels = make(map[string]string)
 	}
-	tm.Labels[constants.ParentInferenceServiceLabel] = isvc.Name
+	tm.Labels[constants.InferenceServiceNameLabel] = isvc.Name
 
 	// Use finalizer to handle TrainedModel deletion properly
 	// When a TrainedModel object is being deleted it should
@@ -256,7 +256,7 @@ func (r *TrainedModelReconciler) updateConditions(ctx context.Context, req ctrl.
 
 	// Get trained models with same inference service
 	var trainedModels v1alpha1.TrainedModelList
-	if err := r.List(ctx, &trainedModels, client.InNamespace(tm.Namespace), client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name, constants.TrainedModelAllocated: isvc.Name}); err != nil {
+	if err := r.List(ctx, &trainedModels, client.InNamespace(tm.Namespace), client.MatchingLabels{constants.InferenceServiceNameLabel: isvc.Name, constants.TrainedModelAllocated: isvc.Name}); err != nil {
 		return err
 	}
 

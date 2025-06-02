@@ -433,8 +433,8 @@ func (p *Predictor) buildObjectMeta(isvc *v1beta1.InferenceService, predictorNam
 			isvc.Labels,
 			predictorLabels,
 			map[string]string{
-				constants.InferenceServicePodLabelKey: isvc.Name,
-				constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+				constants.InferenceServiceNameLabel: isvc.Name,
+				constants.KServiceComponentLabel:    string(v1beta1.PredictorComponent),
 			},
 		),
 		Annotations: utils.Union(
@@ -466,7 +466,7 @@ func (p *Predictor) reconcileWorker(sRuntime v1alpha1.ServingRuntimeSpec, isvc *
 			isvc.Spec.Predictor.Labels,
 			map[string]string{
 				constants.InferenceServiceGenerationPodLabelKey: isvcGeneration,
-				constants.InferenceServicePodLabelKey:           isvc.Name,
+				constants.InferenceServiceNameLabel:             isvc.Name,
 				constants.KServiceComponentLabel:                string(v1beta1.PredictorComponent),
 			},
 		),

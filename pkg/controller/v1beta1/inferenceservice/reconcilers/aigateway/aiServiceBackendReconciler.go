@@ -27,34 +27,32 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 type AIServiceBackendReconciler struct {
-	client client.Client
-	isvc   *v1beta1.InferenceService
-	log    logr.Logger
+	client        client.Client
+	ingressConfig *v1beta1.IngressConfig
+	log           logr.Logger
 }
 
-func NewAIServiceBackendReconciler(client client.Client, isvc *v1beta1.InferenceService, logger logr.Logger) *AIServiceBackendReconciler {
+func NewAIServiceBackendReconciler(client client.Client, ingressConfig *v1beta1.IngressConfig, logger logr.Logger) *AIServiceBackendReconciler {
 	return &AIServiceBackendReconciler{
-		client: client,
-		isvc:   isvc,
-		log:    logger,
+		client:        client,
+		ingressConfig: ingressConfig,
+		log:           logger,
 	}
 }
 
-func (r *AIServiceBackendReconciler) Reconcile(ctx context.Context) error {
-	desired := r.createAIServiceBackend()
-	if err := controllerutil.SetControllerReference(r.isvc, desired, r.client.Scheme()); err != nil {
-		r.log.Error(err, "Failed to set controller reference for AIServiceBackend", "name", desired.Name, "namespace", desired.Namespace)
-	}
+func (r *AIServiceBackendReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
+	desired := r.createAIServiceBackend(isvc)
+
 	existing := &aigwv1a1.AIServiceBackend{}
-	if err := r.client.Get(ctx, client.ObjectKey{Namespace: r.isvc.Namespace, Name: desired.Name}, existing); err != nil {
+	if err := r.client.Get(ctx, client.ObjectKey{Namespace: desired.Namespace, Name: desired.Name}, existing); err != nil {
 		if apierr.IsNotFound(err) {
 			r.log.Info("Creating AIServiceBackend", "name", desired.Name, "namespace", desired.Namespace)
 			if err := r.client.Create(ctx, desired); err != nil {
@@ -83,12 +81,25 @@ func (r *AIServiceBackendReconciler) Reconcile(ctx context.Context) error {
 	return nil
 }
 
-func (r *AIServiceBackendReconciler) createAIServiceBackend() *aigwv1a1.AIServiceBackend {
-	serviceName := getAIServiceBackendName(r.isvc)
+func (r *AIServiceBackendReconciler) createAIServiceBackend(isvc *v1beta1.InferenceService) *aigwv1a1.AIServiceBackend {
+	serviceName := constants.PredictorServiceName(isvc.Name)
+	if isvc.Spec.Transformer != nil {
+		serviceName = constants.TransformerServiceName(isvc.Name)
+	}
+	gwNamespace, _ := v1beta1.ParseIngressGateway(r.ingressConfig.KserveIngressGateway)
+
+	// Add ownership tracking labels for manual cleanup
+	labels := map[string]string{
+		constants.InferenceServiceNameLabel:      isvc.Name,
+		constants.InferenceServiceNamespaceLabel: isvc.Namespace,
+	}
+
 	aiServiceBackend := &aigwv1a1.AIServiceBackend{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.isvc.Name,
-			Namespace: r.isvc.Namespace,
+			Name:        getAIServiceBackendName(isvc),
+			Namespace:   gwNamespace, // AIServicebackend should be in the same namespace as the AIGatewayRoute and Gateway
+			Labels:      utils.Union(isvc.Labels, labels),
+			Annotations: isvc.Annotations,
 		},
 		Spec: aigwv1a1.AIServiceBackendSpec{
 			APISchema: aigwv1a1.VersionedAPISchema{
@@ -97,7 +108,7 @@ func (r *AIServiceBackendReconciler) createAIServiceBackend() *aigwv1a1.AIServic
 			BackendRef: gwapiv1.BackendObjectReference{
 				Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
 				Name:      gwapiv1.ObjectName(serviceName),
-				Namespace: ptr.To(gwapiv1.Namespace(r.isvc.Namespace)),
+				Namespace: ptr.To(gwapiv1.Namespace(isvc.Namespace)),
 				Port:      ptr.To(gwapiv1.PortNumber(constants.CommonDefaultHttpPort)),
 			},
 			Timeouts: &gwapiv1.HTTPRouteTimeouts{
@@ -117,8 +128,26 @@ func (r *AIServiceBackendReconciler) SemanticEquals(desired, existing *aigwv1a1.
 
 // getAIServiceBackendName returns the AIServiceBackend name based on the InferenceService.
 func getAIServiceBackendName(isvc *v1beta1.InferenceService) string {
-	if isvc.Spec.Transformer != nil {
-		return constants.TransformerServiceName(isvc.Name)
+	return isvc.Name
+}
+
+// DeleteAIServiceBackend deletes AIServiceBackend resources associated with the InferenceService
+func DeleteAIServiceBackend(ctx context.Context, k8sClient client.Client, ingressConfig *v1beta1.IngressConfig, isvc *v1beta1.InferenceService, logger logr.Logger) error {
+	logger = logger.WithValues("InferenceService", isvc.Name, "namespace", isvc.Namespace)
+
+	// Get gateway namespace from config
+	gwNamespace, _ := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
+	backend := &aigwv1a1.AIServiceBackend{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      getAIServiceBackendName(isvc),
+			Namespace: gwNamespace,
+		},
 	}
-	return constants.PredictorServiceName(isvc.Name)
+
+	logger.Info("Deleting AIServiceBackend", "name", backend.Name, "namespace", backend.Namespace)
+	if err := k8sClient.Delete(ctx, backend, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil {
+		logger.Error(err, "Failed to delete AIServiceBackend", "name", backend.Name, "namespace", backend.Namespace)
+		return err
+	}
+	return nil
 }

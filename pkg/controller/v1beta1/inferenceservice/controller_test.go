@@ -627,11 +627,11 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						Template: knservingv1.RevisionTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{
-									constants.KServiceComponentLabel:      constants.Predictor.String(),
-									constants.InferenceServicePodLabelKey: serviceName,
-									"key1":                                "val1FromSR",
-									"key2":                                "val2FromISVC",
-									"key3":                                "val3FromPredictor",
+									constants.KServiceComponentLabel:    constants.Predictor.String(),
+									constants.InferenceServiceNameLabel: serviceName,
+									"key1":                              "val1FromSR",
+									"key2":                              "val2FromISVC",
+									"key3":                              "val3FromPredictor",
 								},
 								Annotations: map[string]string{
 									"serving.kserve.io/deploymentMode":                         "Serverless",
@@ -1909,10 +1909,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Template: knservingv1.RevisionTemplateSpec{
 								ObjectMeta: metav1.ObjectMeta{
 									Labels: map[string]string{
-										constants.KServiceComponentLabel:      constants.Predictor.String(),
-										constants.InferenceServicePodLabelKey: serviceName,
-										"key1":                                "val1FromISVC",
-										"key2":                                "val2FromISVC",
+										constants.KServiceComponentLabel:    constants.Predictor.String(),
+										constants.InferenceServiceNameLabel: serviceName,
+										"key1":                              "val1FromISVC",
+										"key2":                              "val2FromISVC",
 									},
 									Annotations: map[string]string{
 										"serving.kserve.io/deploymentMode":                         "Serverless",
@@ -2219,10 +2219,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Template: knservingv1.RevisionTemplateSpec{
 								ObjectMeta: metav1.ObjectMeta{
 									Labels: map[string]string{
-										constants.KServiceComponentLabel:      constants.Predictor.String(),
-										constants.InferenceServicePodLabelKey: serviceName,
-										"key1":                                "val1FromISVC",
-										"key2":                                "val2FromISVC",
+										constants.KServiceComponentLabel:    constants.Predictor.String(),
+										constants.InferenceServiceNameLabel: serviceName,
+										"key1":                              "val1FromISVC",
+										"key2":                              "val2FromISVC",
 									},
 									Annotations: map[string]string{
 										"serving.kserve.io/deploymentMode":                         "Serverless",
@@ -2546,10 +2546,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Template: knservingv1.RevisionTemplateSpec{
 								ObjectMeta: metav1.ObjectMeta{
 									Labels: map[string]string{
-										constants.KServiceComponentLabel:      constants.Predictor.String(),
-										constants.InferenceServicePodLabelKey: serviceName,
-										"key1":                                "val1FromISVC",
-										"key2":                                "val2FromISVC",
+										constants.KServiceComponentLabel:    constants.Predictor.String(),
+										constants.InferenceServiceNameLabel: serviceName,
+										"key1":                              "val1FromISVC",
+										"key2":                              "val2FromISVC",
 									},
 									Annotations: map[string]string{
 										"serving.kserve.io/deploymentMode":                         "Serverless",
@@ -2828,10 +2828,10 @@ var _ = Describe("v1beta1 inference service controller", func() {
 							Template: knservingv1.RevisionTemplateSpec{
 								ObjectMeta: metav1.ObjectMeta{
 									Labels: map[string]string{
-										constants.KServiceComponentLabel:      constants.Predictor.String(),
-										constants.InferenceServicePodLabelKey: serviceName,
-										"key1":                                "val1FromISVC",
-										"key2":                                "val2FromISVC",
+										constants.KServiceComponentLabel:    constants.Predictor.String(),
+										constants.InferenceServiceNameLabel: serviceName,
+										"key1":                              "val1FromISVC",
+										"key2":                              "val2FromISVC",
 									},
 									Annotations: map[string]string{
 										"serving.kserve.io/deploymentMode":  "Serverless",

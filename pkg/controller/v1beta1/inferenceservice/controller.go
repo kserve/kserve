@@ -57,7 +57,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
-	aigateway "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/aigateway"
+	aigwreconciler "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/aigateway"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
 	modelconfig "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/modelconfig"
@@ -98,10 +98,8 @@ import (
 // +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors/finalizers,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=envoyproxy.ai,resources=aiservicebackends,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=envoyproxy.ai,resources=aigatewayroutes,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=envoyproxy.ai,resources=aigatewayroutes/status,verbs=get;
-// +kubebuilder:rbac:groups=envoyproxy.ai,resources=aigatewayroutes/finalizers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=aigateway.envoyproxy.io,resources=aiservicebackends,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=aigateway.envoyproxy.io,resources=aigatewayroutes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=gateway.envoyproxy.io,resources=backendtrafficpolicies,verbs=get;list;watch;create;update;patch;delete
 
 // InferenceServiceState describes the Readiness of the InferenceService
@@ -157,6 +155,11 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	deploymentMode := isvcutils.GetDeploymentMode(isvc.Status.DeploymentMode, annotations, deployConfig)
 	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
 
+	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
+	if err != nil {
+		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
+	}
+
 	if deploymentMode == constants.ModelMeshDeployment {
 		if isvc.Spec.Transformer == nil {
 			// Skip if no transformers
@@ -188,7 +191,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		// The object is being deleted
 		if controllerutil.ContainsFinalizer(isvc, finalizerName) {
 			// our finalizer is present, so lets handle any external dependency
-			if err := r.deleteExternalResources(ctx, isvc); err != nil {
+			if err := r.deleteExternalResources(ctx, ingressConfig, isvc); err != nil {
 				// if fail to delete the external dependency here, return with error
 				// so that it can be retried
 				return ctrl.Result{}, err
@@ -278,11 +281,6 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 	// Reconcile ingress
-	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
-	if err != nil {
-		return reconcile.Result{}, errors.Wrapf(err, "fails to create IngressConfig")
-	}
-
 	// check raw deployment
 	if deploymentMode == constants.RawDeployment {
 		if ingressConfig.EnableGatewayAPI {
@@ -302,24 +300,20 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 		// Reconcile AI Gateway if enabled
 		if isEnabled, ok := isvc.Annotations[constants.EnableAIGatewayAnnotationKey]; ok && strings.ToLower(isEnabled) == "true" {
-			if err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "fails to create AIGatewayConfig")
-			}
-
-			aiServiceBackendReconciler := aigateway.NewAIServiceBackendReconciler(r.Client, isvc, r.Log)
-			if err := aiServiceBackendReconciler.Reconcile(ctx); err != nil {
+			aiServiceBackendReconciler := aigwreconciler.NewAIServiceBackendReconciler(r.Client, ingressConfig, r.Log)
+			if err := aiServiceBackendReconciler.Reconcile(ctx, isvc); err != nil {
 				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile AIServiceBackend")
 			}
 
 			// Reconcile AIGatewayRoute
-			aiGatewayRouteReconciler := aigateway.NewAIGatewayRouteReconciler(r.Client, r.Scheme, ingressConfig)
+			aiGatewayRouteReconciler := aigwreconciler.NewAIGatewayRouteReconciler(r.Client, r.Scheme, ingressConfig)
 			if err := aiGatewayRouteReconciler.Reconcile(ctx, isvc); err != nil {
 				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile AIGatewayRoute")
 			}
 
 			// Reconcile BackendTrafficPolicy
-			backendTrafficPolicyReconciler := trafficpolicy.NewBackendTrafficPolicyReconciler(r.Client, isvc, r.Log)
-			if err := backendTrafficPolicyReconciler.Reconcile(ctx); err != nil {
+			backendTrafficPolicyReconciler := trafficpolicy.NewBackendTrafficPolicyReconciler(r.Client, ingressConfig, r.Log)
+			if err := backendTrafficPolicyReconciler.Reconcile(ctx, isvc); err != nil {
 				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile BackendTrafficPolicy")
 			}
 		}
@@ -509,23 +503,44 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	return ctrlBuilder.Complete(r)
 }
 
-func (r *InferenceServiceReconciler) deleteExternalResources(ctx context.Context, isvc *v1beta1.InferenceService) error {
+func (r *InferenceServiceReconciler) deleteExternalResources(ctx context.Context, ingressConfig *v1beta1.IngressConfig, isvc *v1beta1.InferenceService) error {
 	// Delete all the TrainedModel that uses this InferenceService as parent
 	r.Log.Info("Deleting external resources", "InferenceService", isvc.Name)
 	var trainedModels v1alpha1.TrainedModelList
 	if err := r.List(ctx,
 		&trainedModels,
-		client.MatchingLabels{constants.ParentInferenceServiceLabel: isvc.Name},
+		client.MatchingLabels{constants.InferenceServiceNameLabel: isvc.Name},
 		client.InNamespace(isvc.Namespace),
 	); err != nil {
 		r.Log.Error(err, "unable to list trained models", "inferenceservice", isvc.Name)
 		return err
 	}
 
-	// #nosec G601
 	for i, v := range trainedModels.Items {
 		if err := r.Delete(ctx, &trainedModels.Items[i], client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
 			r.Log.Error(err, "unable to delete trainedmodel", "trainedmodel", v)
+		}
+	}
+
+	// Delete AI Gateway resources if AI Gateway was enabled for this InferenceService
+	if isEnabled, ok := isvc.Annotations[constants.EnableAIGatewayAnnotationKey]; ok && strings.ToLower(isEnabled) == "true" {
+
+		// Delete AIServiceBackend resources
+		if err := aigwreconciler.DeleteAIServiceBackend(ctx, r.Client, ingressConfig, isvc, r.Log); err != nil {
+			r.Log.Error(err, "unable to delete AIServiceBackend resources", "inferenceservice", isvc.Name)
+			// Continue with other deletions even if this fails
+		}
+
+		// Delete AIGatewayRoute resources
+		if err := aigwreconciler.DeleteAIGatewayRoute(ctx, r.Client, ingressConfig, isvc, r.Log); err != nil {
+			r.Log.Error(err, "unable to delete AIGatewayRoute resources", "inferenceservice", isvc.Name)
+			// Continue even if this fails
+		}
+
+		// Delete BackendTrafficPolicy resources
+		if err := trafficpolicy.DeleteTrafficPolicy(ctx, r.Client, ingressConfig, isvc, r.Log); err != nil {
+			r.Log.Error(err, "unable to delete BackendTrafficPolicy resources", "inferenceservice", isvc.Name)
+			// Continue even if this fails
 		}
 	}
 	return nil

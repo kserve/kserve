@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
-	knapis "knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -74,9 +73,9 @@ func toGatewayAPIDuration(seconds int64) *gatewayapiv1.Duration {
 
 func createRawURL(isvc *v1beta1.InferenceService,
 	ingressConfig *v1beta1.IngressConfig,
-) (*knapis.URL, error) {
+) (*apis.URL, error) {
 	var err error
-	url := &knapis.URL{}
+	url := &apis.URL{}
 	url.Scheme = ingressConfig.UrlScheme
 	url.Host, err = GenerateDomainName(isvc.Name, isvc.ObjectMeta, ingressConfig)
 	if err != nil {
@@ -188,7 +187,7 @@ func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
-	gwName, gwNamespace := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
+	gwNamespace, gwName := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
 	httpRoute := gatewayapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        constants.PredictorServiceName(isvc.Name),
@@ -252,7 +251,7 @@ func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
-	gwName, gwNamespace := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
+	gwNamespace, gwName := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
 	httpRoute := gatewayapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        constants.TransformerServiceName(isvc.Name),
@@ -318,7 +317,7 @@ func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
-	gwName, gwNamespace := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
+	gwNamespace, gwName := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
 	httpRoute := gatewayapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        constants.ExplainerServiceName(isvc.Name),
@@ -482,7 +481,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 	labels := utils.Filter(isvc.Labels, func(key string) bool {
 		return !utils.Includes(isvcConfig.ServiceLabelDisallowedList, key)
 	})
-	gwName, gwNamespace := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
+	gwNamespace, gwName := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
 	httpRoute := gatewayapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        isvc.Name,
@@ -697,6 +696,80 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 	return nil
 }
 
+// checkHTTPRouteStatuses checks the status of all HTTPRoutes for the given InferenceService
+// and sets the appropriate condition on the InferenceService status
+func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isvc *v1beta1.InferenceService) error {
+	// Check HTTPRoute statuses for all components
+	type httpRouteCheck struct {
+		name      string
+		component string
+	}
+
+	checks := []httpRouteCheck{
+		{
+			name:      constants.PredictorServiceName(isvc.Name),
+			component: "Predictor",
+		},
+	}
+
+	if isvc.Spec.Transformer != nil {
+		checks = append(checks, httpRouteCheck{
+			name:      constants.TransformerServiceName(isvc.Name),
+			component: "Transformer",
+		})
+	}
+	if isvc.Spec.Explainer != nil {
+		checks = append(checks, httpRouteCheck{
+			name:      constants.ExplainerServiceName(isvc.Name),
+			component: "Explainer",
+		})
+	}
+	checks = append(checks, httpRouteCheck{
+		name:      isvc.Name,
+		component: "InferenceService",
+	})
+
+	for _, check := range checks {
+		httpRoute := &gatewayapiv1.HTTPRoute{}
+		if err := r.client.Get(ctx, types.NamespacedName{
+			Name:      check.name,
+			Namespace: isvc.Namespace,
+		}, httpRoute); err != nil {
+			if apierr.IsNotFound(err) {
+				// HTTPRoute not found means the component deployment is not ready yet
+				log.Info(fmt.Sprintf("%s HTTPRoute not found", check.component), "name", check.name)
+				isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+					Type:    v1beta1.IngressReady,
+					Status:  corev1.ConditionFalse,
+					Reason:  fmt.Sprintf("%s Deployment NotReady", check.component),
+					Message: fmt.Sprintf("%s HTTPRoute not created", check.component),
+				})
+				return nil
+			}
+			// Return any other errors
+			return err
+		}
+
+		if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
+			log.Info(fmt.Sprintf("%s HTTPRoute not ready", check.component), "reason", *reason, "message", *message)
+			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+				Type:    v1beta1.IngressReady,
+				Status:  corev1.ConditionFalse,
+				Reason:  *reason,
+				Message: fmt.Sprintf("%s %s", check.component, *message),
+			})
+			return nil
+		}
+	}
+
+	// If we are here, then all the HTTPRoutes are ready, Mark ingress as ready
+	isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		Type:   v1beta1.IngressReady,
+		Status: corev1.ConditionTrue,
+	})
+	return nil
+}
+
 // ReconcileHTTPRoute reconciles the HTTPRoute resource
 func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	var err error
@@ -726,85 +799,10 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 			return err
 		}
 
-		// Check Predictor HTTPRoute status
-		httpRoute := &gatewayapiv1.HTTPRoute{}
-		if err := r.client.Get(ctx, types.NamespacedName{
-			Name:      constants.PredictorServiceName(isvc.Name),
-			Namespace: isvc.Namespace,
-		}, httpRoute); err != nil {
+		// Check HTTPRoute statuses for all components
+		if err := r.checkHTTPRouteStatuses(ctx, isvc); err != nil {
 			return err
 		}
-		if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
-			log.Info("Predictor HTTPRoute not ready", "reason", *reason, "message", *message)
-			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-				Type:    v1beta1.IngressReady,
-				Status:  corev1.ConditionFalse,
-				Reason:  *reason,
-				Message: fmt.Sprintf("%s %s", "Predictor", *message),
-			})
-			return nil
-		}
-		// Check Transformer HTTPRoute stauts
-		if isvc.Spec.Transformer != nil {
-			httpRoute = &gatewayapiv1.HTTPRoute{}
-			if err := r.client.Get(ctx, types.NamespacedName{
-				Name:      constants.TransformerServiceName(isvc.Name),
-				Namespace: isvc.Namespace,
-			}, httpRoute); err != nil {
-				return err
-			}
-			if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
-				isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-					Type:    v1beta1.IngressReady,
-					Status:  corev1.ConditionFalse,
-					Reason:  *reason,
-					Message: fmt.Sprintf("%s %s", "Transformer", *message),
-				})
-				return nil
-			}
-		}
-		// Check Explainer HTTPRoute stauts
-		if isvc.Spec.Explainer != nil {
-			httpRoute = &gatewayapiv1.HTTPRoute{}
-			if err := r.client.Get(ctx, types.NamespacedName{
-				Name:      constants.ExplainerServiceName(isvc.Name),
-				Namespace: isvc.Namespace,
-			}, httpRoute); err != nil {
-				return err
-			}
-			if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
-				isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-					Type:    v1beta1.IngressReady,
-					Status:  corev1.ConditionFalse,
-					Reason:  *reason,
-					Message: fmt.Sprintf("%s %s", "Explainer", *message),
-				})
-				return nil
-			}
-		}
-		// Check Top level HTTPRoute status
-		httpRoute = &gatewayapiv1.HTTPRoute{}
-		if err := r.client.Get(ctx, types.NamespacedName{
-			Name:      isvc.Name,
-			Namespace: isvc.Namespace,
-		}, httpRoute); err != nil {
-			return err
-		}
-		if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
-			log.Info("Top level HTTPRoute not ready", "reason", *reason, "message", *message)
-			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-				Type:    v1beta1.IngressReady,
-				Status:  corev1.ConditionFalse,
-				Reason:  *reason,
-				Message: fmt.Sprintf("%s %s", "TopLevel", *message),
-			})
-			return nil
-		}
-		// If we are here, then all the HTTPRoutes are ready, Mark ingress as ready
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
-			Type:   v1beta1.IngressReady,
-			Status: corev1.ConditionTrue,
-		})
 	} else {
 		// Ingress creation is disabled. We set it to true as the isvc condition depends on it.
 		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{

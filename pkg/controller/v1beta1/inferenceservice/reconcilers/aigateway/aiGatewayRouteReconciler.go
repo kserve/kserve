@@ -28,36 +28,36 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 // AIGatewayRouteReconciler manages AIGatewayRoute resources for KServe InferenceServices
 type AIGatewayRouteReconciler struct {
 	client.Client
-	Log             logr.Logger
-	Scheme          *runtime.Scheme
-	IngressConfig   *v1beta1.IngressConfig
+	log           logr.Logger
+	scheme        *runtime.Scheme
+	ingressConfig *v1beta1.IngressConfig
 }
 
 // NewAIGatewayRouteReconciler creates a new AIGatewayRouteReconciler
 func NewAIGatewayRouteReconciler(client client.Client, scheme *runtime.Scheme, ingressConfig *v1beta1.IngressConfig) *AIGatewayRouteReconciler {
 	return &AIGatewayRouteReconciler{
-		Client:          client,
-		Log:             ctrl.Log.WithName("AIGatewayRouteReconciler"),
-		Scheme:          scheme,
-		IngressConfig:   ingressConfig,
+		Client:        client,
+		log:           ctrl.Log.WithName("AIGatewayRouteReconciler"),
+		scheme:        scheme,
+		ingressConfig: ingressConfig,
 	}
 }
 
 // Reconcile manages the lifecycle of AIGatewayRoute resources
 func (r *AIGatewayRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
-	logger := r.Log.WithValues("InferenceService", isvc.Name, "namespace", isvc.Namespace)
+	logger := r.log.WithValues("InferenceService", isvc.Name, "namespace", isvc.Namespace)
 
 	// Create the desired AIGatewayRoute
 	desired, err := r.createAIGatewayRoute(isvc)
@@ -65,6 +65,8 @@ func (r *AIGatewayRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.
 		logger.Error(err, "Failed to create AIGatewayRoute")
 		return err
 	}
+	// Note: Not setting controller reference for cross-namespace resources
+	// Instead, we use labels for ownership tracking and manual cleanup
 
 	// Check if AIGatewayRoute already exists
 	existing := &aigwv1a1.AIGatewayRoute{}
@@ -76,10 +78,6 @@ func (r *AIGatewayRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.
 	if apierrors.IsNotFound(err) {
 		// Create new AIGatewayRoute
 		logger.Info("Creating AIGatewayRoute", "name", desired.Name, "namespace", desired.Namespace)
-		if err := controllerutil.SetControllerReference(isvc, desired, r.Scheme); err != nil {
-			logger.Error(err, "Failed to set controller reference for AIGatewayRoute", "name", desired.Name, "namespace", desired.Namespace)
-			return err
-		}
 		return r.Create(ctx, desired)
 	} else if err != nil {
 		logger.Error(err, "Failed to get existing AIGatewayRoute", "name", desired.Name, "namespace", desired.Namespace)
@@ -110,7 +108,7 @@ func (r *AIGatewayRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.
 // createAIGatewayRoute creates the AIGatewayRoute resource based on InferenceService spec
 func (r *AIGatewayRouteReconciler) createAIGatewayRoute(isvc *v1beta1.InferenceService) (*aigwv1a1.AIGatewayRoute, error) {
 	name := isvc.Name
-	gwName, gwNamespace := v1beta1.ParseIngressGateway(r.IngressConfig.KserveIngressGateway)
+	gwNamespace, gwName := v1beta1.ParseIngressGateway(r.ingressConfig.KserveIngressGateway)
 
 	// Create the AIGatewayRoute spec
 	spec := aigwv1a1.AIGatewayRouteSpec{
@@ -137,9 +135,13 @@ func (r *AIGatewayRouteReconciler) createAIGatewayRoute(isvc *v1beta1.InferenceS
 
 	route := &aigwv1a1.AIGatewayRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   gwNamespace, // AIGatewayRoute should be in the same namespace as the gateway
-			Labels:      isvc.Labels,
+			Name:      name,
+			Namespace: gwNamespace, // AIGatewayRoute should be in the same namespace as the gateway
+			Labels: utils.Union(isvc.Labels, map[string]string{
+				// Add ownership tracking labels for manual cleanup
+				constants.InferenceServiceNameLabel:      isvc.Name,
+				constants.InferenceServiceNamespaceLabel: isvc.Namespace,
+			}),
 			Annotations: isvc.Annotations,
 		},
 		Spec: spec,
@@ -152,7 +154,7 @@ func (r *AIGatewayRouteReconciler) createBackendRefs(isvc *v1beta1.InferenceServ
 	backends := make([]aigwv1a1.AIGatewayRouteRuleBackendRef, 0, 1)
 	backend := aigwv1a1.AIGatewayRouteRuleBackendRef{
 		Name:   getAIServiceBackendName(isvc),
-		Weight: 1,
+		// Weight: 1,
 	}
 	backends = append(backends, backend)
 	return backends
@@ -202,4 +204,31 @@ func (r *AIGatewayRouteReconciler) SemanticEquals(desired, existing *aigwv1a1.AI
 	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
 		equality.Semantic.DeepEqual(desired.Labels, existing.Labels) &&
 		equality.Semantic.DeepEqual(desired.Annotations, existing.Annotations)
+}
+
+func getAIGatewayRouteName(isvc *v1beta1.InferenceService) string {
+	// Use the InferenceService name as the AIGatewayRoute name
+	// This ensures a unique route per InferenceService
+	return isvc.Name
+}
+
+// DeleteAIGatewayRoute deletes AIGatewayRoute resources associated with the InferenceService
+func DeleteAIGatewayRoute(ctx context.Context, k8sClient client.Client, ingressConfig *v1beta1.IngressConfig, isvc *v1beta1.InferenceService, logger logr.Logger) error {
+	logger = logger.WithValues("InferenceService", isvc.Name, "namespace", isvc.Namespace)
+
+	// Get gateway namespace from config
+	gwNamespace, _ := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
+	route := &aigwv1a1.AIGatewayRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      getAIGatewayRouteName(isvc),
+				Namespace: gwNamespace,
+			},
+		}
+
+	logger.Info("Deleting AIGatewayRoute", "name", route.Name, "namespace", route.Namespace)
+		if err := k8sClient.Delete(ctx, route); err != nil {
+			logger.Error(err, "Failed to delete AIGatewayRoute", "name", route.Name, "namespace", route.Namespace)
+			return err
+		}
+	return nil
 }

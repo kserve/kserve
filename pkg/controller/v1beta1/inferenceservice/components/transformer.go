@@ -103,8 +103,8 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 			isvc.Labels,
 			transformerLabels,
 			map[string]string{
-				constants.InferenceServicePodLabelKey: isvc.Name,
-				constants.KServiceComponentLabel:      string(v1beta1.TransformerComponent),
+				constants.InferenceServiceNameLabel: isvc.Name,
+				constants.KServiceComponentLabel:    string(v1beta1.TransformerComponent),
 			},
 		),
 		Annotations: utils.Union(
