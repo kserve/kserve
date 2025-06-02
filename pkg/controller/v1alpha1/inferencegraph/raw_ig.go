@@ -83,6 +83,30 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 						Drop: []corev1.Capability{corev1.Capability("ALL")},
 					},
 				},
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      "openshift-service-ca-bundle",
+						MountPath: "/etc/odh/openshift-service-ca-bundle",
+					},
+				},
+				Env: []corev1.EnvVar{
+					{
+						Name:  "SSL_CERT_FILE",
+						Value: "/etc/odh/openshift-service-ca-bundle/service-ca.crt",
+					},
+				},
+			},
+		},
+		Volumes: []corev1.Volume{
+			{
+				Name: "openshift-service-ca-bundle",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: constants.OpenShiftServiceCaConfigMapName,
+						},
+					},
+				},
 			},
 		},
 		Affinity:                     graph.Spec.Affinity,
@@ -98,12 +122,12 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 	// Only adding this env variable "PROPAGATE_HEADERS" if router's headers config has the key "propagate"
 	value, exists := config.Headers["propagate"]
 	if exists {
-		podSpec.Containers[0].Env = []corev1.EnvVar{
-			{
-				Name:  constants.RouterHeadersPropagateEnvVar,
-				Value: strings.Join(value, ","),
-			},
+		propagateEnv := corev1.EnvVar{
+			Name:  constants.RouterHeadersPropagateEnvVar,
+			Value: strings.Join(value, ","),
 		}
+
+		podSpec.Containers[0].Env = append(podSpec.Containers[0].Env, propagateEnv)
 	}
 
 	// If auth is enabled for the InferenceGraph:
@@ -127,6 +151,9 @@ func createInferenceGraphPodSpec(graph *v1alpha1.InferenceGraph, config *RouterC
 		// and bind needed privileges for the auth verification.
 		podSpec.ServiceAccountName = graph.GetName() + "-auth-verifier"
 	}
+
+	// In ODH, the readiness probe is using HTTPS
+	podSpec.Containers[0].ReadinessProbe.ProbeHandler.HTTPGet.Scheme = corev1.URISchemeHTTPS
 
 	return podSpec
 }

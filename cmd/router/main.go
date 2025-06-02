@@ -609,8 +609,8 @@ func main() {
 		log.Info("This Router has authorization enabled")
 	}
 
-	http.Handle("/", entrypointHandler)
 	http.HandleFunc(constants.RouterReadinessEndpoint, readyHandler)
+	http.Handle("/", entrypointHandler)
 
 	server := &http.Server{
 		Addr:         ":8080",         // specify the address and port
