@@ -31,7 +31,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmp"
 	knserving "knative.dev/serving/pkg/apis/serving"
@@ -137,18 +136,21 @@ func semanticEquals(desiredService, service *knservingv1.Service) bool {
 		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec)
 }
 
-func createKnativeService(ctx context.Context, clientset kubernetes.Interface, componentMeta metav1.ObjectMeta, graph *v1alpha1.InferenceGraph, config *RouterConfig) (*knservingv1.Service, error) {
+func createKnativeService(
+	componentMeta metav1.ObjectMeta,
+	graph *v1alpha1.InferenceGraph,
+	config *RouterConfig,
+) *knservingv1.Service {
 	bytes, err := json.Marshal(graph.Spec)
 	if err != nil {
-		return nil, errors.Wrapf(err, "fails to marshal inference graph spec to json")
+		return nil
 	}
 	annotations := componentMeta.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string)
 	}
 
-	err = knutils.SetAutoScalingAnnotations(ctx,
-		clientset,
+	knutils.SetAutoScalingAnnotations(
 		annotations,
 		graph.Spec.ScaleTarget,
 		(*string)(graph.Spec.ScaleMetric),
@@ -156,9 +158,6 @@ func createKnativeService(ctx context.Context, clientset kubernetes.Interface, c
 		graph.Spec.MaxReplicas,
 		log,
 	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "fails to set autoscaling annotations for knative service")
-	}
 
 	// ksvc metadata.annotations
 	ksvcAnnotations := make(map[string]string)
@@ -235,7 +234,7 @@ func createKnativeService(ctx context.Context, clientset kubernetes.Interface, c
 			},
 		}
 	}
-	return service, nil
+	return service
 }
 
 func constructResourceRequirements(graph v1alpha1.InferenceGraph, config RouterConfig) corev1.ResourceRequirements {
