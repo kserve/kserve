@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KServe Authors.
+Copyright 2025 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -51,6 +51,7 @@ func NewAIServiceBackendReconciler(client client.Client, ingressConfig *v1beta1.
 func (r *AIServiceBackendReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	desired := r.createAIServiceBackend(isvc)
 
+	// Note: Not setting controller reference as cross-namespace reference is not allowed.
 	existing := &aigwv1a1.AIServiceBackend{}
 	if err := r.client.Get(ctx, client.ObjectKey{Namespace: desired.Namespace, Name: desired.Name}, existing); err != nil {
 		if apierr.IsNotFound(err) {
@@ -76,6 +77,7 @@ func (r *AIServiceBackendReconciler) Reconcile(ctx context.Context, isvc *v1beta
 		r.log.Info("Updating AIServiceBackend", "name", desired.Name, "namespace", desired.Namespace)
 		if err := r.client.Update(ctx, desired); err != nil {
 			r.log.Error(err, "Failed to update AIServiceBackend", "name", desired.Name, "namespace", desired.Namespace)
+			return err
 		}
 	}
 	return nil
@@ -88,7 +90,7 @@ func (r *AIServiceBackendReconciler) createAIServiceBackend(isvc *v1beta1.Infere
 	}
 	gwNamespace, _ := v1beta1.ParseIngressGateway(r.ingressConfig.KserveIngressGateway)
 
-	// Add ownership tracking labels for manual cleanup
+	// Add ownership labels for the AIServiceBackend
 	labels := map[string]string{
 		constants.InferenceServiceNameLabel:      isvc.Name,
 		constants.InferenceServiceNamespaceLabel: isvc.Namespace,

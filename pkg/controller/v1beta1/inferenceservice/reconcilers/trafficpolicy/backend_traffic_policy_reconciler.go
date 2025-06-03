@@ -51,6 +51,8 @@ func NewBackendTrafficPolicyReconciler(client client.Client, ingressConfig *v1be
 // Reconcile reconciles the TrafficPolicy resource for the InferenceService
 func (r *BackendTrafficPolicyReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
 	desired := r.createTrafficPolicy(isvc)
+	// Note: Not setting controller reference as cross-namespace reference is not allowed.
+
 	existing := &egv1a1.BackendTrafficPolicy{}
 	if err := r.client.Get(ctx, client.ObjectKey{Namespace: desired.Namespace, Name: desired.Name}, existing); err != nil {
 		if apierr.IsNotFound(err) {
@@ -88,6 +90,7 @@ func (r *BackendTrafficPolicyReconciler) createTrafficPolicy(isvc *v1beta1.Infer
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getTrafficPolicyName(isvc),
 			Namespace: gwNamespace,              // Use the gateway namespace
+			// Add ownership labels for the BackendTrafficPolicy
 			Labels: utils.Union(isvc.Labels, map[string]string{
 				constants.InferenceServiceNameLabel:      isvc.Name,
 				constants.InferenceServiceNamespaceLabel: isvc.Namespace,

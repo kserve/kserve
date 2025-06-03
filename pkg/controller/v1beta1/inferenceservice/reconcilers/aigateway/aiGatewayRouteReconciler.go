@@ -60,28 +60,24 @@ func (r *AIGatewayRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.
 	logger := r.log.WithValues("InferenceService", isvc.Name, "namespace", isvc.Namespace)
 
 	// Create the desired AIGatewayRoute
-	desired, err := r.createAIGatewayRoute(isvc)
-	if err != nil {
-		logger.Error(err, "Failed to create AIGatewayRoute")
-		return err
-	}
-	// Note: Not setting controller reference for cross-namespace resources
-	// Instead, we use labels for ownership tracking and manual cleanup
+	desired := r.createAIGatewayRoute(isvc)
+
+	// Note: Not setting controller reference as cross-namespace reference is not allowed.
 
 	// Check if AIGatewayRoute already exists
 	existing := &aigwv1a1.AIGatewayRoute{}
-	err = r.Get(ctx, types.NamespacedName{
+	if err := r.Get(ctx, types.NamespacedName{
 		Name:      desired.Name,
 		Namespace: desired.Namespace,
-	}, existing)
-
-	if apierrors.IsNotFound(err) {
-		// Create new AIGatewayRoute
-		logger.Info("Creating AIGatewayRoute", "name", desired.Name, "namespace", desired.Namespace)
-		return r.Create(ctx, desired)
-	} else if err != nil {
-		logger.Error(err, "Failed to get existing AIGatewayRoute", "name", desired.Name, "namespace", desired.Namespace)
-		return err
+	}, existing); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Create new AIGatewayRoute
+			logger.Info("Creating AIGatewayRoute", "name", desired.Name, "namespace", desired.Namespace)
+			return r.Create(ctx, desired)
+		} else {
+			logger.Error(err, "Failed to get existing AIGatewayRoute", "name", desired.Name, "namespace", desired.Namespace)
+			return err
+		}
 	}
 
 	// Set ResourceVersion which is required for update operation.
@@ -106,7 +102,7 @@ func (r *AIGatewayRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.
 }
 
 // createAIGatewayRoute creates the AIGatewayRoute resource based on InferenceService spec
-func (r *AIGatewayRouteReconciler) createAIGatewayRoute(isvc *v1beta1.InferenceService) (*aigwv1a1.AIGatewayRoute, error) {
+func (r *AIGatewayRouteReconciler) createAIGatewayRoute(isvc *v1beta1.InferenceService) *aigwv1a1.AIGatewayRoute {
 	name := isvc.Name
 	gwNamespace, gwName := v1beta1.ParseIngressGateway(r.ingressConfig.KserveIngressGateway)
 
@@ -138,7 +134,7 @@ func (r *AIGatewayRouteReconciler) createAIGatewayRoute(isvc *v1beta1.InferenceS
 			Name:      name,
 			Namespace: gwNamespace, // AIGatewayRoute should be in the same namespace as the gateway
 			Labels: utils.Union(isvc.Labels, map[string]string{
-				// Add ownership tracking labels for manual cleanup
+				// Add ownership labels for AIGatewayRoute
 				constants.InferenceServiceNameLabel:      isvc.Name,
 				constants.InferenceServiceNamespaceLabel: isvc.Namespace,
 			}),
@@ -146,14 +142,14 @@ func (r *AIGatewayRouteReconciler) createAIGatewayRoute(isvc *v1beta1.InferenceS
 		},
 		Spec: spec,
 	}
-	return route, nil
+	return route
 }
 
 // createBackendRefs creates backend references from InferenceService endpoints
 func (r *AIGatewayRouteReconciler) createBackendRefs(isvc *v1beta1.InferenceService) []aigwv1a1.AIGatewayRouteRuleBackendRef {
 	backends := make([]aigwv1a1.AIGatewayRouteRuleBackendRef, 0, 1)
 	backend := aigwv1a1.AIGatewayRouteRuleBackendRef{
-		Name:   getAIServiceBackendName(isvc),
+		Name: getAIServiceBackendName(isvc),
 		// Weight: 1,
 	}
 	backends = append(backends, backend)
@@ -219,16 +215,16 @@ func DeleteAIGatewayRoute(ctx context.Context, k8sClient client.Client, ingressC
 	// Get gateway namespace from config
 	gwNamespace, _ := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
 	route := &aigwv1a1.AIGatewayRoute{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      getAIGatewayRouteName(isvc),
-				Namespace: gwNamespace,
-			},
-		}
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      getAIGatewayRouteName(isvc),
+			Namespace: gwNamespace,
+		},
+	}
 
 	logger.Info("Deleting AIGatewayRoute", "name", route.Name, "namespace", route.Namespace)
-		if err := k8sClient.Delete(ctx, route); err != nil {
-			logger.Error(err, "Failed to delete AIGatewayRoute", "name", route.Name, "namespace", route.Namespace)
-			return err
-		}
+	if err := k8sClient.Delete(ctx, route); err != nil {
+		logger.Error(err, "Failed to delete AIGatewayRoute", "name", route.Name, "namespace", route.Namespace)
+		return err
+	}
 	return nil
 }
