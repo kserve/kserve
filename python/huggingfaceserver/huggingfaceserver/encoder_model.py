@@ -300,6 +300,7 @@ class HuggingfaceEncoderModel(
             outputs = data.view(shape)
             input_ids = torch.Tensor(input_ids)
         inferences = []
+        
         if self.task == MLTask.sequence_classification:
             num_rows, num_cols = outputs.shape
             for i in range(num_rows):
@@ -309,16 +310,10 @@ class HuggingfaceEncoderModel(
                     probs = torch.softmax(out, dim=-1)
                     if probs.is_cuda:
                         probs = probs.cpu()  # Move to CPU for dict conversion which only works on CPU
-                    if self.use_id2label and hasattr(self.model_config, 'id2label'):
-                        inferences.append({self.model_config.id2label[i]: float(prob) for i, prob in enumerate(probs[0])})
-                    else:
-                        inferences.append({i: float(prob) for i, prob in enumerate(probs[0])})
+                    inferences.append({self._get_label_or_index(i): float(prob) for i, prob in enumerate(probs[0])})
                 else:
                     predicted_idx = out.argmax().item()
-                    if self.use_id2label and hasattr(self.model_config, 'id2label'):
-                        inferences.append(self.model_config.id2label[predicted_idx])
-                    else:
-                        inferences.append(predicted_idx)
+                    inferences.append(self._get_label_or_index(predicted_idx))
             return get_predict_response(request, inferences, self.name)
         elif self.task == MLTask.fill_mask:
             num_rows = outputs.shape[0]
@@ -373,6 +368,16 @@ class HuggingfaceEncoderModel(
             raise OpenAIError(
                 f"Unsupported task {self.task}. Please check the supported `task` option."
             )
+
+    def _get_label_or_index(self, index: int) -> Union[str, int]:
+        """Helper method to get label from id2label mapping or return index if not available."""
+        if self.use_id2label:
+            if hasattr(self.model_config, 'id2label'):
+                return self.model_config.id2label[index]
+            else:
+                logger.warning("id2label not found in model config, returning index")
+                return index
+        return index
 
     def _log_request(self, request_id: str, prompt: list[str]) -> None:
         if self.request_logger:
