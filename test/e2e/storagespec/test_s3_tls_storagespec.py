@@ -1,0 +1,248 @@
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+import os
+import time
+from base64 import b64decode
+from kubernetes import client
+from kserve import (
+    constants,
+    KServeClient,
+    V1beta1InferenceService,
+    V1beta1InferenceServiceSpec,
+    V1beta1PredictorSpec,
+    V1beta1SKLearnSpec,
+    V1beta1StorageSpec,
+)
+from kubernetes.client import V1ResourceRequirements
+import pytest
+
+from ..common.utils import KSERVE_NAMESPACE, KSERVE_TEST_NAMESPACE
+
+invalid_cert = """
+-----BEGIN CERTIFICATE-----
+MIIFLTCCAxWgAwIBAgIUF4tP6T1S5H/Gt8BpjFsbXo7f0SYwDQYJKoZIhvcNAQEL
+BQAwJjEVMBMGA1UECgwMRXhhbXBsZSBJbmMuMQ0wCwYDVQQDDARyb290MB4XDTI0
+MDIxNjE5MTM0M1oXDTI1MDIxNTE5MTM0M1owJjEVMBMGA1UECgwMRXhhbXBsZSBJ
+bmMuMQ0wCwYDVQQDDARyb290MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKC
+AgEAnafLggtSuJDwmz6MNaeo2Wmjr6S4xuPYMrCcmclG8Z6qPYHGULTojjy+Du49
+xQ+Xf54kFICEndFEsi1/ms/OG7gT6D+yK/2qfHHJFDQiR1wpPGUPB39ICPRmKJZG
+u98dVGCULFw+ZKNJa9tQhbFU5GZUW/uHfu9S1CHr8TKjQ3C88+weiCZeP+0bOBNd
+ED+IgS7E5amLPhyZZOszN2TcGfIUZbhlshyjpEU3dBt7+X7eUCfCAEzlUnB//dTx
+PJI5LODjKAUeruCVzxqmPZVd8dcxoOLrO6GeRiLm9tWAVAuc91tMPlqBrx2gxOWC
+seWCc8MdwgneLhg7iaO3lgqCxT7UNJN6Vt0RJ4zHz5ix+9rPzNcVoSvPcFHsECFd
+Ia0Kw9BemDW+BElvfdcO4WKeKz5tqJeQJV4VNo5FhifquWHnDDwweZGnyHa+Ma0F
+nfDNu6EXz9PMaHwPGYYWUbooRiQ1jvokS+peEu4Co7IuT4N1kix3o17Otiboz9vJ
+ZktkMO4Q/8H8Mz9u/22t3/TyKgMYp4ng0JohGXU5jmoxGqd1hL0zkxjeakZXj1cz
+TyUzNq0TAYdjAc60DUGyO9zPqyppTMjNCAFJwWW3HDGdOpzmlx3q7G7DtqW38f9Z
+/wzQNrRzcrjSAlkoMh815U8KLe+46aQU8qKBNRVCWP+TyhsCAwEAAaNTMFEwHQYD
+VR0OBBYEFGx6yRBZRO69d5SLJb0HRbX8kdNgMB8GA1UdIwQYMBaAFGx6yRBZRO69
+d5SLJb0HRbX8kdNgMA8GA1UdEwEB/wQFMAMBAf8wDQYJKoZIhvcNAQELBQADggIB
+ADzivfSrSJE1lhmqJbJ2ZJaq59nyFu9/rNS9UfHYeiy8eBZEygVDWFIAxb8xmbwP
+brhGqCxlAW7Ydw/lwwGUndpP93LN9o93eVnEu7evEr4GflRt3++MCNUXjEbY5THV
+7XAU+Rm02lwejUJtk3L9Em0PUFiUp38vbLC0oZKAEOqNgGexPOlUI7+WW2kpEWTj
+eOmeEOOW2tKcy2pSId9TX6PtzEBIwuiGZLsD/vSQ1yXs0CZE96xqmRlPoQJ2fyBm
+ON/3QYs1o8Mns5tMf/hEWu4p7grHvIAIHHVc8Dyn2XlLiXTSWCgrcYn0HeMIXG+7
+yxIda8GBJYO2KZ/eLkg/dE2varrQ8JeapO6ozXS1MFYG4rTPEwSmLxjGyu3XD0sb
+jv5LBXm6oDvL8kfJO7uqKcizs2rx5HIjuQ6mEEunVlr9jlFlNzkO0rfoeECrtwuW
+jtAxrpGonBuGY4CcmjxpvSwaBDOAbZnZG7g5yRQQTA/lOBvgBfzFm6Xsdm/Vtnya
+UCOnFrN0vXLkrQVVrdZxxWhz9FN+SUXQyjsR3D+VpJUVWmw9pfiXi8F/JOpjORhe
+TbVunBmL9HUClHgUc2B0NSfNyqXSwo+Gp5Kg4iYIw4hJw2EPwilUFafcM8uVDktK
+5kwH30e7WUlkXz+j8p1UIuFM5kKHW/OwPBdLU/1Pl5ts
+-----END CERTIFICATE-----
+"""
+
+
+@pytest.mark.kserve_on_openshift
+@pytest.mark.asyncio(scope="session")
+async def test_s3_tls_custom_cert_storagespec_kserve(rest_v1_client):
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+
+    # Mimic the RHOAI/ODH operators by creating the odh-trusted-ca-bundle configmap containing the custom cert
+    minio_tls_custom_certs = kserve_client.core_api.read_namespaced_secret(
+        "minio-tls-custom", KSERVE_NAMESPACE
+    ).data
+    odh_trusted_ca_configmap = client.V1ConfigMap(
+        api_version="v1",
+        kind="ConfigMap",
+        metadata=client.V1ObjectMeta(name="odh-trusted-ca-bundle"),
+        data={
+            "odh-ca-bundle.crt": b64decode(minio_tls_custom_certs["root.crt"]).decode()
+        },
+    )
+    kserve_client.core_api.create_namespaced_config_map(
+        namespace=KSERVE_TEST_NAMESPACE, body=odh_trusted_ca_configmap
+    )
+
+    # Validate that the model is successfully loaded when the custom cert is present
+    service_name = "isvc-sklearn-s3-tls-custom-pass"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        sklearn=V1beta1SKLearnSpec(
+            storage=V1beta1StorageSpec(
+                key="localTLSMinIOCustom",
+                path="sklearn",
+                parameters={"bucket": "example-models"},
+            ),
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+    kserve_client.create(isvc)
+    check_model_transition_status(
+        kserve_client, service_name, KSERVE_TEST_NAMESPACE, "UpToDate"
+    )
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+    # Patch the odh-trusted-ca-bundle configmap to replace the custom cert with an invalid cert
+    odh_trusted_ca_configmap_patch = client.V1ConfigMap(
+        api_version="v1",
+        kind="ConfigMap",
+        metadata=client.V1ObjectMeta(name="odh-trusted-ca-bundle"),
+        data={"odh-ca-bundle.crt": invalid_cert},
+    )
+    kserve_client.core_api.patch_namespaced_config_map(
+        name="odh-trusted-ca-bundle",
+        namespace=KSERVE_TEST_NAMESPACE,
+        body=odh_trusted_ca_configmap_patch,
+    )
+
+    # Validate that the model fails to load when the custom cert is not present
+    service_name = "isvc-sklearn-s3-tls-custom-fail"
+    isvc.metadata.name = service_name
+    kserve_client.create(isvc)
+    check_model_transition_status(
+        kserve_client, service_name, KSERVE_TEST_NAMESPACE, "BlockedByFailedLoad"
+    )
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+    # Cleanup the configmap
+    kserve_client.core_api.delete_namespaced_config_map(
+        name="odh-trusted-ca-bundle", namespace=KSERVE_TEST_NAMESPACE
+    )
+
+
+@pytest.mark.kserve_on_openshift
+@pytest.mark.asyncio(scope="session")
+async def test_s3_tls_serving_cert_storagespec_kserve(rest_v1_client):
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+
+    # Mimic the RHOAI/ODH operators by creating the odh-trusted-ca-bundle configmap containing the serving cert
+    minio_tls_serving_certs = kserve_client.core_api.read_namespaced_secret(
+        "minio-tls-serving", KSERVE_NAMESPACE
+    ).data
+    odhTrustedCAConfigmap = client.V1ConfigMap(
+        api_version="v1",
+        kind="ConfigMap",
+        metadata=client.V1ObjectMeta(name="odh-trusted-ca-bundle"),
+        data={
+            "odh-ca-bundle.crt": b64decode(minio_tls_serving_certs["tls.crt"]).decode()
+        },
+    )
+    kserve_client.core_api.create_namespaced_config_map(
+        namespace=KSERVE_TEST_NAMESPACE, body=odhTrustedCAConfigmap
+    )
+
+    # Validate that the model is successfully loaded when the serving cert is present
+    service_name = "isvc-sklearn-s3-tls-serving-pass"
+    predictor = V1beta1PredictorSpec(
+        min_replicas=1,
+        sklearn=V1beta1SKLearnSpec(
+            storage=V1beta1StorageSpec(
+                key="localTLSMinIOServing",
+                path="sklearn",
+                parameters={"bucket": "example-models"},
+            ),
+            resources=V1ResourceRequirements(
+                requests={"cpu": "50m", "memory": "128Mi"},
+                limits={"cpu": "100m", "memory": "256Mi"},
+            ),
+        ),
+    )
+    isvc = V1beta1InferenceService(
+        api_version=constants.KSERVE_V1BETA1,
+        kind=constants.KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=service_name, namespace=KSERVE_TEST_NAMESPACE
+        ),
+        spec=V1beta1InferenceServiceSpec(predictor=predictor),
+    )
+    kserve_client.create(isvc)
+    check_model_transition_status(
+        kserve_client, service_name, KSERVE_TEST_NAMESPACE, "UpToDate"
+    )
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+    # Patch the odh-trusted-ca-bundle configmap to replace the serving cert with an invalid cert
+    odhTrustedCAConfigmapPatch = client.V1ConfigMap(
+        api_version="v1",
+        kind="ConfigMap",
+        metadata=client.V1ObjectMeta(name="odh-trusted-ca-bundle"),
+        data={"odh-ca-bundle.crt": invalid_cert},
+    )
+    kserve_client.core_api.patch_namespaced_config_map(
+        name="odh-trusted-ca-bundle",
+        namespace=KSERVE_TEST_NAMESPACE,
+        body=odhTrustedCAConfigmapPatch,
+    )
+
+    # Validate that the model fails to load when the custom cert is not present
+    service_name = "isvc-sklearn-s3-tls-serving-fail"
+    isvc.metadata.name = service_name
+    kserve_client.create(isvc)
+    check_model_transition_status(
+        kserve_client, service_name, KSERVE_TEST_NAMESPACE, "BlockedByFailedLoad"
+    )
+    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+
+    # Cleanup the configmap
+    kserve_client.core_api.delete_namespaced_config_map(
+        name="odh-trusted-ca-bundle", namespace=KSERVE_TEST_NAMESPACE
+    )
+
+
+def check_model_transition_status(
+    kserve_client: KServeClient,
+    isvc_name: str,
+    isvc_namespace: str,
+    expected_status: str,
+    timeout_seconds: int = 600,
+    polling_interval: int = 10,
+):
+    for _ in range(round(timeout_seconds / polling_interval)):
+        time.sleep(polling_interval)
+        isvc = kserve_client.get(
+            name=isvc_name,
+            namespace=isvc_namespace,
+            version=constants.KSERVE_V1BETA1_VERSION,
+        )
+        if isvc["status"]["modelStatus"]["transitionStatus"] == expected_status:
+            return
+    raise RuntimeError(
+        f"InferenceService ({isvc_name}) has model transition status \
+            {isvc['status']['modelStatus']['transitionStatus']} after timeout, but expecting {expected_status}"
+    )

@@ -53,7 +53,7 @@ fi
 if [ "$SETUP_E2E" = "true" ]; then
   echo "Installing on cluster"
   pushd $PROJECT_ROOT >/dev/null
-  ./test/scripts/openshift-ci/setup-e2e-tests.sh "$1" | tee 2>&1 ./test/scripts/openshift-ci/setup-e2e-tests-$1.log
+  ./test/scripts/openshift-ci/setup-e2e-tests.sh "$1" | tee 2>&1 "./test/scripts/openshift-ci/setup-e2e-tests-${1// /-}.log"
   popd
 fi
 
@@ -65,6 +65,6 @@ echo "REQUESTS_CA_BUNDLE=$(cat ${REQUESTS_CA_BUNDLE})"
 
 echo "Run E2E tests: $1"
 pushd $PROJECT_ROOT >/dev/null
-./test/scripts/gh-actions/run-e2e-tests.sh "$1" $PARALLELISM | tee 2>&1 ./test/scripts/openshift-ci/run-e2e-tests-$1.log
+./test/scripts/gh-actions/run-e2e-tests.sh "$1" $PARALLELISM | tee 2>&1 "./test/scripts/openshift-ci/run-e2e-tests-${1// /-}.log"
 popd
 cp ./test/e2e/conftest.py.bak ./test/e2e/conftest.py

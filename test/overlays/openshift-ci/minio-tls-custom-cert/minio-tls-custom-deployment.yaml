@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio-tls-custom
+  labels:
+    app: minio-tls-custom
+spec:
+  selector:
+    matchLabels:
+      app: minio-tls-custom
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: minio-tls-custom
+    spec:
+      containers:
+      - args:
+        - server
+        - /data
+        env:
+        - name: MINIO_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-tls-custom-artifact
+              key: accesskey
+        - name: MINIO_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: minio-tls-custom-artifact
+              key: secretkey
+        image: quay.io/minio/minio:RELEASE.2025-05-24T17-08-30Z
+        name: minio-tls-custom
+        ports:
+        - containerPort: 9000
+        volumeMounts:
+        - mountPath: /data
+          name: data
+          subPath: minio
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      volumes:
+      - name: data
+        emptyDir: {}

@@ -67,7 +67,7 @@ if [ "$1" != "raw" ]; then
   oc delete namespace openshift-serverless --ignore-not-found
 fi
 
-echo "Installing KServe with Minio"
+echo "Deleting KServe with Minio"
 kustomize build $PROJECT_ROOT/config/overlays/test |
   sed "s|kserve/storage-initializer:latest|${STORAGE_INITIALIZER_IMAGE}|" |
   sed "s|kserve/agent:latest|${KSERVE_AGENT_IMAGE}|" |
@@ -75,6 +75,12 @@ kustomize build $PROJECT_ROOT/config/overlays/test |
   sed "s|kserve/kserve-controller:latest|${KSERVE_CONTROLLER_IMAGE}|" |
   oc delete --server-side=true -f -
 
+if [ "$1" =~ "kserve_on_openshift" ]; then
+  echo "Deleting TLS MinIO resources and generated certificates"
+  kustomize build $PROJECT_ROOT/test/overlays/openshift-ci |
+    oc delete -n kserve -f -
+  rm -rf $PROJECT_ROOT/test/scripts/openshift-ci/tls/certs
+fi
 # Install DSC/DSCI for test. (sometimes there is timing issue when it is under the same kustomization so it is separated)
 oc delete -f config/overlays/test/dsci.yaml
 oc delete -f config/overlays/test/dsc.yaml
