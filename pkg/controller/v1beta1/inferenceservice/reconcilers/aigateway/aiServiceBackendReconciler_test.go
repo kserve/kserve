@@ -24,7 +24,6 @@ import (
 	aigwv1a1 "github.com/envoyproxy/ai-gateway/api/v1alpha1"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -163,6 +162,7 @@ func TestCreateAIServiceBackend(t *testing.T) {
 					Name: aigwv1a1.APISchemaOpenAI,
 				},
 				BackendRef: gwapiv1.BackendObjectReference{
+					Group:     ptr.To(gwapiv1.Group("")),
 					Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
 					Name:      gwapiv1.ObjectName("test-isvc-predictor"),
 					Namespace: ptr.To(gwapiv1.Namespace("test-namespace")),
@@ -185,42 +185,45 @@ func TestCreateAIServiceBackend(t *testing.T) {
 		}
 	})
 
-	t.Run("inference service with transformer", func(t *testing.T) {
+	t.Run("inference service with custom predictor timeout", func(t *testing.T) {
 		isvc := &v1beta1.InferenceService{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-isvc-transformer",
+				Name:      "test-timeout-isvc",
 				Namespace: "test-namespace",
+				Labels: map[string]string{
+					"test-label": "test-value",
+				},
+				Annotations: map[string]string{
+					"test-annotation": "test-value",
+				},
 			},
 			Spec: v1beta1.InferenceServiceSpec{
 				Predictor: v1beta1.PredictorSpec{
+					ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+						TimeoutSeconds: ptr.To[int64](120),
+					},
 					Model: &v1beta1.ModelSpec{
 						ModelFormat: v1beta1.ModelFormat{
 							Name: "sklearn",
 						},
 					},
 				},
-				Transformer: &v1beta1.TransformerSpec{
-					PodSpec: v1beta1.PodSpec{
-						Containers: []corev1.Container{
-							{
-								Name:  "transformer",
-								Image: "transformer:latest",
-							},
-						},
-					},
-				},
 			},
 		}
 		ingressConfig := &v1beta1.IngressConfig{
-			KserveIngressGateway: "custom-gateway/custom-ingress-gateway",
+			KserveIngressGateway: "kserve-gateway/kserve-ingress-gateway",
 		}
 		expectedResult := &aigwv1a1.AIServiceBackend{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-isvc-transformer",
-				Namespace: "custom-gateway",
+				Name:      "test-timeout-isvc",
+				Namespace: "kserve-gateway",
 				Labels: map[string]string{
-					constants.InferenceServiceNameLabel:      "test-isvc-transformer",
+					"test-label":                             "test-value",
+					constants.InferenceServiceNameLabel:      "test-timeout-isvc",
 					constants.InferenceServiceNamespaceLabel: "test-namespace",
+				},
+				Annotations: map[string]string{
+					"test-annotation": "test-value",
 				},
 			},
 			Spec: aigwv1a1.AIServiceBackendSpec{
@@ -228,13 +231,14 @@ func TestCreateAIServiceBackend(t *testing.T) {
 					Name: aigwv1a1.APISchemaOpenAI,
 				},
 				BackendRef: gwapiv1.BackendObjectReference{
+					Group:     ptr.To(gwapiv1.Group("")),
 					Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
-					Name:      gwapiv1.ObjectName("test-isvc-transformer-transformer"),
+					Name:      gwapiv1.ObjectName("test-timeout-isvc-predictor"),
 					Namespace: ptr.To(gwapiv1.Namespace("test-namespace")),
 					Port:      ptr.To(gwapiv1.PortNumber(constants.CommonDefaultHttpPort)),
 				},
 				Timeouts: &gwapiv1.HTTPRouteTimeouts{
-					Request: ptr.To(gwapiv1.Duration("60s")),
+					Request: ptr.To(gwapiv1.Duration("120s")),
 				},
 			},
 		}
@@ -277,6 +281,7 @@ func TestAIServiceBackendSemanticEquals(t *testing.T) {
 				Name: aigwv1a1.APISchemaOpenAI,
 			},
 			BackendRef: gwapiv1.BackendObjectReference{
+				Group:     ptr.To(gwapiv1.Group("")),
 				Kind:      ptr.To(gwapiv1.Kind("Service")),
 				Name:      gwapiv1.ObjectName("test-service"),
 				Namespace: ptr.To(gwapiv1.Namespace("test-namespace")),
@@ -408,14 +413,41 @@ func TestAIServiceBackendReconcile(t *testing.T) {
 		err = fakeClient.Get(ctx, key, backend)
 		require.NoError(t, err)
 
-		// Verify ownership labels are set
-		require.Equal(t, isvc.Name, backend.Labels[constants.InferenceServiceNameLabel])
-		require.Equal(t, isvc.Namespace, backend.Labels[constants.InferenceServiceNamespaceLabel])
+		// Create expected backend for full comparison
+		expectedBackend := &aigwv1a1.AIServiceBackend{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "kserve-gateway",
+				Labels: map[string]string{
+					constants.InferenceServiceNameLabel:      "test-isvc",
+					constants.InferenceServiceNamespaceLabel: "test-namespace",
+				},
+				Annotations: nil,
+			},
+			Spec: aigwv1a1.AIServiceBackendSpec{
+				APISchema: aigwv1a1.VersionedAPISchema{
+					Name: aigwv1a1.APISchemaOpenAI,
+				},
+				BackendRef: gwapiv1.BackendObjectReference{
+					Group:     ptr.To(gwapiv1.Group("")),
+					Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+					Name:      gwapiv1.ObjectName("test-isvc-predictor"),
+					Namespace: ptr.To(gwapiv1.Namespace("test-namespace")),
+					Port:      ptr.To(gwapiv1.PortNumber(constants.CommonDefaultHttpPort)),
+				},
+				Timeouts: &gwapiv1.HTTPRouteTimeouts{
+					Request: ptr.To(gwapiv1.Duration("60s")),
+				},
+			},
+		}
 
-		// Verify spec is correct
-		require.Equal(t, aigwv1a1.APISchemaOpenAI, backend.Spec.APISchema.Name)
-		require.Equal(t, constants.PredictorServiceName(isvc.Name), string(backend.Spec.BackendRef.Name))
-		require.Equal(t, isvc.Namespace, string(*backend.Spec.BackendRef.Namespace))
+		// Compare full objects, ignoring ResourceVersion
+		actualBackend := backend.DeepCopy()
+		actualBackend.ResourceVersion = ""
+		expectedBackend.ResourceVersion = ""
+		if diff := cmp.Diff(expectedBackend, actualBackend); diff != "" {
+			t.Errorf("Backend mismatch (-want +got):\n%s", diff)
+		}
 	})
 
 	t.Run("update existing backend", func(t *testing.T) {
@@ -481,14 +513,42 @@ func TestAIServiceBackendReconcile(t *testing.T) {
 		err = fakeClient.Get(ctx, key, backend)
 		require.NoError(t, err)
 
-		// Verify ownership labels are set
-		require.Equal(t, isvc.Name, backend.Labels[constants.InferenceServiceNameLabel])
-		require.Equal(t, isvc.Namespace, backend.Labels[constants.InferenceServiceNamespaceLabel])
+		// Create expected backend for full comparison
+		expectedBackend := &aigwv1a1.AIServiceBackend{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "kserve-gateway",
+				Labels: map[string]string{
+					"updated-label":                          "updated-value",
+					constants.InferenceServiceNameLabel:      "test-isvc",
+					constants.InferenceServiceNamespaceLabel: "test-namespace",
+				},
+				Annotations: nil,
+			},
+			Spec: aigwv1a1.AIServiceBackendSpec{
+				APISchema: aigwv1a1.VersionedAPISchema{
+					Name: aigwv1a1.APISchemaOpenAI,
+				},
+				BackendRef: gwapiv1.BackendObjectReference{
+					Group:     ptr.To(gwapiv1.Group("")),
+					Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+					Name:      gwapiv1.ObjectName("test-isvc-predictor"),
+					Namespace: ptr.To(gwapiv1.Namespace("test-namespace")),
+					Port:      ptr.To(gwapiv1.PortNumber(constants.CommonDefaultHttpPort)),
+				},
+				Timeouts: &gwapiv1.HTTPRouteTimeouts{
+					Request: ptr.To(gwapiv1.Duration("60s")),
+				},
+			},
+		}
 
-		// Verify spec is correct
-		require.Equal(t, aigwv1a1.APISchemaOpenAI, backend.Spec.APISchema.Name)
-		require.Equal(t, constants.PredictorServiceName(isvc.Name), string(backend.Spec.BackendRef.Name))
-		require.Equal(t, isvc.Namespace, string(*backend.Spec.BackendRef.Namespace))
+		// Compare full objects, ignoring ResourceVersion
+		actualBackend := backend.DeepCopy()
+		actualBackend.ResourceVersion = ""
+		expectedBackend.ResourceVersion = ""
+		if diff := cmp.Diff(expectedBackend, actualBackend); diff != "" {
+			t.Errorf("Backend mismatch (-want +got):\n%s", diff)
+		}
 	})
 
 	t.Run("no update needed", func(t *testing.T) {
@@ -559,14 +619,41 @@ func TestAIServiceBackendReconcile(t *testing.T) {
 		err = fakeClient.Get(ctx, key, backend)
 		require.NoError(t, err)
 
-		// Verify ownership labels are set
-		require.Equal(t, isvc.Name, backend.Labels[constants.InferenceServiceNameLabel])
-		require.Equal(t, isvc.Namespace, backend.Labels[constants.InferenceServiceNamespaceLabel])
+		// Create expected backend for full comparison
+		expectedBackend := &aigwv1a1.AIServiceBackend{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "kserve-gateway",
+				Labels: map[string]string{
+					constants.InferenceServiceNameLabel:      "test-isvc",
+					constants.InferenceServiceNamespaceLabel: "test-namespace",
+				},
+				Annotations: nil,
+			},
+			Spec: aigwv1a1.AIServiceBackendSpec{
+				APISchema: aigwv1a1.VersionedAPISchema{
+					Name: aigwv1a1.APISchemaOpenAI,
+				},
+				BackendRef: gwapiv1.BackendObjectReference{
+					Group:     ptr.To(gwapiv1.Group("")),
+					Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
+					Name:      gwapiv1.ObjectName("test-isvc-predictor"),
+					Namespace: ptr.To(gwapiv1.Namespace("test-namespace")),
+					Port:      ptr.To(gwapiv1.PortNumber(constants.CommonDefaultHttpPort)),
+				},
+				Timeouts: &gwapiv1.HTTPRouteTimeouts{
+					Request: ptr.To(gwapiv1.Duration("60s")),
+				},
+			},
+		}
 
-		// Verify spec is correct
-		require.Equal(t, aigwv1a1.APISchemaOpenAI, backend.Spec.APISchema.Name)
-		require.Equal(t, constants.PredictorServiceName(isvc.Name), string(backend.Spec.BackendRef.Name))
-		require.Equal(t, isvc.Namespace, string(*backend.Spec.BackendRef.Namespace))
+		// Compare full objects, ignoring ResourceVersion
+		actualBackend := backend.DeepCopy()
+		actualBackend.ResourceVersion = ""
+		expectedBackend.ResourceVersion = ""
+		if diff := cmp.Diff(expectedBackend, actualBackend); diff != "" {
+			t.Errorf("Backend mismatch (-want +got):\n%s", diff)
+		}
 	})
 
 	t.Run("create backend with client error", func(t *testing.T) {

@@ -85,9 +85,6 @@ func (r *AIServiceBackendReconciler) Reconcile(ctx context.Context, isvc *v1beta
 
 func (r *AIServiceBackendReconciler) createAIServiceBackend(isvc *v1beta1.InferenceService) *aigwv1a1.AIServiceBackend {
 	serviceName := constants.PredictorServiceName(isvc.Name)
-	if isvc.Spec.Transformer != nil {
-		serviceName = constants.TransformerServiceName(isvc.Name)
-	}
 	gwNamespace, _ := v1beta1.ParseIngressGateway(r.ingressConfig.KserveIngressGateway)
 
 	// Add ownership labels for the AIServiceBackend
@@ -95,7 +92,10 @@ func (r *AIServiceBackendReconciler) createAIServiceBackend(isvc *v1beta1.Infere
 		constants.InferenceServiceNameLabel:      isvc.Name,
 		constants.InferenceServiceNamespaceLabel: isvc.Namespace,
 	}
-
+	timeout := constants.DefaultTimeoutSeconds
+	if isvc.Spec.Predictor.TimeoutSeconds != nil {
+		timeout = *isvc.Spec.Predictor.TimeoutSeconds
+	} 
 	aiServiceBackend := &aigwv1a1.AIServiceBackend{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        getAIServiceBackendName(isvc),
@@ -108,13 +108,14 @@ func (r *AIServiceBackendReconciler) createAIServiceBackend(isvc *v1beta1.Infere
 				Name: aigwv1a1.APISchemaOpenAI,
 			},
 			BackendRef: gwapiv1.BackendObjectReference{
+				Group: ptr.To(gwapiv1.Group("")),
 				Kind:      ptr.To(gwapiv1.Kind(constants.KindService)),
 				Name:      gwapiv1.ObjectName(serviceName),
 				Namespace: ptr.To(gwapiv1.Namespace(isvc.Namespace)),
 				Port:      ptr.To(gwapiv1.PortNumber(constants.CommonDefaultHttpPort)),
 			},
 			Timeouts: &gwapiv1.HTTPRouteTimeouts{
-				Request: ptr.To(gwapiv1.Duration(fmt.Sprintf("%ds", constants.DefaultTimeoutSeconds))),
+				Request: ptr.To(gwapiv1.Duration(fmt.Sprintf("%ds", timeout))),
 			},
 		},
 	}

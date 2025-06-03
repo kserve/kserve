@@ -168,34 +168,40 @@ func TestCreateTrafficPolicy(t *testing.T) {
 		result := reconciler.createTrafficPolicy(isvc)
 		require.NotNil(t, result)
 
-		// Check metadata
-		require.Equal(t, "test-isvc", result.Name)
-		require.Equal(t, "kserve-gateway", result.Namespace)
-
-		// Check ownership tracking labels
-		require.Equal(t, isvc.Name, result.Labels[constants.InferenceServiceNameLabel])
-		require.Equal(t, isvc.Namespace, result.Labels[constants.InferenceServiceNamespaceLabel])
-
-		// Check that original labels are preserved
-		for k, v := range isvc.Labels {
-			require.Equal(t, v, result.Labels[k])
+		// Create expected BackendTrafficPolicy object
+		expected := &egv1a1.BackendTrafficPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "kserve-gateway",
+				Labels: map[string]string{
+					"test-label":                             "test-value",
+					constants.InferenceServiceNameLabel:      "test-isvc",
+					constants.InferenceServiceNamespaceLabel: "test-namespace",
+				},
+				Annotations: map[string]string{
+					"test-annotation": "test-value",
+				},
+			},
+			Spec: egv1a1.BackendTrafficPolicySpec{
+				PolicyTargetReferences: egv1a1.PolicyTargetReferences{
+					TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
+						{
+							LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
+								Group: "gateway.networking.k8s.io",
+								Kind:  constants.KindGateway,
+								Name:  "kserve-ingress-gateway",
+							},
+						},
+					},
+				},
+				RateLimit: &egv1a1.RateLimitSpec{
+					Type:   egv1a1.GlobalRateLimitType,
+					Global: &isvc.Spec.TrafficPolicy.RateLimit.Global,
+				},
+			},
 		}
 
-		// Check annotations
-		for k, v := range isvc.Annotations {
-			require.Equal(t, v, result.Annotations[k])
-		}
-
-		// Check spec
-		require.Len(t, result.Spec.TargetRefs, 1)
-		require.Equal(t, "gateway.networking.k8s.io", string(result.Spec.TargetRefs[0].Group))
-		require.Equal(t, constants.KindGateway, string(result.Spec.TargetRefs[0].Kind))
-		require.Equal(t, "kserve-ingress-gateway", string(result.Spec.TargetRefs[0].Name))
-
-		// Check rate limit
-		require.NotNil(t, result.Spec.RateLimit)
-		require.Equal(t, egv1a1.GlobalRateLimitType, result.Spec.RateLimit.Type)
-		require.Equal(t, &isvc.Spec.TrafficPolicy.RateLimit.Global, result.Spec.RateLimit.Global)
+		require.Equal(t, expected, result)
 	})
 
 	t.Run("traffic policy with custom gateway", func(t *testing.T) {
@@ -240,13 +246,142 @@ func TestCreateTrafficPolicy(t *testing.T) {
 		result := customReconciler.createTrafficPolicy(isvc)
 		require.NotNil(t, result)
 
-		// Check metadata with custom gateway
-		require.Equal(t, "test-isvc-custom", result.Name)
-		require.Equal(t, "custom-gateway", result.Namespace)
+		// Create expected BackendTrafficPolicy object
+		expected := &egv1a1.BackendTrafficPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-custom",
+				Namespace: "custom-gateway",
+				Labels: map[string]string{
+					constants.InferenceServiceNameLabel:      "test-isvc-custom",
+					constants.InferenceServiceNamespaceLabel: "test-namespace",
+				},
+				Annotations: nil,
+			},
+			Spec: egv1a1.BackendTrafficPolicySpec{
+				PolicyTargetReferences: egv1a1.PolicyTargetReferences{
+					TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
+						{
+							LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
+								Group: "gateway.networking.k8s.io",
+								Kind:  constants.KindGateway,
+								Name:  "custom-ingress-gateway",
+							},
+						},
+					},
+				},
+				RateLimit: &egv1a1.RateLimitSpec{
+					Type:   egv1a1.GlobalRateLimitType,
+					Global: &isvc.Spec.TrafficPolicy.RateLimit.Global,
+				},
+			},
+		}
 
-		// Check target refs with custom gateway
-		require.Len(t, result.Spec.TargetRefs, 1)
-		require.Equal(t, "custom-ingress-gateway", string(result.Spec.TargetRefs[0].Name))
+		require.Equal(t, expected, result)
+	})
+
+	t.Run("traffic policy when TrafficPolicy is nil", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-no-traffic-policy",
+				Namespace: "test-namespace",
+				Labels: map[string]string{
+					"test-label": "test-value",
+				},
+				Annotations: map[string]string{
+					"test-annotation": "test-value",
+				},
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				// TrafficPolicy is nil
+				TrafficPolicy: nil,
+			},
+		}
+
+		result := reconciler.createTrafficPolicy(isvc)
+		require.NotNil(t, result)
+
+		// Create expected BackendTrafficPolicy object
+		expected := &egv1a1.BackendTrafficPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-no-traffic-policy",
+				Namespace: "kserve-gateway",
+				Labels: map[string]string{
+					"test-label":                             "test-value",
+					constants.InferenceServiceNameLabel:      "test-isvc-no-traffic-policy",
+					constants.InferenceServiceNamespaceLabel: "test-namespace",
+				},
+				Annotations: map[string]string{
+					"test-annotation": "test-value",
+				},
+			},
+			Spec: egv1a1.BackendTrafficPolicySpec{
+				PolicyTargetReferences: egv1a1.PolicyTargetReferences{
+					TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
+						{
+							LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
+								Group: "gateway.networking.k8s.io",
+								Kind:  constants.KindGateway,
+								Name:  "kserve-ingress-gateway",
+							},
+						},
+					},
+				},
+				RateLimit: nil, // Should be nil when TrafficPolicy is nil
+			},
+		}
+
+		require.Equal(t, expected, result)
+	})
+
+	t.Run("traffic policy when RateLimit is nil", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-no-rate-limit",
+				Namespace: "test-namespace",
+				Labels: map[string]string{
+					"test-label": "test-value",
+				},
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				TrafficPolicy: &v1beta1.TrafficPolicy{
+					// RateLimit is nil
+					RateLimit: nil,
+				},
+			},
+		}
+
+		result := reconciler.createTrafficPolicy(isvc)
+		require.NotNil(t, result)
+
+		// Create expected BackendTrafficPolicy object
+		expected := &egv1a1.BackendTrafficPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-no-rate-limit",
+				Namespace: "kserve-gateway",
+				Labels: map[string]string{
+					"test-label":                             "test-value",
+					constants.InferenceServiceNameLabel:      "test-isvc-no-rate-limit",
+					constants.InferenceServiceNamespaceLabel: "test-namespace",
+				},
+				Annotations: nil,
+			},
+			Spec: egv1a1.BackendTrafficPolicySpec{
+				PolicyTargetReferences: egv1a1.PolicyTargetReferences{
+					TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
+						{
+							LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
+								Group: "gateway.networking.k8s.io",
+								Kind:  constants.KindGateway,
+								Name:  "kserve-ingress-gateway",
+							},
+						},
+					},
+				},
+				RateLimit: nil, // Should be nil when TrafficPolicy.RateLimit is nil
+			},
+		}
+
+		require.Equal(t, expected, result)
 	})
 }
 

@@ -22,8 +22,8 @@ import (
 	"testing"
 
 	aigwv1a1 "github.com/envoyproxy/ai-gateway/api/v1alpha1"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -99,135 +99,76 @@ func TestCreateAIGatewayRoute(t *testing.T) {
 		route := reconciler.createAIGatewayRoute(isvc)
 		require.NotNil(t, route)
 
-		// Check metadata
-		require.Equal(t, "test-isvc", route.Name)
-		require.Equal(t, "kserve-gateway", route.Namespace)
-
-		// Check ownership tracking labels
-		require.Equal(t, isvc.Name, route.Labels[constants.InferenceServiceNameLabel])
-		require.Equal(t, isvc.Namespace, route.Labels[constants.InferenceServiceNamespaceLabel])
-
-		// Check that original labels are preserved
-		for k, v := range isvc.Labels {
-			require.Equal(t, v, route.Labels[k])
-		}
-
-		// Check annotations
-		for k, v := range isvc.Annotations {
-			require.Equal(t, v, route.Annotations[k])
-		}
-
-		// Check spec
-		require.Len(t, route.Spec.TargetRefs, 1)
-		require.Equal(t, gwapiv1a2.GroupName, string(route.Spec.TargetRefs[0].Group))
-		require.Equal(t, constants.KindGateway, string(route.Spec.TargetRefs[0].Kind))
-		require.Equal(t, "kserve-ingress-gateway", string(route.Spec.TargetRefs[0].Name))
-
-		// Check API schema
-		require.Equal(t, aigwv1a1.APISchemaOpenAI, route.Spec.APISchema.Name)
-
-		// Check rules
-		require.Len(t, route.Spec.Rules, 1)
-		rule := route.Spec.Rules[0]
-
-		// Check matches
-		require.Len(t, rule.Matches, 1)
-		match := rule.Matches[0]
-		require.Len(t, match.Headers, 1)
-		require.Equal(t, gwapiv1.HTTPHeaderName(aigwv1a1.AIModelHeaderKey), match.Headers[0].Name)
-		require.Equal(t, "test-isvc", match.Headers[0].Value)
-
-		// Check backend refs
-		require.Len(t, rule.BackendRefs, 1)
-		require.Equal(t, "test-isvc", rule.BackendRefs[0].Name)
-
-		// Check LLM request costs
-		require.Len(t, route.Spec.LLMRequestCosts, 3)
-		costTypes := []aigwv1a1.LLMRequestCostType{
-			aigwv1a1.LLMRequestCostTypeInputToken,
-			aigwv1a1.LLMRequestCostTypeOutputToken,
-			aigwv1a1.LLMRequestCostTypeTotalToken,
-		}
-		for i, cost := range route.Spec.LLMRequestCosts {
-			require.Equal(t, costTypes[i], cost.Type)
-		}
-	})
-
-	t.Run("predictor with transformer", func(t *testing.T) {
-		isvc := &v1beta1.InferenceService{
+		// Create expected route for full comparison
+		expectedRoute := &aigwv1a1.AIGatewayRoute{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "test-transformer-isvc",
-				Namespace: "test-namespace",
+				Name:      "test-isvc",
+				Namespace: "kserve-gateway",
+				Labels: map[string]string{
+					"test-label":                             "test-value",
+					constants.InferenceServiceNameLabel:      "test-isvc",
+					constants.InferenceServiceNamespaceLabel: "test-namespace",
+				},
+				Annotations: map[string]string{
+					"test-annotation": "test-value",
+				},
 			},
-			Spec: v1beta1.InferenceServiceSpec{
-				Predictor: v1beta1.PredictorSpec{
-					Model: &v1beta1.ModelSpec{
-						ModelFormat: v1beta1.ModelFormat{
-							Name: "pytorch",
-						},
-						PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
-							StorageURI: ptr.To("s3://bucket/model"),
+			Spec: aigwv1a1.AIGatewayRouteSpec{
+				TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
+					{
+						LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
+							Group: gwapiv1a2.GroupName,
+							Kind:  constants.KindGateway,
+							Name:  gwapiv1a2.ObjectName("kserve-ingress-gateway"),
 						},
 					},
 				},
-				Transformer: &v1beta1.TransformerSpec{
-					PodSpec: v1beta1.PodSpec{
-						Containers: []corev1.Container{
+				APISchema: aigwv1a1.VersionedAPISchema{
+					Name: aigwv1a1.APISchemaOpenAI,
+				},
+				Rules: []aigwv1a1.AIGatewayRouteRule{
+					{
+						Matches: []aigwv1a1.AIGatewayRouteRuleMatch{
 							{
-								Image: "transformer:latest",
+								Headers: []gwapiv1.HTTPHeaderMatch{
+									{
+										Name:  gwapiv1.HTTPHeaderName(aigwv1a1.AIModelHeaderKey),
+										Value: "test-isvc",
+									},
+								},
+							},
+						},
+						BackendRefs: []aigwv1a1.AIGatewayRouteRuleBackendRef{
+							{
+								Name:   "test-isvc",
+								Weight: 1,
 							},
 						},
 					},
 				},
+				LLMRequestCosts: []aigwv1a1.LLMRequestCost{
+					{
+						MetadataKey: constants.MetadataKeyInputToken,
+						Type:        aigwv1a1.LLMRequestCostTypeInputToken,
+					},
+					{
+						MetadataKey: constants.MetadataKeyOutputToken,
+						Type:        aigwv1a1.LLMRequestCostTypeOutputToken,
+					},
+					{
+						MetadataKey: constants.MetadataKeyTotalToken,
+						Type:        aigwv1a1.LLMRequestCostTypeTotalToken,
+					},
+				},
 			},
 		}
 
-		route := reconciler.createAIGatewayRoute(isvc)
-		require.NotNil(t, route)
-
-		// Check metadata
-		require.Equal(t, "test-transformer-isvc", route.Name)
-		require.Equal(t, "kserve-gateway", route.Namespace)
-
-		// Check ownership tracking labels
-		require.Equal(t, isvc.Name, route.Labels[constants.InferenceServiceNameLabel])
-		require.Equal(t, isvc.Namespace, route.Labels[constants.InferenceServiceNamespaceLabel])
-
-		// Check spec
-		require.Len(t, route.Spec.TargetRefs, 1)
-		require.Equal(t, gwapiv1a2.GroupName, string(route.Spec.TargetRefs[0].Group))
-		require.Equal(t, constants.KindGateway, string(route.Spec.TargetRefs[0].Kind))
-		require.Equal(t, "kserve-ingress-gateway", string(route.Spec.TargetRefs[0].Name))
-
-		// Check API schema
-		require.Equal(t, aigwv1a1.APISchemaOpenAI, route.Spec.APISchema.Name)
-
-		// Check rules
-		require.Len(t, route.Spec.Rules, 1)
-		rule := route.Spec.Rules[0]
-
-		// Check matches
-		require.Len(t, rule.Matches, 1)
-		match := rule.Matches[0]
-		require.Len(t, match.Headers, 1)
-		require.Equal(t, gwapiv1.HTTPHeaderName(aigwv1a1.AIModelHeaderKey), match.Headers[0].Name)
-		require.Equal(t, "test-transformer-isvc", match.Headers[0].Value)
-
-		// Check backend refs
-		require.Len(t, rule.BackendRefs, 1)
-		require.Equal(t, "test-transformer-isvc", rule.BackendRefs[0].Name)
-
-		// Check LLM request costs
-		require.Len(t, route.Spec.LLMRequestCosts, 3)
-		costTypes := []aigwv1a1.LLMRequestCostType{
-			aigwv1a1.LLMRequestCostTypeInputToken,
-			aigwv1a1.LLMRequestCostTypeOutputToken,
-			aigwv1a1.LLMRequestCostTypeTotalToken,
-		}
-		for i, cost := range route.Spec.LLMRequestCosts {
-			require.Equal(t, costTypes[i], cost.Type)
+		// Compare full objects
+		if diff := cmp.Diff(expectedRoute, route); diff != "" {
+			t.Errorf("createAIGatewayRoute() mismatch (-want +got):\n%s", diff)
 		}
 	})
+
 }
 
 func TestSemanticEquals(t *testing.T) {
@@ -369,9 +310,74 @@ func TestReconcile(t *testing.T) {
 		}, &route)
 		require.NoError(t, err)
 
-		// Verify ownership tracking labels
-		require.Equal(t, isvc.Name, route.Labels[constants.InferenceServiceNameLabel])
-		require.Equal(t, isvc.Namespace, route.Labels[constants.InferenceServiceNamespaceLabel])
+		// Create expected route for full comparison
+		expectedRoute := &aigwv1a1.AIGatewayRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "kserve-gateway",
+				Labels: map[string]string{
+					constants.InferenceServiceNameLabel:      "test-isvc",
+					constants.InferenceServiceNamespaceLabel: "test-namespace",
+				},
+				Annotations: nil,
+			},
+			Spec: aigwv1a1.AIGatewayRouteSpec{
+				TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
+					{
+						LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
+							Group: gwapiv1a2.GroupName,
+							Kind:  constants.KindGateway,
+							Name:  gwapiv1a2.ObjectName("kserve-ingress-gateway"),
+						},
+					},
+				},
+				APISchema: aigwv1a1.VersionedAPISchema{
+					Name: aigwv1a1.APISchemaOpenAI,
+				},
+				Rules: []aigwv1a1.AIGatewayRouteRule{
+					{
+						Matches: []aigwv1a1.AIGatewayRouteRuleMatch{
+							{
+								Headers: []gwapiv1.HTTPHeaderMatch{
+									{
+										Name:  gwapiv1.HTTPHeaderName(aigwv1a1.AIModelHeaderKey),
+										Value: "test-isvc",
+									},
+								},
+							},
+						},
+						BackendRefs: []aigwv1a1.AIGatewayRouteRuleBackendRef{
+							{
+								Name:   "test-isvc",
+								Weight: 1,
+							},
+						},
+					},
+				},
+				LLMRequestCosts: []aigwv1a1.LLMRequestCost{
+					{
+						MetadataKey: constants.MetadataKeyInputToken,
+						Type:        aigwv1a1.LLMRequestCostTypeInputToken,
+					},
+					{
+						MetadataKey: constants.MetadataKeyOutputToken,
+						Type:        aigwv1a1.LLMRequestCostTypeOutputToken,
+					},
+					{
+						MetadataKey: constants.MetadataKeyTotalToken,
+						Type:        aigwv1a1.LLMRequestCostTypeTotalToken,
+					},
+				},
+			},
+		}
+
+		// Compare full objects, ignoring ResourceVersion
+		actualRoute := route.DeepCopy()
+		actualRoute.ResourceVersion = ""
+		expectedRoute.ResourceVersion = ""
+		if diff := cmp.Diff(expectedRoute, actualRoute); diff != "" {
+			t.Errorf("Route mismatch (-want +got):\n%s", diff)
+		}
 	})
 
 	t.Run("update existing route", func(t *testing.T) {
@@ -445,9 +451,75 @@ func TestReconcile(t *testing.T) {
 		}, &route)
 		require.NoError(t, err)
 
-		// Verify ownership tracking labels
-		require.Equal(t, isvc.Name, route.Labels[constants.InferenceServiceNameLabel])
-		require.Equal(t, isvc.Namespace, route.Labels[constants.InferenceServiceNamespaceLabel])
+		// Create expected route for full comparison
+		expectedRoute := &aigwv1a1.AIGatewayRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc",
+				Namespace: "kserve-gateway",
+				Labels: map[string]string{
+					"new-label":                              "new-value",
+					constants.InferenceServiceNameLabel:      "test-isvc",
+					constants.InferenceServiceNamespaceLabel: "test-namespace",
+				},
+				Annotations: nil,
+			},
+			Spec: aigwv1a1.AIGatewayRouteSpec{
+				TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
+					{
+						LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
+							Group: gwapiv1a2.GroupName,
+							Kind:  constants.KindGateway,
+							Name:  gwapiv1a2.ObjectName("kserve-ingress-gateway"),
+						},
+					},
+				},
+				APISchema: aigwv1a1.VersionedAPISchema{
+					Name: aigwv1a1.APISchemaOpenAI,
+				},
+				Rules: []aigwv1a1.AIGatewayRouteRule{
+					{
+						Matches: []aigwv1a1.AIGatewayRouteRuleMatch{
+							{
+								Headers: []gwapiv1.HTTPHeaderMatch{
+									{
+										Name:  gwapiv1.HTTPHeaderName(aigwv1a1.AIModelHeaderKey),
+										Value: "test-isvc",
+									},
+								},
+							},
+						},
+						BackendRefs: []aigwv1a1.AIGatewayRouteRuleBackendRef{
+							{
+								Name:   "test-isvc",
+								Weight: 1,
+							},
+						},
+					},
+				},
+				LLMRequestCosts: []aigwv1a1.LLMRequestCost{
+					{
+						MetadataKey: constants.MetadataKeyInputToken,
+						Type:        aigwv1a1.LLMRequestCostTypeInputToken,
+					},
+					{
+						MetadataKey: constants.MetadataKeyOutputToken,
+						Type:        aigwv1a1.LLMRequestCostTypeOutputToken,
+					},
+					{
+						MetadataKey: constants.MetadataKeyTotalToken,
+						Type:        aigwv1a1.LLMRequestCostTypeTotalToken,
+					},
+				},
+			},
+		}
+
+		// Compare full objects, ignoring ResourceVersion
+		actualRoute := route.DeepCopy()
+		actualRoute.ResourceVersion = ""
+		expectedRoute.ResourceVersion = ""
+		if diff := cmp.Diff(expectedRoute, actualRoute); diff != "" {
+			t.Errorf("Route mismatch (-want +got):\n%s", diff)
+		}
 	})
 
 	t.Run("no update needed", func(t *testing.T) {
@@ -536,7 +608,8 @@ func TestReconcile(t *testing.T) {
 						},
 						BackendRefs: []aigwv1a1.AIGatewayRouteRuleBackendRef{
 							{
-								Name: getAIServiceBackendName(tempIsvc),
+								Name:   getAIServiceBackendName(tempIsvc),
+								Weight: 1,
 							},
 						},
 					},
@@ -575,9 +648,18 @@ func TestReconcile(t *testing.T) {
 		}, &route)
 		require.NoError(t, err)
 
-		// Verify ownership tracking labels
-		require.Equal(t, isvc.Name, route.Labels[constants.InferenceServiceNameLabel])
-		require.Equal(t, isvc.Namespace, route.Labels[constants.InferenceServiceNamespaceLabel])
+		// Since this is a "no update needed" test, the route should match the existing route exactly
+		// We verify that the reconciler didn't modify anything by comparing with the initial route
+		expectedRoute := existingRoute.DeepCopy()
+		actualRoute := route.DeepCopy()
+
+		// Ignore ResourceVersion as it may change during operations
+		expectedRoute.ResourceVersion = ""
+		actualRoute.ResourceVersion = ""
+
+		if diff := cmp.Diff(expectedRoute, actualRoute); diff != "" {
+			t.Errorf("Route should not have changed (-want +got):\n%s", diff)
+		}
 	})
 }
 

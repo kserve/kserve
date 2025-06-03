@@ -150,7 +150,7 @@ func (r *AIGatewayRouteReconciler) createBackendRefs(isvc *v1beta1.InferenceServ
 	backends := make([]aigwv1a1.AIGatewayRouteRuleBackendRef, 0, 1)
 	backend := aigwv1a1.AIGatewayRouteRuleBackendRef{
 		Name: getAIServiceBackendName(isvc),
-		// Weight: 1,
+		Weight: 1,
 	}
 	backends = append(backends, backend)
 	return backends

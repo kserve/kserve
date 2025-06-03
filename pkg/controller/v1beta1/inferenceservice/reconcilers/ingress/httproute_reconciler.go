@@ -737,7 +737,6 @@ func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isv
 		}, httpRoute); err != nil {
 			if apierr.IsNotFound(err) {
 				// HTTPRoute not found means the component deployment is not ready yet
-				log.Info(check.component+" HTTPRoute not found", "name", check.name)
 				isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 					Type:    v1beta1.IngressReady,
 					Status:  corev1.ConditionFalse,

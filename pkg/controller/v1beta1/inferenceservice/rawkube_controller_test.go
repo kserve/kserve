@@ -41,9 +41,13 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
+	aigwv1a1 "github.com/envoyproxy/ai-gateway/api/v1alpha1"
+	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -1688,6 +1692,334 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					return false
 				}
 			}, timeout, interval).Should(BeTrue())
+		})
+
+		Context("When creating inference service with AI gateway enabled", func() {
+			It("Should create AIServiceBackend and AIGatewayRoute resources", func() {
+				// Create InferenceService config configmap with required configs
+				configMap := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.InferenceServiceConfigMapName,
+						Namespace: constants.KServeNamespace,
+					},
+					Data: configs,
+				}
+				Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), configMap)
+
+				servingRuntime := &v1alpha1.ServingRuntime{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "hf-serving-raw",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.ServingRuntimeSpec{
+						SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+							{
+								Name:       "huggingface",
+								Version:    proto.String("1"),
+								AutoSelect: proto.Bool(true),
+							},
+						},
+						ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:    "kserve-container",
+									Image:   "kserve/huggingface:0.15.0",
+									Command: []string{"/usr/bin/huggingface_model_server"},
+									Args: []string{
+										"--port=9000",
+									},
+									Resources: defaultResource,
+								},
+							},
+						},
+						Disabled: proto.Bool(false),
+					},
+				}
+				k8sClient.Create(context.TODO(), servingRuntime)
+				defer k8sClient.Delete(context.TODO(), servingRuntime)
+
+				By("By creating a new InferenceService with AI gateway annotation")
+				serviceName := "ai-gateway-test"
+
+				var aiGatewayIsvc = &v1beta1.InferenceService{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceName,
+						Namespace: "default",
+						Annotations: map[string]string{
+							constants.DeploymentMode:               string(constants.RawDeployment),
+							constants.EnableAIGatewayAnnotationKey: "true",
+						},
+					},
+					Spec: v1beta1.InferenceServiceSpec{
+						Predictor: v1beta1.PredictorSpec{
+							ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+								MinReplicas: ptr.To(int32(1)),
+								MaxReplicas: int32(3),
+							},
+							Model: &v1beta1.ModelSpec{
+								ModelFormat: v1beta1.ModelFormat{
+									Name:    "huggingface",
+									Version: proto.String("1"),
+								},
+								PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+									StorageURI: proto.String("microsoft/DialoGPT-medium"),
+									Container: corev1.Container{
+										Resources: defaultResource,
+										Args: []string{
+											"--model_id",
+											"llama-2-7b-chat-hf",
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				aiGatewayIsvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil)
+				Expect(k8sClient.Create(context.TODO(), aiGatewayIsvc)).NotTo(HaveOccurred())
+				defer k8sClient.Delete(context.TODO(), aiGatewayIsvc)
+
+				// Wait for deployment to be created
+				By("Waiting for the predictor deployment to be created")
+				predictorDeployment := &appsv1.Deployment{}
+				Eventually(func() bool {
+					err := k8sClient.Get(context.TODO(), types.NamespacedName{
+						Name:      constants.PredictorServiceName(serviceName),
+						Namespace: "default",
+					}, predictorDeployment)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+
+				// Mark the deployment as available so that the ingress resource can be created
+				By("Marking the predictor deployment as available")
+				predictorDeployment.Status.Conditions = []appsv1.DeploymentCondition{
+					{
+						Type:   appsv1.DeploymentAvailable,
+						Status: corev1.ConditionTrue,
+					},
+				}
+				Expect(k8sClient.Status().Update(context.TODO(), predictorDeployment)).NotTo(HaveOccurred())
+
+				// Create expected AIServiceBackend resource
+				expectedAIServiceBackend := &aigwv1a1.AIServiceBackend{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceName,
+						Namespace: kserveGateway.Namespace,
+						Labels: map[string]string{
+							constants.InferenceServiceNameLabel:      serviceName,
+							constants.InferenceServiceNamespaceLabel: "default",
+						},
+					},
+					Spec: aigwv1a1.AIServiceBackendSpec{
+						APISchema: aigwv1a1.VersionedAPISchema{
+							Name: aigwv1a1.APISchemaOpenAI,
+						},
+						BackendRef: gatewayapiv1.BackendObjectReference{
+							Group:     ptr.To(gatewayapiv1.Group("")),
+							Kind:      ptr.To(gatewayapiv1.Kind(constants.KindService)),
+							Name:      gatewayapiv1.ObjectName(constants.PredictorServiceName(serviceName)),
+							Namespace: ptr.To(gatewayapiv1.Namespace("default")),
+							Port:      ptr.To(gatewayapiv1.PortNumber(constants.CommonDefaultHttpPort)),
+						},
+						Timeouts: &gatewayapiv1.HTTPRouteTimeouts{
+							Request: ptr.To(gatewayapiv1.Duration(fmt.Sprintf("%ds", constants.DefaultTimeoutSeconds))),
+						},
+					},
+				}
+
+				// Create expected AIGatewayRoute resource
+				expectedAIGatewayRoute := &aigwv1a1.AIGatewayRoute{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceName,
+						Namespace: kserveGateway.Namespace,
+						Labels: map[string]string{
+							constants.InferenceServiceNameLabel:      serviceName,
+							constants.InferenceServiceNamespaceLabel: "default",
+						},
+					},
+					Spec: aigwv1a1.AIGatewayRouteSpec{
+						TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
+							{
+								LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
+									Group: gwapiv1a2.GroupName,
+									Kind:  constants.KindGateway,
+									Name:  gwapiv1a2.ObjectName(kserveGateway.Name),
+								},
+							},
+						},
+						APISchema: aigwv1a1.VersionedAPISchema{
+							Name: aigwv1a1.APISchemaOpenAI,
+						},
+						Rules: []aigwv1a1.AIGatewayRouteRule{
+							{
+								Matches: []aigwv1a1.AIGatewayRouteRuleMatch{
+									{
+										Headers: []gatewayapiv1.HTTPHeaderMatch{
+											{
+												Name:  gatewayapiv1.HTTPHeaderName(aigwv1a1.AIModelHeaderKey),
+												Value: serviceName,
+												Type:  ptr.To(gatewayapiv1.HeaderMatchExact),
+											},
+										},
+									},
+								},
+								BackendRefs: []aigwv1a1.AIGatewayRouteRuleBackendRef{
+									{
+										Name: serviceName,
+										Weight: 1,
+									},
+								},
+							},
+						},
+						LLMRequestCosts: []aigwv1a1.LLMRequestCost{
+							{
+								MetadataKey: constants.MetadataKeyInputToken,
+								Type:        aigwv1a1.LLMRequestCostTypeInputToken,
+							},
+							{
+								MetadataKey: constants.MetadataKeyOutputToken,
+								Type:        aigwv1a1.LLMRequestCostTypeOutputToken,
+							},
+							{
+								MetadataKey: constants.MetadataKeyTotalToken,
+								Type:        aigwv1a1.LLMRequestCostTypeTotalToken,
+							},
+						},
+					},
+				}
+
+				// Create expected BackendTrafficPolicy resource
+				expectedBackendTrafficPolicy := &egv1a1.BackendTrafficPolicy{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      serviceName,
+						Namespace: kserveGateway.Namespace,
+						Labels: map[string]string{
+							constants.InferenceServiceNameLabel:      serviceName,
+							constants.InferenceServiceNamespaceLabel: "default",
+						},
+					},
+					Spec: egv1a1.BackendTrafficPolicySpec{
+						PolicyTargetReferences: egv1a1.PolicyTargetReferences{
+							TargetRefs: []gwapiv1a2.LocalPolicyTargetReferenceWithSectionName{
+								{
+									LocalPolicyTargetReference: gwapiv1a2.LocalPolicyTargetReference{
+										Group: gwapiv1a2.GroupName,
+										Kind:  constants.KindGateway,
+										Name:  gwapiv1a2.ObjectName(kserveGateway.Name),
+									},
+								},
+							},
+						},
+					},
+				}
+
+				By("Expecting AIServiceBackend to be created")
+				aiServiceBackend := &aigwv1a1.AIServiceBackend{}
+				aiServiceBackendKey := types.NamespacedName{Name: serviceName, Namespace: kserveGateway.Namespace}
+				Eventually(func() bool {
+					err := k8sClient.Get(context.TODO(), aiServiceBackendKey, aiServiceBackend)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+
+				By("Expecting AIGatewayRoute to be created")
+				aiGatewayRoute := &aigwv1a1.AIGatewayRoute{}
+				aiGatewayRouteKey := types.NamespacedName{Name: serviceName, Namespace: kserveGateway.Namespace}
+				Eventually(func() bool {
+					err := k8sClient.Get(context.TODO(), aiGatewayRouteKey, aiGatewayRoute)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+
+				By("Expecting BackendTrafficPolicy to be created")
+				backendTrafficPolicy := &egv1a1.BackendTrafficPolicy{}
+				backendTrafficPolicyKey := types.NamespacedName{Name: serviceName, Namespace: kserveGateway.Namespace}
+				Eventually(func() bool {
+					err := k8sClient.Get(context.TODO(), backendTrafficPolicyKey, backendTrafficPolicy)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+
+				By("Verifying AIServiceBackend specification matches expected")
+				Expect(aiServiceBackend.Labels[constants.InferenceServiceNameLabel]).To(BeComparableTo(serviceName))
+				Expect(aiServiceBackend.Labels[constants.InferenceServiceNamespaceLabel]).To(BeComparableTo("default"))
+				Expect(aiServiceBackend.Spec).To(BeComparableTo(expectedAIServiceBackend.Spec))
+
+				By("Verifying AIGatewayRoute specification matches expected")
+				Expect(aiGatewayRoute.Labels[constants.InferenceServiceNameLabel]).To(BeComparableTo(serviceName))
+				Expect(aiGatewayRoute.Labels[constants.InferenceServiceNamespaceLabel]).To(BeComparableTo("default"))
+				Expect(aiGatewayRoute.Spec).To(BeComparableTo(expectedAIGatewayRoute.Spec))
+
+				By("Verifying BackendTrafficPolicy specification matches expected")
+				Expect(backendTrafficPolicy.Labels[constants.InferenceServiceNameLabel]).To(BeComparableTo(serviceName))
+				Expect(backendTrafficPolicy.Labels[constants.InferenceServiceNamespaceLabel]).To(BeComparableTo("default"))
+				Expect(backendTrafficPolicy.Spec).To(BeComparableTo(expectedBackendTrafficPolicy.Spec))
+				
+				By("Updating HTTPRoute status to mark routes as ready")
+				// Get the HTTPRoutes created for this InferenceService
+				predictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+				topLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+				Expect(k8sClient.Get(context.TODO(),
+					client.ObjectKey{Name: constants.PredictorServiceName(serviceName), Namespace: "default"},
+					predictorHttpRoute)).NotTo(HaveOccurred())
+				Expect(k8sClient.Get(context.TODO(),
+					client.ObjectKey{Name: serviceName, Namespace: "default"},
+					topLevelHttpRoute)).NotTo(HaveOccurred())
+                routeStatus := gatewayapiv1.HTTPRouteStatus{
+					RouteStatus: gatewayapiv1.RouteStatus{
+						Parents: []gatewayapiv1.RouteParentStatus{
+							{
+								ParentRef: gatewayapiv1.ParentReference{
+									Name: gatewayapiv1.ObjectName(kserveGateway.Name),
+								},
+								ControllerName: "gateway.envoyproxy.io/gatewayclass-controller",
+								Conditions: []metav1.Condition{
+									{
+										Type:   string(gatewayapiv1.RouteConditionAccepted),
+										Status: metav1.ConditionTrue,
+										Reason: string(gatewayapiv1.RouteReasonAccepted),
+										Message:            "Route was valid",
+										LastTransitionTime: metav1.Now(),
+									},
+									{
+										Type:   string(gatewayapiv1.RouteConditionResolvedRefs),
+										Status: metav1.ConditionTrue,
+										Reason: string(gatewayapiv1.RouteReasonResolvedRefs),
+										LastTransitionTime: metav1.Now(),
+									},
+								},
+							},
+						},
+					},
+				}
+				// Update HTTPRoute status to mark it as ready
+				predictorHttpRoute.Status = routeStatus
+				topLevelHttpRoute.Status = routeStatus
+
+				err := k8sClient.Status().Update(context.TODO(), predictorHttpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = k8sClient.Status().Update(context.TODO(), topLevelHttpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				By("Verifying InferenceService is marked as ready")
+
+				// Check that the InferenceService is now ready
+				Eventually(func() bool {
+					updatedIsvc := &v1beta1.InferenceService{}
+					err := k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceName, Namespace: "default"}, updatedIsvc)
+					if err != nil {
+						return false
+					}
+					return updatedIsvc.Status.IsReady()
+				}, timeout, interval).Should(BeTrue())
+
+				// Verify the InferenceService status has the URL set
+				finalIsvc := &v1beta1.InferenceService{}
+				err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: serviceName, Namespace: "default"}, finalIsvc)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(finalIsvc.Status.URL).NotTo(BeNil())
+				Expect(finalIsvc.Status.URL.String()).To(ContainSubstring(serviceName))
+			})
 		})
 	})
 

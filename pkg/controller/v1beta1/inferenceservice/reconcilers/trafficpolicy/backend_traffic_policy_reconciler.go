@@ -86,6 +86,13 @@ func (r *BackendTrafficPolicyReconciler) Reconcile(ctx context.Context, isvc *v1
 
 func (r *BackendTrafficPolicyReconciler) createTrafficPolicy(isvc *v1beta1.InferenceService) *egv1a1.BackendTrafficPolicy {
 	gwNamespace, gwName := v1beta1.ParseIngressGateway(r.ingressConfig.KserveIngressGateway)
+	var rateLimit *egv1a1.RateLimitSpec
+	if isvc.Spec.TrafficPolicy != nil && isvc.Spec.TrafficPolicy.RateLimit != nil {
+		rateLimit = &egv1a1.RateLimitSpec{
+			Type: egv1a1.GlobalRateLimitType,
+			Global: &isvc.Spec.TrafficPolicy.RateLimit.Global,
+		}
+	}
 	return &egv1a1.BackendTrafficPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getTrafficPolicyName(isvc),
@@ -109,10 +116,7 @@ func (r *BackendTrafficPolicyReconciler) createTrafficPolicy(isvc *v1beta1.Infer
 					},
 				},
 			},
-			RateLimit: &egv1a1.RateLimitSpec{
-				Type:   egv1a1.GlobalRateLimitType,
-				Global: &isvc.Spec.TrafficPolicy.RateLimit.Global,
-			},
+			RateLimit: rateLimit,
 		},
 	}
 }

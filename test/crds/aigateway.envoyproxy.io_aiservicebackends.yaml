@@ -1,0 +1,245 @@
+# Copyright Envoy AI Gateway Authors
+# SPDX-License-Identifier: Apache-2.0
+# The full text of the Apache license is available in the LICENSE file at
+# the root of the repo.
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.1
+  name: aiservicebackends.aigateway.envoyproxy.io
+spec:
+  group: aigateway.envoyproxy.io
+  names:
+    kind: AIServiceBackend
+    listKind: AIServiceBackendList
+    plural: aiservicebackends
+    singular: aiservicebackend
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          AIServiceBackend is a resource that represents a single backend for AIGatewayRoute.
+          A backend is a service that handles traffic with a concrete API specification.
+
+          A AIServiceBackend is "attached" to a Backend which is either a k8s Service or a Backend resource of the Envoy Gateway.
+
+          When a backend with an attached AIServiceBackend is used as a routing target in the AIGatewayRoute (more precisely, the
+          HTTPRouteSpec defined in the AIGatewayRoute), the ai-gateway will generate the necessary configuration to do
+          the backend specific logic in the final HTTPRoute.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the details of AIServiceBackend.
+            properties:
+              backendRef:
+                description: |-
+                  BackendRef is the reference to the Backend resource that this AIServiceBackend corresponds to.
+
+                  A backend can be of either k8s Service or Backend resource of Envoy Gateway.
+
+                  This is required to be set.
+                properties:
+                  group:
+                    default: ""
+                    description: |-
+                      Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                      When unspecified or empty string, core API group is inferred.
+                    maxLength: 253
+                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  kind:
+                    default: Service
+                    description: |-
+                      Kind is the Kubernetes resource kind of the referent. For example
+                      "Service".
+
+                      Defaults to "Service" when not specified.
+
+                      ExternalName services can refer to CNAME DNS records that may live
+                      outside of the cluster and as such are difficult to reason about in
+                      terms of conformance. They also may not be safe to forward to (see
+                      CVE-2021-25740 for more information). Implementations SHOULD NOT
+                      support ExternalName Services.
+
+                      Support: Core (Services with a type other than ExternalName)
+
+                      Support: Implementation-specific (Services with type ExternalName)
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: Name is the name of the referent.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                  namespace:
+                    description: |-
+                      Namespace is the namespace of the backend. When unspecified, the local
+                      namespace is inferred.
+
+                      Note that when a namespace different than the local namespace is specified,
+                      a ReferenceGrant object is required in the referent namespace to allow that
+                      namespace's owner to accept the reference. See the ReferenceGrant
+                      documentation for details.
+
+                      Support: Core
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                    type: string
+                  port:
+                    description: |-
+                      Port specifies the destination port number to use for this resource.
+                      Port is required when the referent is a Kubernetes Service. In this
+                      case, the port number is the service port number, not the target port.
+                      For other resources, destination port might be derived from the referent
+                      resource or this field.
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
+                required:
+                - name
+                type: object
+                x-kubernetes-validations:
+                - message: Must have port for Service reference
+                  rule: '(size(self.group) == 0 && self.kind == ''Service'') ? has(self.port)
+                    : true'
+              backendSecurityPolicyRef:
+                description: |-
+                  BackendSecurityPolicyRef is the name of the BackendSecurityPolicy resources this backend
+                  is being attached to.
+                properties:
+                  group:
+                    description: |-
+                      Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                      When unspecified or empty string, core API group is inferred.
+                    maxLength: 253
+                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  kind:
+                    description: Kind is kind of the referent. For example "HTTPRoute"
+                      or "Service".
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: Name is the name of the referent.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - group
+                - kind
+                - name
+                type: object
+              schema:
+                description: |-
+                  APISchema specifies the API schema of the output format of requests from
+                  Envoy that this AIServiceBackend can accept as incoming requests.
+                  Based on this schema, the ai-gateway will perform the necessary transformation for
+                  the pair of AIGatewayRouteSpec.APISchema and AIServiceBackendSpec.APISchema.
+
+                  This is required to be set.
+                properties:
+                  name:
+                    description: Name is the name of the API schema of the AIGatewayRoute
+                      or AIServiceBackend.
+                    enum:
+                    - OpenAI
+                    - AWSBedrock
+                    type: string
+                  version:
+                    description: Version is the version of the API schema.
+                    type: string
+                required:
+                - name
+                type: object
+              timeouts:
+                description: Timeouts defines the timeouts that can be configured
+                  for an HTTP request.
+                properties:
+                  backendRequest:
+                    description: |-
+                      BackendRequest specifies a timeout for an individual request from the gateway
+                      to a backend. This covers the time from when the request first starts being
+                      sent from the gateway to when the full response has been received from the backend.
+
+                      Setting a timeout to the zero duration (e.g. "0s") SHOULD disable the timeout
+                      completely. Implementations that cannot completely disable the timeout MUST
+                      instead interpret the zero duration as the longest possible value to which
+                      the timeout can be set.
+
+                      An entire client HTTP transaction with a gateway, covered by the Request timeout,
+                      may result in more than one call from the gateway to the destination backend,
+                      for example, if automatic retries are supported.
+
+                      The value of BackendRequest must be a Gateway API Duration string as defined by
+                      GEP-2257.  When this field is unspecified, its behavior is implementation-specific;
+                      when specified, the value of BackendRequest must be no more than the value of the
+                      Request timeout (since the Request timeout encompasses the BackendRequest timeout).
+
+                      Support: Extended
+                    pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                    type: string
+                  request:
+                    description: |-
+                      Request specifies the maximum duration for a gateway to respond to an HTTP request.
+                      If the gateway has not been able to respond before this deadline is met, the gateway
+                      MUST return a timeout error.
+
+                      For example, setting the `rules.timeouts.request` field to the value `10s` in an
+                      `HTTPRoute` will cause a timeout if a client request is taking longer than 10 seconds
+                      to complete.
+
+                      Setting a timeout to the zero duration (e.g. "0s") SHOULD disable the timeout
+                      completely. Implementations that cannot completely disable the timeout MUST
+                      instead interpret the zero duration as the longest possible value to which
+                      the timeout can be set.
+
+                      This timeout is intended to cover as close to the whole request-response transaction
+                      as possible although an implementation MAY choose to start the timeout after the entire
+                      request stream has been received instead of immediately after the transaction is
+                      initiated by the client.
+
+                      The value of Request is a Gateway API Duration string as defined by GEP-2257. When this
+                      field is unspecified, request timeout behavior is implementation-specific.
+
+                      Support: Extended
+                    pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                    type: string
+                type: object
+                x-kubernetes-validations:
+                - message: backendRequest timeout cannot be longer than request timeout
+                  rule: '!(has(self.request) && has(self.backendRequest) && duration(self.request)
+                    != duration(''0s'') && duration(self.backendRequest) > duration(self.request))'
+            required:
+            - backendRef
+            - schema
+            type: object
+        type: object
+    served: true
+    storage: true
