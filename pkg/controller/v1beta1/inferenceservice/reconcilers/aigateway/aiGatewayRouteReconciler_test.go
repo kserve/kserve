@@ -18,7 +18,7 @@ package aigateway
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	aigwv1a1 "github.com/envoyproxy/ai-gateway/api/v1alpha1"
@@ -34,7 +34,7 @@ import (
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gwapiv1a2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
-	v1beta1 "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
@@ -330,7 +330,7 @@ func TestReconcile(t *testing.T) {
 	require.NoError(t, v1beta1.AddToScheme(scheme))
 	require.NoError(t, aigwv1a1.AddToScheme(scheme))
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("create new route", func(t *testing.T) {
 		isvc := &v1beta1.InferenceService{
@@ -630,7 +630,7 @@ func (c *routeActualUpdateFailingClient) Update(ctx context.Context, obj client.
 		}
 	}
 	// Fail regular updates
-	return fmt.Errorf("actual update failed")
+	return errors.New("actual update failed")
 }
 
 func TestReconcileWithErrors(t *testing.T) {
@@ -638,7 +638,7 @@ func TestReconcileWithErrors(t *testing.T) {
 	require.NoError(t, v1beta1.AddToScheme(scheme))
 	require.NoError(t, aigwv1a1.AddToScheme(scheme))
 
-	ctx := context.Background()
+	ctx := t.Context()
 	isvc := &v1beta1.InferenceService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-isvc",
@@ -674,7 +674,7 @@ func TestReconcileWithErrors(t *testing.T) {
 				fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 				return &routeClientInterceptor{
 					Client:      fakeClient,
-					createError: fmt.Errorf("failed to create route"),
+					createError: errors.New("failed to create route"),
 				}
 			},
 			expectError:  true,
@@ -716,7 +716,7 @@ func TestReconcileWithErrors(t *testing.T) {
 				fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existingRoute).Build()
 				return &routeClientInterceptor{
 					Client:      fakeClient,
-					updateError: fmt.Errorf("failed to update route"),
+					updateError: errors.New("failed to update route"),
 				}
 			},
 			expectError:  true,
@@ -744,7 +744,7 @@ func TestReconcileWithErrors(t *testing.T) {
 				fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existingRoute).Build()
 				return &routeClientInterceptor{
 					Client:      fakeClient,
-					dryRunError: fmt.Errorf("dry-run update failed"),
+					dryRunError: errors.New("dry-run update failed"),
 				}
 			},
 			expectError:  true,
@@ -756,7 +756,7 @@ func TestReconcileWithErrors(t *testing.T) {
 				fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 				return &routeClientInterceptor{
 					Client:   fakeClient,
-					getError: fmt.Errorf("internal server error"),
+					getError: errors.New("internal server error"),
 				}
 			},
 			expectError:  true,
@@ -827,7 +827,7 @@ func TestDeleteAIGatewayRoute(t *testing.T) {
 	require.NoError(t, v1beta1.AddToScheme(scheme))
 	require.NoError(t, aigwv1a1.AddToScheme(scheme))
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("delete existing route", func(t *testing.T) {
 		isvc := &v1beta1.InferenceService{

@@ -18,7 +18,7 @@ package trafficpolicy
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
@@ -95,7 +95,7 @@ func (c *trafficPolicyActualUpdateFailingClient) Update(ctx context.Context, obj
 		}
 	}
 	// Fail regular updates
-	return fmt.Errorf("actual update failed")
+	return errors.New("actual update failed")
 }
 
 func TestNewBackendTrafficPolicyReconciler(t *testing.T) {
@@ -378,7 +378,7 @@ func TestReconcile(t *testing.T) {
 	require.NoError(t, v1beta1.AddToScheme(scheme))
 	require.NoError(t, egv1a1.AddToScheme(scheme))
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("create new traffic policy", func(t *testing.T) {
 		isvc := &v1beta1.InferenceService{
@@ -669,7 +669,7 @@ func TestReconcileWithErrors(t *testing.T) {
 	require.NoError(t, v1beta1.AddToScheme(scheme))
 	require.NoError(t, egv1a1.AddToScheme(scheme))
 
-	ctx := context.Background()
+	ctx := t.Context()
 	isvc := &v1beta1.InferenceService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-isvc",
@@ -719,7 +719,7 @@ func TestReconcileWithErrors(t *testing.T) {
 				fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 				return &trafficPolicyClientInterceptor{
 					Client:      fakeClient,
-					createError: fmt.Errorf("failed to create policy"),
+					createError: errors.New("failed to create policy"),
 				}
 			},
 			expectError:  true,
@@ -778,7 +778,7 @@ func TestReconcileWithErrors(t *testing.T) {
 				fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existingPolicy).Build()
 				return &trafficPolicyClientInterceptor{
 					Client:      fakeClient,
-					updateError: fmt.Errorf("failed to update policy"),
+					updateError: errors.New("failed to update policy"),
 				}
 			},
 			expectError:  true,
@@ -837,7 +837,7 @@ func TestReconcileWithErrors(t *testing.T) {
 				fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existingPolicy).Build()
 				return &trafficPolicyClientInterceptor{
 					Client:      fakeClient,
-					dryRunError: fmt.Errorf("dry-run update failed"),
+					dryRunError: errors.New("dry-run update failed"),
 				}
 			},
 			expectError:  false, // Dry-run errors are logged but don't fail reconciliation
@@ -849,7 +849,7 @@ func TestReconcileWithErrors(t *testing.T) {
 				fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 				return &trafficPolicyClientInterceptor{
 					Client:   fakeClient,
-					getError: fmt.Errorf("internal server error"),
+					getError: errors.New("internal server error"),
 				}
 			},
 			expectError:  true,
@@ -937,7 +937,7 @@ func TestDeleteTrafficPolicy(t *testing.T) {
 	require.NoError(t, v1beta1.AddToScheme(scheme))
 	require.NoError(t, egv1a1.AddToScheme(scheme))
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("delete existing traffic policy", func(t *testing.T) {
 		isvc := &v1beta1.InferenceService{
@@ -1021,7 +1021,7 @@ func TestDeleteTrafficPolicy(t *testing.T) {
 		// Create a client interceptor that will make delete operations fail
 		interceptorClient := &trafficPolicyClientInterceptor{
 			Client:      fakeClient,
-			deleteError: fmt.Errorf("simulated delete error"),
+			deleteError: errors.New("simulated delete error"),
 		}
 
 		logger := log.Log.WithName("test")

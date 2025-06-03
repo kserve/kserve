@@ -737,12 +737,12 @@ func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isv
 		}, httpRoute); err != nil {
 			if apierr.IsNotFound(err) {
 				// HTTPRoute not found means the component deployment is not ready yet
-				log.Info(fmt.Sprintf("%s HTTPRoute not found", check.component), "name", check.name)
+				log.Info(check.component+" HTTPRoute not found", "name", check.name)
 				isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 					Type:    v1beta1.IngressReady,
 					Status:  corev1.ConditionFalse,
-					Reason:  fmt.Sprintf("%s Deployment NotReady", check.component),
-					Message: fmt.Sprintf("%s HTTPRoute not created", check.component),
+					Reason:  check.component + " Deployment NotReady",
+					Message: check.component + " HTTPRoute not created",
 				})
 				return nil
 			}
@@ -751,7 +751,7 @@ func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isv
 		}
 
 		if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
-			log.Info(fmt.Sprintf("%s HTTPRoute not ready", check.component), "reason", *reason, "message", *message)
+			log.Info(check.component+" HTTPRoute not ready", "reason", *reason, "message", *message)
 			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
 				Type:    v1beta1.IngressReady,
 				Status:  corev1.ConditionFalse,

@@ -249,7 +249,6 @@ func TestCreateAIServiceBackend(t *testing.T) {
 			t.Errorf("createAIServiceBackend() mismatch (-want +got):\n%s", diff)
 		}
 	})
-
 }
 
 func TestAIServiceBackendSemanticEquals(t *testing.T) {
@@ -369,7 +368,7 @@ func TestAIServiceBackendReconcile(t *testing.T) {
 	require.NoError(t, v1beta1.AddToScheme(scheme))
 	require.NoError(t, aigwv1a1.AddToScheme(scheme))
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("create new backend", func(t *testing.T) {
 		isvc := &v1beta1.InferenceService{
@@ -879,7 +878,7 @@ func TestDeleteAIServiceBackend(t *testing.T) {
 	require.NoError(t, v1beta1.AddToScheme(scheme))
 	require.NoError(t, aigwv1a1.AddToScheme(scheme))
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("delete existing backend", func(t *testing.T) {
 		isvc := &v1beta1.InferenceService{

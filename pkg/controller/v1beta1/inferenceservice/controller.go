@@ -524,7 +524,6 @@ func (r *InferenceServiceReconciler) deleteExternalResources(ctx context.Context
 
 	// Delete AI Gateway resources if AI Gateway was enabled for this InferenceService
 	if isEnabled, ok := isvc.Annotations[constants.EnableAIGatewayAnnotationKey]; ok && strings.ToLower(isEnabled) == "true" {
-
 		// Delete AIServiceBackend resources
 		if err := aigwreconciler.DeleteAIServiceBackend(ctx, r.Client, ingressConfig, isvc, r.Log); err != nil {
 			r.Log.Error(err, "unable to delete AIServiceBackend resources", "inferenceservice", isvc.Name)

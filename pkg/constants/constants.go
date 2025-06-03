@@ -535,9 +535,9 @@ var (
 // AI Gateway constants
 const (
 	// LLM Cost Metadata keys
-	MetadataKeyInputToken  = "llm_input_token"
-	MetadataKeyOutputToken = "llm_output_token"
-	MetadataKeyTotalToken  = "llm_total_token"
+	MetadataKeyInputToken  = "llm_input_token"  // #nosec G101: Potential hardcoded credentials
+	MetadataKeyOutputToken = "llm_output_token" // #nosec G101: Potential hardcoded credentials
+	MetadataKeyTotalToken  = "llm_total_token"  // #nosec G101: Potential hardcoded credentials
 )
 
 // GetRawServiceLabel generate native service label

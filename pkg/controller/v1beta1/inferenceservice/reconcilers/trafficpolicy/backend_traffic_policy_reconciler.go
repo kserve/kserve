@@ -89,7 +89,7 @@ func (r *BackendTrafficPolicyReconciler) createTrafficPolicy(isvc *v1beta1.Infer
 	return &egv1a1.BackendTrafficPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      getTrafficPolicyName(isvc),
-			Namespace: gwNamespace,              // Use the gateway namespace
+			Namespace: gwNamespace, // Use the gateway namespace
 			// Add ownership labels for the BackendTrafficPolicy
 			Labels: utils.Union(isvc.Labels, map[string]string{
 				constants.InferenceServiceNameLabel:      isvc.Name,
@@ -130,7 +130,8 @@ func getTrafficPolicyName(isvc *v1beta1.InferenceService) string {
 
 // DeleteTrafficPolicy deletes the TrafficPolicy resource related to the InferenceService
 func DeleteTrafficPolicy(ctx context.Context, k8sClient client.Client, ingressConfig *v1beta1.IngressConfig, isvc *v1beta1.InferenceService,
-	logger logr.Logger) error {
+	logger logr.Logger,
+) error {
 	logger = logger.WithValues("InferenceService", isvc.Name, "namespace", isvc.Namespace)
 	gwNamespace, _ := v1beta1.ParseIngressGateway(ingressConfig.KserveIngressGateway)
 	trafficPolicy := &egv1a1.BackendTrafficPolicy{
