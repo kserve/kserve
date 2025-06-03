@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "success_200_isvc"
-version = "0.15.1"
+version = "0.15.2"
 description = "Custom isvc that always returns 200 with a JSON SUCCESS message"
 authors = ["The KServe Authors"]
 license = "Apache-2.0"

@@ -28,7 +28,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmp"
 	knserving "knative.dev/serving/pkg/apis/serving"
@@ -58,41 +57,34 @@ type KsvcReconciler struct {
 	componentStatus v1beta1.ComponentStatusSpec
 }
 
-func NewKsvcReconciler(ctx context.Context,
+func NewKsvcReconciler(
 	client client.Client,
-	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
-) (*KsvcReconciler, error) {
-	ksvc, err := createKnativeService(ctx, clientset, componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList)
-	if err != nil {
-		return nil, errors.Wrapf(err, "fails to create knative service for inference service %s", componentMeta.Name)
-	}
+) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:          client,
 		scheme:          scheme,
-		Service:         ksvc,
+		Service:         createKnativeService(componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList),
 		componentExt:    componentExt,
 		componentStatus: componentStatus,
-	}, nil
+	}
 }
 
-func createKnativeService(ctx context.Context,
-	clientset kubernetes.Interface,
+func createKnativeService(
 	componentMeta metav1.ObjectMeta,
 	componentExtension *v1beta1.ComponentExtensionSpec,
 	podSpec *corev1.PodSpec,
 	componentStatus v1beta1.ComponentStatusSpec,
 	disallowedLabelList []string,
-) (*knservingv1.Service, error) {
+) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
-	err := knutils.SetAutoScalingAnnotations(ctx,
-		clientset,
+	knutils.SetAutoScalingAnnotations(
 		annotations,
 		componentExtension.ScaleTarget,
 		(*string)(componentExtension.ScaleMetric),
@@ -100,9 +92,6 @@ func createKnativeService(ctx context.Context,
 		componentExtension.MaxReplicas,
 		log,
 	)
-	if err != nil {
-		return nil, errors.Wrapf(err, "fails to set autoscaling annotations for knative service")
-	}
 
 	// ksvc metadata.annotations
 	// rollout-duration must be put under metadata.annotations
@@ -192,7 +181,7 @@ func createKnativeService(ctx context.Context,
 			},
 		},
 	}
-	return service, nil
+	return service
 }
 
 func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) error {

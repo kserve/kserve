@@ -25,20 +25,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/knative"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 var _ Component = &Explainer{}
@@ -86,21 +83,6 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 
 	explainerName := constants.ExplainerServiceName(isvc.Name)
 	predictorName := constants.PredictorServiceName(isvc.Name)
-	if e.deploymentMode == constants.RawDeployment {
-		existing := &corev1.Service{}
-		err := e.client.Get(ctx, types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
-		if err == nil {
-			explainerName = constants.DefaultExplainerServiceName(isvc.Name)
-			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
-		}
-	} else {
-		existing := &knservingv1.Service{}
-		err := e.client.Get(ctx, types.NamespacedName{Name: constants.DefaultExplainerServiceName(isvc.Name), Namespace: isvc.Namespace}, existing)
-		if err == nil {
-			explainerName = constants.DefaultExplainerServiceName(isvc.Name)
-			predictorName = constants.DefaultPredictorServiceName(isvc.Name)
-		}
-	}
 
 	// Labels and annotations from explainer component
 	// Label filter will be handled in ksvc_reconciler
@@ -168,11 +150,9 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		}
 		isvc.Status.PropagateRawStatus(v1beta1.ExplainerComponent, deployment, r.URL)
 	} else {
-		r, err := knative.NewKsvcReconciler(ctx, e.client, e.clientset, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
+		r := knative.NewKsvcReconciler(e.client, e.scheme, objectMeta, &isvc.Spec.Explainer.ComponentExtensionSpec,
 			&podSpec, isvc.Status.Components[v1beta1.ExplainerComponent], e.inferenceServiceConfig.ServiceLabelDisallowedList)
-		if err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to create new knative service reconciler for explainer")
-		}
+
 		if err := controllerutil.SetControllerReference(isvc, r.Service, e.scheme); err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to set owner reference for explainer")
 		}
