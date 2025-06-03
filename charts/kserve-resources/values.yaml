@@ -1,5 +1,5 @@
 kserve:
-  version: &defaultVersion v0.15.0
+  version: &defaultVersion v0.15.2
   agent:
     image: kserve/agent
     tag: *defaultVersion
@@ -24,9 +24,9 @@ kserve:
       capabilities:
         drop:
           - ALL
- 
+
     # -- Flag for enabling model sidecar feature.
-    enableModelcar: false
+    enableModelcar: true
 
     # -- Model sidecar cpu requirement.
     cpuModelcar: 10m
@@ -103,7 +103,7 @@ kserve:
         privileged: false
         capabilities:
           drop:
-          - ALL
+            - ALL
         readOnlyRootFilesystem: true
         runAsNonRoot: true
 
@@ -136,7 +136,7 @@ kserve:
       allowPrivilegeEscalation: false
       capabilities:
         drop:
-        - ALL
+          - ALL
       privileged: false
       readOnlyRootFilesystem: true
       runAsNonRoot: true
@@ -182,7 +182,7 @@ kserve:
       ingressGateway:
         # -- enableGatewayApi controls whether to use the Gateway API for ingress routing instead of kuberetes Ingress.
         enableGatewayApi: false
-        # -- kserveGateway specifies the name and namespace of the Gateway which handles the network traffic from outside the cluster. 
+        # -- kserveGateway specifies the name and namespace of the Gateway which handles the network traffic from outside the cluster.
         # This is only used when Gateway API is enabled. The gateway should be specified in format <gateway namespace>/<gateway name>
         kserveGateway: kserve/kserve-ingress-gateway
         # -- createGateway controls whether to create the default Gateway resource for ingress routing as part of the installation. This is only used when Gateway API is enabled.
@@ -270,11 +270,12 @@ kserve:
   servingruntime:
     modelNamePlaceholder: "{{.Name}}"
     tensorflow:
+      disabled: false
       image: tensorflow/serving
       tag: 2.6.2
       imagePullSecrets: []
       securityContext:
-        runAsUser: 1000    # User is not defined in the Dockerfile, so we need to set it here to run as non-root
+        runAsUser: 1000 # User is not defined in the Dockerfile, so we need to set it here to run as non-root
         allowPrivilegeEscalation: false
         privileged: false
         runAsNonRoot: true
@@ -282,6 +283,7 @@ kserve:
           drop:
             - ALL
     mlserver:
+      disabled: false
       image: docker.io/seldonio/mlserver
       tag: 1.5.0
       modelClassPlaceholder: "{{.Labels.modelClass}}"
@@ -294,6 +296,7 @@ kserve:
           drop:
             - ALL
     sklearnserver:
+      disabled: false
       image: kserve/sklearnserver
       tag: *defaultVersion
       imagePullSecrets: []
@@ -305,6 +308,7 @@ kserve:
           drop:
             - ALL
     xgbserver:
+      disabled: false
       image: kserve/xgbserver
       tag: *defaultVersion
       imagePullSecrets: []
@@ -316,6 +320,7 @@ kserve:
           drop:
             - ALL
     huggingfaceserver:
+      disabled: false
       image: kserve/huggingfaceserver
       tag: *defaultVersion
       imagePullSecrets: []
@@ -326,12 +331,14 @@ kserve:
         capabilities:
           drop:
             - ALL
+      lmcacheUseExperimental: "True"
       devShm:
         enabled: false
         sizeLimit: ""
       hostIPC:
         enabled: false
     huggingfaceserver_multinode:
+      disabled: false
       imagePullSecrets: []
       securityContext:
         allowPrivilegeEscalation: false
@@ -344,11 +351,12 @@ kserve:
         enabled: true
         sizeLimit: "3Gi"
     tritonserver:
+      disabled: false
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3
       imagePullSecrets: []
       securityContext:
-        runAsUser: 1000    # https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/customization_guide/deploy.html#run-as-a-non-root-user
+        runAsUser: 1000 # https://docs.nvidia.com/deeplearning/triton-inference-server/user-guide/docs/customization_guide/deploy.html#run-as-a-non-root-user
         allowPrivilegeEscalation: false
         privileged: false
         runAsNonRoot: true
@@ -356,6 +364,7 @@ kserve:
           drop:
             - ALL
     pmmlserver:
+      disabled: false
       image: kserve/pmmlserver
       tag: *defaultVersion
       imagePullSecrets: []
@@ -367,6 +376,7 @@ kserve:
           drop:
             - ALL
     paddleserver:
+      disabled: false
       image: kserve/paddleserver
       tag: *defaultVersion
       imagePullSecrets: []
@@ -378,6 +388,7 @@ kserve:
           drop:
             - ALL
     lgbserver:
+      disabled: false
       image: kserve/lgbserver
       tag: *defaultVersion
       imagePullSecrets: []
@@ -389,12 +400,13 @@ kserve:
           drop:
             - ALL
     torchserve:
+      disabled: false
       image: pytorch/torchserve-kfs
       tag: 0.9.0
       serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
       imagePullSecrets: []
       securityContext:
-        runAsUser: 1000    # User ID is not defined in the Dockerfile, so we need to set it here to run as non-root
+        runAsUser: 1000 # User ID is not defined in the Dockerfile, so we need to set it here to run as non-root
         allowPrivilegeEscalation: false
         privileged: false
         runAsNonRoot: true
@@ -406,26 +418,26 @@ kserve:
       defaultVersion: *defaultVersion
       imagePullSecrets: []
   localmodel:
-      enabled: false
-      controller:
-        image: kserve/kserve-localmodel-controller
-        tag: *defaultVersion
-      jobNamespace: kserve-localmodel-jobs
-      jobTTLSecondsAfterFinished: 3600
+    enabled: false
+    controller:
+      image: kserve/kserve-localmodel-controller
+      tag: *defaultVersion
+    jobNamespace: kserve-localmodel-jobs
+    jobTTLSecondsAfterFinished: 3600
+    securityContext:
+      fsGroup: 1000
+    disableVolumeManagement: false
+    agent:
+      nodeSelector: {}
+      affinity: {}
+      tolerations: []
+      hostPath: /mnt/models
+      image: kserve/kserve-localmodelnode-agent
+      tag: *defaultVersion
+      reconcilationFrequencyInSecs: 60
       securityContext:
-        fsGroup: 1000
-      disableVolumeManagement: false
-      agent:
-        nodeSelector: {}
-        affinity: {}
-        tolerations: []
-        hostPath: /mnt/models
-        image: kserve/kserve-localmodelnode-agent
-        tag: *defaultVersion
-        reconcilationFrequencyInSecs: 60
-        securityContext:
-          runAsUser: 1000
-          runAsNonRoot: true
+        runAsUser: 1000
+        runAsNonRoot: true
   security:
     autoMountServiceAccountToken: true
   inferenceservice:

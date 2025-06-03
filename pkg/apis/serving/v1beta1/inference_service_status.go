@@ -124,6 +124,8 @@ const (
 	RoutesReady apis.ConditionType = "RoutesReady"
 	// LatestDeploymentReady is set when underlying configurations for all components have reported readiness.
 	LatestDeploymentReady apis.ConditionType = "LatestDeploymentReady"
+	// Stopped is set when the inference service has been stopped and all related objects are deleted
+	Stopped apis.ConditionType = "Stopped"
 )
 
 type ModelStatus struct {
@@ -352,6 +354,7 @@ func (ss *InferenceServiceStatus) PropagateRawStatus(
 	ss.ObservedGeneration = deploymentList[0].Status.ObservedGeneration
 }
 
+//nolint:unparam
 func getDeploymentCondition(deploymentList []*appsv1.Deployment, conditionType appsv1.DeploymentConditionType) *apis.Condition {
 	condition := apis.Condition{}
 	var messages, reasons []string

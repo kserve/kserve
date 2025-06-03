@@ -387,9 +387,9 @@ func addGPUResourceToDeployment(deployment *appsv1.Deployment, targetContainerNa
 
 // Reconcile ...
 func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
-	for _, deployment := range r.DeploymentList {
+	for _, desiredDep := range r.DeploymentList {
 		// Reconcile Deployment
-		checkResult, _, err := r.checkDeploymentExist(ctx, r.client, deployment)
+		checkResult, existingDep, err := r.checkDeploymentExist(ctx, r.client, desiredDep)
 		if err != nil {
 			return nil, err
 		}
@@ -398,19 +398,22 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 		var opErr error
 		switch checkResult {
 		case constants.CheckResultCreate:
-			opErr = r.client.Create(ctx, deployment)
+			opErr = r.client.Create(ctx, desiredDep)
 		case constants.CheckResultUpdate:
-			curJson, err := json.Marshal(deployment)
-			if err != nil {
-				return nil, err
-			}
+			curDeployment := existingDep.DeepCopy()
+			modDeployment := desiredDep.DeepCopy()
 
 			// To avoid the conflict between HPA and Deployment,
 			// we need to remove the Replicas field from the deployment spec
 			// For none autoscaler, it should not remove replicas
-			modDeployment := deployment.DeepCopy()
 			if modDeployment.Annotations[constants.AutoscalerClass] != string(constants.AutoscalerClassNone) {
 				modDeployment.Spec.Replicas = nil
+				curDeployment.Spec.Replicas = nil
+			}
+
+			curJson, err := json.Marshal(curDeployment)
+			if err != nil {
+				return nil, err
 			}
 
 			modJson, err := json.Marshal(modDeployment)
@@ -418,13 +421,13 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 				return nil, err
 			}
 			// Generate the strategic merge patch between the current and modified JSON
-			patchByte, err := strategicpatch.StrategicMergePatch(curJson, modJson, appsv1.Deployment{})
+			patchByte, err := strategicpatch.CreateTwoWayMergePatch(curJson, modJson, appsv1.Deployment{})
 			if err != nil {
 				return nil, err
 			}
 
 			// Patch the deployment object with the strategic merge patch
-			opErr = r.client.Patch(ctx, deployment, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
+			opErr = r.client.Patch(ctx, existingDep, kclient.RawPatch(types.StrategicMergePatchType, patchByte))
 		}
 
 		if opErr != nil {
