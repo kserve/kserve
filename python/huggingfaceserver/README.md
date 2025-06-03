@@ -32,12 +32,29 @@ auto uses float16 if GPU is available and uses float32 otherwise to ensure consi
 python -m huggingfaceserver --model_id=bert-base-uncased --model_name=bert --dtype=float16
 ```
 
+To use human-readable labels instead of indices for classification tasks, add the `--use_id2label` flag. This will use the model's `id2label` mapping if available:
+```bash
+python -m huggingfaceserver --model_id=textattack/bert-base-uncased-yelp-polarity --model_name=bert --use_id2label
+```
+
 Perform the inference
 
 ```bash
 curl -H "content-type:application/json" -v localhost:8080/v1/models/bert:predict -d '{"instances": ["The capital of france is [MASK]."] }'
 
 {"predictions":["paris"]}
+```
+
+For classification tasks with `use_id2label`, the output will use human-readable labels:
+```bash
+curl -H "content-type:application/json" -v localhost:8080/v1/models/bert:predict -d '{"instances": ["This restaurant was amazing!"] }'
+
+{"predictions":["positive"]}
+```
+
+Without `use_id2label`, the output will use indices:
+```bash
+{"predictions":[1]}
 ```
 
 ## Deploy Huggingface Server on KServe
