@@ -20,13 +20,10 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-export POETRY_VERSION=1.8.3
-echo "Installing Poetry $POETRY_VERSION ..."
-pip install poetry==$POETRY_VERSION
-poetry config virtualenvs.create true
-poetry config virtualenvs.in-project true
-poetry config installer.parallel true
+echo "Installing uv..."
+pip install uv
 
-echo "Installing Poetry Version Plugin"
-pip install -e python/plugin/poetry-version-plugin
-poetry self show plugins
+echo "Creating virtual environment..."
+uv venv
+source .venv/bin/activate
+
