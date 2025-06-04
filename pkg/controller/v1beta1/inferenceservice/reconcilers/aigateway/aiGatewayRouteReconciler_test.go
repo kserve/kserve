@@ -168,7 +168,6 @@ func TestCreateAIGatewayRoute(t *testing.T) {
 			t.Errorf("createAIGatewayRoute() mismatch (-want +got):\n%s", diff)
 		}
 	})
-
 }
 
 func TestSemanticEquals(t *testing.T) {

@@ -57,7 +57,7 @@ func NewAIGatewayRouteReconciler(client client.Client, scheme *runtime.Scheme, i
 
 // Reconcile manages the lifecycle of AIGatewayRoute resources
 func (r *AIGatewayRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
-	logger := r.log.WithValues("InferenceService", isvc.Name, "namespace", isvc.Namespace)
+	logger := r.log.WithValues("InferenceService", isvc.Name, "isvc-namespace", isvc.Namespace)
 
 	// Create the desired AIGatewayRoute
 	desired := r.createAIGatewayRoute(isvc)
@@ -149,7 +149,7 @@ func (r *AIGatewayRouteReconciler) createAIGatewayRoute(isvc *v1beta1.InferenceS
 func (r *AIGatewayRouteReconciler) createBackendRefs(isvc *v1beta1.InferenceService) []aigwv1a1.AIGatewayRouteRuleBackendRef {
 	backends := make([]aigwv1a1.AIGatewayRouteRuleBackendRef, 0, 1)
 	backend := aigwv1a1.AIGatewayRouteRuleBackendRef{
-		Name: getAIServiceBackendName(isvc),
+		Name:   getAIServiceBackendName(isvc),
 		Weight: 1,
 	}
 	backends = append(backends, backend)

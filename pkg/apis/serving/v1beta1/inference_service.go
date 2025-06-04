@@ -19,9 +19,8 @@ package v1beta1
 import (
 	"strings"
 
+	egv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	egwv1a1 "github.com/envoyproxy/gateway/api/v1alpha1"
 
 	"github.com/kserve/kserve/pkg/constants"
 )
@@ -113,7 +112,7 @@ type Batcher struct {
 // Currently only global rate limit is supported
 type RateLimit struct {
 	// GlobalRateLimit defines global rate limit configuration.
-	Global egwv1a1.GlobalRateLimit `json:"global"`
+	Global egv1a1.GlobalRateLimit `json:"global"`
 }
 
 type TrafficPolicy struct {
