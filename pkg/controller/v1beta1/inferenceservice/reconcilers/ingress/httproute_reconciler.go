@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	"knative.dev/pkg/apis"
+	knapis "knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -73,9 +73,9 @@ func toGatewayAPIDuration(seconds int64) *gwapiv1.Duration {
 
 func createRawURL(isvc *v1beta1.InferenceService,
 	ingressConfig *v1beta1.IngressConfig,
-) (*apis.URL, error) {
+) (*knapis.URL, error) {
 	var err error
-	url := &apis.URL{}
+	url := &knapis.URL{}
 	url.Scheme = ingressConfig.UrlScheme
 	url.Host, err = GenerateDomainName(isvc.Name, isvc.ObjectMeta, ingressConfig)
 	if err != nil {
@@ -156,7 +156,7 @@ func createRawPredictorHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	var allowedHosts []gwapiv1.Hostname
 
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionFalse,
 			Reason: "Predictor ingress not created",
@@ -220,7 +220,7 @@ func createRawTransformerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig
 	var allowedHosts []gwapiv1.Hostname
 
 	if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionFalse,
 			Reason: "Transformer ingress not created",
@@ -284,7 +284,7 @@ func createRawExplainerHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *
 	var allowedHosts []gwapiv1.Hostname
 
 	if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionFalse,
 			Reason: "Explainer ingress not created",
@@ -350,7 +350,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 	var allowedHosts []gwapiv1.Hostname
 
 	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionFalse,
 			Reason: "Predictor ingress not created",
@@ -387,7 +387,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 	if isvc.Spec.Explainer != nil {
 		// Scenario: When explainer present
 		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
-			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+			isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 				Type:   v1beta1.IngressReady,
 				Status: corev1.ConditionFalse,
 				Reason: "Explainer ingress not created",
@@ -407,7 +407,7 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 	if isvc.Spec.Transformer != nil {
 		// Scenario: When predictor with transformer and with/without explainer present
 		if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
-			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+			isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 				Type:   v1beta1.IngressReady,
 				Status: corev1.ConditionFalse,
 				Reason: "Transformer ingress not created",
@@ -737,7 +737,7 @@ func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isv
 		}, httpRoute); err != nil {
 			if apierr.IsNotFound(err) {
 				// HTTPRoute not found means the component deployment is not ready yet
-				isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+				isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 					Type:    v1beta1.IngressReady,
 					Status:  corev1.ConditionFalse,
 					Reason:  check.component + " Deployment NotReady",
@@ -751,7 +751,7 @@ func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isv
 
 		if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
 			log.Info(check.component+" HTTPRoute not ready", "reason", *reason, "message", *message)
-			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+			isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 				Type:    v1beta1.IngressReady,
 				Status:  corev1.ConditionFalse,
 				Reason:  *reason,
@@ -762,7 +762,7 @@ func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isv
 	}
 
 	// If we are here, then all the HTTPRoutes are ready, Mark ingress as ready
-	isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+	isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 		Type:   v1beta1.IngressReady,
 		Status: corev1.ConditionTrue,
 	})
@@ -804,7 +804,7 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 		}
 	} else {
 		// Ingress creation is disabled. We set it to true as the isvc condition depends on it.
-		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 			Type:   v1beta1.IngressReady,
 			Status: corev1.ConditionTrue,
 		})
@@ -814,7 +814,7 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 		return err
 	}
 	isvc.Status.Address = &duckv1.Addressable{
-		URL: &apis.URL{
+		URL: &knapis.URL{
 			Host:   getRawServiceHost(isvc),
 			Scheme: r.ingressConfig.UrlScheme,
 			Path:   "",
