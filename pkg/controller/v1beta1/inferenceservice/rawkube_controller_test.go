@@ -1802,6 +1802,57 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				}
 				Expect(k8sClient.Status().Update(context.TODO(), predictorDeployment)).NotTo(HaveOccurred())
 
+				By("Updating HTTPRoute status to mark routes as ready")
+				// Get the HTTPRoutes created for this InferenceService
+				predictorHttpRoute := &gatewayapiv1.HTTPRoute{}
+				topLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
+				Eventually(func() bool {
+					return k8sClient.Get(context.TODO(),
+						client.ObjectKey{Name: constants.PredictorServiceName(serviceName), Namespace: "default"},
+						predictorHttpRoute) == nil
+				}, timeout, interval).Should(BeTrue())
+				Eventually(func() bool {
+					return k8sClient.Get(context.TODO(),
+						client.ObjectKey{Name: serviceName, Namespace: "default"},
+						topLevelHttpRoute) == nil
+				}, timeout, interval).Should(BeTrue())
+				routeStatus := gatewayapiv1.HTTPRouteStatus{
+					RouteStatus: gatewayapiv1.RouteStatus{
+						Parents: []gatewayapiv1.RouteParentStatus{
+							{
+								ParentRef: gatewayapiv1.ParentReference{
+									Name: gatewayapiv1.ObjectName(kserveGateway.Name),
+								},
+								ControllerName: "gateway.envoyproxy.io/gatewayclass-controller",
+								Conditions: []metav1.Condition{
+									{
+										Type:               string(gatewayapiv1.RouteConditionAccepted),
+										Status:             metav1.ConditionTrue,
+										Reason:             string(gatewayapiv1.RouteReasonAccepted),
+										Message:            "Route was valid",
+										LastTransitionTime: metav1.Now(),
+									},
+									{
+										Type:               string(gatewayapiv1.RouteConditionResolvedRefs),
+										Status:             metav1.ConditionTrue,
+										Reason:             string(gatewayapiv1.RouteReasonResolvedRefs),
+										LastTransitionTime: metav1.Now(),
+									},
+								},
+							},
+						},
+					},
+				}
+				// Update HTTPRoute status to mark it as ready
+				predictorHttpRoute.Status = routeStatus
+				topLevelHttpRoute.Status = routeStatus
+
+				err := k8sClient.Status().Update(context.TODO(), predictorHttpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = k8sClient.Status().Update(context.TODO(), topLevelHttpRoute)
+				Expect(err).NotTo(HaveOccurred())
+
 				// Create expected AIServiceBackend resource
 				expectedAIServiceBackend := &aigwv1a1.AIServiceBackend{
 					ObjectMeta: metav1.ObjectMeta{
@@ -1867,7 +1918,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 								},
 								BackendRefs: []aigwv1a1.AIGatewayRouteRuleBackendRef{
 									{
-										Name: serviceName,
+										Name:   serviceName,
 										Weight: 1,
 									},
 								},
@@ -1953,53 +2004,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				Expect(backendTrafficPolicy.Labels[constants.InferenceServiceNameLabel]).To(BeComparableTo(serviceName))
 				Expect(backendTrafficPolicy.Labels[constants.InferenceServiceNamespaceLabel]).To(BeComparableTo("default"))
 				Expect(backendTrafficPolicy.Spec).To(BeComparableTo(expectedBackendTrafficPolicy.Spec))
-				
-				By("Updating HTTPRoute status to mark routes as ready")
-				// Get the HTTPRoutes created for this InferenceService
-				predictorHttpRoute := &gatewayapiv1.HTTPRoute{}
-				topLevelHttpRoute := &gatewayapiv1.HTTPRoute{}
-				Expect(k8sClient.Get(context.TODO(),
-					client.ObjectKey{Name: constants.PredictorServiceName(serviceName), Namespace: "default"},
-					predictorHttpRoute)).NotTo(HaveOccurred())
-				Expect(k8sClient.Get(context.TODO(),
-					client.ObjectKey{Name: serviceName, Namespace: "default"},
-					topLevelHttpRoute)).NotTo(HaveOccurred())
-                routeStatus := gatewayapiv1.HTTPRouteStatus{
-					RouteStatus: gatewayapiv1.RouteStatus{
-						Parents: []gatewayapiv1.RouteParentStatus{
-							{
-								ParentRef: gatewayapiv1.ParentReference{
-									Name: gatewayapiv1.ObjectName(kserveGateway.Name),
-								},
-								ControllerName: "gateway.envoyproxy.io/gatewayclass-controller",
-								Conditions: []metav1.Condition{
-									{
-										Type:   string(gatewayapiv1.RouteConditionAccepted),
-										Status: metav1.ConditionTrue,
-										Reason: string(gatewayapiv1.RouteReasonAccepted),
-										Message:            "Route was valid",
-										LastTransitionTime: metav1.Now(),
-									},
-									{
-										Type:   string(gatewayapiv1.RouteConditionResolvedRefs),
-										Status: metav1.ConditionTrue,
-										Reason: string(gatewayapiv1.RouteReasonResolvedRefs),
-										LastTransitionTime: metav1.Now(),
-									},
-								},
-							},
-						},
-					},
-				}
-				// Update HTTPRoute status to mark it as ready
-				predictorHttpRoute.Status = routeStatus
-				topLevelHttpRoute.Status = routeStatus
-
-				err := k8sClient.Status().Update(context.TODO(), predictorHttpRoute)
-				Expect(err).NotTo(HaveOccurred())
-
-				err = k8sClient.Status().Update(context.TODO(), topLevelHttpRoute)
-				Expect(err).NotTo(HaveOccurred())
 
 				By("Verifying InferenceService is marked as ready")
 
