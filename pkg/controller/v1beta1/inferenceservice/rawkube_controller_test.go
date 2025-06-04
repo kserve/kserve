@@ -57,7 +57,7 @@ import (
 var _ = Describe("v1beta1 inference service controller", func() {
 	// Define utility constants for object names and testing timeouts/durations and intervals.
 	const (
-		timeout  = time.Second * 60
+		timeout  = time.Second * 10
 		interval = time.Millisecond * 250
 		domain   = "example.com"
 	)
