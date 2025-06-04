@@ -223,6 +223,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 			},
 			AutomountServiceAccountToken: proto.Bool(false),
 			ImagePullSecrets:             []corev1.LocalObjectReference{},
+			ServiceAccountName:           "default",
 		},
 		"basicgraphwithheaders": {
 			Containers: []corev1.Container{
@@ -263,6 +264,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 			},
 			AutomountServiceAccountToken: proto.Bool(false),
 			ImagePullSecrets:             []corev1.LocalObjectReference{},
+			ServiceAccountName:           "default",
 		},
 		"withresource": {
 			Containers: []corev1.Container{
@@ -297,6 +299,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 			},
 			AutomountServiceAccountToken: proto.Bool(false),
 			ImagePullSecrets:             []corev1.LocalObjectReference{},
+			ServiceAccountName:           "default",
 		},
 		"with tolerations": {
 			Containers: []corev1.Container{
@@ -339,6 +342,7 @@ func TestCreateInferenceGraphPodSpec(t *testing.T) {
 					Effect:   corev1.TaintEffectNoSchedule,
 				},
 			},
+			ServiceAccountName: "default",
 		},
 	}
 
