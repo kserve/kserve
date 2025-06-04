@@ -35,7 +35,7 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, chat_completion_stream, genera
 
 
 @pytest.mark.aigateway
-def test_aigateway_raw_deployment_qwen_vllm():
+def test_aigateway_raw_deployment_qwen_vllm(network_layer):
     """
     Test AI Gateway integration with KServe InferenceService using RawDeployment mode.
     This test creates an InferenceService with AI Gateway enabled using Qwen model.
@@ -144,6 +144,7 @@ def test_aigateway_raw_deployment_qwen_vllm():
         "./data/qwen_input_chat.json",
         raw_response=True,
         disable_openai_prefix=True,
+        network_layer=network_layer,
     )
     result = json.loads(res.content.decode("utf-8"))
     assert result["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
@@ -156,7 +157,10 @@ def test_aigateway_raw_deployment_qwen_vllm():
 
     # Test chat completion streaming
     full_response, _, res_headers = chat_completion_stream(
-        service_name, "./data/qwen_input_chat_stream.json", disable_openai_prefix=True
+        service_name,
+        "./data/qwen_input_chat_stream.json",
+        disable_openai_prefix=True,
+        network_layer=network_layer,
     )
     assert full_response.strip() == "The result of 2 + 2 is 4."
 
