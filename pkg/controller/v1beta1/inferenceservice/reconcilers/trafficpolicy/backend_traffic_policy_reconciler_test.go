@@ -110,7 +110,7 @@ func TestNewBackendTrafficPolicyReconciler(t *testing.T) {
 	require.NotNil(t, reconciler)
 	require.Equal(t, fakeClient, reconciler.client)
 	require.Equal(t, ingressConfig, reconciler.ingressConfig)
-	require.Equal(t, logger, reconciler.log)
+	require.Equal(t, logger.WithName(("BackendTrafficPolicyReconciler")), reconciler.log)
 }
 
 func TestCreateTrafficPolicy(t *testing.T) {

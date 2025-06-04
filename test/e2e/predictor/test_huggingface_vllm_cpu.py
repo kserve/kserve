@@ -83,8 +83,8 @@ def test_huggingface_vllm_cpu_openai_chat_completions():
     assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
 
     # Test streaming response
-    full_response, _ = completion_stream(
-        service_name, "./data/qwen_input_cmpl_stream.json"
+    full_response, _, _ = chat_completion_stream(
+        service_name, "./data/qwen_input_chat_stream.json"
     )
     assert full_response.strip() == "The result of 2 + 2 is 4."
 
@@ -137,8 +137,8 @@ def test_huggingface_vllm_cpu_openai_completions():
     assert res["choices"][0]["text"].strip() == "The result of 2 + 2 is 4."
 
     # Test streaming response
-    full_response, _, _ = chat_completion_stream(
-        service_name, "./data/qwen_input_chat_stream.json"
+    full_response, _ = completion_stream(
+        service_name, "./data/qwen_input_cmpl_stream.json"
     )
     assert full_response.strip() == "The result of 2 + 2 is 4."
 

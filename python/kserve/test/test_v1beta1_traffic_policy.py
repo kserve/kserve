@@ -27,11 +27,10 @@
 from __future__ import absolute_import
 
 import unittest
-import datetime
 
 import kserve
 from kserve.models.v1beta1_traffic_policy import V1beta1TrafficPolicy  # noqa: E501
-from kserve.rest import ApiException
+import kserve.models.v1beta1_rate_limit
 
 
 class TestV1beta1TrafficPolicy(unittest.TestCase):
@@ -51,7 +50,7 @@ class TestV1beta1TrafficPolicy(unittest.TestCase):
         # model = kserve.models.v1beta1_traffic_policy.V1beta1TrafficPolicy()  # noqa: E501
         if include_optional:
             return V1beta1TrafficPolicy(
-                circuit_breaker=None, load_balancer=None, rate_limit=None, retry=None
+                rate_limit=kserve.models.v1beta1_rate_limit.V1beta1RateLimit(_global={})
             )
         else:
             return V1beta1TrafficPolicy()

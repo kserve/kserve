@@ -50,11 +50,9 @@ class TestV1beta1RateLimit(unittest.TestCase):
         optional params are included"""
         # model = kserve.models.v1beta1_rate_limit.V1beta1RateLimit()  # noqa: E501
         if include_optional:
-            return V1beta1RateLimit(_global=None)
+            return V1beta1RateLimit(_global={})
         else:
-            return V1beta1RateLimit(
-                _global=None,
-            )
+            return V1beta1RateLimit(_global={})
 
     def testV1beta1RateLimit(self):
         """Test V1beta1RateLimit"""
