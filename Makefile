@@ -112,7 +112,7 @@ manifests: controller-gen yq
 	# rm charts/kserve-crd/templates/kustomization.yaml
 	# Generate minimal crd
 	./hack/minimal-crdgen.sh
-	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_inferenceservices.yaml
+	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
 	# Copy the minimal crd to the helm chart
 	cp config/crd/minimal/* charts/kserve-crd-minimal/templates/
 	rm charts/kserve-crd-minimal/templates/kustomization.yaml
