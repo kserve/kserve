@@ -90,58 +90,8 @@ def test_huggingface_openai_chat_completions():
     res = generate(service_name, "./data/qwen_input_chat.json")
     assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
-
-@pytest.mark.llm
-def test_huggingface_openai_chat_completions_streaming():
-    service_name = "hf-qwen-chat-stream"
-    predictor = V1beta1PredictorSpec(
-        min_replicas=1,
-        model=V1beta1ModelSpec(
-            model_format=V1beta1ModelFormat(
-                name="huggingface",
-            ),
-            args=[
-                "--model_id",
-                "Qwen/Qwen2-0.5B-Instruct",
-                "--backend",
-                "huggingface",
-                "--max_model_len",
-                "512",
-                "--dtype",
-                "bfloat16",
-            ],
-            env=[
-                client.V1EnvVar(
-                    name="TRANSFORMERS_VERBOSITY",
-                    value="info",
-                ),
-            ],
-            resources=V1ResourceRequirements(
-                requests={"cpu": "1", "memory": "2Gi"},
-                limits={"cpu": "1", "memory": "4Gi"},
-            ),
-        ),
-    )
-
-    isvc = V1beta1InferenceService(
-        api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor),
-    )
-
-    kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-    )
-    kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-
     # Test streaming response
-    full_response, _ = chat_completion_stream(
+    full_response, _, _ = chat_completion_stream(
         service_name, "./data/qwen_input_chat_stream.json"
     )
     trace_logger.info(f"Full response: {full_response}")
@@ -196,50 +146,7 @@ def test_huggingface_openai_text_completion_qwen2():
     res = generate(service_name, "./data/qwen_input_cmpl.json", chat_completions=False)
     assert res["choices"][0].get("text").strip() == "The result of 2 + 2 is 4."
 
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-
-
-@pytest.mark.llm
-def test_huggingface_openai_text_completion_streaming():
-    service_name = "hf-qwen-cmpl-stream"
-    predictor = V1beta1PredictorSpec(
-        min_replicas=1,
-        model=V1beta1ModelSpec(
-            model_format=V1beta1ModelFormat(
-                name="huggingface",
-            ),
-            args=[
-                "--model_id",
-                "Qwen/Qwen2-0.5B",
-                "--backend",
-                "huggingface",
-                "--max_model_len",
-                "512",
-                "--dtype",
-                "bfloat16",
-            ],
-            resources=V1ResourceRequirements(
-                requests={"cpu": "1", "memory": "2Gi"},
-                limits={"cpu": "1", "memory": "4Gi"},
-            ),
-        ),
-    )
-
-    isvc = V1beta1InferenceService(
-        api_version=constants.KSERVE_V1BETA1,
-        kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
-        spec=V1beta1InferenceServiceSpec(predictor=predictor),
-    )
-
-    kserve_client = KServeClient(
-        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-    )
-    kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-
+    # Test streaming response
     full_response, _ = completion_stream(
         service_name, "./data/qwen_input_cmpl_stream.json"
     )
