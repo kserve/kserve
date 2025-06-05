@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import logging
 from socket import socket
 import sys
@@ -115,6 +116,8 @@ class RESTServer:
         app.include_router(root_router)
         register_v1_endpoints(app, self.dataplane, self.model_repository_extension)
         register_v2_endpoints(app, self.dataplane, self.model_repository_extension)
+        FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer_provider)
+        logger.info("Opentelemetry tracing enabled")
         # Register OpenAI endpoints if any of the models in the registry implement the OpenAI interface
         # This adds /openai/v1/completions and /openai/v1/chat/completions routes to the
         # REST server.
@@ -124,7 +127,6 @@ class RESTServer:
             )
 
             maybe_register_openai_endpoints(app, self.dataplane.model_registry)
-            FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer_provider)
             logger.info("OpenAI endpoints registered")
             
         except ImportError:
