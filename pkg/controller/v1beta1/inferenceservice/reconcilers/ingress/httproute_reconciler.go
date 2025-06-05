@@ -31,6 +31,7 @@ import (
 	knapis "knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/network"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -508,7 +509,9 @@ func createRawTopLevelHTTPRoute(isvc *v1beta1.InferenceService, ingressConfig *v
 }
 
 func semanticHttpRouteEquals(desired, existing *gwapiv1.HTTPRoute) bool {
-	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
+	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec) &&
+		equality.Semantic.DeepEqual(desired.ObjectMeta.Annotations, existing.ObjectMeta.Annotations) &&
+		equality.Semantic.DeepEqual(desired.ObjectMeta.Labels, existing.ObjectMeta.Labels)
 }
 
 // isHTTPRouteReady checks if the HTTPRoute is ready. If not, returns the reason and message.
@@ -698,7 +701,7 @@ func (r *RawHTTPRouteReconciler) reconcileTopLevelHTTPRoute(ctx context.Context,
 
 // checkHTTPRouteStatuses checks the status of all HTTPRoutes for the given InferenceService
 // and sets the appropriate condition on the InferenceService status
-func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isvc *v1beta1.InferenceService) error {
+func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	// Check HTTPRoute statuses for all components
 	type httpRouteCheck struct {
 		name      string
@@ -736,19 +739,21 @@ func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isv
 			Namespace: isvc.Namespace,
 		}, httpRoute); err != nil {
 			if apierr.IsNotFound(err) {
-				// HTTPRoute not found means the component deployment is not ready yet
+				// HTTPRoute not found means the component deployment is not ready yet, so we set the IngressReady condition to False
+				// and requeue the request with backoff period.
 				isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
 					Type:    v1beta1.IngressReady,
 					Status:  corev1.ConditionFalse,
 					Reason:  check.component + " Deployment NotReady",
 					Message: check.component + " HTTPRoute not created",
 				})
-				return nil
+				return ctrl.Result{Requeue: true}, nil
 			}
 			// Return any other errors
-			return err
+			return ctrl.Result{}, err
 		}
-
+		// Check if the HTTPRoute is ready
+		// If not, set the IngressReady condition to False and requeue the request with backoff period.
 		if ready, reason, message := isHTTPRouteReady(httpRoute.Status); !ready {
 			log.Info(check.component+" HTTPRoute not ready", "reason", *reason, "message", *message)
 			isvc.Status.SetCondition(v1beta1.IngressReady, &knapis.Condition{
@@ -757,7 +762,7 @@ func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isv
 				Reason:  *reason,
 				Message: fmt.Sprintf("%s %s", check.component, *message),
 			})
-			return nil
+			return ctrl.Result{Requeue: true}, nil
 		}
 	}
 
@@ -766,11 +771,11 @@ func (r *RawHTTPRouteReconciler) checkHTTPRouteStatuses(ctx context.Context, isv
 		Type:   v1beta1.IngressReady,
 		Status: corev1.ConditionTrue,
 	})
-	return nil
+	return ctrl.Result{}, nil
 }
 
 // ReconcileHTTPRoute reconciles the HTTPRoute resource
-func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) error {
+func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
 	var err error
 	isInternal := false
 	// disable ingress creation if service is labelled with cluster local or kserve domain is cluster local
@@ -782,25 +787,25 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 	}
 	if !isInternal && !r.ingressConfig.DisableIngressCreation {
 		if err := r.reconcilePredictorHTTPRoute(ctx, isvc); err != nil {
-			return err
+			return ctrl.Result{}, err
 		}
 		if isvc.Spec.Transformer != nil {
 			if err := r.reconcileTransformerHTTPRoute(ctx, isvc); err != nil {
-				return err
+				return ctrl.Result{}, err
 			}
 		}
 		if isvc.Spec.Explainer != nil {
 			if err := r.reconcileExplainerHTTPRoute(ctx, isvc); err != nil {
-				return err
+				return ctrl.Result{}, err
 			}
 		}
 		if err := r.reconcileTopLevelHTTPRoute(ctx, isvc); err != nil {
-			return err
+			return ctrl.Result{}, err
 		}
 
 		// Check HTTPRoute statuses for all components
-		if err := r.checkHTTPRouteStatuses(ctx, isvc); err != nil {
-			return err
+		if result, err := r.checkHTTPRouteStatuses(ctx, isvc); err != nil || result.Requeue {
+			return result, err
 		}
 	} else {
 		// Ingress creation is disabled. We set it to true as the isvc condition depends on it.
@@ -809,9 +814,8 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 			Status: corev1.ConditionTrue,
 		})
 	}
-	isvc.Status.URL, err = createRawURL(isvc, r.ingressConfig)
-	if err != nil {
-		return err
+	if isvc.Status.URL, err = createRawURL(isvc, r.ingressConfig); err != nil {
+		return ctrl.Result{}, err
 	}
 	isvc.Status.Address = &duckv1.Addressable{
 		URL: &knapis.URL{
@@ -820,5 +824,5 @@ func (r *RawHTTPRouteReconciler) Reconcile(ctx context.Context, isvc *v1beta1.In
 			Path:   "",
 		},
 	}
-	return nil
+	return ctrl.Result{}, nil
 }

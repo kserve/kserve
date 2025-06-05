@@ -286,8 +286,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if ingressConfig.EnableGatewayAPI {
 			reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
 
-			if err := reconciler.Reconcile(ctx, isvc); err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+			if result, err := reconciler.Reconcile(ctx, isvc); err != nil {
+				return result, errors.Wrapf(err, "fails to reconcile ingress")
+			} else if result.Requeue || result.RequeueAfter > 0 {
+				return result, nil
 			}
 		} else {
 			reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)

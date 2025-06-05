@@ -1694,7 +1694,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 
 		Context("When creating inference service with AI gateway enabled", func() {
-			It("Should create AIServiceBackend and AIGatewayRoute resources", func() {
+			It("Should create AIServiceBackend, AIGatewayRoute and BackendTrafficPolicy resources", func() {
 				// Create InferenceService config configmap with required configs
 				configMap := &corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{

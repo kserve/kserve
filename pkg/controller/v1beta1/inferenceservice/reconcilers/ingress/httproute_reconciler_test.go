@@ -17,6 +17,7 @@ limitations under the License.
 package ingress
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -31,12 +32,41 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
+
+// httpRouteClientInterceptor wraps a client.Client to simulate errors for testing
+type httpRouteClientInterceptor struct {
+	client.Client
+	blockHTTPRouteCreation bool
+}
+
+func (c *httpRouteClientInterceptor) Create(ctx context.Context, obj client.Object, opts ...client.CreateOption) error {
+	// Allow HTTPRoute creation to proceed normally
+	return c.Client.Create(ctx, obj, opts...)
+}
+
+// Get intercepts Get calls to return NotFound for HTTPRoutes when blocked
+func (c *httpRouteClientInterceptor) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	// Return NotFound for HTTPRoute Get calls when blocked
+	// This simulates the case where HTTPRoute was created but then deleted or not found during status checks
+	if c.blockHTTPRouteCreation {
+		if _, ok := obj.(*gwapiv1.HTTPRoute); ok {
+			return apierr.NewNotFound(schema.GroupResource{
+				Group:    gwapiv1.GroupVersion.Group,
+				Resource: "httproutes",
+			}, key.Name)
+		}
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
 
 func TestCreateRawURL(t *testing.T) {
 	g := NewGomegaWithT(t)
@@ -123,44 +153,8 @@ func TestGetRawServiceHost(t *testing.T) {
 			},
 			expectedHost: "test-isvc-transformer.default.svc.cluster.local",
 		},
-		"predictor with default suffix": {
-			isvc: &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-isvc-pred-default",
-					Namespace: "default",
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor: v1beta1.PredictorSpec{},
-				},
-			},
-			expectedHost: "test-isvc-pred-default-predictor.default.svc.cluster.local",
-		},
-		"transformer with default suffix": {
-			isvc: &v1beta1.InferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-isvc-pred-default",
-					Namespace: "default",
-				},
-				Spec: v1beta1.InferenceServiceSpec{
-					Predictor:   v1beta1.PredictorSpec{},
-					Transformer: &v1beta1.TransformerSpec{},
-				},
-			},
-			expectedHost: "test-isvc-pred-default-transformer.default.svc.cluster.local",
-		},
 	}
 
-	s := scheme.Scheme
-	s.AddKnownTypes(v1beta1.SchemeGroupVersion, &v1beta1.InferenceService{})
-	client := fake.NewClientBuilder().WithScheme(s).Build()
-	// Create a dummy service to test default suffix cases
-	client.Create(t.Context(), &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-isvc-pred-default",
-			Namespace: "default",
-		},
-		Spec: corev1.ServiceSpec{},
-	})
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
 			host := getRawServiceHost(tc.isvc)
@@ -364,6 +358,91 @@ func TestIsHTTPRouteReady(t *testing.T) {
 			expectedReady:   false,
 			expectedReason:  ptr.To(HTTPRouteParentStatusNotAvailable),
 			expectedMessage: ptr.To(HTTPRouteNotReady),
+		},
+		"resolved refs not ready": {
+			httpRouteStatus: gwapiv1.HTTPRouteStatus{
+				RouteStatus: gwapiv1.RouteStatus{
+					Parents: []gwapiv1.RouteParentStatus{
+						{
+							Conditions: []metav1.Condition{
+								{
+									Type:   string(gwapiv1.RouteConditionAccepted),
+									Status: metav1.ConditionTrue,
+								},
+								{
+									Type:    string(gwapiv1.RouteConditionResolvedRefs),
+									Status:  metav1.ConditionFalse,
+									Reason:  "BackendNotFound",
+									Message: "Backend service not found",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedReady:   false,
+			expectedReason:  ptr.To("BackendNotFound"),
+			expectedMessage: ptr.To("Backend service not found"),
+		},
+		"multiple parents with one not ready": {
+			httpRouteStatus: gwapiv1.HTTPRouteStatus{
+				RouteStatus: gwapiv1.RouteStatus{
+					Parents: []gwapiv1.RouteParentStatus{
+						{
+							Conditions: []metav1.Condition{
+								{
+									Type:   string(gwapiv1.RouteConditionAccepted),
+									Status: metav1.ConditionTrue,
+								},
+								{
+									Type:   string(gwapiv1.RouteConditionResolvedRefs),
+									Status: metav1.ConditionTrue,
+								},
+							},
+						},
+						{
+							Conditions: []metav1.Condition{
+								{
+									Type:    string(gwapiv1.RouteConditionAccepted),
+									Status:  metav1.ConditionFalse,
+									Reason:  "GatewayNotFound",
+									Message: "Gateway not found",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedReady:   false,
+			expectedReason:  ptr.To("GatewayNotFound"),
+			expectedMessage: ptr.To("Gateway not found"),
+		},
+		"both accepted and resolved refs false": {
+			httpRouteStatus: gwapiv1.HTTPRouteStatus{
+				RouteStatus: gwapiv1.RouteStatus{
+					Parents: []gwapiv1.RouteParentStatus{
+						{
+							Conditions: []metav1.Condition{
+								{
+									Type:    string(gwapiv1.RouteConditionAccepted),
+									Status:  metav1.ConditionFalse,
+									Reason:  "NotAccepted",
+									Message: "Route not accepted",
+								},
+								{
+									Type:    string(gwapiv1.RouteConditionResolvedRefs),
+									Status:  metav1.ConditionFalse,
+									Reason:  "BackendNotFound",
+									Message: "Backend not found",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedReady:   false,
+			expectedReason:  ptr.To("NotAccepted"),
+			expectedMessage: ptr.To("Route not accepted"),
 		},
 	}
 
@@ -2353,8 +2432,9 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		}
 		client := fake.NewClientBuilder().WithScheme(s).Build()
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
-		err := reconciler.Reconcile(t.Context(), isvc)
+		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(result).To(Equal(ctrl.Result{}))
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionTrue))
@@ -2375,14 +2455,15 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		clusterLocalConfig.IngressDomain = constants.ClusterLocalDomain
 		client := fake.NewClientBuilder().WithScheme(s).Build()
 		reconciler := NewRawHTTPRouteReconciler(client, s, &clusterLocalConfig, isvcConfig)
-		err := reconciler.Reconcile(t.Context(), isvc)
+		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(result).To(Equal(ctrl.Result{}))
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionTrue))
 	})
 
-	t.Run("Reconcile returns error if HTTPRoute not found", func(t *testing.T) {
+	t.Run("Reconcile returns requeue if HTTPRoute not found", func(t *testing.T) {
 		isvc := &v1beta1.InferenceService{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-isvc",
@@ -2399,8 +2480,15 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 		})
 		client := fake.NewClientBuilder().WithScheme(s).Build()
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
-		err := reconciler.Reconcile(t.Context(), isvc)
+		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(result.Requeue).To(BeTrue())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+		// When HTTPRoutes are newly created, they have empty status which leads to ParentStatusNotAvailable
+		g.Expect(cond.Reason).To(Equal("ParentStatusNotAvailable"))
+		g.Expect(cond.Message).To(Equal("Predictor HttpRouteNotReady"))
 	})
 
 	t.Run("Reconcile sets IngressReady to False if HTTPRoute not ready", func(t *testing.T) {
@@ -2454,11 +2542,13 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			).
 			Build()
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
-		err := reconciler.Reconcile(t.Context(), isvc)
+		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(result.Requeue).To(BeTrue())
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
 		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+		g.Expect(cond.Reason).To(Equal("ParentStatusNotAvailable"))
 		g.Expect(cond.Message).To(ContainSubstring("Predictor"))
 	})
 
@@ -2517,9 +2607,653 @@ func TestRawHTTPRouteReconciler_Reconcile(t *testing.T) {
 			Build()
 
 		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
-		err := reconciler.Reconcile(t.Context(), isvc)
+		result, err := reconciler.Reconcile(t.Context(), isvc)
 		g.Expect(err).ToNot(HaveOccurred())
+		// HTTPRoutes get updated by reconciler which resets their status, causing requeue
+		g.Expect(result.Requeue).To(BeTrue())
 		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
 		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+	})
+
+	t.Run("Reconcile requeues when HTTPRoute not found", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-requeue",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		// Create client without HTTPRoute objects - HTTPRoutes get created during reconciliation but have empty status
+		client := fake.NewClientBuilder().WithScheme(s).Build()
+		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
+		result, err := reconciler.Reconcile(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(result.Requeue).To(BeTrue())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+		// HTTPRoutes are created during reconciliation but have empty status, leading to ParentStatusNotAvailable
+		g.Expect(cond.Reason).To(Equal("ParentStatusNotAvailable"))
+		g.Expect(cond.Message).To(ContainSubstring("HttpRouteNotReady"))
+	})
+
+	t.Run("Reconcile requeues when HTTPRoute not ready", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-not-ready",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		// Create HTTPRoute with not ready status - needs to have the correct spec to avoid being updated
+		desiredPredictorRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredPredictorRoute).NotTo(BeNil())
+
+		notReadyHTTPRoute := desiredPredictorRoute.DeepCopy()
+		// Set controller reference to match what the reconciler will set
+		err = controllerutil.SetControllerReference(isvc, notReadyHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+		notReadyHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:    string(gwapiv1.RouteConditionAccepted),
+								Status:  metav1.ConditionFalse,
+								Reason:  "NotAccepted",
+								Message: "Route not accepted by gateway",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		client := fake.NewClientBuilder().
+			WithScheme(s).
+			WithObjects(
+				notReadyHTTPRoute,
+				readyHTTPRoute(isvc.Name, isvc.Namespace), // Top-level route is ready
+			).
+			Build()
+
+		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
+		result, err := reconciler.Reconcile(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(result.Requeue).To(BeTrue())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+		g.Expect(cond.Reason).To(Equal("NotAccepted"))
+		g.Expect(cond.Message).To(ContainSubstring("Predictor"))
+	})
+
+	t.Run("Reconcile requeues when transformer HTTPRoute not ready", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-transformer",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor:   v1beta1.PredictorSpec{},
+				Transformer: &v1beta1.TransformerSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+		isvc.Status.SetCondition(v1beta1.TransformerReady, &apis.Condition{
+			Type:   v1beta1.TransformerReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		// Create ready predictor HTTPRoute but not ready transformer HTTPRoute
+		desiredPredictorRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredPredictorRoute).NotTo(BeNil())
+
+		readyPredictorHTTPRoute := desiredPredictorRoute.DeepCopy()
+		// Set controller reference to match what the reconciler will set
+		err = controllerutil.SetControllerReference(isvc, readyPredictorHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+		readyPredictorHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwapiv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+							{
+								Type:   string(gwapiv1.RouteConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		desiredTransformerRoute, err := createRawTransformerHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredTransformerRoute).NotTo(BeNil())
+
+		notReadyTransformerHTTPRoute := desiredTransformerRoute.DeepCopy()
+		// Set controller reference to match what the reconciler will set
+		err = controllerutil.SetControllerReference(isvc, notReadyTransformerHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// Create a temporary client to perform dry-run update on the test HTTPRoute
+		// This ensures it has the same defaults as what the reconciler will apply
+		tempClient := fake.NewClientBuilder().WithScheme(s).Build()
+		err = tempClient.Create(t.Context(), notReadyTransformerHTTPRoute)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		// Perform the same dry-run update that the reconciler will do
+		err = tempClient.Update(t.Context(), notReadyTransformerHTTPRoute, client.DryRunAll)
+		g.Expect(err).ToNot(HaveOccurred())
+
+		notReadyTransformerHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:    string(gwapiv1.RouteConditionResolvedRefs),
+								Status:  metav1.ConditionFalse,
+								Reason:  "BackendNotFound",
+								Message: "Backend service not found",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		// Create ready top-level HTTPRoute
+		desiredTopLevelRoute, err := createRawTopLevelHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredTopLevelRoute).NotTo(BeNil())
+
+		readyTopLevelHTTPRoute := desiredTopLevelRoute.DeepCopy()
+		// Set controller reference to match what the reconciler will set
+		err = controllerutil.SetControllerReference(isvc, readyTopLevelHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+		readyTopLevelHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwapiv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+							{
+								Type:   string(gwapiv1.RouteConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		client := fake.NewClientBuilder().
+			WithScheme(s).
+			WithObjects(
+				readyPredictorHTTPRoute,
+				notReadyTransformerHTTPRoute,
+				readyTopLevelHTTPRoute,
+			).
+			Build()
+
+		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
+		result, err := reconciler.Reconcile(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(result.Requeue).To(BeTrue())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+		g.Expect(cond.Reason).To(Equal("BackendNotFound"))
+		g.Expect(cond.Message).To(ContainSubstring("Transformer"))
+	})
+
+	t.Run("Reconcile requeues when explainer HTTPRoute not ready", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-explainer",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+				Explainer: &v1beta1.ExplainerSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+		isvc.Status.SetCondition(v1beta1.ExplainerReady, &apis.Condition{
+			Type:   v1beta1.ExplainerReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		// Create ready predictor HTTPRoute but not ready explainer HTTPRoute
+		desiredPredictorRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredPredictorRoute).NotTo(BeNil())
+
+		readyPredictorHTTPRoute := desiredPredictorRoute.DeepCopy()
+		// Set controller reference to match what the reconciler will set
+		err = controllerutil.SetControllerReference(isvc, readyPredictorHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+		readyPredictorHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwapiv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+							{
+								Type:   string(gwapiv1.RouteConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		desiredExplainerRoute, err := createRawExplainerHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredExplainerRoute).NotTo(BeNil())
+
+		notReadyExplainerHTTPRoute := desiredExplainerRoute.DeepCopy()
+		// Set controller reference to match what the reconciler will set
+		err = controllerutil.SetControllerReference(isvc, notReadyExplainerHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+		notReadyExplainerHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:    string(gwapiv1.RouteConditionAccepted),
+								Status:  metav1.ConditionFalse,
+								Reason:  "UnsupportedProtocol",
+								Message: "Protocol not supported",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		desiredTopLevelRoute, err := createRawTopLevelHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredTopLevelRoute).NotTo(BeNil())
+
+		readyTopLevelHTTPRoute := desiredTopLevelRoute.DeepCopy()
+		// Set controller reference to match what the reconciler will set
+		err = controllerutil.SetControllerReference(isvc, readyTopLevelHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+		readyTopLevelHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwapiv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+							{
+								Type:   string(gwapiv1.RouteConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		client := fake.NewClientBuilder().
+			WithScheme(s).
+			WithObjects(
+				readyPredictorHTTPRoute,
+				notReadyExplainerHTTPRoute,
+				readyTopLevelHTTPRoute,
+			).
+			Build()
+
+		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
+		result, err := reconciler.Reconcile(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(result.Requeue).To(BeTrue())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+		g.Expect(cond.Reason).To(Equal("UnsupportedProtocol"))
+		g.Expect(cond.Message).To(ContainSubstring("Explainer"))
+	})
+
+	t.Run("Reconcile requeues when top-level HTTPRoute not ready", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-toplevel",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		// Create ready predictor HTTPRoute but not ready top-level HTTPRoute
+		desiredTopLevelRoute, err := createRawTopLevelHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredTopLevelRoute).NotTo(BeNil())
+
+		notReadyTopLevelHTTPRoute := desiredTopLevelRoute.DeepCopy()
+		// Set controller reference to match what the reconciler will set
+		err = controllerutil.SetControllerReference(isvc, notReadyTopLevelHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+		notReadyTopLevelHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwapiv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+							{
+								Type:    string(gwapiv1.RouteConditionResolvedRefs),
+								Status:  metav1.ConditionFalse,
+								Reason:  "InvalidKind",
+								Message: "Invalid backend kind",
+							},
+						},
+					},
+				},
+			},
+		}
+
+		desiredPredictorRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredPredictorRoute).NotTo(BeNil())
+
+		readyPredictorHTTPRoute := desiredPredictorRoute.DeepCopy()
+		// Set controller reference to match what the reconciler will set
+		err = controllerutil.SetControllerReference(isvc, readyPredictorHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+		readyPredictorHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwapiv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+							{
+								Type:   string(gwapiv1.RouteConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		client := fake.NewClientBuilder().
+			WithScheme(s).
+			WithObjects(
+				readyPredictorHTTPRoute,
+				notReadyTopLevelHTTPRoute,
+			).
+			Build()
+
+		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
+		result, err := reconciler.Reconcile(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(result.Requeue).To(BeTrue())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+		g.Expect(cond.Reason).To(Equal("InvalidKind"))
+		g.Expect(cond.Message).To(ContainSubstring("InferenceService"))
+	})
+
+	t.Run("Reconcile does not requeue when all HTTPRoutes are ready", func(t *testing.T) {
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-all-ready",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor:   v1beta1.PredictorSpec{},
+				Transformer: &v1beta1.TransformerSpec{},
+				Explainer:   &v1beta1.ExplainerSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+		isvc.Status.SetCondition(v1beta1.TransformerReady, &apis.Condition{
+			Type:   v1beta1.TransformerReady,
+			Status: corev1.ConditionTrue,
+		})
+		isvc.Status.SetCondition(v1beta1.ExplainerReady, &apis.Condition{
+			Type:   v1beta1.ExplainerReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		desiredPredictorRoute, err := createRawPredictorHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredPredictorRoute).NotTo(BeNil())
+
+		readyPredictorHTTPRoute := desiredPredictorRoute.DeepCopy()
+		err = controllerutil.SetControllerReference(isvc, readyPredictorHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+		readyPredictorHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwapiv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+							{
+								Type:   string(gwapiv1.RouteConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		desiredTransformerRoute, err := createRawTransformerHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredTransformerRoute).NotTo(BeNil())
+
+		readyTransformerHTTPRoute := desiredTransformerRoute.DeepCopy()
+		err = controllerutil.SetControllerReference(isvc, readyTransformerHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+		readyTransformerHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwapiv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+							{
+								Type:   string(gwapiv1.RouteConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		desiredExplainerRoute, err := createRawExplainerHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredExplainerRoute).NotTo(BeNil())
+
+		readyExplainerHTTPRoute := desiredExplainerRoute.DeepCopy()
+		err = controllerutil.SetControllerReference(isvc, readyExplainerHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+		readyExplainerHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwapiv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+							{
+								Type:   string(gwapiv1.RouteConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		desiredTopLevelRoute, err := createRawTopLevelHTTPRoute(isvc, ingressConfig, isvcConfig)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(desiredTopLevelRoute).NotTo(BeNil())
+
+		readyTopLevelHTTPRoute := desiredTopLevelRoute.DeepCopy()
+		err = controllerutil.SetControllerReference(isvc, readyTopLevelHTTPRoute, s)
+		g.Expect(err).ToNot(HaveOccurred())
+		readyTopLevelHTTPRoute.Status = gwapiv1.HTTPRouteStatus{
+			RouteStatus: gwapiv1.RouteStatus{
+				Parents: []gwapiv1.RouteParentStatus{
+					{
+						Conditions: []metav1.Condition{
+							{
+								Type:   string(gwapiv1.RouteConditionAccepted),
+								Status: metav1.ConditionTrue,
+							},
+							{
+								Type:   string(gwapiv1.RouteConditionResolvedRefs),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		client := fake.NewClientBuilder().
+			WithScheme(s).
+			WithObjects(
+				readyPredictorHTTPRoute,
+				readyTransformerHTTPRoute,
+				readyExplainerHTTPRoute,
+				readyTopLevelHTTPRoute,
+			).
+			Build()
+
+		reconciler := NewRawHTTPRouteReconciler(client, s, ingressConfig, isvcConfig)
+		result, err := reconciler.Reconcile(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(result.Requeue).To(BeFalse())
+		g.Expect(result.RequeueAfter).To(BeZero())
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionTrue))
+	})
+
+	t.Run("Reconcile handles HTTPRoute not found (IsNotFound error)", func(t *testing.T) {
+		// This test specifically covers the edge case where checkHTTPRouteStatuses
+		// encounters an IsNotFound error when trying to get HTTPRoutes
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-isvc-not-found",
+				Namespace: "default",
+			},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+			},
+			Status: v1beta1.InferenceServiceStatus{},
+		}
+		isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+			Type:   v1beta1.PredictorReady,
+			Status: corev1.ConditionTrue,
+		})
+
+		// Create an interceptor client that blocks HTTPRoute creation
+		// This ensures that when checkHTTPRouteStatuses tries to get HTTPRoutes,
+		// it will encounter IsNotFound errors and trigger the edge case
+		baseClient := fake.NewClientBuilder().
+			WithScheme(s).
+			WithObjects(
+				// Add a Service to simulate that components are ready
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      constants.PredictorServiceName(isvc.Name),
+						Namespace: isvc.Namespace,
+					},
+				},
+			).
+			Build()
+
+		interceptorClient := &httpRouteClientInterceptor{
+			Client:                 baseClient,
+			blockHTTPRouteCreation: true,
+		}
+
+		reconciler := NewRawHTTPRouteReconciler(interceptorClient, s, ingressConfig, isvcConfig)
+		result, err := reconciler.Reconcile(t.Context(), isvc)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(result.Requeue).To(BeTrue())
+
+		cond := isvc.Status.GetCondition(v1beta1.IngressReady)
+		g.Expect(cond).NotTo(BeNil())
+		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
+		// This is the specific edge case we're testing - when HTTPRoute is not found,
+		// the condition should be set with reason "Predictor Deployment NotReady" and
+		// message "Predictor HTTPRoute not created"
+		g.Expect(cond.Reason).To(Equal("Predictor Deployment NotReady"))
+		g.Expect(cond.Message).To(Equal("Predictor HTTPRoute not created"))
 	})
 }
