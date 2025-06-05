@@ -201,7 +201,7 @@ async def explain_response(
         logger.info("Sending request data: %s", data)
         try:
             # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
-            await asyncio.sleep(5)
+            await asyncio.sleep(10)
             response = await client.explain(
                 url, model_name=service_name, data=data, headers=headers
             )
