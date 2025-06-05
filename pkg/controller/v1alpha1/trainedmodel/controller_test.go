@@ -332,8 +332,8 @@ var _ = Describe("v1beta1 TrainedModel controller", func() {
 			}, timeout, interval).Should(BeTrue())
 
 			// Updates the url and address of inference service status
-			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
-			clusterURL, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.DefaultPredictorServiceName(serviceKey.Name), serviceKey.Namespace, clusterIp))
+			predictorUrl, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, domain))
+			clusterURL, _ := apis.ParseURL("http://" + constants.InferenceServiceHostName(constants.PredictorServiceName(serviceKey.Name), serviceKey.Namespace, clusterIp))
 			inferenceService.Status.URL = predictorUrl
 			inferenceService.Status.Address = &duckv1.Addressable{
 				URL: clusterURL,
