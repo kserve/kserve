@@ -47,7 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -302,8 +302,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if ingressConfig.EnableGatewayAPI {
 			reconciler := ingress.NewRawHTTPRouteReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
 
-			if err := reconciler.Reconcile(ctx, isvc); err != nil {
-				return reconcile.Result{}, errors.Wrapf(err, "fails to reconcile ingress")
+			if result, err := reconciler.Reconcile(ctx, isvc); err != nil {
+				return result, errors.Wrapf(err, "fails to reconcile ingress")
+			} else if result.Requeue || result.RequeueAfter > 0 {
+				return result, nil
 			}
 		} else {
 			reconciler, err := ingress.NewRawIngressReconciler(r.Client, r.Scheme, ingressConfig, isvcConfig)
@@ -461,13 +463,13 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	}
 
 	if ingressConfig.EnableGatewayAPI {
-		gatewayapiFound, err := utils.IsCrdAvailable(r.ClientConfig, gatewayapiv1.GroupVersion.String(), constants.HTTPRouteKind)
+		gatewayapiFound, err := utils.IsCrdAvailable(r.ClientConfig, gwapiv1.GroupVersion.String(), constants.HTTPRouteKind)
 		if err != nil {
 			return err
 		}
 
 		if gatewayapiFound {
-			ctrlBuilder = ctrlBuilder.Owns(&gatewayapiv1.HTTPRoute{})
+			ctrlBuilder = ctrlBuilder.Owns(&gwapiv1.HTTPRoute{})
 		} else {
 			r.Log.Info("The InferenceService controller won't watch gateway.networking.k8s.io/v1/HTTPRoute resources because the CRD is not available.")
 			panic("Gateway API CRD not available")
