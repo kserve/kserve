@@ -87,6 +87,21 @@ func (c *CustomPredictor) GetStorageUri() *string {
 	return nil
 }
 
+func (c *CustomPredictor) GetStorageMountPath() *string {
+	// return the CustomSpecStorageUri env variable value if set on the spec
+	for _, container := range c.Containers {
+		if container.Name == constants.InferenceServiceContainerName {
+			for _, envVar := range container.Env {
+				if envVar.Name == constants.CustomSpecStorageMountPathKey {
+					return &envVar.Value
+				}
+			}
+			break
+		}
+	}
+	return nil
+}
+
 func (c *CustomPredictor) GetStorageSpec() *StorageSpec {
 	return nil
 }
