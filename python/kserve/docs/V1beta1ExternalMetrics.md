@@ -3,7 +3,6 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
-**auth_modes** | **str** | authModes defines the authentication modes for the metrics backend | [optional] 
 **backend** | **str** | MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite. | [optional] [default to '']
 **namespace** | **str** | For namespaced query | [optional] 
 **query** | **str** | Query to run to get metrics from MetricsBackend | [optional] 
