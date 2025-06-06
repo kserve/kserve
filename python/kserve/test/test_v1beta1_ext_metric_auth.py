@@ -50,7 +50,8 @@ class TestV1beta1ExtMetricAuth(unittest.TestCase):
         optional params are included"""
         # model = kserve.models.v1beta1_ext_metric_auth.V1beta1ExtMetricAuth()  # noqa: E501
         if include_optional:
-            return V1beta1ExtMetricAuth(name="0")
+            return V1beta1ExtMetricAuth(auth_modes="bearer",authentication_ref=kserve.models.v1beta1_authentication_ref.V1beta1AuthenticationRef(
+                name="example-auth-ref",))
         else:
             return V1beta1ExtMetricAuth()
 
