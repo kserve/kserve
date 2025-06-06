@@ -554,7 +554,19 @@ data:
          # This is to detect if models are missing from local disk
          "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }}
          # This is to disable localmodel pv and pvc management for namespaces without isvcs
-         "disableVolumeManagement": false
+         "disableVolumeManagement": false,
+         # localModelAgentImage specifies the default image used for the local model node agent.
+         "localModelAgentImage": "kserve/kserve-localmodelnode-agent:latest",
+         # localModelAgentImagePullPolicy specifies the image pull policy for the local model node agent.
+         "localModelAgentImagePullPolicy": "Always",
+         # localModelAgentCpuRequest specifies the cpu request for the local model node agent.
+         "localModelAgentCpuRequest": "100m",
+         # localModelAgentMemoryRequest specifies the memory request for the local model node agent.
+         "localModelAgentMemoryRequest": "200Mi",
+         # localModelAgentCpuLimit specifies the cpu limit for the local model node agent.
+         "localModelAgentCpuLimit": "100m",
+         # localModelAgentMemoryLimit specifies the memory limit for the local model node agent.
+         "localModelAgentMemoryLimit": "300Mi"
        }
 
   agent: |-
@@ -675,7 +687,13 @@ data:
       "defaultJobImage": "kserve/storage-initializer:latest",
       "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }},
       "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }},
-      "disableVolumeManagement": {{ .Values.kserve.localmodel.disableVolumeManagement }}
+      "disableVolumeManagement": {{ .Values.kserve.localmodel.disableVolumeManagement }},
+      "localModelAgentImage": "{{ .Values.kserve.localmodel.agent.image }}:{{ .Values.kserve.localmodel.agent.tag }}",
+      "localModelAgentImagePullPolicy": "{{ .Values.kserve.localmodel.agent.imagePullPolicy }}",
+      "localModelAgentCpuRequest": "{{ .Values.kserve.localmodel.agent.resources.requests.cpu }}",
+      "localModelAgentMemoryRequest": "{{ .Values.kserve.localmodel.agent.resources.requests.memory }}",
+      "localModelAgentCpuLimit": "{{ .Values.kserve.localmodel.agent.resources.limits.cpu }}",
+      "localModelAgentMemoryLimit": "{{ .Values.kserve.localmodel.agent.resources.limits.memory }}"
     }
   security: |-
     {
