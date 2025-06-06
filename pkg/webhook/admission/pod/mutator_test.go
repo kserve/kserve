@@ -253,7 +253,7 @@ func TestMutator_Handle(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						constants.InferenceServicePodLabelKey: "",
+						constants.InferenceServiceNameLabel: "",
 					},
 				},
 				Spec: corev1.PodSpec{

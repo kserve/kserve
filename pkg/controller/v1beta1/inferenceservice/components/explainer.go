@@ -100,8 +100,8 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 			isvc.Labels,
 			explainerLabels,
 			map[string]string{
-				constants.InferenceServicePodLabelKey: isvc.Name,
-				constants.KServiceComponentLabel:      string(v1beta1.ExplainerComponent),
+				constants.InferenceServiceNameLabel: isvc.Name,
+				constants.KServiceComponentLabel:    string(v1beta1.ExplainerComponent),
 			},
 		),
 		Annotations: utils.Union(

@@ -361,3 +361,11 @@ func NewServiceConfig(isvcConfigMap *corev1.ConfigMap) (*ServiceConfig, error) {
 	}
 	return serviceConfig, nil
 }
+
+// ParseIngressGateway parses the ingressGateway string in the format "<namespace>/<name>"
+// and returns the namespace and name as separate strings. This does not validate the format,
+func ParseIngressGateway(ingressGateway string) (string, string) {
+	// We don't validate the format here, as it is already validated in NewIngressConfig.
+	splits := strings.Split(ingressGateway, "/")
+	return splits[0], splits[1]
+}

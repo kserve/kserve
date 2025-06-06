@@ -80,7 +80,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 				},
 				Labels: map[string]string{
 					constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
-					constants.InferenceServicePodLabelKey:           "default-predictor",
+					constants.InferenceServiceNameLabel:             "default-predictor",
 					constants.KServiceComponentLabel:                string(v1beta1.PredictorComponent),
 					constants.InferenceServiceGenerationPodLabelKey: "1",
 				},
@@ -145,7 +145,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Labels: map[string]string{
 						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
 						constants.KServiceComponentLabel:                "predictor",
-						constants.InferenceServicePodLabelKey:           "default-predictor",
+						constants.InferenceServiceNameLabel:             "default-predictor",
 						constants.InferenceServiceGenerationPodLabelKey: "1",
 					},
 					Annotations: map[string]string{
@@ -173,7 +173,7 @@ func TestCreateDefaultDeployment(t *testing.T) {
 					Labels: map[string]string{
 						constants.RawDeploymentAppLabel:                 "isvc.default-predictor",
 						constants.KServiceComponentLabel:                "predictor",
-						constants.InferenceServicePodLabelKey:           "default-predictor",
+						constants.InferenceServiceNameLabel:             "default-predictor",
 						constants.InferenceServiceGenerationPodLabelKey: "1",
 						constants.MultiNodeRoleLabelKey:                 constants.MultiNodeHead,
 					},

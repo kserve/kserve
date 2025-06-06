@@ -155,8 +155,8 @@ func generateMetadata(isvc *v1beta1.InferenceService,
 		Name:      name,
 		Namespace: isvc.Namespace,
 		Labels: utils.Union(isvc.Labels, map[string]string{
-			constants.InferenceServicePodLabelKey: isvc.Name,
-			constants.KServiceComponentLabel:      string(componentType),
+			constants.InferenceServiceNameLabel: isvc.Name,
+			constants.KServiceComponentLabel:    string(componentType),
 		}),
 		Annotations: annotations,
 	}

@@ -187,7 +187,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			logMode = string(v1beta1.LogAll)
 		}
 
-		inferenceServiceName := pod.ObjectMeta.Labels[constants.InferenceServiceLabel]
+		inferenceServiceName := pod.ObjectMeta.Labels[constants.InferenceServiceNameLabel]
 		namespace := pod.ObjectMeta.Namespace
 		endpoint := pod.ObjectMeta.Labels[constants.KServiceEndpointLabel]
 		component := pod.ObjectMeta.Labels[constants.KServiceComponentLabel]
