@@ -5738,6 +5738,13 @@ func schema_pkg_apis_serving_v1beta1_InferenceServiceStatus(ref common.Reference
 							Format:      "",
 						},
 					},
+					"servingRuntimeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ServingRuntimeName is the name of the ServingRuntime that the InferenceService is using",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
