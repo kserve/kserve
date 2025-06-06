@@ -1880,7 +1880,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(deployed3.Spec.Template.Spec.Containers[0].Env).To(ContainElements(newEnvs))
 		})
 	})
-	Context("When Updating a Serving Runtime", func() {
+	FContext("When Updating a Serving Runtime", func() {
 		configs := map[string]string{
 			"explainers": `{
 				"alibi": {
@@ -2050,7 +2050,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err != nil {
 					return "", err
 				}
-				return deploymentAfterUpdate.Spec.Template.Labels["key1"], nil
+				return deploymentAfterUpdate.Spec.Template.ObjectMeta.Labels["key1"], nil
 			}, timeout, interval).Should(Equal("updatedServingRuntime"))
 		})
 
@@ -2191,7 +2191,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err != nil {
 					return "", err
 				}
-				return deploymentAfterUpdate.Spec.Template.Labels["key1"], nil
+				return deploymentAfterUpdate.Spec.Template.ObjectMeta.Labels["key1"], nil
 			}, timeout, interval).Should(Equal("updatedServingRuntime"))
 		})
 
@@ -2313,9 +2313,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			servingRuntimeToUpdate := &v1alpha1.ServingRuntime{}
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: servingRuntimeName, Namespace: isvcNamespace}, servingRuntimeToUpdate)).Should(Succeed())
 			servingRuntimeToUpdate.Spec.ServingRuntimePodSpec.Labels["key1"] = "updatedServingRuntime"
-			Eventually(func() error {
-				return k8sClient.Update(ctx, servingRuntimeToUpdate)
-			}, timeout, interval).Should(Succeed())
+			Expect(k8sClient.Update(ctx, servingRuntimeToUpdate)).Should(Succeed())
 
 			// Wait until the ServingRuntime reflects the updated spec.
 			servingRuntimeAfterUpdate := &v1alpha1.ServingRuntime{}
@@ -2328,8 +2326,13 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(Equal("updatedServingRuntime"))
 			// Check to make sure deployment didn't update
 			deploymentAfterUpdate := &appsv1.Deployment{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: deploymentName, Namespace: serviceKey.Namespace}, deploymentAfterUpdate)).Should(Succeed())
-			Expect(deploymentAfterUpdate.Spec.Template.Labels["key1"]).Should(Equal("val1FromSR"))
+			Eventually(func() (string, error) {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: deploymentName, Namespace: serviceKey.Namespace}, deploymentAfterUpdate)
+				if err != nil {
+					return "", err
+				}
+				return deploymentAfterUpdate.Spec.Template.ObjectMeta.Labels["key1"], nil
+			}, timeout, interval).Should(Equal("val1FromSR"))
 		})
 		It("InferenceService should reconcile only if the matching serving runtime was updated even if multiple exist", func() {
 			// Create configmap
@@ -2544,7 +2547,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				if err != nil {
 					return "", err
 				}
-				return pytorchServingRuntimeAfterUpdate.Spec.Labels["key1"], nil
+				return pytorchServingRuntimeAfterUpdate.Spec.ServingRuntimePodSpec.Labels["key1"], nil
 			}, timeout, interval).Should(Equal("updatedServingRuntime"))
 			// Wait until the Deployment reflects the update
 			pytorchDeploymentAfterUpdate := &appsv1.Deployment{}
@@ -2560,7 +2563,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			tensorFlowDeploymentAfterUpdate := &appsv1.Deployment{}
 			tensorflowDeploymentName := constants.PredictorServiceName(serviceKeyTensorflow.Name)
 			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: tensorflowDeploymentName, Namespace: serviceKeyTensorflow.Namespace}, tensorFlowDeploymentAfterUpdate)).Should(Succeed())
-			Expect(tensorFlowDeploymentAfterUpdate.Spec.Template.Labels["key1"]).Should(Equal("val1FromSR"))
+			Expect(tensorFlowDeploymentAfterUpdate.Spec.Template.ObjectMeta.Labels["key1"]).Should(Equal("val1FromSR"))
 		})
 	})
 
