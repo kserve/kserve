@@ -45,8 +45,8 @@ from ..common.utils import KSERVE_TEST_NAMESPACE, generate
 @pytest.mark.modelcache
 @pytest.mark.asyncio(scope="session")
 async def test_vllm_modelcache():
-    service_name = "opt-125m-chat-modelcache-worker1"
-    storage_uri = "hf://facebook/opt-125m"
+    service_name = "qwen-chat-modelcache-worker1"
+    storage_uri = "hf://Qwen/Qwen2-0.5B-Instruct"
     nodes = ["minikube-m02", "minikube-m03"]
 
     pv_spec = V1PersistentVolumeSpec(
@@ -81,7 +81,7 @@ async def test_vllm_modelcache():
         api_version=constants.KSERVE_V1ALPHA1,
         kind=constants.KSERVE_KIND_LOCALMODELNODEGROUP,
         metadata=client.V1ObjectMeta(
-            name="opt-125m-nodegroup",
+            name="qwen-nodegroup",
         ),
         spec=V1alpha1LocalModelNodeGroupSpec(
             storage_limit="1Gi",
@@ -94,7 +94,7 @@ async def test_vllm_modelcache():
         api_version=constants.KSERVE_V1ALPHA1,
         kind=constants.KSERVE_KIND_LOCALMODELCACHE,
         metadata=client.V1ObjectMeta(
-            name="opt-125m",
+            name="qwen-model",
         ),
         spec=V1alpha1LocalModelCacheSpec(
             model_size="251Mi",
@@ -111,11 +111,11 @@ async def test_vllm_modelcache():
             ),
             args=[
                 "--model_name",
-                "hf-opt-125m-chat",
-                "--tokenizer_revision",
-                "27dcfa74d334bc871f3234de431e71c6eeba5dd6",
+                "hf-qwen-chat",
                 "--max_model_len",
                 "512",
+                "--dtype",
+                "bfloat16",
             ],
             resources=V1ResourceRequirements(
                 requests={"cpu": "2", "memory": "6Gi"},
@@ -176,11 +176,8 @@ async def test_vllm_modelcache():
             "minikube",
         )
 
-    res = generate(service_name, "./data/opt_125m_input_generate.json")
-    assert (
-        res["choices"][0]["message"]["content"]
-        == "I'm not sure if this is a good idea, but I'm going to try to get a"
-    )
+    res = generate(service_name, "./data/qwen_input_chat.json")
+    assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
     # Wait for the isvc to be deleted to avoid modelcache still in use error when deleting the model cache
     await asyncio.sleep(30)

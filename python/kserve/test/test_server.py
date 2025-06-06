@@ -24,6 +24,9 @@ from unittest import mock
 import avro.io
 import avro.schema
 import httpx
+from kserve.protocol.dataplane import DataPlane
+from kserve.protocol.model_repository_extension import ModelRepositoryExtension
+from kserve.protocol.rest.multiprocess.server import RESTServerMultiProcess
 import numpy as np
 import pandas as pd
 import pytest
@@ -34,7 +37,10 @@ from fastapi.testclient import TestClient
 from ray import serve
 
 from kserve import Model, ModelRepository, ModelServer
-from kserve.constants.constants import INFERENCE_CONTENT_LENGTH_HEADER
+from kserve.constants.constants import (
+    FASTAPI_APP_IMPORT_STRING,
+    INFERENCE_CONTENT_LENGTH_HEADER,
+)
 from kserve.errors import InvalidInput, NoModelReady
 from kserve.model import PredictorProtocol
 from kserve.model_server import app as kserve_app
@@ -46,7 +52,6 @@ from kserve.protocol.infer_type import (
     InferResponse,
     RequestedOutput,
 )
-from kserve.protocol.rest.v2_datamodels import is_pydantic_2
 from kserve.utils.utils import generate_uuid, get_predict_input, get_predict_response
 
 test_avsc_schema = """
@@ -881,13 +886,7 @@ class TestRayServer:
     def test_health_handler(self, http_server_client):
         resp = http_server_client.get("/v1/models/TestModel")
         assert resp.status_code == 200
-        # for some reason the RayServer responds with the stringified python bool
-        # when run on pydantic < 2 and the bool when run on pydantic >= 2
-        # eg {"name":"TestModel","ready":"True"} vs {"name":"TestModel","ready":true}
-        if is_pydantic_2:
-            expected_content = b'{"name":"TestModel","ready":true}'
-        else:
-            expected_content = b'{"name":"TestModel","ready":"True"}'
+        expected_content = b'{"name":"TestModel","ready":true}'
         assert resp.content == expected_content
 
     def test_predict(self, http_server_client):
@@ -1222,3 +1221,82 @@ class TestWithUnhealthyModel:
         with pytest.raises(NoModelReady) as exc_info:
             server.start([model])
         assert exc_info.type == NoModelReady
+
+
+class TestMutiProcessServer:
+
+    @pytest.mark.asyncio
+    async def test_rest_server_multiprocess(self):
+        model_repository = ModelRepository()
+        dummy_model = DummyModel("TestModel")
+        dummy_model.load()
+        model_repository.update(dummy_model)
+        model_repository.load("TestModel")
+        data_plane = DataPlane(model_registry=model_repository)
+        model_repository_extension = ModelRepositoryExtension(
+            model_registry=model_repository
+        )
+        http_port = 8080
+        workers = 4
+
+        server = RESTServerMultiProcess(
+            FASTAPI_APP_IMPORT_STRING,
+            data_plane,
+            model_repository_extension,
+            http_port,
+            workers=workers,
+        )
+
+        # Start server
+        task = asyncio.create_task(server.start())
+
+        # Wait for processes to start and become ready
+        max_attempts = 30
+        for attempt in range(max_attempts):
+            await asyncio.sleep(1)
+            if len(server._processes) == workers and all(
+                p.is_alive() for p in server._processes
+            ):
+                break
+            if attempt == max_attempts - 1:
+                raise RuntimeError("Server worker processes did not start properly")
+
+        try:
+            # Constantly poll to check if the port is open
+            for _ in range(30):
+                try:
+                    resp = httpx.get("http://localhost:8080/")
+                    if resp.status_code == 200:
+                        break
+                except httpx.RequestError:
+                    await asyncio.sleep(1)
+            else:
+                raise RuntimeError("Server did not start in time")
+
+            # Send predict request
+            input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
+            resp = httpx.post(
+                "http://localhost:8080/v2/models/TestModel/infer",
+                content=input_data,
+                headers={"content-type": "application/json"},
+            )
+            result = json.loads(resp.content)
+            assert resp.status_code == 200
+            assert result["outputs"][0]["data"] == [1, 2]
+            assert resp.headers["content-type"] == "application/json"
+
+            # Kill a process and check if it's restarted
+            old_pid = server._processes[0].pid
+            server._processes[0].kill()
+            await server._processes[0].wait_for_termination()
+
+            # Wait for respawn
+            await asyncio.sleep(5)
+
+            new_pid = server._processes[0].pid
+            assert old_pid != new_pid, "Process was not restarted"
+        finally:
+            # Cleanup
+            await server.stop()
+            await asyncio.sleep(5)
+            task.cancel()

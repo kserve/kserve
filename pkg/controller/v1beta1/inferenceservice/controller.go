@@ -23,6 +23,8 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	"github.com/pkg/errors"
 	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -39,17 +41,19 @@ import (
 	"knative.dev/pkg/apis"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/yaml"
-
-	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/components"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/cabundleconfigmap"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/ingress"
@@ -87,6 +91,9 @@ import (
 // +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects/finalizers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=opentelemetry.io,resources=opentelemetrycollectors/finalizers,verbs=get;list;watch;create;update;patch;delete
 
 // InferenceServiceState describes the Readiness of the InferenceService
 type InferenceServiceState string
@@ -138,7 +145,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
 	}
 
-	deploymentMode := isvcutils.GetDeploymentMode(annotations, deployConfig)
+	deploymentMode := isvcutils.GetDeploymentMode(isvc.Status.DeploymentMode, annotations, deployConfig)
 	r.Log.Info("Inference service deployment mode ", "deployment mode ", deploymentMode)
 
 	if deploymentMode == constants.ModelMeshDeployment {
@@ -203,6 +210,14 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				"It is not possible to use Serverless deployment mode when Knative Services are not available")
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceService '%s' is Serverless, but Knative Serving is not available", isvc.Name))
 		}
+
+		// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
+		allowZeroInitialScale, err := knutils.CheckZeroInitialScaleAllowed(ctx, r.Clientset)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
+		}
+
+		knutils.ValidateInitialScaleAnnotation(isvc.Annotations, allowZeroInitialScale, r.Log)
 	}
 
 	// Setup reconcilers
@@ -248,8 +263,10 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if isvc.Spec.Explainer != nil {
 			componentList = append(componentList, v1beta1.ExplainerComponent)
 		}
-		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.RoutesReady)
-		isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
+		if !isvc.GetForceStopRuntime() {
+			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.RoutesReady)
+			isvc.Status.PropagateCrossComponentStatus(componentList, v1beta1.LatestDeploymentReady)
+		}
 	}
 	// Reconcile ingress
 	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
@@ -299,6 +316,9 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredService *v1beta1.InferenceService,
 	deploymentMode constants.DeploymentModeType,
 ) error {
+	// set the DeploymentMode used for the InferenceService in the status
+	desiredService.Status.DeploymentMode = string(deploymentMode)
+
 	existingService := &v1beta1.InferenceService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
 	if err := r.Get(ctx, namespacedName, existingService); err != nil {
@@ -367,6 +387,11 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 		return err
 	}
 
+	otelFound, err := utils.IsCrdAvailable(r.ClientConfig, otelv1beta1.GroupVersion.String(), constants.OpenTelemetryCollector)
+	if err != nil {
+		return err
+	}
+
 	vsFound, err := utils.IsCrdAvailable(r.ClientConfig, istioclientv1beta1.SchemeGroupVersion.String(), constants.IstioVirtualServiceKind)
 	if err != nil {
 		return err
@@ -384,9 +409,26 @@ func (r *InferenceServiceReconciler) SetupWithManager(mgr ctrl.Manager, deployCo
 	}
 
 	if kedaFound {
-		ctrlBuilder = ctrlBuilder.Owns(&kedav1alpha1.ScaledObject{})
+		ctrlBuilder = ctrlBuilder.Owns(&kedav1alpha1.ScaledObject{}, builder.WithPredicates(predicate.Funcs{
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				_, ok := e.ObjectNew.(*kedav1alpha1.ScaledObject)
+				if !ok {
+					return false
+				}
+				// Ignore status updates for ScaledObject, only reconcile on spec changes
+				oldObj := e.ObjectOld.(*kedav1alpha1.ScaledObject)
+				newObj := e.ObjectNew.(*kedav1alpha1.ScaledObject)
+				return !equality.Semantic.DeepEqual(oldObj.Spec, newObj.Spec)
+			},
+		}))
 	} else {
 		r.Log.Info("The InferenceService controller won't watch keda.sh/v1/ScaledObject resources because the CRD is not available.")
+	}
+
+	if otelFound {
+		ctrlBuilder = ctrlBuilder.Owns(&otelv1beta1.OpenTelemetryCollector{})
+	} else {
+		r.Log.Info("The InferenceService controller won't watch opentelemetry-collector resources because the CRD is not available.")
 	}
 
 	if vsFound && !ingressConfig.DisableIstioVirtualHost {

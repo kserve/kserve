@@ -21,7 +21,7 @@ jobs:
       matrix:
         image: 
           - version: ${{ inputs.version }}
-            path: 'python/huggingface_server_cpu_openvino.Dockerfile'
+            path: 'python/huggingface_server_cpu.Dockerfile'
           - version: ${{ inputs.version }}-gpu
             path: 'python/huggingface_server.Dockerfile'
     runs-on: ubuntu-latest
@@ -59,7 +59,7 @@ jobs:
           echo VERSION=$VERSION >> $GITHUB_ENV
 
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           platforms: linux/amd64
           context: python
@@ -68,3 +68,4 @@ jobs:
           tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }} 
           # https://github.com/docker/buildx/issues/1533
           provenance: false
+          sbom: true

@@ -56,7 +56,7 @@ class V1beta1ResourceMetricSource(object):
         'target': 'target'
     }
 
-    def __init__(self, name=None, target=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name='', target=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1ResourceMetricSource - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -66,10 +66,8 @@ class V1beta1ResourceMetricSource(object):
         self._target = None
         self.discriminator = None
 
-        if name is not None:
-            self.name = name
-        if target is not None:
-            self.target = target
+        self.name = name
+        self.target = target
 
     @property
     def name(self):
@@ -91,6 +89,8 @@ class V1beta1ResourceMetricSource(object):
         :param name: The name of this V1beta1ResourceMetricSource.  # noqa: E501
         :type: str
         """
+        if self.local_vars_configuration.client_side_validation and name is None:  # noqa: E501
+            raise ValueError("Invalid value for `name`, must not be `None`")  # noqa: E501
 
         self._name = name
 
@@ -112,6 +112,8 @@ class V1beta1ResourceMetricSource(object):
         :param target: The target of this V1beta1ResourceMetricSource.  # noqa: E501
         :type: V1beta1MetricTarget
         """
+        if self.local_vars_configuration.client_side_validation and target is None:  # noqa: E501
+            raise ValueError("Invalid value for `target`, must not be `None`")  # noqa: E501
 
         self._target = target
 

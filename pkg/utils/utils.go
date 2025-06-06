@@ -18,11 +18,13 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
@@ -252,8 +254,8 @@ func GetEnvVarValue(envVars []corev1.EnvVar, key string) (string, bool) {
 	return "", false // if key does not exist, return "", false
 }
 
-// IsUnknownGpuResourceType check if the provided gpu resource type is unknown one
-func IsUnknownGpuResourceType(resources corev1.ResourceRequirements, customGpuResourceTypes string) bool {
+// HasUnknownGpuResourceType check if the provided gpu resource type is unknown one
+func HasUnknownGpuResourceType(resources corev1.ResourceRequirements, annotations map[string]string) (bool, error) {
 	basicResourceTypes := map[corev1.ResourceName]struct{}{
 		corev1.ResourceCPU:              {},
 		corev1.ResourceMemory:           {},
@@ -276,46 +278,49 @@ func IsUnknownGpuResourceType(resources corev1.ResourceRequirements, customGpuRe
 	addNonBasicResources(resources.Limits)
 	addNonBasicResources(resources.Requests)
 
-	// Validate GPU resource types
-	// If CustomGPUResourceTypesAnnotationKey is set, the specified custom GPU resource will be added to the available GPUResourceTypeList.
-	if customGpuResourceTypes != "" {
-		constants.GPUResourceTypeList = append(constants.GPUResourceTypeList, strings.Split(customGpuResourceTypes, ",")...)
+	// Update GPU resource type list
+	newGPUResourceTypeList, err := UpdateGPUResourceTypeListByAnnotation(annotations)
+	if err != nil {
+		return false, err
 	}
 
-	for _, gpuType := range constants.GPUResourceTypeList {
+	// Validate GPU resource types
+	for _, gpuType := range newGPUResourceTypeList {
 		allowedGPUResourceName := corev1.ResourceName(gpuType)
 		delete(possibleGPUResourceType, allowedGPUResourceName) // Remove allowed GPU resource if exists
 	}
 
 	// Return true if there are unknown GPU resources
-	return len(possibleGPUResourceType) > 0
+	return len(possibleGPUResourceType) > 0, nil
 }
 
 // IsValidCustomGPUArray checks if the input string is a valid JSON array of strings.
 // It returns false if the array is empty, contains empty strings, or any non-string elements.
-func IsValidCustomGPUArray(s string) bool {
+// Otherwise, it returns true and the list of custom GPU types.
+func IsValidCustomGPUArray(s string) ([]string, bool) {
 	// Check if the input string is a valid JSON array
 	var arr []interface{}
 	if err := json.Unmarshal([]byte(s), &arr); err != nil {
-		return false // Not a valid JSON array
+		return nil, false // Not a valid JSON array
 	}
 
 	// Check if the array is empty
 	if len(arr) == 0 {
-		return false
+		return nil, false
 	}
-
+	customGPUTypes := []string{}
 	// Check each element to ensure they are all strings
 	for _, item := range arr {
 		if _, ok := item.(string); !ok {
-			return false // Found a non-string element
+			return nil, false // Found a non-string element
 		}
 		if item.(string) == "" {
-			return false // Found an empty string
+			return nil, false // Found an empty string
 		}
+		customGPUTypes = append(customGPUTypes, item.(string))
 	}
 
-	return true
+	return customGPUTypes, true
 }
 
 // StringToInt32 converts a given integer to int32. If the number exceeds the int32 limit, it returns an error.
@@ -325,4 +330,77 @@ func StringToInt32(number string) (int32, error) {
 		return 0, err
 	}
 	return int32(converted), err
+}
+
+// UpdateGPUResourceTypeListByAnnotation updates the GPU resource type list
+// by combining the global GPU resource types from inferenceservice-config with custom GPU resource types specified in the annotations.
+func UpdateGPUResourceTypeListByAnnotation(isvcAnnotations map[string]string) ([]string, error) {
+	// Deep copy
+	updatedGPUResourceTypes := append([]string{}, constants.DefaultGPUResourceTypeList...)
+
+	if customGPUResourceTypes := isvcAnnotations[constants.CustomGPUResourceTypesAnnotationKey]; customGPUResourceTypes != "" {
+		newGPUResourceTypesFromAnnotation, isValid := IsValidCustomGPUArray(customGPUResourceTypes)
+		if !isValid {
+			return nil, fmt.Errorf("invalid GPU format(%s) for %s annotation: must be a valid JSON array", customGPUResourceTypes, constants.CustomGPUResourceTypesAnnotationKey)
+		}
+
+		// Use a map to avoid duplicates
+		existingTypes := make(map[string]struct{}, len(constants.DefaultGPUResourceTypeList))
+		for _, t := range constants.DefaultGPUResourceTypeList {
+			existingTypes[t] = struct{}{}
+		}
+
+		// Add only unique GPU resource types
+		for _, t := range newGPUResourceTypesFromAnnotation {
+			if _, exists := existingTypes[t]; !exists {
+				updatedGPUResourceTypes = append(updatedGPUResourceTypes, t)
+				existingTypes[t] = struct{}{}
+			}
+		}
+	}
+	return updatedGPUResourceTypes, nil
+}
+
+// UpdateGlobalGPUResourceTypeList adds new GPU resource types from inferenceservice-config to constants.GPUResourceTypeList.
+func UpdateGlobalGPUResourceTypeList(newGPUResourceTypes []string) error {
+	// Use a map to avoid duplicates
+	existingTypes := make(map[string]struct{}, len(constants.DefaultGPUResourceTypeList))
+	for _, t := range constants.DefaultGPUResourceTypeList {
+		existingTypes[t] = struct{}{}
+	}
+
+	// Add only unique GPU resource types
+	for _, t := range newGPUResourceTypes {
+		if _, exists := existingTypes[t]; !exists {
+			constants.DefaultGPUResourceTypeList = append(constants.DefaultGPUResourceTypeList, t)
+			existingTypes[t] = struct{}{}
+		}
+	}
+
+	return nil
+}
+
+// GetGPUResourceQtyByType retrieves the GPU resource quantity from the given ResourceRequirements.
+// It checks both Request and Limit based on the provided resourceType.
+func GetGPUResourceQtyByType(resourceRequirements *corev1.ResourceRequirements, resourceType string) (corev1.ResourceName, *resource.Quantity, bool) {
+	if resourceType == "Limit" {
+		for resourceName, quantity := range resourceRequirements.Limits {
+			for _, gpuResourceType := range constants.DefaultGPUResourceTypeList {
+				if string(resourceName) == gpuResourceType {
+					return resourceName, &quantity, true
+				}
+			}
+		}
+	} else {
+		for resourceName, quantity := range resourceRequirements.Requests {
+			for _, gpuResourceType := range constants.DefaultGPUResourceTypeList {
+				if string(resourceName) == gpuResourceType {
+					return resourceName, &quantity, true
+				}
+			}
+		}
+	}
+	qty := resource.NewQuantity(0, resource.DecimalSI)
+
+	return "", qty, false
 }

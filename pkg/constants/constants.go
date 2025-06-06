@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/network"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -38,7 +37,10 @@ const (
 	KnativeServingAPIGroupName       = KnativeServingAPIGroupNamePrefix + ".dev"
 )
 
-var KServeNamespace = getEnvOrDefault("POD_NAMESPACE", "kserve")
+var (
+	KServeNamespace              = getEnvOrDefault("POD_NAMESPACE", "kserve")
+	AutoscalerConfigmapNamespace = getEnvOrDefault("KNATIVE_CONFIG_AUTOSCALER_NAMESPACE", DefaultKnServingNamespace)
+)
 
 // InferenceService Constants
 var (
@@ -92,8 +94,7 @@ var (
 	AutoscalerClass                             = KServeAPIGroupName + "/autoscalerClass"
 	AutoscalerMetrics                           = KServeAPIGroupName + "/metrics"
 	TargetUtilizationPercentage                 = KServeAPIGroupName + "/targetUtilizationPercentage"
-	MinScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/min-scale"
-	MaxScaleAnnotationKey                       = KnativeAutoscalingAPIGroupName + "/max-scale"
+	StopAnnotationKey                           = KServeAPIGroupName + "/stop"
 	RollOutDurationAnnotationKey                = KnativeServingAPIGroupName + "/rollout-duration"
 	KnativeOpenshiftEnablePassthroughKey        = "serving.knative.openshift.io/enablePassthrough"
 	EnableMetricAggregation                     = KServeAPIGroupName + "/enable-metric-aggregation"
@@ -120,6 +121,7 @@ var (
 	LoggerSinkUrlInternalAnnotationKey               = InferenceServiceInternalAnnotationsPrefix + "/logger-sink-url"
 	LoggerModeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-mode"
 	LoggerMetadataHeadersInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/logger-metadata-headers"
+	LoggerMetadataAnnotationsInternalAnnotationKey   = InferenceServiceInternalAnnotationsPrefix + "/logger-metadata-annotations"
 	BatcherInternalAnnotationKey                     = InferenceServiceInternalAnnotationsPrefix + "/batcher"
 	BatcherMaxBatchSizeInternalAnnotationKey         = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"
@@ -163,80 +165,72 @@ var (
 	IstioSidecarStatusAnnotation          = "sidecar.istio.io/status"
 )
 
+var OTelBackend = "opentelemetry"
+
 type (
-	AutoscalerClassType       string
-	AutoscalerMetricsType     string
-	AutoScalerKPAMetricsType  string
-	AutoscalerKedaMetricsType string
-	AutoScalerType            string
+	AutoscalerClassType                string
+	AutoscalerHPAMetricsType           string
+	AutoScalerKPAMetricsType           string
+	AutoscalerKedaMetricsType          string
+	AutoScalerMetricsSourceType        string
+	AutoScalerMetricsSourceBackendType string
+	AutoScalerType                     string
 )
 
+// DefaultAutoscalerClass Autoscaler Default Class
+const (
+	DefaultAutoscalerClass = AutoscalerClassHPA
+)
+
+// Supported Autoscaler Class
+const (
+	AutoscalerClassHPA      AutoscalerClassType = "hpa"
+	AutoscalerClassKPA      AutoscalerClassType = "kpa"
+	AutoscalerClassExternal AutoscalerClassType = "external"
+	AutoscalerClassKeda     AutoscalerClassType = "keda"
+	AutoscalerClassNone     AutoscalerClassType = "none"
+)
+
+// HPA Metrics Types
 var (
+	AutoScalerMetricsCPU    AutoscalerHPAMetricsType = "cpu"
+	AutoScalerMetricsMemory AutoscalerHPAMetricsType = "memory"
+)
+
+// KPA Metrics Types
+const (
 	AutoScalerKPAMetricsRPS         AutoScalerKPAMetricsType = "rps"
 	AutoScalerKPAMetricsConcurrency AutoScalerKPAMetricsType = "concurrency"
 )
 
-var (
-	AutoScalerMetricsAverageValue AutoscalerKedaMetricsType = "AverageValue"
-	AutoScalerMetricsUtilization  AutoscalerKedaMetricsType = "Utilization"
+// KEDA metrics source type
+const (
+	AutoScalerMetricsSourcePrometheus    AutoScalerMetricsSourceBackendType = "prometheus"
+	AutoScalerMetricsSourceGraphite      AutoScalerMetricsSourceBackendType = "graphite"
+	AutoScalerMetricsSourceOpenTelemetry AutoScalerMetricsSourceBackendType = "opentelemetry"
 )
 
-// Autoscaler Default Class
-var (
-	DefaultAutoscalerClass = AutoscalerClassHPA
-)
-
-// Autoscaler Class
-var (
-	AutoscalerClassHPA      AutoscalerClassType = "hpa"
-	AutoscalerClassExternal AutoscalerClassType = "external"
-	AutoscalerClassKeda     AutoscalerClassType = "keda"
-)
-
-// Autoscaler Metrics
-var (
-	AutoScalerMetricsCPU        AutoscalerMetricsType = "cpu"
-	AutoScalerMetricsMemory     AutoscalerMetricsType = "memory"
-	AutoScalerMetricsPrometheus AutoscalerMetricsType = "prometheus"
-	AutoScalerMetricsGraphite   AutoscalerMetricsType = "graphite"
-)
-
-var (
-	AutoScalerResource AutoScalerType = "Resource"
-	AutoScalerExternal AutoScalerType = "External"
-)
-
-// Autoscaler Class Allowed List
+// AutoscalerAllowedClassList Autoscaler Class types
 var AutoscalerAllowedClassList = []AutoscalerClassType{
 	AutoscalerClassHPA,
 	AutoscalerClassExternal,
 	AutoscalerClassKeda,
+	AutoscalerClassNone,
 }
 
-// Autoscaler Metrics Allowed List
-var AutoscalerAllowedHPAMetricsList = []AutoscalerMetricsType{
+// AutoscalerAllowedHPAMetricsList allowed resource metrics List.
+var AutoscalerAllowedHPAMetricsList = []AutoscalerHPAMetricsType{
 	AutoScalerMetricsCPU,
 	AutoScalerMetricsMemory,
-	AutoScalerMetricsPrometheus,
 }
 
-// Autoscaler KPA Metrics Allowed List
-var AutoScalerKPAMetricsAllowedList = []AutoScalerKPAMetricsType{
+// AutoscalerAllowedKPAMetricsList allowed KPA metrics list.
+var AutoscalerAllowedKPAMetricsList = []AutoScalerKPAMetricsType{
 	AutoScalerKPAMetricsConcurrency,
 	AutoScalerKPAMetricsRPS,
 }
 
-var AutoscalerAllowedKEDAMetricsList = []AutoscalerMetricsType{
-	AutoScalerMetricsCPU,
-	AutoScalerMetricsMemory,
-}
-
-var AutoscalerAllowedKEDAMetricBackendList = []AutoscalerMetricsType{
-	AutoScalerMetricsPrometheus,
-	AutoScalerMetricsGraphite,
-}
-
-// Autoscaler Default Metrics Value
+// DefaultCPUUtilization Autoscaler Default Metrics Value
 var (
 	DefaultCPUUtilization int32 = 80
 )
@@ -257,7 +251,7 @@ const (
 
 var CustomGPUResourceTypesAnnotationKey = KServeAPIGroupName + "/gpu-resource-types"
 
-var GPUResourceTypeList = []string{
+var DefaultGPUResourceTypeList = []string{
 	NvidiaGPUResourceType,
 	AmdGPUResourceType,
 	IntelGPUResourceType,
@@ -282,9 +276,12 @@ type InferenceServiceProtocol string
 
 // Knative constants
 const (
-	KnativeLocalGateway   = "knative-serving/knative-local-gateway"
-	KnativeIngressGateway = "knative-serving/knative-ingress-gateway"
-	VisibilityLabel       = "networking.knative.dev/visibility"
+	AutoscalerConfigmapName     = "config-autoscaler"
+	AutoscalerAllowZeroScaleKey = "allow-zero-initial-scale"
+	DefaultKnServingNamespace   = "knative-serving"
+	KnativeLocalGateway         = "knative-serving/knative-local-gateway"
+	KnativeIngressGateway       = "knative-serving/knative-ingress-gateway"
+	VisibilityLabel             = "networking.knative.dev/visibility"
 )
 
 var (
@@ -340,10 +337,9 @@ const (
 	InferenceServiceLabel       = "serving.kserve.io/inferenceservice"
 )
 
-// InferenceService default/canary constants
+// InferenceService canary constants
 const (
-	InferenceServiceDefault = "default"
-	InferenceServiceCanary  = "canary"
+	InferenceServiceCanary = "canary"
 )
 
 // InferenceService model server args
@@ -372,13 +368,13 @@ const (
 // DefaultModelLocalMountPath is where models will be mounted by the storage-initializer
 const DefaultModelLocalMountPath = "/mnt/models"
 
-// Default path to mount CA bundle configmap volume
+// DefaultCaBundleVolumeMountPath Default path to mount CA bundle configmap volume
 const DefaultCaBundleVolumeMountPath = "/etc/ssl/custom-certs"
 
-// Default name for CA bundle file
+// DefaultCaBundleFileName Default name for CA bundle file
 const DefaultCaBundleFileName = "cabundle.crt"
 
-// Default CA bundle configmap name that will be created in the user namespace.
+// DefaultGlobalCaBundleConfigMapName Default CA bundle configmap name that will be created in the user namespace.
 const DefaultGlobalCaBundleConfigMapName = "global-ca-bundle"
 
 // Custom CA bundle configmap Environment Variables
@@ -513,18 +509,21 @@ const (
 	GatewayKind             = "Gateway"
 	ServiceKind             = "Service"
 	KedaScaledObjectKind    = "ScaledObject"
+	OpenTelemetryCollector  = "OpenTelemetryCollector"
 )
 
-// Model Parallel Options
+// MultiNode environment variables
 const (
 	TensorParallelSizeEnvName   = "TENSOR_PARALLEL_SIZE"
 	PipelineParallelSizeEnvName = "PIPELINE_PARALLEL_SIZE"
+	RayNodeCountEnvName         = "RAY_NODE_COUNT"
+	RequestGPUCountEnvName      = "REQUEST_GPU_COUNT"
 )
 
-// Model Parallel Options Default value
+// MultiNode default values
 const (
-	DefaultTensorParallelSize   = "1"
-	DefaultPipelineParallelSize = "2"
+	DefaultTensorParallelSize   = 1
+	DefaultPipelineParallelSize = 1
 )
 
 // Multi Node Labels
@@ -543,8 +542,8 @@ func GetRawWorkerServiceLabel(service string) string {
 	return "isvc." + service + "-" + WorkerNodeSuffix
 }
 
-// GeHeadServiceName generate head service name
-func GeHeadServiceName(service string, isvcGeneration string) string {
+// GetHeadServiceName generate head service name
+func GetHeadServiceName(service string, isvcGeneration string) string {
 	isvcName := strings.TrimSuffix(service, "-predictor")
 	return isvcName + "-" + MultiNodeHead + "-" + isvcGeneration
 }
@@ -572,10 +571,6 @@ func InferenceServiceHostName(name string, namespace string, domain string) stri
 	return fmt.Sprintf("%s.%s.%s", name, namespace, domain)
 }
 
-func DefaultPredictorServiceName(name string) string {
-	return name + "-" + string(Predictor) + "-" + InferenceServiceDefault
-}
-
 func PredictorServiceName(name string) string {
 	return name + "-" + string(Predictor)
 }
@@ -588,10 +583,6 @@ func CanaryPredictorServiceName(name string) string {
 	return name + "-" + string(Predictor) + "-" + InferenceServiceCanary
 }
 
-func DefaultExplainerServiceName(name string) string {
-	return name + "-" + string(Explainer) + "-" + InferenceServiceDefault
-}
-
 func ExplainerServiceName(name string) string {
 	return name + "-" + string(Explainer)
 }
@@ -600,20 +591,12 @@ func CanaryExplainerServiceName(name string) string {
 	return name + "-" + string(Explainer) + "-" + InferenceServiceCanary
 }
 
-func DefaultTransformerServiceName(name string) string {
-	return name + "-" + string(Transformer) + "-" + InferenceServiceDefault
-}
-
 func TransformerServiceName(name string) string {
 	return name + "-" + string(Transformer)
 }
 
 func CanaryTransformerServiceName(name string) string {
 	return name + "-" + string(Transformer) + "-" + InferenceServiceCanary
-}
-
-func DefaultServiceName(name string, component InferenceServiceComponent) string {
-	return name + "-" + component.String() + "-" + InferenceServiceDefault
 }
 
 func CanaryServiceName(name string, component InferenceServiceComponent) string {
@@ -662,22 +645,6 @@ func PathBasedExplainPrefix() string {
 func VirtualServiceHostname(name string, predictorHostName string) string {
 	index := strings.Index(predictorHostName, ".")
 	return name + predictorHostName[index:]
-}
-
-func PredictorURL(metadata metav1.ObjectMeta, isCanary bool) string {
-	serviceName := DefaultPredictorServiceName(metadata.Name)
-	if isCanary {
-		serviceName = CanaryPredictorServiceName(metadata.Name)
-	}
-	return fmt.Sprintf("%s.%s", serviceName, metadata.Namespace)
-}
-
-func TransformerURL(metadata metav1.ObjectMeta, isCanary bool) string {
-	serviceName := DefaultTransformerServiceName(metadata.Name)
-	if isCanary {
-		serviceName = CanaryTransformerServiceName(metadata.Name)
-	}
-	return fmt.Sprintf("%s.%s", serviceName, metadata.Namespace)
 }
 
 // Should only match 1..65535, but for simplicity it matches 0-99999.

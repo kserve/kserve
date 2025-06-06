@@ -338,7 +338,8 @@ def generate(
     chat_completions=True,
 ):
     url_suffix = "v1/chat/completions" if chat_completions else "v1/completions"
-    return _openai_request(service_name, input_json, version, url_suffix)
+    res = _openai_request(service_name, input_json, version, url_suffix)
+    return _process_non_streaming_response(res)
 
 
 def embed(
@@ -346,7 +347,39 @@ def embed(
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
 ):
-    return _openai_request(service_name, input_json, version, "v1/embeddings")
+    res = _openai_request(service_name, input_json, version, "v1/embeddings")
+    return _process_non_streaming_response(res)
+
+
+def rerank(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+):
+    res = _openai_request(service_name, input_json, version, "v1/rerank")
+    return _process_non_streaming_response(res)
+
+
+def _get_openai_endpoint_and_host(
+    service_name, url_suffix, version=constants.KSERVE_V1BETA1_VERSION
+):
+    """
+    Get the OpenAI endpoint for the given service name.
+    Args:
+        service_name: The name of the inference service
+        url_suffix: The suffix for the OpenAI endpoint (e.g., "v1/chat/completions")
+        version: The version of the inference service. Defaults to v1beta1
+    Returns:
+        A tuple containing the OpenAI endpoint URL and the host name
+    """
+    kfs_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    isvc = kfs_client.get(
+        service_name, namespace=KSERVE_TEST_NAMESPACE, version=version
+    )
+    scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+    return f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}", host
 
 
 def _openai_request(
@@ -354,36 +387,91 @@ def _openai_request(
     input_json,
     version=constants.KSERVE_V1BETA1_VERSION,
     url_suffix="",
+    stream=False,
 ):
     with open(input_json) as json_file:
         data = json.load(json_file)
 
-        kfs_client = KServeClient(
-            config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
-        )
-        isvc = kfs_client.get(
-            service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
-            version=version,
-        )
-        scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
+        url, host = _get_openai_endpoint_and_host(service_name, url_suffix, version)
         headers = {"Host": host, "Content-Type": "application/json"}
 
-        url = f"{scheme}://{cluster_ip}{path}/openai/{url_suffix}"
         logger.info("Sending Header = %s", headers)
         logger.info("Sending url = %s", url)
         logger.info("Sending request data: %s", data)
         # temporary sleep until this is fixed https://github.com/kserve/kserve/issues/604
         time.sleep(10)
-        response = requests.post(url, json.dumps(data), headers=headers)
-        logger.info(
-            "Got response code %s, content %s", response.status_code, response.content
-        )
-        if response.status_code == 200:
-            preds = json.loads(response.content.decode("utf-8"))
-            return preds
-        else:
+        response = requests.post(url, json.dumps(data), headers=headers, stream=stream)
+        logger.info("Got response code %s", response.status_code)
+        if not response.status_code == 200:
             response.raise_for_status()
+        return response
+
+
+def _process_non_streaming_response(response):
+    preds = json.loads(response.content.decode("utf-8"))
+    logger.info("Got response content %s", preds)
+    return preds
+
+
+def chat_completion_stream(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+):
+    """
+    Make a chat completion streaming request to the inference service and collect all chunks.
+    Returns a tuple containing full response text and all chunks received.
+    """
+    res = _openai_request(
+        service_name, input_json, version, "v1/chat/completions", stream=True
+    )
+
+    chunks = []
+    full_content = ""
+
+    for line in res.iter_lines():
+        if line:
+            # Remove the "data: " prefix and process the chunk
+            line = line.decode("utf-8")
+            if line.startswith("data: ") and line != "data: [DONE]":
+                chunk_data = json.loads(line[6:])  # Skip "data: "
+                if "choices" in chunk_data and len(chunk_data["choices"]) > 0:
+                    delta = chunk_data["choices"][0].get("delta", {})
+                    content = delta.get("content", "")
+                    if content:
+                        chunks.append(content)
+                        full_content += content
+    return full_content, chunks
+
+
+def completion_stream(
+    service_name,
+    input_json,
+    version=constants.KSERVE_V1BETA1_VERSION,
+):
+    """
+    Make a streaming request to the text completion inference service and collect all chunks.
+    Returns a tuple containing full response text and all chunks received.
+    """
+    res = _openai_request(
+        service_name, input_json, version, "v1/completions", stream=True
+    )
+    chunks = []
+    full_content = ""
+
+    for line in res.iter_lines():
+        if line:
+            # Remove the "data: " prefix and process the chunk
+            line = line.decode("utf-8")
+            if line.startswith("data: ") and line != "data: [DONE]":
+                chunk_data = json.loads(line[6:])  # Skip "data: "
+                if "choices" in chunk_data and len(chunk_data["choices"]) > 0:
+                    text = chunk_data["choices"][0].get("text", "")
+                    if text:
+                        chunks.append(text)
+                        full_content += text
+
+    return full_content, chunks
 
 
 def is_model_ready(
@@ -407,3 +495,13 @@ def is_model_ready(
     base_url = f"{scheme}://{cluster_ip}{path}"
     headers = {"Host": host}
     return rest_client.is_model_ready(base_url, model_name, headers=headers)
+
+
+def extract_process_ids_from_logs(logs: str) -> set[int]:
+    process_ids = set()
+    for line in logs.splitlines():
+        tokens = line.strip().split()
+        if len(tokens) >= 5 and tokens[3] == "kserve.trace":
+            process_ids.add(int(tokens[2]))
+    logger.info("Extracted process ids: %s", process_ids)
+    return process_ids

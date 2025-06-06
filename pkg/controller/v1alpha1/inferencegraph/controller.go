@@ -49,6 +49,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -184,7 +185,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
 	}
 
-	deploymentMode := isvcutils.GetDeploymentMode(graph.ObjectMeta.Annotations, deployConfig)
+	deploymentMode := isvcutils.GetDeploymentMode(graph.Status.DeploymentMode, graph.ObjectMeta.Annotations, deployConfig)
 	r.Log.Info("Inference graph deployment ", "deployment mode ", deploymentMode)
 	if deploymentMode == constants.RawDeployment {
 		// Create inference graph resources such as deployment, service, hpa in raw deployment mode
@@ -221,7 +222,16 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			return reconcile.Result{Requeue: false}, reconcile.TerminalError(fmt.Errorf("the resolved deployment mode of InferenceGraph '%s' is Serverless, but Knative Serving is not available", graph.Name))
 		}
 
+		// Retrieve the allow-zero-initial-scale value from the knative autoscaler configuration.
+		allowZeroInitialScale, err := knutils.CheckZeroInitialScaleAllowed(ctx, r.Clientset)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "failed to retrieve the knative autoscaler configuration")
+		}
+
+		knutils.ValidateInitialScaleAnnotation(graph.Annotations, allowZeroInitialScale, r.Log)
+
 		desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
+
 		err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
 		if err != nil {
 			return reconcile.Result{}, err

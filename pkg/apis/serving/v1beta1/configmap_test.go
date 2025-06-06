@@ -17,7 +17,6 @@ limitations under the License.
 package v1beta1
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -64,6 +63,14 @@ var (
 		"serviceAnnotationDisallowedList": %s,
 		"serviceLabelDisallowedList": %s
 	}`, []string{}, []string{})
+
+	MultiNodeConfigData = `{
+		"customGPUResourceTypeList": [
+			"custom.com/gpu-1",
+			"custom.com/gpu-2"
+		]
+	}`
+	MultiNodeConfigNoData = `{}`
 )
 
 func TestNewInferenceServiceConfig(t *testing.T) {
@@ -71,11 +78,66 @@ func TestNewInferenceServiceConfig(t *testing.T) {
 	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 	})
-	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	isvcConfigMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	isvcConfig, err := NewInferenceServicesConfig(isvcConfigMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(isvcConfig).ShouldNot(gomega.BeNil())
+}
+
+func TestNewMultiNodeConfigWithNoData(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			MultiNodeConfigKeyName: MultiNodeConfigNoData,
+		},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	multiNodeCfg, err := NewMultiNodeConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(multiNodeCfg).ShouldNot(gomega.BeNil())
+	g.Expect(multiNodeCfg.CustomGPUResourceTypeList).To(gomega.Equal([]string{}))
+	g.Expect(constants.DefaultGPUResourceTypeList).To(gomega.Equal([]string{"nvidia.com/gpu", "amd.com/gpu", "intel.com/gpu", "habana.ai/gaudi"}))
+}
+
+func TestNewMultiNodeConfigWithoutData(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data:       map[string]string{},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	multiNodeCfg, err := NewMultiNodeConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(multiNodeCfg).ShouldNot(gomega.BeNil())
+	g.Expect(multiNodeCfg.CustomGPUResourceTypeList).To(gomega.Equal([]string{}))
+	g.Expect(constants.DefaultGPUResourceTypeList).To(gomega.Equal([]string{"nvidia.com/gpu", "amd.com/gpu", "intel.com/gpu", "habana.ai/gaudi"}))
+}
+
+func TestNewMultiNodeConfigWithData(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+		Data: map[string]string{
+			MultiNodeConfigKeyName: MultiNodeConfigData,
+		},
+	})
+
+	configMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	multiNodeCfg, err := NewMultiNodeConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(multiNodeCfg).ShouldNot(gomega.BeNil())
+	g.Expect(multiNodeCfg.CustomGPUResourceTypeList).To(gomega.Equal([]string{"custom.com/gpu-1", "custom.com/gpu-2"}))
+	g.Expect(constants.DefaultGPUResourceTypeList).To(gomega.Equal([]string{"nvidia.com/gpu", "amd.com/gpu", "intel.com/gpu", "habana.ai/gaudi", "custom.com/gpu-1", "custom.com/gpu-2"}))
 }
 
 func TestNewIngressConfig(t *testing.T) {
@@ -86,7 +148,7 @@ func TestNewIngressConfig(t *testing.T) {
 			IngressConfigKeyName: IngressConfigData,
 		},
 	})
-	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	configMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	ingressCfg, err := NewIngressConfig(configMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
@@ -118,7 +180,7 @@ func TestNewIngressConfigDefaultKnativeService(t *testing.T) {
 				AdditionalDomain, AdditionalDomainExtra),
 		},
 	})
-	configMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	configMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	ingressCfg, err := NewIngressConfig(configMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
@@ -131,7 +193,7 @@ func TestNewDeployConfig(t *testing.T) {
 	clientset := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 	})
-	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	isvcConfigMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	deployConfig, err := NewDeployConfig(isvcConfigMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
@@ -144,7 +206,7 @@ func TestNewServiceConfig(t *testing.T) {
 	empty := fakeclientset.NewSimpleClientset(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 	})
-	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), empty)
+	isvcConfigMap, err := GetInferenceServiceConfigMap(t.Context(), empty)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	emp, err := NewServiceConfig(isvcConfigMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
@@ -157,7 +219,7 @@ func TestNewServiceConfig(t *testing.T) {
 			ServiceConfigName: ServiceConfigData,
 		},
 	})
-	isvcConfigMap, err = GetInferenceServiceConfigMap(context.Background(), withTrue)
+	isvcConfigMap, err = GetInferenceServiceConfigMap(t.Context(), withTrue)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	wt, err := NewServiceConfig(isvcConfigMap)
 
@@ -172,7 +234,7 @@ func TestNewServiceConfig(t *testing.T) {
 			ServiceConfigName: `{}`,
 		},
 	})
-	isvcConfigMap, err = GetInferenceServiceConfigMap(context.Background(), noValue)
+	isvcConfigMap, err = GetInferenceServiceConfigMap(t.Context(), noValue)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	nv, err := NewServiceConfig(isvcConfigMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
@@ -188,7 +250,7 @@ func TestInferenceServiceDisallowedLists(t *testing.T) {
 			InferenceServiceConfigKeyName: ISCVWithData,
 		},
 	})
-	isvcConfigMap, err := GetInferenceServiceConfigMap(context.Background(), clientset)
+	isvcConfigMap, err := GetInferenceServiceConfigMap(t.Context(), clientset)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	isvcConfigWithData, err := NewInferenceServicesConfig(isvcConfigMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
@@ -208,7 +270,7 @@ func TestInferenceServiceDisallowedLists(t *testing.T) {
 			InferenceServiceConfigKeyName: ISCVNoData,
 		},
 	})
-	isvcConfigMap, err = GetInferenceServiceConfigMap(context.Background(), clientsetWithoutData)
+	isvcConfigMap, err = GetInferenceServiceConfigMap(t.Context(), clientsetWithoutData)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	isvcConfigWithoutData, err := NewInferenceServicesConfig(isvcConfigMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
@@ -273,4 +335,370 @@ func TestValidateIngressGateway(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewOtelCollectorConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	t.Run("returns default config when otel config is missing", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{},
+		}
+		cfg, err := NewOtelCollectorConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.ScrapeInterval).To(gomega.BeEmpty())
+		g.Expect(cfg.MetricReceiverEndpoint).To(gomega.BeEmpty())
+		g.Expect(cfg.MetricScalerEndpoint).To(gomega.BeEmpty())
+	})
+
+	t.Run("returns config when otel config is present", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				OtelCollectorConfigName: `{
+					"scrapeInterval": "30s",
+					"metricReceiverEndpoint": "localhost:4317",
+					"metricScalerEndpoint": "localhost:8080"
+				}`,
+			},
+		}
+		cfg, err := NewOtelCollectorConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.ScrapeInterval).To(gomega.Equal("30s"))
+		g.Expect(cfg.MetricReceiverEndpoint).To(gomega.Equal("localhost:4317"))
+		g.Expect(cfg.MetricScalerEndpoint).To(gomega.Equal("localhost:8080"))
+	})
+
+	t.Run("returns error on invalid otel config json", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				OtelCollectorConfigName: `invalid-json`,
+			},
+		}
+		cfg, err := NewOtelCollectorConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+	})
+}
+
+func TestNewDeployConfig_WithValidConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	validModes := []string{
+		string(constants.Serverless),
+		string(constants.RawDeployment),
+		string(constants.ModelMeshDeployment),
+	}
+	for _, mode := range validModes {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				DeployConfigName: fmt.Sprintf(`{"defaultDeploymentMode":"%s"}`, mode),
+			},
+		}
+		cfg, err := NewDeployConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.DefaultDeploymentMode).To(gomega.Equal(mode))
+	}
+}
+
+func TestNewDeployConfig_MissingDefaultDeploymentMode(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cm := &corev1.ConfigMap{
+		Data: map[string]string{
+			DeployConfigName: `{}`,
+		},
+	}
+	cfg, err := NewDeployConfig(cm)
+	g.Expect(err).Should(gomega.HaveOccurred())
+	g.Expect(cfg).To(gomega.BeNil())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("defaultDeploymentMode is required"))
+}
+
+func TestNewDeployConfig_InvalidDeploymentMode(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cm := &corev1.ConfigMap{
+		Data: map[string]string{
+			DeployConfigName: `{"defaultDeploymentMode":"invalid-mode"}`,
+		},
+	}
+	cfg, err := NewDeployConfig(cm)
+	g.Expect(err).Should(gomega.HaveOccurred())
+	g.Expect(cfg).To(gomega.BeNil())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("invalid deployment mode"))
+}
+
+func TestNewDeployConfig_InvalidJSON(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cm := &corev1.ConfigMap{
+		Data: map[string]string{
+			DeployConfigName: `invalid-json`,
+		},
+	}
+	cfg, err := NewDeployConfig(cm)
+	g.Expect(err).Should(gomega.HaveOccurred())
+	g.Expect(cfg).To(gomega.BeNil())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("unable to parse deploy config json"))
+}
+
+func TestNewDeployConfig_EmptyConfigMap(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	cm := &corev1.ConfigMap{
+		Data: map[string]string{},
+	}
+	cfg, err := NewDeployConfig(cm)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(cfg).ShouldNot(gomega.BeNil())
+	g.Expect(cfg.DefaultDeploymentMode).To(gomega.BeEmpty())
+}
+
+func TestNewLocalModelConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	t.Run("returns default config when localModel config is missing", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{},
+		}
+		cfg, err := NewLocalModelConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.Enabled).To(gomega.BeFalse())
+		g.Expect(cfg.JobNamespace).To(gomega.BeEmpty())
+	})
+
+	t.Run("returns config when localModel config is present", func(t *testing.T) {
+		fsGroup := int64(1000)
+		jobTTL := int32(3600)
+		reconFreq := int64(60)
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				LocalModelConfigName: fmt.Sprintf(`{
+					"enabled": true,
+					"jobNamespace": "test-ns",
+					"defaultJobImage": "test-image",
+					"fsGroup": %d,
+					"jobTTLSecondsAfterFinished": %d,
+					"reconcilationFrequencyInSecs": %d,
+					"disableVolumeManagement": true
+				}`, fsGroup, jobTTL, reconFreq),
+			},
+		}
+		cfg, err := NewLocalModelConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.Enabled).To(gomega.BeTrue())
+		g.Expect(cfg.JobNamespace).To(gomega.Equal("test-ns"))
+		g.Expect(cfg.DefaultJobImage).To(gomega.Equal("test-image"))
+		g.Expect(cfg.FSGroup).ToNot(gomega.BeNil())
+		g.Expect(*cfg.FSGroup).To(gomega.Equal(fsGroup))
+		g.Expect(cfg.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
+		g.Expect(*cfg.JobTTLSecondsAfterFinished).To(gomega.Equal(jobTTL))
+		g.Expect(cfg.ReconcilationFrequencyInSecs).ToNot(gomega.BeNil())
+		g.Expect(*cfg.ReconcilationFrequencyInSecs).To(gomega.Equal(reconFreq))
+		g.Expect(cfg.DisableVolumeManagement).To(gomega.BeTrue())
+	})
+
+	t.Run("returns error on invalid localModel config json", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				LocalModelConfigName: `invalid-json`,
+			},
+		}
+		cfg, err := NewLocalModelConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+	})
+}
+
+func TestNewSecurityConfig(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	t.Run("returns default config when security config is missing", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{},
+		}
+		cfg, err := NewSecurityConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.AutoMountServiceAccountToken).To(gomega.BeFalse())
+	})
+
+	t.Run("returns config when security config is present", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				SecurityConfigName: `{"autoMountServiceAccountToken": true}`,
+			},
+		}
+		cfg, err := NewSecurityConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.AutoMountServiceAccountToken).To(gomega.BeTrue())
+	})
+
+	t.Run("returns error on invalid security config json", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				SecurityConfigName: `invalid-json`,
+			},
+		}
+		cfg, err := NewSecurityConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+	})
+}
+
+func TestNewIngressConfig_Validation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	t.Run("returns error on invalid ingress config json", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `invalid-json`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+	})
+
+	t.Run("returns error if ingressGateway is missing", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"kserveIngressGateway": "kserve/kserve-ingress-gateway"
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("ingressGateway is required"))
+	})
+
+	t.Run("returns error if pathTemplate is invalid template", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"pathTemplate": "{{ .Name }"
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("unable to parse pathTemplate"))
+	})
+
+	t.Run("returns error if pathTemplate is set but ingressDomain is missing", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"pathTemplate": "/foo/bar"
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("ingressDomain is required if pathTemplate is given"))
+	})
+
+	t.Run("returns error if EnableGatewayAPI is true and kserveIngressGateway is missing", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"enableGatewayApi": true,
+					"ingressGateway": "knative-serving/knative-ingress-gateway"
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("kserveIngressGateway is required"))
+	})
+
+	t.Run("returns error if EnableGatewayAPI is true and kserveIngressGateway is invalid", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"enableGatewayApi": true,
+					"kserveIngressGateway": "invalid-format",
+					"ingressGateway": "knative-serving/knative-ingress-gateway"
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("should be in the format"))
+	})
+
+	t.Run("returns config with defaults when config map is empty", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.DomainTemplate).To(gomega.Equal(DefaultDomainTemplate))
+		g.Expect(cfg.IngressDomain).To(gomega.Equal(DefaultIngressDomain))
+		g.Expect(cfg.UrlScheme).To(gomega.Equal(DefaultUrlScheme))
+	})
+
+	t.Run("sets KnativeLocalGatewayService from LocalGatewayServiceName if missing", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"localGatewayService": "my-local-gateway-service"
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.KnativeLocalGatewayService).To(gomega.Equal("my-local-gateway-service"))
+	})
+
+	t.Run("returns error if pathTemplate is valid but ingressDomain is empty", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"pathTemplate": "/foo/bar"
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("ingressDomain is required if pathTemplate is given"))
+	})
+
+	t.Run("returns config when all required fields are present", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"ingressDomain": "mydomain.com",
+					"urlScheme": "https"
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.KserveIngressGateway).To(gomega.Equal("kserve/kserve-ingress-gateway"))
+		g.Expect(cfg.IngressGateway).To(gomega.Equal("knative-serving/knative-ingress-gateway"))
+		g.Expect(cfg.IngressDomain).To(gomega.Equal("mydomain.com"))
+		g.Expect(cfg.UrlScheme).To(gomega.Equal("https"))
+	})
 }

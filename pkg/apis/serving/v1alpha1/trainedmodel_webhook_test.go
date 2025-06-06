@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -136,7 +135,7 @@ func TestValidateCreate(t *testing.T) {
 			for tmField, value := range scenario.update {
 				tm.update(tmField, value)
 			}
-			warnings, err := validator.ValidateCreate(context.Background(), tm)
+			warnings, err := validator.ValidateCreate(t.Context(), tm)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -261,7 +260,7 @@ func TestValidateUpdate(t *testing.T) {
 			for tmField, value := range scenario.update {
 				tm.update(tmField, value)
 			}
-			warnings, err := validator.ValidateUpdate(context.Background(), old, tm)
+			warnings, err := validator.ValidateUpdate(t.Context(), old, tm)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}
@@ -290,7 +289,7 @@ func TestValidateDelete(t *testing.T) {
 	validator := TrainedModelValidator{}
 	for testName, scenario := range scenarios {
 		t.Run(testName, func(t *testing.T) {
-			warnings, err := validator.ValidateDelete(context.Background(), &scenario.tm)
+			warnings, err := validator.ValidateDelete(t.Context(), &scenario.tm)
 			if !g.Expect(gomega.MatchError(err)).To(gomega.Equal(scenario.errMatcher)) {
 				t.Errorf("got %t, want %t", err, scenario.errMatcher)
 			}

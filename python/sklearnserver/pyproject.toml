@@ -1,9 +1,9 @@
 [tool.poetry]
 name = "sklearnserver"
-version = "0.15.0rc1"
+version = "0.15.2"
 description = "Model Server implementation for scikit-learn. Not intended for use outside KServe Frameworks Images."
 authors = ["singhan <singhan@us.ibm.com>"]
-license = "https://github.com/kserve/kserve/blob/master/LICENSE"
+license = "Apache-2.0"
 readme = "README.md"
 packages = [
     { include = "sklearnserver" },
