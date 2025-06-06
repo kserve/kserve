@@ -1880,7 +1880,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Expect(deployed3.Spec.Template.Spec.Containers[0].Env).To(ContainElements(newEnvs))
 		})
 	})
-	FContext("When Updating a Serving Runtime", func() {
+	Context("When Updating a Serving Runtime", func() {
 		configs := map[string]string{
 			"explainers": `{
 				"alibi": {
@@ -2326,13 +2326,8 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(Equal("updatedServingRuntime"))
 			// Check to make sure deployment didn't update
 			deploymentAfterUpdate := &appsv1.Deployment{}
-			Eventually(func() (string, error) {
-				err := k8sClient.Get(ctx, types.NamespacedName{Name: deploymentName, Namespace: serviceKey.Namespace}, deploymentAfterUpdate)
-				if err != nil {
-					return "", err
-				}
-				return deploymentAfterUpdate.Spec.Template.ObjectMeta.Labels["key1"], nil
-			}, timeout, interval).Should(Equal("val1FromSR"))
+			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: deploymentName, Namespace: serviceKey.Namespace}, deploymentAfterUpdate)).Should(Succeed())
+			Expect(deploymentAfterUpdate.Spec.Template.ObjectMeta.Labels["key1"]).Should(Equal("val1FromSR"))
 		})
 		It("InferenceService should reconcile only if the matching serving runtime was updated even if multiple exist", func() {
 			// Create configmap
