@@ -91,13 +91,7 @@ kserve:
     # -- KServe controller manager rbac proxy contrainer image
     rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
     rbacProxy:
-      resources:
-        limits:
-          cpu: 100m
-          memory: 300Mi
-        requests:
-          cpu: 100m
-          memory: 300Mi
+      resources: {}
       securityContext:
         allowPrivilegeEscalation: false
         privileged: false
@@ -256,13 +250,7 @@ kserve:
     #    memory: 32Mi
     #
     # For more information, see [Resource Management for Pods and Containers](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/).
-    resources:
-      limits:
-        cpu: 100m
-        memory: 300Mi
-      requests:
-        cpu: 100m
-        memory: 300Mi
+    resources: {}
     # -- Indicates whether to create an addressable resolver ClusterRole for Knative Eventing.
     # This ClusterRole grants the necessary permissions for the Knative's DomainMapping reconciler to resolve InferenceService addressables.
     knativeAddressableResolver:
@@ -441,10 +429,5 @@ kserve:
   security:
     autoMountServiceAccountToken: true
   inferenceservice:
-    resources:
-      limits:
-        cpu: "1"
-        memory: "2Gi"
-      requests:
-        cpu: "1"
-        memory: "2Gi"
+  # -- The default InferenceService resources limit.
+    resources: {}
