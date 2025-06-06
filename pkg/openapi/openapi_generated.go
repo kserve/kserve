@@ -2572,6 +2572,27 @@ func schema_pkg_apis_serving_v1beta1_ARTExplainerSpec(ref common.ReferenceCallba
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_AuthenticationRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "name is the name of the authentication secret",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5293,17 +5314,25 @@ func schema_pkg_apis_serving_v1beta1_ExtMetricAuth(ref common.ReferenceCallback)
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"name": {
+					"authenticationRef": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Description: "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.AuthenticationRef"),
+						},
+					},
+					"authModes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "authModes defines the authentication modes for the metrics backend possible values are bearer, basic, tls. for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
-				
 			},
 		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AuthenticationRef"},
 	}
 }
 
@@ -5374,13 +5403,6 @@ func schema_pkg_apis_serving_v1beta1_ExternalMetrics(ref common.ReferenceCallbac
 					"namespace": {
 						SchemaProps: spec.SchemaProps{
 							Description: "For namespaced query",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"authModes": {
-						SchemaProps: spec.SchemaProps{
-							Description: "authModes defines the authentication modes for the metrics backend",
 							Type:        []string{"string"},
 							Format:      "",
 						},

@@ -1377,6 +1377,16 @@
         }
       }
     },
+    "v1beta1.AuthenticationRef": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "name is the name of the authentication secret",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
     "v1beta1.AutoScalingSpec": {
       "type": "object",
       "properties": {
@@ -2926,9 +2936,14 @@
     "v1beta1.ExtMetricAuth": {
       "type": "object",
       "properties": {
-        "name": {
-          "type": "string",
-          "default": ""
+        "authModes": {
+          "description": "authModes defines the authentication modes for the metrics backend possible values are bearer, basic, tls. for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+          "type": "string"
+        },
+        "authenticationRef": {
+          "description": "authenticationRef is a reference to the authentication information for more information see: https://keda.sh/docs/2.17/scalers/prometheus/#authentication-parameters",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.AuthenticationRef"
         }
       }
     },
@@ -2959,10 +2974,6 @@
     "v1beta1.ExternalMetrics": {
       "type": "object",
       "properties": {
-        "authModes": {
-          "description": "authModes defines the authentication modes for the metrics backend",
-          "type": "string"
-        },
         "backend": {
           "description": "MetricsBackend defines the scaling metric type watched by autoscaler possible values are prometheus, graphite.",
           "type": "string",
