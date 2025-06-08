@@ -129,6 +129,8 @@ kserve:
     # For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
     securityContext:
       runAsNonRoot: true
+      seccompProfile:
+          type: RuntimeDefault
 
     # -- Container Security Context to be set on the controller component container.
     # For more information, see [Configure a Security Context for a Pod or Container](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/).
@@ -270,6 +272,7 @@ kserve:
   servingruntime:
     modelNamePlaceholder: "{{.Name}}"
     tensorflow:
+      disabled: false
       image: tensorflow/serving
       tag: 2.6.2
       imagePullSecrets: []
@@ -282,6 +285,7 @@ kserve:
           drop:
             - ALL
     mlserver:
+      disabled: false
       image: docker.io/seldonio/mlserver
       tag: 1.5.0
       modelClassPlaceholder: "{{.Labels.modelClass}}"
@@ -294,6 +298,7 @@ kserve:
           drop:
             - ALL
     sklearnserver:
+      disabled: false
       image: kserve/sklearnserver
       tag: *defaultVersion
       imagePullSecrets: []
@@ -305,6 +310,7 @@ kserve:
           drop:
             - ALL
     xgbserver:
+      disabled: false
       image: kserve/xgbserver
       tag: *defaultVersion
       imagePullSecrets: []
@@ -316,6 +322,7 @@ kserve:
           drop:
             - ALL
     huggingfaceserver:
+      disabled: false
       image: kserve/huggingfaceserver
       tag: *defaultVersion
       imagePullSecrets: []
@@ -333,6 +340,7 @@ kserve:
       hostIPC:
         enabled: false
     huggingfaceserver_multinode:
+      disabled: false
       imagePullSecrets: []
       securityContext:
         allowPrivilegeEscalation: false
@@ -345,6 +353,7 @@ kserve:
         enabled: true
         sizeLimit: "3Gi"
     tritonserver:
+      disabled: false
       image: nvcr.io/nvidia/tritonserver
       tag: 23.05-py3
       imagePullSecrets: []
@@ -357,6 +366,7 @@ kserve:
           drop:
             - ALL
     pmmlserver:
+      disabled: false
       image: kserve/pmmlserver
       tag: *defaultVersion
       imagePullSecrets: []
@@ -368,6 +378,7 @@ kserve:
           drop:
             - ALL
     paddleserver:
+      disabled: false
       image: kserve/paddleserver
       tag: *defaultVersion
       imagePullSecrets: []
@@ -379,6 +390,7 @@ kserve:
           drop:
             - ALL
     lgbserver:
+      disabled: false
       image: kserve/lgbserver
       tag: *defaultVersion
       imagePullSecrets: []
@@ -390,6 +402,7 @@ kserve:
           drop:
             - ALL
     torchserve:
+      disabled: false
       image: pytorch/torchserve-kfs
       tag: 0.9.0
       serviceEnvelopePlaceholder: "{{.Labels.serviceEnvelope}}"
