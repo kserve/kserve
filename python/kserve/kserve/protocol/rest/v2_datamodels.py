@@ -11,18 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 from typing import Optional, List, Union, Dict
 
-import orjson
-import pydantic
-
-from pydantic import BaseModel, StrictBool, StrictInt, StrictFloat
-
-# this is needed to add support for both pydantic 1.x and 2.x
-is_pydantic_2 = pydantic.__version__.startswith("2.")
-
-if is_pydantic_2:
-    from pydantic import ConfigDict
+from pydantic import BaseModel, StrictBool, StrictInt, StrictFloat, ConfigDict
 
 # TODO: in the future, this file can be auto generated
 # https://pydantic-docs.helpmanual.io/datamodel_code_generator/
@@ -34,34 +26,16 @@ InferParameter = Union[StrictFloat, StrictInt, StrictBool, str]
 Parameters = Dict[str, InferParameter]
 
 
-server_live_response_schema_extra = {"example": {"live": True}}
-
-
 class ServerLiveResponse(BaseModel):
     live: bool
 
-    if is_pydantic_2:
-        model_config = ConfigDict(json_schema_extra=server_live_response_schema_extra)
-
-    else:
-
-        class Config:
-            schema_extra = server_live_response_schema_extra
-
-
-server_ready_response_schema_extra = {"example": {"ready": True}}
+    model_config = ConfigDict(json_schema_extra={"example": {"live": True}})
 
 
 class ServerReadyResponse(BaseModel):
     ready: bool
 
-    if is_pydantic_2:
-        model_config = ConfigDict(json_schema_extra=server_ready_response_schema_extra)
-
-    else:
-
-        class Config:
-            schema_extra = server_ready_response_schema_extra
+    model_config = ConfigDict(json_schema_extra={"example": {"ready": True}})
 
 
 class ServerMetadataResponse(BaseModel):
@@ -196,23 +170,6 @@ class ResponseOutput(BaseModel):
     data: List
 
 
-inference_request_schema_extra = {
-    "example": {
-        "id": "42",
-        "inputs": [
-            {
-                "name": "input0",
-                "shape": [2, 2],
-                "datatype": "UINT32",
-                "data": [1, 2, 3, 4],
-            },
-            {"name": "input1", "shape": [3], "datatype": "BOOL", "data": ["true"]},
-        ],
-        "outputs": [{"name": "output0"}],
-    }
-}
-
-
 class InferenceRequest(BaseModel):
     """InferenceRequest Model
 
@@ -230,29 +187,28 @@ class InferenceRequest(BaseModel):
     inputs: List[RequestInput]
     outputs: Optional[List[RequestOutput]] = None
 
-    if is_pydantic_2:
-        model_config = ConfigDict(json_schema_extra=inference_request_schema_extra)
-
-    else:
-
-        class Config:
-            json_loads = orjson.loads
-            schema_extra = inference_request_schema_extra
-
-
-inference_response_schema_extra = {
-    "example": {
-        "id": "42",
-        "outputs": [
-            {
-                "name": "output0",
-                "shape": [3, 2],
-                "datatype": "FP32",
-                "data": [1.0, 1.1, 2.0, 2.1, 3.0, 3.1],
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "id": "42",
+                "inputs": [
+                    {
+                        "name": "input0",
+                        "shape": [2, 2],
+                        "datatype": "UINT32",
+                        "data": [1, 2, 3, 4],
+                    },
+                    {
+                        "name": "input1",
+                        "shape": [3],
+                        "datatype": "BOOL",
+                        "data": ["true"],
+                    },
+                ],
+                "outputs": [{"name": "output0"}],
             }
-        ],
-    }
-}
+        }
+    )
 
 
 class InferenceResponse(BaseModel):
@@ -274,11 +230,19 @@ class InferenceResponse(BaseModel):
     parameters: Optional[Parameters] = None
     outputs: List[ResponseOutput]
 
-    if is_pydantic_2:
-        model_config = ConfigDict(
-            protected_namespaces=(), json_schema_extra=inference_response_schema_extra
-        )
-    else:
-
-        class Config:
-            schema_extra = inference_response_schema_extra
+    model_config = ConfigDict(
+        protected_namespaces=(),
+        json_schema_extra={
+            "example": {
+                "id": "42",
+                "outputs": [
+                    {
+                        "name": "output0",
+                        "shape": [3, 2],
+                        "datatype": "FP32",
+                        "data": [1.0, 1.1, 2.0, 2.1, 3.0, 3.1],
+                    }
+                ],
+            }
+        },
+    )

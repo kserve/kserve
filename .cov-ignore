@@ -1,4 +1,5 @@
 zz_generated.deepcopy.go
+zz_generated.defaults.go
 openapi_generated.go
 pkg\\/client
 testing

@@ -205,6 +205,7 @@ class ModelServer:
         enable_latency_logging: bool = args.enable_latency_logging,
         access_log_format: str = args.access_log_format,
         grace_period: int = 30,
+        predictor_config: Optional[PredictorConfig] = None,
     ):
         """KServe ModelServer Constructor
 
@@ -225,6 +226,7 @@ class ModelServer:
                                (please refer to this Uvicorn
                                [github issue](https://github.com/encode/uvicorn/issues/527) for more info).
             grace_period: The grace period in seconds to wait for the server to stop. Default: ``30``.
+            predictor_config: Optional configuration for the predictor. Default: ``None``.
         """
         self.registered_models = (
             ModelRepository() if registered_models is None else registered_models
@@ -237,7 +239,6 @@ class ModelServer:
         self.enable_grpc = enable_grpc
         self.enable_docs_url = enable_docs_url
         self.enable_latency_logging = enable_latency_logging
-        self.dataplane = DataPlane(model_registry=self.registered_models)
         self.model_repository_extension = ModelRepositoryExtension(
             model_registry=self.registered_models
         )
@@ -249,16 +250,19 @@ class ModelServer:
                 logging.configure_logging(args.log_config_file)
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
-        predictor_config = PredictorConfig(
-            predictor_host=args.predictor_host,
-            predictor_protocol=args.predictor_protocol,
-            predictor_use_ssl=args.predictor_use_ssl,
-            predictor_request_timeout_seconds=args.predictor_request_timeout_seconds,
-            predictor_request_retries=args.predictor_request_retries,
-            predictor_health_check=args.enable_predictor_health_check,
-        )
+        if predictor_config is not None:
+            _predictor_config = predictor_config
+        else:
+            _predictor_config = PredictorConfig(
+                predictor_host=args.predictor_host,
+                predictor_protocol=args.predictor_protocol,
+                predictor_use_ssl=args.predictor_use_ssl,
+                predictor_request_timeout_seconds=args.predictor_request_timeout_seconds,
+                predictor_request_retries=args.predictor_request_retries,
+                predictor_health_check=args.enable_predictor_health_check,
+            )
         self.dataplane = DataPlane(
-            model_registry=self.registered_models, predictor_config=predictor_config
+            model_registry=self.registered_models, predictor_config=_predictor_config
         )
         self._rest_server = None
         self._rest_multiprocess_server = None
@@ -411,8 +415,7 @@ class ModelServer:
                         model.enable_latency_logging = self.enable_latency_logging
                     model.start()
                     if model.engine:
-                        loop = asyncio.get_event_loop()
-                        loop.run_until_complete(model.start_engine())
+                        self.servers.append(model.start_engine())
                 else:
                     raise RuntimeError("Model type should be 'BaseKServeModel'")
             if not at_least_one_model_ready and models:

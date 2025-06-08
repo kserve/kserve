@@ -1,9 +1,9 @@
 [tool.poetry]
 name = "error_404_isvc"
-version = "0.15.0"
+version = "0.15.2"
 description = "Custom isvc that always returns 404 with a JSON message"
 authors = ["The KServe Authors"]
-license = "https://github.com/kserve/kserve/blob/master/LICENSE"
+license = "Apache-2.0"
 packages = [
     { include = "*.py" }
 ]

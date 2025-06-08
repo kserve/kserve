@@ -112,7 +112,7 @@ manifests: controller-gen yq
 	# rm charts/kserve-crd/templates/kustomization.yaml
 	# Generate minimal crd
 	./hack/minimal-crdgen.sh
-	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_inferenceservices.yaml
+	kubectl kustomize config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
 	# Copy the minimal crd to the helm chart
 	cp config/crd/minimal/* charts/kserve-crd-minimal/templates/
 	rm charts/kserve-crd-minimal/templates/kustomization.yaml
@@ -129,7 +129,7 @@ poetry-lock: $(POETRY)
 # Update the kserve package first as other packages depends on it.
 	cd ./python && \
 	cd kserve && $(POETRY) lock --no-update && cd .. && \
-	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml"); do \
+	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml" -not -path "*.venv/*"); do \
 		folder=$$(dirname "$$file"); \
 		echo "moving into folder $$folder"; \
 		case "$$folder" in \
